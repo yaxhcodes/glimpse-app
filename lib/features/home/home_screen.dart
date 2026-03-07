@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/category_order_provider.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
@@ -43,8 +44,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final urlsAsync = ref.watch(urlStreamProvider);
-    final categoriesAsync = ref.watch(categoriesProvider);
+    final orderedCategories = ref.watch(orderedCategoriesProvider);
     final theme = Theme.of(context);
+
+    // Keep category order in sync with the DB
+    ref.listen(categoriesProvider, (_, next) {
+      next.whenData((cats) {
+        final names = cats.map((c) => c['category'] as String).toList();
+        ref.read(categoryOrderProvider.notifier).sync(names);
+      });
+    });
 
     return Scaffold(
       body: urlsAsync.when(
@@ -88,45 +97,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
               // ─── Categories ──────────────────────────────────
               SliverToBoxAdapter(
-                child: categoriesAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                  data: (categories) {
-                    if (categories.isEmpty) return const SizedBox.shrink();
-                    return SizedBox(
-                      height: 40,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: categories.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final cat = categories[index];
-                          final name = cat['category'] as String;
-                          final emoji = cat['emoji'] as String;
-                          final fav = faviconUrl(name);
-                          return ActionChip(
-                            avatar: fav != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(3),
-                                    child: CachedNetworkImage(
-                                      imageUrl: fav,
-                                      width: 18,
-                                      height: 18,
-                                      errorWidget: (_, _, _) => Text(emoji),
-                                    ),
-                                  )
-                                : Text(emoji),
-                            label: Text(name),
-                            onPressed: () => context.push(
-                              '/category/${Uri.encodeComponent(name)}',
-                            ),
-                          );
-                        },
+                child: orderedCategories.isEmpty
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        height: 40,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: orderedCategories.length,
+                          itemBuilder: (context, index) {
+                            final cat = orderedCategories[index];
+                            final name = cat['category'] as String;
+                            final emoji = cat['emoji'] as String;
+                            final fav = faviconUrl(name);
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onLongPress: () =>
+                                    _showReorderSheet(context),
+                                child: ActionChip(
+                                  avatar: fav != null
+                                      ? ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(3),
+                                          child: CachedNetworkImage(
+                                            imageUrl: fav,
+                                            width: 18,
+                                            height: 18,
+                                            errorWidget: (_, _, _) =>
+                                                Text(emoji),
+                                          ),
+                                        )
+                                      : Text(emoji),
+                                  label: Text(name),
+                                  onPressed: () => context.push(
+                                    '/category/${Uri.encodeComponent(name)}',
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    );
-                  },
-                ),
               ),
 
               // ─── Content ───────────────────────────────────────
@@ -217,6 +229,169 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+  void _showReorderSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _CategoryReorderSheet(),
+    );
+  }
+}
+
+class _CategoryReorderSheet extends ConsumerStatefulWidget {
+  const _CategoryReorderSheet();
+
+  @override
+  ConsumerState<_CategoryReorderSheet> createState() =>
+      _CategoryReorderSheetState();
+}
+
+class _CategoryReorderSheetState
+    extends ConsumerState<_CategoryReorderSheet> {
+  Future<void> _deleteCategory(
+      String name, int count) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "$name"?'),
+        content: Text(
+          'This will permanently delete all $count ${count == 1 ? 'URL' : 'URLs'} in this category.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final isarService = ref.read(isarServiceProvider);
+    await isarService.deleteUrlsByCategory(name);
+    ref.read(categoryOrderProvider.notifier).remove(name);
+    ref.invalidate(categoriesProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orderedCats = ref.watch(orderedCategoriesProvider);
+    final theme = Theme.of(context);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (ctx, scrollController) {
+        return Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 8, 4),
+              child: Row(
+                children: [
+                  Text('Edit Categories',
+                      style: theme.textTheme.titleLarge),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Done'),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                'Hold the handle to reorder · Tap 🗑️ to delete',
+                style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
+            Expanded(
+              child: orderedCats.isEmpty
+                  ? const Center(child: Text('No categories yet'))
+                  : ReorderableListView.builder(
+                      scrollController: scrollController,
+                      itemCount: orderedCats.length,
+                      onReorder: (oldIndex, newIndex) {
+                        ref
+                            .read(categoryOrderProvider.notifier)
+                            .reorder(oldIndex, newIndex);
+                      },
+                      itemBuilder: (ctx, index) {
+                        final cat = orderedCats[index];
+                        final name = cat['category'] as String;
+                        final emoji = cat['emoji'] as String;
+                        final count = cat['count'] as int;
+                        final fav = faviconUrl(name);
+                        return ListTile(
+                          key: ValueKey(name),
+                          leading: fav != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: CachedNetworkImage(
+                                    imageUrl: fav,
+                                    width: 28,
+                                    height: 28,
+                                    errorWidget: (_, _, _) => Text(
+                                        emoji,
+                                        style: const TextStyle(
+                                            fontSize: 22)),
+                                  ),
+                                )
+                              : Text(emoji,
+                                  style:
+                                      const TextStyle(fontSize: 22)),
+                          title: Text(name),
+                          subtitle: Text(
+                              '$count ${count == 1 ? 'link' : 'links'}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.delete_outline,
+                                    color:
+                                        theme.colorScheme.error),
+                                onPressed: () =>
+                                    _deleteCategory(name, count),
+                              ),
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: const Icon(Icons.drag_handle),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

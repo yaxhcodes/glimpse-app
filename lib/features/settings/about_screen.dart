@@ -18,17 +18,12 @@ class AboutScreen extends StatelessWidget {
               const SizedBox(height: 24),
               // App icon / logo area
               Center(
-                child: Container(
+                child: SizedBox(
                   width: 80,
                   height: 80,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
-                    Icons.bookmark_rounded,
-                    size: 40,
-                    color: theme.colorScheme.onPrimaryContainer,
+                  child: Image.asset(
+                    'assets/unown_bookmark_transparent.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),

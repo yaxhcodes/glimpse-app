@@ -29,6 +29,7 @@ class DomainCategorizer {
     'www.tiktok.com': _PlatformInfo('TikTok', '🎵', ['video', 'tiktok', 'social']),
     'pinterest.com': _PlatformInfo('Pinterest', '📌', ['social', 'pinterest', 'images']),
     'www.pinterest.com': _PlatformInfo('Pinterest', '📌', ['social', 'pinterest', 'images']),
+    'pin.it': _PlatformInfo('Pinterest', '📌', ['social', 'pinterest', 'images']),
     'threads.net': _PlatformInfo('Threads', '🧵', ['social', 'threads']),
     'www.threads.net': _PlatformInfo('Threads', '🧵', ['social', 'threads']),
     'snapchat.com': _PlatformInfo('Snapchat', '👻', ['social', 'snapchat']),
@@ -83,6 +84,39 @@ class DomainCategorizer {
     'figma.com': _PlatformInfo('Figma', '🎨', ['design', 'figma']),
     'behance.net': _PlatformInfo('Behance', '🎨', ['design', 'behance']),
     'www.behance.net': _PlatformInfo('Behance', '🎨', ['design', 'behance']),
+
+    // AI / Chat
+    'chat.openai.com': _PlatformInfo('ChatGPT', '🤖', ['ai', 'chatgpt', 'openai']),
+    'chatgpt.com': _PlatformInfo('ChatGPT', '🤖', ['ai', 'chatgpt', 'openai']),
+    'claude.ai': _PlatformInfo('Claude', '🧠', ['ai', 'claude', 'anthropic']),
+    'gemini.google.com': _PlatformInfo('Gemini', '✨', ['ai', 'gemini', 'google']),
+    'www.perplexity.ai': _PlatformInfo('Perplexity', '🔍', ['ai', 'perplexity', 'search']),
+    'perplexity.ai': _PlatformInfo('Perplexity', '🔍', ['ai', 'perplexity', 'search']),
+    'copilot.microsoft.com': _PlatformInfo('Copilot', '🤖', ['ai', 'copilot', 'microsoft']),
+    'www.bing.com': _PlatformInfo('Bing', '🔍', ['search', 'bing', 'microsoft']),
+    'huggingface.co': _PlatformInfo('Hugging Face', '🤗', ['ai', 'ml', 'huggingface']),
+    'replicate.com': _PlatformInfo('Replicate', '🔄', ['ai', 'ml', 'replicate']),
+    'openai.com': _PlatformInfo('OpenAI', '🤖', ['ai', 'openai']),
+    'www.openai.com': _PlatformInfo('OpenAI', '🤖', ['ai', 'openai']),
+    'mistral.ai': _PlatformInfo('Mistral', '🌬️', ['ai', 'mistral']),
+    'console.mistral.ai': _PlatformInfo('Mistral', '🌬️', ['ai', 'mistral']),
+
+    // Productivity / Notes
+    'obsidian.md': _PlatformInfo('Obsidian', '💎', ['notes', 'obsidian', 'productivity']),
+    'www.notion.so': _PlatformInfo('Notion', '📋', ['docs', 'notion', 'notes']),
+    'trello.com': _PlatformInfo('Trello', '📌', ['productivity', 'trello', 'kanban']),
+    'www.trello.com': _PlatformInfo('Trello', '📌', ['productivity', 'trello', 'kanban']),
+    'linear.app': _PlatformInfo('Linear', '📐', ['productivity', 'linear', 'dev']),
+    'www.linear.app': _PlatformInfo('Linear', '📐', ['productivity', 'linear', 'dev']),
+    'airtable.com': _PlatformInfo('Airtable', '📊', ['productivity', 'airtable']),
+    'www.airtable.com': _PlatformInfo('Airtable', '📊', ['productivity', 'airtable']),
+    'substack.com': _PlatformInfo('Substack', '📧', ['newsletter', 'substack', 'blog']),
+
+    // Finance / Crypto
+    'coinmarketcap.com': _PlatformInfo('CoinMarketCap', '₿', ['crypto', 'finance']),
+    'www.coinmarketcap.com': _PlatformInfo('CoinMarketCap', '₿', ['crypto', 'finance']),
+    'binance.com': _PlatformInfo('Binance', '💰', ['crypto', 'binance']),
+    'www.binance.com': _PlatformInfo('Binance', '💰', ['crypto', 'binance']),
   };
 
   /// Categorizes a URL by matching its domain against known platforms.

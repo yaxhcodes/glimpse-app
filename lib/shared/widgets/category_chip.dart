@@ -39,6 +39,26 @@ const _platformColors = <String, Color>{
   'Dribbble': Color(0xFFEA4C89),
   'Figma': Color(0xFFA259FF),
   'Behance': Color(0xFF1769FF),
+  // AI
+  'ChatGPT': Color(0xFF10A37F),
+  'Claude': Color(0xFFD97706),
+  'Gemini': Color(0xFF4285F4),
+  'Perplexity': Color(0xFF20B2AA),
+  'Copilot': Color(0xFF0078D4),
+  'Bing': Color(0xFF0078D4),
+  'Hugging Face': Color(0xFFFFD21E),
+  'Replicate': Color(0xFF393F46),
+  'OpenAI': Color(0xFF10A37F),
+  'Mistral': Color(0xFFFF7000),
+  // Productivity
+  'Obsidian': Color(0xFF7C3AED),
+  'Trello': Color(0xFF0052CC),
+  'Linear': Color(0xFF5E6AD2),
+  'Airtable': Color(0xFF2D7FF9),
+  'Substack': Color(0xFFFF6719),
+  // Finance
+  'CoinMarketCap': Color(0xFF3861FB),
+  'Binance': Color(0xFFF0B90B),
   'Web': Color(0xFF607D8B),
 };
 
@@ -80,6 +100,23 @@ const platformDomains = <String, String>{
   'Dribbble': 'dribbble.com',
   'Figma': 'figma.com',
   'Behance': 'behance.net',
+  'ChatGPT': 'chatgpt.com',
+  'Claude': 'claude.ai',
+  'Gemini': 'gemini.google.com',
+  'Perplexity': 'perplexity.ai',
+  'Copilot': 'copilot.microsoft.com',
+  'Bing': 'bing.com',
+  'Hugging Face': 'huggingface.co',
+  'Replicate': 'replicate.com',
+  'OpenAI': 'openai.com',
+  'Mistral': 'mistral.ai',
+  'Obsidian': 'obsidian.md',
+  'Trello': 'trello.com',
+  'Linear': 'linear.app',
+  'Airtable': 'airtable.com',
+  'Substack': 'substack.com',
+  'CoinMarketCap': 'coinmarketcap.com',
+  'Binance': 'binance.com',
 };
 
 /// Returns the official favicon URL for a given category.

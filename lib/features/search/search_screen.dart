@@ -142,11 +142,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       return ListView.builder(
                         padding: const EdgeInsets.only(top: 8, bottom: 16),
                         itemCount: filtered.length,
-                        itemBuilder: (context, index) {
+                        itemBuilder: (_, index) {
                           final url = filtered[index];
                           return UrlCard(
                             savedUrl: url,
-                            onTap: () => context.push('/url/\${url.id}'),
+                            onTap: () => context.push('/url/${url.id}'),
                           );
                         },
                       );

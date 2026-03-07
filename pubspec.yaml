@@ -55,9 +55,6 @@ dependencies:
   share_plus: ^10.0.0
   receive_sharing_intent: ^1.8.0
 
-  # Secure Storage
-  flutter_secure_storage: ^9.2.0
-
   # Dynamic Color (Material You)
   dynamic_color: ^1.7.0
 
@@ -101,9 +98,9 @@ flutter_native_splash:
   android_12:
     color: "#FFFFFF"
     color_dark: "#1C1B1F"
-    image: "assets/icon_foreground.png"
-    icon_background_color: "#6750A4"
-    icon_background_color_dark: "#6750A4"
+    image: "assets/unown_bookmark_splash.png"
+    icon_background_color: "#FFFFFF"
+    icon_background_color_dark: "#1C1B1F"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -116,6 +113,11 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - assets/unown_bookmark_transparent.png
+    - assets/unown_material_transparent.png
+    - assets/icon.png
+    - assets/icon_foreground.png
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

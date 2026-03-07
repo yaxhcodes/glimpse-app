@@ -189,6 +189,16 @@ class IsarService {
     return isar.writeTxn(() => isar.savedUrls.delete(id));
   }
 
+  Future<void> deleteUrlsByCategory(String category) async {
+    final isar = await _db;
+    final ids = await isar.savedUrls
+        .filter()
+        .categoryEqualTo(category)
+        .idProperty()
+        .findAll();
+    await isar.writeTxn(() => isar.savedUrls.deleteAll(ids));
+  }
+
   Future<void> deleteAll() async {
     final isar = await _db;
     await isar.writeTxn(() => isar.savedUrls.clear());

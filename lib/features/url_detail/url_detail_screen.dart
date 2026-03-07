@@ -295,204 +295,176 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return urlAsync.when(
-      loading: () => Scaffold(
-        body: CustomScrollView(slivers: [
-          SliverAppBar.large(title: const Text('Details')),
-          const SliverFillRemaining(child: LoadingIndicator()),
-        ]),
-      ),
-      error: (err, _) => Scaffold(
-        body: CustomScrollView(slivers: [
-          SliverAppBar.large(title: const Text('Details')),
-          SliverFillRemaining(child: Center(child: Text('Error: $err'))),
-        ]),
-      ),
-      data: (url) {
-        if (url == null) {
-          return Scaffold(
-            body: CustomScrollView(slivers: [
-              SliverAppBar.large(title: const Text('Details')),
-              const SliverFillRemaining(
-                  child: Center(child: Text('URL not found'))),
-            ]),
-          );
-        }
+    final url = urlAsync.valueOrNull;
 
-        // Initialize notes controller once
-        if (!_notesEdited) {
-          _notesController.text = url.userNotes ?? '';
-        }
-
-        return Scaffold(
-          body: CustomScrollView(
-            slivers: [
-              SliverAppBar.large(
-                title: Text(
-                  url.title.isNotEmpty ? url.title : 'Details',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar.large(
+            title: Text(
+              url != null && url.title.isNotEmpty ? url.title : 'Details',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            actions: [
+              if (url != null)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: _deleteUrl,
                 ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: _deleteUrl,
-                  ),
-                ],
+            ],
+          ),
+          if (urlAsync.isLoading)
+            const SliverFillRemaining(child: LoadingIndicator())
+          else if (urlAsync.hasError)
+            SliverFillRemaining(
+                child: Center(child: Text('Error: ${urlAsync.error}')))
+          else if (url == null)
+            const SliverFillRemaining(
+                child: Center(child: Text('URL not found')))
+          else
+            _buildBody(url, theme, colorScheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(SavedUrl url, ThemeData theme, ColorScheme colorScheme) {
+    if (!_notesEdited) {
+      _notesController.text = url.userNotes ?? '';
+    }
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Thumbnail
+            if (url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: url.thumbnailUrl!,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => const SizedBox.shrink(),
+                ),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Thumbnail
-                      if (url.thumbnailUrl != null &&
-                          url.thumbnailUrl!.isNotEmpty)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: CachedNetworkImage(
-                            imageUrl: url.thumbnailUrl!,
-                            width: double.infinity,
-                            height: 200,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, _, _) =>
-                                const SizedBox.shrink(),
-                          ),
-                        ),
-                      if (url.thumbnailUrl != null &&
-                          url.thumbnailUrl!.isNotEmpty)
-                        const SizedBox(height: 16),
+            if (url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty)
+              const SizedBox(height: 16),
 
-                      // Domain & category (tappable to change)
-                      Row(
-                        children: [
-                          Icon(Icons.language,
-                              size: 16,
-                              color: colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 4),
-                          Text(url.domain,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant)),
-                          const SizedBox(width: 16),
-                          GestureDetector(
-                            onTap: () => _changeCategory(url),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: colorScheme.secondaryContainer,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _categoryIcon(url.category, url.categoryEmoji),
-                                  const SizedBox(width: 6),
-                                  Text(url.category,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w500,
-                                              color: colorScheme
-                                                  .onSecondaryContainer)),
-                                  const SizedBox(width: 6),
-                                  Icon(Icons.edit_outlined,
-                                      size: 14,
-                                      color: colorScheme
-                                          .onSecondaryContainer
-                                          .withValues(alpha: 0.6)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Description
-                      if (url.description.isNotEmpty) ...[
-                        Text(url.description,
-                            style: theme.textTheme.bodyMedium),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // Tags
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          ...url.tags.map((tag) => InputChip(
-                                label: Text(tag),
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                                onDeleted: () => _removeTag(url, tag),
-                              )),
-                          ActionChip(
-                            avatar: const Icon(Icons.add, size: 16),
-                            label: const Text('Add tag'),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => _addTag(url),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Date saved
-                      Row(
-                        children: [
-                          Text(
-                            'Saved ${_formatDate(url.savedAt)}',
+            // Domain & category (tappable to change)
+            Row(
+              children: [
+                Icon(Icons.language,
+                    size: 16, color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text(url.domain,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant)),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () => _changeCategory(url),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _categoryIcon(url.category, url.categoryEmoji),
+                        const SizedBox(width: 6),
+                        Text(url.category,
                             style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Open button
-                      FilledButton.icon(
-                        onPressed: () => _launchUrl(url.rawUrl),
-                        icon: const Icon(Icons.open_in_new),
-                        label: const Text('Open'),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Notes section
-                      Text('Notes', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          hintText: 'Add personal notes...',
-                        ),
-                        maxLines: 4,
-                        onChanged: (_) {
-                          if (!_notesEdited) {
-                            setState(() => _notesEdited = true);
-                          }
-                        },
-                      ),
-                      if (_notesEdited) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: FilledButton.tonal(
-                            onPressed: _saveNotes,
-                            child: const Text('Save Notes'),
-                          ),
-                        ),
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.onSecondaryContainer)),
+                        const SizedBox(width: 6),
+                        Icon(Icons.edit_outlined,
+                            size: 14,
+                            color: colorScheme.onSecondaryContainer
+                                .withValues(alpha: 0.6)),
                       ],
-                    ],
+                    ),
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Description
+            if (url.description.isNotEmpty) ...[
+              Text(url.description, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 12),
+            ],
+
+            // Tags
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                ...url.tags.map((tag) => InputChip(
+                      label: Text(tag),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      onDeleted: () => _removeTag(url, tag),
+                    )),
+                ActionChip(
+                  avatar: const Icon(Icons.add, size: 16),
+                  label: const Text('Add tag'),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _addTag(url),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Date saved
+            Text(
+              'Saved ${_formatDate(url.savedAt)}',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+
+            // Open button
+            FilledButton.icon(
+              onPressed: () => _launchUrl(url.rawUrl),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Open'),
+            ),
+            const SizedBox(height: 24),
+
+            // Notes section
+            Text('Notes', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _notesController,
+              decoration: const InputDecoration(
+                hintText: 'Add personal notes...',
+              ),
+              maxLines: 4,
+              onChanged: (_) {
+                if (!_notesEdited) setState(() => _notesEdited = true);
+              },
+            ),
+            if (_notesEdited) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonal(
+                  onPressed: _saveNotes,
+                  child: const Text('Save Notes'),
                 ),
               ),
             ],
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
