@@ -58,6 +58,12 @@ dependencies:
   # Dynamic Color (Material You)
   dynamic_color: ^1.7.0
 
+  # AI — Gemini Flash
+  google_generative_ai: ^0.4.7
+
+  # Secure storage for API keys
+  flutter_secure_storage: ^9.2.2
+
   # Shared Preferences for theme persistence
   shared_preferences: ^2.2.0
 

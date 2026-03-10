@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'core/services/link_preview_service.dart';
+import 'core/models/saved_url.dart';
 import 'features/home/home_screen.dart';
 import 'features/add_url/add_url_screen.dart';
 import 'features/add_url/add_url_provider.dart';
@@ -14,6 +15,10 @@ import 'features/url_detail/url_detail_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/look_and_feel_screen.dart';
 import 'features/settings/about_screen.dart';
+import 'features/settings/api_keys_screen.dart';
+import 'features/ask/ask_screen.dart';
+import 'features/recap/recap_screen.dart';
+import 'features/synthesis/synthesis_screen.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
 
@@ -64,6 +69,25 @@ final _router = GoRouter(
     GoRoute(
       path: '/settings/about',
       builder: (context, state) => const AboutScreen(),
+    ),
+    GoRoute(
+      path: '/settings/api-keys',
+      builder: (context, state) => const ApiKeysScreen(),
+    ),
+    GoRoute(
+      path: '/ask',
+      builder: (context, state) => const AskScreen(),
+    ),
+    GoRoute(
+      path: '/recap',
+      builder: (context, state) => const RecapScreen(),
+    ),
+    GoRoute(
+      path: '/synthesis',
+      builder: (context, state) {
+        final urls = (state.extra as List<SavedUrl>?) ?? [];
+        return SynthesisScreen(initialUrls: urls);
+      },
     ),
   ],
 );

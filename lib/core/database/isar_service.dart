@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/saved_url.dart';
@@ -176,6 +177,66 @@ class IsarService {
   }
 
   // --------------- UPDATE ---------------
+
+  /// Returns the number of saved URLs that are semantically similar
+  /// to the given [embedding] above [threshold] cosine similarity.
+  Future<int> countSimilarUrls({
+    required List<double> embedding,
+    double threshold = 0.88,
+  }) async {
+    if (embedding.isEmpty) return 0;
+    final isar = await _db;
+    final allUrls = await isar.savedUrls.where().findAll();
+    int count = 0;
+    for (final url in allUrls) {
+      if (url.embedding.isEmpty) continue;
+      final sim = _cosineSimilarity(embedding, url.embedding);
+      if (sim >= threshold) count++;
+    }
+    return count;
+  }
+
+  /// Returns saved URLs with embeddings closest to [queryEmbedding].
+  Future<List<SavedUrl>> semanticSearchUrls(
+    List<double> queryEmbedding, {
+    int limit = 20,
+  }) async {
+    if (queryEmbedding.isEmpty) return [];
+    final isar = await _db;
+    final allUrls = await isar.savedUrls.where().findAll();
+
+    final scored = <MapEntry<SavedUrl, double>>[];
+    for (final url in allUrls) {
+      if (url.embedding.isEmpty) continue;
+      final sim = _cosineSimilarity(queryEmbedding, url.embedding);
+      scored.add(MapEntry(url, sim));
+    }
+    scored.sort((a, b) => b.value.compareTo(a.value));
+    return scored.take(limit).map((e) => e.key).toList();
+  }
+
+  static double _cosineSimilarity(List<double> a, List<double> b) {
+    if (a.length != b.length) return 0.0;
+    double dot = 0, normA = 0, normB = 0;
+    for (int i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    final denom = sqrt(normA) * sqrt(normB);
+    return denom == 0 ? 0.0 : dot / denom;
+  }
+
+  /// Returns URLs saved between [start] and [end] (inclusive), newest first.
+  Future<List<SavedUrl>> getUrlsInDateRange(
+      DateTime start, DateTime end) async {
+    final isar = await _db;
+    return isar.savedUrls
+        .filter()
+        .savedAtBetween(start, end)
+        .sortBySavedAtDesc()
+        .findAll();
+  }
 
   Future<void> updateUrl(SavedUrl url) async {
     final isar = await _db;

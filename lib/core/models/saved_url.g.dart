@@ -52,23 +52,28 @@ const SavedUrlSchema = CollectionSchema(
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
-    r'tags': PropertySchema(
+    r'summary': PropertySchema(
       id: 7,
+      name: r'summary',
+      type: IsarType.string,
+    ),
+    r'tags': PropertySchema(
+      id: 8,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -139,6 +144,12 @@ int _savedUrlEstimateSize(
   bytesCount += 3 + object.domain.length * 3;
   bytesCount += 3 + object.embedding.length * 8;
   bytesCount += 3 + object.rawUrl.length * 3;
+  {
+    final value = object.summary;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.tags.length * 3;
   {
     for (var i = 0; i < object.tags.length; i++) {
@@ -175,10 +186,11 @@ void _savedUrlSerialize(
   writer.writeDoubleList(offsets[4], object.embedding);
   writer.writeString(offsets[5], object.rawUrl);
   writer.writeDateTime(offsets[6], object.savedAt);
-  writer.writeStringList(offsets[7], object.tags);
-  writer.writeString(offsets[8], object.thumbnailUrl);
-  writer.writeString(offsets[9], object.title);
-  writer.writeString(offsets[10], object.userNotes);
+  writer.writeString(offsets[7], object.summary);
+  writer.writeStringList(offsets[8], object.tags);
+  writer.writeString(offsets[9], object.thumbnailUrl);
+  writer.writeString(offsets[10], object.title);
+  writer.writeString(offsets[11], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -196,10 +208,11 @@ SavedUrl _savedUrlDeserialize(
   object.id = id;
   object.rawUrl = reader.readString(offsets[5]);
   object.savedAt = reader.readDateTime(offsets[6]);
-  object.tags = reader.readStringList(offsets[7]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[8]);
-  object.title = reader.readString(offsets[9]);
-  object.userNotes = reader.readStringOrNull(offsets[10]);
+  object.summary = reader.readStringOrNull(offsets[7]);
+  object.tags = reader.readStringList(offsets[8]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[9]);
+  object.title = reader.readString(offsets[10]);
+  object.userNotes = reader.readStringOrNull(offsets[11]);
   return object;
 }
 
@@ -225,12 +238,14 @@ P _savedUrlDeserializeProp<P>(
     case 6:
       return (reader.readDateTime(offset)) as P;
     case 7:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 8:
       return (reader.readStringOrNull(offset)) as P;
+    case 8:
+      return (reader.readStringList(offset) ?? []) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1475,6 +1490,152 @@ extension SavedUrlQueryFilter
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'summary',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'summary',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'summary',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'summary',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'summary',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'summary',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'summary',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'summary',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'summary',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'summary',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'summary',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> summaryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'summary',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> tagsElementEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2199,6 +2360,18 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortBySummary() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'summary', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortBySummaryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'summary', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByThumbnailUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'thumbnailUrl', Sort.asc);
@@ -2322,6 +2495,18 @@ extension SavedUrlQuerySortThenBy
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenBySummary() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'summary', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenBySummaryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'summary', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByThumbnailUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'thumbnailUrl', Sort.asc);
@@ -2409,6 +2594,13 @@ extension SavedUrlQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctBySummary(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'summary', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByTags() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'tags');
@@ -2484,6 +2676,12 @@ extension SavedUrlQueryProperty
   QueryBuilder<SavedUrl, DateTime, QQueryOperations> savedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'savedAt');
+    });
+  }
+
+  QueryBuilder<SavedUrl, String?, QQueryOperations> summaryProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'summary');
     });
   }
 

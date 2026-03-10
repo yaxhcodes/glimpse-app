@@ -27,9 +27,11 @@ class SavedUrl {
 
   String? userNotes;
 
+  /// AI-generated 2–3 sentence summary of the page content.
+  String? summary;
+
   late DateTime savedAt;
 
-  /// Embedding vector for semantic search (e.g., 1024-dim).
-  /// Stored as a flat list of doubles.
+  /// Embedding vector for semantic search (1024-dim from Voyage AI).
   late List<double> embedding;
 }

@@ -18,8 +18,6 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   final _notesController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  bool _autoSaveTriggered = false;
-
   @override
   void initState() {
     super.initState();
@@ -128,15 +126,52 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                             AddUrlStatus.fetchingMetadata.index,
                       ),
                       _StatusStep(
-                        label: 'Categorizing...',
+                        label: 'AI categorizing & summarizing...',
                         isActive: state.status == AddUrlStatus.categorizing,
                         isDone: state.status.index >
                             AddUrlStatus.categorizing.index,
                       ),
                       _StatusStep(
+                        label: 'Generating embedding...',
+                        isActive:
+                            state.status == AddUrlStatus.generatingEmbedding,
+                        isDone: state.status.index >
+                            AddUrlStatus.generatingEmbedding.index,
+                      ),
+                      _StatusStep(
                         label: 'Saving to library...',
                         isActive: state.status == AddUrlStatus.saving,
                         isDone: state.status == AddUrlStatus.done,
+                      ),
+                    ],
+
+                    // Duplicate similarity warning
+                    if (state.status == AddUrlStatus.saving &&
+                        state.similarUrlCount != null &&
+                        state.similarUrlCount! > 0) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                color:
+                                    theme.colorScheme.onTertiaryContainer),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'You already have ${state.similarUrlCount} similar link${state.similarUrlCount! > 1 ? 's' : ''} saved.',
+                                style: TextStyle(
+                                    color: theme.colorScheme
+                                        .onTertiaryContainer),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
 

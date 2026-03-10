@@ -64,9 +64,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const Divider(indent: 16, endIndent: 16),
 
+              // ─── AI ────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text('AI',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.key_outlined),
+                title: const Text('AI & API Keys'),
+                subtitle: const Text('Gemini, Voyage AI'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/api-keys'),
+              ),
+
+              const Divider(indent: 16, endIndent: 16),
+
               // ─── Data ──────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Text('Data',
                     style: theme.textTheme.titleSmall?.copyWith(
                         color: theme.colorScheme.primary)),

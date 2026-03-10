@@ -85,6 +85,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 centerTitle: false,
                 actions: [
                   IconButton(
+                    icon: const Icon(Icons.psychology_outlined),
+                    tooltip: 'Ask Your Bookmarks',
+                    onPressed: () => context.push('/ask'),
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.search),
                     onPressed: () => context.push('/search'),
                   ),
