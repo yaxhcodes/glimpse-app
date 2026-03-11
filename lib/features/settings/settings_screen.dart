@@ -72,11 +72,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         color: theme.colorScheme.primary)),
               ),
               ListTile(
-                leading: const Icon(Icons.key_outlined),
-                title: const Text('AI & API Keys'),
-                subtitle: const Text('Gemini, Voyage AI'),
+                leading: const Icon(Icons.workspace_premium_outlined),
+                title: const Text('Subscription'),
+                subtitle: const Text('Manage your Glimpse plan'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/settings/api-keys'),
+                onTap: () => context.push('/settings/subscription'),
               ),
 
               const Divider(indent: 16, endIndent: 16),

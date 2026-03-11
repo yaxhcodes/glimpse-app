@@ -1,14 +1,36 @@
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/embedding_service.dart';
+import '../../core/services/bundled_keys.dart';
+import '../../core/services/subscription_service.dart';
 
 class ChatMessage {
   final String text;
   final bool isUser;
+  final List<SavedUrl> sources;
+  final List<ChatMessageSection> sections;
 
-  const ChatMessage({required this.text, required this.isUser});
+  const ChatMessage({
+    required this.text,
+    required this.isUser,
+    this.sources = const [],
+    this.sections = const [],
+  });
+}
+
+class ChatMessageSection {
+  final String heading;
+  final String summary;
+  final SavedUrl source;
+
+  const ChatMessageSection({
+    required this.heading,
+    required this.summary,
+    required this.source,
+  });
 }
 
 class AskState {
@@ -40,6 +62,53 @@ class AskNotifier extends StateNotifier<AskState> {
 
   AskNotifier(this._ref) : super(const AskState());
 
+  String _friendlyErrorMessage(Object error) {
+    final text = error.toString().toLowerCase();
+    if (text.contains('503') ||
+        text.contains('high demand') ||
+        text.contains('overloaded') ||
+        text.contains('unavailable')) {
+      return 'Glimpse could not reach Gemini right now because the model is under heavy load. Please try again in a few seconds.';
+    }
+    if (text.contains('api key') || text.contains('api_key') ||
+        text.contains('invalid') || text.contains('401') ||
+        text.contains('403')) {
+      return 'Your Gemini API key appears to be invalid or expired. Please check it in Settings → AI & API Keys.';
+    }
+    if (text.contains('quota') || text.contains('429') ||
+        text.contains('rate') || text.contains('limit')) {
+      return 'Your API key has hit its usage limit. Please wait a bit or check your Google AI Studio billing.';
+    }
+    if (text.contains('not found') || text.contains('404')) {
+      return 'The AI model could not be reached. This may be a temporary issue — please try again.';
+    }
+    return 'Something went wrong while generating the answer. Please try again.';
+  }
+
+  ChatMessage _buildLocalFallbackAnswer(
+    String question,
+    List<SavedUrl> contextUrls,
+  ) {
+    final sections = contextUrls.take(3).map((url) {
+      final sourceSummary = (url.summary ?? url.description).trim();
+      return ChatMessageSection(
+        heading: url.title.isNotEmpty ? url.title : url.domain,
+        summary: sourceSummary.isNotEmpty
+            ? sourceSummary
+            : 'This saved link appears relevant to "$question", but there is not enough extracted text yet to summarize it better.',
+        source: url,
+      );
+    }).toList();
+
+    return ChatMessage(
+      text:
+          'Glimpse could not reach Gemini right now, so here are the most relevant saved links and what they contain.',
+      isUser: false,
+      sources: sections.map((section) => section.source).toList(),
+      sections: sections,
+    );
+  }
+
   Future<void> ask(String question) async {
     if (question.trim().isEmpty) return;
 
@@ -52,24 +121,30 @@ class AskNotifier extends StateNotifier<AskState> {
       error: null,
     );
 
-    final apiKeyService = _ref.read(apiKeyServiceProvider);
     final isarService = _ref.read(isarServiceProvider);
 
     try {
-      final geminiKey = await apiKeyService.getGeminiKey();
-      if (geminiKey == null || geminiKey.isEmpty) {
+      // Check subscription
+      final tier = await SubscriptionService().getTier();
+      if (!SubscriptionService.isAvailable(PremiumFeature.askChat, tier)) {
         _addBotMessage(
-          'Please set your Gemini API key in Settings → AI & API Keys to use this feature.',
+          'Ask Your Bookmarks is a premium feature. Upgrade to Glimpse Premium to unlock it.',
+        );
+        return;
+      }
+
+      if (!BundledKeys.hasGemini) {
+        _addBotMessage(
+          'AI is not configured for this build. Please update the app.',
         );
         return;
       }
 
       // Retrieve relevant context
       List<SavedUrl> contextUrls;
-      final voyageKey = await apiKeyService.getVoyageKey();
-      if (voyageKey != null && voyageKey.isNotEmpty) {
+      if (BundledKeys.hasVoyage) {
         try {
-          final embeddingService = EmbeddingService(voyageKey);
+          final embeddingService = EmbeddingService(BundledKeys.voyageKey);
           final queryEmbedding =
               await embeddingService.generateEmbedding(question);
           if (queryEmbedding.isNotEmpty) {
@@ -94,23 +169,67 @@ class AskNotifier extends StateNotifier<AskState> {
         return;
       }
 
-      final geminiService = GeminiService(geminiKey);
+      final geminiService = GeminiService(BundledKeys.geminiKey);
       final answer = await geminiService.chat(
         question: question,
         contextUrls: contextUrls,
       );
 
-      _addBotMessage(answer);
+      final sections = answer.sections
+          .map((section) => ChatMessageSection(
+                heading: section.heading,
+                summary: section.summary,
+                source: contextUrls[section.sourceIndex - 1],
+              ))
+          .toList();
+
+      _addBotMessage(
+        answer.intro,
+        sources: sections.map((section) => section.source).toList(),
+        sections: sections,
+      );
     } catch (e) {
-      _addBotMessage('Something went wrong. Please try again.');
+      developer.log('Ask AI error: $e', name: 'AskNotifier');
+      // Try local fallback for any AI failure
+      try {
+        final fallbackUrls = await _fallbackContext(question);
+        if (fallbackUrls.isNotEmpty) {
+          state = state.copyWith(
+            messages: [
+              ...state.messages,
+              _buildLocalFallbackAnswer(question, fallbackUrls),
+            ],
+            isLoading: false,
+          );
+          return;
+        }
+      } catch (_) {
+        // Failed to build fallback too
+      }
+      _addBotMessage(_friendlyErrorMessage(e));
     }
   }
 
-  void _addBotMessage(String text) {
+  Future<List<SavedUrl>> _fallbackContext(String question) async {
+    final isarService = _ref.read(isarServiceProvider);
+    final urls = await isarService.fuzzySearchUrls(question);
+    return urls.isEmpty ? await isarService.getAllUrls() : urls;
+  }
+
+  void _addBotMessage(
+    String text, {
+    List<SavedUrl> sources = const [],
+    List<ChatMessageSection> sections = const [],
+  }) {
     state = state.copyWith(
       messages: [
         ...state.messages,
-        ChatMessage(text: text, isUser: false),
+        ChatMessage(
+          text: text,
+          isUser: false,
+          sources: sources,
+          sections: sections,
+        ),
       ],
       isLoading: false,
     );

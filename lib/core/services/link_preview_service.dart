@@ -46,7 +46,8 @@ class LinkPreviewService {
     final host = uri?.host.replaceFirst('www.', '') ?? '';
 
     // ---- Reddit: use their JSON API ----
-    if (host == 'reddit.com' || host.endsWith('.reddit.com')) {
+    if (host == 'reddit.com' || host.endsWith('.reddit.com') ||
+        host == 'redd.it') {
       final result = await _fetchReddit(normalized, domain);
       if (result != null) return result;
     }
@@ -69,12 +70,17 @@ class LinkPreviewService {
         // Reject generic site-level titles
         final t = metadata.title!.trim().toLowerCase();
         if (!_isGenericTitle(t, host)) {
-          return LinkMetadata(
+          var result = LinkMetadata(
             title: metadata.title ?? domain,
             description: metadata.desc ?? '',
             imageUrl: metadata.image,
             domain: domain,
           );
+          // Clean up Instagram-specific formatting
+          if (host == 'instagram.com' || host.endsWith('.instagram.com')) {
+            result = _cleanInstagramMetadata(result, domain);
+          }
+          return result;
         }
       }
     } catch (_) {
@@ -98,9 +104,15 @@ class LinkPreviewService {
       );
 
       final html = response.data?.toString() ?? '';
-      final meta = _parseOgTags(html, domain);
+      var meta = _parseOgTags(html, domain);
       // If title is still generic, fall through
-      if (!_isGenericTitle(meta.title.toLowerCase(), host)) return meta;
+      if (!_isGenericTitle(meta.title.toLowerCase(), host)) {
+        // Clean up Instagram-specific formatting
+        if (host == 'instagram.com' || host.endsWith('.instagram.com')) {
+          meta = _cleanInstagramMetadata(meta, domain);
+        }
+        return meta;
+      }
     } catch (_) {}
 
     // Fallback: use domain as title
@@ -217,13 +229,18 @@ class LinkPreviewService {
             .replaceAll('&#39;', "'")
             .trim();
 
-        // Use first 120 chars of tweet as title, full text as description
-        final title = author != null
-            ? '@$author'
-            : (tweetText.isNotEmpty
-                ? tweetText.substring(0, tweetText.length.clamp(0, 80))
-                : domain);
-        final description = tweetText.isNotEmpty ? tweetText : '';
+        // Use tweet content as title (more informative than just @author)
+        // Format: first ~80 chars of tweet, or "@author" if no text (image-only tweet)
+        final shortText = tweetText.isNotEmpty
+            ? tweetText.substring(0, tweetText.length.clamp(0, 80)).trim()
+            : '';
+        final title = shortText.isNotEmpty
+            ? shortText
+            : (author != null ? '@$author' : domain);
+        // Description: full tweet text with author attribution
+        final description = author != null && tweetText.isNotEmpty
+            ? '@$author: $tweetText'
+            : tweetText;
 
         return LinkMetadata(
           title: title,
@@ -235,6 +252,49 @@ class LinkPreviewService {
       }
     } catch (_) {}
     return null;
+  }
+
+  /// Cleans up Instagram OG metadata:
+  /// - strips the quoted caption from titles like "username on Instagram: \"caption\"" 
+  /// - strips the "N Likes, M Comments - " prefix from description
+  LinkMetadata _cleanInstagramMetadata(LinkMetadata meta, String domain) {
+    var title = meta.title;
+    // Remove the quoted caption portion: "user on Instagram: \"...\"" → "user on Instagram"
+    final patterns = [
+      RegExp(r':[ ]*["\u201c].+["\u201d]\s*$', dotAll: true),  // straight or curly quotes
+      RegExp(r":\s*['.+']\s*\$", dotAll: true),               // single quotes
+    ];
+    for (final p in patterns) {
+      final cleaned = title.replaceFirst(p, '').trim();
+      if (cleaned.isNotEmpty && cleaned.length < title.length) {
+        title = cleaned;
+        break;
+      }
+    }
+    // Hard truncate if still too long
+    if (title.length > 70) title = '${title.substring(0, 70)}\u2026';
+
+    var description = meta.description;
+    // Instagram desc often: "123 Likes, 45 Comments - caption text"
+    final likesPattern = RegExp(r'^[\d,]+ [Ll]ikes?,.*? - ');
+    description = description.replaceFirst(likesPattern, '');
+    // Don't let description mirror the title
+    if (description.trim().toLowerCase() == meta.title.trim().toLowerCase() ||
+        description.trim().toLowerCase() == title.trim().toLowerCase()) {
+      description = '';
+    }
+    description = description.length > 200
+        ? '${description.substring(0, 200)}\u2026'
+        : description;
+
+    return LinkMetadata(
+      title: title,
+      description: description,
+      imageUrl: meta.imageUrl,
+      domain: domain,
+      siteName: 'Instagram',
+      author: meta.author,
+    );
   }
 
 

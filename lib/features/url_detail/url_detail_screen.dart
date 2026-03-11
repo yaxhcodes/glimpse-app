@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/category_resolver.dart';
 import '../../shared/widgets/category_chip.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../home/home_provider.dart';
@@ -276,8 +277,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
     if (newCat == url.category) return;
 
+    final additionalCategories = url.effectiveCategories
+        .where((item) => item != url.category)
+        .toList();
     url.category = newCat;
     url.categoryEmoji = newEmoji;
+    url.categories = CategoryResolver.buildCategories(
+      primaryCategory: newCat,
+      additionalCategories: additionalCategories,
+    );
     await isarService.updateUrl(url);
     ref.invalidate(urlDetailProvider(widget.urlId));
     ref.invalidate(categoriesProvider);
@@ -333,6 +341,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (!_notesEdited) {
       _notesController.text = url.userNotes ?? '';
     }
+    final displaySourceName = CategoryResolver.displaySourceName(
+      rawUrl: url.rawUrl,
+      fallbackDomain: url.domain,
+    );
+    final normalizedCategories =
+        url.effectiveCategories.map((item) => item.toLowerCase()).toSet();
+    final shouldShowSourceName =
+        !normalizedCategories.contains(displaySourceName.toLowerCase());
+
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -354,40 +371,68 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             if (url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty)
               const SizedBox(height: 16),
 
-            // Domain & category (tappable to change)
-            Row(
+            // Domain & categories
+            if (shouldShowSourceName) ...[
+              Row(
+                children: [
+                  Icon(Icons.language,
+                      size: 16, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(displaySourceName,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: colorScheme.onSurfaceVariant)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Icon(Icons.language,
-                    size: 16, color: colorScheme.onSurfaceVariant),
-                const SizedBox(width: 4),
-                Text(url.domain,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: colorScheme.onSurfaceVariant)),
-                const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () => _changeCategory(url),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _categoryIcon(url.category, url.categoryEmoji),
-                        const SizedBox(width: 6),
-                        Text(url.category,
+                ...url.effectiveCategories.map(
+                  (category) => GestureDetector(
+                    onTap: category == url.category
+                        ? () => _changeCategory(url)
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: category == url.category
+                            ? colorScheme.secondaryContainer
+                            : colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _categoryIcon(
+                            category,
+                            category == url.category
+                                ? url.categoryEmoji
+                                : CategoryResolver.emojiForCategory(category),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            category,
                             style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                color: colorScheme.onSecondaryContainer)),
-                        const SizedBox(width: 6),
-                        Icon(Icons.edit_outlined,
-                            size: 14,
-                            color: colorScheme.onSecondaryContainer
-                                .withValues(alpha: 0.6)),
-                      ],
+                              fontWeight: FontWeight.w500,
+                              color: category == url.category
+                                  ? colorScheme.onSecondaryContainer
+                                  : colorScheme.onSurface,
+                            ),
+                          ),
+                          if (category == url.category) ...[
+                            const SizedBox(width: 6),
+                            Icon(Icons.edit_outlined,
+                                size: 14,
+                                color: colorScheme.onSecondaryContainer
+                                    .withValues(alpha: 0.6)),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

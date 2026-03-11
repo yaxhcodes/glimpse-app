@@ -172,6 +172,20 @@ class DomainCategorizer {
       tags: ['web'],
     );
   }
+
+  /// Returns platform info by category name when the category is a known app/platform.
+  static CategorizationInfo? infoForCategory(String categoryName) {
+    for (final info in _platformRules.values) {
+      if (info.category == categoryName) {
+        return CategorizationInfo(
+          category: info.category,
+          emoji: info.emoji,
+          tags: info.tags,
+        );
+      }
+    }
+    return null;
+  }
 }
 
 /// Simple struct for a platform mapping rule.

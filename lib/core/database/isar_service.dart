@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/saved_url.dart';
+import '../services/category_resolver.dart';
 
 /// Service handling all local database operations via Isar.
 class IsarService {
@@ -43,11 +44,10 @@ class IsarService {
 
   Future<List<SavedUrl>> getUrlsByCategory(String category) async {
     final isar = await _db;
-    return isar.savedUrls
-        .filter()
-        .categoryEqualTo(category)
-        .sortBySavedAtDesc()
-        .findAll();
+    final allUrls = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
+    return allUrls
+      .where((url) => url.effectiveCategories.contains(category))
+      .toList();
   }
 
   /// Returns a list of unique categories with their emoji and count.
@@ -57,22 +57,27 @@ class IsarService {
 
     final Map<String, Map<String, dynamic>> categoryMap = {};
     for (final url in allUrls) {
-      if (categoryMap.containsKey(url.category)) {
-        categoryMap[url.category]!['count'] =
-            (categoryMap[url.category]!['count'] as int) + 1;
-      } else {
-        categoryMap[url.category] = {
-          'category': url.category,
-          'emoji': url.categoryEmoji,
-          'count': 1,
-        };
+      for (final category in url.effectiveCategories) {
+        if (categoryMap.containsKey(category)) {
+          categoryMap[category]!['count'] =
+              (categoryMap[category]!['count'] as int) + 1;
+        } else {
+          categoryMap[category] = {
+            'category': category,
+            'emoji': CategoryResolver.emojiForCategory(
+              category,
+              fallbackEmoji: category == url.category ? url.categoryEmoji : null,
+            ),
+            'count': 1,
+          };
+        }
       }
     }
     return categoryMap.values.toList();
   }
 
   /// Simple keyword search (LIKE-style) for Phase 1.
-  /// Searches title, description, tags, category, domain, rawUrl, and userNotes.
+  /// Searches title, description, tags, categories, domain, rawUrl, and userNotes.
   Future<List<SavedUrl>> searchUrls(String query) async {
     final isar = await _db;
     final lowerQuery = query.toLowerCase();
@@ -83,6 +88,8 @@ class IsarService {
         .descriptionContains(lowerQuery, caseSensitive: false)
         .or()
         .tagsElementContains(lowerQuery, caseSensitive: false)
+        .or()
+        .categoriesElementContains(lowerQuery, caseSensitive: false)
         .or()
         .categoryContains(lowerQuery, caseSensitive: false)
         .or()
@@ -120,6 +127,7 @@ class IsarService {
         url.domain,
         url.rawUrl,
         url.category,
+        ...url.effectiveCategories,
         url.userNotes ?? '',
         ...url.tags,
       ].join(' ').toLowerCase();
@@ -252,12 +260,28 @@ class IsarService {
 
   Future<void> deleteUrlsByCategory(String category) async {
     final isar = await _db;
-    final ids = await isar.savedUrls
-        .filter()
-        .categoryEqualTo(category)
-        .idProperty()
-        .findAll();
-    await isar.writeTxn(() => isar.savedUrls.deleteAll(ids));
+    final allUrls = await isar.savedUrls.where().findAll();
+    await isar.writeTxn(() async {
+      for (final url in allUrls) {
+        if (!url.effectiveCategories.contains(category)) continue;
+
+        final remaining = url.effectiveCategories
+            .where((item) => item != category)
+            .toList();
+
+        if (remaining.isEmpty) {
+          await isar.savedUrls.delete(url.id);
+          continue;
+        }
+
+        url.categories = remaining;
+        if (url.category == category) {
+          url.category = remaining.first;
+          url.categoryEmoji = CategoryResolver.emojiForCategory(remaining.first);
+        }
+        await isar.savedUrls.put(url);
+      }
+    });
   }
 
   Future<void> deleteAll() async {

@@ -74,6 +74,8 @@ dependencies:
   json_annotation: ^4.9.0
   freezed_annotation: ^2.4.0
   path_provider: ^2.1.5
+  purchases_flutter: ^9.13.1
+  purchases_ui_flutter: ^9.13.1
 
 dev_dependencies:
   flutter_test:

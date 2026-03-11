@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/gemini_service.dart';
+import '../../core/services/bundled_keys.dart';
+import '../../core/services/subscription_service.dart';
 
 class RecapState {
   final bool isLoading;
@@ -44,9 +46,18 @@ class RecapNotifier extends StateNotifier<RecapState> {
     state = state.copyWith(isLoading: true, error: null);
 
     final isarService = _ref.read(isarServiceProvider);
-    final apiKeyService = _ref.read(apiKeyServiceProvider);
 
     try {
+      // Premium check
+      final tier = await SubscriptionService().getTier();
+      if (!SubscriptionService.isAvailable(PremiumFeature.recap, tier)) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Weekly Recap is a premium feature. Upgrade to unlock it.',
+        );
+        return;
+      }
+
       final now = DateTime.now();
       final weekStart = now.subtract(const Duration(days: 7));
       final urls = await isarService.getUrlsInDateRange(weekStart, now);
@@ -58,10 +69,9 @@ class RecapNotifier extends StateNotifier<RecapState> {
       }
 
       String? narrative;
-      final geminiKey = await apiKeyService.getGeminiKey();
-      if (geminiKey != null && geminiKey.isNotEmpty) {
+      if (BundledKeys.hasGemini) {
         try {
-          final geminiService = GeminiService(geminiKey);
+          final geminiService = GeminiService(BundledKeys.geminiKey);
           narrative = await geminiService.generateRecap(urls);
         } catch (_) {
           narrative = null;

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../core/models/saved_url.dart';
+import '../../core/services/category_resolver.dart';
 import 'ask_provider.dart';
 
 class AskScreen extends ConsumerStatefulWidget {
@@ -127,37 +131,246 @@ class _ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isUser = message.isUser;
+    final bubbleColor = isUser
+        ? theme.colorScheme.primary
+        : theme.colorScheme.surfaceContainerHighest;
+    final textColor = isUser
+        ? theme.colorScheme.onPrimary
+        : theme.colorScheme.onSurface;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+      child: ConstrainedBox(
         constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isUser
-              ? theme.colorScheme.primary
-              : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft:
-                isUser ? const Radius.circular(16) : const Radius.circular(4),
-            bottomRight:
-                isUser ? const Radius.circular(4) : const Radius.circular(16),
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.88),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft:
+                  isUser ? const Radius.circular(16) : const Radius.circular(4),
+              bottomRight:
+                  isUser ? const Radius.circular(4) : const Radius.circular(16),
+            ),
           ),
-        ),
-        child: Text(
-          message.text,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: isUser
-                ? theme.colorScheme.onPrimary
-                : theme.colorScheme.onSurface,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message.text,
+                style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+              ),
+              if (!isUser) ...[
+                const SizedBox(height: 14),
+                const _AssistantBrandHeader(),
+              ],
+              if (!isUser && message.sections.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                for (var index = 0; index < message.sections.length; index++) ...[
+                  _AnswerSectionCard(
+                    order: index + 1,
+                    section: message.sections[index],
+                  ),
+                  if (index != message.sections.length - 1)
+                    const SizedBox(height: 12),
+                ],
+              ] else if (!isUser && message.sources.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                for (var index = 0; index < message.sources.length; index++) ...[
+                  _SourceCard(
+                    source: message.sources[index],
+                    order: index + 1,
+                  ),
+                  if (index != message.sources.length - 1)
+                    const SizedBox(height: 12),
+                ],
+              ],
+            ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _AssistantBrandHeader extends StatelessWidget {
+  const _AssistantBrandHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.all(3),
+          child: Image.asset('assets/unown_bookmark_transparent.png'),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'Glimpse',
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnswerSectionCard extends StatelessWidget {
+  const _AnswerSectionCard({
+    required this.order,
+    required this.section,
+  });
+
+  final int order;
+  final ChatMessageSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$order',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  section.heading,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            section.summary,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          _SourceCard(source: section.source, order: order),
+        ],
+      ),
+    );
+  }
+}
+
+class _SourceCard extends StatelessWidget {
+  const _SourceCard({required this.source, required this.order});
+
+  final SavedUrl source;
+  final int order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final displaySourceName = CategoryResolver.displaySourceName(
+      rawUrl: source.rawUrl,
+      fallbackDomain: source.domain,
+    );
+    final metaLabel = source.category == displaySourceName
+        ? '${source.categoryEmoji} ${source.category}'
+        : '${source.categoryEmoji} ${source.category} • $displaySourceName';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Source $order',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            source.title.isNotEmpty ? source.title : source.domain,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            metaLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: () => _openUrl(source.rawUrl),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('Open'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/url/${source.id}'),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+                label: const Text('View'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openUrl(String rawUrl) async {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }
 

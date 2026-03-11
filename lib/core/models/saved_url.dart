@@ -23,6 +23,10 @@ class SavedUrl {
 
   late String categoryEmoji;
 
+  /// Stored list of categories this URL belongs to.
+  /// The first item is the primary topic category; others can include platform buckets.
+  late List<String> categories;
+
   late List<String> tags;
 
   String? userNotes;
@@ -34,4 +38,21 @@ class SavedUrl {
 
   /// Embedding vector for semantic search (1024-dim from Voyage AI).
   late List<double> embedding;
+
+  List<String> get effectiveCategories {
+    final values = <String>[];
+    for (final item in categories) {
+      final trimmed = item.trim();
+      if (trimmed.isNotEmpty && !values.contains(trimmed)) {
+        values.add(trimmed);
+      }
+    }
+    if (category.trim().isNotEmpty && !values.contains(category.trim())) {
+      values.add(category.trim());
+    }
+    if (values.isEmpty) {
+      values.add('Other');
+    }
+    return values;
+  }
 }

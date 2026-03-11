@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
-import '../../core/providers/service_providers.dart';
 import '../../core/services/gemini_service.dart';
+import '../../core/services/bundled_keys.dart';
+import '../../core/services/subscription_service.dart';
 
 class SynthesisState {
   final List<SavedUrl> selectedUrls;
@@ -44,19 +45,26 @@ class SynthesisNotifier extends StateNotifier<SynthesisState> {
     if (state.selectedUrls.isEmpty) return;
     state = state.copyWith(isLoading: true, error: null, result: null);
 
-    final apiKeyService = _ref.read(apiKeyServiceProvider);
-
     try {
-      final geminiKey = await apiKeyService.getGeminiKey();
-      if (geminiKey == null || geminiKey.isEmpty) {
+      // Premium check
+      final tier = await SubscriptionService().getTier();
+      if (!SubscriptionService.isAvailable(PremiumFeature.synthesis, tier)) {
         state = state.copyWith(
           isLoading: false,
-          error: 'Please set your Gemini API key in Settings → AI & API Keys.',
+          error: 'Multi-Link Synthesis is a premium feature. Upgrade to unlock it.',
         );
         return;
       }
 
-      final geminiService = GeminiService(geminiKey);
+      if (!BundledKeys.hasGemini) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'AI is not configured for this build.',
+        );
+        return;
+      }
+
+      final geminiService = GeminiService(BundledKeys.geminiKey);
       final result = await geminiService.synthesize(
         urls: state.selectedUrls,
         question: question,

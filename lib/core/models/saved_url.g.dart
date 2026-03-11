@@ -17,63 +17,73 @@ const SavedUrlSchema = CollectionSchema(
   name: r'SavedUrl',
   id: -157001970381558071,
   properties: {
-    r'category': PropertySchema(
+    r'categories': PropertySchema(
       id: 0,
+      name: r'categories',
+      type: IsarType.stringList,
+    ),
+    r'category': PropertySchema(
+      id: 1,
       name: r'category',
       type: IsarType.string,
     ),
     r'categoryEmoji': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'categoryEmoji',
       type: IsarType.string,
     ),
     r'description': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'description',
       type: IsarType.string,
     ),
     r'domain': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'domain',
       type: IsarType.string,
     ),
+    r'effectiveCategories': PropertySchema(
+      id: 5,
+      name: r'effectiveCategories',
+      type: IsarType.stringList,
+    ),
     r'embedding': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'embedding',
       type: IsarType.doubleList,
     ),
     r'rawUrl': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'rawUrl',
       type: IsarType.string,
     ),
     r'savedAt': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -138,10 +148,24 @@ int _savedUrlEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.categories.length * 3;
+  {
+    for (var i = 0; i < object.categories.length; i++) {
+      final value = object.categories[i];
+      bytesCount += value.length * 3;
+    }
+  }
   bytesCount += 3 + object.category.length * 3;
   bytesCount += 3 + object.categoryEmoji.length * 3;
   bytesCount += 3 + object.description.length * 3;
   bytesCount += 3 + object.domain.length * 3;
+  bytesCount += 3 + object.effectiveCategories.length * 3;
+  {
+    for (var i = 0; i < object.effectiveCategories.length; i++) {
+      final value = object.effectiveCategories[i];
+      bytesCount += value.length * 3;
+    }
+  }
   bytesCount += 3 + object.embedding.length * 8;
   bytesCount += 3 + object.rawUrl.length * 3;
   {
@@ -179,18 +203,20 @@ void _savedUrlSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.category);
-  writer.writeString(offsets[1], object.categoryEmoji);
-  writer.writeString(offsets[2], object.description);
-  writer.writeString(offsets[3], object.domain);
-  writer.writeDoubleList(offsets[4], object.embedding);
-  writer.writeString(offsets[5], object.rawUrl);
-  writer.writeDateTime(offsets[6], object.savedAt);
-  writer.writeString(offsets[7], object.summary);
-  writer.writeStringList(offsets[8], object.tags);
-  writer.writeString(offsets[9], object.thumbnailUrl);
-  writer.writeString(offsets[10], object.title);
-  writer.writeString(offsets[11], object.userNotes);
+  writer.writeStringList(offsets[0], object.categories);
+  writer.writeString(offsets[1], object.category);
+  writer.writeString(offsets[2], object.categoryEmoji);
+  writer.writeString(offsets[3], object.description);
+  writer.writeString(offsets[4], object.domain);
+  writer.writeStringList(offsets[5], object.effectiveCategories);
+  writer.writeDoubleList(offsets[6], object.embedding);
+  writer.writeString(offsets[7], object.rawUrl);
+  writer.writeDateTime(offsets[8], object.savedAt);
+  writer.writeString(offsets[9], object.summary);
+  writer.writeStringList(offsets[10], object.tags);
+  writer.writeString(offsets[11], object.thumbnailUrl);
+  writer.writeString(offsets[12], object.title);
+  writer.writeString(offsets[13], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -200,19 +226,20 @@ SavedUrl _savedUrlDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = SavedUrl();
-  object.category = reader.readString(offsets[0]);
-  object.categoryEmoji = reader.readString(offsets[1]);
-  object.description = reader.readString(offsets[2]);
-  object.domain = reader.readString(offsets[3]);
-  object.embedding = reader.readDoubleList(offsets[4]) ?? [];
+  object.categories = reader.readStringList(offsets[0]) ?? [];
+  object.category = reader.readString(offsets[1]);
+  object.categoryEmoji = reader.readString(offsets[2]);
+  object.description = reader.readString(offsets[3]);
+  object.domain = reader.readString(offsets[4]);
+  object.embedding = reader.readDoubleList(offsets[6]) ?? [];
   object.id = id;
-  object.rawUrl = reader.readString(offsets[5]);
-  object.savedAt = reader.readDateTime(offsets[6]);
-  object.summary = reader.readStringOrNull(offsets[7]);
-  object.tags = reader.readStringList(offsets[8]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[9]);
-  object.title = reader.readString(offsets[10]);
-  object.userNotes = reader.readStringOrNull(offsets[11]);
+  object.rawUrl = reader.readString(offsets[7]);
+  object.savedAt = reader.readDateTime(offsets[8]);
+  object.summary = reader.readStringOrNull(offsets[9]);
+  object.tags = reader.readStringList(offsets[10]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[11]);
+  object.title = reader.readString(offsets[12]);
+  object.userNotes = reader.readStringOrNull(offsets[13]);
   return object;
 }
 
@@ -224,7 +251,7 @@ P _savedUrlDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 1:
       return (reader.readString(offset)) as P;
     case 2:
@@ -232,20 +259,24 @@ P _savedUrlDeserializeProp<P>(
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readDoubleList(offset) ?? []) as P;
-    case 5:
       return (reader.readString(offset)) as P;
-    case 6:
-      return (reader.readDateTime(offset)) as P;
-    case 7:
-      return (reader.readStringOrNull(offset)) as P;
-    case 8:
+    case 5:
       return (reader.readStringList(offset) ?? []) as P;
+    case 6:
+      return (reader.readDoubleList(offset) ?? []) as P;
+    case 7:
+      return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readDateTime(offset)) as P;
     case 9:
       return (reader.readStringOrNull(offset)) as P;
     case 10:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 11:
+      return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readString(offset)) as P;
+    case 13:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -575,6 +606,230 @@ extension SavedUrlQueryWhere on QueryBuilder<SavedUrl, SavedUrl, QWhereClause> {
 
 extension SavedUrlQueryFilter
     on QueryBuilder<SavedUrl, SavedUrl, QFilterCondition> {
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'categories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'categories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'categories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'categories',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'categories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'categories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'categories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'categories',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'categories',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'categories',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'categories',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> categoriesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'categories',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'categories',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'categories',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'categories',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      categoriesLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'categories',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> categoryEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1098,6 +1353,233 @@ extension SavedUrlQueryFilter
         property: r'domain',
         value: '',
       ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'effectiveCategories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'effectiveCategories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'effectiveCategories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'effectiveCategories',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'effectiveCategories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'effectiveCategories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'effectiveCategories',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'effectiveCategories',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'effectiveCategories',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'effectiveCategories',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'effectiveCategories',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'effectiveCategories',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'effectiveCategories',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'effectiveCategories',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'effectiveCategories',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      effectiveCategoriesLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'effectiveCategories',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 
@@ -2546,6 +3028,12 @@ extension SavedUrlQuerySortThenBy
 
 extension SavedUrlQueryWhereDistinct
     on QueryBuilder<SavedUrl, SavedUrl, QDistinct> {
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByCategories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'categories');
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByCategory(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2572,6 +3060,12 @@ extension SavedUrlQueryWhereDistinct
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'domain', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByEffectiveCategories() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'effectiveCategories');
     });
   }
 
@@ -2637,6 +3131,12 @@ extension SavedUrlQueryProperty
     });
   }
 
+  QueryBuilder<SavedUrl, List<String>, QQueryOperations> categoriesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'categories');
+    });
+  }
+
   QueryBuilder<SavedUrl, String, QQueryOperations> categoryProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'category');
@@ -2658,6 +3158,13 @@ extension SavedUrlQueryProperty
   QueryBuilder<SavedUrl, String, QQueryOperations> domainProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'domain');
+    });
+  }
+
+  QueryBuilder<SavedUrl, List<String>, QQueryOperations>
+      effectiveCategoriesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'effectiveCategories');
     });
   }
 

@@ -24,8 +24,10 @@ class CategoryScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-            'Deleted "${url.title.isNotEmpty ? url.title : url.domain}"'),
+        content: Text(() {
+          final t = url.title.isNotEmpty ? url.title : url.domain;
+          return 'Deleted "${t.length > 50 ? '${t.substring(0, 50)}\u2026' : t}"';
+        }()),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
         action: SnackBarAction(

@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
@@ -5,6 +6,8 @@ import '../../core/services/link_preview_service.dart';
 import '../../core/services/domain_categorizer.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/embedding_service.dart';
+import '../../core/services/category_resolver.dart';
+import '../../core/services/bundled_keys.dart';
 
 /// State for the Add URL flow.
 enum AddUrlStatus {
@@ -62,9 +65,11 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     if (_isSaving) return false;
     _isSaving = true;
 
+    // ignore: avoid_print
+    print('[AddUrl] BundledKeys: hasGemini=${BundledKeys.hasGemini}, hasVoyage=${BundledKeys.hasVoyage}, geminiLen=${BundledKeys.geminiKey.length}');
+
     final linkService = _ref.read(linkPreviewServiceProvider);
     final isarService = _ref.read(isarServiceProvider);
-    final apiKeyService = _ref.read(apiKeyServiceProvider);
 
     final normalizedUrl = LinkPreviewService.normalizeUrl(rawUrl);
 
@@ -102,12 +107,17 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         metadata: metadata,
       );
 
+      final platformCategorization = DomainCategorizer.categorize(normalizedUrl);
+
       String category;
       String emoji;
       List<String> tags;
       String? summary;
 
-      final geminiKey = await apiKeyService.getGeminiKey();
+      String? geminiKey;
+      if (BundledKeys.hasGemini) {
+        geminiKey = BundledKeys.geminiKey;
+      }
       if (geminiKey != null && geminiKey.isNotEmpty) {
         try {
           final geminiService = GeminiService(geminiKey);
@@ -120,19 +130,20 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           emoji = result.emoji;
           tags = result.tags;
           summary = result.summary.isNotEmpty ? result.summary : null;
-        } catch (_) {
+        } catch (e) {
           // AI failed — fall through to domain heuristic
-          final fallback = DomainCategorizer.categorize(normalizedUrl);
-          category = fallback.category;
-          emoji = fallback.emoji;
-          tags = fallback.tags;
+          // ignore: avoid_print
+          print('[AddUrl] Gemini categorize failed: $e');
+          developer.log('Gemini categorize failed: $e', name: 'AddUrl');
+          category = platformCategorization.category;
+          emoji = platformCategorization.emoji;
+          tags = platformCategorization.tags;
           summary = null;
         }
       } else {
-        final fallback = DomainCategorizer.categorize(normalizedUrl);
-        category = fallback.category;
-        emoji = fallback.emoji;
-        tags = fallback.tags;
+        category = platformCategorization.category;
+        emoji = platformCategorization.emoji;
+        tags = platformCategorization.tags;
         summary = null;
       }
 
@@ -151,10 +162,9 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       state = state.copyWith(status: AddUrlStatus.generatingEmbedding);
       List<double> embedding = [];
 
-      final voyageKey = await apiKeyService.getVoyageKey();
-      if (voyageKey != null && voyageKey.isNotEmpty) {
+      if (BundledKeys.hasVoyage) {
         try {
-          final embeddingService = EmbeddingService(voyageKey);
+          final embeddingService = EmbeddingService(BundledKeys.voyageKey);
           final textToEmbed =
               '${metadata.title} ${summary ?? metadata.description}';
           embedding = await embeddingService.generateEmbedding(textToEmbed);
@@ -178,14 +188,24 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         similarUrlCount: similarCount > 0 ? similarCount : null,
       );
 
+      // Use empty description when it mirrors the title (e.g. Instagram, some OG tags)
+      final cleanDescription = metadata.description.trim().toLowerCase() ==
+              metadata.title.trim().toLowerCase()
+          ? ''
+          : metadata.description;
+
       final savedUrl = SavedUrl()
         ..rawUrl = normalizedUrl
         ..domain = metadata.domain
         ..title = metadata.title
-        ..description = metadata.description
+        ..description = cleanDescription
         ..thumbnailUrl = metadata.imageUrl
         ..category = category
         ..categoryEmoji = emoji
+        ..categories = CategoryResolver.buildCategories(
+          primaryCategory: category,
+          platformCategory: platformCategorization.category,
+        )
         ..tags = enrichedTags
         ..summary = summary
         ..userNotes = notes

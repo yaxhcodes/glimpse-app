@@ -15,7 +15,7 @@ import 'features/url_detail/url_detail_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/look_and_feel_screen.dart';
 import 'features/settings/about_screen.dart';
-import 'features/settings/api_keys_screen.dart';
+import 'features/settings/subscription_screen.dart';
 import 'features/ask/ask_screen.dart';
 import 'features/recap/recap_screen.dart';
 import 'features/synthesis/synthesis_screen.dart';
@@ -71,8 +71,8 @@ final _router = GoRouter(
       builder: (context, state) => const AboutScreen(),
     ),
     GoRoute(
-      path: '/settings/api-keys',
-      builder: (context, state) => const ApiKeysScreen(),
+      path: '/settings/subscription',
+      builder: (context, state) => const SubscriptionScreen(),
     ),
     GoRoute(
       path: '/ask',
