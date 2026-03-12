@@ -76,6 +76,7 @@ dependencies:
   path_provider: ^2.1.5
   purchases_flutter: ^9.13.1
   purchases_ui_flutter: ^9.13.1
+  google_fonts: ^8.0.2
 
 dev_dependencies:
   flutter_test:
@@ -94,15 +95,14 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon.png"
-  adaptive_icon_foreground: "assets/icon_foreground.png"
-  adaptive_icon_background: "#6750A4"
+  image_path: "assets/unown_bookmark_transparent.png"
   min_sdk_android: 21
 
 # ── Splash Screen ─────────────────────────────────────────────────────────────
 flutter_native_splash:
   color: "#FFFFFF"
   color_dark: "#1C1B1F"
+  image: "assets/unown_bookmark_splash.png"
   android_12:
     color: "#FFFFFF"
     color_dark: "#1C1B1F"
@@ -123,9 +123,8 @@ flutter:
 
   assets:
     - assets/unown_bookmark_transparent.png
+    - assets/unown_bookmark_splash.png
     - assets/unown_material_transparent.png
-    - assets/icon.png
-    - assets/icon_foreground.png
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

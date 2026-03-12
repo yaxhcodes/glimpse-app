@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
@@ -7,7 +8,7 @@ import '../../core/services/category_resolver.dart';
 import 'category_chip.dart' show faviconUrl;
 
 /// Card widget for displaying a saved URL entry.
-class UrlCard extends StatelessWidget {
+class UrlCard extends StatefulWidget {
   final SavedUrl savedUrl;
   final VoidCallback? onTap;
 
@@ -18,149 +19,151 @@ class UrlCard extends StatelessWidget {
   });
 
   @override
+  State<UrlCard> createState() => _UrlCardState();
+}
+
+class _UrlCardState extends State<UrlCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
     final displaySourceName = CategoryResolver.displaySourceName(
-      rawUrl: savedUrl.rawUrl,
-      fallbackDomain: savedUrl.domain,
+      rawUrl: widget.savedUrl.rawUrl,
+      fallbackDomain: widget.savedUrl.domain,
     );
-    final normalizedCategories = savedUrl.effectiveCategories
-      .map((item) => item.toLowerCase())
-      .toSet();
-    final visibleTags = savedUrl.tags
+    final normalizedCategories = widget.savedUrl.effectiveCategories
+        .map((item) => item.toLowerCase())
+        .toSet();
+    final visibleTags = widget.savedUrl.tags
         .where((tag) => !normalizedCategories.contains(tag.toLowerCase()))
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
         .toList();
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: () => _showActions(context),
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: savedUrl.thumbnailUrl != null &&
-                        savedUrl.thumbnailUrl!.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: savedUrl.thumbnailUrl!,
-                        width: 86,
-                        height: 86,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, _, _) => _placeholderIcon(
-                          colorScheme,
-                          savedUrl.category,
-                          savedUrl.categoryEmoji,
-                        ),
-                      )
-                    : _placeholderIcon(
-                        colorScheme,
-                        savedUrl.category,
-                        savedUrl.categoryEmoji,
-                      ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      savedUrl.title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+    // Subtle pressed scale animation
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      onLongPress: () => _showActions(context),
+      child: AnimatedScale(
+        scale: _pressed ? 1.012 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+            boxShadow: _pressed
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: colorScheme.outlineVariant),
-                      ),
-                      child: Text(
-                        displaySourceName,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface,
+                  ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Thumbnail ──────────────────────────────────────────────
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: widget.savedUrl.thumbnailUrl != null &&
+                          widget.savedUrl.thumbnailUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: widget.savedUrl.thumbnailUrl!,
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, _, _) => _placeholderIcon(
+                            colorScheme,
+                            widget.savedUrl.category,
+                            widget.savedUrl.categoryEmoji,
+                          ),
+                        )
+                      : _placeholderIcon(
+                          colorScheme,
+                          widget.savedUrl.category,
+                          widget.savedUrl.categoryEmoji,
+                        ),
+                ),
+                const SizedBox(width: 12),
+                // ── Text content ───────────────────────────────────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title — Inter SemiBold 16px
+                      Text(
+                        widget.savedUrl.title,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          color: colorScheme.onSurface,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      // Metadata — "Source • time" on one line
+                      Text(
+                        '$displaySourceName  ·  ${_timeAgo(widget.savedUrl.savedAt)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: visibleTags
-                                .take(3)
-                                .toList()
-                                .asMap()
-                                .entries
-                                .map((entry) {
-                                  final i = entry.key;
-                                  final tag = entry.value;
-                                  final bg = switch (i % 3) {
-                                    0 => colorScheme.primaryContainer,
-                                    1 => colorScheme.secondaryContainer,
-                                    _ => colorScheme.tertiaryContainer,
-                                  };
-                                  final fg = switch (i % 3) {
-                                    0 => colorScheme.onPrimaryContainer,
-                                    1 => colorScheme.onSecondaryContainer,
-                                    _ => colorScheme.onTertiaryContainer,
-                                  };
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: bg,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      tag,
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: fg,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  );
-                                })
-                                .toList(),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          _timeAgo(savedUrl.savedAt),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
+                      // Tags row
+                      if (visibleTags.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 5,
+                          runSpacing: 5,
+                          children: visibleTags.take(3).map((tag) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.secondaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                tag,
+                                style: GoogleFonts.firaCode(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.3,
+                                  letterSpacing: 0.22,
+                                  color: colorScheme.onSecondaryContainer,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -190,7 +193,7 @@ class UrlCard extends StatelessWidget {
               title: const Text('Copy link'),
               onTap: () {
                 Navigator.pop(ctx);
-                Clipboard.setData(ClipboardData(text: savedUrl.rawUrl));
+                Clipboard.setData(ClipboardData(text: widget.savedUrl.rawUrl));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Link copied'),
@@ -205,7 +208,7 @@ class UrlCard extends StatelessWidget {
               title: const Text('Share'),
               onTap: () {
                 Navigator.pop(ctx);
-                Share.share(savedUrl.rawUrl);
+                Share.share(widget.savedUrl.rawUrl);
               },
             ),
             const SizedBox(height: 8),
@@ -220,35 +223,35 @@ class UrlCard extends StatelessWidget {
     final fav = faviconUrl(category);
     if (fav != null) {
       return Container(
-        width: 86,
-        height: 86,
+        width: 58,
+        height: 58,
         decoration: BoxDecoration(
-          color: colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(16),
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(10),
         ),
         alignment: Alignment.center,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(5),
           child: CachedNetworkImage(
             imageUrl: fav,
-            width: 42,
-            height: 42,
+            width: 30,
+            height: 30,
             fit: BoxFit.contain,
             errorWidget: (_, _, _) =>
-                Text(emoji, style: const TextStyle(fontSize: 24)),
+                Text(emoji, style: const TextStyle(fontSize: 22)),
           ),
         ),
       );
     }
     return Container(
-      width: 86,
-      height: 86,
+      width: 58,
+      height: 58,
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
       ),
       alignment: Alignment.center,
-      child: Text(emoji, style: const TextStyle(fontSize: 32)),
+      child: Text(emoji, style: const TextStyle(fontSize: 26)),
     );
   }
 
@@ -264,4 +267,5 @@ class UrlCard extends StatelessWidget {
     return '${(diff.inDays / 365).floor()}y ago';
   }
 }
+
 

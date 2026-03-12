@@ -147,8 +147,14 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         summary = null;
       }
 
-      // Enrich tags with author/site info
+      // Enrich tags with platform-extracted tags (e.g. Instagram hashtags),
+      // author, and site name — deduplicating against AI-generated tags.
       final enrichedTags = [...tags];
+      if (metadata.extractedTags != null) {
+        for (final t in metadata.extractedTags!) {
+          if (!enrichedTags.contains(t)) enrichedTags.add(t);
+        }
+      }
       if (metadata.author != null && metadata.author!.isNotEmpty) {
         enrichedTags.add(metadata.author!);
       }

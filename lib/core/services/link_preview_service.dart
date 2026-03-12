@@ -9,6 +9,8 @@ class LinkMetadata {
   final String domain;
   final String? siteName;
   final String? author;
+  /// Tags extracted by platform-specific parsers (e.g. Instagram hashtags).
+  final List<String>? extractedTags;
 
   const LinkMetadata({
     required this.title,
@@ -17,6 +19,7 @@ class LinkMetadata {
     required this.domain,
     this.siteName,
     this.author,
+    this.extractedTags,
   });
 }
 
@@ -52,6 +55,12 @@ class LinkPreviewService {
       if (result != null) return result;
     }
 
+    // ---- Instagram: run cleaning pipeline ----
+    // (Also catches instagr.am short links and subdomains)
+    final isInstagram = host == 'instagram.com' ||
+        host.endsWith('.instagram.com') ||
+        host == 'instagr.am';
+
     // ---- X / Twitter: use oEmbed endpoint ----
     if (host == 'x.com' || host == 'twitter.com' ||
         host == 'mobile.x.com' || host == 'mobile.twitter.com') {
@@ -76,8 +85,7 @@ class LinkPreviewService {
             imageUrl: metadata.image,
             domain: domain,
           );
-          // Clean up Instagram-specific formatting
-          if (host == 'instagram.com' || host.endsWith('.instagram.com')) {
+          if (isInstagram) {
             result = _cleanInstagramMetadata(result, domain);
           }
           return result;
@@ -107,8 +115,7 @@ class LinkPreviewService {
       var meta = _parseOgTags(html, domain);
       // If title is still generic, fall through
       if (!_isGenericTitle(meta.title.toLowerCase(), host)) {
-        // Clean up Instagram-specific formatting
-        if (host == 'instagram.com' || host.endsWith('.instagram.com')) {
+        if (isInstagram) {
           meta = _cleanInstagramMetadata(meta, domain);
         }
         return meta;
@@ -242,9 +249,21 @@ class LinkPreviewService {
             ? '@$author: $tweetText'
             : tweetText;
 
+        // Extract username from author_url (e.g. "https://twitter.com/username")
+        final authorUrl = data['author_url'] as String?;
+        String? profileImageUrl;
+        if (authorUrl != null) {
+          final usernameMatch = RegExp(r'(?:twitter\.com|x\.com)/([^/?#]+)').firstMatch(authorUrl);
+          final username = usernameMatch?.group(1);
+          if (username != null && username.isNotEmpty) {
+            profileImageUrl = 'https://unavatar.io/twitter/$username';
+          }
+        }
+
         return LinkMetadata(
           title: title,
           description: description,
+          imageUrl: profileImageUrl,
           domain: domain,
           siteName: 'X',
           author: author != null ? '@$author' : null,
@@ -283,10 +302,6 @@ class LinkPreviewService {
         description.trim().toLowerCase() == title.trim().toLowerCase()) {
       description = '';
     }
-    description = description.length > 200
-        ? '${description.substring(0, 200)}\u2026'
-        : description;
-
     return LinkMetadata(
       title: title,
       description: description,

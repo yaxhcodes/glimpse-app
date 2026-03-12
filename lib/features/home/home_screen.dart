@@ -27,10 +27,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(() {
-          final t = url.title.isNotEmpty ? url.title : url.domain;
-          return 'Deleted "${t.length > 50 ? '${t.substring(0, 50)}\u2026' : t}"';
-        }()),
+        content: Text('Deleted "${url.title.isNotEmpty ? url.title : url.domain}"'),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
         action: SnackBarAction(
@@ -88,9 +85,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 centerTitle: false,
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.psychology_outlined),
-                    tooltip: 'Ask Your Bookmarks',
-                    onPressed: () => context.push('/ask'),
+                    icon: const Icon(Icons.add_link),
+                    tooltip: 'Add URL',
+                    onPressed: () => context.push('/add'),
                   ),
                   IconButton(
                     icon: const Icon(Icons.search),
@@ -108,10 +105,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: orderedCategories.isEmpty
                     ? const SizedBox.shrink()
                     : SizedBox(
-                        height: 40,
+                        height: 48,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          clipBehavior: Clip.none,
+                          padding: const EdgeInsets.only(left: 16, right: 24),
                           itemCount: orderedCategories.length,
                           itemBuilder: (context, index) {
                             final cat = orderedCategories[index];
@@ -119,7 +117,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             final emoji = cat['emoji'] as String;
                             final fav = faviconUrl(name);
                             return Padding(
-                              padding: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.only(right: 10),
                               child: GestureDetector(
                                 onLongPress: () =>
                                     _showReorderSheet(context),
@@ -230,11 +228,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 16),
-        child: FloatingActionButton.extended(
-          onPressed: () => context.push('/add'),
-          icon: const Icon(Icons.add),
-          label: const Text('Add URL'),
-        ),
+        child: _AskFab(onPressed: () => context.push('/ask')),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
@@ -248,6 +242,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => const _CategoryReorderSheet(),
+    );
+  }
+}
+
+class _AskFab extends StatelessWidget {
+  const _AskFab({required this.onPressed});
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onPressed,
+      child: Material(
+        color: colorScheme.primaryContainer,
+        shape: ContinuousRectangleBorder(
+          borderRadius: BorderRadius.circular(36),
+        ),
+        elevation: 4,
+        shadowColor: Colors.black26,
+        child: SizedBox(
+          height: 56,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipOval(
+                  child: Image.asset(
+                    'assets/unown_bookmark_transparent.png',
+                    width: 28,
+                    height: 28,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Ask Glimpse',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

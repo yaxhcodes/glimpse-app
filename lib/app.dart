@@ -148,9 +148,22 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Save URL',
-                  style: Theme.of(ctx).textTheme.titleLarge,
+                Row(
+                  children: [
+                    ClipOval(
+                      child: Image.asset(
+                        'assets/unown_bookmark_transparent.png',
+                        width: 32,
+                        height: 32,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Save URL',
+                      style: Theme.of(ctx).textTheme.titleLarge,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(

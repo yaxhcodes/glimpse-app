@@ -34,7 +34,7 @@ class SubscriptionScreen extends ConsumerWidget {
         data: (tier) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ── Current plan badge ──────────────────
+            // ΓöÇΓöÇ Current plan badge ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -85,7 +85,7 @@ class SubscriptionScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // ── Feature comparison ──────────────────
+            // ΓöÇΓöÇ Feature comparison ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
             Text('What you get', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
             const _FeatureRow(
@@ -139,7 +139,7 @@ class SubscriptionScreen extends ConsumerWidget {
 
             const SizedBox(height: 32),
 
-            // ── Action buttons ──────────────────────
+            // ΓöÇΓöÇ Action buttons ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
             if (tier == SubscriptionTier.free) ...[
               FilledButton.icon(
                 onPressed: () => _showPaywall(context, ref),
@@ -197,7 +197,7 @@ class SubscriptionScreen extends ConsumerWidget {
         SnackBar(
           content: Text(
             tier == SubscriptionTier.premium
-                ? 'Purchases restored — welcome back!'
+                ? 'Purchases restored ΓÇö welcome back!'
                 : 'No previous purchases found',
           ),
           behavior: SnackBarBehavior.floating,

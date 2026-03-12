@@ -56,7 +56,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ask Your Bookmarks'),
+        title: const Text('Ask Glimpse'),
         actions: [
           if (askState.messages.isNotEmpty)
             IconButton(
@@ -95,26 +95,107 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     );
   }
 
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) return 'Good morning';
+    if (hour >= 12 && hour < 17) return 'Good afternoon';
+    if (hour >= 17 && hour < 21) return 'Good evening';
+    return 'Good evening';
+  }
+
   Widget _buildEmptyState(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
+    final suggestions = [
+      'What did I save recently?',
+      'Summarise my links about technology',
+      'What topics do I read about most?',
+      'Find something about productivity',
+    ];
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 48),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.psychology_outlined,
-              size: 64, color: theme.colorScheme.primary.withAlpha(100)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          ClipOval(
+            child: Image.asset(
+              'assets/unown_bookmark_transparent.png',
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
-            'Ask anything about your saved links',
-            style: theme.textTheme.titleMedium,
+            '${_greeting()}!',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            'e.g. "What did I save about React performance?" or "Summarise my solar energy links"',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            'Ask anything about your saved links',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 40),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Try asking',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...suggestions.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                onTap: () {
+                  _controller.text = s;
+                  _controller.selection = TextSelection.fromPosition(
+                    TextPosition(offset: s.length),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          s,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      Icon(
+                        Icons.north_west,
+                        size: 16,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -205,15 +286,13 @@ class _AssistantBrandHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(8),
+        ClipOval(
+          child: Image.asset(
+            'assets/unown_bookmark_transparent.png',
+            width: 26,
+            height: 26,
+            fit: BoxFit.cover,
           ),
-          padding: const EdgeInsets.all(3),
-          child: Image.asset('assets/unown_bookmark_transparent.png'),
         ),
         const SizedBox(width: 8),
         Text(
@@ -487,7 +566,7 @@ class _InputBar extends StatelessWidget {
                 maxLines: null,
                 textInputAction: TextInputAction.send,
                 decoration: InputDecoration(
-                  hintText: 'Ask a question...',
+                  hintText: 'Chat with Glimpse...',
                   border: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(24)),
                   ),
