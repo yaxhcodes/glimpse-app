@@ -189,10 +189,11 @@ class LinkPreviewService {
           }
 
           if (title.isNotEmpty) {
+            final fullSelfText = _normalizeLargeText(selftext);
             return LinkMetadata(
               title: title,
-              description: selftext.isNotEmpty
-                  ? selftext.substring(0, selftext.length.clamp(0, 200))
+              description: fullSelfText.isNotEmpty
+                  ? fullSelfText
                   : (subreddit ?? ''),
               imageUrl: imageUrl,
               domain: domain,
@@ -209,6 +210,7 @@ class LinkPreviewService {
   /// Fetches X/Twitter post metadata via the oEmbed endpoint.
   Future<LinkMetadata?> _fetchXEmbed(String url, String domain) async {
     try {
+      final fullTweetFromApi = await _fetchFullXPostText(url);
       final embedUrl =
           'https://publish.twitter.com/oembed?url=${Uri.encodeComponent(url)}&omit_script=true';
 
@@ -236,18 +238,26 @@ class LinkPreviewService {
             .replaceAll('&#39;', "'")
             .trim();
 
+        final normalizedOEmbed = _normalizeLargeText(tweetText);
+        final resolvedTweetText = (fullTweetFromApi != null &&
+            fullTweetFromApi.trim().isNotEmpty)
+          ? _normalizeLargeText(fullTweetFromApi)
+          : normalizedOEmbed;
+
         // Use tweet content as title (more informative than just @author)
         // Format: first ~80 chars of tweet, or "@author" if no text (image-only tweet)
-        final shortText = tweetText.isNotEmpty
-            ? tweetText.substring(0, tweetText.length.clamp(0, 80)).trim()
+        final shortText = resolvedTweetText.isNotEmpty
+          ? resolvedTweetText
+            .substring(0, resolvedTweetText.length.clamp(0, 80))
+            .trim()
             : '';
         final title = shortText.isNotEmpty
             ? shortText
             : (author != null ? '@$author' : domain);
         // Description: full tweet text with author attribution
-        final description = author != null && tweetText.isNotEmpty
-            ? '@$author: $tweetText'
-            : tweetText;
+        final description = author != null && resolvedTweetText.isNotEmpty
+          ? '@$author: $resolvedTweetText'
+          : resolvedTweetText;
 
         // Extract username from author_url (e.g. "https://twitter.com/username")
         final authorUrl = data['author_url'] as String?;
@@ -270,7 +280,134 @@ class LinkPreviewService {
         );
       }
     } catch (_) {}
+
+    // Fallback path for when oEmbed fails: still try to return full tweet text.
+    final fallbackText = await _fetchFullXPostText(url);
+    if (fallbackText != null && fallbackText.trim().isNotEmpty) {
+      final normalized = _normalizeLargeText(fallbackText);
+      final shortText = normalized.substring(0, normalized.length.clamp(0, 80)).trim();
+      return LinkMetadata(
+        title: shortText.isNotEmpty ? shortText : domain,
+        description: normalized,
+        domain: domain,
+        siteName: 'X',
+      );
+    }
+
     return null;
+  }
+
+  Future<String?> _fetchFullXPostText(String url) async {
+    final postId = _extractXPostId(url);
+    if (postId == null) return null;
+
+    final fromSyndication = await _fetchXTextFromSyndication(postId);
+    if (fromSyndication != null && fromSyndication.trim().isNotEmpty) {
+      return fromSyndication;
+    }
+
+    final fromFxTwitter = await _fetchXTextFromFxTwitter(postId);
+    if (fromFxTwitter != null && fromFxTwitter.trim().isNotEmpty) {
+      return fromFxTwitter;
+    }
+
+    final fromVxTwitter = await _fetchXTextFromVxTwitter(postId);
+    if (fromVxTwitter != null && fromVxTwitter.trim().isNotEmpty) {
+      return fromVxTwitter;
+    }
+
+    return null;
+  }
+
+  Future<String?> _fetchXTextFromSyndication(String postId) async {
+    try {
+      final response = await _dio.get(
+        'https://cdn.syndication.twimg.com/tweet-result?id=$postId&lang=en',
+        options: Options(
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+          },
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (response.data is! Map) return null;
+      final data = response.data as Map;
+      final text = (data['text'] ?? data['full_text'])?.toString();
+      if (text == null || text.trim().isEmpty) return null;
+      return _decodeHtmlEntities(text);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _fetchXTextFromFxTwitter(String postId) async {
+    try {
+      final response = await _dio.get(
+        'https://api.fxtwitter.com/i/status/$postId',
+        options: Options(
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+          },
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (response.data is! Map) return null;
+      final data = response.data as Map;
+      final tweet = data['tweet'];
+      if (tweet is! Map) return null;
+
+      final text = (tweet['text'] ?? tweet['raw_text']?['text'])?.toString();
+      if (text == null || text.trim().isEmpty) return null;
+      return _decodeHtmlEntities(text);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _fetchXTextFromVxTwitter(String postId) async {
+    try {
+      final response = await _dio.get(
+        'https://api.vxtwitter.com/i/status/$postId',
+        options: Options(
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+          },
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (response.data is! Map) return null;
+      final data = response.data as Map;
+      final text = data['text']?.toString();
+      if (text == null || text.trim().isEmpty) return null;
+      return _decodeHtmlEntities(text);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _extractXPostId(String url) {
+    final match = RegExp(r'/(?:status|statuses)/(\d+)').firstMatch(url);
+    return match?.group(1);
+  }
+
+  String _normalizeLargeText(String text) {
+    return text
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
   }
 
   /// Cleans up Instagram OG metadata:

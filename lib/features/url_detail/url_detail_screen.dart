@@ -24,7 +24,11 @@ class UrlDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
+  static const int _collapsedDescriptionLines = 7;
+
   late TextEditingController _notesController;
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _descriptionSectionKey = GlobalKey();
   bool _notesEdited = false;
   bool _descExpanded = false;
   bool _tagsExpanded = false;
@@ -34,13 +38,50 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   void initState() {
     super.initState();
     _notesController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final repaired = await ref
+          .read(urlDetailNotifierProvider.notifier)
+          .refreshContentIfLikelyTruncated(widget.urlId);
+      if (repaired && mounted) {
+        ref.invalidate(urlDetailProvider(widget.urlId));
+      }
+    });
   }
 
   @override
   void dispose() {
     _notesTimer?.cancel();
     _notesController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleDescription() async {
+    final anchorContext = _descriptionSectionKey.currentContext;
+    final beforeTop = _globalTop(anchorContext);
+    final previousOffset =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+
+    setState(() => _descExpanded = !_descExpanded);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+
+      final afterTop = _globalTop(_descriptionSectionKey.currentContext);
+      final delta = beforeTop != null && afterTop != null ? afterTop - beforeTop : 0.0;
+      final targetOffset = (previousOffset + delta).clamp(
+        0.0,
+        _scrollController.position.maxScrollExtent,
+      );
+
+      if ((targetOffset - _scrollController.offset).abs() < 1) return;
+
+      _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   Future<void> _launchUrl(String url) async {
@@ -324,6 +365,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
     return Scaffold(
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           SliverAppBar(
             pinned: true,
@@ -355,6 +397,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (!_notesEdited) {
       _notesController.text = url.userNotes ?? '';
     }
+    final formattedDescription = _formatDescription(url.description);
     final displaySourceName = CategoryResolver.displaySourceName(
       rawUrl: url.rawUrl,
       fallbackDomain: url.domain,
@@ -366,7 +409,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
         .toList();
     final showImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
-    final hasDescription = url.description.isNotEmpty;
+    final hasDescription = formattedDescription.isNotEmpty;
     const collapseTagsAt = 5;
     final showAllTags = _tagsExpanded || visibleTags.length <= collapseTagsAt;
     final displayedTags =
@@ -497,32 +540,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             // ── Description ─────────────────────────────────────────────
             if (hasDescription) ...[
               const SizedBox(height: 16),
-              Text(
-                url.description,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: 16,
-                  height: 1.55,
-                  color: colorScheme.onSurface,
-                ),
-                maxLines: _descExpanded ? null : 7,
-                overflow: _descExpanded
-                    ? TextOverflow.visible
-                    : TextOverflow.ellipsis,
+              _buildDescriptionSection(
+                description: formattedDescription,
+                theme: theme,
+                colorScheme: colorScheme,
               ),
-              if (_shouldShowReadMore(url.description)) ...[
-                const SizedBox(height: 4),
-                GestureDetector(
-                  onTap: () =>
-                      setState(() => _descExpanded = !_descExpanded),
-                  child: Text(
-                    _descExpanded ? 'Show less' : 'Read more',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
             ],
 
             // ── Tags ────────────────────────────────────────────────────
@@ -655,9 +677,140 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
-  bool _shouldShowReadMore(String description) {
-    return description.length > 350 ||
-        '\n'.allMatches(description).length >= 6;
+  Widget _buildDescriptionSection({
+    required String description,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final textStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: 16,
+      height: 1.55,
+      color: colorScheme.onSurface,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final canExpand = _descriptionExceedsPreview(
+          context: context,
+          text: description,
+          style: textStyle,
+          maxWidth: constraints.maxWidth,
+        );
+
+        return AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOutCubic,
+          alignment: Alignment.topCenter,
+          child: Column(
+            key: _descriptionSectionKey,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                description,
+                style: textStyle,
+                softWrap: true,
+                maxLines: _descExpanded ? null : _collapsedDescriptionLines,
+                overflow: _descExpanded
+                    ? TextOverflow.visible
+                    : TextOverflow.ellipsis,
+              ),
+              if (canExpand) ...[
+                const SizedBox(height: 6),
+                TextButton(
+                  onPressed: _toggleDescription,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: colorScheme.primary,
+                  ),
+                  child: Text(
+                    _descExpanded ? 'Show less' : 'Read more',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  bool _descriptionExceedsPreview({
+    required BuildContext context,
+    required String text,
+    required TextStyle? style,
+    required double maxWidth,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      maxLines: _collapsedDescriptionLines,
+    )..layout(maxWidth: maxWidth);
+
+    return painter.didExceedMaxLines;
+  }
+
+  String _formatDescription(String description) {
+    var text = description
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .trim();
+
+    if (text.isEmpty) return '';
+
+    text = text.replaceFirst(RegExp(r'^@[A-Za-z0-9_]+:\s*'), '');
+
+    final lines = text.split('\n');
+    while (lines.isNotEmpty && lines.last.trim().isEmpty) {
+      lines.removeLast();
+    }
+    if (lines.isNotEmpty && _isRedundantMetadataLine(lines.last)) {
+      lines.removeLast();
+    }
+
+    final normalizedLines = lines.map(_normalizeDescriptionLine).toList();
+    text = normalizedLines.join('\n');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+    return text;
+  }
+
+  String _normalizeDescriptionLine(String line) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) return '';
+
+    final numbered = RegExp(r'^(\d+)\s*\\\.?\s*(.+)$').firstMatch(trimmed);
+    if (numbered != null) {
+      final number = numbered.group(1)!;
+      final content = numbered.group(2)!.trim();
+      return '$number. $content';
+    }
+
+    return trimmed.replaceAll(RegExp(r'[ \t]{2,}'), ' ');
+  }
+
+  bool _isRedundantMetadataLine(String line) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) return false;
+
+    final hasHandle = RegExp(r'\(@[A-Za-z0-9_]+\)').hasMatch(trimmed);
+    final hasDate = RegExp(
+      r'(?:\b\d{4}\b|\b\d{1,2}:\d{2}\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b|\b(?:today|yesterday|ago)\b)',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+
+    return hasHandle && hasDate;
+  }
+
+  double? _globalTop(BuildContext? context) {
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! RenderBox) return null;
+    return renderObject.localToGlobal(Offset.zero).dy;
   }
 
   Widget _categoryIcon(String category, String emoji) {

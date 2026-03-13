@@ -46,6 +46,38 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
       return false;
     }
   }
+
+  Future<bool> refreshContentIfLikelyTruncated(int id) async {
+    try {
+      final isarService = _ref.read(isarServiceProvider);
+      final url = await isarService.getUrlById(id);
+      if (url == null) return false;
+      if (!_isSupportedLongPostSource(url.rawUrl)) return false;
+
+      final linkService = _ref.read(linkPreviewServiceProvider);
+      final fresh = await linkService.fetchMetadata(url.rawUrl);
+      final freshDescription = fresh.description.trim();
+      if (freshDescription.isEmpty) return false;
+
+      final hasMeaningfulIncrease =
+          freshDescription.length >= url.description.trim().length + 20;
+      if (!hasMeaningfulIncrease) return false;
+
+      url.description = freshDescription;
+      await isarService.updateUrl(url);
+      return true;
+    } catch (_, __) {
+      return false;
+    }
+  }
+
+  bool _isSupportedLongPostSource(String rawUrl) {
+    final host = Uri.tryParse(rawUrl)?.host.toLowerCase() ?? '';
+    return host.contains('x.com') ||
+        host.contains('twitter.com') ||
+        host.contains('reddit.com') ||
+        host == 'redd.it';
+  }
 }
 
 final urlDetailNotifierProvider =
