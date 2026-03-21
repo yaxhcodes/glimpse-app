@@ -8,6 +8,7 @@ import '../../core/providers/category_order_provider.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
+import '../add_url/add_url_provider.dart';
 import 'home_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -45,6 +46,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final urlsAsync = ref.watch(urlStreamProvider);
     final orderedCategories = ref.watch(orderedCategoriesProvider);
+    final addUrlStatus = ref.watch(addUrlProvider.select((s) => s.status));
+    final isAddingUrl = addUrlStatus != AddUrlStatus.idle &&
+        addUrlStatus != AddUrlStatus.done &&
+        addUrlStatus != AddUrlStatus.error;
     final theme = Theme.of(context);
 
     // Keep category order in sync with the DB
@@ -148,7 +153,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
 
               // ─── Content ───────────────────────────────────────
-              if (urls.isEmpty)
+
+              // Skeleton card while a URL is being processed
+              if (isAddingUrl)
+                const SliverToBoxAdapter(child: UrlCardSkeleton()),
+
+              if (urls.isEmpty && !isAddingUrl)
                 SliverFillRemaining(
                   child: Center(
                     child: Column(
@@ -172,7 +182,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 )
-              else ...[
+              else if (urls.isNotEmpty) ...[
                 for (final section in sections) ...[
                   // Section header
                   SliverToBoxAdapter(

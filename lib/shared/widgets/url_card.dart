@@ -7,6 +7,124 @@ import '../../core/models/saved_url.dart';
 import '../../core/services/category_resolver.dart';
 import 'category_chip.dart' show faviconUrl;
 
+/// Animated skeleton placeholder that matches the UrlCard layout.
+/// Shown while a new URL is being fetched, categorised, and saved.
+class UrlCardSkeleton extends StatefulWidget {
+  const UrlCardSkeleton({super.key});
+
+  @override
+  State<UrlCardSkeleton> createState() => _UrlCardSkeletonState();
+}
+
+class _UrlCardSkeletonState extends State<UrlCardSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    )..repeat(reverse: true);
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        final shimmer = colorScheme.onSurface.withValues(
+          alpha: 0.08 + 0.10 * _anim.value,
+        );
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Thumbnail placeholder
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(width: 58, height: 58, color: shimmer),
+                ),
+                const SizedBox(width: 12),
+                // Text placeholders
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ShimmerBox(shimmer, height: 15, width: double.infinity),
+                      const SizedBox(height: 6),
+                      _ShimmerBox(shimmer, height: 15, width: 180),
+                      const SizedBox(height: 8),
+                      _ShimmerBox(shimmer, height: 12, width: 110),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _ShimmerBox(shimmer, height: 22, width: 62, radius: 8),
+                          const SizedBox(width: 5),
+                          _ShimmerBox(shimmer, height: 22, width: 82, radius: 8),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ShimmerBox extends StatelessWidget {
+  final Color color;
+  final double height;
+  final double width;
+  final double radius;
+
+  const _ShimmerBox(this.color,
+      {required this.height, required this.width, this.radius = 5});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+}
+
 /// Card widget for displaying a saved URL entry.
 class UrlCard extends StatefulWidget {
   final SavedUrl savedUrl;
