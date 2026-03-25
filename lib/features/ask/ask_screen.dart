@@ -1,10 +1,37 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/providers/user_display_name_provider.dart';
 import '../../core/services/category_resolver.dart';
+import '../home/home_provider.dart';
+import 'ask_empty_suggestions_provider.dart';
 import 'ask_provider.dart';
+
+/// Max width for chat column on large phones / tablets (readable line length).
+const double _kChatMaxWidth = 680;
+
+String _askTimeGreeting() {
+  final hour = DateTime.now().hour;
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+String _askGreetingLine(String? userName) {
+  final time = _askTimeGreeting();
+  final name = userName?.trim();
+  if (name != null && name.isNotEmpty) {
+    return '$time, $name.';
+  }
+  return '$time.';
+}
 
 class AskScreen extends ConsumerStatefulWidget {
   const AskScreen({super.key});
@@ -16,11 +43,13 @@ class AskScreen extends ConsumerStatefulWidget {
 class _AskScreenState extends ConsumerState<AskScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  final _focusNode = FocusNode();
 
   @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -46,6 +75,13 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   Widget build(BuildContext context) {
     final askState = ref.watch(askProvider);
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final urlsAsync = ref.watch(urlStreamProvider);
+    final linkCount = urlsAsync.valueOrNull?.length;
+    final savedUrlCount = urlsAsync.valueOrNull?.length ?? 0;
+    final userName = ref.watch(userDisplayNameProvider).valueOrNull;
+    final suggestionsAsync = ref.watch(askEmptySuggestionsProvider);
 
     ref.listen(askProvider, (_, next) {
       if (!next.isLoading) {
@@ -54,222 +90,234 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       }
     });
 
-    return Scaffold(
+    return KeyboardVisibilityBuilder(
+      builder: (context, keyboardVisible) {
+        return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Ask Glimpse'),
+        surfaceTintColor: colorScheme.surfaceTint,
+        titleSpacing: 0,
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                onPressed: () => context.pop(),
+              )
+            : null,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: colorScheme.secondaryContainer,
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/unown_bookmark_transparent.png',
+                  width: 22,
+                  height: 22,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Ask Glimpse',
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: false,
         actions: [
           if (askState.messages.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Clear conversation',
-              onPressed: () => ref.read(askProvider.notifier).clearHistory(),
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'New chat',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                ref.read(askProvider.notifier).clearHistory();
+              },
+            ),
+          if (linkCount != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Text(
+                  linkCount == 1 ? '1 link' : '$linkCount links',
+                  style: textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             ),
         ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: askState.messages.isEmpty
-                ? _buildEmptyState(theme)
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: askState.messages.length +
-                        (askState.isLoading ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == askState.messages.length) {
-                        return const _TypingIndicator();
-                      }
-                      final msg = askState.messages[index];
-                      return _ChatBubble(message: msg);
-                    },
-                  ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    colorScheme.surface,
+                    colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+                  ],
+                ),
+              ),
+              child: askState.messages.isEmpty
+                  ? _buildEmptyState(
+                      textTheme,
+                      colorScheme,
+                      keyboardVisible,
+                      suggestionsAsync,
+                      savedUrlCount,
+                      userName,
+                    )
+                  : Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: _kChatMaxWidth,
+                        ),
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(
+                            16,
+                            16,
+                            16,
+                            8,
+                          ),
+                          itemCount: askState.messages.length +
+                              (askState.isLoading ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == askState.messages.length) {
+                              return const _TypingRow();
+                            }
+                            final msg = askState.messages[index];
+                            return _ChatTurn(message: msg);
+                          },
+                        ),
+                      ),
+                    ),
+            ),
           ),
-          _InputBar(
+          _ComposerBar(
             controller: _controller,
+            focusNode: _focusNode,
             isLoading: askState.isLoading,
             onSubmit: _submit,
           ),
         ],
       ),
     );
-  }
-
-  String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) return 'Good morning';
-    if (hour >= 12 && hour < 17) return 'Good afternoon';
-    if (hour >= 17 && hour < 21) return 'Good evening';
-    return 'Good evening';
-  }
-
-  Widget _buildEmptyState(ThemeData theme) {
-    final suggestions = [
-      'What did I save recently?',
-      'Summarise my links about technology',
-      'What topics do I read about most?',
-      'Find something about productivity',
-    ];
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 48),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 24),
-          ClipOval(
-            child: Image.asset(
-              'assets/unown_bookmark_transparent.png',
-              width: 72,
-              height: 72,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            '${_greeting()}!',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Ask anything about your saved links',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 40),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Try asking',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...suggestions.map(
-            (s) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: InkWell(
-                onTap: () {
-                  _controller.text = s;
-                  _controller.selection = TextSelection.fromPosition(
-                    TextPosition(offset: s.length),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          s,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ),
-                      Icon(
-                        Icons.north_west,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      },
     );
   }
-}
 
-class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.message});
+  Widget _buildEmptyState(
+    TextTheme textTheme,
+    ColorScheme colorScheme,
+    bool keyboardOpen,
+    AsyncValue<List<AskSuggestionChipData>> suggestionsAsync,
+    int savedUrlCount,
+    String? userName,
+  ) {
+    final subtitle = savedUrlCount == 0
+        ? 'Save your first link to get started.'
+        : 'You have $savedUrlCount ${savedUrlCount == 1 ? 'link' : 'links'} saved. Ask me anything.';
 
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isUser = message.isUser;
-    final bubbleColor = isUser
-        ? theme.colorScheme.primary
-        : theme.colorScheme.surfaceContainerHighest;
-    final textColor = isUser
-        ? theme.colorScheme.onPrimary
-        : theme.colorScheme.onSurface;
-
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+    return Center(
       child: ConstrainedBox(
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.88),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: bubbleColor,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(16),
-              topRight: const Radius.circular(16),
-              bottomLeft:
-                  isUser ? const Radius.circular(16) : const Radius.circular(4),
-              bottomRight:
-                  isUser ? const Radius.circular(4) : const Radius.circular(16),
-            ),
-          ),
+        constraints: const BoxConstraints(maxWidth: _kChatMaxWidth),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const SizedBox(height: 24),
+              const _GlimpsePulseOrb(),
+              const SizedBox(height: 24),
               Text(
-                message.text,
-                style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+                _askGreetingLine(userName),
+                textAlign: TextAlign.center,
+                style: textTheme.headlineMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
               ),
-              if (!isUser) ...[
-                const SizedBox(height: 14),
-                const _AssistantBrandHeader(),
-              ],
-              if (!isUser && message.sections.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                for (var index = 0; index < message.sections.length; index++) ...[
-                  _AnswerSectionCard(
-                    order: index + 1,
-                    section: message.sections[index],
-                  ),
-                  if (index != message.sections.length - 1)
-                    const SizedBox(height: 12),
-                ],
-              ] else if (!isUser && message.sources.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                for (var index = 0; index < message.sources.length; index++) ...[
-                  _SourceCard(
-                    source: message.sources[index],
-                    order: index + 1,
-                  ),
-                  if (index != message.sources.length - 1)
-                    const SizedBox(height: 12),
-                ],
-              ],
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+              AnimatedOpacity(
+                opacity: keyboardOpen ? 0 : 1,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  alignment: Alignment.topCenter,
+                  child: keyboardOpen
+                      ? const SizedBox(width: double.infinity, height: 0)
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 24),
+                          child: suggestionsAsync.when(
+                            data: (chips) => Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: chips.map((chip) {
+                                return ActionChip(
+                                  label: Text(chip.display),
+                                  onPressed: () {
+                                    HapticFeedback.selectionClick();
+                                    final t = chip.promptText;
+                                    _controller.value = TextEditingValue(
+                                      text: t,
+                                      selection: TextSelection.collapsed(
+                                        offset: t.length,
+                                      ),
+                                    );
+                                    _focusNode.requestFocus();
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            loading: () => const _SuggestionShimmerRow(),
+                            error: (_, _) => Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: kAskOnboardingSuggestionChips.map((chip) {
+                                return ActionChip(
+                                  label: Text(chip.display),
+                                  onPressed: () {
+                                    HapticFeedback.selectionClick();
+                                    final t = chip.promptText;
+                                    _controller.value = TextEditingValue(
+                                      text: t,
+                                      selection: TextSelection.collapsed(
+                                        offset: t.length,
+                                      ),
+                                    );
+                                    _focusNode.requestFocus();
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -278,31 +326,265 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-class _AssistantBrandHeader extends StatelessWidget {
-  const _AssistantBrandHeader();
+/// Placeholder chips while Ask suggestions load (M3 surface tones only).
+class _SuggestionShimmerRow extends StatelessWidget {
+  const _SuggestionShimmerRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: List.generate(3, (i) {
+        final w = 88.0 + (i * 24.0);
+        return Shimmer.fromColors(
+          baseColor: colorScheme.surfaceContainerHigh,
+          highlightColor: colorScheme.surfaceContainerHighest,
+          child: Container(
+            width: w,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+/// Pulsing orb with Glimpse mark — uses [ColorScheme] only.
+class _GlimpsePulseOrb extends StatefulWidget {
+  const _GlimpsePulseOrb();
+
+  @override
+  State<_GlimpsePulseOrb> createState() => _GlimpsePulseOrbState();
+}
+
+class _GlimpsePulseOrbState extends State<_GlimpsePulseOrb>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ScaleTransition(
+      scale: _scale,
+      child: Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: colorScheme.surfaceContainerHigh,
+          border: Border.all(
+            color: colorScheme.outlineVariant,
+            width: 1.5,
+          ),
+        ),
+        child: Center(
+          child: ClipOval(
+            child: Image.asset(
+              'assets/unown_bookmark_transparent.png',
+              width: 36,
+              height: 36,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small Glimpse mark for chat rows (M3 secondary container).
+class _GlimpseChatAvatar extends StatelessWidget {
+  const _GlimpseChatAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const size = 30.0;
+    return Container(
+      width: size,
+      height: size,
+      margin: const EdgeInsets.only(left: 12, right: 8, top: 2),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: colorScheme.secondaryContainer,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Center(
+        child: ClipOval(
+          child: Image.asset(
+            'assets/unown_bookmark_transparent.png',
+            width: 16,
+            height: 16,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One user or assistant message block (modern chat layout).
+class _ChatTurn extends StatelessWidget {
+  const _ChatTurn({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    if (message.isUser) {
+      return _UserBubble(text: message.text);
+    }
+    return _AssistantBlock(message: message);
+  }
+}
+
+class _UserBubble extends StatelessWidget {
+  const _UserBubble({required this.text});
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        ClipOval(
-          child: Image.asset(
-            'assets/unown_bookmark_transparent.png',
-            width: 26,
-            height: 26,
-            fit: BoxFit.cover,
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final maxW = math.min(
+      520.0,
+      MediaQuery.sizeOf(context).width * 0.86,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxW),
+          child: Container(
+            margin: const EdgeInsets.only(left: 64, right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(4),
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
+            ),
+            child: Text(
+              text,
+              style: textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                height: 1.45,
+              ),
+            ),
           ),
         ),
-        const SizedBox(width: 8),
-        Text(
-          'Glimpse',
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _AssistantBlock extends StatelessWidget {
+  const _AssistantBlock({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final hasBody = message.text.trim().isNotEmpty;
+    final hasSections = message.sections.isNotEmpty;
+    final hasSources = message.sources.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _GlimpseChatAvatar(),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasBody)
+                  Container(
+                    margin: const EdgeInsets.only(right: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(20),
+                        bottomLeft: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: SelectableText(
+                      message.text,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                if (hasBody && (hasSections || hasSources))
+                  const SizedBox(height: 12),
+                if (hasSections) ...[
+                  for (var index = 0; index < message.sections.length; index++) ...[
+                    _AnswerSectionCard(
+                      order: index + 1,
+                      section: message.sections[index],
+                    ),
+                    if (index != message.sections.length - 1)
+                      const SizedBox(height: 12),
+                  ],
+                ] else if (hasSources) ...[
+                  for (var index = 0; index < message.sources.length; index++) ...[
+                    _SourceCard(
+                      source: message.sources[index],
+                      order: index + 1,
+                    ),
+                    if (index != message.sources.length - 1)
+                      const SizedBox(height: 12),
+                  ],
+                ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -319,54 +601,60 @@ class _AnswerSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+    return Material(
+      color: colorScheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.8)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '$order',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$order',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  section.heading,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    section.heading,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            section.summary,
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 12),
-          _SourceCard(source: section.source, order: order),
-        ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              section.summary,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+            ),
+            const SizedBox(height: 14),
+            _SourceCard(source: section.source, order: order),
+          ],
+        ),
       ),
     );
   }
@@ -381,6 +669,7 @@ class _SourceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final displaySourceName = CategoryResolver.displaySourceName(
       rawUrl: source.rawUrl,
       fallbackDomain: source.domain,
@@ -389,59 +678,85 @@ class _SourceCard extends StatelessWidget {
         ? '${source.categoryEmoji} ${source.category}'
         : '${source.categoryEmoji} ${source.category} • $displaySourceName';
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Source $order',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            source.title.isNotEmpty ? source.title : source.domain,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            metaLabel,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () => context.push('/url/${source.id}'),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FilledButton.tonalIcon(
-                onPressed: () => _openUrl(source.rawUrl),
-                icon: const Icon(Icons.open_in_new, size: 18),
-                label: const Text('Open'),
+              Row(
+                children: [
+                  Icon(
+                    Icons.link_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Source $order',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
-              OutlinedButton.icon(
-                onPressed: () => context.push('/url/${source.id}'),
-                icon: const Icon(Icons.visibility_outlined, size: 18),
-                label: const Text('View'),
+              const SizedBox(height: 8),
+              Text(
+                source.title.isNotEmpty ? source.title : source.domain,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                metaLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                    ),
+                    onPressed: () => _openUrl(source.rawUrl),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('Open'),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                    ),
+                    onPressed: () => context.push('/url/${source.id}'),
+                    icon: const Icon(Icons.article_outlined, size: 18),
+                    label: const Text('Details'),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -453,79 +768,90 @@ class _SourceCard extends StatelessWidget {
   }
 }
 
-class _TypingIndicator extends StatelessWidget {
-  const _TypingIndicator();
+class _TypingRow extends StatelessWidget {
+  const _TypingRow();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const SizedBox(
-          width: 40,
-          height: 20,
-          child: _ThreeDotsAnimation(),
-        ),
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _GlimpseChatAvatar(),
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(20),
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
+            ),
+            child: const SizedBox(
+              width: 40,
+              height: 8,
+              child: _StaggerTypingDots(),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ThreeDotsAnimation extends StatefulWidget {
-  const _ThreeDotsAnimation();
+/// Three staggered dots using [ColorScheme.primary].
+class _StaggerTypingDots extends StatefulWidget {
+  const _StaggerTypingDots();
 
   @override
-  State<_ThreeDotsAnimation> createState() => _ThreeDotsAnimationState();
+  State<_StaggerTypingDots> createState() => _StaggerTypingDotsState();
 }
 
-class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
+class _StaggerTypingDotsState extends State<_StaggerTypingDots>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
+  late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1200),
     )..repeat();
   }
 
   @override
   void dispose() {
-    _animController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return AnimatedBuilder(
-      animation: _animController,
-      builder: (_, snap) {
-        final color = Theme.of(context).colorScheme.onSurfaceVariant;
+      animation: _controller,
+      builder: (context, _) {
         return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(3, (i) {
-            final delay = i / 3;
-            final progress = (_animController.value - delay).clamp(0.0, 1.0);
-            final opacity = (progress < 0.5 ? progress * 2 : (1 - progress) * 2)
-                .clamp(0.3, 1.0);
-            return Opacity(
-              opacity: opacity,
-              child: Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
+            final phase =
+                (_controller.value * 2 * math.pi) + (i * 2 * math.pi / 3);
+            final op = 0.3 + 0.7 * ((math.sin(phase) + 1) / 2);
+            return Container(
+              width: 8,
+              height: 8,
+              margin: EdgeInsets.only(left: i == 0 ? 0 : 4),
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: op.clamp(0.3, 1.0)),
+                shape: BoxShape.circle,
               ),
             );
           }),
@@ -535,59 +861,162 @@ class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
   }
 }
 
-class _InputBar extends StatelessWidget {
-  const _InputBar({
+class _ComposerBar extends StatelessWidget {
+  const _ComposerBar({
     required this.controller,
+    required this.focusNode,
     required this.isLoading,
     required this.onSubmit,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool isLoading;
   final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final transparent = colorScheme.surface.withValues(alpha: 0);
+
     return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          border: Border(
-              top: BorderSide(color: theme.colorScheme.outlineVariant)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                onSubmitted: (_) => onSubmit(),
-                maxLines: null,
-                textInputAction: TextInputAction.send,
-                decoration: InputDecoration(
-                  hintText: 'Chat with Glimpse...',
-                  border: const OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(24)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
-                  isDense: true,
-                ),
+      top: false,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _kChatMaxWidth),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: colorScheme.outlineVariant,
+                width: 1,
               ),
             ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              onPressed: isLoading ? null : onSubmit,
-              icon: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Theme(
+                    data: theme.copyWith(
+                      splashFactory: NoSplash.splashFactory,
+                      highlightColor: transparent,
+                      focusColor: transparent,
+                      hoverColor: transparent,
+                      inputDecorationTheme: const InputDecorationTheme(
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        filled: false,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      onSubmitted: (_) {
+                        if (controller.text.trim().isNotEmpty) onSubmit();
+                      },
+                      minLines: 1,
+                      maxLines: 5,
+                      textInputAction: TextInputAction.newline,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Message Glimpse...',
+                        hintStyle: textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (context, value, _) {
+                    if (isLoading) {
+                      return Tooltip(
+                        message: 'Sending…',
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colorScheme.primary,
+                          ),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    final hasText = value.text.trim().isNotEmpty;
+                    return Tooltip(
+                      message: 'Send',
+                      child: GestureDetector(
+                        onTap: hasText
+                            ? () {
+                                HapticFeedback.lightImpact();
+                                onSubmit();
+                              }
+                            : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: hasText
+                                ? colorScheme.primary
+                                : colorScheme.surfaceContainerHighest,
+                            border: hasText
+                                ? null
+                                : Border.all(
+                                    color: colorScheme.outlineVariant,
+                                  ),
+                          ),
+                          child: Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 18,
+                            color: hasText
+                                ? colorScheme.onPrimary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

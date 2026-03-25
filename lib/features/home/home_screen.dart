@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -63,7 +64,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: urlsAsync.when(
         loading: () => const LoadingIndicator(message: 'Loading your URLs...'),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        error: (err, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.wifi_tethering_error_rounded,
+                  size: 52,
+                  color: theme.colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Could not load your library',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$err',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                FilledButton.tonalIcon(
+                  onPressed: () => ref.invalidate(urlStreamProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Try again'),
+                ),
+              ],
+            ),
+          ),
+        ),
         data: (urls) {
           // Group URLs into sections
           final now = DateTime.now();
@@ -82,8 +119,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             if (earlierUrls.isNotEmpty) _Section('Earlier', earlierUrls),
           ];
 
-          return CustomScrollView(
-            slivers: [
+          return RefreshIndicator(
+            edgeOffset: 120,
+            onRefresh: () async {
+              ref.invalidate(urlStreamProvider);
+              ref.invalidate(categoriesProvider);
+              await ref.read(urlStreamProvider.future);
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
               // ─── Large Material 3 title ────────────────────────
               SliverAppBar.large(
                 title: const Text('Glimpse'),
@@ -97,6 +142,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   IconButton(
                     icon: const Icon(Icons.search),
                     onPressed: () => context.push('/search'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.hub_outlined),
+                    tooltip: 'Interest map',
+                    onPressed: () => context.push('/mindmap'),
                   ),
                   IconButton(
                     icon: const Icon(Icons.settings),
@@ -160,25 +210,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
               if (urls.isEmpty && !isAddingUrl)
                 SliverFillRemaining(
+                  hasScrollBody: false,
                   child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.bookmark_add_outlined,
-                          size: 64,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(height: 16),
-                        Text('No URLs saved yet',
-                            style: theme.textTheme.titleMedium),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tap + to save your first URL',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer
+                                  .withValues(alpha: 0.45),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(28),
+                              child: Icon(
+                                Icons.add_link_rounded,
+                                size: 48,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          Text(
+                            'Your link library is empty',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Save articles, videos, and threads in one tap. '
+                            'Glimpse fetches a preview and sorts them for you.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.45,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 32),
+                          FilledButton.icon(
+                            onPressed: () => context.push('/add'),
+                            icon: const Icon(Icons.add_link),
+                            label: const Text('Save a link'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: () => context.push('/search'),
+                            icon: const Icon(Icons.search),
+                            label: const Text('Search (when you have links)'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 )
@@ -233,24 +324,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ],
+            ),
           );
         },
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 16),
-        child: _AskFab(onPressed: () => context.push('/ask')),
+        child: _AskFab(onPressed: () {
+          HapticFeedback.lightImpact();
+          context.push('/ask');
+        }),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
   void _showReorderSheet(BuildContext context) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      showDragHandle: true,
       builder: (_) => const _CategoryReorderSheet(),
     );
   }
@@ -264,39 +357,42 @@ class _AskFab extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onPressed,
+    return Tooltip(
+      message: 'Chat with your saved links',
       child: Material(
         color: colorScheme.primaryContainer,
-        shape: ContinuousRectangleBorder(
-          borderRadius: BorderRadius.circular(36),
-        ),
-        elevation: 4,
-        shadowColor: Colors.black26,
-        child: SizedBox(
-          height: 56,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ClipOval(
-                  child: Image.asset(
-                    'assets/unown_bookmark_transparent.png',
-                    width: 28,
-                    height: 28,
-                    fit: BoxFit.cover,
+        elevation: 3,
+        shadowColor: Colors.black38,
+        surfaceTintColor: colorScheme.primary,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            height: 56,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipOval(
+                    child: Image.asset(
+                      'assets/unown_bookmark_transparent.png',
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Ask Glimpse',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(width: 10),
+                  Text(
+                    'Ask Glimpse',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -360,18 +456,8 @@ class _CategoryReorderSheetState
       builder: (ctx, scrollController) {
         return Column(
           children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 8, 4),
+              padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
               child: Row(
                 children: [
                   Text('Edit Categories',

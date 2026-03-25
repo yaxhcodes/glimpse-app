@@ -8,18 +8,27 @@ import '../../core/services/subscription_service.dart';
 /// Whether the last search used semantic (vector) mode or keyword (fuzzy) mode.
 enum SearchMode { semantic, keyword }
 
+/// Result of running a search: URLs plus which strategy produced them.
+class SearchOutcome {
+  final List<SavedUrl> urls;
+  final SearchMode mode;
+
+  const SearchOutcome({
+    required this.urls,
+    required this.mode,
+  });
+
+  static const empty = SearchOutcome(urls: [], mode: SearchMode.keyword);
+}
+
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
-/// Holds the mode used in the most recent search execution.
-final searchModeProvider = StateProvider<SearchMode>((ref) => SearchMode.keyword);
-
-final searchResultsProvider = FutureProvider<List<SavedUrl>>((ref) async {
+final searchOutcomeProvider = FutureProvider<SearchOutcome>((ref) async {
   final query = ref.watch(searchQueryProvider);
-  if (query.trim().isEmpty) return [];
+  if (query.trim().isEmpty) return SearchOutcome.empty;
 
   final isarService = ref.watch(isarServiceProvider);
 
-  // Semantic search only for premium users with Voyage key bundled
   try {
     final tier = await SubscriptionService().getTier();
     if (BundledKeys.hasVoyage &&
@@ -30,7 +39,7 @@ final searchResultsProvider = FutureProvider<List<SavedUrl>>((ref) async {
         final results =
             await isarService.semanticSearchUrls(queryEmbedding, limit: 20);
         if (results.isNotEmpty) {
-          return results;
+          return SearchOutcome(urls: results, mode: SearchMode.semantic);
         }
       }
     }
@@ -38,6 +47,6 @@ final searchResultsProvider = FutureProvider<List<SavedUrl>>((ref) async {
     // Semantic search failed — fall through to keyword search
   }
 
-  // Keyword/fuzzy fallback (free for everyone)
-  return isarService.fuzzySearchUrls(query);
+  final fuzzy = await isarService.fuzzySearchUrls(query);
+  return SearchOutcome(urls: fuzzy, mode: SearchMode.keyword);
 });

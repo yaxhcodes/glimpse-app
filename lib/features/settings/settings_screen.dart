@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/user_display_name_provider.dart';
+import '../ask/ask_empty_suggestions_provider.dart';
+import '../mindmap/interest_clusters_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -35,6 +38,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed == true) {
       final isarService = ref.read(isarServiceProvider);
       await isarService.deleteAll();
+      await clearAskSuggestionsCache();
+      await clearInterestClusterCache();
+      ref.invalidate(askEmptySuggestionsProvider);
+      ref.invalidate(interestClusterThemesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('All data cleared')),
@@ -43,9 +50,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _editDisplayName() async {
+    final prefsName = await ref.read(userDisplayNameProvider.future);
+    if (!mounted) return;
+    final controller = TextEditingController(text: prefsName ?? '');
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Your name'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'Used in Ask Glimpse greetings',
+            ),
+            textCapitalization: TextCapitalization.words,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+      if (ok == true && mounted) {
+        await setUserDisplayName(controller.text);
+        ref.invalidate(userDisplayNameProvider);
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final displayNameAsync = ref.watch(userDisplayNameProvider);
 
     return Scaffold(
       body: CustomScrollView(
@@ -62,6 +108,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/settings/look-and-feel'),
               ),
+              ListTile(
+                title: const Text('Your name'),
+                subtitle: Text(
+                  displayNameAsync.when(
+                    data: (n) =>
+                        n == null || n.isEmpty ? 'Optional — for Ask greetings' : n,
+                    loading: () => '…',
+                    error: (_, _) => 'Optional — for Ask greetings',
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _editDisplayName,
+              ),
               const Divider(indent: 16, endIndent: 16),
 
               // ─── AI ────────────────────────────────
@@ -72,7 +131,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         color: theme.colorScheme.primary)),
               ),
               ListTile(
-                leading: const Icon(Icons.workspace_premium_outlined),
                 title: const Text('Subscription'),
                 subtitle: const Text('Manage your Glimpse plan'),
                 trailing: const Icon(Icons.chevron_right),

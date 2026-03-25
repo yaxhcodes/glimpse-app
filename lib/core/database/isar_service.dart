@@ -37,6 +37,56 @@ class IsarService {
     return isar.savedUrls.where().sortBySavedAtDesc().findAll();
   }
 
+  /// Most recently saved URLs first (for Ask personal suggestions, etc.).
+  Future<List<SavedUrl>> getRecentUrls({int limit = 15}) async {
+    final isar = await _db;
+    final all = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
+    if (all.length <= limit) return all;
+    return all.take(limit).toList();
+  }
+
+  /// URLs that have a non-empty embedding (for semantic clustering / mind map).
+  Future<List<SavedUrl>> getUrlsWithEmbeddings() async {
+    final all = await getAllUrls();
+    return all
+        .where((u) => u.embedding != null && u.embedding!.isNotEmpty)
+        .toList();
+  }
+
+  /// URLs with null or empty embedding (candidates for Voyage backfill).
+  Future<List<SavedUrl>> getUrlsWithoutEmbedding() async {
+    final isar = await _db;
+    final nullEmb = await isar.savedUrls.filter().embeddingIsNull().findAll();
+    final emptyEmb = await isar.savedUrls
+        .filter()
+        .embeddingIsNotNull()
+        .embeddingIsEmpty()
+        .findAll();
+    final byId = {for (final u in nullEmb) u.id: u};
+    for (final u in emptyEmb) {
+      byId[u.id] = u;
+    }
+    final combined = byId.values.toList();
+    combined.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+    return combined;
+  }
+
+  /// Persists only the embedding vector for an existing URL.
+  Future<void> updateEmbedding({
+    required int id,
+    required List<double> embedding,
+  }) async {
+    if (embedding.isEmpty) return;
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(id);
+      if (url != null) {
+        url.embedding = embedding;
+        await isar.savedUrls.put(url);
+      }
+    });
+  }
+
   Future<SavedUrl?> getUrlById(int id) async {
     final isar = await _db;
     return isar.savedUrls.get(id);
@@ -197,8 +247,9 @@ class IsarService {
     final allUrls = await isar.savedUrls.where().findAll();
     int count = 0;
     for (final url in allUrls) {
-      if (url.embedding.isEmpty) continue;
-      final sim = _cosineSimilarity(embedding, url.embedding);
+      final emb = url.embedding;
+      if (emb == null || emb.isEmpty) continue;
+      final sim = _cosineSimilarity(embedding, emb);
       if (sim >= threshold) count++;
     }
     return count;
@@ -215,8 +266,9 @@ class IsarService {
 
     final scored = <MapEntry<SavedUrl, double>>[];
     for (final url in allUrls) {
-      if (url.embedding.isEmpty) continue;
-      final sim = _cosineSimilarity(queryEmbedding, url.embedding);
+      final emb = url.embedding;
+      if (emb == null || emb.isEmpty) continue;
+      final sim = _cosineSimilarity(queryEmbedding, emb);
       scored.add(MapEntry(url, sim));
     }
     scored.sort((a, b) => b.value.compareTo(a.value));

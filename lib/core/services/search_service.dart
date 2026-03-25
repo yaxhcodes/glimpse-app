@@ -34,8 +34,9 @@ class SearchService {
     final scored = <MapEntry<SavedUrl, double>>[];
 
     for (final url in allUrls) {
-      if (url.embedding.isEmpty) continue;
-      final similarity = cosineSimilarity(queryEmbedding, url.embedding);
+      final emb = url.embedding;
+      if (emb == null || emb.isEmpty) continue;
+      final similarity = cosineSimilarity(queryEmbedding, emb);
       scored.add(MapEntry(url, similarity));
     }
 

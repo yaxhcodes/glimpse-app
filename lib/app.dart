@@ -4,9 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'core/providers/service_providers.dart';
+import 'core/services/bundled_keys.dart';
+import 'core/services/embedding_backfill_service.dart';
+import 'core/services/embedding_service.dart';
 import 'core/services/link_preview_service.dart';
 import 'core/models/saved_url.dart';
+import 'features/ask/ask_empty_suggestions_provider.dart';
+import 'features/home/home_provider.dart';
 import 'features/home/home_screen.dart';
+import 'features/mindmap/interest_clusters_provider.dart';
 import 'features/add_url/add_url_screen.dart';
 import 'features/add_url/add_url_provider.dart';
 import 'features/categories/category_screen.dart';
@@ -17,6 +24,7 @@ import 'features/settings/look_and_feel_screen.dart';
 import 'features/settings/about_screen.dart';
 import 'features/settings/subscription_screen.dart';
 import 'features/ask/ask_screen.dart';
+import 'features/mindmap/mindmap_screen.dart';
 import 'features/recap/recap_screen.dart';
 import 'features/synthesis/synthesis_screen.dart';
 import 'shared/theme/app_theme.dart';
@@ -79,6 +87,10 @@ final _router = GoRouter(
       builder: (context, state) => const AskScreen(),
     ),
     GoRoute(
+      path: '/mindmap',
+      builder: (context, state) => const MindmapScreen(),
+    ),
+    GoRoute(
       path: '/recap',
       builder: (context, state) => const RecapScreen(),
     ),
@@ -115,6 +127,24 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
     _shareIntentSub = ReceiveSharingIntent.instance
         .getMediaStream()
         .listen(_handleSharedMedia);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!BundledKeys.hasVoyage) return;
+      final isar = ref.read(isarServiceProvider);
+      final backfill = EmbeddingBackfillService(
+        isarService: isar,
+        embeddingService: EmbeddingService(BundledKeys.voyageKey),
+      );
+      unawaited(() async {
+        final n = await backfill.backfillIfNeeded();
+        if (n <= 0) return;
+        await clearInterestClusterCache();
+        await clearAskSuggestionsCache();
+        ref.invalidate(urlStreamProvider);
+        ref.invalidate(interestClusterThemesProvider);
+        ref.invalidate(askEmptySuggestionsProvider);
+      }());
+    });
   }
 
   void _handleSharedMedia(List<SharedMediaFile> files) {
@@ -135,11 +165,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
   }
 
   void _showShareChoiceSheet(BuildContext context, String url) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
           child: Padding(
@@ -267,6 +295,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeMode,
+          scrollBehavior: const AppScrollBehavior(),
           routerConfig: _router,
         );
       },

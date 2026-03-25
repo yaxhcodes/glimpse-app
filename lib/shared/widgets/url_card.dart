@@ -141,8 +141,6 @@ class UrlCard extends StatefulWidget {
 }
 
 class _UrlCardState extends State<UrlCard> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -160,35 +158,29 @@ class _UrlCardState extends State<UrlCard> {
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
         .toList();
 
-    // Subtle pressed scale animation
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      onLongPress: () => _showActions(context),
-      child: AnimatedScale(
-        scale: _pressed ? 1.012 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-            ),
-            boxShadow: _pressed
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: Material(
+        color: colorScheme.surfaceContainerLow,
+        elevation: 0,
+        surfaceTintColor: colorScheme.surfaceTint.withValues(alpha: 0.2),
+        shadowColor: Colors.black26,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.55),
           ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            widget.onTap?.call();
+          },
+          onLongPress: () {
+            HapticFeedback.mediumImpact();
+            _showActions(context);
+          },
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
@@ -290,22 +282,13 @@ class _UrlCardState extends State<UrlCard> {
 
   void _showActions(BuildContext context) {
     final theme = Theme.of(context);
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
+      showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.copy_outlined),
               title: const Text('Copy link'),

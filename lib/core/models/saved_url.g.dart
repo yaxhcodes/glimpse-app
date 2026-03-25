@@ -166,7 +166,12 @@ int _savedUrlEstimateSize(
       bytesCount += value.length * 3;
     }
   }
-  bytesCount += 3 + object.embedding.length * 8;
+  {
+    final value = object.embedding;
+    if (value != null) {
+      bytesCount += 3 + value.length * 8;
+    }
+  }
   bytesCount += 3 + object.rawUrl.length * 3;
   {
     final value = object.summary;
@@ -231,7 +236,7 @@ SavedUrl _savedUrlDeserialize(
   object.categoryEmoji = reader.readString(offsets[2]);
   object.description = reader.readString(offsets[3]);
   object.domain = reader.readString(offsets[4]);
-  object.embedding = reader.readDoubleList(offsets[6]) ?? [];
+  object.embedding = reader.readDoubleList(offsets[6]);
   object.id = id;
   object.rawUrl = reader.readString(offsets[7]);
   object.savedAt = reader.readDateTime(offsets[8]);
@@ -263,7 +268,7 @@ P _savedUrlDeserializeProp<P>(
     case 5:
       return (reader.readStringList(offset) ?? []) as P;
     case 6:
-      return (reader.readDoubleList(offset) ?? []) as P;
+      return (reader.readDoubleList(offset)) as P;
     case 7:
       return (reader.readString(offset)) as P;
     case 8:
@@ -1580,6 +1585,22 @@ extension SavedUrlQueryFilter
         upper,
         includeUpper,
       );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> embeddingIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'embedding',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> embeddingIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'embedding',
+      ));
     });
   }
 
@@ -3168,7 +3189,7 @@ extension SavedUrlQueryProperty
     });
   }
 
-  QueryBuilder<SavedUrl, List<double>, QQueryOperations> embeddingProperty() {
+  QueryBuilder<SavedUrl, List<double>?, QQueryOperations> embeddingProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'embedding');
     });

@@ -37,7 +37,8 @@ class SavedUrl {
   late DateTime savedAt;
 
   /// Embedding vector for semantic search (1024-dim from Voyage AI).
-  late List<double> embedding;
+  /// Null or empty until embedded (new saves or backfill).
+  List<double>? embedding;
 
   List<String> get effectiveCategories {
     final values = <String>[];

@@ -400,4 +400,159 @@ Write 3–5 sentences that highlight their most active topic(s), note any intere
     );
     return response.text?.trim() ?? 'Great week of saving — keep building your knowledge!';
   }
+
+  // ─── Ask empty-state suggestions (personal, from recent saves) ──────────────
+
+  /// Exactly four short questions tailored to the user's recent bookmarks.
+  Future<List<String>> generatePersonalAskSuggestions(String contextBlock) {
+    const n = 4;
+    final prompt = '''You are a personal bookmark assistant called Glimpse.
+The user has saved these links recently:
+
+$contextBlock
+
+Generate exactly $n short, specific, conversational questions the user might genuinely want to ask about their saved content.
+
+Rules:
+- Reference specific titles, topics, sources, or themes from the list above — do NOT be generic
+- Each question must be under 10 words
+- Write as if the user is asking themselves, not asking "you"
+- Do NOT start every question with "Show me" — vary phrasing
+- Do NOT include emoji — emojis are added separately in the app
+- Return valid JSON only: a JSON array of exactly $n strings. No markdown, no explanation.
+
+Good examples (specific, personal):
+["What was that discipline post from chilvrs?", "Find the comfort zone article", "Anything about building a second brain?", "What morning routine content did I save?"]
+
+Bad examples (generic, vague):
+["Any lifestyle tips saved?", "What's new on Instagram?", "Show me my tech links", "Any new videos?"]''';
+
+    return _parsePersonalSuggestionQuestions(prompt, n);
+  }
+
+  Future<List<String>> _parsePersonalSuggestionQuestions(
+    String prompt,
+    int n,
+  ) async {
+    final response = await _generateWithFallback(
+      primaryModel: _jsonModel,
+      fallbackModel: _jsonFallbackModel,
+      prompt: prompt,
+    );
+    final text = response.text ?? '[]';
+    final cleaned = text
+        .replaceAll(RegExp(r'```json\s*'), '')
+        .replaceAll(RegExp(r'```\s*'), '')
+        .trim();
+    try {
+      final decoded = json.decode(cleaned);
+      if (decoded is! List<dynamic>) return const [];
+      final out = decoded
+          .map((e) => e.toString().trim())
+          .where((s) => s.isNotEmpty)
+          .take(n)
+          .toList();
+      while (out.length < n) {
+        out.add('What stands out in my recent saves?');
+      }
+      return out;
+    } catch (_) {
+      return List.filled(n, 'What did I save recently?');
+    }
+  }
+
+  // ─── Interest clusters (mind map + Ask suggestions) ─────────────────────────
+
+  /// One JSON object per cluster: label (2–4 words), emoji, summary (one sentence).
+  Future<List<Map<String, String>>> nameInterestClusters({
+    required String clusterDescriptionsBlock,
+    required int clusterCount,
+  }) async {
+    if (clusterCount <= 0) return const [];
+    final prompt = '''Here are groups of bookmarks the user has saved, grouped by semantic similarity:
+
+$clusterDescriptionsBlock
+
+For each cluster, assign a JSON object with exactly these keys:
+- "label": a short 2-4 word theme name from the actual topics and titles (e.g. "Stoic philosophy", "Watch mods", "Indie dev")
+- "emoji": one emoji that best represents this cluster
+- "summary": one sentence describing what this cluster is about
+
+Important: Do NOT use a website or app name as the label (e.g. Reddit, YouTube, Instagram, X, TikTok) unless the bookmarks are genuinely about that platform. Prefer the subject matter the user saved.
+
+Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster order (Cluster 1 first). No markdown, no explanation.''';
+
+    final response = await _generateWithFallback(
+      primaryModel: _jsonModel,
+      fallbackModel: _jsonFallbackModel,
+      prompt: prompt,
+    );
+    final text = response.text ?? '[]';
+    final cleaned = text
+        .replaceAll(RegExp(r'```json\s*'), '')
+        .replaceAll(RegExp(r'```\s*'), '')
+        .trim();
+    try {
+      final decoded = json.decode(cleaned);
+      if (decoded is! List<dynamic>) return const [];
+      final out = <Map<String, String>>[];
+      for (final e in decoded) {
+        if (out.length >= clusterCount) break;
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        out.add({
+          'label': m['label']?.toString().trim() ?? 'Cluster',
+          'emoji': m['emoji']?.toString().trim() ?? '🔖',
+          'summary': m['summary']?.toString().trim() ?? '',
+        });
+      }
+      while (out.length < clusterCount) {
+        out.add({
+          'label': 'Interest group ${out.length + 1}',
+          'emoji': '🔖',
+          'summary': 'Related bookmarks.',
+        });
+      }
+      return out;
+    } catch (_) {
+      return List.generate(
+        clusterCount,
+        (i) => {
+          'label': 'Interest group ${i + 1}',
+          'emoji': '🔖',
+          'summary': 'Related bookmarks.',
+        },
+      );
+    }
+  }
+
+  /// Four short questions from high-level interest themes (no specific titles).
+  Future<List<String>> generateAskSuggestionsFromClusterThemes(
+    String themeLinesBlock,
+  ) {
+    const n = 4;
+    final prompt = '''You are Glimpse, a personal bookmark assistant.
+The user's saved links cluster into these interest themes:
+
+$themeLinesBlock
+
+Generate exactly $n short, natural questions reflecting their genuine recurring interests.
+Each question should match the themes above — not random categories from the web.
+
+Rules:
+- Under 9 words each
+- Vary the phrasing — don't start every question the same way
+- Do NOT reference specific article titles or author names
+- Do NOT center questions on a host site (Reddit, YouTube, etc.) — ask about topics and interests
+- Do NOT include emoji
+- Return valid JSON only: a JSON array of exactly $n strings. No markdown, no explanation.
+
+Good examples:
+["What have I saved about Himalayan treks?", "Show my AI and SaaS links", "Anything on agribusiness?", "What mindset content did I collect?"]
+
+Bad examples:
+["Any Reddit links?", "Show me my links", "What's saved?"]''';
+
+    return _parsePersonalSuggestionQuestions(prompt, n);
+  }
 }

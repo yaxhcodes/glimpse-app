@@ -2,9 +2,11 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../ask/ask_empty_suggestions_provider.dart';
 import '../../core/services/link_preview_service.dart';
 import '../../core/services/domain_categorizer.dart';
 import '../../core/services/gemini_service.dart';
+import '../../core/services/embedding_input.dart';
 import '../../core/services/embedding_service.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/bundled_keys.dart';
@@ -164,24 +166,36 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         enrichedTags.add(metadata.siteName!);
       }
 
+      // Use empty description when it mirrors the title (e.g. Instagram, some OG tags)
+      final cleanDescription = metadata.description.trim().toLowerCase() ==
+              metadata.title.trim().toLowerCase()
+          ? ''
+          : metadata.description;
+
       // Step 3: Generate embedding — Voyage AI if key available
       state = state.copyWith(status: AddUrlStatus.generatingEmbedding);
-      List<double> embedding = [];
+      List<double>? embedding;
 
       if (BundledKeys.hasVoyage) {
         try {
           final embeddingService = EmbeddingService(BundledKeys.voyageKey);
-          final textToEmbed =
-              '${metadata.title} ${summary ?? metadata.description}';
-          embedding = await embeddingService.generateEmbedding(textToEmbed);
+          final textToEmbed = buildBookmarkEmbeddingInput(
+            title: metadata.title,
+            description: cleanDescription,
+            tags: enrichedTags,
+            category: category,
+            summary: summary,
+          );
+          final vec = await embeddingService.generateEmbedding(textToEmbed);
+          embedding = vec.isEmpty ? null : vec;
         } catch (_) {
-          embedding = [];
+          embedding = null;
         }
       }
 
       // Step 4: Duplicate similarity check (if we have embeddings)
       int similarCount = 0;
-      if (embedding.isNotEmpty) {
+      if (embedding != null && embedding.isNotEmpty) {
         similarCount = await isarService.countSimilarUrls(
           embedding: embedding,
           threshold: 0.88,
@@ -193,12 +207,6 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         status: AddUrlStatus.saving,
         similarUrlCount: similarCount > 0 ? similarCount : null,
       );
-
-      // Use empty description when it mirrors the title (e.g. Instagram, some OG tags)
-      final cleanDescription = metadata.description.trim().toLowerCase() ==
-              metadata.title.trim().toLowerCase()
-          ? ''
-          : metadata.description;
 
       final savedUrl = SavedUrl()
         ..rawUrl = normalizedUrl
@@ -219,6 +227,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         ..embedding = embedding;
 
       await isarService.saveUrl(savedUrl);
+      await clearAskSuggestionsCache();
+      _ref.invalidate(askEmptySuggestionsProvider);
 
       state = state.copyWith(status: AddUrlStatus.done);
       _isSaving = false;
