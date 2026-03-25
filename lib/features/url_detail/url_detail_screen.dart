@@ -11,6 +11,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../shared/widgets/category_chip.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
 import 'url_detail_provider.dart';
 
@@ -84,7 +85,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     });
   }
 
+  void _showAddToCollection(SavedUrl url) {
+    showAddToCollectionSheet(context, url);
+  }
+
   Future<void> _launchUrl(String url) async {
+    await ref
+        .read(isarServiceProvider)
+        .updateOpenedAt(widget.urlId, DateTime.now());
     final uri = Uri.parse(url);
     try {
       final launched = await launchUrl(
@@ -371,11 +379,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             pinned: true,
             title: const Text('Details'),
             actions: [
-              if (url != null)
+              if (url != null) ...[
+                IconButton(
+                  icon: const Icon(Icons.collections_bookmark_outlined),
+                  tooltip: 'Add to collection',
+                  onPressed: () => _showAddToCollection(url),
+                ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
                   onPressed: _deleteUrl,
                 ),
+              ],
             ],
           ),
           if (urlAsync.isLoading)

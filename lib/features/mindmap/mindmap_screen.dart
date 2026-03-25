@@ -364,7 +364,7 @@ class _MindmapEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Save a few more links and\nyour interest map will appear.',
+              'Save more links and I\'ll map out your interests automatically.',
               textAlign: TextAlign.center,
               style: tt.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -389,7 +389,21 @@ class MindmapScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
-        title: const Text('Your interest map'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Interest Map',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            Text(
+              'Your library as a mind map',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
         backgroundColor: cs.surface,
         surfaceTintColor: Colors.transparent,
       ),

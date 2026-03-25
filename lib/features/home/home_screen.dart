@@ -11,6 +11,7 @@ import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import '../add_url/add_url_provider.dart';
 import 'home_provider.dart';
+import 'rediscovery_section.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -144,8 +145,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     onPressed: () => context.push('/search'),
                   ),
                   IconButton(
+                    icon: const Icon(Icons.collections_bookmark_outlined),
+                    tooltip: 'Collections',
+                    onPressed: () => context.push('/collections'),
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.hub_outlined),
-                    tooltip: 'Interest map',
+                    tooltip: 'Interest Map',
                     onPressed: () => context.push('/mindmap'),
                   ),
                   IconButton(
@@ -154,6 +160,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
+
+              if (urls.isNotEmpty)
+                const SliverToBoxAdapter(child: RediscoverySection()),
 
               // ─── Categories ──────────────────────────────────
               SliverToBoxAdapter(
@@ -330,10 +339,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 16),
-        child: _AskFab(onPressed: () {
-          HapticFeedback.lightImpact();
-          context.push('/ask');
-        }),
+        child: _AskFab(
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            context.push('/ask');
+          },
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
@@ -351,51 +362,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 class _AskFab extends StatelessWidget {
   const _AskFab({required this.onPressed});
+
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final theme = Theme.of(context);
     return Tooltip(
-      message: 'Chat with your saved links',
-      child: Material(
-        color: colorScheme.primaryContainer,
-        elevation: 3,
-        shadowColor: Colors.black38,
-        surfaceTintColor: colorScheme.primary,
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: SizedBox(
-            height: 56,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ClipOval(
-                    child: Image.asset(
-                      'assets/unown_bookmark_transparent.png',
-                      width: 28,
-                      height: 28,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Ask Glimpse',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+      message: 'Ask a question about your saved links',
+      child: FloatingActionButton.extended(
+        onPressed: onPressed,
+        label: const Text('Ask Glimpse'),
       ),
     );
   }

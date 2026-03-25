@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/saved_url.dart';
+import '../models/user_collection.dart';
 import '../services/category_resolver.dart';
 
 /// Service handling all local database operations via Isar.
@@ -15,7 +16,7 @@ class IsarService {
   Future<Isar> _openDb() async {
     final dir = await getApplicationDocumentsDirectory();
     return Isar.open(
-      [SavedUrlSchema],
+      [SavedUrlSchema, UserCollectionSchema],
       directory: dir.path,
     );
   }
@@ -125,6 +126,9 @@ class IsarService {
     }
     return categoryMap.values.toList();
   }
+
+  /// Local keyword / fuzzy search (fallback when semantic search is unavailable).
+  Future<List<SavedUrl>> keywordSearch(String query) => fuzzySearchUrls(query);
 
   /// Simple keyword search (LIKE-style) for Phase 1.
   /// Searches title, description, tags, categories, domain, rawUrl, and userNotes.
@@ -249,7 +253,7 @@ class IsarService {
     for (final url in allUrls) {
       final emb = url.embedding;
       if (emb == null || emb.isEmpty) continue;
-      final sim = _cosineSimilarity(embedding, emb);
+      final sim = cosineSimilarity(embedding, emb);
       if (sim >= threshold) count++;
     }
     return count;
@@ -268,14 +272,15 @@ class IsarService {
     for (final url in allUrls) {
       final emb = url.embedding;
       if (emb == null || emb.isEmpty) continue;
-      final sim = _cosineSimilarity(queryEmbedding, emb);
+      final sim = cosineSimilarity(queryEmbedding, emb);
       scored.add(MapEntry(url, sim));
     }
     scored.sort((a, b) => b.value.compareTo(a.value));
     return scored.take(limit).map((e) => e.key).toList();
   }
 
-  static double _cosineSimilarity(List<double> a, List<double> b) {
+  /// Cosine similarity in [0.0, 1.0] for equal-length embedding vectors.
+  static double cosineSimilarity(List<double> a, List<double> b) {
     if (a.length != b.length) return 0.0;
     double dot = 0, normA = 0, normB = 0;
     for (int i = 0; i < a.length; i++) {
@@ -286,6 +291,7 @@ class IsarService {
     final denom = sqrt(normA) * sqrt(normB);
     return denom == 0 ? 0.0 : dot / denom;
   }
+
 
   /// Returns URLs saved between [start] and [end] (inclusive), newest first.
   Future<List<SavedUrl>> getUrlsInDateRange(
@@ -303,11 +309,143 @@ class IsarService {
     await isar.writeTxn(() => isar.savedUrls.put(url));
   }
 
+  Future<void> updateOpenedAt(int urlId, DateTime when) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(urlId);
+      if (url != null) {
+        url.openedAt = when;
+        await isar.savedUrls.put(url);
+      }
+    });
+  }
+
+  Future<void> updateResurfacedAt(int urlId, DateTime when) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(urlId);
+      if (url != null) {
+        url.resurfacedAt = when;
+        await isar.savedUrls.put(url);
+      }
+    });
+  }
+
+  /// Unread links: [openedAt] is null, optional filters for rediscovery/digest.
+  Future<List<SavedUrl>> getUnreadLinks({
+    DateTime? savedBefore,
+    DateTime? notResurfacedSince,
+    int limit = 3,
+  }) async {
+    final isar = await _db;
+    final all = await isar.savedUrls.where().sortBySavedAt().findAll();
+    final out = <SavedUrl>[];
+    for (final u in all) {
+      if (u.openedAt != null) continue;
+      if (savedBefore != null && !u.savedAt.isBefore(savedBefore)) continue;
+      if (notResurfacedSince != null) {
+        final r = u.resurfacedAt;
+        if (r != null && r.isAfter(notResurfacedSince)) continue;
+      }
+      out.add(u);
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+
+  // --------------- COLLECTIONS ---------------
+
+  Future<List<UserCollection>> getAllCollections() async {
+    final isar = await _db;
+    return isar.userCollections.where().sortByCreatedAtDesc().findAll();
+  }
+
+  Future<UserCollection?> getCollectionById(int id) async {
+    final isar = await _db;
+    return isar.userCollections.get(id);
+  }
+
+  Future<UserCollection> createCollection({
+    required String name,
+    required String emoji,
+    String? description,
+  }) async {
+    final isar = await _db;
+    final c = UserCollection()
+      ..name = name
+      ..emoji = emoji
+      ..description = description
+      ..createdAt = DateTime.now()
+      ..urlIds = [];
+    await isar.writeTxn(() async {
+      await isar.userCollections.put(c);
+    });
+    return c;
+  }
+
+  Future<void> addUrlToCollection({
+    required int collectionId,
+    required int urlId,
+  }) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final c = await isar.userCollections.get(collectionId);
+      if (c == null) return;
+      if (!c.urlIds.contains(urlId)) {
+        c.urlIds = [...c.urlIds, urlId];
+        await isar.userCollections.put(c);
+      }
+    });
+  }
+
+  Future<void> removeUrlFromCollection({
+    required int collectionId,
+    required int urlId,
+  }) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final c = await isar.userCollections.get(collectionId);
+      if (c == null) return;
+      c.urlIds = c.urlIds.where((id) => id != urlId).toList();
+      await isar.userCollections.put(c);
+    });
+  }
+
+  Future<void> deleteCollection(int id) async {
+    final isar = await _db;
+    await isar.writeTxn(() => isar.userCollections.delete(id));
+  }
+
+  Future<List<SavedUrl>> getUrlsInCollection(int collectionId) async {
+    final isar = await _db;
+    final c = await isar.userCollections.get(collectionId);
+    if (c == null) return [];
+    final out = <SavedUrl>[];
+    for (final id in c.urlIds) {
+      final u = await isar.savedUrls.get(id);
+      if (u != null) out.add(u);
+    }
+    out.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+    return out;
+  }
+
   // --------------- DELETE ---------------
 
   Future<bool> deleteUrl(int id) async {
     final isar = await _db;
-    return isar.writeTxn(() => isar.savedUrls.delete(id));
+    return isar.writeTxn(() async {
+      final ok = await isar.savedUrls.delete(id);
+      if (ok) {
+        final collections = await isar.userCollections.where().findAll();
+        for (final col in collections) {
+          if (col.urlIds.contains(id)) {
+            col.urlIds = col.urlIds.where((x) => x != id).toList();
+            await isar.userCollections.put(col);
+          }
+        }
+      }
+      return ok;
+    });
   }
 
   Future<void> deleteUrlsByCategory(String category) async {
@@ -338,7 +476,10 @@ class IsarService {
 
   Future<void> deleteAll() async {
     final isar = await _db;
-    await isar.writeTxn(() => isar.savedUrls.clear());
+    await isar.writeTxn(() async {
+      await isar.savedUrls.clear();
+      await isar.userCollections.clear();
+    });
   }
 
   // --------------- STREAM ---------------

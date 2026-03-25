@@ -1,3 +1,8 @@
+import org.gradle.api.file.Directory
+import org.gradle.api.tasks.Delete
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 allprojects {
     repositories {
         google()
@@ -41,10 +46,14 @@ subprojects {
             }
         }
     }
-    project.plugins.withId("org.jetbrains.kotlin.android") {
-        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+}
+
+// After all plugin build.gradle files run (workmanager sets Kotlin 1.8 in a nested task block).
+gradle.projectsEvaluated {
+    subprojects.forEach { sub ->
+        sub.tasks.withType(KotlinCompile::class.java).configureEach {
             compilerOptions {
-                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                jvmTarget.set(JvmTarget.JVM_17)
             }
         }
     }

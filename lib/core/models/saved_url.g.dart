@@ -52,38 +52,48 @@ const SavedUrlSchema = CollectionSchema(
       name: r'embedding',
       type: IsarType.doubleList,
     ),
-    r'rawUrl': PropertySchema(
+    r'openedAt': PropertySchema(
       id: 7,
+      name: r'openedAt',
+      type: IsarType.dateTime,
+    ),
+    r'rawUrl': PropertySchema(
+      id: 8,
       name: r'rawUrl',
       type: IsarType.string,
     ),
+    r'resurfacedAt': PropertySchema(
+      id: 9,
+      name: r'resurfacedAt',
+      type: IsarType.dateTime,
+    ),
     r'savedAt': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -215,13 +225,15 @@ void _savedUrlSerialize(
   writer.writeString(offsets[4], object.domain);
   writer.writeStringList(offsets[5], object.effectiveCategories);
   writer.writeDoubleList(offsets[6], object.embedding);
-  writer.writeString(offsets[7], object.rawUrl);
-  writer.writeDateTime(offsets[8], object.savedAt);
-  writer.writeString(offsets[9], object.summary);
-  writer.writeStringList(offsets[10], object.tags);
-  writer.writeString(offsets[11], object.thumbnailUrl);
-  writer.writeString(offsets[12], object.title);
-  writer.writeString(offsets[13], object.userNotes);
+  writer.writeDateTime(offsets[7], object.openedAt);
+  writer.writeString(offsets[8], object.rawUrl);
+  writer.writeDateTime(offsets[9], object.resurfacedAt);
+  writer.writeDateTime(offsets[10], object.savedAt);
+  writer.writeString(offsets[11], object.summary);
+  writer.writeStringList(offsets[12], object.tags);
+  writer.writeString(offsets[13], object.thumbnailUrl);
+  writer.writeString(offsets[14], object.title);
+  writer.writeString(offsets[15], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -238,13 +250,15 @@ SavedUrl _savedUrlDeserialize(
   object.domain = reader.readString(offsets[4]);
   object.embedding = reader.readDoubleList(offsets[6]);
   object.id = id;
-  object.rawUrl = reader.readString(offsets[7]);
-  object.savedAt = reader.readDateTime(offsets[8]);
-  object.summary = reader.readStringOrNull(offsets[9]);
-  object.tags = reader.readStringList(offsets[10]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[11]);
-  object.title = reader.readString(offsets[12]);
-  object.userNotes = reader.readStringOrNull(offsets[13]);
+  object.openedAt = reader.readDateTimeOrNull(offsets[7]);
+  object.rawUrl = reader.readString(offsets[8]);
+  object.resurfacedAt = reader.readDateTimeOrNull(offsets[9]);
+  object.savedAt = reader.readDateTime(offsets[10]);
+  object.summary = reader.readStringOrNull(offsets[11]);
+  object.tags = reader.readStringList(offsets[12]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[13]);
+  object.title = reader.readString(offsets[14]);
+  object.userNotes = reader.readStringOrNull(offsets[15]);
   return object;
 }
 
@@ -270,18 +284,22 @@ P _savedUrlDeserializeProp<P>(
     case 6:
       return (reader.readDoubleList(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 8:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 9:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 10:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readDateTime(offset)) as P;
     case 11:
       return (reader.readStringOrNull(offset)) as P;
     case 12:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readString(offset)) as P;
+    case 15:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1810,6 +1828,75 @@ extension SavedUrlQueryFilter
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> openedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'openedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> openedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'openedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> openedAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'openedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> openedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'openedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> openedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'openedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> openedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'openedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> rawUrlEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1936,6 +2023,77 @@ extension SavedUrlQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'rawUrl',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> resurfacedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'resurfacedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      resurfacedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'resurfacedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> resurfacedAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'resurfacedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      resurfacedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'resurfacedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> resurfacedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'resurfacedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> resurfacedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'resurfacedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -2839,6 +2997,18 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByOpenedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'openedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByOpenedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'openedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByRawUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawUrl', Sort.asc);
@@ -2848,6 +3018,18 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByRawUrlDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawUrl', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByResurfacedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'resurfacedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByResurfacedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'resurfacedAt', Sort.desc);
     });
   }
 
@@ -2974,6 +3156,18 @@ extension SavedUrlQuerySortThenBy
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByOpenedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'openedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByOpenedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'openedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByRawUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawUrl', Sort.asc);
@@ -2983,6 +3177,18 @@ extension SavedUrlQuerySortThenBy
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByRawUrlDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawUrl', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByResurfacedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'resurfacedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByResurfacedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'resurfacedAt', Sort.desc);
     });
   }
 
@@ -3096,10 +3302,22 @@ extension SavedUrlQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByOpenedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'openedAt');
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByRawUrl(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'rawUrl', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByResurfacedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'resurfacedAt');
     });
   }
 
@@ -3195,9 +3413,21 @@ extension SavedUrlQueryProperty
     });
   }
 
+  QueryBuilder<SavedUrl, DateTime?, QQueryOperations> openedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'openedAt');
+    });
+  }
+
   QueryBuilder<SavedUrl, String, QQueryOperations> rawUrlProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'rawUrl');
+    });
+  }
+
+  QueryBuilder<SavedUrl, DateTime?, QQueryOperations> resurfacedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'resurfacedAt');
     });
   }
 

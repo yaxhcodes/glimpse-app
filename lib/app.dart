@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'core/providers/service_providers.dart';
 import 'core/services/bundled_keys.dart';
+import 'core/services/digest_notifications.dart';
+import 'core/services/digest_scheduler.dart';
 import 'core/services/embedding_backfill_service.dart';
 import 'core/services/embedding_service.dart';
 import 'core/services/link_preview_service.dart';
@@ -17,6 +20,10 @@ import 'features/mindmap/interest_clusters_provider.dart';
 import 'features/add_url/add_url_screen.dart';
 import 'features/add_url/add_url_provider.dart';
 import 'features/categories/category_screen.dart';
+import 'features/collections/collection_detail_screen.dart';
+import 'features/collections/collections_screen.dart';
+import 'features/collections/create_collection_screen.dart';
+import 'features/digest/digest_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/url_detail/url_detail_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -33,8 +40,12 @@ import 'shared/theme/theme_provider.dart';
 /// Provider that holds a URL received via Android share intent.
 final sharedUrlProvider = StateProvider<String?>((ref) => null);
 
+/// Root navigator for notification deep links.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 // GoRouter configuration — needs to be accessible for programmatic navigation
 final _router = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
     GoRoute(
@@ -58,6 +69,25 @@ final _router = GoRouter(
     GoRoute(
       path: '/search',
       builder: (context, state) => const SearchScreen(),
+    ),
+    GoRoute(
+      path: '/digest',
+      builder: (context, state) => const DigestScreen(),
+    ),
+    GoRoute(
+      path: '/collections',
+      builder: (context, state) => const CollectionsScreen(),
+    ),
+    GoRoute(
+      path: '/collections/new',
+      builder: (context, state) => const CreateCollectionScreen(),
+    ),
+    GoRoute(
+      path: '/collections/:id',
+      builder: (context, state) {
+        final id = int.parse(state.pathParameters['id']!);
+        return CollectionDetailScreen(collectionId: id);
+      },
     ),
     GoRoute(
       path: '/url/:id',
@@ -117,6 +147,19 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        DigestNotifications.init(
+          onOpenDigest: () {
+            final ctx = rootNavigatorKey.currentContext;
+            if (ctx == null) return;
+            GoRouter.of(ctx).go('/digest');
+          },
+        ),
+      );
+      unawaited(DigestScheduler.reschedule());
+    });
 
     // Handle intent that launched the app (cold start)
     ReceiveSharingIntent.instance

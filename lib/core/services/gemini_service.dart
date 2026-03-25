@@ -527,6 +527,69 @@ Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster
   }
 
   /// Four short questions from high-level interest themes (no specific titles).
+  /// Short collection title + emoji from a few bookmark titles.
+  Future<String> suggestCollectionName(List<SavedUrl> urls) async {
+    if (urls.isEmpty) return '📁 New collection';
+    final titles = urls.take(5).map((u) => '"${u.title}"').join(', ');
+    final prompt = '''
+A user is creating a bookmark collection containing these links: $titles
+Suggest a short, specific collection name (2-4 words) and one emoji.
+Return JSON only: {"name": "...", "emoji": "..."}
+''';
+    final response = await _generateWithFallback(
+      primaryModel: _jsonModel,
+      fallbackModel: _jsonFallbackModel,
+      prompt: prompt,
+    );
+    final cleaned = (response.text ?? '{}')
+        .trim()
+        .replaceAll(RegExp(r'```json|```'), '');
+    try {
+      final data = json.decode(cleaned) as Map<String, dynamic>;
+      final name = (data['name'] as String? ?? 'Collection').trim();
+      final emoji = (data['emoji'] as String? ?? '📁').trim();
+      return '$emoji $name';
+    } catch (_) {
+      return '📁 New collection';
+    }
+  }
+
+  /// One-sentence summaries for digest notifications (same order as [links]).
+  Future<List<String>> summarizeLinksForDigest(List<SavedUrl> links) async {
+    if (links.isEmpty) return const [];
+    final items = links.map((l) {
+      final host = Uri.tryParse(l.rawUrl)?.host ?? l.domain;
+      return '- "${l.title}" from $host: ${l.description.isNotEmpty ? l.description : l.tags.join(', ')}';
+    }).join('\n');
+
+    final prompt = '''
+Summarize each of these saved links in exactly one punchy sentence (max 12 words each).
+Make them sound interesting — like a friend recommending something.
+Return a JSON array of strings in the same order.
+
+$items
+''';
+
+    final response = await _generateWithFallback(
+      primaryModel: _jsonModel,
+      fallbackModel: _jsonFallbackModel,
+      prompt: prompt,
+    );
+    final cleaned = (response.text ?? '[]')
+        .trim()
+        .replaceAll(RegExp(r'```json|```'), '');
+    try {
+      final decoded = json.decode(cleaned);
+      if (decoded is! List<dynamic>) return List.filled(links.length, '');
+      return decoded
+          .map((e) => e.toString().trim())
+          .take(links.length)
+          .toList();
+    } catch (_) {
+      return List.filled(links.length, 'Worth revisiting from your saves.');
+    }
+  }
+
   Future<List<String>> generateAskSuggestionsFromClusterThemes(
     String themeLinesBlock,
   ) {

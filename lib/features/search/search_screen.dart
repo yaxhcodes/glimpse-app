@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/models/saved_url.dart';
-import '../../shared/widgets/url_card.dart';
+
+import '../../core/providers/service_providers.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import 'search_provider.dart';
 
@@ -27,36 +29,74 @@ class SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
-  final _searchController = TextEditingController();
+  final _controller = TextEditingController();
+  Timer? _debounce;
+  bool _pendingSearch = false;
 
-  List<SavedUrl> _applyDateFilter(List<SavedUrl> urls, DateFilter filter) {
+  List<SearchResult> _applyDateFilter(
+    List<SearchResult> results,
+    DateFilter filter,
+  ) {
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
     switch (filter) {
       case DateFilter.all:
-        return urls;
+        return results;
       case DateFilter.today:
-        return urls.where((u) => u.savedAt.isAfter(startOfToday)).toList();
+        return results
+            .where((r) => r.url.savedAt.isAfter(startOfToday))
+            .toList();
       case DateFilter.thisWeek:
         final weekAgo = startOfToday.subtract(const Duration(days: 7));
-        return urls.where((u) => u.savedAt.isAfter(weekAgo)).toList();
+        return results
+            .where((r) => r.url.savedAt.isAfter(weekAgo))
+            .toList();
       case DateFilter.thisMonth:
         final monthAgo = DateTime(now.year, now.month - 1, now.day);
-        return urls.where((u) => u.savedAt.isAfter(monthAgo)).toList();
+        return results
+            .where((r) => r.url.savedAt.isAfter(monthAgo))
+            .toList();
     }
+  }
+
+  void _onQueryChanged(String query) {
+    _debounce?.cancel();
+    final t = query.trim();
+    if (t.length <= 2) {
+      ref.read(searchProvider.notifier).clear();
+      setState(() => _pendingSearch = false);
+      return;
+    }
+    setState(() => _pendingSearch = true);
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      setState(() => _pendingSearch = false);
+      ref.read(searchProvider.notifier).search(t);
+    });
+  }
+
+  Future<void> _onOpenResult(SearchResult result) async {
+    await ref
+        .read(isarServiceProvider)
+        .updateOpenedAt(result.url.id, DateTime.now());
+    if (!mounted) return;
+    context.push('/url/${result.url.id}');
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _debounce?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final resultsAsync = ref.watch(searchOutcomeProvider);
-    final query = ref.watch(searchQueryProvider);
+    final resultsAsync = ref.watch(searchProvider);
+    final query = _controller.text;
     final dateFilter = ref.watch(dateFilterProvider);
+    final queryTrim = query.trim();
+    final mode = ref.watch(searchModeProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -73,7 +113,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               borderRadius: BorderRadius.circular(18),
             ),
             child: TextField(
-              controller: _searchController,
+              controller: _controller,
               autofocus: true,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w500,
@@ -116,14 +156,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ),
                         tooltip: 'Clear',
                         onPressed: () {
-                          _searchController.clear();
-                          ref.read(searchQueryProvider.notifier).state = '';
+                          _controller.clear();
+                          ref.read(searchProvider.notifier).clear();
+                          setState(() {});
                         },
                       )
                     : null,
               ),
               onChanged: (value) {
-                ref.read(searchQueryProvider.notifier).state = value;
+                setState(() {});
+                _onQueryChanged(value);
               },
             ),
           ),
@@ -152,9 +194,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               }).toList(),
             ),
           ),
-
           Expanded(
-            child: query.trim().isEmpty
+            child: queryTrim.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -178,159 +219,245 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                     ),
                   )
-                : resultsAsync.when(
-                    loading: () => const LoadingIndicator(
-                      message: 'Searching your library…',
-                    ),
-                    error: (err, _) => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.cloud_off_outlined,
-                              size: 48,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Search failed',
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '$err',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 20),
-                            FilledButton.tonalIcon(
-                              onPressed: () => ref.invalidate(
-                                searchOutcomeProvider,
-                              ),
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Try again'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    data: (outcome) {
-                      final filtered =
-                          _applyDateFilter(outcome.urls, dateFilter);
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (outcome.mode == SearchMode.semantic &&
-                              query.trim().isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                0,
-                                16,
-                                8,
-                              ),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.secondaryContainer
-                                        .withValues(alpha: 0.65),
-                                    borderRadius: BorderRadius.circular(20),
+                : _pendingSearch || resultsAsync.isLoading
+                    ? const LoadingIndicator(
+                        message: 'Searching your library…',
+                      )
+                    : resultsAsync.when(
+                        data: (results) {
+                          final filtered =
+                              _applyDateFilter(results, dateFilter);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (mode == SearchMode.semantic &&
+                                  queryTrim.length > 2)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    8,
                                   ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.auto_awesome,
-                                          size: 16,
-                                          color: colorScheme.primary,
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.secondaryContainer
+                                            .withValues(alpha: 0.65),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
                                         ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Semantic match',
-                                          style: theme.textTheme.labelLarge
-                                              ?.copyWith(
-                                            color: colorScheme
-                                                .onSecondaryContainer,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.auto_awesome,
+                                              size: 16,
+                                              color: colorScheme.primary,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Semantic match',
+                                              style: theme.textTheme.labelLarge
+                                                  ?.copyWith(
+                                                color: colorScheme
+                                                    .onSecondaryContainer,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          Expanded(
-                            child: filtered.isEmpty
-                                ? Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 32,
-                                      ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.search_off_rounded,
-                                            size: 52,
-                                            color: colorScheme
-                                                .onSurfaceVariant,
+                              Expanded(
+                                child: filtered.isEmpty
+                                    ? Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 32,
                                           ),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            'No matches for this filter',
-                                            style: theme.textTheme.titleMedium,
-                                            textAlign: TextAlign.center,
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.search_off_rounded,
+                                                size: 52,
+                                                color: colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                              const SizedBox(height: 16),
+                                              Text(
+                                                'No matches for this filter',
+                                                style: theme
+                                                    .textTheme.titleMedium,
+                                                textAlign: TextAlign.center,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'Try another time range or '
+                                                'broaden your search.',
+                                                style: theme.textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                  color: colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Try another time range or '
-                                            'broaden your search.',
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                              color: colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    padding: const EdgeInsets.only(
-                                      top: 4,
-                                      bottom: 24,
-                                    ),
-                                    itemCount: filtered.length,
-                                    itemBuilder: (_, index) {
-                                      final url = filtered[index];
-                                      return UrlCard(
-                                        savedUrl: url,
-                                        onTap: () => context.push(
-                                          '/url/${url.id}',
                                         ),
-                                      );
-                                    },
+                                      )
+                                    : ListView.builder(
+                                        padding: const EdgeInsets.only(
+                                          top: 4,
+                                          bottom: 24,
+                                        ),
+                                        itemCount: filtered.length,
+                                        itemBuilder: (_, index) {
+                                          return _buildSearchResultCard(
+                                            filtered[index],
+                                            colorScheme,
+                                            theme.textTheme,
+                                            _onOpenResult,
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ],
+                          );
+                        },
+                        loading: () => const LoadingIndicator(
+                          message: 'Searching your library…',
+                        ),
+                        error: (err, _) => Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.cloud_off_outlined,
+                                  size: 48,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Search failed',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '$err',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
                                   ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 20),
+                                FilledButton.tonalIcon(
+                                  onPressed: () {
+                                    final t = _controller.text.trim();
+                                    if (t.length > 2) {
+                                      ref
+                                          .read(searchProvider.notifier)
+                                          .search(t);
+                                    }
+                                  },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Try again'),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ),
           ),
         ],
       ),
     );
   }
+}
+
+Widget _buildSearchResultCard(
+  SearchResult result,
+  ColorScheme cs,
+  TextTheme tt,
+  Future<void> Function(SearchResult) onTap,
+) {
+  final relevance = result.score;
+
+  return Card(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    color: cs.surfaceContainerLow,
+    elevation: 0,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    child: InkWell(
+      onTap: () => onTap(result),
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 3,
+              height: 52,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: relevance > 0
+                    ? Color.lerp(
+                        cs.outline,
+                        cs.primary,
+                        ((relevance - 0.45) / 0.55).clamp(0.0, 1.0),
+                      )
+                    : cs.outlineVariant,
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    result.url.title,
+                    style: tt.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    Uri.parse(result.url.rawUrl)
+                        .host
+                        .replaceFirst('www.', ''),
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 4,
+                    children: result.url.tags.take(3).map((tag) {
+                      return Chip(
+                        label: Text(tag, style: tt.labelSmall),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

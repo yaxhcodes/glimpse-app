@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:workmanager/workmanager.dart';
+
 import 'app.dart';
+import 'digest_callback.dart';
 import 'core/database/isar_service.dart';
 import 'core/providers/service_providers.dart';
 import 'core/services/subscription_service.dart';
@@ -16,6 +19,8 @@ void main() async {
 
   // Initialise RevenueCat SDK.
   await SubscriptionService.init();
+
+  await Workmanager().initialize(digestCallbackDispatcher);
 
   FlutterNativeSplash.remove();
 

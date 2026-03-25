@@ -226,7 +226,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   ) {
     final subtitle = savedUrlCount == 0
         ? 'Save your first link to get started.'
-        : 'You have $savedUrlCount ${savedUrlCount == 1 ? 'link' : 'links'} saved. Ask me anything.';
+        : 'Ask me anything — find a link, summarize what you saved, or explore a topic.';
 
     return Center(
       child: ConstrainedBox(

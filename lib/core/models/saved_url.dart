@@ -36,6 +36,12 @@ class SavedUrl {
 
   late DateTime savedAt;
 
+  /// When the user first opened the link from the app (null = never opened).
+  DateTime? openedAt;
+
+  /// Last time this link was shown in rediscovery (limits repeat surfacing).
+  DateTime? resurfacedAt;
+
   /// Embedding vector for semantic search (1024-dim from Voyage AI).
   /// Null or empty until embedded (new saves or backfill).
   List<double>? embedding;
