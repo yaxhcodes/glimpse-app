@@ -1,3 +1,6 @@
+# Local installers / binaries (GitHub 100MB limit; never commit)
+assets/**/*.exe
+
 # Miscellaneous
 *.class
 *.log
