@@ -10,6 +10,7 @@ import '../../core/services/embedding_input.dart';
 import '../../core/services/embedding_service.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/bundled_keys.dart';
+import '../mindmap/interest_clusters_provider.dart';
 
 /// State for the Add URL flow.
 enum AddUrlStatus {
@@ -228,7 +229,9 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
 
       await isarService.saveUrl(savedUrl);
       await clearAskSuggestionsCache();
+      await clearInterestClusterCache();
       _ref.invalidate(askEmptySuggestionsProvider);
+      _ref.invalidate(interestClusterThemesProvider);
 
       state = state.copyWith(status: AddUrlStatus.done);
       _isSaving = false;

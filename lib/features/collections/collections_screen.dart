@@ -6,7 +6,9 @@ import '../../core/models/user_collection.dart';
 import 'collections_provider.dart';
 
 class CollectionsScreen extends ConsumerWidget {
-  const CollectionsScreen({super.key});
+  const CollectionsScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,6 +19,7 @@ class CollectionsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Collections'),
+        automaticallyImplyLeading: !embedded,
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),

@@ -20,27 +20,37 @@ class RediscoverySection extends ConsumerWidget {
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 10),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 2),
                 child: Text(
-                  'From your archive',
-                  style: tt.labelMedium?.copyWith(
-                    color: cs.secondary,
-                    fontWeight: FontWeight.w600,
+                  'Rediscover',
+                  style: tt.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Text(
+                  'Based on your activity',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ),
               SizedBox(
-                height: 120,
+                height: 150,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: links.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, i) => _RediscoveryMiniCard(
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) => _RediscoveryCard(
                     url: links[i],
                     onTap: () async {
                       final svc = RediscoveryService(
@@ -66,8 +76,8 @@ class RediscoverySection extends ConsumerWidget {
   }
 }
 
-class _RediscoveryMiniCard extends StatelessWidget {
-  const _RediscoveryMiniCard({
+class _RediscoveryCard extends StatelessWidget {
+  const _RediscoveryCard({
     required this.url,
     required this.onTap,
   });
@@ -84,13 +94,13 @@ class _RediscoveryMiniCard extends StatelessWidget {
 
     return Material(
       color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: SizedBox(
-          width: 200,
+          width: 220,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -100,16 +110,18 @@ class _RediscoveryMiniCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorWidget: (_, __, ___) => const SizedBox.shrink(),
                 ),
-              // Gradient scrim so text is always readable
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
+                    stops: hasThumbnail
+                        ? const [0.25, 1.0]
+                        : null,
                     colors: hasThumbnail
                         ? [
-                            Colors.black.withValues(alpha: 0.15),
-                            Colors.black.withValues(alpha: 0.78),
+                            Colors.black.withValues(alpha: 0.05),
+                            Colors.black.withValues(alpha: 0.80),
                           ]
                         : [
                             cs.surfaceContainerHigh,
@@ -119,17 +131,17 @@ class _RediscoveryMiniCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
                       url.title,
-                      style: tt.labelMedium?.copyWith(
+                      style: tt.bodySmall?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: hasThumbnail ? Colors.white : null,
-                        height: 1.25,
+                        color: hasThumbnail ? Colors.white : cs.onSurface,
+                        height: 1.3,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

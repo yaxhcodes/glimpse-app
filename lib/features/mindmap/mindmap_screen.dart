@@ -406,6 +406,16 @@ class MindmapScreen extends ConsumerWidget {
         ),
         backgroundColor: cs.surface,
         surfaceTintColor: Colors.transparent,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Rebuild map',
+            onPressed: () async {
+              await clearInterestClusterCache();
+              ref.invalidate(interestClusterThemesProvider);
+            },
+          ),
+        ],
       ),
       body: themesAsync.when(
         loading: () => const LoadingIndicator(message: 'Mapping your library…'),

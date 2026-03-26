@@ -22,7 +22,9 @@ enum DateFilter {
 final dateFilterProvider = StateProvider<DateFilter>((ref) => DateFilter.all);
 
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -103,7 +105,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 72,
-        titleSpacing: 0,
+        titleSpacing: widget.embedded ? 16 : 0,
+        automaticallyImplyLeading: !widget.embedded,
         scrolledUnderElevation: 0,
         title: Padding(
           padding: const EdgeInsets.only(right: 8),

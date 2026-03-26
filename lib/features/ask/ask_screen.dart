@@ -34,7 +34,9 @@ String _askGreetingLine(String? userName) {
 }
 
 class AskScreen extends ConsumerStatefulWidget {
-  const AskScreen({super.key});
+  const AskScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   ConsumerState<AskScreen> createState() => _AskScreenState();
@@ -97,7 +99,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       appBar: AppBar(
         surfaceTintColor: colorScheme.surfaceTint,
         titleSpacing: 0,
-        leading: context.canPop()
+        leading: !widget.embedded && context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                 onPressed: () => context.pop(),

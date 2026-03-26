@@ -16,6 +16,7 @@ import 'core/models/saved_url.dart';
 import 'features/ask/ask_empty_suggestions_provider.dart';
 import 'features/home/home_provider.dart';
 import 'features/home/home_screen.dart';
+import 'features/shell/main_shell.dart';
 import 'features/mindmap/interest_clusters_provider.dart';
 import 'features/add_url/add_url_screen.dart';
 import 'features/add_url/add_url_provider.dart';
@@ -50,7 +51,7 @@ final _router = GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) => const HomeScreen(),
+      builder: (context, state) => const MainShell(),
     ),
     GoRoute(
       path: '/add',

@@ -14,7 +14,7 @@ const kInterestClustersJsonKey = 'glimpse_clusters_v4';
 const _maxDisplayClusters = 8;
 const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count';
 
-const _clusterRebuildThreshold = 5;
+const _clusterRebuildThreshold = 1;
 
 List<Map<String, dynamic>> _rowsForIsolate(List<SavedUrl> urls) {
   return urls

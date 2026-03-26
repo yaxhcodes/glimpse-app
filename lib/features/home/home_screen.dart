@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -121,7 +120,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ];
 
           return RefreshIndicator(
-            edgeOffset: 120,
+            edgeOffset: 60,
             onRefresh: () async {
               ref.invalidate(urlStreamProvider);
               ref.invalidate(categoriesProvider);
@@ -130,24 +129,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-              // ─── Large Material 3 title ────────────────────────
-              SliverAppBar.large(
-                title: const Text('Glimpse'),
+              SliverAppBar(
+                floating: true,
+                snap: true,
                 centerTitle: false,
+                title: Text(
+                  'Glimpse',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
+                ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.add_link),
+                    icon: const Icon(Icons.add_link_rounded),
                     tooltip: 'Add URL',
                     onPressed: () => context.push('/add'),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => context.push('/search'),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.collections_bookmark_outlined),
-                    tooltip: 'Collections',
-                    onPressed: () => context.push('/collections'),
                   ),
                   IconButton(
                     icon: const Icon(Icons.hub_outlined),
@@ -155,7 +152,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     onPressed: () => context.push('/mindmap'),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.settings),
+                    icon: const Icon(Icons.settings_outlined),
+                    tooltip: 'Settings',
                     onPressed: () => context.push('/settings'),
                   ),
                 ],
@@ -164,52 +162,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (urls.isNotEmpty)
                 const SliverToBoxAdapter(child: RediscoverySection()),
 
-              // ─── Categories ──────────────────────────────────
-              SliverToBoxAdapter(
-                child: orderedCategories.isEmpty
-                    ? const SizedBox.shrink()
-                    : SizedBox(
-                        height: 48,
-                        child: ListView.builder(
+              if (orderedCategories.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                        child: Text(
+                          'Filter by source',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 40,
+                        child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           clipBehavior: Clip.none,
-                          padding: const EdgeInsets.only(left: 16, right: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: orderedCategories.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
                           itemBuilder: (context, index) {
                             final cat = orderedCategories[index];
                             final name = cat['category'] as String;
                             final emoji = cat['emoji'] as String;
                             final fav = faviconUrl(name);
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: GestureDetector(
-                                onLongPress: () =>
-                                    _showReorderSheet(context),
-                                child: ActionChip(
-                                  avatar: fav != null
-                                      ? ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(3),
-                                          child: CachedNetworkImage(
-                                            imageUrl: fav,
-                                            width: 18,
-                                            height: 18,
-                                            errorWidget: (_, _, _) =>
-                                                Text(emoji),
-                                          ),
-                                        )
-                                      : Text(emoji),
-                                  label: Text(name),
-                                  onPressed: () => context.push(
-                                    '/category/${Uri.encodeComponent(name)}',
-                                  ),
+                            return GestureDetector(
+                              onLongPress: () => _showReorderSheet(context),
+                              child: FilterChip(
+                                showCheckmark: false,
+                                avatar: fav != null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(3),
+                                        child: CachedNetworkImage(
+                                          imageUrl: fav,
+                                          width: 18,
+                                          height: 18,
+                                          errorWidget: (_, _, _) =>
+                                              Text(emoji),
+                                        ),
+                                      )
+                                    : Text(emoji),
+                                label: Text(name),
+                                selected: false,
+                                onSelected: (_) => context.push(
+                                  '/category/${Uri.encodeComponent(name)}',
                                 ),
                               ),
                             );
                           },
                         ),
                       ),
-              ),
+                    ],
+                  ),
+                ),
 
               // ─── Content ───────────────────────────────────────
 
@@ -284,15 +292,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 )
               else if (urls.isNotEmpty) ...[
                 for (final section in sections) ...[
-                  // Section header
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 16, 4),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 16, 8),
                       child: Text(
                         section.label,
-                        style: theme.textTheme.labelMedium?.copyWith(
+                        style: theme.textTheme.labelLarge?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
-                          letterSpacing: 0.8,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ),
@@ -330,23 +338,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ],
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                const SliverToBoxAdapter(child: SizedBox(height: 88)),
               ],
             ],
             ),
           );
         },
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: _AskFab(
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            context.push('/ask');
-          },
-        ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/add'),
+        tooltip: 'Save a link',
+        elevation: 2,
+        child: const Icon(Icons.add_rounded),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
   void _showReorderSheet(BuildContext context) {
@@ -360,22 +364,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _AskFab extends StatelessWidget {
-  const _AskFab({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Ask a question about your saved links',
-      child: FloatingActionButton.extended(
-        onPressed: onPressed,
-        label: const Text('Ask Glimpse'),
-      ),
-    );
-  }
-}
 
 class _CategoryReorderSheet extends ConsumerStatefulWidget {
   const _CategoryReorderSheet();
