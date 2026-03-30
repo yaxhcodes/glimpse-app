@@ -105,11 +105,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 72,
-        titleSpacing: widget.embedded ? 16 : 0,
+        titleSpacing: 0,
         automaticallyImplyLeading: !widget.embedded,
         scrolledUnderElevation: 0,
         title: Padding(
-          padding: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
@@ -177,21 +177,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: DateFilter.values.map((f) {
                 final selected = dateFilter == f;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(f.label),
+                  child: _DateFilterPill(
+                    label: f.label,
                     selected: selected,
-                    onSelected: (_) =>
+                    onTap: () =>
                         ref.read(dateFilterProvider.notifier).state = f,
-                    showCheckmark: false,
+                    colorScheme: colorScheme,
+                    textTheme: theme.textTheme,
                   ),
                 );
               }).toList(),
@@ -383,6 +384,53 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DateFilterPill extends StatelessWidget {
+  const _DateFilterPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.colorScheme,
+    required this.textTheme,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? colorScheme.secondaryContainer : Colors.transparent,
+      shape: StadiumBorder(
+        side: selected
+            ? BorderSide.none
+            : BorderSide(
+                color: colorScheme.outline.withValues(alpha: 0.6),
+              ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            label,
+            style: textTheme.labelLarge?.copyWith(
+              color: selected
+                  ? colorScheme.onSecondaryContainer
+                  : colorScheme.onSurfaceVariant,
+              fontWeight:
+                  selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ),
       ),
     );
   }

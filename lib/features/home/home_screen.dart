@@ -147,11 +147,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     onPressed: () => context.push('/add'),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.hub_outlined),
-                    tooltip: 'Interest Map',
-                    onPressed: () => context.push('/mindmap'),
-                  ),
-                  IconButton(
                     icon: const Icon(Icons.settings_outlined),
                     tooltip: 'Settings',
                     onPressed: () => context.push('/settings'),
@@ -338,18 +333,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ],
-                const SliverToBoxAdapter(child: SizedBox(height: 88)),
+                const SliverToBoxAdapter(child: SizedBox(height: 96)),
               ],
             ],
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/add'),
-        tooltip: 'Save a link',
-        elevation: 2,
-        child: const Icon(Icons.add_rounded),
       ),
     );
   }

@@ -379,7 +379,9 @@ class _MindmapEmptyState extends StatelessWidget {
 }
 
 class MindmapScreen extends ConsumerWidget {
-  const MindmapScreen({super.key});
+  const MindmapScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -389,6 +391,7 @@ class MindmapScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
+        automaticallyImplyLeading: !embedded,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
