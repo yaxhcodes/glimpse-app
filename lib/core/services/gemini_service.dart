@@ -5,6 +5,8 @@ import '../models/saved_url.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
 
+// ─── Result types ─────────────────────────────────────────────────────────────
+
 /// Result from AI categorization.
 class CategorizationResult {
   final String category;
@@ -36,107 +38,121 @@ class ChatResponse {
   final String intro;
   final List<ChatResponseSection> sections;
 
-  const ChatResponse({
-    required this.intro,
-    required this.sections,
-  });
+  const ChatResponse({required this.intro, required this.sections});
 }
 
-/// Wraps the Gemini Flash API for all AI operations in Glimpse.
+// ─── Service ──────────────────────────────────────────────────────────────────
+
+/// Wraps the Gemini API for all AI operations in Glimpse.
 class GeminiService {
-  static const _primaryModelName = 'gemini-2.5-flash';
-  static const _fallbackModelName = 'gemini-2.0-flash-lite';
-  static final _jsonGenerationConfig = GenerationConfig(
+  // Models
+  static const _primaryModel = 'gemini-2.5-flash';
+  static const _fallbackModel = 'gemini-2.0-flash-lite';
+
+  // Timeouts
+  static const _primaryTimeout = Duration(seconds: 20);
+  static const _fallbackTimeout = Duration(seconds: 15);
+  static const _retryDelay = Duration(milliseconds: 700);
+
+  // Fallback strings — defined once, not scattered across methods
+  static const _fallbackQuestion = 'What stands out in my recent saves?';
+  static const _fallbackCollectionName = '📁 New collection';
+  static const _fallbackDigestSummary = 'Worth revisiting from your saves.';
+
+  static final _jsonConfig = GenerationConfig(
     temperature: 0.2,
     responseMimeType: 'application/json',
   );
-  static final _textGenerationConfig = GenerationConfig(
-    temperature: 0.4,
-  );
+  static final _textConfig = GenerationConfig(temperature: 0.4);
 
-  // JSON output model — structured categorization responses
-  final GenerativeModel _jsonModel;
-
-  final GenerativeModel _jsonFallbackModel;
-
-  // Plain text model — chat, synthesis, translation, recap
-  final GenerativeModel _textModel;
-
-  final GenerativeModel _textFallbackModel;
+  final GenerativeModel _jsonPrimary;
+  final GenerativeModel _jsonFallback;
+  final GenerativeModel _textPrimary;
+  final GenerativeModel _textFallback;
 
   GeminiService(String apiKey)
-      : _jsonModel = GenerativeModel(
-          model: _primaryModelName,
+      : _jsonPrimary = GenerativeModel(
+          model: _primaryModel,
           apiKey: apiKey,
-          generationConfig: _jsonGenerationConfig,
+          generationConfig: _jsonConfig,
         ),
-        _jsonFallbackModel = GenerativeModel(
-          model: _fallbackModelName,
+        _jsonFallback = GenerativeModel(
+          model: _fallbackModel,
           apiKey: apiKey,
-          generationConfig: _jsonGenerationConfig,
+          generationConfig: _jsonConfig,
         ),
-        _textModel = GenerativeModel(
-          model: _primaryModelName,
+        _textPrimary = GenerativeModel(
+          model: _primaryModel,
           apiKey: apiKey,
-          generationConfig: _textGenerationConfig,
+          generationConfig: _textConfig,
         ),
-        _textFallbackModel = GenerativeModel(
-          model: _fallbackModelName,
+        _textFallback = GenerativeModel(
+          model: _fallbackModel,
           apiKey: apiKey,
-          generationConfig: _textGenerationConfig,
+          generationConfig: _textConfig,
         );
 
-  bool _isRetryableModelError(Object error) {
-    final text = error.toString().toLowerCase();
-    return text.contains('503') ||
-        text.contains('500') ||
-        text.contains('overloaded') ||
-        text.contains('high demand') ||
-        text.contains('unavailable');
+  // ─── Core infrastructure ──────────────────────────────────────────────────
+
+  static bool _isRetryable(Object error) {
+    final s = error.toString().toLowerCase();
+    return s.contains('503') ||
+        s.contains('500') ||
+        s.contains('overloaded') ||
+        s.contains('high demand') ||
+        s.contains('unavailable');
   }
 
-  Future<GenerateContentResponse> _generateWithFallback({
-    required GenerativeModel primaryModel,
-    required GenerativeModel fallbackModel,
+  /// Strips markdown code fences from a JSON response string.
+  static String _cleanJson(String raw) => raw
+      .replaceAll(RegExp(r'```json\s*'), '')
+      .replaceAll(RegExp(r'```\s*'), '')
+      .trim();
+
+  /// Calls [model] with [prompt], retrying once on retryable errors, with [timeout].
+  Future<GenerateContentResponse> _tryModel(
+    GenerativeModel model,
+    String prompt,
+    Duration timeout, {
+    required String label,
+  }) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await Future<void>.delayed(_retryDelay);
+      try {
+        return await model
+            .generateContent([Content.text(prompt)]).timeout(timeout);
+      } catch (e) {
+        developer.log('$label attempt $attempt failed: $e',
+            name: 'GeminiService');
+        if (attempt == 0 && _isRetryable(e)) continue;
+        rethrow;
+      }
+    }
+    // Dart control-flow requires this but it's unreachable.
+    throw StateError('Unreachable');
+  }
+
+  /// Tries the primary model, then falls back to the fallback model.
+  /// Throws the fallback's error if both fail.
+  Future<GenerateContentResponse> _generate({
+    required bool jsonMode,
     required String prompt,
   }) async {
-    // Try primary model with one retry
-    for (var attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 700));
-      }
-      try {
-        return await primaryModel.generateContent([Content.text(prompt)]);
-      } catch (error) {
-        developer.log('Gemini primary attempt $attempt failed: $error',
-            name: 'GeminiService');
-        if (attempt == 0 && _isRetryableModelError(error)) continue;
-        // Primary exhausted — fall through to fallback
-        break;
-      }
+    final primary = jsonMode ? _jsonPrimary : _textPrimary;
+    final fallback = jsonMode ? _jsonFallback : _textFallback;
+
+    try {
+      return await _tryModel(primary, prompt, _primaryTimeout,
+          label: 'primary');
+    } catch (_) {
+      // Primary exhausted — try fallback.
     }
 
-    // Try fallback model with one retry
-    for (var attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 700));
-      }
-      try {
-        return await fallbackModel.generateContent([Content.text(prompt)]);
-      } catch (error) {
-        developer.log('Gemini fallback attempt $attempt failed: $error',
-            name: 'GeminiService');
-        if (attempt == 0 && _isRetryableModelError(error)) continue;
-        throw error;
-      }
-    }
-
-    throw Exception('Gemini request failed after all attempts');
+    return _tryModel(fallback, prompt, _fallbackTimeout, label: 'fallback');
   }
 
-  // ─── Categorization ────────────────────────────────────────────────────────
+  // ─── Categorization ───────────────────────────────────────────────────────
 
-  /// Classifies a URL and generates a category, emoji, tags, and 2-3 sentence summary.
   Future<CategorizationResult> categorize({
     required String title,
     required String description,
@@ -153,10 +169,8 @@ ${CategoryTaxonomy.promptOptions()}
 
 Important rules:
 - Keep categories broad and stable.
-- Put the specific topic in tags, not in category.
-- Example: React, Flutter, AI agents, or databases should usually be category "Technology" and appear as tags.
-- Example: gardening, composting, balcony farming should usually be category "Home & Garden" and appear as tags.
-- Example: investing, stocks, budgeting should usually be category "Finance" and appear as tags.
+- Put the specific topic in tags, not the category.
+- Examples: React, Flutter, AI agents → category "Technology"; gardening, composting → "Home & Garden"; investing, budgeting → "Finance".
 
 Title: ${title.isEmpty ? '(not available)' : title}
 Description: ${description.isEmpty ? '(not available)' : description}
@@ -164,21 +178,13 @@ URL: $url
 
 Output valid JSON only. No markdown, no explanation.''';
 
-    final response = await _generateWithFallback(
-      primaryModel: _jsonModel,
-      fallbackModel: _jsonFallbackModel,
-      prompt: prompt,
-    );
+    final response = await _generate(jsonMode: true, prompt: prompt);
     return _parseCategorizationResult(response.text ?? '{}');
   }
 
-  CategorizationResult _parseCategorizationResult(String jsonText) {
+  CategorizationResult _parseCategorizationResult(String raw) {
     try {
-      final cleaned = jsonText
-          .replaceAll(RegExp(r'```json\s*'), '')
-          .replaceAll(RegExp(r'```\s*'), '')
-          .trim();
-      final data = json.decode(cleaned) as Map<String, dynamic>;
+      final data = json.decode(_cleanJson(raw)) as Map<String, dynamic>;
 
       final rawTags = data['tags'];
       final tags = rawTags is List
@@ -202,7 +208,9 @@ Output valid JSON only. No markdown, no explanation.''';
         tags: tags,
         summary: (data['summary'] as String? ?? '').trim(),
       );
-    } catch (_) {
+    } catch (e, stack) {
+      developer.log('Failed to parse categorization result: $e\n$raw',
+          name: 'GeminiService', stackTrace: stack);
       return const CategorizationResult(
         category: 'Other',
         emoji: '🔖',
@@ -212,10 +220,8 @@ Output valid JSON only. No markdown, no explanation.''';
     }
   }
 
-  // ─── Ask Your Bookmarks (RAG chat) ──────────────────────────────────────────
+  // ─── RAG Chat ─────────────────────────────────────────────────────────────
 
-  /// Answers a question using saved URLs as context.
-  /// [contextUrls] should be the top-K semantically similar URLs.
   Future<ChatResponse> chat({
     required String question,
     required List<SavedUrl> contextUrls,
@@ -240,50 +246,37 @@ Return valid JSON only with this exact shape:
 }
 
 Rules:
-- Do not use markdown.
-- Do not use bullet points, asterisks, or numbered lists in the text.
+- Do not use markdown, bullet points, asterisks, or numbered lists in any text field.
 - Keep sections in ascending sourceIndex order.
-- Each section must correspond to one saved bookmark.
-- If multiple bookmarks are relevant, include one section per relevant bookmark.
+- Include one section per relevant bookmark.
 - If nothing is relevant, return an empty sections array and explain that in intro.
-- Do not output raw URLs because the app renders them separately.
+- Do not output raw URLs — the app renders them separately.
 
 SAVED BOOKMARKS:
 $contextBlock
 
 QUESTION: $question''';
 
-    final response = await _generateWithFallback(
-      primaryModel: _jsonModel,
-      fallbackModel: _jsonFallbackModel,
-      prompt: prompt,
-    );
-    final text = response.text ?? '{}';
-    return _parseChatResponse(text, contextUrls);
+    final response = await _generate(jsonMode: true, prompt: prompt);
+    return _parseChatResponse(response.text ?? '{}', contextUrls);
   }
 
-  ChatResponse _parseChatResponse(String jsonText, List<SavedUrl> contextUrls) {
+  ChatResponse _parseChatResponse(String raw, List<SavedUrl> contextUrls) {
     try {
-      final cleaned = jsonText
-          .replaceAll(RegExp(r'```json\s*'), '')
-          .replaceAll(RegExp(r'```\s*'), '')
-          .trim();
-      final data = json.decode(cleaned) as Map<String, dynamic>;
+      final data = json.decode(_cleanJson(raw)) as Map<String, dynamic>;
       final rawSections = data['sections'] as List<dynamic>? ?? const [];
 
       final sections = rawSections
-          .map((item) {
-            final map = item as Map<String, dynamic>;
-            return ChatResponseSection(
-              sourceIndex: (map['sourceIndex'] as num? ?? 0).toInt(),
-              heading: (map['heading'] as String? ?? 'Saved link').trim(),
-              summary: (map['summary'] as String? ?? '').trim(),
-            );
-          })
-          .where((item) =>
-              item.sourceIndex > 0 &&
-              item.sourceIndex <= contextUrls.length &&
-              item.summary.isNotEmpty)
+          .whereType<Map<String, dynamic>>()
+          .map((map) => ChatResponseSection(
+                sourceIndex: (map['sourceIndex'] as num? ?? 0).toInt(),
+                heading: (map['heading'] as String? ?? 'Saved link').trim(),
+                summary: (map['summary'] as String? ?? '').trim(),
+              ))
+          .where((s) =>
+              s.sourceIndex > 0 &&
+              s.sourceIndex <= contextUrls.length &&
+              s.summary.isNotEmpty)
           .toList()
         ..sort((a, b) => a.sourceIndex.compareTo(b.sourceIndex));
 
@@ -291,20 +284,25 @@ QUESTION: $question''';
         intro: (data['intro'] as String? ?? 'Here is what your saved links say.').trim(),
         sections: sections,
       );
-    } catch (_) {
-      final fallbackSections = contextUrls.asMap().entries.map((entry) {
-        final url = entry.value;
-        return ChatResponseSection(
-          sourceIndex: entry.key + 1,
-          heading: url.title.isNotEmpty
-              ? url.title
-              : CategoryResolver.displaySourceName(
-                  rawUrl: url.rawUrl,
-                  fallbackDomain: url.domain,
-                ),
-          summary: (url.summary ?? url.description).trim(),
-        );
-      }).where((item) => item.summary.isNotEmpty).toList();
+    } catch (e, stack) {
+      developer.log('Failed to parse chat response: $e\n$raw',
+          name: 'GeminiService', stackTrace: stack);
+
+      // Best-effort fallback: surface each URL's own summary.
+      final fallbackSections = contextUrls.asMap().entries
+          .map((entry) {
+            final u = entry.value;
+            return ChatResponseSection(
+              sourceIndex: entry.key + 1,
+              heading: u.title.isNotEmpty
+                  ? u.title
+                  : CategoryResolver.displaySourceName(
+                      rawUrl: u.rawUrl, fallbackDomain: u.domain),
+              summary: (u.summary ?? u.description).trim(),
+            );
+          })
+          .where((s) => s.summary.isNotEmpty)
+          .toList();
 
       return ChatResponse(
         intro: 'Here is what your saved links say about that topic.',
@@ -313,9 +311,8 @@ QUESTION: $question''';
     }
   }
 
-  // ─── Multi-Link Synthesis ───────────────────────────────────────────────────
+  // ─── Multi-link synthesis ─────────────────────────────────────────────────
 
-  /// Synthesizes key insights across multiple saved URLs.
   Future<String> synthesize({
     required List<SavedUrl> urls,
     String? question,
@@ -325,28 +322,23 @@ QUESTION: $question''';
       return '[${e.key + 1}] ${u.title}\n${u.summary ?? u.description}';
     }).join('\n\n');
 
-    final questionPart = question != null && question.trim().isNotEmpty
-        ? '\nFocus on answering: ${question.trim()}'
+    final focus = (question?.trim().isNotEmpty ?? false)
+        ? '\nFocus on answering: ${question!.trim()}'
         : '';
 
-    final prompt = '''Synthesize the key insights from these saved links into a cohesive summary. Identify shared themes, contrasting viewpoints, and the most actionable takeaways.$questionPart
+    final prompt = '''Synthesize the key insights from these saved links into a cohesive summary. Identify shared themes, contrasting viewpoints, and the most actionable takeaways.$focus
 
 Cite sources inline using [1], [2], etc.
 
 LINKS:
 $items''';
 
-    final response = await _generateWithFallback(
-      primaryModel: _textModel,
-      fallbackModel: _textFallbackModel,
-      prompt: prompt,
-    );
+    final response = await _generate(jsonMode: false, prompt: prompt);
     return response.text?.trim() ?? 'No synthesis available.';
   }
 
-  // ─── Translation ────────────────────────────────────────────────────────────
+  // ─── Translation ──────────────────────────────────────────────────────────
 
-  /// Translates text into the specified target language.
   Future<String> translate({
     required String content,
     required String targetLanguage,
@@ -354,17 +346,12 @@ $items''';
     final prompt =
         'Translate the following into $targetLanguage. Return only the translated text, no explanations or labels.\n\n$content';
 
-    final response = await _generateWithFallback(
-      primaryModel: _textModel,
-      fallbackModel: _textFallbackModel,
-      prompt: prompt,
-    );
+    final response = await _generate(jsonMode: false, prompt: prompt);
     return response.text?.trim() ?? content;
   }
 
-  // ─── Weekly Recap ───────────────────────────────────────────────────────────
+  // ─── Weekly recap ─────────────────────────────────────────────────────────
 
-  /// Generates a weekly recap narrative from a list of saved URLs.
   Future<String> generateRecap(List<SavedUrl> urls) async {
     if (urls.isEmpty) {
       return "You didn't save any links this week. Start building your knowledge base!";
@@ -375,10 +362,8 @@ $items''';
       byCategory[u.category] = (byCategory[u.category] ?? 0) + 1;
     }
 
-    final sorted = byCategory.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final topicsText = sorted
+    final topicsText = (byCategory.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
         .map((e) => '${e.key}: ${e.value} link${e.value > 1 ? 's' : ''}')
         .join(', ');
 
@@ -393,18 +378,15 @@ $sampleTitles
 
 Write 3–5 sentences that highlight their most active topic(s), note any interesting patterns, and encourage them to revisit something. Be warm, concise, and insightful. No bullet points.''';
 
-    final response = await _generateWithFallback(
-      primaryModel: _textModel,
-      fallbackModel: _textFallbackModel,
-      prompt: prompt,
-    );
+    final response = await _generate(jsonMode: false, prompt: prompt);
     return response.text?.trim() ?? 'Great week of saving — keep building your knowledge!';
   }
 
-  // ─── Ask empty-state suggestions (personal, from recent saves) ──────────────
+  // ─── Ask suggestions (recent saves) ──────────────────────────────────────
 
-  /// Exactly four short questions tailored to the user's recent bookmarks.
-  Future<List<String>> generatePersonalAskSuggestions(String contextBlock) {
+  /// Returns exactly four short questions tailored to the user's recent bookmarks.
+  Future<List<String>> generatePersonalAskSuggestions(
+      String contextBlock) async {
     const n = 4;
     final prompt = '''You are a personal bookmark assistant called Glimpse.
 The user has saved these links recently:
@@ -414,61 +396,30 @@ $contextBlock
 Generate exactly $n short, specific, conversational questions the user might genuinely want to ask about their saved content.
 
 Rules:
-- Reference specific titles, topics, sources, or themes from the list above — do NOT be generic
-- Each question must be under 10 words
-- Write as if the user is asking themselves, not asking "you"
-- Do NOT start every question with "Show me" — vary phrasing
-- Do NOT include emoji — emojis are added separately in the app
+- Reference specific titles, topics, sources, or themes from the list above — do NOT be generic.
+- Each question must be under 10 words.
+- Write as if the user is asking themselves, not asking "you".
+- Do NOT start every question with "Show me" — vary phrasing.
+- Do NOT include emoji — emojis are added separately in the app.
 - Return valid JSON only: a JSON array of exactly $n strings. No markdown, no explanation.
 
-Good examples (specific, personal):
+Good examples:
 ["What was that discipline post from chilvrs?", "Find the comfort zone article", "Anything about building a second brain?", "What morning routine content did I save?"]
 
-Bad examples (generic, vague):
+Bad examples:
 ["Any lifestyle tips saved?", "What's new on Instagram?", "Show me my tech links", "Any new videos?"]''';
 
-    return _parsePersonalSuggestionQuestions(prompt, n);
+    return _parseSuggestions(prompt, n, _fallbackQuestion);
   }
 
-  Future<List<String>> _parsePersonalSuggestionQuestions(
-    String prompt,
-    int n,
-  ) async {
-    final response = await _generateWithFallback(
-      primaryModel: _jsonModel,
-      fallbackModel: _jsonFallbackModel,
-      prompt: prompt,
-    );
-    final text = response.text ?? '[]';
-    final cleaned = text
-        .replaceAll(RegExp(r'```json\s*'), '')
-        .replaceAll(RegExp(r'```\s*'), '')
-        .trim();
-    try {
-      final decoded = json.decode(cleaned);
-      if (decoded is! List<dynamic>) return const [];
-      final out = decoded
-          .map((e) => e.toString().trim())
-          .where((s) => s.isNotEmpty)
-          .take(n)
-          .toList();
-      while (out.length < n) {
-        out.add('What stands out in my recent saves?');
-      }
-      return out;
-    } catch (_) {
-      return List.filled(n, 'What did I save recently?');
-    }
-  }
+  // ─── Interest clusters ────────────────────────────────────────────────────
 
-  // ─── Interest clusters (mind map + Ask suggestions) ─────────────────────────
-
-  /// One JSON object per cluster: label (2–4 words), emoji, summary (one sentence).
   Future<List<Map<String, String>>> nameInterestClusters({
     required String clusterDescriptionsBlock,
     required int clusterCount,
   }) async {
     if (clusterCount <= 0) return const [];
+
     final prompt = '''Here are groups of bookmarks the user has saved, grouped by semantic similarity:
 
 $clusterDescriptionsBlock
@@ -478,23 +429,17 @@ For each cluster, assign a JSON object with exactly these keys:
 - "emoji": one emoji that best represents this cluster
 - "summary": one sentence describing what this cluster is about
 
-Important: Do NOT use a website or app name as the label (e.g. Reddit, YouTube, Instagram, X, TikTok) unless the bookmarks are genuinely about that platform. Prefer the subject matter the user saved.
+Important: Do NOT use a website or app name as the label (e.g. Reddit, YouTube, Instagram) unless the bookmarks are genuinely about that platform. Prefer the subject matter.
 
-Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster order (Cluster 1 first). No markdown, no explanation.''';
+Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster order. No markdown, no explanation.''';
 
-    final response = await _generateWithFallback(
-      primaryModel: _jsonModel,
-      fallbackModel: _jsonFallbackModel,
-      prompt: prompt,
-    );
-    final text = response.text ?? '[]';
-    final cleaned = text
-        .replaceAll(RegExp(r'```json\s*'), '')
-        .replaceAll(RegExp(r'```\s*'), '')
-        .trim();
+    final response = await _generate(jsonMode: true, prompt: prompt);
+    final cleaned = _cleanJson(response.text ?? '[]');
+
     try {
       final decoded = json.decode(cleaned);
-      if (decoded is! List<dynamic>) return const [];
+      if (decoded is! List<dynamic>) return _fallbackClusters(clusterCount);
+
       final out = <Map<String, String>>[];
       for (final e in decoded) {
         if (out.length >= clusterCount) break;
@@ -506,93 +451,94 @@ Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster
           'summary': m['summary']?.toString().trim() ?? '',
         });
       }
+
+      // Pad if the model returned fewer than expected.
       while (out.length < clusterCount) {
-        out.add({
-          'label': 'Interest group ${out.length + 1}',
-          'emoji': '🔖',
-          'summary': 'Related bookmarks.',
-        });
+        out.add(_fallbackCluster(out.length + 1));
       }
       return out;
-    } catch (_) {
-      return List.generate(
-        clusterCount,
-        (i) => {
-          'label': 'Interest group ${i + 1}',
-          'emoji': '🔖',
-          'summary': 'Related bookmarks.',
-        },
-      );
+    } catch (e, stack) {
+      developer.log('Failed to parse cluster names: $e',
+          name: 'GeminiService', stackTrace: stack);
+      return _fallbackClusters(clusterCount);
     }
   }
 
-  /// Four short questions from high-level interest themes (no specific titles).
-  /// Short collection title + emoji from a few bookmark titles.
+  static Map<String, String> _fallbackCluster(int index) => {
+        'label': 'Interest group $index',
+        'emoji': '🔖',
+        'summary': 'Related bookmarks.',
+      };
+
+  static List<Map<String, String>> _fallbackClusters(int count) =>
+      List.generate(count, (i) => _fallbackCluster(i + 1));
+
+  // ─── Collection naming ────────────────────────────────────────────────────
+
   Future<String> suggestCollectionName(List<SavedUrl> urls) async {
-    if (urls.isEmpty) return '📁 New collection';
+    if (urls.isEmpty) return _fallbackCollectionName;
+
     final titles = urls.take(5).map((u) => '"${u.title}"').join(', ');
-    final prompt = '''
-A user is creating a bookmark collection containing these links: $titles
+    final prompt = '''A user is creating a bookmark collection containing these links: $titles
 Suggest a short, specific collection name (2-4 words) and one emoji.
-Return JSON only: {"name": "...", "emoji": "..."}
-''';
-    final response = await _generateWithFallback(
-      primaryModel: _jsonModel,
-      fallbackModel: _jsonFallbackModel,
-      prompt: prompt,
-    );
-    final cleaned = (response.text ?? '{}')
-        .trim()
-        .replaceAll(RegExp(r'```json|```'), '');
+Return JSON only: {"name": "...", "emoji": "..."}''';
+
+    final response = await _generate(jsonMode: true, prompt: prompt);
+
     try {
-      final data = json.decode(cleaned) as Map<String, dynamic>;
+      final data =
+          json.decode(_cleanJson(response.text ?? '{}')) as Map<String, dynamic>;
       final name = (data['name'] as String? ?? 'Collection').trim();
       final emoji = (data['emoji'] as String? ?? '📁').trim();
       return '$emoji $name';
-    } catch (_) {
-      return '📁 New collection';
+    } catch (e, stack) {
+      developer.log('Failed to parse collection name: $e',
+          name: 'GeminiService', stackTrace: stack);
+      return _fallbackCollectionName;
     }
   }
 
-  /// One-sentence summaries for digest notifications (same order as [links]).
+  // ─── Digest summaries ─────────────────────────────────────────────────────
+
   Future<List<String>> summarizeLinksForDigest(List<SavedUrl> links) async {
     if (links.isEmpty) return const [];
+
     final items = links.map((l) {
       final host = Uri.tryParse(l.rawUrl)?.host ?? l.domain;
-      return '- "${l.title}" from $host: ${l.description.isNotEmpty ? l.description : l.tags.join(', ')}';
+      final detail =
+          l.description.isNotEmpty ? l.description : l.tags.join(', ');
+      return '- "${l.title}" from $host: $detail';
     }).join('\n');
 
-    final prompt = '''
-Summarize each of these saved links in exactly one punchy sentence (max 12 words each).
+    final prompt = '''Summarize each of these saved links in exactly one punchy sentence (max 12 words each).
 Make them sound interesting — like a friend recommending something.
 Return a JSON array of strings in the same order.
 
-$items
-''';
+$items''';
 
-    final response = await _generateWithFallback(
-      primaryModel: _jsonModel,
-      fallbackModel: _jsonFallbackModel,
-      prompt: prompt,
-    );
-    final cleaned = (response.text ?? '[]')
-        .trim()
-        .replaceAll(RegExp(r'```json|```'), '');
+    final response = await _generate(jsonMode: true, prompt: prompt);
+
     try {
-      final decoded = json.decode(cleaned);
-      if (decoded is! List<dynamic>) return List.filled(links.length, '');
+      final decoded = json.decode(_cleanJson(response.text ?? '[]'));
+      if (decoded is! List<dynamic>) {
+        return List.filled(links.length, _fallbackDigestSummary);
+      }
       return decoded
           .map((e) => e.toString().trim())
           .take(links.length)
           .toList();
-    } catch (_) {
-      return List.filled(links.length, 'Worth revisiting from your saves.');
+    } catch (e, stack) {
+      developer.log('Failed to parse digest summaries: $e',
+          name: 'GeminiService', stackTrace: stack);
+      return List.filled(links.length, _fallbackDigestSummary);
     }
   }
 
+  // ─── Ask suggestions (cluster themes) ────────────────────────────────────
+
   Future<List<String>> generateAskSuggestionsFromClusterThemes(
     String themeLinesBlock,
-  ) {
+  ) async {
     const n = 4;
     final prompt = '''You are Glimpse, a personal bookmark assistant.
 The user's saved links cluster into these interest themes:
@@ -603,11 +549,11 @@ Generate exactly $n short, natural questions reflecting their genuine recurring 
 Each question should match the themes above — not random categories from the web.
 
 Rules:
-- Under 9 words each
-- Vary the phrasing — don't start every question the same way
-- Do NOT reference specific article titles or author names
-- Do NOT center questions on a host site (Reddit, YouTube, etc.) — ask about topics and interests
-- Do NOT include emoji
+- Under 9 words each.
+- Vary the phrasing — don't start every question the same way.
+- Do NOT reference specific article titles or author names.
+- Do NOT centre questions on a host site (Reddit, YouTube, etc.) — ask about topics.
+- Do NOT include emoji.
 - Return valid JSON only: a JSON array of exactly $n strings. No markdown, no explanation.
 
 Good examples:
@@ -616,6 +562,35 @@ Good examples:
 Bad examples:
 ["Any Reddit links?", "Show me my links", "What's saved?"]''';
 
-    return _parsePersonalSuggestionQuestions(prompt, n);
+    return _parseSuggestions(prompt, n, _fallbackQuestion);
+  }
+
+  // ─── Shared suggestion parser ─────────────────────────────────────────────
+
+  Future<List<String>> _parseSuggestions(
+    String prompt,
+    int n,
+    String fallback,
+  ) async {
+    final response = await _generate(jsonMode: true, prompt: prompt);
+
+    try {
+      final decoded = json.decode(_cleanJson(response.text ?? '[]'));
+      if (decoded is! List<dynamic>) return List.filled(n, fallback);
+
+      final out = decoded
+          .map((e) => e.toString().trim())
+          .where((s) => s.isNotEmpty)
+          .take(n)
+          .toList();
+
+      // Pad to exactly n if the model returned fewer.
+      while (out.length < n) out.add(fallback);
+      return out;
+    } catch (e, stack) {
+      developer.log('Failed to parse suggestions: $e',
+          name: 'GeminiService', stackTrace: stack);
+      return List.filled(n, fallback);
+    }
   }
 }
