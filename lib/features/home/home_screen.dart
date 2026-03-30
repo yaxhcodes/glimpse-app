@@ -20,6 +20,28 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _scrollController = ScrollController();
+  bool _isScrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final scrolled = _scrollController.offset > 0;
+    if (scrolled != _isScrolled) {
+      setState(() => _isScrolled = scrolled);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _deleteWithUndo(SavedUrl url) async {
     final isarService = ref.read(isarServiceProvider);
@@ -62,7 +84,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     return Scaffold(
-      body: urlsAsync.when(
+      body: Stack(
+        children: [
+          urlsAsync.when(
         loading: () => const LoadingIndicator(message: 'Loading your URLs...'),
         error: (err, stack) => Center(
           child: Padding(
@@ -127,6 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               await ref.read(urlStreamProvider.future);
             },
             child: CustomScrollView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
               SliverAppBar(
@@ -339,6 +364,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           );
         },
+          ),
+          // Status-bar scrim: fades in as soon as the user scrolls so the
+          // system icons remain readable against scrolled content.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: _isScrolled ? 1.0 : 0.0,
+                child: Container(
+                  height: MediaQuery.of(context).padding.top + 16,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -501,4 +554,3 @@ class _Section {
   final List<SavedUrl> urls;
   const _Section(this.label, this.urls);
 }
-

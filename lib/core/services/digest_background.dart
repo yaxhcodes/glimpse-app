@@ -33,6 +33,7 @@ class DigestBackgroundTask {
     final ids = links.map((l) => l.id).toList();
     await DigestPrefs.saveLastDigest(ids: ids, summaries: summaries);
 
+    await DigestNotifications.initForBackground();
     await DigestNotifications.showDigest(
       summaries: summaries,
       linkCount: links.length,

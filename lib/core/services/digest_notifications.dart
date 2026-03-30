@@ -7,6 +7,9 @@ class DigestNotifications {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
+  /// Full init for the main UI isolate.
+  /// Wires up tap callbacks, requests POST_NOTIFICATIONS permission (Android
+  /// 13+), and handles the case where the notification cold-launched the app.
   static Future<void> init({
     required void Function() onOpenDigest,
   }) async {
@@ -18,11 +21,25 @@ class DigestNotifications {
       },
     );
 
+    // Android 13+ requires an explicit runtime permission grant.
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true &&
         launch?.notificationResponse?.payload == 'digest') {
       onOpenDigest();
     }
+  }
+
+  /// Minimal init for the WorkManager background isolate.
+  /// No navigation callbacks — the background isolate has no UI context.
+  /// Must be called before [showDigest] in any background task.
+  static Future<void> initForBackground() async {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    await _plugin.initialize(const InitializationSettings(android: android));
   }
 
   static Future<void> showDigest({
