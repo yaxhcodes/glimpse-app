@@ -1,18 +1,45 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/saved_url.dart';
+import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import 'cluster_theme.dart';
 import 'interest_clusters_provider.dart';
 
-const double _kCenterNodeSize = 96;
-const double _kClusterNodeSizeLarge = 92;
-const double _kClusterNodeSizeSmall = 80;
-const double _kClusterLabelColumnExtraWidth = 20;
+const double _kCenterNodeSize = 76;
+const double _kClusterNodeSizeLarge = 72;
+const double _kClusterNodeSizeSmall = 64;
+const double _kClusterLabelColumnExtraWidth = 24;
+
+/// Prefer a URL that has a real preview image for cluster representation.
+SavedUrl? _representativeUrl(List<SavedUrl> urls) {
+  for (final u in urls) {
+    final t = u.thumbnailUrl?.trim();
+    if (t != null && t.isNotEmpty) return u;
+  }
+  return urls.isEmpty ? null : urls.first;
+}
+
+/// Thumbnail, known-platform favicon, or Google favicon for the saved domain.
+String? _previewImageUrl(SavedUrl u) {
+  final t = u.thumbnailUrl?.trim();
+  if (t != null && t.isNotEmpty) return t;
+  final fav = faviconUrl(u.category);
+  if (fav != null) return fav;
+  final d = u.domain.trim();
+  if (d.isNotEmpty) {
+    return 'https://www.google.com/s2/favicons?domain=${Uri.encodeComponent(d)}&sz=128';
+  }
+  return null;
+}
 
 List<Offset> _radialClusterPositions(int count, Offset center, double radius) {
   if (count <= 0) return const [];
@@ -44,18 +71,18 @@ class _MindmapLinePainter extends CustomPainter {
           center,
           pos,
           [
-            lineColor.withValues(alpha: 0.5),
-            lineColor.withValues(alpha: 0.15),
+            lineColor.withValues(alpha: 0.14),
+            lineColor.withValues(alpha: 0.04),
           ],
         )
-        ..strokeWidth = 1.0
+        ..strokeWidth = 0.85
         ..style = PaintingStyle.stroke;
 
       final path = Path()
         ..moveTo(center.dx, center.dy)
         ..quadraticBezierTo(
           (center.dx + pos.dx) / 2,
-          (center.dy + pos.dy) / 2 - 30,
+          (center.dy + pos.dy) / 2 - 24,
           pos.dx,
           pos.dy,
         );
@@ -70,44 +97,148 @@ class _MindmapLinePainter extends CustomPainter {
       oldDelegate.lineColor != lineColor;
 }
 
+class _MindmapCirclePreview extends StatelessWidget {
+  const _MindmapCirclePreview({
+    required this.urls,
+    required this.size,
+    required this.fallbackLetter,
+  });
+
+  final List<SavedUrl> urls;
+  final double size;
+  final String fallbackLetter;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final rep = _representativeUrl(urls);
+    final imageUrl = rep != null ? _previewImageUrl(rep) : null;
+
+    Widget child;
+    if (imageUrl != null) {
+      child = CachedNetworkImage(
+        imageUrl: imageUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        fadeInDuration: const Duration(milliseconds: 200),
+        placeholder: (_, _) => ColoredBox(color: cs.surfaceContainerHighest),
+        errorWidget: (_, _, _) => _LetterFallback(
+          letter: fallbackLetter,
+          size: size,
+        ),
+      );
+    } else {
+      child = _LetterFallback(letter: fallbackLetter, size: size);
+    }
+
+    return ClipOval(child: SizedBox(width: size, height: size, child: child));
+  }
+}
+
+class _LetterFallback extends StatelessWidget {
+  const _LetterFallback({
+    required this.letter,
+    required this.size,
+  });
+
+  final String letter;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final ch = letter.isNotEmpty ? letter[0].toUpperCase() : '?';
+    return ColoredBox(
+      color: cs.surfaceContainerHighest,
+      child: Center(
+        child: Text(
+          ch,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                fontSize: (size * 0.38).clamp(14.0, 22.0),
+              ),
+        ),
+      ),
+    );
+  }
+}
+
 void _openClusterSheet(BuildContext context, ClusterTheme theme) {
-  final cs = Theme.of(context).colorScheme;
+  final rootCtx = context;
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
+    useSafeArea: true,
     builder: (ctx) {
-      return SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      final cs = Theme.of(ctx).colorScheme;
+      final tt = Theme.of(ctx).textTheme;
+
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewPaddingOf(ctx).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                '${theme.emoji} ${theme.label}',
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    theme.label,
+                    style: tt.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                      height: 1.3,
                     ),
+                  ),
+                  if (theme.summary.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      theme.summary,
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '${theme.urls.length} saved ${theme.urls.length == 1 ? 'link' : 'links'}',
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
-              subtitle: Text(theme.summary),
             ),
-            const Divider(),
-            ...theme.urls.map(
-              (u) => ListTile(
-                contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                title: Text(
-                  u.title.isNotEmpty ? u.title : u.domain,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+            Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.5)),
+            SizedBox(
+              height: (MediaQuery.sizeOf(ctx).height * 0.52).clamp(220.0, 480.0),
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                itemCount: theme.urls.length,
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  indent: 68,
+                  color: cs.outlineVariant.withValues(alpha: 0.35),
                 ),
-                subtitle: Text(
-                  u.domain,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/url/${u.id}');
+                itemBuilder: (context, i) {
+                  final u = theme.urls[i];
+                  return _ClusterUrlListRow(
+                    url: u,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(ctx);
+                      rootCtx.push('/url/${u.id}');
+                    },
+                  );
                 },
               ),
             ),
@@ -116,6 +247,93 @@ void _openClusterSheet(BuildContext context, ClusterTheme theme) {
       );
     },
   );
+}
+
+class _ClusterUrlListRow extends StatelessWidget {
+  const _ClusterUrlListRow({
+    required this.url,
+    required this.onTap,
+  });
+
+  final SavedUrl url;
+  final VoidCallback onTap;
+
+  static const double _thumb = 52;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final previewUrl = _previewImageUrl(url);
+    final title = url.title.trim().isNotEmpty ? url.title.trim() : url.domain;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: _thumb,
+                  height: _thumb,
+                  child: previewUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: previewUrl,
+                          fit: BoxFit.cover,
+                          fadeInDuration: const Duration(milliseconds: 150),
+                          placeholder: (_, _) =>
+                              ColoredBox(color: cs.surfaceContainerHighest),
+                          errorWidget: (_, _, _) => _LetterFallback(
+                            letter: url.domain.isNotEmpty ? url.domain[0] : '?',
+                            size: _thumb,
+                          ),
+                        )
+                      : _LetterFallback(
+                          letter: url.domain.isNotEmpty ? url.domain[0] : '?',
+                          size: _thumb,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: tt.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                        color: cs.onSurface,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      url.domain,
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Map canvas: layout from real constraints so center and spokes match the screen.
@@ -171,7 +389,7 @@ class _MindmapCanvas extends StatelessWidget {
                     ),
                   ),
                 ),
-                _CenterHubNode(center: center, cs: cs, tt: tt),
+                _CenterHubNode(center: center, cs: cs),
                 for (var i = 0; i < themes.length; i++)
                   _ClusterMapNode(
                     cluster: themes[i],
@@ -179,7 +397,10 @@ class _MindmapCanvas extends StatelessWidget {
                     cs: cs,
                     tt: tt,
                     isLarge: themes[i].urls.length >= 4,
-                    onTap: () => _openClusterSheet(context, themes[i]),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _openClusterSheet(context, themes[i]);
+                    },
                   ),
               ],
             ),
@@ -194,45 +415,48 @@ class _CenterHubNode extends StatelessWidget {
   const _CenterHubNode({
     required this.center,
     required this.cs,
-    required this.tt,
   });
 
   final Offset center;
   final ColorScheme cs;
-  final TextTheme tt;
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
       left: center.dx - _kCenterNodeSize / 2,
       top: center.dy - _kCenterNodeSize / 2,
-      child: Container(
-        width: _kCenterNodeSize,
-        height: _kCenterNodeSize,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: cs.primary,
-          boxShadow: [
-            BoxShadow(
-              color: cs.primary.withValues(alpha: 0.20),
-              blurRadius: 16,
-              spreadRadius: 2,
+      child: Semantics(
+        label: 'Glimpse library hub',
+        child: Container(
+          width: _kCenterNodeSize,
+          height: _kCenterNodeSize,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: cs.primary,
+            border: Border.all(
+              color: cs.onPrimary.withValues(alpha: 0.14),
+              width: 1,
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.hub_rounded, size: 22, color: cs.onPrimary),
-            const SizedBox(height: 4),
-            Text(
-              'Glimpse',
-              style: tt.labelMedium?.copyWith(
-                color: cs.onPrimary,
-                fontWeight: FontWeight.w600,
+            boxShadow: [
+              BoxShadow(
+                color: cs.primary.withValues(alpha: 0.28),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
               ),
+            ],
+          ),
+          child: SvgPicture.asset(
+            'assets/glimpse3.svg',
+            width: _kCenterNodeSize,
+            height: _kCenterNodeSize,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            colorFilter: ColorFilter.mode(
+              cs.onPrimary,
+              BlendMode.srcIn,
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -259,76 +483,107 @@ class _ClusterMapNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nodeSize = isLarge ? _kClusterNodeSizeLarge : _kClusterNodeSizeSmall;
-    final emojiSize = isLarge ? 26.0 : 22.0;
-    final columnWidth = nodeSize + _kClusterLabelColumnExtraWidth;
+    final mq = MediaQuery.sizeOf(context);
+    final labelColumnWidth = math.max(
+      nodeSize + _kClusterLabelColumnExtraWidth,
+      (mq.width * 0.46).clamp(120.0, 340.0),
+    );
     final horizontalPad = _kClusterLabelColumnExtraWidth / 2;
+    final rep = _representativeUrl(cluster.urls);
+    final letter = rep != null && rep.domain.isNotEmpty ? rep.domain[0] : '·';
+    final count = cluster.urls.length;
 
     return Positioned(
-      left: position.dx - columnWidth / 2,
+      left: position.dx - labelColumnWidth / 2,
       top: position.dy - nodeSize / 2,
       child: SizedBox(
-        width: columnWidth,
+        width: labelColumnWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GestureDetector(
-              onTap: onTap,
-              child: Center(
-                child: Container(
-                  width: nodeSize,
-                  height: nodeSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: cs.surfaceContainerHigh,
-                    border: Border.all(
-                      color: isLarge
-                          ? cs.primary.withValues(alpha: 0.4)
-                          : cs.outlineVariant,
-                      width: isLarge ? 1.5 : 1.0,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+            Semantics(
+              label: '${cluster.label}, $count links. Tap to open.',
+              child: GestureDetector(
+                onTap: onTap,
+                child: Center(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: nodeSize,
+                        height: nodeSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.95),
+                            width: isLarge ? 1.25 : 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: cs.shadow.withValues(alpha: 0.08),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: _MindmapCirclePreview(
+                            urls: cluster.urls,
+                            size: nodeSize - 4,
+                            fallbackLetter: letter,
+                          ),
+                        ),
                       ),
+                      if (count > 1)
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: Container(
+                            constraints: const BoxConstraints(minWidth: 22),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: cs.outlineVariant.withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: Text(
+                              '$count',
+                              textAlign: TextAlign.center,
+                              style: tt.bodySmall?.copyWith(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurfaceVariant,
+                                height: 1.1,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      cluster.emoji,
-                      style: TextStyle(fontSize: emojiSize),
-                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontalPad),
               child: Text(
                 cluster.label,
                 textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: tt.labelSmall?.copyWith(
+                softWrap: true,
+                style: tt.bodySmall?.copyWith(
                   color: cs.onSurface,
-                  fontWeight: FontWeight.w500,
-                  height: 1.3,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                  fontSize: 12,
                 ),
               ),
             ),
-            if (cluster.urls.length > 1) ...[
-              const SizedBox(height: 2),
-              Text(
-                '${cluster.urls.length} links',
-                textAlign: TextAlign.center,
-                style: tt.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontSize: 9,
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -400,9 +655,10 @@ class MindmapScreen extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             Text(
-              'Your library as a mind map',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              'Tap a topic to browse saves',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
                   ),
             ),
           ],
@@ -436,19 +692,8 @@ class MindmapScreen extends ConsumerWidget {
             return _MindmapEmptyState();
           }
 
-          return Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 1.2,
-                colors: [
-                  cs.surfaceContainerLow,
-                  cs.surface,
-                ],
-              ),
-            ),
+          return ColoredBox(
+            color: cs.surface,
             child: _MindmapCanvas(themes: themes),
           );
         },

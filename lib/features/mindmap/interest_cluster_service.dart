@@ -38,7 +38,6 @@ ClusterTheme _singletonClusterTheme(List<SavedUrl> c, int index) {
   if (label.isEmpty) {
     label = u.title.trim().isNotEmpty ? u.title.trim() : u.domain;
   }
-  if (label.length > 36) label = '${label.substring(0, 36)}…';
   if (label.isEmpty) label = 'Saved link';
   final em = u.categoryEmoji.trim().isNotEmpty ? u.categoryEmoji : '🔖';
   final summary =
@@ -60,7 +59,6 @@ List<ClusterTheme> _heuristicThemes(List<List<SavedUrl>> clusters) {
     final first = urls.first;
     final title = first.title.trim();
     var label = title.split(RegExp(r'\s+')).take(4).join(' ');
-    if (label.length > 36) label = '${label.substring(0, 36)}…';
     if (label.isEmpty) label = 'Saved links';
     final em = first.categoryEmoji.trim().isNotEmpty ? first.categoryEmoji : '🔖';
     final summary =
