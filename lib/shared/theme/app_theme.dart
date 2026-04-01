@@ -1,6 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Mouse / trackpad friendly scrolling (desktop, web) + touch.
@@ -155,6 +156,10 @@ class AppTheme {
       color: colorScheme.onSurface,
     );
 
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final statusBarIcons = isDark ? Brightness.light : Brightness.dark;
+    final navBarIcons = isDark ? Brightness.light : Brightness.dark;
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
@@ -167,6 +172,13 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0.5,
         titleTextStyle: appBarTitleStyle,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: statusBarIcons,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+          systemNavigationBarColor: colorScheme.surface,
+          systemNavigationBarIconBrightness: navBarIcons,
+        ),
       ),
       cardTheme: CardThemeData(
         elevation: 0,

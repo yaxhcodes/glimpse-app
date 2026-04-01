@@ -155,6 +155,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
               SliverAppBar(
+                pinned: true,
                 floating: true,
                 snap: true,
                 centerTitle: false,
