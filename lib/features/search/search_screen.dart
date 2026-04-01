@@ -233,6 +233,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             ),
                             textAlign: TextAlign.center,
                           ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Search titles, tags, notes, and summaries. '
+                            'Use the time filters to narrow results.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ],
                       ),
                     ),

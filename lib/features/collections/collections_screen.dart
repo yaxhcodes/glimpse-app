@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/user_collection.dart';
+import '../../shared/formatting.dart';
 import 'collections_provider.dart';
 
 class CollectionsScreen extends ConsumerWidget {
@@ -26,17 +27,10 @@ class CollectionsScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('$e')),
         data: (collections) {
           if (collections.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  'Group links into named collections — trip ideas, learning lists, project resources.',
-                  textAlign: TextAlign.center,
-                  style: tt.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
+            return _CollectionsEmptyState(
+              colorScheme: cs,
+              textTheme: tt,
+              onCreate: () => context.push('/collections/new'),
             );
           }
           return GridView.builder(
@@ -57,6 +51,62 @@ class CollectionsScreen extends ConsumerWidget {
         onPressed: () => context.push('/collections/new'),
         icon: const Icon(Icons.add),
         label: const Text('New collection'),
+      ),
+    );
+  }
+}
+
+class _CollectionsEmptyState extends StatelessWidget {
+  const _CollectionsEmptyState({
+    required this.colorScheme,
+    required this.textTheme,
+    required this.onCreate,
+  });
+
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.folder_special_rounded,
+              size: 56,
+              color: colorScheme.primary.withValues(alpha: 0.7),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No collections yet',
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Group saves into projects — trip ideas, learning lists, research, anything you’re planning.',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 28),
+            FilledButton.icon(
+              onPressed: onCreate,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Create collection'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -94,8 +144,11 @@ class _CollectionCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${collection.urlIds.length} links',
-              style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              formatLinkCount(collection.urlIds.length),
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),

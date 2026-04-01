@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../shared/formatting.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import 'cluster_theme.dart';
@@ -486,7 +487,7 @@ class _ClusterMapNode extends StatelessWidget {
     final mq = MediaQuery.sizeOf(context);
     final labelColumnWidth = math.max(
       nodeSize + _kClusterLabelColumnExtraWidth,
-      (mq.width * 0.46).clamp(120.0, 340.0),
+      (mq.width * 0.52).clamp(128.0, 360.0),
     );
     final horizontalPad = _kClusterLabelColumnExtraWidth / 2;
     final rep = _representativeUrl(cluster.urls);
@@ -502,69 +503,76 @@ class _ClusterMapNode extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Semantics(
-              label: '${cluster.label}, $count links. Tap to open.',
-              child: GestureDetector(
-                onTap: onTap,
-                child: Center(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: nodeSize,
-                        height: nodeSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: cs.outlineVariant.withValues(alpha: 0.95),
-                            width: isLarge ? 1.25 : 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: cs.shadow.withValues(alpha: 0.08),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+              label:
+                  '${cluster.label}, ${formatLinkCount(count)}. Double tap to open.',
+              button: true,
+              child: Tooltip(
+                message: cluster.label,
+                child: GestureDetector(
+                  onTap: onTap,
+                  child: Center(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: nodeSize,
+                          height: nodeSize,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: cs.outlineVariant.withValues(alpha: 0.95),
+                              width: isLarge ? 1.25 : 1,
                             ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(2),
-                          child: _MindmapCirclePreview(
-                            urls: cluster.urls,
-                            size: nodeSize - 4,
-                            fallbackLetter: letter,
+                            boxShadow: [
+                              BoxShadow(
+                                color: cs.shadow.withValues(alpha: 0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: _MindmapCirclePreview(
+                              urls: cluster.urls,
+                              size: nodeSize - 4,
+                              fallbackLetter: letter,
+                            ),
                           ),
                         ),
-                      ),
-                      if (count > 1)
-                        Positioned(
-                          top: -4,
-                          right: -4,
-                          child: Container(
-                            constraints: const BoxConstraints(minWidth: 22),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: cs.outlineVariant.withValues(alpha: 0.6),
+                        if (count > 1)
+                          Positioned(
+                            top: -4,
+                            right: -4,
+                            child: Container(
+                              constraints:
+                                  const BoxConstraints(minWidth: 22),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: cs.outlineVariant
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ),
+                              child: Text(
+                                '$count',
+                                textAlign: TextAlign.center,
+                                style: tt.bodySmall?.copyWith(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurfaceVariant,
+                                  height: 1.1,
+                                ),
                               ),
                             ),
-                            child: Text(
-                              '$count',
-                              textAlign: TextAlign.center,
-                              style: tt.bodySmall?.copyWith(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSurfaceVariant,
-                                height: 1.1,
-                              ),
-                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -576,6 +584,8 @@ class _ClusterMapNode extends StatelessWidget {
                 cluster.label,
                 textAlign: TextAlign.center,
                 softWrap: true,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: tt.bodySmall?.copyWith(
                   color: cs.onSurface,
                   fontWeight: FontWeight.w600,
@@ -607,7 +617,7 @@ class _MindmapEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.hub_outlined,
+              Icons.account_tree_outlined,
               size: 48,
               color: cs.onSurfaceVariant,
             ),

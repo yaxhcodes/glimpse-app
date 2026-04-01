@@ -9,7 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
-import '../../shared/widgets/category_chip.dart';
+import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
@@ -26,14 +26,28 @@ class UrlDetailScreen extends ConsumerStatefulWidget {
 
 class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   static const int _collapsedDescriptionLines = 7;
+  /// Layouts narrower than this use stacked action buttons (small display / dense phones).
+  static const double _narrowLayoutWidth = 360;
 
   late TextEditingController _notesController;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _descriptionSectionKey = GlobalKey();
+  final FocusNode _notesFocusNode = FocusNode();
   bool _notesEdited = false;
   bool _descExpanded = false;
   bool _tagsExpanded = false;
+  bool _showFullUrl = false;
   Timer? _notesTimer;
+
+  @override
+  void didUpdateWidget(covariant UrlDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.urlId != widget.urlId) {
+      _showFullUrl = false;
+      _descExpanded = false;
+      _tagsExpanded = false;
+    }
+  }
 
   @override
   void initState() {
@@ -52,6 +66,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   @override
   void dispose() {
     _notesTimer?.cancel();
+    _notesFocusNode.dispose();
     _notesController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -89,6 +104,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     showAddToCollectionSheet(context, url);
   }
 
+  void _copyUrlToClipboard(String raw) {
+    Clipboard.setData(ClipboardData(text: raw));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Link copied'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _launchUrl(String url) async {
     await ref
         .read(isarServiceProvider)
@@ -112,7 +138,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         .read(urlDetailNotifierProvider.notifier)
         .updateNotes(widget.urlId, _notesController.text);
     if (success && mounted) {
-      ref.invalidate(urlDetailProvider(widget.urlId));
       setState(() => _notesEdited = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Notes saved')),
@@ -120,14 +145,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     }
   }
 
+  /// Persists notes without invalidating [urlDetailProvider] — a refetch shows
+  /// loading and replaces the whole body, which disposed the field and dropped focus.
   Future<void> _autoSaveNotes() async {
     await ref
         .read(urlDetailNotifierProvider.notifier)
         .updateNotes(widget.urlId, _notesController.text);
-    if (mounted) {
-      ref.invalidate(urlDetailProvider(widget.urlId));
-      setState(() => _notesEdited = false);
-    }
   }
 
   Future<void> _deleteUrl() async {
@@ -381,13 +404,37 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             actions: [
               if (url != null) ...[
                 IconButton(
-                  icon: const Icon(Icons.collections_bookmark_outlined),
+                  icon: const Icon(Icons.folder_outlined),
                   tooltip: 'Add to collection',
                   onPressed: () => _showAddToCollection(url),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: _deleteUrl,
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded),
+                  tooltip: 'More',
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _deleteUrl();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            size: 20,
+                            color: colorScheme.error,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: colorScheme.error),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],
@@ -408,7 +455,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildBody(SavedUrl url, ThemeData theme, ColorScheme colorScheme) {
-    if (!_notesEdited) {
+    if (!_notesEdited && !_notesFocusNode.hasFocus) {
       _notesController.text = url.userNotes ?? '';
     }
     final formattedDescription = _formatDescription(url.description);
@@ -416,6 +463,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       rawUrl: url.rawUrl,
       fallbackDomain: url.domain,
     );
+    final sourceKey = displaySourceName.trim().toLowerCase();
+    final primaryTrimmed = url.category.trim();
+    final primaryMatchesSource =
+        primaryTrimmed.isNotEmpty && primaryTrimmed.toLowerCase() == sourceKey;
+    final categoryChipsForUi = url.effectiveCategories
+        .where((c) => c.trim().toLowerCase() != sourceKey)
+        .toList();
     final normalizedCategories =
         url.effectiveCategories.map((item) => item.toLowerCase()).toSet();
     final visibleTags = url.tags
@@ -429,23 +483,32 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final displayedTags =
         showAllTags ? visibleTags : visibleTags.take(collapseTagsAt).toList();
     final hiddenTagCount = visibleTags.length - collapseTagsAt;
+    final summaryText = url.summary?.trim() ?? '';
+    final showSummary = summaryText.isNotEmpty &&
+        summaryText.toLowerCase() != formattedDescription.trim().toLowerCase();
+    final bottomPad = MediaQuery.paddingOf(context).bottom + 28;
 
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Image ───────────────────────────────────────────────────
             if (showImage) ...[
-              ClipRRect(
+              Material(
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: CachedNetworkImage(
-                    imageUrl: url.thumbnailUrl!,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => const SizedBox.shrink(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _launchUrl(url.rawUrl),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: CachedNetworkImage(
+                      imageUrl: url.thumbnailUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, _, _) => const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),
@@ -465,12 +528,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
             const SizedBox(height: 12),
 
-            // ── Metadata: platform · date ────────────────────────────────
+            // ── Metadata: source (favicon) · date — source not repeated in chips
             Row(
               children: [
-                Icon(Icons.public_outlined,
-                    size: 14, color: colorScheme.onSurfaceVariant),
-                const SizedBox(width: 4),
+                _buildSourceLeadingIcon(url, displaySourceName, colorScheme),
+                const SizedBox(width: 6),
                 Text(
                   displaySourceName,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -497,65 +559,93 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            _buildUrlAddressBlock(url, theme, colorScheme),
             const SizedBox(height: 8),
 
-            // ── Category chips ───────────────────────────────────────────
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: url.effectiveCategories.map((category) {
-                final isPrimary = category == url.category;
-                return GestureDetector(
-                  onTap: isPrimary ? () => _changeCategory(url) : null,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isPrimary
-                          ? colorScheme.secondaryContainer
-                          : colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _categoryIcon(
-                          category,
-                          isPrimary
-                              ? url.categoryEmoji
-                              : CategoryResolver.emojiForCategory(category),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          category,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w500,
-                            color: isPrimary
-                                ? colorScheme.onSecondaryContainer
-                                : colorScheme.onSurface,
+            // ── Category chips (topic / extra buckets; not the site name again)
+            if (primaryMatchesSource &&
+                url.category.trim().isNotEmpty) ...[
+              TextButton.icon(
+                onPressed: () => _changeCategory(url),
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+                label: const Text('Edit category'),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                ),
+              ),
+            ],
+            if (categoryChipsForUi.isNotEmpty)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: categoryChipsForUi.map((category) {
+                  final isPrimary = category == url.category;
+                  return GestureDetector(
+                    onTap: isPrimary ? () => _changeCategory(url) : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isPrimary
+                            ? colorScheme.secondaryContainer
+                            : colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _categoryIcon(
+                            category,
+                            isPrimary
+                                ? url.categoryEmoji
+                                : CategoryResolver.emojiForCategory(category),
                           ),
-                        ),
-                        if (isPrimary) ...[
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.edit_outlined,
-                            size: 13,
-                            color: colorScheme.onSecondaryContainer
-                                .withValues(alpha: 0.6),
+                          const SizedBox(width: 6),
+                          Text(
+                            category,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: isPrimary
+                                  ? colorScheme.onSecondaryContainer
+                                  : colorScheme.onSurface,
+                            ),
                           ),
+                          if (isPrimary) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.edit_outlined,
+                              size: 13,
+                              color: colorScheme.onSecondaryContainer
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
+                  );
+                }).toList(),
+              ),
 
             // ── Description ─────────────────────────────────────────────
             if (hasDescription) ...[
               const SizedBox(height: 16),
               _buildDescriptionSection(
                 description: formattedDescription,
+                theme: theme,
+                colorScheme: colorScheme,
+              ),
+            ],
+
+            if (showSummary) ...[
+              const SizedBox(height: 16),
+              _buildSummarySection(
+                summary: summaryText,
                 theme: theme,
                 colorScheme: colorScheme,
               ),
@@ -590,91 +680,79 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               ],
             ),
 
-            // ── Actions ─────────────────────────────────────────────────
+            // ── Open / share (copy is on the URL row) ───────────────────
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _launchUrl(url.rawUrl),
-                    icon: const Icon(Icons.open_in_new, size: 18),
-                    label: const Text('Open'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => Share.share(url.rawUrl),
-                    icon: const Icon(Icons.share_outlined, size: 18),
-                    label: const Text('Share'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: url.rawUrl));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Link copied'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.copy_outlined, size: 18),
-                    label: const Text('Copy'),
-                  ),
-                ),
-              ],
-            ),
+            _buildOpenShareActions(url),
 
             // ── Notes ───────────────────────────────────────────────────
             const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colorScheme.outlineVariant),
-              ),
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.sticky_note_2_outlined,
-                          size: 16, color: colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Notes',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.sticky_note_2_outlined,
+                      size: 16,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Notes',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_notesEdited)
+                      TextButton(
+                        onPressed: _saveNotes,
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        child: const Text('Save'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: TextField(
+                    controller: _notesController,
+                    focusNode: _notesFocusNode,
+                    minLines: 3,
+                    maxLines: 10,
+                    keyboardType: TextInputType.multiline,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                    decoration: InputDecoration(
+                      hintText: 'Add personal notes…',
+                      filled: true,
+                      fillColor: colorScheme.surfaceContainerLow,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary,
+                          width: 1.5,
                         ),
                       ),
-                      const Spacer(),
-                      if (_notesEdited)
-                        TextButton(
-                          onPressed: _saveNotes,
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          child: const Text('Save'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _notesController,
-                    decoration: const InputDecoration.collapsed(
-                      hintText: 'Add personal notes...',
                     ),
-                    minLines: 3,
-                    maxLines: null,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
                     onChanged: (_) {
-                      if (!_notesEdited) setState(() => _notesEdited = true);
+                      if (!_notesEdited) {
+                        setState(() => _notesEdited = true);
+                      }
                       _notesTimer?.cancel();
                       _notesTimer = Timer(
                         const Duration(milliseconds: 1500),
@@ -682,12 +760,212 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       );
                     },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  String _urlDisplayLine(Uri? uri, String raw) {
+    if (uri == null || uri.host.isEmpty) {
+      return raw.length > 140 ? '${raw.substring(0, 137)}…' : raw;
+    }
+    final host = uri.host;
+    final path = uri.path;
+    final q = uri.hasQuery ? '?${uri.query}' : '';
+    var s = host;
+    if (path.isNotEmpty && path != '/') s += path;
+    s += q;
+    if (s.length > 140) return '${s.substring(0, 137)}…';
+    return s;
+  }
+
+  Widget _buildUrlAddressBlock(
+    SavedUrl url,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final raw = url.rawUrl.trim();
+    if (raw.isEmpty) return const SizedBox.shrink();
+
+    final uri = Uri.tryParse(raw);
+    final display = _urlDisplayLine(uri, raw);
+    final canToggle = raw != display;
+
+    final subtleIconStyle = IconButton.styleFrom(
+      foregroundColor:
+          colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      minimumSize: const Size(34, 34),
+      padding: const EdgeInsets.all(6),
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2, right: 4),
+                child: _showFullUrl
+                    ? SelectableText(
+                        raw,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      )
+                    : GestureDetector(
+                        onTap: () {
+                          if (canToggle) {
+                            setState(() => _showFullUrl = true);
+                          }
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: Text(
+                          display,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12.5,
+                            height: 1.4,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+              ),
+            ),
+            if (canToggle) ...[
+              IconButton(
+                icon: Icon(
+                  _showFullUrl
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 20,
+                ),
+                tooltip: _showFullUrl ? 'Show less' : 'Show full URL',
+                style: subtleIconStyle,
+                onPressed: () => setState(() => _showFullUrl = !_showFullUrl),
+              ),
+            ],
+            IconButton(
+              icon: const Icon(Icons.copy_rounded, size: 19),
+              tooltip: 'Copy link',
+              style: subtleIconStyle,
+              onPressed: () => _copyUrlToClipboard(raw),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummarySection({
+    required String summary,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.summarize_outlined,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Summary',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            summary,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.5,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOpenShareActions(SavedUrl url) {
+    final narrow =
+        MediaQuery.sizeOf(context).width < _narrowLayoutWidth;
+
+    final compact = ButtonStyle(
+      visualDensity: VisualDensity.compact,
+      padding: WidgetStateProperty.all(
+        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      ),
+    );
+
+    final openBtn = SizedBox(
+      width: narrow ? double.infinity : null,
+      child: FilledButton.tonalIcon(
+        style: compact,
+        onPressed: () => _launchUrl(url.rawUrl),
+        icon: const Icon(Icons.open_in_new_rounded, size: 18),
+        label: const Text('Open'),
+      ),
+    );
+    final shareBtn = SizedBox(
+      width: narrow ? double.infinity : null,
+      child: OutlinedButton.icon(
+        style: compact,
+        onPressed: () => Share.share(url.rawUrl),
+        icon: const Icon(Icons.share_outlined, size: 18),
+        label: const Text('Share'),
+      ),
+    );
+
+    if (narrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          openBtn,
+          const SizedBox(height: 8),
+          shareBtn,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: openBtn),
+        const SizedBox(width: 10),
+        Expanded(child: shareBtn),
+      ],
     );
   }
 
@@ -825,6 +1103,44 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final renderObject = context?.findRenderObject();
     if (renderObject is! RenderBox) return null;
     return renderObject.localToGlobal(Offset.zero).dy;
+  }
+
+  /// Favicon for the byline: known platform name, else URL host, else globe.
+  String? _faviconUrlForSource(SavedUrl url, String displaySourceName) {
+    final byName = faviconUrl(displaySourceName);
+    if (byName != null) return byName;
+    final parsed = Uri.tryParse(url.rawUrl.trim());
+    final host = (parsed?.host.isNotEmpty ?? false)
+        ? parsed!.host
+        : url.domain.trim();
+    if (host.isEmpty) return null;
+    return 'https://www.google.com/s2/favicons?domain=$host&sz=64';
+  }
+
+  Widget _buildSourceLeadingIcon(
+    SavedUrl url,
+    String displaySourceName,
+    ColorScheme colorScheme,
+  ) {
+    final variant = colorScheme.onSurfaceVariant;
+    final fav = _faviconUrlForSource(url, displaySourceName);
+    if (fav != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: CachedNetworkImage(
+          imageUrl: fav,
+          width: 14,
+          height: 14,
+          fit: BoxFit.cover,
+          errorWidget: (_, _, _) => Icon(
+            Icons.public_outlined,
+            size: 14,
+            color: variant,
+          ),
+        ),
+      );
+    }
+    return Icon(Icons.public_outlined, size: 14, color: variant);
   }
 
   Widget _categoryIcon(String category, String emoji) {
