@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import 'search_provider.dart';
 
@@ -436,14 +439,24 @@ class _DateFilterPill extends StatelessWidget {
   }
 }
 
+String? _searchResultPreviewUrl(SavedUrl u) {
+  final t = u.thumbnailUrl?.trim();
+  if (t != null && t.isNotEmpty) return t;
+  final fav = faviconUrl(u.category);
+  if (fav != null) return fav;
+  final d = u.domain.trim();
+  if (d.isNotEmpty) {
+    return 'https://www.google.com/s2/favicons?domain=${Uri.encodeComponent(d)}&sz=128';
+  }
+  return null;
+}
+
 Widget _buildSearchResultCard(
   SearchResult result,
   ColorScheme cs,
   TextTheme tt,
   Future<void> Function(SearchResult) onTap,
 ) {
-  final relevance = result.score;
-
   return Card(
     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
     color: cs.surfaceContainerLow,
@@ -457,21 +470,8 @@ Widget _buildSearchResultCard(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 3,
-              height: 52,
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: relevance > 0
-                    ? Color.lerp(
-                        cs.outline,
-                        cs.primary,
-                        ((relevance - 0.45) / 0.55).clamp(0.0, 1.0),
-                      )
-                    : cs.outlineVariant,
-              ),
-            ),
+            _SearchHitLeading(url: result.url, cs: cs),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,4 +511,73 @@ Widget _buildSearchResultCard(
       ),
     ),
   );
+}
+
+class _SearchHitLeading extends StatelessWidget {
+  const _SearchHitLeading({required this.url, required this.cs});
+
+  final SavedUrl url;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = _searchResultPreviewUrl(url);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: preview != null
+            ? CachedNetworkImage(
+                imageUrl: preview,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorWidget: (_, _, _) =>
+                    _SearchHitFallback(url: url, cs: cs),
+              )
+            : _SearchHitFallback(url: url, cs: cs),
+      ),
+    );
+  }
+}
+
+class _SearchHitFallback extends StatelessWidget {
+  const _SearchHitFallback({required this.url, required this.cs});
+
+  final SavedUrl url;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final fav = faviconUrl(url.category);
+    return ColoredBox(
+      color: cs.surfaceContainerHighest,
+      child: fav != null
+          ? Center(
+              child: CachedNetworkImage(
+                imageUrl: fav,
+                width: 28,
+                height: 28,
+                fit: BoxFit.contain,
+                errorWidget: (_, _, _) => Text(
+                  url.categoryEmoji,
+                  style: const TextStyle(fontSize: 22),
+                ),
+              ),
+            )
+          : Center(
+              child: Text(
+                url.domain.isNotEmpty
+                    ? url.domain[0].toUpperCase()
+                    : url.categoryEmoji,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+    );
+  }
 }

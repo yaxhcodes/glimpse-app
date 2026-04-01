@@ -20,7 +20,7 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 // Typography system
 //
 // Space Grotesk  → display / app-bar branding (modern tech look)
-// Inter          → all UI text — titles, body, metadata, navigation
+// Inter          → titles, body, metadata, bottom nav labels (explicit theme)
 // Fira Code      → tags and technical labels (structured, database-like)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -227,6 +227,20 @@ class AppTheme {
         ),
         elevation: 2,
         highlightElevation: 4,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            height: 1.3,
+            letterSpacing: 0,
+            color: selected
+                ? colorScheme.onSurface
+                : colorScheme.onSurfaceVariant,
+          );
+        }),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {

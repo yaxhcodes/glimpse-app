@@ -30,10 +30,13 @@ class SearchResult {
 
 @riverpod
 class Search extends _$Search {
+  int _requestId = 0;
+
   @override
   AsyncValue<List<SearchResult>> build() => const AsyncValue.data([]);
 
   Future<void> search(String query) async {
+    final id = ++_requestId;
     state = const AsyncValue.loading();
 
     try {
@@ -42,12 +45,24 @@ class Search extends _$Search {
       final canSemantic = BundledKeys.hasVoyage &&
           SubscriptionService.isAvailable(PremiumFeature.semanticSearch, tier);
 
+      void applyKeywordResults(List<MapEntry<SavedUrl, double>> scored) {
+        if (id != _requestId) return;
+        ref.read(searchModeProvider.notifier).state = SearchMode.keyword;
+        state = AsyncValue.data(
+          scored
+              .map((e) => SearchResult(url: e.key, score: e.value))
+              .toList(),
+        );
+      }
+
       if (canSemantic) {
         try {
           final embeddingService = EmbeddingService(BundledKeys.voyageKey);
           final queryEmbedding = await embeddingService.generateEmbedding(query);
+          if (id != _requestId) return;
           if (queryEmbedding.isNotEmpty) {
             final allUrls = await isar.getUrlsWithEmbeddings();
+            if (id != _requestId) return;
             final scored = <SearchResult>[];
             for (final url in allUrls) {
               final emb = url.embedding;
@@ -56,33 +71,31 @@ class Search extends _$Search {
               scored.add(SearchResult(url: url, score: score));
             }
             scored.sort((a, b) => b.score.compareTo(a.score));
+            // Slightly stricter than before to reduce loosely related vector hits.
             final results = scored
-                .where((r) => r.score > 0.45)
+                .where((r) => r.score > 0.52)
                 .take(15)
                 .toList();
             if (results.isNotEmpty) {
+              if (id != _requestId) return;
               ref.read(searchModeProvider.notifier).state = SearchMode.semantic;
               state = AsyncValue.data(results);
               return;
             }
           }
         } catch (_) {
-          final results = await isar.keywordSearch(query);
-          ref.read(searchModeProvider.notifier).state = SearchMode.keyword;
-          state = AsyncValue.data(
-            results.map((u) => SearchResult(url: u, score: 0.0)).toList(),
-          );
+          final scored = await isar.keywordSearchWithScores(query);
+          applyKeywordResults(scored);
           return;
         }
       }
 
-      final results = await isar.keywordSearch(query);
-      ref.read(searchModeProvider.notifier).state = SearchMode.keyword;
-      state = AsyncValue.data(
-        results.map((u) => SearchResult(url: u, score: 0.0)).toList(),
-      );
+      final scored = await isar.keywordSearchWithScores(query);
+      applyKeywordResults(scored);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (id == _requestId) {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 

@@ -128,10 +128,251 @@ class IsarService {
   }
 
   /// Local keyword / fuzzy search (fallback when semantic search is unavailable).
-  Future<List<SavedUrl>> keywordSearch(String query) => fuzzySearchUrls(query);
+  Future<List<SavedUrl>> keywordSearch(String query) async {
+    final scored = await keywordSearchWithScores(query);
+    return scored.map((e) => e.key).toList();
+  }
+
+  /// Same as [keywordSearch] but with relevance scores in ~0–1 for ranking UI.
+  Future<List<MapEntry<SavedUrl, double>>> keywordSearchWithScores(
+    String query,
+  ) =>
+      _rankedKeywordSearch(query, naturalLanguage: false);
+
+  static const _nlStopwords = <String>{
+    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'as', 'by', 'with', 'from', 'is', 'are', 'was', 'were', 'be',
+    'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
+    'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can',
+    'this', 'that', 'these', 'those', 'i', 'me', 'my', 'we', 'our', 'you',
+    'your', 'it', 'its', 'what', 'which', 'who', 'whom', 'whose', 'where',
+    'when', 'why', 'how', 'if', 'than', 'so', 'not', 'no', 'any', 'some',
+    'about', 'into', 'through', 'during', 'before', 'after', 'above',
+    'below', 'between', 'under', 'again', 'further', 'then', 'once', 'here',
+    'there', 'all', 'both', 'each', 'few', 'more', 'most', 'other', 'such',
+    'only', 'own', 'same', 'just', 'also', 'very', 'save', 'saved', 'saving',
+    'link', 'links', 'bookmark', 'bookmarks', 'url', 'urls',
+  };
+
+  static final _tokenSplit = RegExp(r'[\s\-_/.,;:!?()\[\]{}]+');
+
+  static bool _wordBoundaryMatch(String haystack, String word) {
+    if (word.isEmpty || word.length > 64) return false;
+    final esc = RegExp.escape(word);
+    return RegExp(
+      r'(?:^|[^a-zA-Z0-9])' + esc + r'(?:[^a-zA-Z0-9]|$)',
+      caseSensitive: false,
+    ).hasMatch(haystack);
+  }
+
+  static List<String> _tokens(String text) =>
+      text.toLowerCase().split(_tokenSplit).where((t) => t.isNotEmpty).toList();
+
+  static double _maxFuzzyForWord(
+    String word,
+    String haystackLower, {
+    bool requireSameFirstChar = false,
+  }) {
+    if (word.length < 2) return 0;
+    double best = 0;
+    for (final fw in _tokens(haystackLower)) {
+      if (fw.isEmpty) continue;
+      if (requireSameFirstChar &&
+          word.isNotEmpty &&
+          fw.isNotEmpty &&
+          word[0].toLowerCase() != fw[0].toLowerCase()) {
+        continue;
+      }
+      final sim = _similarity(word, fw);
+      if (sim > best) best = sim;
+    }
+    return best;
+  }
+
+  /// Primary text: where a match should mean the hit is about the query.
+  static String _primaryHaystack(SavedUrl url) {
+    return [
+      url.title,
+      url.description,
+      url.summary ?? '',
+      ...url.tags,
+    ].join(' ').toLowerCase();
+  }
+
+  static String _secondaryHaystack(SavedUrl url) {
+    return [
+      url.domain,
+      url.rawUrl,
+      url.category,
+      ...url.effectiveCategories,
+      url.userNotes ?? '',
+    ].join(' ').toLowerCase();
+  }
+
+  /// Returns null if the URL should not appear in results.
+  static double? _relevanceScore(
+    SavedUrl url,
+    List<String> queryWords, {
+    required bool naturalLanguage,
+  }) {
+    if (queryWords.isEmpty) return null;
+
+    final primary = _primaryHaystack(url);
+    final secondary = _secondaryHaystack(url);
+    final combined = '$primary $secondary';
+
+    const strictFuzzy = 0.64;
+    const nlFuzzyPrimary = 0.58;
+    const nlFuzzySecondary = 0.62;
+    const minAvgStrict = 0.52;
+    const minAvgNl = 0.48;
+
+    double wordContribution(String word) {
+      final boundaryPrimary = _wordBoundaryMatch(primary, word);
+      final boundarySecondary = _wordBoundaryMatch(secondary, word);
+      final fuzzyP = _maxFuzzyForWord(word, primary, requireSameFirstChar: true);
+      final fuzzyS = _maxFuzzyForWord(word, secondary, requireSameFirstChar: true);
+      final fuzzyC = _maxFuzzyForWord(word, combined, requireSameFirstChar: true);
+
+      if (naturalLanguage) {
+        if (boundaryPrimary) return 1.0;
+        if (fuzzyP >= nlFuzzyPrimary) return fuzzyP;
+        if (boundarySecondary) return 0.82;
+        if (fuzzyS >= nlFuzzySecondary) return fuzzyS * 0.9;
+        return fuzzyC * 0.75;
+      }
+
+      // Library search: avoid weak fuzzy-only matches (e.g. voice vs invoice).
+      if (boundaryPrimary) return 1.0;
+      if (fuzzyP >= strictFuzzy) return fuzzyP * 0.92;
+      if (boundarySecondary) return 0.72;
+      if (fuzzyS >= 0.78) return fuzzyS * 0.65;
+      return 0;
+    }
+
+    double sum = 0;
+    for (final w in queryWords) {
+      final c = wordContribution(w);
+      if (c <= 0) return null;
+      sum += c;
+    }
+
+    final avg = sum / queryWords.length;
+    final minAvg = naturalLanguage ? minAvgNl : minAvgStrict;
+    if (avg < minAvg) return null;
+
+    // Extra filter: for strict mode, require a real signal on primary text
+    // unless every word matched with strong fuzzy on primary.
+    if (!naturalLanguage) {
+      var anyPrimary = false;
+      var allStrongPrimaryFuzzy = true;
+      for (final w in queryWords) {
+        final bp = _wordBoundaryMatch(primary, w);
+        final fp = _maxFuzzyForWord(w, primary, requireSameFirstChar: true);
+        if (bp || fp >= 0.78) anyPrimary = true;
+        if (!(bp || fp >= strictFuzzy)) allStrongPrimaryFuzzy = false;
+      }
+      if (!anyPrimary && !allStrongPrimaryFuzzy) return null;
+    }
+
+    return avg.clamp(0.0, 1.0);
+  }
+
+  static List<String> _queryWordsForMode(String query, bool naturalLanguage) {
+    final lower = query.toLowerCase().trim();
+    if (lower.isEmpty) return [];
+    var words = lower.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (naturalLanguage) {
+      words = words
+          .where((w) => w.length >= 2 && !_nlStopwords.contains(w))
+          .toList();
+      if (words.isEmpty) {
+        words = lower
+            .split(RegExp(r'\s+'))
+            .where((w) => w.length >= 3)
+            .toList();
+      }
+    } else {
+      words = words.where((w) => w.length >= 2).toList();
+    }
+    return words;
+  }
+
+  Future<Set<int>> _candidateUrlIds(String query, List<String> words) async {
+    final isar = await _db;
+    final queries = <String>{query.trim().toLowerCase()};
+    for (final w in words) {
+      if (w.length >= 3) queries.add(w);
+    }
+    final lists = await Future.wait(queries.map(searchUrls));
+    final ids = <int>{};
+    for (final list in lists) {
+      for (final u in list) {
+        ids.add(u.id);
+      }
+    }
+
+    // If the substring-based Isar filter matches almost everything, scan in-memory instead.
+    final total = await isar.savedUrls.where().count();
+    if (total > 0 && ids.length > total * 0.85) {
+      return {};
+    }
+    return ids;
+  }
+
+  Future<List<SavedUrl>> _loadUrlsForSearch(
+    Isar isar,
+    Set<int> candidateIds,
+  ) async {
+    if (candidateIds.isEmpty) {
+      return isar.savedUrls.where().findAll();
+    }
+    final ordered = candidateIds.toList()..sort();
+    final rows = await isar.savedUrls.getAll(ordered);
+    return rows.whereType<SavedUrl>().toList();
+  }
+
+  Future<List<MapEntry<SavedUrl, double>>> _rankedKeywordSearch(
+    String query, {
+    required bool naturalLanguage,
+  }) async {
+    final isar = await _db;
+    final words = _queryWordsForMode(query, naturalLanguage);
+    if (words.isEmpty) return [];
+
+    final candidateIds =
+        await _candidateUrlIds(query.toLowerCase().trim(), words);
+    var urls = await _loadUrlsForSearch(isar, candidateIds);
+
+    if (urls.isEmpty && candidateIds.isNotEmpty) {
+      urls = await isar.savedUrls.where().findAll();
+    }
+
+    List<MapEntry<SavedUrl, double>> scoreBatch(List<SavedUrl> list) {
+      final out = <MapEntry<SavedUrl, double>>[];
+      for (final url in list) {
+        final s = _relevanceScore(url, words, naturalLanguage: naturalLanguage);
+        if (s != null) out.add(MapEntry(url, s));
+      }
+      return out;
+    }
+
+    var scored = scoreBatch(urls);
+    if (scored.isEmpty && candidateIds.isNotEmpty) {
+      urls = await isar.savedUrls.where().findAll();
+      scored = scoreBatch(urls);
+    }
+
+    scored.sort((a, b) {
+      final c = b.value.compareTo(a.value);
+      if (c != 0) return c;
+      return b.key.savedAt.compareTo(a.key.savedAt);
+    });
+    return scored;
+  }
 
   /// Simple keyword search (LIKE-style) for Phase 1.
-  /// Searches title, description, tags, categories, domain, rawUrl, and userNotes.
+  /// Searches title, description, summary, tags, categories, domain, rawUrl, and userNotes.
   Future<List<SavedUrl>> searchUrls(String query) async {
     final isar = await _db;
     final lowerQuery = query.toLowerCase();
@@ -140,6 +381,8 @@ class IsarService {
         .titleContains(lowerQuery, caseSensitive: false)
         .or()
         .descriptionContains(lowerQuery, caseSensitive: false)
+        .or()
+        .summaryContains(lowerQuery, caseSensitive: false)
         .or()
         .tagsElementContains(lowerQuery, caseSensitive: false)
         .or()
@@ -162,58 +405,11 @@ class IsarService {
     return isar.savedUrls.filter().rawUrlEqualTo(rawUrl).findFirst();
   }
 
-  /// Fuzzy search: fetches all URLs and scores them against the query.
-  /// Handles typos by checking character-level similarity.
+  /// Fuzzy / keyword retrieval for natural-language questions (e.g. Ask).
+  /// Uses stopword filtering and slightly looser thresholds than library search.
   Future<List<SavedUrl>> fuzzySearchUrls(String query) async {
-    final isar = await _db;
-    final allUrls = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
-    final lowerQuery = query.toLowerCase().trim();
-    if (lowerQuery.isEmpty) return [];
-
-    final queryWords = lowerQuery.split(RegExp(r'\s+'));
-    final scored = <MapEntry<SavedUrl, double>>[];
-
-    for (final url in allUrls) {
-      // Build searchable text from all fields
-      final fields = [
-        url.title,
-        url.description,
-        url.domain,
-        url.rawUrl,
-        url.category,
-        ...url.effectiveCategories,
-        url.userNotes ?? '',
-        ...url.tags,
-      ].join(' ').toLowerCase();
-
-      double bestScore = 0;
-      for (final word in queryWords) {
-        // Exact substring match = highest score
-        if (fields.contains(word)) {
-          bestScore += 1.0;
-          continue;
-        }
-        // Fuzzy: check each word in fields for similarity
-        final fieldWords = fields.split(RegExp(r'[\s\-_/.,;:!?()\[\]{}]+'));
-        double wordBest = 0;
-        for (final fw in fieldWords) {
-          if (fw.isEmpty) continue;
-          final sim = _similarity(word, fw);
-          if (sim > wordBest) wordBest = sim;
-        }
-        bestScore += wordBest;
-      }
-
-      final avgScore = bestScore / queryWords.length;
-      // Threshold: at least 0.55 similarity
-      if (avgScore >= 0.55) {
-        scored.add(MapEntry(url, avgScore));
-      }
-    }
-
-    // Sort by score descending
-    scored.sort((a, b) => b.value.compareTo(a.value));
-    return scored.map((e) => e.key).toList();
+    final ranked = await _rankedKeywordSearch(query, naturalLanguage: true);
+    return ranked.map((e) => e.key).toList();
   }
 
   /// Computes similarity between two strings (0.0 – 1.0) using
