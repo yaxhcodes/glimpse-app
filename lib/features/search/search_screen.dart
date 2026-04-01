@@ -35,6 +35,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
+  final _searchFocus = FocusNode();
   Timer? _debounce;
   bool _pendingSearch = false;
 
@@ -92,11 +93,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void dispose() {
     _debounce?.cancel();
     _controller.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(searchShellRefocusProvider, (previous, next) {
+      if (!widget.embedded) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _searchFocus.requestFocus();
+      });
+    });
+
     final resultsAsync = ref.watch(searchProvider);
     final query = _controller.text;
     final dateFilter = ref.watch(dateFilterProvider);
@@ -120,6 +130,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             child: TextField(
               controller: _controller,
+              focusNode: _searchFocus,
               autofocus: true,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w500,

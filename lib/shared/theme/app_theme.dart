@@ -229,6 +229,22 @@ class AppTheme {
         highlightElevation: 4,
       ),
       navigationBarTheme: NavigationBarThemeData(
+        height: 72,
+        elevation: 3,
+        shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
+        surfaceTintColor: Colors.transparent,
+        backgroundColor: colorScheme.surface,
+        indicatorColor: colorScheme.surfaceContainerHigh,
+        indicatorShape: const StadiumBorder(),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            size: 24,
+            color: selected
+                ? colorScheme.onSurface
+                : colorScheme.onSurfaceVariant,
+          );
+        }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return GoogleFonts.inter(

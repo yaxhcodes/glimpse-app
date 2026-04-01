@@ -17,6 +17,10 @@ final searchModeProvider = StateProvider<SearchMode>(
   (ref) => SearchMode.keyword,
 );
 
+/// Bumped when the user re-taps Search on the main shell bottom nav so the
+/// embedded [SearchScreen] can focus the field and show the keyboard again.
+final searchShellRefocusProvider = StateProvider<int>((ref) => 0);
+
 /// One search hit with optional relevance score (semantic) or 0 (keyword).
 class SearchResult {
   final SavedUrl url;

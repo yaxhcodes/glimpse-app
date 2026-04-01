@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../home/home_screen.dart';
 import '../collections/collections_screen.dart';
 import '../mindmap/mindmap_screen.dart';
+import '../search/search_provider.dart';
 import '../search/search_screen.dart';
 
 class MainShell extends ConsumerStatefulWidget {
@@ -17,6 +18,8 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
+  static const int _searchTabIndex = 3;
+
   int _currentIndex = 0;
 
   static const _screens = <Widget>[
@@ -28,67 +31,77 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                context.push('/ask');
-              },
-              icon: SvgPicture.asset(
-                'assets/glimpse.svg',
-                width: 26,
-                height: 26,
-                colorFilter: ColorFilter.mode(
-                  Theme.of(context).colorScheme.onPrimaryContainer,
-                  BlendMode.srcIn,
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentIndex != 0) {
+          setState(() => _currentIndex = 0);
+        }
+      },
+      child: Scaffold(
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
+        floatingActionButton: _currentIndex == 0
+            ? FloatingActionButton.extended(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/ask');
+                },
+                icon: SvgPicture.asset(
+                  'assets/glimpse.svg',
+                  width: 26,
+                  height: 26,
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.onPrimaryContainer,
+                    BlendMode.srcIn,
+                  ),
                 ),
-              ),
-              label: Text(
-                'Ask Glimpse',
-                style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              elevation: 2,
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: NavigationBar(
-        height: 62,
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) {
-          HapticFeedback.selectionClick();
-          setState(() => _currentIndex = i);
-        },
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        indicatorColor: cs.secondaryContainer,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bookmarks_outlined),
-            selectedIcon: Icon(Icons.bookmarks_rounded),
-            label: 'Collections',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.hub_outlined),
-            selectedIcon: Icon(Icons.hub_rounded),
-            label: 'Mind Map',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search_rounded),
-            selectedIcon: Icon(Icons.search_rounded),
-            label: 'Search',
-          ),
-        ],
+                label: Text(
+                  'Ask Glimpse',
+                  style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                elevation: 2,
+              )
+            : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (i) {
+            HapticFeedback.selectionClick();
+            final wasAlreadySearch =
+                _currentIndex == _searchTabIndex && i == _searchTabIndex;
+            setState(() => _currentIndex = i);
+            if (wasAlreadySearch) {
+              ref.read(searchShellRefocusProvider.notifier).state++;
+            }
+          },
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.folder_outlined),
+              selectedIcon: Icon(Icons.folder_rounded),
+              label: 'Collections',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.account_tree_outlined),
+              selectedIcon: Icon(Icons.account_tree_rounded),
+              label: 'Mind Map',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.search_outlined),
+              selectedIcon: Icon(Icons.search_rounded),
+              label: 'Search',
+            ),
+          ],
+        ),
       ),
     );
   }
