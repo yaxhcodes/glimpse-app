@@ -68,9 +68,37 @@ class AppTheme {
     return _buildTheme(colorScheme);
   }
 
+  /// Dark theme with **true black** and near-black containers (OLED-friendly).
+  static ThemeData amoledTheme(Color seedColor) {
+    final base = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: Brightness.dark,
+    );
+    return _buildTheme(_amoledSurfaces(base));
+  }
+
   /// Build a theme directly from a pre-built [ColorScheme] (for dynamic color).
   static ThemeData fromColorScheme(ColorScheme colorScheme) {
     return _buildTheme(colorScheme);
+  }
+
+  /// Dynamic dark colors with AMOLED-style surfaces; keeps accent from [scheme].
+  static ThemeData fromColorSchemeAmoled(ColorScheme scheme) {
+    return _buildTheme(_amoledSurfaces(scheme));
+  }
+
+  /// Replace dark greys with black / near-black; preserves primary, error, etc.
+  static ColorScheme _amoledSurfaces(ColorScheme scheme) {
+    assert(scheme.brightness == Brightness.dark);
+    const black = Color(0xFF000000);
+    return scheme.copyWith(
+      surface: black,
+      surfaceContainerLowest: black,
+      surfaceContainerLow: const Color(0xFF0A0A0A),
+      surfaceContainer: const Color(0xFF121212),
+      surfaceContainerHigh: const Color(0xFF161616),
+      surfaceContainerHighest: const Color(0xFF1C1C1C),
+    );
   }
 
   static TextTheme _buildTextTheme() {

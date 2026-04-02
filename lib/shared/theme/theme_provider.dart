@@ -4,9 +4,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_theme.dart';
 
 const _kThemeModeKey = 'theme_mode';
+const _kAmoledSurfacesKey = 'amoled_surfaces';
+const _kLegacyAppearanceKey = 'app_appearance';
 const _kAccentColorKey = 'accent_color';
 
-/// Persisted ThemeMode provider.
+/// One-time migration from unified `app_appearance` (4-way) to theme + AMOLED toggle.
+Future<void> _migrateLegacyAppearancePrefs(SharedPreferences prefs) async {
+  final legacy = prefs.getInt(_kLegacyAppearanceKey);
+  if (legacy == null) return;
+
+  if (legacy == 3) {
+    await prefs.setInt(_kThemeModeKey, ThemeMode.dark.index);
+    await prefs.setInt(_kAmoledSurfacesKey, 1);
+  } else if (legacy >= 0 && legacy < ThemeMode.values.length) {
+    await prefs.setInt(_kThemeModeKey, legacy);
+    await prefs.setInt(_kAmoledSurfacesKey, 0);
+  }
+  await prefs.remove(_kLegacyAppearanceKey);
+}
+
+/// Persisted light / dark / system.
 final themeModeProvider =
     StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
   return ThemeModeNotifier();
@@ -19,6 +36,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    await _migrateLegacyAppearancePrefs(prefs);
     final idx = prefs.getInt(_kThemeModeKey);
     if (idx != null && idx < ThemeMode.values.length) {
       state = ThemeMode.values[idx];
@@ -29,6 +47,35 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
     state = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kThemeModeKey, mode.index);
+  }
+}
+
+/// True black / near-black surfaces for dark theme (OLED). Independent of [themeMode].
+final amoledSurfacesProvider =
+    StateNotifierProvider<AmoledSurfacesNotifier, bool>((ref) {
+  return AmoledSurfacesNotifier();
+});
+
+class AmoledSurfacesNotifier extends StateNotifier<bool> {
+  AmoledSurfacesNotifier() : super(false) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    await _migrateLegacyAppearancePrefs(prefs);
+    final v = prefs.getInt(_kAmoledSurfacesKey);
+    if (v == 1) {
+      state = true;
+    } else if (v == 0) {
+      state = false;
+    }
+  }
+
+  Future<void> set(bool value) async {
+    state = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kAmoledSurfacesKey, value ? 1 : 0);
   }
 }
 

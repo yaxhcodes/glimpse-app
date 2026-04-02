@@ -311,6 +311,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
+    final amoledSurfaces = ref.watch(amoledSurfacesProvider);
     final accent = ref.watch(accentColorProvider);
 
     return DynamicColorBuilder(
@@ -324,13 +325,20 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
         final ThemeData lightTheme;
         final ThemeData darkTheme;
 
+        final useAmoledPalette =
+            amoledSurfaces && themeMode != ThemeMode.light;
+
         if (useDynamic) {
           lightTheme = AppTheme.fromColorScheme(lightDynamic);
-          darkTheme = AppTheme.fromColorScheme(darkDynamic);
+          darkTheme = useAmoledPalette
+              ? AppTheme.fromColorSchemeAmoled(darkDynamic)
+              : AppTheme.fromColorScheme(darkDynamic);
         } else {
           final seed = accent.seedColor ?? const Color(0xFF6750A4);
           lightTheme = AppTheme.lightTheme(seed);
-          darkTheme = AppTheme.darkTheme(seed);
+          darkTheme = useAmoledPalette
+              ? AppTheme.amoledTheme(seed)
+              : AppTheme.darkTheme(seed);
         }
 
         return MaterialApp.router(
