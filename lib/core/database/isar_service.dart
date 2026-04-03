@@ -14,6 +14,8 @@ class IsarService {
   }
 
   Future<Isar> _openDb() async {
+    final existing = Isar.getInstance();
+    if (existing != null && existing.isOpen) return existing;
     final dir = await getApplicationDocumentsDirectory();
     return Isar.open(
       [SavedUrlSchema, UserCollectionSchema],

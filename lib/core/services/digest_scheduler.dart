@@ -6,28 +6,53 @@ import 'digest_prefs.dart';
 class DigestScheduler {
   DigestScheduler._();
 
+  static const _taskUniqueName = 'glimpse_digest';
+  static const taskName = 'digestTask';
+
+  /// Cancel any pending digest work and schedule the next one-off run.
+  /// Called on app start and whenever digest settings change.
   static Future<void> reschedule() async {
-    await Workmanager().cancelByUniqueName('glimpse_digest');
+    await Workmanager().cancelByUniqueName(_taskUniqueName);
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(DigestPrefs.digestEnabledKey) ?? true)) return;
 
     final day = prefs.getInt(DigestPrefs.digestDayKey) ?? 7;
     final hour = prefs.getInt(DigestPrefs.digestHourKey) ?? 10;
     final minute = prefs.getInt(DigestPrefs.digestMinuteKey) ?? 0;
-    final initialDelay = _nextDigestDelay(
+    final delay = _nextDigestDelay(
       dayOfWeek: day,
       hour: hour,
       minute: minute,
     );
 
-    await Workmanager().registerPeriodicTask(
-      'glimpse_digest',
-      'digestTask',
-      frequency: const Duration(days: 7),
-      initialDelay: initialDelay,
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-      ),
+    await Workmanager().registerOneOffTask(
+      _taskUniqueName,
+      taskName,
+      initialDelay: delay,
+      existingWorkPolicy: ExistingWorkPolicy.replace,
+    );
+  }
+
+  /// Schedule the next digest one week from now.
+  /// Called from the background callback after a successful run.
+  static Future<void> scheduleNextWeek() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(DigestPrefs.digestEnabledKey) ?? true)) return;
+
+    final day = prefs.getInt(DigestPrefs.digestDayKey) ?? 7;
+    final hour = prefs.getInt(DigestPrefs.digestHourKey) ?? 10;
+    final minute = prefs.getInt(DigestPrefs.digestMinuteKey) ?? 0;
+    final delay = _nextDigestDelay(
+      dayOfWeek: day,
+      hour: hour,
+      minute: minute,
+    );
+
+    await Workmanager().registerOneOffTask(
+      _taskUniqueName,
+      taskName,
+      initialDelay: delay,
+      existingWorkPolicy: ExistingWorkPolicy.replace,
     );
   }
 
@@ -39,7 +64,6 @@ class DigestScheduler {
     final now = DateTime.now();
     var target = DateTime(now.year, now.month, now.day, hour, minute);
     var daysAhead = (dayOfWeek - now.weekday) % 7;
-    if (daysAhead < 0) daysAhead += 7;
     if (daysAhead == 0 &&
         (now.isAfter(target) || now.isAtSameMomentAs(target))) {
       daysAhead = 7;

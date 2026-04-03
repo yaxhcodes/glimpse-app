@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/category_order_provider.dart';
+import '../../core/services/digest_prefs.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
@@ -22,11 +23,20 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   bool _isScrolled = false;
+  int _unreadDigests = 0;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _refreshUnreadBadge();
+  }
+
+  Future<void> _refreshUnreadBadge() async {
+    final count = await DigestPrefs.unreadCount();
+    if (mounted && count != _unreadDigests) {
+      setState(() => _unreadDigests = count);
+    }
   }
 
   void _onScroll() {
@@ -171,6 +181,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     icon: const Icon(Icons.add_link_rounded),
                     tooltip: 'Add URL',
                     onPressed: () => context.push('/add'),
+                  ),
+                  IconButton(
+                    icon: Badge(
+                      isLabelVisible: _unreadDigests > 0,
+                      label: Text('$_unreadDigests'),
+                      child: const Icon(Icons.notifications_outlined),
+                    ),
+                    tooltip: 'Notifications',
+                    onPressed: () async {
+                      await context.push('/notifications');
+                      _refreshUnreadBadge();
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.settings_outlined),

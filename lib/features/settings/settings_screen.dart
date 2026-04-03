@@ -8,6 +8,8 @@ import '../../core/providers/user_display_name_provider.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../collections/collections_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
+import '../../core/services/digest_background.dart';
+import '../../core/services/digest_notifications.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/services/digest_scheduler.dart';
 
@@ -201,6 +203,8 @@ class _DigestSettingsCardState extends ConsumerState<_DigestSettingsCard> {
   int _day = 7;
   TimeOfDay _time = const TimeOfDay(hour: 10, minute: 0);
   bool _loaded = false;
+  String? _lastRun;
+  bool _testing = false;
 
   @override
   void initState() {
@@ -210,6 +214,7 @@ class _DigestSettingsCardState extends ConsumerState<_DigestSettingsCard> {
 
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
+    final lastRun = await DigestPrefs.loadLastRunStatus();
     if (!mounted) return;
     setState(() {
       _enabled = p.getBool(DigestPrefs.digestEnabledKey) ?? true;
@@ -217,7 +222,24 @@ class _DigestSettingsCardState extends ConsumerState<_DigestSettingsCard> {
       final h = p.getInt(DigestPrefs.digestHourKey) ?? 10;
       final m = p.getInt(DigestPrefs.digestMinuteKey) ?? 0;
       _time = TimeOfDay(hour: h, minute: m);
+      _lastRun = lastRun;
       _loaded = true;
+    });
+  }
+
+  Future<void> _testNow() async {
+    setState(() => _testing = true);
+    try {
+      await DigestNotifications.init(onOpenDigest: () {});
+      await DigestBackgroundTask.run();
+    } catch (e) {
+      await DigestPrefs.saveLastRunStatus('error: $e');
+    }
+    final status = await DigestPrefs.loadLastRunStatus();
+    if (!mounted) return;
+    setState(() {
+      _lastRun = status;
+      _testing = false;
     });
   }
 
@@ -292,6 +314,17 @@ class _DigestSettingsCardState extends ConsumerState<_DigestSettingsCard> {
             }
           },
         ),
+        if (_enabled) ...[
+          const Divider(height: 1),
+          ListTile(
+            title: const Text('Test digest now'),
+            subtitle: _lastRun != null ? Text(_lastRun!, maxLines: 2, overflow: TextOverflow.ellipsis) : null,
+            trailing: _testing
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.play_arrow),
+            onTap: _testing ? null : _testNow,
+          ),
+        ],
       ],
     );
   }

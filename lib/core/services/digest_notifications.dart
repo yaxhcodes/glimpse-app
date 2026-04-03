@@ -43,9 +43,11 @@ class DigestNotifications {
   }
 
   static Future<void> showDigest({
+    String? title,
     required List<String> summaries,
     required int linkCount,
   }) async {
+    final heading = title ?? 'Your Glimpse Digest';
     final body = summaries
         .asMap()
         .entries
@@ -56,17 +58,18 @@ class DigestNotifications {
       'glimpse_digest',
       'Weekly Digest',
       channelDescription: 'Your weekly reading roundup from Glimpse',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
+      importance: Importance.high,
+      priority: Priority.high,
       styleInformation: BigTextStyleInformation(
         body,
         summaryText: '$linkCount links worth reading',
       ),
     );
 
+    final notifId = DateTime.now().millisecondsSinceEpoch % 0x7FFFFFFF;
     await _plugin.show(
-      0,
-      '📬 Your Glimpse Digest',
+      notifId,
+      heading,
       body,
       NotificationDetails(android: androidDetails),
       payload: 'digest',

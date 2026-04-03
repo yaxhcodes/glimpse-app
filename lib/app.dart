@@ -25,6 +25,7 @@ import 'features/collections/collection_detail_screen.dart';
 import 'features/collections/collections_screen.dart';
 import 'features/collections/create_collection_screen.dart';
 import 'features/digest/digest_screen.dart';
+import 'features/digest/notifications_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/url_detail/url_detail_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -74,6 +75,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/digest',
       builder: (context, state) => const DigestScreen(),
+    ),
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationsScreen(),
     ),
     GoRoute(
       path: '/collections',
@@ -155,7 +160,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
           onOpenDigest: () {
             final ctx = rootNavigatorKey.currentContext;
             if (ctx == null) return;
-            GoRouter.of(ctx).go('/digest');
+            GoRouter.of(ctx).go('/notifications');
           },
         ),
       );
