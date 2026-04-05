@@ -2,28 +2,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'digest_prefs.dart';
+import 'tag_analyzer.dart';
 
+/// Schedules a daily one-off WorkManager task that fires 1 hour before the
+/// user's peak open hour (defaulting to 7pm if no histogram data yet).
+/// After each run the background callback chains the next day's task.
 class DigestScheduler {
   DigestScheduler._();
 
-  static const _taskUniqueName = 'glimpse_digest';
-  static const taskName = 'digestTask';
+  static const _taskUniqueName = 'glimpse_notif_daily';
+  static const taskName = 'notifTask';
 
-  /// Cancel any pending digest work and schedule the next one-off run.
-  /// Called on app start and whenever digest settings change.
+  /// Cancel pending work and schedule the next run.
+  /// Called on app start and whenever settings change.
   static Future<void> reschedule() async {
     await Workmanager().cancelByUniqueName(_taskUniqueName);
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(DigestPrefs.digestEnabledKey) ?? true)) return;
 
-    final day = prefs.getInt(DigestPrefs.digestDayKey) ?? 7;
-    final hour = prefs.getInt(DigestPrefs.digestHourKey) ?? 10;
-    final minute = prefs.getInt(DigestPrefs.digestMinuteKey) ?? 0;
-    final delay = _nextDigestDelay(
-      dayOfWeek: day,
-      hour: hour,
-      minute: minute,
-    );
+    final delay = await _nextDelay();
 
     await Workmanager().registerOneOffTask(
       _taskUniqueName,
@@ -33,20 +30,12 @@ class DigestScheduler {
     );
   }
 
-  /// Schedule the next digest one week from now.
-  /// Called from the background callback after a successful run.
-  static Future<void> scheduleNextWeek() async {
+  /// Schedule tomorrow's run. Called by the background callback after each run.
+  static Future<void> scheduleNext() async {
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(DigestPrefs.digestEnabledKey) ?? true)) return;
 
-    final day = prefs.getInt(DigestPrefs.digestDayKey) ?? 7;
-    final hour = prefs.getInt(DigestPrefs.digestHourKey) ?? 10;
-    final minute = prefs.getInt(DigestPrefs.digestMinuteKey) ?? 0;
-    final delay = _nextDigestDelay(
-      dayOfWeek: day,
-      hour: hour,
-      minute: minute,
-    );
+    final delay = await _nextDelay();
 
     await Workmanager().registerOneOffTask(
       _taskUniqueName,
@@ -56,19 +45,21 @@ class DigestScheduler {
     );
   }
 
-  static Duration _nextDigestDelay({
-    required int dayOfWeek,
-    required int hour,
-    required int minute,
-  }) {
+  /// Compute delay until next fire window: (peak_hour - 1) tomorrow,
+  /// or today if the window hasn't passed yet.
+  static Future<Duration> _nextDelay() async {
+    final peak = await TagAnalyzer.peakOpenHour();
+    // Fire 1 hour before peak. Clamp to 8–22 range.
+    var fireHour = (peak - 1).clamp(8, 22);
+
     final now = DateTime.now();
-    var target = DateTime(now.year, now.month, now.day, hour, minute);
-    var daysAhead = (dayOfWeek - now.weekday) % 7;
-    if (daysAhead == 0 &&
-        (now.isAfter(target) || now.isAtSameMomentAs(target))) {
-      daysAhead = 7;
+    var target = DateTime(now.year, now.month, now.day, fireHour);
+
+    // If today's window already passed, schedule for tomorrow.
+    if (now.isAfter(target) || now.isAtSameMomentAs(target)) {
+      target = target.add(const Duration(days: 1));
     }
-    target = target.add(Duration(days: daysAhead));
+
     var d = target.difference(now);
     if (d.isNegative) d = const Duration(minutes: 15);
     return d;

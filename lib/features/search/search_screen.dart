@@ -1,14 +1,17 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
-import '../../shared/widgets/category_chip.dart' show faviconUrl;
+import '../../core/services/category_resolver.dart';
+import '../../core/services/tag_noise_filter.dart';
+import '../../core/services/title_resolver.dart';
+import '../../shared/widgets/link_card_thumbnail.dart';
+import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../home/home_provider.dart';
 import 'search_provider.dart';
 
 /// Date filter options.
@@ -348,11 +351,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                           bottom: 24,
                                         ),
                                         itemCount: filtered.length,
-                                        itemBuilder: (_, index) {
+                                        itemBuilder: (context, index) {
                                           return _buildSearchResultCard(
+                                            context,
                                             filtered[index],
                                             colorScheme,
                                             theme.textTheme,
+                                            ref.watch(tagOccurrenceMapProvider),
                                             _onOpenResult,
                                           );
                                         },
@@ -460,29 +465,37 @@ class _DateFilterPill extends StatelessWidget {
   }
 }
 
-String? _searchResultPreviewUrl(SavedUrl u) {
-  final t = u.thumbnailUrl?.trim();
-  if (t != null && t.isNotEmpty) return t;
-  final fav = faviconUrl(u.category);
-  if (fav != null) return fav;
-  final d = u.domain.trim();
-  if (d.isNotEmpty) {
-    return 'https://www.google.com/s2/favicons?domain=${Uri.encodeComponent(d)}&sz=128';
-  }
-  return null;
-}
-
 Widget _buildSearchResultCard(
+  BuildContext context,
   SearchResult result,
   ColorScheme cs,
   TextTheme tt,
+  Map<String, int> tagFreq,
   Future<void> Function(SearchResult) onTap,
 ) {
+  final theme = Theme.of(context);
+  final u = result.url;
+  final title = TitleResolver.formatForCompactCard(
+    u,
+    TitleResolver.collapseWhitespace(
+      TitleResolver.resolve(u, tagFrequency: tagFreq),
+    ),
+  );
+  final chips = TagNoiseFilter.visibleTagsForCard(u.tags, tagFreq);
+  final isRead = u.openedAt != null;
+  final isLight = theme.brightness == Brightness.light;
+  final platformLabel = CategoryResolver.displaySourceName(
+    rawUrl: u.rawUrl,
+    fallbackDomain: u.domain,
+  );
+  final metaStyle = TextStyle(fontSize: 12, color: cs.onSurfaceVariant);
+
   return Card(
     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-    color: cs.surfaceContainerLow,
+    color: UrlCard.listCardFillColor(theme),
     elevation: 0,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    clipBehavior: Clip.antiAlias,
+    shape: UrlCard.listCardShape(theme, radius: 14),
     child: InkWell(
       onTap: () => onTap(result),
       borderRadius: BorderRadius.circular(14),
@@ -491,39 +504,79 @@ Widget _buildSearchResultCard(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SearchHitLeading(url: result.url, cs: cs),
+            LinkCardThumbnail.build(
+              url: result.url,
+              isRead: isRead,
+              context: context,
+              size: 48,
+              borderRadius: 8,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    result.url.title,
-                    style: tt.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                  AnimatedOpacity(
+                    opacity: (isRead && isLight) ? 0.45 : 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: (tt.titleSmall ?? const TextStyle()).copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    Uri.parse(result.url.rawUrl)
-                        .host
-                        .replaceFirst('www.', ''),
-                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+                  Row(
+                    children: [
+                      Text(platformLabel, style: metaStyle),
+                      Text(' · ', style: metaStyle),
+                      Text(
+                        UrlCard.timeAgoSaved(u.savedAt),
+                        style: metaStyle,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 4,
-                    children: result.url.tags.take(3).map((tag) {
-                      return Chip(
-                        label: Text(tag, style: tt.labelSmall),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      );
-                    }).toList(),
-                  ),
+                  if (chips.visible.isNotEmpty || chips.overflow > 0) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        ...chips.visible.map(
+                          (tag) => Chip(
+                            label: Text(
+                              tag,
+                              style: tt.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant
+                                    .withValues(alpha: 0.85),
+                              ),
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                        if (chips.overflow > 0)
+                          Chip(
+                            label: Text(
+                              '+${chips.overflow}',
+                              style: tt.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -534,71 +587,3 @@ Widget _buildSearchResultCard(
   );
 }
 
-class _SearchHitLeading extends StatelessWidget {
-  const _SearchHitLeading({required this.url, required this.cs});
-
-  final SavedUrl url;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    final preview = _searchResultPreviewUrl(url);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: 48,
-        height: 48,
-        child: preview != null
-            ? CachedNetworkImage(
-                imageUrl: preview,
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorWidget: (_, _, _) =>
-                    _SearchHitFallback(url: url, cs: cs),
-              )
-            : _SearchHitFallback(url: url, cs: cs),
-      ),
-    );
-  }
-}
-
-class _SearchHitFallback extends StatelessWidget {
-  const _SearchHitFallback({required this.url, required this.cs});
-
-  final SavedUrl url;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    final fav = faviconUrl(url.category);
-    return ColoredBox(
-      color: cs.surfaceContainerHighest,
-      child: fav != null
-          ? Center(
-              child: CachedNetworkImage(
-                imageUrl: fav,
-                width: 28,
-                height: 28,
-                fit: BoxFit.contain,
-                errorWidget: (_, _, _) => Text(
-                  url.categoryEmoji,
-                  style: const TextStyle(fontSize: 22),
-                ),
-              ),
-            )
-          : Center(
-              child: Text(
-                url.domain.isNotEmpty
-                    ? url.domain[0].toUpperCase()
-                    : url.categoryEmoji,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-    );
-  }
-}

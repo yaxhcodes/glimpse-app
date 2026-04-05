@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/title_resolver.dart';
+import '../home/home_provider.dart';
 import 'collections_provider.dart';
 
 class AddToCollectionSheet extends ConsumerStatefulWidget {
@@ -20,6 +22,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
   @override
   Widget build(BuildContext context) {
     final collectionsAsync = ref.watch(collectionsListProvider);
+    final tagFreq = ref.watch(tagOccurrenceMapProvider);
     final theme = Theme.of(context);
 
     return SafeArea(
@@ -35,7 +38,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              widget.url.title,
+              TitleResolver.resolve(widget.url, tagFrequency: tagFreq),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

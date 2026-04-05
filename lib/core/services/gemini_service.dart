@@ -171,6 +171,7 @@ Important rules:
 - Keep categories broad and stable.
 - Put the specific topic in tags, not the category.
 - Examples: React, Flutter, AI agents → category "Technology"; gardening, composting → "Home & Garden"; investing, budgeting → "Finance".
+- Summary style (critical): Never start the summary with "This Instagram reel", "This post", "This video", "This article", or "This content". Start directly with what the content is about. Good: "A free NASA data source offering real-time environmental monitoring…" Bad: "This Instagram reel highlights a free NASA data source…"
 
 Title: ${title.isEmpty ? '(not available)' : title}
 Description: ${description.isEmpty ? '(not available)' : description}

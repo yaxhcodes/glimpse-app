@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/category_resolver.dart';
-import 'category_chip.dart' show faviconUrl;
+import '../../core/services/tag_noise_filter.dart';
+import '../../core/services/title_resolver.dart';
+import '../../features/home/home_provider.dart';
+import 'link_card_thumbnail.dart';
 
 /// Animated skeleton placeholder that matches the UrlCard layout.
 class UrlCardSkeleton extends StatefulWidget {
@@ -44,12 +47,13 @@ class _UrlCardSkeletonState extends State<UrlCardSkeleton>
         final shimmer = cs.onSurface.withValues(
           alpha: 0.08 + 0.10 * _anim.value,
         );
+        final theme = Theme.of(context);
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
+          decoration: ShapeDecoration(
+            color: UrlCard.listCardFillColor(theme),
+            shape: UrlCard.listCardShape(theme, radius: 14),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,7 +71,7 @@ class _UrlCardSkeletonState extends State<UrlCardSkeleton>
                     const SizedBox(height: 6),
                     _ShimmerBox(shimmer, height: 14, width: 180),
                     const SizedBox(height: 8),
-                    _ShimmerBox(shimmer, height: 12, width: 110),
+                    _ShimmerBox(shimmer, height: 12, width: 140),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -110,7 +114,7 @@ class _ShimmerBox extends StatelessWidget {
 }
 
 /// Card widget for displaying a saved URL entry.
-class UrlCard extends StatefulWidget {
+class UrlCard extends ConsumerStatefulWidget {
   final SavedUrl savedUrl;
   final VoidCallback? onTap;
 
@@ -120,16 +124,44 @@ class UrlCard extends StatefulWidget {
     this.onTap,
   });
 
+  /// Relative time for the source · time row (shared with other link cards).
+  static String timeAgoSaved(DateTime savedAt) {
+    final diff = DateTime.now().difference(savedAt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
+    return '${(diff.inDays / 365).floor()}y ago';
+  }
+
+  /// Shared with search / notification list rows: neutral light cards, tinted dark.
+  static Color listCardFillColor(ThemeData theme) {
+    final cs = theme.colorScheme;
+    return theme.brightness == Brightness.light
+        ? cs.surface
+        : cs.surfaceContainerLow;
+  }
+
+  static ShapeBorder listCardShape(ThemeData _, {double radius = 14}) {
+    return RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+    );
+  }
+
   @override
-  State<UrlCard> createState() => _UrlCardState();
+  ConsumerState<UrlCard> createState() => _UrlCardState();
 }
 
-class _UrlCardState extends State<UrlCard> {
+class _UrlCardState extends ConsumerState<UrlCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final tt = theme.textTheme;
+    final tagFreq = ref.watch(tagOccurrenceMapProvider);
 
     final displaySourceName = CategoryResolver.displaySourceName(
       rawUrl: widget.savedUrl.rawUrl,
@@ -138,22 +170,34 @@ class _UrlCardState extends State<UrlCard> {
     final normalizedCategories = widget.savedUrl.effectiveCategories
         .map((item) => item.toLowerCase())
         .toSet();
-    final visibleTags = widget.savedUrl.tags
+    final tagPool = widget.savedUrl.tags
         .where((tag) => !normalizedCategories.contains(tag.toLowerCase()))
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
         .toList();
 
-    final hasThumbnail = widget.savedUrl.thumbnailUrl != null &&
-        widget.savedUrl.thumbnailUrl!.isNotEmpty;
+    final resolvedTitle = TitleResolver.formatForCompactCard(
+      widget.savedUrl,
+      TitleResolver.collapseWhitespace(
+        TitleResolver.resolve(
+          widget.savedUrl,
+          tagFrequency: tagFreq,
+        ),
+      ),
+    );
+    final chipData = TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
+
+    final isRead = widget.savedUrl.openedAt != null;
+    final isLight = theme.brightness == Brightness.light;
+    final metaStyle = TextStyle(fontSize: 12, color: cs.onSurfaceVariant);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       child: Material(
-        color: cs.surfaceContainerLow,
-        elevation: 0.5,
-        shadowColor: cs.shadow.withValues(alpha: 0.3),
+        color: UrlCard.listCardFillColor(theme),
+        elevation: 0,
+        shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        shape: UrlCard.listCardShape(theme, radius: 14),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {
@@ -169,77 +213,97 @@ class _UrlCardState extends State<UrlCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: hasThumbnail
-                      ? CachedNetworkImage(
-                          imageUrl: widget.savedUrl.thumbnailUrl!,
-                          width: 64,
-                          height: 64,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => _FallbackThumbnail(
-                            category: widget.savedUrl.category,
-                            emoji: widget.savedUrl.categoryEmoji,
-                            domain: widget.savedUrl.domain,
-                          ),
-                        )
-                      : _FallbackThumbnail(
-                          category: widget.savedUrl.category,
-                          emoji: widget.savedUrl.categoryEmoji,
-                          domain: widget.savedUrl.domain,
-                        ),
+                LinkCardThumbnail.build(
+                  url: widget.savedUrl,
+                  isRead: isRead,
+                  context: context,
+                  size: 64,
+                  borderRadius: 10,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.savedUrl.title,
-                        style: tt.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                          color: cs.onSurface,
+                      AnimatedOpacity(
+                        opacity: (isRead && isLight) ? 0.45 : 1.0,
+                        duration: const Duration(milliseconds: 300),
+                        child: Text(
+                          resolvedTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: (tt.titleSmall ?? const TextStyle()).copyWith(
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                            fontSize: (tt.titleSmall?.fontSize ?? 14) + 0.5,
+                            color: cs.onSurface,
+                          ),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '$displaySourceName  ·  ${_timeAgo(widget.savedUrl.savedAt)}',
-                        style: tt.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Text(displaySourceName, style: metaStyle),
+                          Text(' · ', style: metaStyle),
+                          Text(
+                            UrlCard.timeAgoSaved(widget.savedUrl.savedAt),
+                            style: metaStyle,
+                          ),
+                        ],
                       ),
-                      if (visibleTags.isNotEmpty) ...[
+                      if (chipData.visible.isNotEmpty ||
+                          chipData.overflow > 0) ...[
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 6,
                           runSpacing: 4,
-                          children: visibleTags.take(3).map((tag) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: cs.secondaryContainer.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                tag,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: cs.onSecondaryContainer,
-                                  fontFamily: tt.labelSmall?.fontFamily,
+                          children: [
+                            ...chipData.visible.map((tag) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cs.secondaryContainer
+                                      .withValues(alpha: 0.45),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSecondaryContainer
+                                        .withValues(alpha: 0.75),
+                                    fontFamily: tt.labelSmall?.fontFamily,
+                                  ),
+                                ),
+                              );
+                            }),
+                            if (chipData.overflow > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cs.surfaceContainerHighest
+                                      .withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '+${chipData.overflow}',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.7),
+                                    fontFamily: tt.labelSmall?.fontFamily,
+                                  ),
                                 ),
                               ),
-                            );
-                          }).toList(),
+                          ],
                         ),
                       ],
                     ],
@@ -286,76 +350,6 @@ class _UrlCardState extends State<UrlCard> {
             ),
             const SizedBox(height: 8),
           ],
-        ),
-      ),
-    );
-  }
-
-  static String _timeAgo(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
-    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
-    return '${(diff.inDays / 365).floor()}y ago';
-  }
-}
-
-class _FallbackThumbnail extends StatelessWidget {
-  const _FallbackThumbnail({
-    required this.category,
-    required this.emoji,
-    required this.domain,
-  });
-
-  final String category;
-  final String emoji;
-  final String domain;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final fav = faviconUrl(category);
-    if (fav != null) {
-      return Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        alignment: Alignment.center,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(5),
-          child: CachedNetworkImage(
-            imageUrl: fav,
-            width: 30,
-            height: 30,
-            fit: BoxFit.contain,
-            errorWidget: (_, _, _) =>
-                Text(emoji, style: const TextStyle(fontSize: 22)),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        domain.isNotEmpty ? domain[0].toUpperCase() : emoji,
-        style: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          color: cs.onSurfaceVariant,
         ),
       ),
     );

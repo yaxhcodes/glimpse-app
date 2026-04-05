@@ -9,6 +9,9 @@ import 'core/providers/service_providers.dart';
 import 'core/services/bundled_keys.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/digest_scheduler.dart';
+import 'core/services/notification_router.dart';
+import 'core/services/tag_analyzer.dart';
+import 'digest_callback.dart' show notificationActionCallback;
 import 'core/services/embedding_backfill_service.dart';
 import 'core/services/embedding_service.dart';
 import 'core/services/link_preview_service.dart';
@@ -25,6 +28,7 @@ import 'features/collections/collection_detail_screen.dart';
 import 'features/collections/collections_screen.dart';
 import 'features/collections/create_collection_screen.dart';
 import 'features/digest/digest_screen.dart';
+import 'features/digest/notification_detail_screen.dart';
 import 'features/digest/notifications_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/url_detail/url_detail_screen.dart';
@@ -79,6 +83,16 @@ final _router = GoRouter(
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/notification_detail',
+      builder: (context, state) {
+        final extra = state.extra as NotificationDetailExtra?;
+        return NotificationDetailScreen(
+          title: extra?.title ?? 'Notification',
+          linkIds: extra?.linkIds ?? const [],
+        );
+      },
     ),
     GoRoute(
       path: '/collections',
@@ -147,20 +161,34 @@ class GlimpseApp extends ConsumerStatefulWidget {
   ConsumerState<GlimpseApp> createState() => _GlimpseAppState();
 }
 
-class _GlimpseAppState extends ConsumerState<GlimpseApp> {
+class _GlimpseAppState extends ConsumerState<GlimpseApp>
+    with WidgetsBindingObserver {
   late StreamSubscription _shareIntentSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Record peak-hour histogram on cold start.
+    unawaited(TagAnalyzer.recordAppOpen());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(
         DigestNotifications.init(
-          onOpenDigest: () {
+          onOpenNotification: (payload) {
             final ctx = rootNavigatorKey.currentContext;
             if (ctx == null) return;
-            GoRouter.of(ctx).go('/notifications');
+            NotificationRouter.openFromPayload(ctx, payload);
+          },
+          onAction: (action, payload) {
+            final ctx = rootNavigatorKey.currentContext;
+            if (ctx == null) return;
+            if (action == 'open_link') {
+              NotificationRouter.openFromPayload(ctx, payload);
+            } else {
+              unawaited(notificationActionCallback(action, payload));
+            }
           },
         ),
       );
@@ -308,7 +336,15 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(TagAnalyzer.recordAppOpen());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _shareIntentSub.cancel();
     super.dispose();
   }

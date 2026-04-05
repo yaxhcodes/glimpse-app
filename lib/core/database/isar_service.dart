@@ -518,6 +518,18 @@ class IsarService {
     });
   }
 
+  /// Mark a link unread (e.g. toggling from the home card).
+  Future<void> clearOpenedAt(int urlId) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(urlId);
+      if (url != null) {
+        url.openedAt = null;
+        await isar.savedUrls.put(url);
+      }
+    });
+  }
+
   Future<void> updateResurfacedAt(int urlId, DateTime when) async {
     final isar = await _db;
     await isar.writeTxn(() async {
@@ -549,6 +561,115 @@ class IsarService {
       if (out.length >= limit) break;
     }
     return out;
+  }
+
+  // --------------- NOTIFICATION QUERIES ---------------
+
+  /// Number of unread links per primary category.
+  Future<Map<String, int>> getUnreadCountByCategory() async {
+    final isar = await _db;
+    final all = await isar.savedUrls.where().findAll();
+    final counts = <String, int>{};
+    for (final u in all) {
+      if (u.openedAt != null) continue;
+      final cat = u.effectiveCategories.firstOrNull ?? 'Other';
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// Links from the last 7 days grouped by category with read status.
+  Future<Map<String, List<SavedUrl>>> getWeeklyDigestData() async {
+    final isar = await _db;
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final all = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
+    final grouped = <String, List<SavedUrl>>{};
+    for (final u in all) {
+      if (u.savedAt.isBefore(cutoff)) continue;
+      final cat = u.effectiveCategories.firstOrNull ?? 'Other';
+      (grouped[cat] ??= []).add(u);
+    }
+    return grouped;
+  }
+
+  /// Single oldest unread link saved more than [minAge] ago.
+  Future<SavedUrl?> getOldestUnreadLink({
+    Duration minAge = const Duration(days: 14),
+  }) async {
+    final isar = await _db;
+    final cutoff = DateTime.now().subtract(minAge);
+    final all = await isar.savedUrls.where().sortBySavedAt().findAll();
+    for (final u in all) {
+      if (u.openedAt != null) continue;
+      if (u.savedAt.isBefore(cutoff)) return u;
+    }
+    return null;
+  }
+
+  /// Number of consecutive recent days on which the user saved at least one link.
+  Future<int> getSavingStreakDays() async {
+    final isar = await _db;
+    final all = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
+    if (all.isEmpty) return 0;
+
+    final daysWithSaves = <int>{};
+    final now = DateTime.now();
+    for (final u in all) {
+      daysWithSaves.add(DateTime(u.savedAt.year, u.savedAt.month, u.savedAt.day)
+          .difference(DateTime(now.year, now.month, now.day))
+          .inDays);
+    }
+
+    var streak = 0;
+    for (var d = 0; d <= 365; d++) {
+      if (daysWithSaves.contains(-d)) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  /// True if the user has opened zero links in the last [days] days.
+  Future<bool> hasOpenedNothingRecently({int days = 7}) async {
+    final isar = await _db;
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final all = await isar.savedUrls.where().findAll();
+    for (final u in all) {
+      final o = u.openedAt;
+      if (o != null && o.isAfter(cutoff)) return false;
+    }
+    return true;
+  }
+
+  /// Count of all unread links.
+  Future<int> getTotalUnreadCount() async {
+    final isar = await _db;
+    final all = await isar.savedUrls.where().findAll();
+    return all.where((u) => u.openedAt == null).length;
+  }
+
+  /// Count of links saved in the last [days] days.
+  Future<int> getRecentSaveCount({int days = 7}) async {
+    final isar = await _db;
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final all = await isar.savedUrls.where().findAll();
+    return all.where((u) => u.savedAt.isAfter(cutoff)).length;
+  }
+
+  /// Mark all unread links in [category] as read.
+  Future<void> markCategoryRead(String category) async {
+    final isar = await _db;
+    final all = await isar.savedUrls.where().findAll();
+    await isar.writeTxn(() async {
+      for (final u in all) {
+        if (u.openedAt != null) continue;
+        if (!u.effectiveCategories.contains(category)) continue;
+        u.openedAt = DateTime.now();
+        await isar.savedUrls.put(u);
+      }
+    });
   }
 
   // --------------- COLLECTIONS ---------------

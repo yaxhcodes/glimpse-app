@@ -43,6 +43,7 @@ dependencies:
 
   # HTTP
   dio: ^5.4.0
+  http: ^1.2.2
 
   # Link Preview
   any_link_preview: ^3.0.0

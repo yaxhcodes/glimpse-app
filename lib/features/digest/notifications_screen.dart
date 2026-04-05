@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/services/digest_prefs.dart';
+import '../../core/services/notification_hub_labels.dart';
+import '../../core/services/notification_router.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -36,23 +37,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     await _load();
   }
 
-  Future<void> _openDigest(Map<String, dynamic> entry) async {
+  Future<void> _openEntry(Map<String, dynamic> entry) async {
     final id = entry['id'] as String;
     await DigestPrefs.markDigestRead(id);
 
-    final ids = (entry['ids'] as List<dynamic>?)
-            ?.map((e) => (e as num).toInt())
-            .toList() ??
-        [];
-    final summaries = (entry['summaries'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        [];
+    if (!mounted) return;
 
-    await DigestPrefs.saveLastDigest(ids: ids, summaries: summaries);
     await _load();
     if (!mounted) return;
-    context.push('/digest');
+
+    await NotificationRouter.openFromHub(
+      context,
+      notifId: entry['notifId'] as String?,
+      historyEntry: entry,
+    );
   }
 
   @override
@@ -82,7 +80,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Your weekly digest roundups will appear here.',
+                          'Travel alerts, new discoveries, reading reminders,\nand weekly digests will appear here.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: cs.onSurfaceVariant,
@@ -97,9 +95,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   itemCount: _history.length,
                   itemBuilder: (context, index) {
                     final entry = _history[index];
-                    return _DigestHistoryTile(
+                    return _NotificationTile(
                       entry: entry,
-                      onTap: () => _openDigest(entry),
+                      onTap: () => _openEntry(entry),
                       onDelete: () => _delete(entry['id'] as String),
                     );
                   },
@@ -108,8 +106,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 }
 
-class _DigestHistoryTile extends StatelessWidget {
-  const _DigestHistoryTile({
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({
     required this.entry,
     required this.onTap,
     required this.onDelete,
@@ -126,12 +124,36 @@ class _DigestHistoryTile extends StatelessWidget {
   ];
 
   static String _formatDate(DateTime d) {
+    final now = DateTime.now();
+    final diff = now.difference(d);
+
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return _days[d.weekday - 1];
+
     final day = _days[d.weekday - 1];
     final month = _months[d.month - 1];
-    final hour = d.hour > 12 ? d.hour - 12 : (d.hour == 0 ? 12 : d.hour);
-    final amPm = d.hour >= 12 ? 'PM' : 'AM';
-    final min = d.minute.toString().padLeft(2, '0');
-    return '$day, $month ${d.day} · $hour:$min $amPm';
+    return '$day, $month ${d.day}';
+  }
+
+  static IconData _iconForType(String? type) {
+    switch (type) {
+      case 'digest':
+        return Icons.summarize_outlined;
+      case 'geo':
+        return Icons.flight_outlined;
+      case 'new_interest':
+        return Icons.auto_awesome_outlined;
+      case 'collector':
+        return Icons.library_books_outlined;
+      case 'resurface':
+        return Icons.history_outlined;
+      case 'streak':
+        return Icons.local_fire_department_outlined;
+      default:
+        return Icons.notifications_outlined;
+    }
   }
 
   @override
@@ -142,16 +164,18 @@ class _DigestHistoryTile extends StatelessWidget {
     final dateStr = entry['date'] as String? ?? '';
     final date = DateTime.tryParse(dateStr);
     final formatted = date != null ? _formatDate(date) : '';
-    final topic = entry['topic'] as String? ?? 'Weekly digest';
+    final topic = entry['topic'] as String? ?? 'Notification';
+    final type = entry['type'] as String?;
     final isRead = entry['read'] == true;
-    final linkCount =
-        (entry['ids'] as List<dynamic>?)?.length ?? 0;
+    final body = entry['body'] as String?;
     final summaries = (entry['summaries'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
         [];
-    final preview =
-        summaries.isNotEmpty ? summaries.first : '$linkCount links';
+    final preview = (body != null && body.isNotEmpty)
+        ? body
+        : (summaries.isNotEmpty ? summaries.first : '');
+    final channelLabel = NotificationHubLabels.forHistoryType(type);
 
     return Dismissible(
       key: ValueKey(entry['id']),
@@ -168,15 +192,15 @@ class _DigestHistoryTile extends StatelessWidget {
           backgroundColor:
               isRead ? cs.surfaceContainerHighest : cs.primaryContainer,
           child: Icon(
-            isRead
-                ? Icons.mark_email_read_outlined
-                : Icons.mark_email_unread_outlined,
+            _iconForType(type),
             color: isRead ? cs.onSurfaceVariant : cs.onPrimaryContainer,
             size: 20,
           ),
         ),
         title: Text(
           topic,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: isRead ? FontWeight.w400 : FontWeight.w600,
           ),
@@ -184,20 +208,33 @@ class _DigestHistoryTile extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              preview,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
+            if (preview.isNotEmpty)
+              Text(
+                preview,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
-            ),
             const SizedBox(height: 2),
-            Text(
-              formatted,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.outline,
-              ),
+            Row(
+              children: [
+                Text(
+                  channelLabel,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  formatted,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.outline,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

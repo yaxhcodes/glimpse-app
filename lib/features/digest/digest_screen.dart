@@ -7,7 +7,10 @@ import '../../core/database/isar_service.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/digest_prefs.dart';
+import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/url_card.dart';
+import '../home/home_provider.dart';
 
 /// Shows the last digest payload (from notification) or loads URLs by id.
 class DigestScreen extends ConsumerStatefulWidget {
@@ -32,6 +35,7 @@ class _DigestScreenState extends ConsumerState<DigestScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final tagFreq = ref.watch(tagOccurrenceMapProvider);
 
     if (_cached == null) {
       return Scaffold(
@@ -44,11 +48,6 @@ class _DigestScreenState extends ConsumerState<DigestScreen> {
             ?.map((e) => (e as num).toInt())
             .toList() ??
         const <int>[];
-    final summaries = (_cached?['summaries'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        const <String>[];
-
     if (ids.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Digest')),
@@ -90,11 +89,12 @@ class _DigestScreenState extends ConsumerState<DigestScreen> {
               ),
               const SizedBox(height: 16),
               for (var i = 0; i < urls.length; i++) ...[
-                if (urls[i] != null) _DigestTile(
-                  url: urls[i]!,
-                  summary: i < summaries.length ? summaries[i] : '',
-                  onOpen: () => _open(urls[i]!),
-                ),
+                if (urls[i] != null)
+                  _DigestTile(
+                    url: urls[i]!,
+                    tagFrequency: tagFreq,
+                    onOpen: () => _open(urls[i]!),
+                  ),
                 const SizedBox(height: 12),
               ],
             ],
@@ -124,42 +124,50 @@ class _DigestScreenState extends ConsumerState<DigestScreen> {
 class _DigestTile extends StatelessWidget {
   const _DigestTile({
     required this.url,
-    required this.summary,
+    required this.tagFrequency,
     required this.onOpen,
   });
 
   final SavedUrl url;
-  final String summary;
+  final Map<String, int> tagFrequency;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final title = TitleResolver.formatForCompactCard(
+      url,
+      TitleResolver.collapseWhitespace(
+        TitleResolver.resolve(url, tagFrequency: tagFrequency),
+      ),
+    );
+    final isRead = url.openedAt != null;
+    final isLight = theme.brightness == Brightness.light;
 
     return Card(
       elevation: 0,
-      color: cs.surfaceContainerLow,
+      clipBehavior: Clip.antiAlias,
+      color: UrlCard.listCardFillColor(theme),
+      shape: UrlCard.listCardShape(theme, radius: 12),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              url.title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (summary.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                summary,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
+            AnimatedOpacity(
+              opacity: (isRead && isLight) ? 0.45 : 1.0,
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: (theme.textTheme.titleSmall ?? const TextStyle()).copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface,
                 ),
               ),
-            ],
+            ),
             const SizedBox(height: 12),
             Row(
               children: [

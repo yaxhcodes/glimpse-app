@@ -7,6 +7,7 @@ import '../../core/clustering/embedding_clustering.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/gemini_service.dart';
+import '../../core/services/title_resolver.dart';
 import 'cluster_theme.dart';
 
 /// Persisted cluster snapshot (IDs only); rebuilt when library size shifts enough.
@@ -36,12 +37,11 @@ ClusterTheme _singletonClusterTheme(List<SavedUrl> c, int index) {
   final u = c.first;
   var label = u.category.trim();
   if (label.isEmpty) {
-    label = u.title.trim().isNotEmpty ? u.title.trim() : u.domain;
+    label = TitleResolver.resolve(u, tagFrequency: null);
   }
   if (label.isEmpty) label = 'Saved link';
   final em = u.categoryEmoji.trim().isNotEmpty ? u.categoryEmoji : '🔖';
-  final summary =
-      u.title.trim().isNotEmpty ? u.title.trim() : u.domain;
+  final summary = TitleResolver.resolve(u, tagFrequency: null);
   return ClusterTheme(
     index: index,
     label: label,
@@ -51,14 +51,28 @@ ClusterTheme _singletonClusterTheme(List<SavedUrl> c, int index) {
   );
 }
 
+Map<String, int> _tagCountsForClusters(List<List<SavedUrl>> clusters) {
+  final counts = <String, int>{};
+  for (final c in clusters) {
+    for (final u in c) {
+      for (final t in u.tags) {
+        final k = t.toLowerCase().trim();
+        if (k.isEmpty) continue;
+        counts[k] = (counts[k] ?? 0) + 1;
+      }
+    }
+  }
+  return counts;
+}
+
 List<ClusterTheme> _heuristicThemes(List<List<SavedUrl>> clusters) {
+  final tagFreq = _tagCountsForClusters(clusters);
   return List<ClusterTheme>.generate(clusters.length, (i) {
     final urls = clusters[i];
     if (urls.length == 1) return _singletonClusterTheme(urls, i);
 
     final first = urls.first;
-    final title = first.title.trim();
-    var label = title.split(RegExp(r'\s+')).take(4).join(' ');
+    var label = TitleResolver.resolve(first, tagFrequency: tagFreq);
     if (label.isEmpty) label = 'Saved links';
     final em = first.categoryEmoji.trim().isNotEmpty ? first.categoryEmoji : '🔖';
     final summary =
@@ -81,7 +95,8 @@ Future<List<Map<String, String>>> _nameClustersWithGemini(
     final i = e.key;
     final c = e.value;
     final titles = c.take(5).map((u) {
-      final safe = u.title.replaceAll('"', "'");
+      final safe =
+          TitleResolver.resolve(u, tagFrequency: null).replaceAll('"', "'");
       return '"$safe"';
     }).join(', ');
     return 'Cluster ${i + 1} (${c.length} links): $titles';

@@ -37,3 +37,18 @@ final urlStreamProvider = StreamProvider<List<SavedUrl>>((ref) {
   final isarService = ref.watch(isarServiceProvider);
   return isarService.watchAllUrls();
 });
+
+/// Lowercase tag → occurrence count across the library (specificity / ordering).
+final tagOccurrenceMapProvider = Provider<Map<String, int>>((ref) {
+  final urls = ref.watch(urlStreamProvider).valueOrNull;
+  if (urls == null || urls.isEmpty) return {};
+  final counts = <String, int>{};
+  for (final u in urls) {
+    for (final t in u.tags) {
+      final k = t.toLowerCase().trim();
+      if (k.isEmpty) continue;
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
+  }
+  return counts;
+});

@@ -6,6 +6,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/category_order_provider.dart';
 import '../../core/services/digest_prefs.dart';
+import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
@@ -59,9 +60,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).clearSnackBars();
+    final tagFreq = ref.read(tagOccurrenceMapProvider);
+    final label = TitleResolver.resolve(url, tagFrequency: tagFreq);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Deleted "${url.title.isNotEmpty ? url.title : url.domain}"'),
+        content: Text('Deleted "$label"'),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
         action: SnackBarAction(

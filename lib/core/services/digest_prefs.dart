@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Persisted payload for digest notifications and the notifications screen.
+/// Persisted state for notifications, scheduling, and the notifications screen.
 class DigestPrefs {
   DigestPrefs._();
 
@@ -37,12 +37,36 @@ class DigestPrefs {
     }
   }
 
-  // ── Digest history (list of past digests for the notifications screen) ──
+  // ── Notification history (all 6 types) ──
+
+  static String notifPayloadKey(String notifId) => 'notif_payload_$notifId';
+
+  static Future<void> saveNotifPayload(
+    String notifId,
+    Map<String, dynamic> payload,
+  ) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(notifPayloadKey(notifId), jsonEncode(payload));
+  }
+
+  static Future<Map<String, dynamic>?> loadNotifPayload(String notifId) async {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getString(notifPayloadKey(notifId));
+    if (s == null) return null;
+    try {
+      return jsonDecode(s) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
 
   static Future<void> addDigestToHistory({
     required List<int> ids,
     required List<String> summaries,
     required String topic,
+    String type = 'digest',
+    String? notifId,
+    String? body,
   }) async {
     final p = await SharedPreferences.getInstance();
     final history = await loadHistory();
@@ -52,9 +76,11 @@ class DigestPrefs {
       'ids': ids,
       'summaries': summaries,
       'topic': topic,
+      'type': type,
       'read': false,
+      if (notifId != null) 'notifId': notifId,
+      if (body != null) 'body': body,
     });
-    // Keep the last 50 digests.
     if (history.length > 50) history.removeRange(50, history.length);
     await p.setString(_historyKey, jsonEncode(history));
   }
@@ -92,6 +118,82 @@ class DigestPrefs {
   static Future<int> unreadCount() async {
     final history = await loadHistory();
     return history.where((e) => e['read'] != true).length;
+  }
+
+  // ── Daily notification cap (max 1 per day) ──
+
+  static const _dailyDateKey = 'notif_daily_date';
+
+  static Future<bool> canFireToday() async {
+    final p = await SharedPreferences.getInstance();
+    final today = _todayString();
+    final storedDate = p.getString(_dailyDateKey) ?? '';
+    return storedDate != today;
+  }
+
+  static Future<void> recordFired() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_dailyDateKey, _todayString());
+    await p.setString(_lastTimestampKey, DateTime.now().toIso8601String());
+  }
+
+  static String _todayString() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  // ── 20-hour gap enforcement ──
+
+  static const _lastTimestampKey = 'notif_last_timestamp';
+
+  static Future<bool> hasMinGap({Duration minGap = const Duration(hours: 20)}) async {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getString(_lastTimestampKey);
+    if (s == null) return true;
+    final last = DateTime.tryParse(s);
+    if (last == null) return true;
+    return DateTime.now().difference(last) >= minGap;
+  }
+
+  // ── Last fired metadata ──
+
+  static const _lastTypeKey = 'notif_last_type';
+
+  static Future<void> setLastFiredType(String type) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_lastTypeKey, type);
+  }
+
+  static Future<String?> lastFiredType() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_lastTypeKey);
+  }
+
+  static Future<DateTime?> lastFiredTimestamp() async {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getString(_lastTimestampKey);
+    return s != null ? DateTime.tryParse(s) : null;
+  }
+
+  // ── Per-type last-fired timestamps ──
+
+  static const _lastFiredPrefix = 'notif_last_fired_';
+
+  static Future<DateTime?> lastFired(String type) async {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getString('$_lastFiredPrefix$type');
+    return s != null ? DateTime.tryParse(s) : null;
+  }
+
+  static Future<void> setLastFired(String type) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString('$_lastFiredPrefix$type', DateTime.now().toIso8601String());
+  }
+
+  static Future<bool> canFireType(String type, {Duration minInterval = const Duration(days: 6)}) async {
+    final last = await lastFired(type);
+    if (last == null) return true;
+    return DateTime.now().difference(last) >= minInterval;
   }
 
   // ── Run status diagnostics ──

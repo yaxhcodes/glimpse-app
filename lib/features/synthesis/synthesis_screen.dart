@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/services/title_resolver.dart';
+import '../home/home_provider.dart';
 import 'synthesis_provider.dart';
 
 class SynthesisScreen extends ConsumerStatefulWidget {
@@ -33,6 +35,7 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(synthesisProvider);
+    final tagFreq = ref.watch(tagOccurrenceMapProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -65,8 +68,10 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
                   margin: const EdgeInsets.only(bottom: 6),
                   child: ListTile(
                     dense: true,
-                    title: Text(u.title,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    title: Text(
+                        TitleResolver.resolve(u, tagFrequency: tagFreq),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
                     subtitle: Text(u.domain,
                         style: theme.textTheme.bodySmall),
                     leading: Text(u.categoryEmoji,

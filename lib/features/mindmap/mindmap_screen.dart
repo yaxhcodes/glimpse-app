@@ -9,9 +9,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../core/services/title_resolver.dart';
 import '../../shared/formatting.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
+import '../home/home_provider.dart';
 import 'cluster_theme.dart';
 import 'interest_clusters_provider.dart';
 
@@ -166,7 +168,11 @@ class _LetterFallback extends StatelessWidget {
   }
 }
 
-void _openClusterSheet(BuildContext context, ClusterTheme theme) {
+void _openClusterSheet(
+  BuildContext context,
+  ClusterTheme theme,
+  Map<String, int> tagFrequency,
+) {
   final rootCtx = context;
   showModalBottomSheet<void>(
     context: context,
@@ -234,6 +240,7 @@ void _openClusterSheet(BuildContext context, ClusterTheme theme) {
                   final u = theme.urls[i];
                   return _ClusterUrlListRow(
                     url: u,
+                    tagFrequency: tagFrequency,
                     onTap: () {
                       HapticFeedback.lightImpact();
                       Navigator.pop(ctx);
@@ -253,10 +260,12 @@ void _openClusterSheet(BuildContext context, ClusterTheme theme) {
 class _ClusterUrlListRow extends StatelessWidget {
   const _ClusterUrlListRow({
     required this.url,
+    required this.tagFrequency,
     required this.onTap,
   });
 
   final SavedUrl url;
+  final Map<String, int> tagFrequency;
   final VoidCallback onTap;
 
   static const double _thumb = 52;
@@ -266,7 +275,7 @@ class _ClusterUrlListRow extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final previewUrl = _previewImageUrl(url);
-    final title = url.title.trim().isNotEmpty ? url.title.trim() : url.domain;
+    final title = TitleResolver.resolve(url, tagFrequency: tagFrequency);
 
     return Material(
       color: Colors.transparent,
@@ -339,9 +348,13 @@ class _ClusterUrlListRow extends StatelessWidget {
 
 /// Map canvas: layout from real constraints so center and spokes match the screen.
 class _MindmapCanvas extends StatelessWidget {
-  const _MindmapCanvas({required this.themes});
+  const _MindmapCanvas({
+    required this.themes,
+    required this.tagFrequency,
+  });
 
   final List<ClusterTheme> themes;
+  final Map<String, int> tagFrequency;
 
   @override
   Widget build(BuildContext context) {
@@ -400,7 +413,7 @@ class _MindmapCanvas extends StatelessWidget {
                     isLarge: themes[i].urls.length >= 4,
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      _openClusterSheet(context, themes[i]);
+                      _openClusterSheet(context, themes[i], tagFrequency);
                     },
                   ),
               ],
@@ -704,7 +717,10 @@ class MindmapScreen extends ConsumerWidget {
 
           return ColoredBox(
             color: cs.surface,
-            child: _MindmapCanvas(themes: themes),
+            child: _MindmapCanvas(
+              themes: themes,
+              tagFrequency: ref.watch(tagOccurrenceMapProvider),
+            ),
           );
         },
       ),

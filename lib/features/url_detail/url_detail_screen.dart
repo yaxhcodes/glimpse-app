@@ -9,6 +9,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
+import '../../core/services/summary_rewriter.dart';
+import '../../core/services/tag_noise_filter.dart';
+import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import '../collections/add_to_collection_sheet.dart';
@@ -389,6 +392,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final urlAsync = ref.watch(urlDetailProvider(widget.urlId));
+    final tagFreq = ref.watch(tagOccurrenceMapProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -448,13 +452,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             const SliverFillRemaining(
                 child: Center(child: Text('URL not found')))
           else
-            _buildBody(url, theme, colorScheme),
+            _buildBody(url, theme, colorScheme, tagFreq),
         ],
       ),
     );
   }
 
-  Widget _buildBody(SavedUrl url, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildBody(
+    SavedUrl url,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    Map<String, int> tagFreq,
+  ) {
     if (!_notesEdited && !_notesFocusNode.hasFocus) {
       _notesController.text = url.userNotes ?? '';
     }
@@ -472,10 +481,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         .toList();
     final normalizedCategories =
         url.effectiveCategories.map((item) => item.toLowerCase()).toSet();
-    final visibleTags = url.tags
+    final rawTagPool = url.tags
         .where((tag) => !normalizedCategories.contains(tag.toLowerCase()))
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
         .toList();
+    final visibleTags = TagNoiseFilter.orderByRarity(
+      TagNoiseFilter.filterTags(rawTagPool),
+      tagFreq,
+    );
     final showImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
     final hasDescription = formattedDescription.isNotEmpty;
     const collapseTagsAt = 5;
@@ -486,6 +499,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final summaryText = url.summary?.trim() ?? '';
     final showSummary = summaryText.isNotEmpty &&
         summaryText.toLowerCase() != formattedDescription.trim().toLowerCase();
+    final cleanedSummary = SummaryRewriter.clean(summaryText);
+    final summaryDisplayText =
+        cleanedSummary.isNotEmpty ? cleanedSummary : summaryText;
     final bottomPad = MediaQuery.paddingOf(context).bottom + 28;
 
     return SliverToBoxAdapter(
@@ -517,7 +533,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
             // ── Title ───────────────────────────────────────────────────
             Text(
-              url.title,
+              TitleResolver.resolve(url, tagFrequency: tagFreq),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
@@ -645,7 +661,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             if (showSummary) ...[
               const SizedBox(height: 16),
               _buildSummarySection(
-                summary: summaryText,
+                summary: summaryDisplayText,
                 theme: theme,
                 colorScheme: colorScheme,
               ),

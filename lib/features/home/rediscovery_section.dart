@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
+import '../../core/services/title_resolver.dart';
+import 'home_provider.dart';
 import 'rediscovery_provider.dart';
 
 class RediscoverySection extends ConsumerWidget {
@@ -19,6 +21,7 @@ class RediscoverySection extends ConsumerWidget {
         if (links.isEmpty) return const SizedBox.shrink();
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
+        final tagFreq = ref.watch(tagOccurrenceMapProvider);
         return Padding(
           padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
           child: Column(
@@ -52,6 +55,7 @@ class RediscoverySection extends ConsumerWidget {
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
                   itemBuilder: (context, i) => _RediscoveryCard(
                     url: links[i],
+                    tagFrequency: tagFreq,
                     onTap: () async {
                       final svc = RediscoveryService(
                         ref.read(isarServiceProvider),
@@ -79,10 +83,12 @@ class RediscoverySection extends ConsumerWidget {
 class _RediscoveryCard extends StatelessWidget {
   const _RediscoveryCard({
     required this.url,
+    required this.tagFrequency,
     required this.onTap,
   });
 
   final SavedUrl url;
+  final Map<String, int> tagFrequency;
   final VoidCallback onTap;
 
   @override
@@ -91,6 +97,7 @@ class _RediscoveryCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final hasThumbnail =
         url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
+    final title = TitleResolver.resolve(url, tagFrequency: tagFrequency);
 
     return Material(
       color: cs.surfaceContainerHigh,
@@ -137,7 +144,7 @@ class _RediscoveryCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      url.title,
+                      title,
                       style: tt.bodySmall?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: hasThumbnail ? Colors.white : cs.onSurface,
