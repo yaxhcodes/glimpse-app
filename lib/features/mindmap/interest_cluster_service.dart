@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,12 +11,17 @@ import '../../core/services/gemini_service.dart';
 import '../../core/services/title_resolver.dart';
 import 'cluster_theme.dart';
 
-/// Persisted cluster snapshot (IDs only); rebuilt when library size shifts enough.
-const kInterestClustersJsonKey = 'glimpse_clusters_v4';
-const _maxDisplayClusters = 8;
-const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count';
+/// Persisted cluster snapshot — bump version to invalidate stale caches.
+const kInterestClustersJsonKey = 'glimpse_clusters_v8';
+const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v8';
 
-const _clusterRebuildThreshold = 1;
+/// Max top-level clusters shown in the map.
+const _maxDisplayClusters = 8;
+
+/// How many URLs must change before we force a full rebuild.
+const _clusterRebuildThreshold = 3;
+
+// ─── Isolate row helpers ──────────────────────────────────────────────────────
 
 List<Map<String, dynamic>> _rowsForIsolate(List<SavedUrl> urls) {
   return urls
@@ -25,7 +31,6 @@ List<Map<String, dynamic>> _rowsForIsolate(List<SavedUrl> urls) {
           'title': u.title,
           'rawUrl': u.rawUrl,
           'category': u.category,
-          'categoryEmoji': u.categoryEmoji,
           'tags': u.tags,
           'embedding': u.embedding!,
         },
@@ -33,23 +38,19 @@ List<Map<String, dynamic>> _rowsForIsolate(List<SavedUrl> urls) {
       .toList();
 }
 
-ClusterTheme _singletonClusterTheme(List<SavedUrl> c, int index) {
-  final u = c.first;
-  var label = u.category.trim();
-  if (label.isEmpty) {
-    label = TitleResolver.resolve(u, tagFrequency: null);
-  }
-  if (label.isEmpty) label = 'Saved link';
-  final em = u.categoryEmoji.trim().isNotEmpty ? u.categoryEmoji : '🔖';
-  final summary = TitleResolver.resolve(u, tagFrequency: null);
-  return ClusterTheme(
-    index: index,
-    label: label,
-    emoji: em,
-    summary: summary,
-    urls: c,
-  );
+/// Extracts embeddings from rows as a flat list-of-lists.
+/// Each inner list is already a List<double> from the Isar model.
+List<List<double>> _embeddingsFromRows(List<Map<String, dynamic>> rows) {
+  return rows.map((r) {
+    final raw = r['embedding'];
+    if (raw is List && raw.isNotEmpty) {
+      return raw.map((e) => (e as num).toDouble()).toList();
+    }
+    return <double>[];
+  }).toList();
 }
+
+// ─── Tag frequency ────────────────────────────────────────────────────────────
 
 Map<String, int> _tagCountsForClusters(List<List<SavedUrl>> clusters) {
   final counts = <String, int>{};
@@ -65,48 +66,123 @@ Map<String, int> _tagCountsForClusters(List<List<SavedUrl>> clusters) {
   return counts;
 }
 
+// ─── Heuristic (no-Gemini) theme builders ────────────────────────────────────
+
+ClusterTheme _singletonClusterTheme(List<SavedUrl> c, int index) {
+  final u = c.first;
+  var label = u.category.trim();
+  if (label.isEmpty) label = TitleResolver.resolve(u, tagFrequency: null);
+  if (label.isEmpty) label = 'Saved link';
+  final summary = TitleResolver.resolve(u, tagFrequency: null);
+  return ClusterTheme(
+    index: index,
+    label: label,
+    summary: summary,
+    urls: c,
+    subClusters: const [],
+  );
+}
+
 List<ClusterTheme> _heuristicThemes(List<List<SavedUrl>> clusters) {
   final tagFreq = _tagCountsForClusters(clusters);
   return List<ClusterTheme>.generate(clusters.length, (i) {
     final urls = clusters[i];
     if (urls.length == 1) return _singletonClusterTheme(urls, i);
-
     final first = urls.first;
     var label = TitleResolver.resolve(first, tagFrequency: tagFreq);
     if (label.isEmpty) label = 'Saved links';
-    final em = first.categoryEmoji.trim().isNotEmpty ? first.categoryEmoji : '🔖';
-    final summary =
-        '${urls.length} bookmarks on similar topics (auto-grouped).';
+    final summary = '${urls.length} bookmarks on similar topics.';
     return ClusterTheme(
       index: i,
       label: label,
-      emoji: em,
       summary: summary,
       urls: urls,
+      subClusters: const [],
     );
   });
 }
 
-Future<List<Map<String, String>>> _nameClustersWithGemini(
-  GeminiService gemini,
-  List<List<SavedUrl>> clusters,
-) async {
-  final block = clusters.asMap().entries.map((e) {
-    final i = e.key;
-    final c = e.value;
-    final titles = c.take(5).map((u) {
-      final safe =
-          TitleResolver.resolve(u, tagFrequency: null).replaceAll('"', "'");
-      return '"$safe"';
-    }).join(', ');
-    return 'Cluster ${i + 1} (${c.length} links): $titles';
-  }).join('\n');
+// ─── Gemini description block builder ────────────────────────────────────────
 
-  return gemini.nameInterestClusters(
-    clusterDescriptionsBlock: block,
-    clusterCount: clusters.length,
-  );
+String _titlesBlock(List<SavedUrl> urls, {int take = 5}) {
+  return urls
+      .take(take)
+      .map((u) {
+        final safe = TitleResolver.resolve(
+          u,
+          tagFrequency: null,
+        ).replaceAll('"', "'");
+        return '"$safe"';
+      })
+      .join(', ');
 }
+
+/// Builds the descriptionsBlock for [nameHierarchicalClusters].
+/// [subLocalGroups[i]] contains local indices (0-based within clusters[i])
+/// for each sub-group, or null when no sub-structure was found.
+String _buildDescriptionsBlock(
+  List<List<SavedUrl>> clusters,
+  List<List<List<int>>?> subLocalGroups,
+) {
+  final buffer = StringBuffer();
+  for (var i = 0; i < clusters.length; i++) {
+    final c = clusters[i];
+    buffer.writeln('Cluster ${i + 1} (${c.length} links): ${_titlesBlock(c)}');
+
+    final subGroups = subLocalGroups[i];
+    if (subGroups != null && subGroups.isNotEmpty) {
+      var subLabel = 'A';
+      for (final group in subGroups) {
+        // group contains local indices into c
+        final subUrls = group.map((li) => c[li]).toList();
+        buffer.writeln(
+          '  Sub-group $subLabel (${subUrls.length} links): '
+          '${_titlesBlock(subUrls, take: 3)}',
+        );
+        subLabel = String.fromCharCode(subLabel.codeUnitAt(0) + 1);
+      }
+    }
+  }
+  return buffer.toString().trimRight();
+}
+
+// ─── Sub-cluster theme assembly ───────────────────────────────────────────────
+
+/// Converts raw sub-cluster local-index groups into [SubClusterTheme] objects.
+/// [subLocalGroups] has local indices (0-based into [parentUrls]).
+List<SubClusterTheme> _buildSubClusters(
+  List<SavedUrl> parentUrls,
+  List<List<int>> subLocalGroups,
+  List<Map<String, String>> subLabels,
+) {
+  final result = <SubClusterTheme>[];
+  for (var i = 0; i < subLocalGroups.length; i++) {
+    final group = subLocalGroups[i];
+    final subUrls = group
+        .where((li) => li >= 0 && li < parentUrls.length)
+        .map((li) => parentUrls[li])
+        .toList();
+    if (subUrls.isEmpty) continue;
+
+    String label;
+    String summary;
+    if (i < subLabels.length) {
+      label = subLabels[i]['label']?.trim() ?? '';
+      summary = subLabels[i]['summary']?.trim() ?? '';
+    } else {
+      label = '';
+      summary = '';
+    }
+    if (label.isEmpty) label = subUrls.first.category.trim();
+    if (label.isEmpty) label = 'Group ${i + 1}';
+    if (summary.isEmpty) summary = '${subUrls.length} related links.';
+
+    result.add(SubClusterTheme(label: label, summary: summary, urls: subUrls));
+  }
+  return result;
+}
+
+// ─── Cache read / write ───────────────────────────────────────────────────────
 
 Future<void> _writeClusterCache(
   SharedPreferences prefs,
@@ -114,69 +190,153 @@ Future<void> _writeClusterCache(
   List<ClusterTheme> themes,
 ) async {
   final payload = <String, dynamic>{
-    'version': 1,
-    'themes': themes
-        .map(
-          (t) => {
-            'label': t.label,
-            'emoji': t.emoji,
-            'summary': t.summary,
-            'ids': t.urls.map((u) => u.id).toList(),
-          },
-        )
-        .toList(),
+    'version': 5,
+    'themes': themes.map((t) {
+      return {
+        'label': t.label,
+        'summary': t.summary,
+        'ids': t.urls.map((u) => u.id).toList(),
+        'subClusters': t.subClusters.map((s) {
+          return {
+            'label': s.label,
+            'summary': s.summary,
+            'ids': s.urls.map((u) => u.id).toList(),
+          };
+        }).toList(),
+      };
+    }).toList(),
   };
   await prefs.setString(kInterestClustersJsonKey, jsonEncode(payload));
   await prefs.setInt(kInterestClusterUrlCountKey, urlCount);
 }
 
-/// Returns hydrated themes, or `null` if cache is missing/invalid/stale.
+/// Returns hydrated themes from cache, or `null` if cache is absent / stale.
 Future<List<ClusterTheme>?> tryHydrateClustersFromPrefs({
   required SharedPreferences prefs,
   required List<SavedUrl> embeddedUrls,
   required int currentEmbeddedCount,
 }) async {
-  final cachedCount = prefs.getInt(kInterestClusterUrlCountKey) ?? 0;
-  if ((currentEmbeddedCount - cachedCount).abs() >= _clusterRebuildThreshold) {
+  final raw = prefs.getString(kInterestClustersJsonKey);
+
+  // No cache at all — always rebuild (covers the manual refresh path).
+  if (raw == null || raw.isEmpty) {
+    developer.log('No cluster cache found — will rebuild.', name: 'Mindmap');
     return null;
   }
-  final raw = prefs.getString(kInterestClustersJsonKey);
-  if (raw == null || raw.isEmpty) return null;
+
+  // Cache exists — check if the library has changed significantly.
+  final cachedCount = prefs.getInt(kInterestClusterUrlCountKey) ?? 0;
+  if ((currentEmbeddedCount - cachedCount).abs() >= _clusterRebuildThreshold) {
+    developer.log(
+      'Cluster cache stale (cached=$cachedCount, current=$currentEmbeddedCount) — rebuilding.',
+      name: 'Mindmap',
+    );
+    return null;
+  }
 
   try {
     final decoded = json.decode(raw) as Map<String, dynamic>;
+
+    // Reject caches from old schema versions.
+    final version = decoded['version'] as int? ?? 0;
+    if (version < 5) {
+      developer.log(
+        'Cluster cache version $version < 5 — rebuilding.',
+        name: 'Mindmap',
+      );
+      return null;
+    }
+
     final list = decoded['themes'] as List<dynamic>?;
     if (list == null || list.isEmpty) return null;
+
     final byId = {for (final u in embeddedUrls) u.id: u};
     final out = <ClusterTheme>[];
+
     for (var i = 0; i < list.length; i++) {
       final m = list[i] as Map<String, dynamic>;
       final ids = (m['ids'] as List<dynamic>).map((e) => e as int).toList();
       final urls = ids.map((id) => byId[id]).whereType<SavedUrl>().toList();
       if (urls.isEmpty) continue;
+
+      final rawSubs = m['subClusters'] as List<dynamic>? ?? const [];
+      final subClusters = <SubClusterTheme>[];
+      for (final rs in rawSubs) {
+        final sm = rs as Map<String, dynamic>;
+        final sIds = (sm['ids'] as List<dynamic>).map((e) => e as int).toList();
+        final sUrls = sIds.map((id) => byId[id]).whereType<SavedUrl>().toList();
+        if (sUrls.isEmpty) continue;
+        subClusters.add(
+          SubClusterTheme(
+            label: sm['label'] as String? ?? 'Group',
+            summary: sm['summary'] as String? ?? '',
+            urls: sUrls,
+          ),
+        );
+      }
+
       out.add(
         ClusterTheme(
           index: out.length,
           label: m['label'] as String? ?? 'Cluster',
-          emoji: m['emoji'] as String? ?? '🔖',
           summary: m['summary'] as String? ?? '',
           urls: urls,
+          subClusters: subClusters,
         ),
       );
     }
+
+    developer.log(
+      'Hydrated ${out.length} clusters from cache (${out.where((t) => t.hasSubClusters).length} with sub-clusters).',
+      name: 'Mindmap',
+    );
     return out.isEmpty ? null : out;
-  } catch (_) {
+  } catch (e, stack) {
+    developer.log(
+      'Failed to hydrate cluster cache: $e',
+      name: 'Mindmap',
+      stackTrace: stack,
+    );
     return null;
   }
 }
 
-/// Loads cached clusters or recomputes (isolate clustering + optional Gemini naming).
+// ─── Isolate payload helpers ──────────────────────────────────────────────────
+
+/// Packages top-level cluster global indices + all embeddings into a plain
+/// Map so Flutter's compute() can send it across the isolate port safely.
+///
+/// Embeddings are stored as a flat list-of-lists of doubles. Dart's isolate
+/// message passing handles List<List<double>> fine as long as the inner lists
+/// only contain Dart primitives — which they do here.
+Map<String, dynamic> _buildSubClusterPayload(
+  List<List<int>> clusterGlobalIndices,
+  List<List<double>> embeddings,
+) {
+  return <String, dynamic>{
+    // We encode each embedding as a plain List<double> — isolate-safe.
+    'embeddings': embeddings,
+    'clusters': clusterGlobalIndices,
+  };
+}
+
+// ─── Main entry point ─────────────────────────────────────────────────────────
+
+/// Loads cached clusters or recomputes from scratch.
+///
+/// Pipeline:
+///   1. Try cache (skipped when JSON is absent, i.e. after manual refresh).
+///   2. Top-level cosine clustering in an isolate.
+///   3. k-means sub-clustering in an isolate.
+///   4. Gemini hierarchical naming (one API call covers main + sub labels).
+///   5. Persist to cache.
 Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
   required IsarService isar,
   required SharedPreferences prefs,
   GeminiService? gemini,
 }) async {
   final urls = await isar.getUrlsWithEmbeddings();
+  developer.log('URLs with embeddings: ${urls.length}', name: 'Mindmap');
   if (urls.length < 3) return const [];
 
   final hydrated = await tryHydrateClustersFromPrefs(
@@ -186,57 +346,287 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
   );
   if (hydrated != null) return hydrated;
 
+  developer.log('Building clusters from scratch…', name: 'Mindmap');
+
+  // ── Step 1: top-level clustering ───────────────────────────────────────
   final rows = _rowsForIsolate(urls);
   final indexClusters = await compute(clusterUrlIndicesByCosine, rows);
-  if (indexClusters.isEmpty) return const [];
+  if (indexClusters.isEmpty) {
+    developer.log('Top-level clustering returned 0 clusters.', name: 'Mindmap');
+    return const [];
+  }
 
-  final clusters = indexClusters
+  final topClusters = indexClusters
       .take(_maxDisplayClusters)
       .map((indices) => indices.map((i) => urls[i]).toList())
       .toList();
 
+  developer.log(
+    'Top-level clusters: ${topClusters.length}, sizes: '
+    '${topClusters.map((c) => c.length).toList()}',
+    name: 'Mindmap',
+  );
+
+  // ── Step 2: sub-clustering ─────────────────────────────────────────────
+  final embeddings = _embeddingsFromRows(rows);
+
+  // Build global-index lists for each top-level cluster.
+  // urlIndexById maps url.id -> position in the `urls` list.
+  final urlIndexById = {for (var i = 0; i < urls.length; i++) urls[i].id: i};
+  final clusterGlobalIndices = topClusters.map((cluster) {
+    return cluster.map((u) => urlIndexById[u.id]).whereType<int>().toList();
+  }).toList();
+
+  // Run sub-clustering in the isolate.
+  final subPayload = _buildSubClusterPayload(clusterGlobalIndices, embeddings);
+  final rawSubGroups = await compute(computeSubClusters, subPayload);
+
+  // rawSubGroups[i] is a list of groups of GLOBAL indices (or null).
+  // Convert to LOCAL indices (0-based within topClusters[i]) for downstream use.
+  final subLocalGroups = <List<List<int>>?>[];
+  for (var i = 0; i < topClusters.length; i++) {
+    final globalGroups = rawSubGroups[i];
+    if (globalGroups == null) {
+      subLocalGroups.add(null);
+      continue;
+    }
+    // Build global -> local mapping for this cluster.
+    final globalToLocal = <int, int>{};
+    for (var li = 0; li < clusterGlobalIndices[i].length; li++) {
+      globalToLocal[clusterGlobalIndices[i][li]] = li;
+    }
+    final localGroups = <List<int>>[];
+    for (final globalGroup in globalGroups) {
+      final localGroup = globalGroup
+          .map((gi) => globalToLocal[gi])
+          .whereType<int>()
+          .toList();
+      if (localGroup.isNotEmpty) localGroups.add(localGroup);
+    }
+    subLocalGroups.add(localGroups.isEmpty ? null : localGroups);
+  }
+
+  final subClusterCount = subLocalGroups.where((g) => g != null).length;
+  developer.log(
+    'Sub-clustering done: $subClusterCount / ${topClusters.length} clusters '
+    'have sub-structure.',
+    name: 'Mindmap',
+  );
+
+  // ── Step 3: naming ─────────────────────────────────────────────────────
   List<ClusterTheme> themes;
+
   if (gemini != null) {
     try {
-      final multi = clusters.where((c) => c.length > 1).toList();
-      List<Map<String, String>> names = const [];
-      if (multi.isNotEmpty) {
-        names = await _nameClustersWithGemini(gemini, multi);
-      }
-      var multiIdx = 0;
-      themes = List<ClusterTheme>.generate(clusters.length, (i) {
-        final c = clusters[i];
-        if (c.length == 1) {
-          return _singletonClusterTheme(c, i);
+      // Only pass multi-URL clusters to Gemini; singletons use heuristic labels.
+      final multiIndices = <int>[];
+      final multiClusters = <List<SavedUrl>>[];
+      final multiSubGroups = <List<List<int>>?>[];
+
+      for (var i = 0; i < topClusters.length; i++) {
+        if (topClusters[i].length > 1) {
+          multiIndices.add(i);
+          multiClusters.add(topClusters[i]);
+          multiSubGroups.add(subLocalGroups[i]);
         }
-        Map<String, String> row;
-        if (multiIdx < names.length) {
-          row = names[multiIdx];
+      }
+
+      List<Map<String, dynamic>> names = const [];
+      if (multiClusters.isNotEmpty) {
+        final block = _buildDescriptionsBlock(multiClusters, multiSubGroups);
+        developer.log(
+          'Sending ${multiClusters.length} clusters to Gemini for naming.',
+          name: 'Mindmap',
+        );
+        developer.log('Descriptions block:\n$block', name: 'Mindmap');
+        names = await gemini.nameHierarchicalClusters(
+          descriptionsBlock: block,
+          mainClusterCount: multiClusters.length,
+        );
+        developer.log(
+          'Gemini returned ${names.length} names; '
+          'sub-labels counts: ${names.map((n) => (n['subLabels'] as List?)?.length ?? 0).toList()}',
+          name: 'Mindmap',
+        );
+      }
+
+      // ── Step 3b: outlier reassignment ──────────────────────────────────────
+      // For each cluster that has sub-groups, ask Gemini whether any URL is
+      // clearly in the wrong sub-cluster (e.g. Karnataka Trek filed under
+      // "Indian Himalayan Treks"). We use the Gemini-assigned sub-labels to
+      // guide the check, then update subLocalGroups in-place before building
+      // the final ClusterTheme objects.
+      for (var mi = 0; mi < multiIndices.length; mi++) {
+        final ci = multiIndices[mi];
+        final localGroups = subLocalGroups[ci];
+        if (localGroups == null || localGroups.length < 2) continue;
+
+        final nameRow = mi < names.length ? names[mi] : null;
+        final rawSubs =
+            (nameRow?['subLabels'] as List<dynamic>?) ?? const [];
+        final subLabelStrings = rawSubs
+            .whereType<Map>()
+            .map((m) => m['label']?.toString().trim() ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
+
+        // Only attempt reassignment when Gemini gave us at least 2 sub-labels.
+        if (subLabelStrings.length < 2) continue;
+
+        final parentUrls = topClusters[ci];
+        final urlTitles = parentUrls.map((u) => u.title).toList();
+
+        try {
+          final reassignments = await gemini.reassignSubClusterOutliers(
+            subClusterLabels: subLabelStrings,
+            currentAssignments: localGroups,
+            urlTitles: urlTitles,
+          );
+
+          if (reassignments.isNotEmpty) {
+            final mutableGroups =
+                localGroups.map((g) => List<int>.from(g)).toList();
+
+            for (final entry in reassignments.entries) {
+              final localIdx = entry.key;
+              final targetSub = entry.value;
+              if (targetSub < 0 || targetSub >= mutableGroups.length) {
+                continue;
+              }
+              // Remove from whatever sub-cluster currently holds this URL.
+              for (final g in mutableGroups) {
+                g.remove(localIdx);
+              }
+              mutableGroups[targetSub].add(localIdx);
+            }
+
+            // Drop any sub-cluster that fell below the minimum size, then
+            // discard sub-structure entirely if fewer than 2 remain.
+            final valid = mutableGroups
+                .where((g) => g.length >= kMinSubClusterSize)
+                .toList();
+            subLocalGroups[ci] =
+                valid.length >= kMinSubClusterCount ? valid : null;
+
+            developer.log(
+              'Cluster[$ci]: reassigned ${reassignments.length} URL(s) '
+              'across sub-clusters.',
+              name: 'Mindmap',
+            );
+          }
+        } catch (e) {
+          developer.log(
+            'Outlier reassignment skipped for cluster[$ci]: $e',
+            name: 'Mindmap',
+          );
+        }
+      }
+
+      // ── Step 3c: build ClusterTheme objects ────────────────────────────────
+      var multiNameIdx = 0;
+      themes = List<ClusterTheme>.generate(topClusters.length, (i) {
+        final c = topClusters[i];
+
+        if (c.length == 1) return _singletonClusterTheme(c, i);
+
+        // Find the Gemini name row for this cluster.
+        Map<String, dynamic> row;
+        final namePos = multiIndices.indexOf(i);
+        if (namePos >= 0 && namePos < names.length) {
+          row = names[namePos];
         } else {
           row = {
-            'label': 'Interest group ${i + 1}',
-            'emoji': c.first.categoryEmoji.trim().isNotEmpty
-                ? c.first.categoryEmoji
-                : '🔖',
+            'label': 'Interest group ${multiNameIdx + 1}',
             'summary': '${c.length} related bookmarks.',
+            'subLabels': <Map<String, String>>[],
           };
         }
-        multiIdx++;
+        multiNameIdx++;
+
+        // Parse Gemini sub-labels.
+        final rawSubLabels = (row['subLabels'] as List<dynamic>?) ?? const [];
+        final subLabels = rawSubLabels
+            .whereType<Map>()
+            .map(
+              (m) => <String, String>{
+                'label': m['label']?.toString().trim() ?? '',
+                'summary': m['summary']?.toString().trim() ?? '',
+              },
+            )
+            .toList();
+
+        final localGroups = subLocalGroups[i];
+        final subClusters = localGroups != null && localGroups.isNotEmpty
+            ? _buildSubClusters(c, localGroups, subLabels)
+            : const <SubClusterTheme>[];
+
+        developer.log(
+          'Cluster[$i] "${row['label']}": ${c.length} URLs, '
+          '${subClusters.length} sub-clusters.',
+          name: 'Mindmap',
+        );
+
         return ClusterTheme(
           index: i,
-          label: row['label'] ?? 'Cluster',
-          emoji: row['emoji'] ?? '🔖',
-          summary: row['summary'] ?? '',
+          label: row['label'] as String? ?? 'Cluster',
+          summary: row['summary'] as String? ?? '',
           urls: c,
+          subClusters: subClusters,
         );
       });
-    } catch (_) {
-      themes = _heuristicThemes(clusters);
+    } catch (e, stack) {
+      developer.log(
+        'Gemini naming failed, falling back to heuristics: $e',
+        name: 'Mindmap',
+        stackTrace: stack,
+      );
+      // Heuristic fallback still wires up sub-clusters without labels.
+      final heuristic = _heuristicThemes(topClusters);
+      themes = List<ClusterTheme>.generate(heuristic.length, (i) {
+        final h = heuristic[i];
+        final localGroups = subLocalGroups[i];
+        if (localGroups == null || localGroups.isEmpty) return h;
+        final subClusters = _buildSubClusters(
+          topClusters[i],
+          localGroups,
+          const [],
+        );
+        return ClusterTheme(
+          index: h.index,
+          label: h.label,
+          summary: h.summary,
+          urls: h.urls,
+          subClusters: subClusters,
+        );
+      });
     }
   } else {
-    themes = _heuristicThemes(clusters);
+    // No Gemini: heuristic labels + wire up sub-clusters.
+    final heuristic = _heuristicThemes(topClusters);
+    themes = List<ClusterTheme>.generate(heuristic.length, (i) {
+      final h = heuristic[i];
+      final localGroups = subLocalGroups[i];
+      if (localGroups == null || localGroups.isEmpty) return h;
+      final subClusters = _buildSubClusters(
+        topClusters[i],
+        localGroups,
+        const [],
+      );
+      return ClusterTheme(
+        index: h.index,
+        label: h.label,
+        summary: h.summary,
+        urls: h.urls,
+        subClusters: subClusters,
+      );
+    });
   }
 
   await _writeClusterCache(prefs, urls.length, themes);
+  developer.log(
+    'Cluster build complete. ${themes.length} themes, '
+    '${themes.where((t) => t.hasSubClusters).length} with sub-clusters.',
+    name: 'Mindmap',
+  );
   return themes;
 }

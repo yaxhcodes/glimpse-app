@@ -71,26 +71,26 @@ class GeminiService {
   final GenerativeModel _textFallback;
 
   GeminiService(String apiKey)
-      : _jsonPrimary = GenerativeModel(
-          model: _primaryModel,
-          apiKey: apiKey,
-          generationConfig: _jsonConfig,
-        ),
-        _jsonFallback = GenerativeModel(
-          model: _fallbackModel,
-          apiKey: apiKey,
-          generationConfig: _jsonConfig,
-        ),
-        _textPrimary = GenerativeModel(
-          model: _primaryModel,
-          apiKey: apiKey,
-          generationConfig: _textConfig,
-        ),
-        _textFallback = GenerativeModel(
-          model: _fallbackModel,
-          apiKey: apiKey,
-          generationConfig: _textConfig,
-        );
+    : _jsonPrimary = GenerativeModel(
+        model: _primaryModel,
+        apiKey: apiKey,
+        generationConfig: _jsonConfig,
+      ),
+      _jsonFallback = GenerativeModel(
+        model: _fallbackModel,
+        apiKey: apiKey,
+        generationConfig: _jsonConfig,
+      ),
+      _textPrimary = GenerativeModel(
+        model: _primaryModel,
+        apiKey: apiKey,
+        generationConfig: _textConfig,
+      ),
+      _textFallback = GenerativeModel(
+        model: _fallbackModel,
+        apiKey: apiKey,
+        generationConfig: _textConfig,
+      );
 
   // ─── Core infrastructure ──────────────────────────────────────────────────
 
@@ -120,10 +120,13 @@ class GeminiService {
       if (attempt > 0) await Future<void>.delayed(_retryDelay);
       try {
         return await model
-            .generateContent([Content.text(prompt)]).timeout(timeout);
+            .generateContent([Content.text(prompt)])
+            .timeout(timeout);
       } catch (e) {
-        developer.log('$label attempt $attempt failed: $e',
-            name: 'GeminiService');
+        developer.log(
+          '$label attempt $attempt failed: $e',
+          name: 'GeminiService',
+        );
         if (attempt == 0 && _isRetryable(e)) continue;
         rethrow;
       }
@@ -142,8 +145,12 @@ class GeminiService {
     final fallback = jsonMode ? _jsonFallback : _textFallback;
 
     try {
-      return await _tryModel(primary, prompt, _primaryTimeout,
-          label: 'primary');
+      return await _tryModel(
+        primary,
+        prompt,
+        _primaryTimeout,
+        label: 'primary',
+      );
     } catch (_) {
       // Primary exhausted — try fallback.
     }
@@ -158,7 +165,8 @@ class GeminiService {
     required String description,
     required String url,
   }) async {
-    final prompt = '''You are a content classifier for a bookmark app. Given the title, description, and URL of a webpage, respond with a JSON object containing exactly these fields:
+    final prompt =
+        '''You are a content classifier for a bookmark app. Given the title, description, and URL of a webpage, respond with a JSON object containing exactly these fields:
 - "category": choose exactly one category from the allowed list below
 - "emoji": use the matching emoji for that category from the allowed list below
 - "tags": an array of 3–5 lowercase descriptive keywords for the specific topic
@@ -190,11 +198,11 @@ Output valid JSON only. No markdown, no explanation.''';
       final rawTags = data['tags'];
       final tags = rawTags is List
           ? rawTags
-              .map((t) => t.toString().trim().toLowerCase())
-              .where((t) => t.isNotEmpty)
-              .toSet()
-              .take(5)
-              .toList()
+                .map((t) => t.toString().trim().toLowerCase())
+                .where((t) => t.isNotEmpty)
+                .toSet()
+                .take(5)
+                .toList()
           : <String>[];
 
       final normalized = CategoryTaxonomy.normalize(
@@ -210,8 +218,11 @@ Output valid JSON only. No markdown, no explanation.''';
         summary: (data['summary'] as String? ?? '').trim(),
       );
     } catch (e, stack) {
-      developer.log('Failed to parse categorization result: $e\n$raw',
-          name: 'GeminiService', stackTrace: stack);
+      developer.log(
+        'Failed to parse categorization result: $e\n$raw',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
       return const CategorizationResult(
         category: 'Other',
         emoji: '🔖',
@@ -227,12 +238,17 @@ Output valid JSON only. No markdown, no explanation.''';
     required String question,
     required List<SavedUrl> contextUrls,
   }) async {
-    final contextBlock = contextUrls.asMap().entries.map((e) {
-      final u = e.value;
-      return '[${e.key + 1}] ${u.title}\n${u.summary ?? u.description}\nURL: ${u.rawUrl}';
-    }).join('\n\n');
+    final contextBlock = contextUrls
+        .asMap()
+        .entries
+        .map((e) {
+          final u = e.value;
+          return '[${e.key + 1}] ${u.title}\n${u.summary ?? u.description}\nURL: ${u.rawUrl}';
+        })
+        .join('\n\n');
 
-    final prompt = '''You are a personal knowledge assistant. Answer the user's question using ONLY the saved bookmarks provided below.
+    final prompt =
+        '''You are a personal knowledge assistant. Answer the user's question using ONLY the saved bookmarks provided below.
 
 Return valid JSON only with this exact shape:
 {
@@ -267,30 +283,42 @@ QUESTION: $question''';
       final data = json.decode(_cleanJson(raw)) as Map<String, dynamic>;
       final rawSections = data['sections'] as List<dynamic>? ?? const [];
 
-      final sections = rawSections
-          .whereType<Map<String, dynamic>>()
-          .map((map) => ChatResponseSection(
-                sourceIndex: (map['sourceIndex'] as num? ?? 0).toInt(),
-                heading: (map['heading'] as String? ?? 'Saved link').trim(),
-                summary: (map['summary'] as String? ?? '').trim(),
-              ))
-          .where((s) =>
-              s.sourceIndex > 0 &&
-              s.sourceIndex <= contextUrls.length &&
-              s.summary.isNotEmpty)
-          .toList()
-        ..sort((a, b) => a.sourceIndex.compareTo(b.sourceIndex));
+      final sections =
+          rawSections
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (map) => ChatResponseSection(
+                  sourceIndex: (map['sourceIndex'] as num? ?? 0).toInt(),
+                  heading: (map['heading'] as String? ?? 'Saved link').trim(),
+                  summary: (map['summary'] as String? ?? '').trim(),
+                ),
+              )
+              .where(
+                (s) =>
+                    s.sourceIndex > 0 &&
+                    s.sourceIndex <= contextUrls.length &&
+                    s.summary.isNotEmpty,
+              )
+              .toList()
+            ..sort((a, b) => a.sourceIndex.compareTo(b.sourceIndex));
 
       return ChatResponse(
-        intro: (data['intro'] as String? ?? 'Here is what your saved links say.').trim(),
+        intro:
+            (data['intro'] as String? ?? 'Here is what your saved links say.')
+                .trim(),
         sections: sections,
       );
     } catch (e, stack) {
-      developer.log('Failed to parse chat response: $e\n$raw',
-          name: 'GeminiService', stackTrace: stack);
+      developer.log(
+        'Failed to parse chat response: $e\n$raw',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
 
       // Best-effort fallback: surface each URL's own summary.
-      final fallbackSections = contextUrls.asMap().entries
+      final fallbackSections = contextUrls
+          .asMap()
+          .entries
           .map((entry) {
             final u = entry.value;
             return ChatResponseSection(
@@ -298,7 +326,9 @@ QUESTION: $question''';
               heading: u.title.isNotEmpty
                   ? u.title
                   : CategoryResolver.displaySourceName(
-                      rawUrl: u.rawUrl, fallbackDomain: u.domain),
+                      rawUrl: u.rawUrl,
+                      fallbackDomain: u.domain,
+                    ),
               summary: (u.summary ?? u.description).trim(),
             );
           })
@@ -318,16 +348,21 @@ QUESTION: $question''';
     required List<SavedUrl> urls,
     String? question,
   }) async {
-    final items = urls.asMap().entries.map((e) {
-      final u = e.value;
-      return '[${e.key + 1}] ${u.title}\n${u.summary ?? u.description}';
-    }).join('\n\n');
+    final items = urls
+        .asMap()
+        .entries
+        .map((e) {
+          final u = e.value;
+          return '[${e.key + 1}] ${u.title}\n${u.summary ?? u.description}';
+        })
+        .join('\n\n');
 
     final focus = (question?.trim().isNotEmpty ?? false)
         ? '\nFocus on answering: ${question!.trim()}'
         : '';
 
-    final prompt = '''Synthesize the key insights from these saved links into a cohesive summary. Identify shared themes, contrasting viewpoints, and the most actionable takeaways.$focus
+    final prompt =
+        '''Synthesize the key insights from these saved links into a cohesive summary. Identify shared themes, contrasting viewpoints, and the most actionable takeaways.$focus
 
 Cite sources inline using [1], [2], etc.
 
@@ -363,14 +398,16 @@ $items''';
       byCategory[u.category] = (byCategory[u.category] ?? 0) + 1;
     }
 
-    final topicsText = (byCategory.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value)))
-        .map((e) => '${e.key}: ${e.value} link${e.value > 1 ? 's' : ''}')
-        .join(', ');
+    final topicsText =
+        (byCategory.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value)))
+            .map((e) => '${e.key}: ${e.value} link${e.value > 1 ? 's' : ''}')
+            .join(', ');
 
     final sampleTitles = urls.take(5).map((u) => '- ${u.title}').join('\n');
 
-    final prompt = '''You are a friendly personal knowledge assistant. Write a short, encouraging weekly recap for a user who saved ${urls.length} links.
+    final prompt =
+        '''You are a friendly personal knowledge assistant. Write a short, encouraging weekly recap for a user who saved ${urls.length} links.
 
 Topics covered: $topicsText
 
@@ -380,16 +417,19 @@ $sampleTitles
 Write 3–5 sentences that highlight their most active topic(s), note any interesting patterns, and encourage them to revisit something. Be warm, concise, and insightful. No bullet points.''';
 
     final response = await _generate(jsonMode: false, prompt: prompt);
-    return response.text?.trim() ?? 'Great week of saving — keep building your knowledge!';
+    return response.text?.trim() ??
+        'Great week of saving — keep building your knowledge!';
   }
 
   // ─── Ask suggestions (recent saves) ──────────────────────────────────────
 
   /// Returns exactly four short questions tailored to the user's recent bookmarks.
   Future<List<String>> generatePersonalAskSuggestions(
-      String contextBlock) async {
+    String contextBlock,
+  ) async {
     const n = 4;
-    final prompt = '''You are a personal bookmark assistant called Glimpse.
+    final prompt =
+        '''You are a personal bookmark assistant called Glimpse.
 The user has saved these links recently:
 
 $contextBlock
@@ -421,16 +461,18 @@ Bad examples:
   }) async {
     if (clusterCount <= 0) return const [];
 
-    final prompt = '''Here are groups of bookmarks the user has saved, grouped by semantic similarity:
+    final prompt =
+        '''Here are groups of bookmarks the user has saved, grouped by semantic similarity:
 
 $clusterDescriptionsBlock
 
 For each cluster, assign a JSON object with exactly these keys:
 - "label": a short 2-4 word theme name from the actual topics and titles (e.g. "Stoic philosophy", "Watch mods", "Indie dev")
-- "emoji": one emoji that best represents this cluster
-- "summary": one sentence describing what this cluster is about
+- "summary": one concise sentence describing what this cluster is about
 
-Important: Do NOT use a website or app name as the label (e.g. Reddit, YouTube, Instagram) unless the bookmarks are genuinely about that platform. Prefer the subject matter.
+Important:
+- Do NOT use a website or app name as the label (e.g. Reddit, YouTube, Instagram) unless the bookmarks are genuinely about that platform. Prefer the subject matter.
+- Do NOT include any emoji characters anywhere in your response.
 
 Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster order. No markdown, no explanation.''';
 
@@ -448,7 +490,6 @@ Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster
         final m = Map<String, dynamic>.from(e);
         out.add({
           'label': m['label']?.toString().trim() ?? 'Cluster',
-          'emoji': m['emoji']?.toString().trim() ?? '🔖',
           'summary': m['summary']?.toString().trim() ?? '',
         });
       }
@@ -459,20 +500,191 @@ Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster
       }
       return out;
     } catch (e, stack) {
-      developer.log('Failed to parse cluster names: $e',
-          name: 'GeminiService', stackTrace: stack);
+      developer.log(
+        'Failed to parse cluster names: $e',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
       return _fallbackClusters(clusterCount);
     }
   }
 
   static Map<String, String> _fallbackCluster(int index) => {
-        'label': 'Interest group $index',
-        'emoji': '🔖',
-        'summary': 'Related bookmarks.',
-      };
+    'label': 'Interest group $index',
+    'summary': 'Related bookmarks.',
+  };
 
   static List<Map<String, String>> _fallbackClusters(int count) =>
       List.generate(count, (i) => _fallbackCluster(i + 1));
+
+  // ─── Hierarchical cluster naming (main + sub in one call) ────────────────
+
+  /// Names both top-level clusters and their sub-groups in a single Gemini
+  /// call. Returns a list aligned with [mainClusterCount]; each entry has
+  /// "label", "summary", and "subLabels" (a List of {"label","summary"} maps).
+  Future<List<Map<String, dynamic>>> nameHierarchicalClusters({
+    required String descriptionsBlock,
+    required int mainClusterCount,
+  }) async {
+    if (mainClusterCount <= 0) return const [];
+
+    final prompt =
+        '''Here are groups of bookmarks the user has saved, grouped by semantic similarity.
+Some main clusters also contain sub-groups showing finer-grained topics within them.
+
+$descriptionsBlock
+
+For each main cluster return a JSON object with exactly these keys:
+- "label": a short 2-4 word theme name from the actual topics (e.g. "Stoic philosophy", "Watch mods", "Indie dev")
+- "summary": one concise sentence describing the cluster
+- "subLabels": an array — one object per sub-group listed for that cluster, each with:
+  - "label": a 2-4 word sub-topic name that accurately covers EVERY item listed for that sub-group. If the items span multiple regions or topics, choose an umbrella label broad enough to include all of them (e.g. "Indian Mountain Treks" rather than "Himalayan Treks" if the sub-group also contains non-Himalayan Indian destinations like Karnataka or Western Ghats).
+  - "summary": one sentence for the sub-group
+  If the cluster has no sub-groups listed, return "subLabels": []
+
+Rules:
+- Do NOT use a website or app name as the label unless the bookmarks are genuinely about that platform.
+- Sub-labels must be more specific than the parent — never repeat the parent label word-for-word.
+- Sub-labels must be geographically and thematically accurate for ALL items in the sub-group, not just the majority.
+- Do NOT include any emoji anywhere in your response.
+- Return valid JSON only: an array of exactly $mainClusterCount objects in cluster order. No markdown, no explanation.''';
+
+    final response = await _generate(jsonMode: true, prompt: prompt);
+    final cleaned = _cleanJson(response.text ?? '[]');
+
+    try {
+      final decoded = json.decode(cleaned);
+      if (decoded is! List<dynamic>) {
+        return _fallbackHierarchicalClusters(mainClusterCount);
+      }
+
+      final out = <Map<String, dynamic>>[];
+      for (final e in decoded) {
+        if (out.length >= mainClusterCount) break;
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+
+        final rawSubs = m['subLabels'];
+        final subLabels = <Map<String, String>>[];
+        if (rawSubs is List) {
+          for (final s in rawSubs) {
+            if (s is! Map) continue;
+            subLabels.add({
+              'label': s['label']?.toString().trim() ?? '',
+              'summary': s['summary']?.toString().trim() ?? '',
+            });
+          }
+        }
+
+        out.add({
+          'label': m['label']?.toString().trim() ?? 'Cluster',
+          'summary': m['summary']?.toString().trim() ?? '',
+          'subLabels': subLabels,
+        });
+      }
+
+      while (out.length < mainClusterCount) {
+        final fb = _fallbackCluster(out.length + 1);
+        out.add({...fb, 'subLabels': <Map<String, String>>[]});
+      }
+      return out;
+    } catch (e, stack) {
+      developer.log(
+        'Failed to parse hierarchical cluster names: $e',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
+      return _fallbackHierarchicalClusters(mainClusterCount);
+    }
+  }
+
+  static Map<String, dynamic> _fallbackHierarchicalCluster(int index) => {
+    'label': 'Interest group $index',
+    'summary': 'Related bookmarks.',
+    'subLabels': <Map<String, String>>[],
+  };
+
+  static List<Map<String, dynamic>> _fallbackHierarchicalClusters(int count) =>
+      List.generate(count, (i) => _fallbackHierarchicalCluster(i + 1));
+
+  // ─── Sub-cluster outlier reassignment ─────────────────────────────────────
+
+  /// Given a set of named sub-clusters and the full list of URLs in the parent
+  /// cluster, asks Gemini to reassign any URL that clearly belongs to a
+  /// different sub-cluster than the one k-means placed it in.
+  ///
+  /// Returns a map of url-index (0-based into [allUrls]) -> correct
+  /// sub-cluster index (0-based into [subClusterLabels]), or an empty map
+  /// if no reassignments are needed / the call fails.
+  ///
+  /// Only URLs that are misassigned are included in the returned map —
+  /// URLs absent from the map keep their current sub-cluster assignment.
+  Future<Map<int, int>> reassignSubClusterOutliers({
+    required List<String> subClusterLabels,
+    required List<List<int>> currentAssignments, // subIdx -> list of urlIndices
+    required List<String> urlTitles, // indexed by url position
+  }) async {
+    if (subClusterLabels.length < 2 || urlTitles.isEmpty) return const {};
+
+    // Build a compact block describing the current state.
+    final subBlock = subClusterLabels
+        .asMap()
+        .entries
+        .map((e) => '${e.key}: "${e.value}"')
+        .join(', ');
+
+    final urlBlock = StringBuffer();
+    for (var si = 0; si < currentAssignments.length; si++) {
+      for (final ui in currentAssignments[si]) {
+        if (ui < 0 || ui >= urlTitles.length) continue;
+        final safe = urlTitles[ui].replaceAll('"', "'");
+        urlBlock.writeln('  url $ui (currently in sub-cluster $si): "$safe"');
+      }
+    }
+
+    final prompt =
+        '''You are reviewing bookmark sub-cluster assignments that were made by a machine learning algorithm.
+
+Sub-clusters (index: label):
+$subBlock
+
+Current URL assignments:
+$urlBlock
+
+Identify any URLs whose title contains a clear factual contradiction with the label of the sub-cluster they are assigned to. Focus especially on geographic mismatches — for example, a bookmark about a place in South India (e.g. Karnataka, Western Ghats, Coorg) assigned to a sub-cluster labelled "Himalayan Treks" is a clear mismatch, because Karnataka is not in the Himalayas. Similarly, a European destination assigned to a "New Zealand" sub-cluster is wrong.
+
+Only flag clear factual mismatches. Do not move URLs that are merely thematically adjacent or ambiguous.
+
+Return valid JSON only: an object where each key is the URL index (as a string) and the value is the correct sub-cluster index (as a number).
+If no reassignments are needed, return {}.
+No markdown, no explanation.''';
+
+    final response = await _generate(jsonMode: true, prompt: prompt);
+    final cleaned = _cleanJson(response.text ?? '{}');
+
+    try {
+      final decoded = json.decode(cleaned);
+      if (decoded is! Map) return const {};
+
+      final result = <int, int>{};
+      for (final entry in decoded.entries) {
+        final urlIdx = int.tryParse(entry.key.toString());
+        final subIdx = (entry.value as num?)?.toInt();
+        if (urlIdx == null || subIdx == null) continue;
+        if (urlIdx < 0 || urlIdx >= urlTitles.length) continue;
+        if (subIdx < 0 || subIdx >= subClusterLabels.length) continue;
+        result[urlIdx] = subIdx;
+      }
+      return result;
+    } catch (e, stack) {
+      developer.log(
+        'Failed to parse sub-cluster reassignments: $e',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
+      return const {};
+    }
+  }
 
   // ─── Collection naming ────────────────────────────────────────────────────
 
@@ -480,7 +692,8 @@ Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster
     if (urls.isEmpty) return _fallbackCollectionName;
 
     final titles = urls.take(5).map((u) => '"${u.title}"').join(', ');
-    final prompt = '''A user is creating a bookmark collection containing these links: $titles
+    final prompt =
+        '''A user is creating a bookmark collection containing these links: $titles
 Suggest a short, specific collection name (2-4 words) and one emoji.
 Return JSON only: {"name": "...", "emoji": "..."}''';
 
@@ -488,13 +701,17 @@ Return JSON only: {"name": "...", "emoji": "..."}''';
 
     try {
       final data =
-          json.decode(_cleanJson(response.text ?? '{}')) as Map<String, dynamic>;
+          json.decode(_cleanJson(response.text ?? '{}'))
+              as Map<String, dynamic>;
       final name = (data['name'] as String? ?? 'Collection').trim();
       final emoji = (data['emoji'] as String? ?? '📁').trim();
       return '$emoji $name';
     } catch (e, stack) {
-      developer.log('Failed to parse collection name: $e',
-          name: 'GeminiService', stackTrace: stack);
+      developer.log(
+        'Failed to parse collection name: $e',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
       return _fallbackCollectionName;
     }
   }
@@ -504,14 +721,18 @@ Return JSON only: {"name": "...", "emoji": "..."}''';
   Future<List<String>> summarizeLinksForDigest(List<SavedUrl> links) async {
     if (links.isEmpty) return const [];
 
-    final items = links.map((l) {
-      final host = Uri.tryParse(l.rawUrl)?.host ?? l.domain;
-      final detail =
-          l.description.isNotEmpty ? l.description : l.tags.join(', ');
-      return '- "${l.title}" from $host: $detail';
-    }).join('\n');
+    final items = links
+        .map((l) {
+          final host = Uri.tryParse(l.rawUrl)?.host ?? l.domain;
+          final detail = l.description.isNotEmpty
+              ? l.description
+              : l.tags.join(', ');
+          return '- "${l.title}" from $host: $detail';
+        })
+        .join('\n');
 
-    final prompt = '''Summarize each of these saved links in exactly one punchy sentence (max 12 words each).
+    final prompt =
+        '''Summarize each of these saved links in exactly one punchy sentence (max 12 words each).
 Make them sound interesting — like a friend recommending something.
 Return a JSON array of strings in the same order.
 
@@ -529,8 +750,11 @@ $items''';
           .take(links.length)
           .toList();
     } catch (e, stack) {
-      developer.log('Failed to parse digest summaries: $e',
-          name: 'GeminiService', stackTrace: stack);
+      developer.log(
+        'Failed to parse digest summaries: $e',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
       return List.filled(links.length, _fallbackDigestSummary);
     }
   }
@@ -541,7 +765,8 @@ $items''';
     String themeLinesBlock,
   ) async {
     const n = 4;
-    final prompt = '''You are Glimpse, a personal bookmark assistant.
+    final prompt =
+        '''You are Glimpse, a personal bookmark assistant.
 The user's saved links cluster into these interest themes:
 
 $themeLinesBlock
@@ -589,8 +814,11 @@ Bad examples:
       while (out.length < n) out.add(fallback);
       return out;
     } catch (e, stack) {
-      developer.log('Failed to parse suggestions: $e',
-          name: 'GeminiService', stackTrace: stack);
+      developer.log(
+        'Failed to parse suggestions: $e',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
       return List.filled(n, fallback);
     }
   }

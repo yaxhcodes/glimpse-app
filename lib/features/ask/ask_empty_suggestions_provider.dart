@@ -88,21 +88,23 @@ final List<MapEntry<String, String>> _kDomainEmojiHintEntries = () {
 }();
 
 String _buildSuggestionContext(List<SavedUrl> urls) {
-  return urls.map((u) {
-    var host = u.domain.trim();
-    if (host.isEmpty) {
-      try {
-        host = Uri.parse(u.rawUrl).host.replaceFirst(RegExp(r'^www\.'), '');
-      } catch (_) {
-        host = 'link';
-      }
-    } else {
-      host = host.replaceFirst(RegExp(r'^www\.'), '');
-    }
-    final tags = u.tags.isEmpty ? '—' : u.tags.join(', ');
-    final title = u.title.replaceAll('"', "'");
-    return '- "$title" ($host) [$tags]';
-  }).join('\n');
+  return urls
+      .map((u) {
+        var host = u.domain.trim();
+        if (host.isEmpty) {
+          try {
+            host = Uri.parse(u.rawUrl).host.replaceFirst(RegExp(r'^www\.'), '');
+          } catch (_) {
+            host = 'link';
+          }
+        } else {
+          host = host.replaceFirst(RegExp(r'^www\.'), '');
+        }
+        final tags = u.tags.isEmpty ? '—' : u.tags.join(', ');
+        final title = u.title.replaceAll('"', "'");
+        return '- "$title" ($host) [$tags]';
+      })
+      .join('\n');
 }
 
 String _emojiForQuestion(String question, int i, List<SavedUrl> recent) {
@@ -122,10 +124,7 @@ List<AskSuggestionChipData> _withEmojiPrefixes(
   return List<AskSuggestionChipData>.generate(questions.length, (i) {
     final q = questions[i];
     final emoji = _emojiForQuestion(q, i, recent);
-    return AskSuggestionChipData(
-      display: '$emoji  $q',
-      promptText: q,
-    );
+    return AskSuggestionChipData(display: '$emoji  $q', promptText: q);
   });
 }
 
@@ -135,8 +134,7 @@ List<AskSuggestionChipData> _chipsFromClusterThemesHeuristic(
   if (themes.isEmpty) return const [];
   final fromThemes = themes.take(4).map((t) {
     final q = 'What did I save about ${t.label}?';
-    final em = t.emoji.trim().isNotEmpty ? t.emoji : '🔖';
-    return AskSuggestionChipData(display: '$em  $q', promptText: q);
+    return AskSuggestionChipData(display: q, promptText: q);
   }).toList();
   if (fromThemes.length >= 4) return fromThemes;
   return [
@@ -146,7 +144,8 @@ List<AskSuggestionChipData> _chipsFromClusterThemesHeuristic(
 }
 
 List<AskSuggestionChipData> _heuristicChipsFromRecent(List<SavedUrl> recent) {
-  if (recent.isEmpty) return List<AskSuggestionChipData>.of(kAskOnboardingSuggestionChips);
+  if (recent.isEmpty)
+    return List<AskSuggestionChipData>.of(kAskOnboardingSuggestionChips);
   final fromUrls = recent.take(4).map((u) {
     final short = u.title.length > 40
         ? '${u.title.substring(0, 40)}…'
@@ -268,26 +267,20 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
           final themeLines = themes
               .take(6)
               .map(
-                (t) =>
-                    '- ${t.emoji} "${t.label}" — ${t.summary} (${t.urls.length} links)',
+                (t) => '- "${t.label}" — ${t.summary} (${t.urls.length} links)',
               )
               .join('\n');
           final gemini = GeminiService(BundledKeys.geminiKey);
-          var questions =
-              await gemini.generateAskSuggestionsFromClusterThemes(themeLines);
+          var questions = await gemini.generateAskSuggestionsFromClusterThemes(
+            themeLines,
+          );
           final safeQs = questions.take(4).toList();
           while (safeQs.length < 4) {
             safeQs.add('What themes run through my bookmarks?');
           }
           final chips = List<AskSuggestionChipData>.generate(4, (i) {
             final q = safeQs[i];
-            final theme = themes[i % themes.length];
-            final em =
-                theme.emoji.trim().isNotEmpty ? theme.emoji : '🔗';
-            return AskSuggestionChipData(
-              display: '$em  $q',
-              promptText: q,
-            );
+            return AskSuggestionChipData(display: q, promptText: q);
           });
           await _writeCachedClusterSuggestions(prefs, chips);
           return chips;
@@ -324,5 +317,5 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
 /// Dynamic Ask empty-state chips (cached 24h; refreshed after new saves).
 final askEmptySuggestionsProvider =
     FutureProvider.autoDispose<List<AskSuggestionChipData>>((ref) async {
-  return _resolveSuggestions(ref);
-});
+      return _resolveSuggestions(ref);
+    });

@@ -198,7 +198,10 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                               return const _TypingRow();
                             }
                             final msg = askState.messages[index];
-                            return _ChatTurn(message: msg);
+                            return _ChatTurn(
+                              message: msg,
+                              onAssistantContentGrowth: _scrollToBottom,
+                            );
                           },
                         ),
                       ),
@@ -420,49 +423,25 @@ class _GlimpsePulseOrbState extends State<_GlimpsePulseOrb>
   }
 }
 
-/// Small Glimpse mark for chat rows (M3 secondary container).
-class _GlimpseChatAvatar extends StatelessWidget {
-  const _GlimpseChatAvatar();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    const size = 30.0;
-    return Container(
-      width: size,
-      height: size,
-      margin: const EdgeInsets.only(left: 12, right: 8, top: 2),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: colorScheme.secondaryContainer,
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Center(
-        child: ClipOval(
-          child: Image.asset(
-            'assets/unown_bookmark_transparent.png',
-            width: 16,
-            height: 16,
-            fit: BoxFit.cover,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// One user or assistant message block (modern chat layout).
 class _ChatTurn extends StatelessWidget {
-  const _ChatTurn({required this.message});
+  const _ChatTurn({
+    required this.message,
+    this.onAssistantContentGrowth,
+  });
 
   final ChatMessage message;
+  final VoidCallback? onAssistantContentGrowth;
 
   @override
   Widget build(BuildContext context) {
     if (message.isUser) {
       return _UserBubble(text: message.text);
     }
-    return _AssistantBlock(message: message);
+    return _AssistantBlock(
+      message: message,
+      onContentGrowth: onAssistantContentGrowth,
+    );
   }
 }
 
@@ -488,7 +467,6 @@ class _UserBubble extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxW),
           child: Container(
-            margin: const EdgeInsets.only(left: 64, right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer,
@@ -513,80 +491,214 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
-class _AssistantBlock extends StatelessWidget {
-  const _AssistantBlock({required this.message});
+class _AssistantBlock extends StatefulWidget {
+  const _AssistantBlock({
+    required this.message,
+    this.onContentGrowth,
+  });
 
   final ChatMessage message;
+  final VoidCallback? onContentGrowth;
+
+  @override
+  State<_AssistantBlock> createState() => _AssistantBlockState();
+}
+
+class _AssistantBlockState extends State<_AssistantBlock>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _introAnim;
+  int _introVisibleChars = 0;
+  int _visibleCardCount = 0;
+  bool _sectionRevealScheduled = false;
+  DateTime? _lastScrollNudge;
+
+  String get _intro => widget.message.text;
+  bool get _hasBody => _intro.trim().isNotEmpty;
+
+  int get _cardTotal {
+    if (widget.message.sections.isNotEmpty) {
+      return widget.message.sections.length;
+    }
+    if (widget.message.sources.isNotEmpty) {
+      return widget.message.sources.length;
+    }
+    return 0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_hasBody) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _startSectionReveal());
+      return;
+    }
+    final charCount = _intro.characters.length;
+    final ms = (charCount * 16).clamp(450, 2800).round();
+    _introAnim = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: ms),
+    )
+      ..addListener(_onIntroTick)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() => _introVisibleChars = charCount);
+          _throttledScroll();
+          _startSectionReveal();
+        }
+      });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _introAnim?.forward();
+    });
+  }
+
+  void _onIntroTick() {
+    final c = _introAnim;
+    if (c == null) return;
+    final total = _intro.characters.length;
+    final next = (total * c.value).round();
+    if (next != _introVisibleChars) {
+      setState(() => _introVisibleChars = next);
+      _throttledScroll();
+    }
+  }
+
+  void _throttledScroll() {
+    final now = DateTime.now();
+    if (_lastScrollNudge == null ||
+        now.difference(_lastScrollNudge!) > const Duration(milliseconds: 140)) {
+      _lastScrollNudge = now;
+      widget.onContentGrowth?.call();
+    }
+  }
+
+  Future<void> _startSectionReveal() async {
+    if (_sectionRevealScheduled) return;
+    _sectionRevealScheduled = true;
+    final n = _cardTotal;
+    if (n == 0) {
+      _throttledScroll();
+      return;
+    }
+    for (var i = 0; i < n; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 95));
+      if (!mounted) return;
+      setState(() => _visibleCardCount = i + 1);
+      _throttledScroll();
+    }
+  }
+
+  @override
+  void dispose() {
+    _introAnim?.removeListener(_onIntroTick);
+    _introAnim?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final hasBody = message.text.trim().isNotEmpty;
-    final hasSections = message.sections.isNotEmpty;
-    final hasSources = message.sources.isNotEmpty;
+    final hasSections = widget.message.sections.isNotEmpty;
+    final hasSources = widget.message.sources.isNotEmpty;
+    final introComplete =
+        !_hasBody || (_introAnim?.isCompleted ?? false);
+    final introShown = _hasBody
+        ? _intro.characters.take(_introVisibleChars).toString()
+        : '';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _GlimpseChatAvatar(),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (hasBody)
-                  Container(
-                    margin: const EdgeInsets.only(right: 16),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        topRight: Radius.circular(20),
-                        bottomLeft: Radius.circular(20),
-                        bottomRight: Radius.circular(20),
+          if (_hasBody)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+              ),
+              child: introComplete
+                  ? SelectableText(
+                      _intro,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.5,
                       ),
-                    ),
-                    child: SelectableText(
-                      message.text,
+                    )
+                  : Text(
+                      introShown,
                       style: textTheme.bodyLarge?.copyWith(
                         color: colorScheme.onSurface,
                         height: 1.5,
                       ),
                     ),
-                  ),
-                if (hasBody && (hasSections || hasSources))
-                  const SizedBox(height: 12),
-                if (hasSections) ...[
-                  for (var index = 0; index < message.sections.length; index++) ...[
-                    _AnswerSectionCard(
-                      order: index + 1,
-                      section: message.sections[index],
-                    ),
-                    if (index != message.sections.length - 1)
-                      const SizedBox(height: 12),
-                  ],
-                ] else if (hasSources) ...[
-                  for (var index = 0; index < message.sources.length; index++) ...[
-                    _SourceCard(
-                      source: message.sources[index],
-                      order: index + 1,
-                    ),
-                    if (index != message.sources.length - 1)
-                      const SizedBox(height: 12),
-                  ],
-                ],
-              ],
             ),
-          ),
+          if (_hasBody && (hasSections || hasSources))
+            const SizedBox(height: 12),
+          if (hasSections) ...[
+            for (var index = 0; index < widget.message.sections.length; index++)
+              if (index < _visibleCardCount) ...[
+                _StaggerAppear(
+                  child: _AnswerSectionCard(
+                    order: index + 1,
+                    section: widget.message.sections[index],
+                  ),
+                ),
+                if (index != widget.message.sections.length - 1)
+                  const SizedBox(height: 12),
+              ],
+          ] else if (hasSources) ...[
+            for (var index = 0; index < widget.message.sources.length; index++)
+              if (index < _visibleCardCount) ...[
+                _StaggerAppear(
+                  child: _SourceCard(
+                    source: widget.message.sources[index],
+                    order: index + 1,
+                  ),
+                ),
+                if (index != widget.message.sources.length - 1)
+                  const SizedBox(height: 12),
+              ],
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// Fade + slight slide when a card first appears (ChatGPT-style stagger).
+class _StaggerAppear extends StatelessWidget {
+  const _StaggerAppear({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, c) {
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, 10 * (1 - t)),
+            child: c,
+          ),
+        );
+      },
+      child: child,
     );
   }
 }
@@ -779,29 +891,22 @@ class _TypingRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _GlimpseChatAvatar(),
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(4),
-                topRight: Radius.circular(20),
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: const SizedBox(
-              width: 40,
-              height: 8,
-              child: _StaggerTypingDots(),
-            ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHigh,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(20),
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
           ),
-        ],
+        ),
+        child: const SizedBox(
+          width: 40,
+          height: 8,
+          child: _StaggerTypingDots(),
+        ),
       ),
     );
   }
