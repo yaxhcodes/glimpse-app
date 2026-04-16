@@ -19,7 +19,7 @@ const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v8';
 const _maxDisplayClusters = 8;
 
 /// How many URLs must change before we force a full rebuild.
-const _clusterRebuildThreshold = 3;
+const _clusterRebuildThreshold = 5;
 
 // ─── Isolate row helpers ──────────────────────────────────────────────────────
 
@@ -120,6 +120,9 @@ String _titlesBlock(List<SavedUrl> urls, {int take = 5}) {
 /// Builds the descriptionsBlock for [nameHierarchicalClusters].
 /// [subLocalGroups[i]] contains local indices (0-based within clusters[i])
 /// for each sub-group, or null when no sub-structure was found.
+///
+/// Sub-group items include their local URL index so the LLM can reference
+/// them in the "reassignments" field of its combined response.
 String _buildDescriptionsBlock(
   List<List<SavedUrl>> clusters,
   List<List<List<int>>?> subLocalGroups,
@@ -131,15 +134,17 @@ String _buildDescriptionsBlock(
 
     final subGroups = subLocalGroups[i];
     if (subGroups != null && subGroups.isNotEmpty) {
-      var subLabel = 'A';
-      for (final group in subGroups) {
-        // group contains local indices into c
+      for (var si = 0; si < subGroups.length; si++) {
+        final group = subGroups[si];
         final subUrls = group.map((li) => c[li]).toList();
+        final indexed = group.take(4).map((li) {
+          final safe = TitleResolver.resolve(c[li], tagFrequency: null)
+              .replaceAll('"', "'");
+          return 'url $li: "$safe"';
+        }).join(', ');
         buffer.writeln(
-          '  Sub-group $subLabel (${subUrls.length} links): '
-          '${_titlesBlock(subUrls, take: 3)}',
+          '  Sub-group $si (${subUrls.length} links): $indexed',
         );
-        subLabel = String.fromCharCode(subLabel.codeUnitAt(0) + 1);
       }
     }
   }
@@ -450,73 +455,43 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
         );
       }
 
-      // ── Step 3b: outlier reassignment ──────────────────────────────────────
-      // For each cluster that has sub-groups, ask Gemini whether any URL is
-      // clearly in the wrong sub-cluster (e.g. Karnataka Trek filed under
-      // "Indian Himalayan Treks"). We use the Gemini-assigned sub-labels to
-      // guide the check, then update subLocalGroups in-place before building
-      // the final ClusterTheme objects.
+      // ── Step 3b: apply outlier reassignments from the combined response ────
       for (var mi = 0; mi < multiIndices.length; mi++) {
         final ci = multiIndices[mi];
         final localGroups = subLocalGroups[ci];
         if (localGroups == null || localGroups.length < 2) continue;
 
         final nameRow = mi < names.length ? names[mi] : null;
-        final rawSubs =
-            (nameRow?['subLabels'] as List<dynamic>?) ?? const [];
-        final subLabelStrings = rawSubs
-            .whereType<Map>()
-            .map((m) => m['label']?.toString().trim() ?? '')
-            .where((s) => s.isNotEmpty)
-            .toList();
+        final rawReassign =
+            (nameRow?['reassignments'] as Map<dynamic, dynamic>?) ?? const {};
+        if (rawReassign.isEmpty) continue;
 
-        // Only attempt reassignment when Gemini gave us at least 2 sub-labels.
-        if (subLabelStrings.length < 2) continue;
+        final mutableGroups =
+            localGroups.map((g) => List<int>.from(g)).toList();
+        var moved = 0;
 
-        final parentUrls = topClusters[ci];
-        final urlTitles = parentUrls.map((u) => u.title).toList();
+        for (final entry in rawReassign.entries) {
+          final localIdx = int.tryParse(entry.key.toString());
+          final targetSub = (entry.value as num?)?.toInt();
+          if (localIdx == null || targetSub == null) continue;
+          if (targetSub < 0 || targetSub >= mutableGroups.length) continue;
 
-        try {
-          final reassignments = await gemini.reassignSubClusterOutliers(
-            subClusterLabels: subLabelStrings,
-            currentAssignments: localGroups,
-            urlTitles: urlTitles,
-          );
-
-          if (reassignments.isNotEmpty) {
-            final mutableGroups =
-                localGroups.map((g) => List<int>.from(g)).toList();
-
-            for (final entry in reassignments.entries) {
-              final localIdx = entry.key;
-              final targetSub = entry.value;
-              if (targetSub < 0 || targetSub >= mutableGroups.length) {
-                continue;
-              }
-              // Remove from whatever sub-cluster currently holds this URL.
-              for (final g in mutableGroups) {
-                g.remove(localIdx);
-              }
-              mutableGroups[targetSub].add(localIdx);
-            }
-
-            // Drop any sub-cluster that fell below the minimum size, then
-            // discard sub-structure entirely if fewer than 2 remain.
-            final valid = mutableGroups
-                .where((g) => g.length >= kMinSubClusterSize)
-                .toList();
-            subLocalGroups[ci] =
-                valid.length >= kMinSubClusterCount ? valid : null;
-
-            developer.log(
-              'Cluster[$ci]: reassigned ${reassignments.length} URL(s) '
-              'across sub-clusters.',
-              name: 'Mindmap',
-            );
+          for (final g in mutableGroups) {
+            g.remove(localIdx);
           }
-        } catch (e) {
+          mutableGroups[targetSub].add(localIdx);
+          moved++;
+        }
+
+        if (moved > 0) {
+          final valid = mutableGroups
+              .where((g) => g.length >= kMinSubClusterSize)
+              .toList();
+          subLocalGroups[ci] =
+              valid.length >= kMinSubClusterCount ? valid : null;
+
           developer.log(
-            'Outlier reassignment skipped for cluster[$ci]: $e',
+            'Cluster[$ci]: reassigned $moved URL(s) across sub-clusters.',
             name: 'Mindmap',
           );
         }

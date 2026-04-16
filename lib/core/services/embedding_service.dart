@@ -4,6 +4,12 @@ import 'package:dio/dio.dart';
 class EmbeddingService {
   static const _endpoint = 'https://api.voyageai.com/v1/embeddings';
   static const _embeddingModel = 'voyage-3-lite';
+  static const _queryCacheMaxSize = 50;
+
+  /// Session-scoped LRU cache for single-text query embeddings.
+  /// Keyed on the normalized (trimmed, lowercased) input string.
+  static final Map<String, List<double>> _queryCache =
+      <String, List<double>>{};
 
   final Dio _dio;
   final String _apiKey;
@@ -12,11 +18,25 @@ class EmbeddingService {
 
   /// Generates a single embedding vector for the given text.
   /// Returns an empty list if the text is empty or on error.
+  ///
+  /// Results are cached in-memory so repeated queries within a session
+  /// (e.g. the same search term or Ask question) skip the Voyage API.
   Future<List<double>> generateEmbedding(String text) async {
     if (text.trim().isEmpty) return [];
+    final cacheKey = text.trim().toLowerCase();
+    final cached = _queryCache[cacheKey];
+    if (cached != null) return cached;
     final batch = await generateEmbeddingsBatch([text]);
     if (batch.isEmpty || batch.first.isEmpty) return [];
+    _putCache(cacheKey, batch.first);
     return batch.first;
+  }
+
+  static void _putCache(String key, List<double> value) {
+    if (_queryCache.length >= _queryCacheMaxSize) {
+      _queryCache.remove(_queryCache.keys.first);
+    }
+    _queryCache[key] = value;
   }
 
   /// One Voyage request for multiple strings; order matches [texts].

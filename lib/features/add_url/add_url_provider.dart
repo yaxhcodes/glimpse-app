@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
+import '../home/home_provider.dart';
 import '../../core/services/link_preview_service.dart';
 import '../../core/services/domain_categorizer.dart';
 import '../../core/services/gemini_service.dart';
@@ -111,19 +112,17 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       );
 
       final platformCategorization = DomainCategorizer.categorize(normalizedUrl);
+      final isKnownPlatform = platformCategorization.category != 'Web';
 
       String category;
       String emoji;
       List<String> tags;
       String? summary;
 
-      String? geminiKey;
-      if (BundledKeys.hasGemini) {
-        geminiKey = BundledKeys.geminiKey;
-      }
-      if (geminiKey != null && geminiKey.isNotEmpty) {
+      if (BundledKeys.hasGemini && !isKnownPlatform) {
+        // Unknown domain — use Gemini for full categorization + summary.
         try {
-          final geminiService = GeminiService(geminiKey);
+          final geminiService = GeminiService(BundledKeys.geminiKey);
           final result = await geminiService.categorize(
             title: metadata.title,
             description: metadata.description,
@@ -134,9 +133,6 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           tags = result.tags;
           summary = result.summary.isNotEmpty ? result.summary : null;
         } catch (e) {
-          // AI failed — fall through to domain heuristic
-          // ignore: avoid_print
-          print('[AddUrl] Gemini categorize failed: $e');
           developer.log('Gemini categorize failed: $e', name: 'AddUrl');
           category = platformCategorization.category;
           emoji = platformCategorization.emoji;
@@ -144,6 +140,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           summary = null;
         }
       } else {
+        // Known platform or no Gemini key — use heuristic directly.
         category = platformCategorization.category;
         emoji = platformCategorization.emoji;
         tags = platformCategorization.tags;
@@ -228,8 +225,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         ..embedding = embedding;
 
       await isarService.saveUrl(savedUrl);
-      await clearAskSuggestionsCache();
-      await clearInterestClusterCache();
+      _ref.invalidate(urlStreamProvider);
       _ref.invalidate(askEmptySuggestionsProvider);
       _ref.invalidate(interestClusterThemesProvider);
 

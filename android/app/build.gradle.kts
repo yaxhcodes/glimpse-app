@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.glimpse.glimpse"
+    namespace = "com.shinrinyoku.glimpse"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,20 +22,35 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.glimpse.glimpse"
+        applicationId = "com.shinrinyoku.glimpse"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
+        versionCode = 4
         versionName = flutter.versionName
     }
+
+    bundle {
+    language {
+        enableSplit = false
+    }
+}
+
+    signingConfigs {
+    create("release") {
+        keyAlias = "upload"
+        keyPassword = "Glimpse@guts31"
+        storeFile = file("upload-keystore.jks")
+        storePassword = "Glimpse@guts31"
+    }
+}
 
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

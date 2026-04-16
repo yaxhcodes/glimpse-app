@@ -57,8 +57,6 @@ class GeminiService {
   // Fallback strings — defined once, not scattered across methods
   static const _fallbackQuestion = 'What stands out in my recent saves?';
   static const _fallbackCollectionName = '📁 New collection';
-  static const _fallbackDigestSummary = 'Worth revisiting from your saves.';
-
   static final _jsonConfig = GenerationConfig(
     temperature: 0.2,
     responseMimeType: 'application/json',
@@ -373,19 +371,6 @@ $items''';
     return response.text?.trim() ?? 'No synthesis available.';
   }
 
-  // ─── Translation ──────────────────────────────────────────────────────────
-
-  Future<String> translate({
-    required String content,
-    required String targetLanguage,
-  }) async {
-    final prompt =
-        'Translate the following into $targetLanguage. Return only the translated text, no explanations or labels.\n\n$content';
-
-    final response = await _generate(jsonMode: false, prompt: prompt);
-    return response.text?.trim() ?? content;
-  }
-
   // ─── Weekly recap ─────────────────────────────────────────────────────────
 
   Future<String> generateRecap(List<SavedUrl> urls) async {
@@ -453,75 +438,14 @@ Bad examples:
     return _parseSuggestions(prompt, n, _fallbackQuestion);
   }
 
-  // ─── Interest clusters ────────────────────────────────────────────────────
+  // ─── Hierarchical cluster naming + outlier correction (single call) ──────
 
-  Future<List<Map<String, String>>> nameInterestClusters({
-    required String clusterDescriptionsBlock,
-    required int clusterCount,
-  }) async {
-    if (clusterCount <= 0) return const [];
-
-    final prompt =
-        '''Here are groups of bookmarks the user has saved, grouped by semantic similarity:
-
-$clusterDescriptionsBlock
-
-For each cluster, assign a JSON object with exactly these keys:
-- "label": a short 2-4 word theme name from the actual topics and titles (e.g. "Stoic philosophy", "Watch mods", "Indie dev")
-- "summary": one concise sentence describing what this cluster is about
-
-Important:
-- Do NOT use a website or app name as the label (e.g. Reddit, YouTube, Instagram) unless the bookmarks are genuinely about that platform. Prefer the subject matter.
-- Do NOT include any emoji characters anywhere in your response.
-
-Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster order. No markdown, no explanation.''';
-
-    final response = await _generate(jsonMode: true, prompt: prompt);
-    final cleaned = _cleanJson(response.text ?? '[]');
-
-    try {
-      final decoded = json.decode(cleaned);
-      if (decoded is! List<dynamic>) return _fallbackClusters(clusterCount);
-
-      final out = <Map<String, String>>[];
-      for (final e in decoded) {
-        if (out.length >= clusterCount) break;
-        if (e is! Map) continue;
-        final m = Map<String, dynamic>.from(e);
-        out.add({
-          'label': m['label']?.toString().trim() ?? 'Cluster',
-          'summary': m['summary']?.toString().trim() ?? '',
-        });
-      }
-
-      // Pad if the model returned fewer than expected.
-      while (out.length < clusterCount) {
-        out.add(_fallbackCluster(out.length + 1));
-      }
-      return out;
-    } catch (e, stack) {
-      developer.log(
-        'Failed to parse cluster names: $e',
-        name: 'GeminiService',
-        stackTrace: stack,
-      );
-      return _fallbackClusters(clusterCount);
-    }
-  }
-
-  static Map<String, String> _fallbackCluster(int index) => {
-    'label': 'Interest group $index',
-    'summary': 'Related bookmarks.',
-  };
-
-  static List<Map<String, String>> _fallbackClusters(int count) =>
-      List.generate(count, (i) => _fallbackCluster(i + 1));
-
-  // ─── Hierarchical cluster naming (main + sub in one call) ────────────────
-
-  /// Names both top-level clusters and their sub-groups in a single Gemini
-  /// call. Returns a list aligned with [mainClusterCount]; each entry has
-  /// "label", "summary", and "subLabels" (a List of {"label","summary"} maps).
+  /// Names top-level clusters and sub-groups AND identifies sub-cluster
+  /// outlier reassignments — all in one Gemini call.
+  ///
+  /// Returns a list aligned with [mainClusterCount]; each entry has:
+  ///   "label", "summary", "subLabels" (List of {"label","summary"} maps),
+  ///   and "reassignments" (Map<String, int> — urlIndex → correct subIdx).
   Future<List<Map<String, dynamic>>> nameHierarchicalClusters({
     required String descriptionsBlock,
     required int mainClusterCount,
@@ -531,6 +455,7 @@ Return valid JSON only: a JSON array of exactly $clusterCount objects in cluster
     final prompt =
         '''Here are groups of bookmarks the user has saved, grouped by semantic similarity.
 Some main clusters also contain sub-groups showing finer-grained topics within them.
+Each sub-group lists its URLs with an index and title.
 
 $descriptionsBlock
 
@@ -541,11 +466,13 @@ For each main cluster return a JSON object with exactly these keys:
   - "label": a 2-4 word sub-topic name that accurately covers EVERY item listed for that sub-group. If the items span multiple regions or topics, choose an umbrella label broad enough to include all of them (e.g. "Indian Mountain Treks" rather than "Himalayan Treks" if the sub-group also contains non-Himalayan Indian destinations like Karnataka or Western Ghats).
   - "summary": one sentence for the sub-group
   If the cluster has no sub-groups listed, return "subLabels": []
+- "reassignments": an object mapping URL index (as string key) to the correct sub-group index (as number value) for any URL whose title clearly contradicts the sub-group it was placed in (e.g. geographic mismatches). Only include URLs that need moving. If none need moving, return "reassignments": {}
 
 Rules:
 - Do NOT use a website or app name as the label unless the bookmarks are genuinely about that platform.
 - Sub-labels must be more specific than the parent — never repeat the parent label word-for-word.
 - Sub-labels must be geographically and thematically accurate for ALL items in the sub-group, not just the majority.
+- Only flag clear factual mismatches for reassignment, not thematically adjacent URLs.
 - Do NOT include any emoji anywhere in your response.
 - Return valid JSON only: an array of exactly $mainClusterCount objects in cluster order. No markdown, no explanation.''';
 
@@ -576,16 +503,28 @@ Rules:
           }
         }
 
+        final rawReassign = m['reassignments'];
+        final reassignments = <String, int>{};
+        if (rawReassign is Map) {
+          for (final entry in rawReassign.entries) {
+            final idx = int.tryParse(entry.key.toString());
+            final target = (entry.value as num?)?.toInt();
+            if (idx != null && target != null) {
+              reassignments[idx.toString()] = target;
+            }
+          }
+        }
+
         out.add({
           'label': m['label']?.toString().trim() ?? 'Cluster',
           'summary': m['summary']?.toString().trim() ?? '',
           'subLabels': subLabels,
+          'reassignments': reassignments,
         });
       }
 
       while (out.length < mainClusterCount) {
-        final fb = _fallbackCluster(out.length + 1);
-        out.add({...fb, 'subLabels': <Map<String, String>>[]});
+        out.add(_fallbackHierarchicalCluster(out.length + 1));
       }
       return out;
     } catch (e, stack) {
@@ -602,89 +541,11 @@ Rules:
     'label': 'Interest group $index',
     'summary': 'Related bookmarks.',
     'subLabels': <Map<String, String>>[],
+    'reassignments': <String, int>{},
   };
 
   static List<Map<String, dynamic>> _fallbackHierarchicalClusters(int count) =>
       List.generate(count, (i) => _fallbackHierarchicalCluster(i + 1));
-
-  // ─── Sub-cluster outlier reassignment ─────────────────────────────────────
-
-  /// Given a set of named sub-clusters and the full list of URLs in the parent
-  /// cluster, asks Gemini to reassign any URL that clearly belongs to a
-  /// different sub-cluster than the one k-means placed it in.
-  ///
-  /// Returns a map of url-index (0-based into [allUrls]) -> correct
-  /// sub-cluster index (0-based into [subClusterLabels]), or an empty map
-  /// if no reassignments are needed / the call fails.
-  ///
-  /// Only URLs that are misassigned are included in the returned map —
-  /// URLs absent from the map keep their current sub-cluster assignment.
-  Future<Map<int, int>> reassignSubClusterOutliers({
-    required List<String> subClusterLabels,
-    required List<List<int>> currentAssignments, // subIdx -> list of urlIndices
-    required List<String> urlTitles, // indexed by url position
-  }) async {
-    if (subClusterLabels.length < 2 || urlTitles.isEmpty) return const {};
-
-    // Build a compact block describing the current state.
-    final subBlock = subClusterLabels
-        .asMap()
-        .entries
-        .map((e) => '${e.key}: "${e.value}"')
-        .join(', ');
-
-    final urlBlock = StringBuffer();
-    for (var si = 0; si < currentAssignments.length; si++) {
-      for (final ui in currentAssignments[si]) {
-        if (ui < 0 || ui >= urlTitles.length) continue;
-        final safe = urlTitles[ui].replaceAll('"', "'");
-        urlBlock.writeln('  url $ui (currently in sub-cluster $si): "$safe"');
-      }
-    }
-
-    final prompt =
-        '''You are reviewing bookmark sub-cluster assignments that were made by a machine learning algorithm.
-
-Sub-clusters (index: label):
-$subBlock
-
-Current URL assignments:
-$urlBlock
-
-Identify any URLs whose title contains a clear factual contradiction with the label of the sub-cluster they are assigned to. Focus especially on geographic mismatches — for example, a bookmark about a place in South India (e.g. Karnataka, Western Ghats, Coorg) assigned to a sub-cluster labelled "Himalayan Treks" is a clear mismatch, because Karnataka is not in the Himalayas. Similarly, a European destination assigned to a "New Zealand" sub-cluster is wrong.
-
-Only flag clear factual mismatches. Do not move URLs that are merely thematically adjacent or ambiguous.
-
-Return valid JSON only: an object where each key is the URL index (as a string) and the value is the correct sub-cluster index (as a number).
-If no reassignments are needed, return {}.
-No markdown, no explanation.''';
-
-    final response = await _generate(jsonMode: true, prompt: prompt);
-    final cleaned = _cleanJson(response.text ?? '{}');
-
-    try {
-      final decoded = json.decode(cleaned);
-      if (decoded is! Map) return const {};
-
-      final result = <int, int>{};
-      for (final entry in decoded.entries) {
-        final urlIdx = int.tryParse(entry.key.toString());
-        final subIdx = (entry.value as num?)?.toInt();
-        if (urlIdx == null || subIdx == null) continue;
-        if (urlIdx < 0 || urlIdx >= urlTitles.length) continue;
-        if (subIdx < 0 || subIdx >= subClusterLabels.length) continue;
-        result[urlIdx] = subIdx;
-      }
-      return result;
-    } catch (e, stack) {
-      developer.log(
-        'Failed to parse sub-cluster reassignments: $e',
-        name: 'GeminiService',
-        stackTrace: stack,
-      );
-      return const {};
-    }
-  }
 
   // ─── Collection naming ────────────────────────────────────────────────────
 
@@ -713,49 +574,6 @@ Return JSON only: {"name": "...", "emoji": "..."}''';
         stackTrace: stack,
       );
       return _fallbackCollectionName;
-    }
-  }
-
-  // ─── Digest summaries ─────────────────────────────────────────────────────
-
-  Future<List<String>> summarizeLinksForDigest(List<SavedUrl> links) async {
-    if (links.isEmpty) return const [];
-
-    final items = links
-        .map((l) {
-          final host = Uri.tryParse(l.rawUrl)?.host ?? l.domain;
-          final detail = l.description.isNotEmpty
-              ? l.description
-              : l.tags.join(', ');
-          return '- "${l.title}" from $host: $detail';
-        })
-        .join('\n');
-
-    final prompt =
-        '''Summarize each of these saved links in exactly one punchy sentence (max 12 words each).
-Make them sound interesting — like a friend recommending something.
-Return a JSON array of strings in the same order.
-
-$items''';
-
-    final response = await _generate(jsonMode: true, prompt: prompt);
-
-    try {
-      final decoded = json.decode(_cleanJson(response.text ?? '[]'));
-      if (decoded is! List<dynamic>) {
-        return List.filled(links.length, _fallbackDigestSummary);
-      }
-      return decoded
-          .map((e) => e.toString().trim())
-          .take(links.length)
-          .toList();
-    } catch (e, stack) {
-      developer.log(
-        'Failed to parse digest summaries: $e',
-        name: 'GeminiService',
-        stackTrace: stack,
-      );
-      return List.filled(links.length, _fallbackDigestSummary);
     }
   }
 

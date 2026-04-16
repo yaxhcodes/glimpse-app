@@ -215,8 +215,6 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       unawaited(() async {
         final n = await backfill.backfillIfNeeded();
         if (n <= 0) return;
-        await clearInterestClusterCache();
-        await clearAskSuggestionsCache();
         ref.invalidate(urlStreamProvider);
         ref.invalidate(interestClusterThemesProvider);
         ref.invalidate(askEmptySuggestionsProvider);

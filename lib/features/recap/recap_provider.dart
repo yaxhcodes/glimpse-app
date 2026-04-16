@@ -1,9 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/bundled_keys.dart';
 import '../../core/services/subscription_service.dart';
+
+const _kRecapCacheKey = 'glimpse_recap_narrative';
+const _kRecapWeekKey = 'glimpse_recap_week';
+
+/// ISO week number for [date]. Weeks start on Monday.
+int _isoWeek(DateTime date) {
+  final jan1 = DateTime(date.year, 1, 1);
+  final dayOfYear = date.difference(jan1).inDays;
+  return ((dayOfYear - date.weekday + 10) / 7).floor();
+}
+
+String _weekId(DateTime date) => '${date.year}-W${_isoWeek(date)}';
 
 class RecapState {
   final bool isLoading;
@@ -68,11 +81,25 @@ class RecapNotifier extends StateNotifier<RecapState> {
         topicCounts[u.category] = (topicCounts[u.category] ?? 0) + 1;
       }
 
+      // Reuse cached narrative if we are in the same ISO week.
       String? narrative;
-      if (BundledKeys.hasGemini) {
+      final currentWeek = _weekId(now);
+      final prefs = await SharedPreferences.getInstance();
+      final cachedWeek = prefs.getString(_kRecapWeekKey);
+      final cachedNarrative = prefs.getString(_kRecapCacheKey);
+
+      if (cachedWeek == currentWeek &&
+          cachedNarrative != null &&
+          cachedNarrative.isNotEmpty) {
+        narrative = cachedNarrative;
+      } else if (BundledKeys.hasGemini) {
         try {
           final geminiService = GeminiService(BundledKeys.geminiKey);
           narrative = await geminiService.generateRecap(urls);
+          if (narrative != null) {
+            await prefs.setString(_kRecapCacheKey, narrative);
+            await prefs.setString(_kRecapWeekKey, currentWeek);
+          }
         } catch (_) {
           narrative = null;
         }

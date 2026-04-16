@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/models/saved_url.dart';
 import '../core/services/digest_notifications.dart';
@@ -10,6 +11,10 @@ import '../core/services/title_resolver.dart';
 import '../core/services/user_fingerprint.dart';
 
 const _geminiKey = String.fromEnvironment('GEMINI_KEY');
+const _copyCacheTtl = Duration(hours: 24);
+const _copyCachePrefix = 'notif_copy_cache_';
+const _richnesMinUrls = 10;
+const _richnesMinClusters = 3;
 
 /// Title + body for a local notification (from Gemini or fallback).
 class NotifCopy {
@@ -19,13 +24,18 @@ class NotifCopy {
   final String body;
 }
 
-/// Calls Gemini Flash to write notification copy from real user data.
+/// Calls Gemini Flash Lite to write notification copy from real user data.
 /// On any failure, returns hardcoded fallback copy (never throws to callers).
+///
+/// Optimizations over the naive approach:
+/// - Uses gemini-2.0-flash-lite (cheaper, adequate for short push copy).
+/// - Skips LLM entirely when the user has fewer than 10 URLs or 3 clusters.
+/// - Caches generated copy per NotifType for 24h in SharedPreferences.
 class GeminiCopywriter {
   GeminiCopywriter._();
 
   static const _endpoint =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
 
   static const _systemInstruction = '''
 You are a copywriter for Glimpse, a personal URL saving app.
@@ -48,9 +58,18 @@ Rules:
     required List<SavedUrl> relevantLinks,
   }) async {
     final letter = _letterForNotifType(type);
-    if (_geminiKey.isEmpty) {
+
+    // Richness gate: skip LLM for thin profiles.
+    if (_geminiKey.isEmpty ||
+        fingerprint.allUrls.length < _richnesMinUrls ||
+        fingerprint.topClusters.length < _richnesMinClusters) {
       return _templateFallback(letter, fingerprint);
     }
+
+    // Check persistent copy cache (24h TTL per notification type).
+    final cached = await _readCachedCopy(type);
+    if (cached != null) return cached;
+
     try {
       final userPrompt = _buildUserPrompt(
         type: type,
@@ -60,10 +79,43 @@ Rules:
       );
       final raw = await _callGemini(userPrompt).timeout(const Duration(seconds: 6));
       final parsed = _parseGeminiJson(raw);
-      return _clampCopy(parsed);
+      final copy = _clampCopy(parsed);
+      await _writeCachedCopy(type, copy);
+      return copy;
     } catch (_) {
       return _templateFallback(letter, fingerprint);
     }
+  }
+
+  // ── Persistent copy cache ─────────────────────────────────────────────
+
+  static Future<NotifCopy?> _readCachedCopy(NotifType type) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = '$_copyCachePrefix${type.name}';
+      final raw = prefs.getString(key);
+      final ts = prefs.getInt('${key}_ts');
+      if (raw == null || ts == null) return null;
+      if (DateTime.now().millisecondsSinceEpoch - ts > _copyCacheTtl.inMilliseconds) {
+        return null;
+      }
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      return NotifCopy(
+        title: map['title'] as String? ?? '',
+        body: map['body'] as String? ?? '',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> _writeCachedCopy(NotifType type, NotifCopy copy) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = '$_copyCachePrefix${type.name}';
+      await prefs.setString(key, jsonEncode({'title': copy.title, 'body': copy.body}));
+      await prefs.setInt('${key}_ts', DateTime.now().millisecondsSinceEpoch);
+    } catch (_) {}
   }
 
   static String _letterForNotifType(NotifType type) {

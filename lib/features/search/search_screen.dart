@@ -77,7 +77,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
     setState(() => _pendingSearch = true);
-    _debounce = Timer(const Duration(milliseconds: 400), () {
+    _debounce = Timer(const Duration(milliseconds: 600), () {
       if (!mounted) return;
       setState(() => _pendingSearch = false);
       ref.read(searchProvider.notifier).search(t);
