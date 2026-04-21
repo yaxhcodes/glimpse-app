@@ -2,9 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../core/models/saved_url.dart';
-import '../../core/database/isar_service.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/bundled_keys.dart';
 import '../../core/services/embedding_service.dart';
 import '../../core/services/subscription_service.dart';
 
@@ -45,9 +43,15 @@ class Search extends _$Search {
 
     try {
       final isar = ref.read(isarServiceProvider);
-      final tier = await SubscriptionService().getTier();
-      final canSemantic = BundledKeys.hasVoyage &&
-          SubscriptionService.isAvailable(PremiumFeature.semanticSearch, tier);
+      final embeddings = ref.read(embeddingServiceProvider);
+      // Reactive tier from Riverpod — SubscriptionService.instance.getTier()
+      // would serve a stale RC cache for up to 5 min after purchase.
+      final tier = await ref.read(subscriptionTierProvider.future);
+      final canSemantic = embeddings != null &&
+          SubscriptionService.isAvailable(
+            PremiumFeature.semanticSearch,
+            tier,
+          );
 
       void applyKeywordResults(List<MapEntry<SavedUrl, double>> scored) {
         if (id != _requestId) return;
@@ -61,36 +65,28 @@ class Search extends _$Search {
 
       if (canSemantic) {
         try {
-          final embeddingService = EmbeddingService(BundledKeys.voyageKey);
-          final queryEmbedding = await embeddingService.generateEmbedding(query);
+          final queryEmbedding = await embeddings.generateEmbedding(query);
           if (id != _requestId) return;
           if (queryEmbedding.isNotEmpty) {
-            final allUrls = await isar.getUrlsWithEmbeddings();
+            final scored = await isar.semanticSearchScored(
+              queryEmbedding,
+              limit: 15,
+              minScore: 0.52,
+            );
             if (id != _requestId) return;
-            final scored = <SearchResult>[];
-            for (final url in allUrls) {
-              final emb = url.embedding;
-              if (emb == null || emb.isEmpty) continue;
-              final score = IsarService.cosineSimilarity(queryEmbedding, emb);
-              scored.add(SearchResult(url: url, score: score));
-            }
-            scored.sort((a, b) => b.score.compareTo(a.score));
-            // Slightly stricter than before to reduce loosely related vector hits.
-            final results = scored
-                .where((r) => r.score > 0.52)
-                .take(15)
-                .toList();
-            if (results.isNotEmpty) {
-              if (id != _requestId) return;
-              ref.read(searchModeProvider.notifier).state = SearchMode.semantic;
-              state = AsyncValue.data(results);
+            if (scored.isNotEmpty) {
+              ref.read(searchModeProvider.notifier).state =
+                  SearchMode.semantic;
+              state = AsyncValue.data(
+                scored
+                    .map((e) => SearchResult(url: e.key, score: e.value))
+                    .toList(),
+              );
               return;
             }
           }
-        } catch (_) {
-          final scored = await isar.keywordSearchWithScores(query);
-          applyKeywordResults(scored);
-          return;
+        } on EmbeddingException {
+          // Semantic unavailable — fall through to keyword.
         }
       }
 

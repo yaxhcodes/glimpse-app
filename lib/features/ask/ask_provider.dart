@@ -1,10 +1,10 @@
 import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/gemini_service.dart';
 import '../../core/services/embedding_service.dart';
-import '../../core/services/bundled_keys.dart';
 import '../../core/services/subscription_service.dart';
 
 class ChatMessage {
@@ -68,16 +68,13 @@ class AskNotifier extends StateNotifier<AskState> {
         text.contains('high demand') ||
         text.contains('overloaded') ||
         text.contains('unavailable')) {
-      return 'Glimpse could not reach Gemini right now because the model is under heavy load. Please try again in a few seconds.';
+      return 'Glimpse could not reach the AI right now because the model is under heavy load. Please try again in a few seconds.';
     }
-    if (text.contains('api key') || text.contains('api_key') ||
-        text.contains('invalid') || text.contains('401') ||
-        text.contains('403')) {
-      return 'Your Gemini API key appears to be invalid or expired. Please check it in Settings → AI & API Keys.';
-    }
-    if (text.contains('quota') || text.contains('429') ||
-        text.contains('rate') || text.contains('limit')) {
-      return 'Your API key has hit its usage limit. Please wait a bit or check your Google AI Studio billing.';
+    if (text.contains('quota') ||
+        text.contains('429') ||
+        text.contains('rate') ||
+        text.contains('limit')) {
+      return 'The AI service has hit its usage limit. Please try again in a bit.';
     }
     if (text.contains('not found') || text.contains('404')) {
       return 'The AI model could not be reached. This may be a temporary issue — please try again.';
@@ -102,7 +99,7 @@ class AskNotifier extends StateNotifier<AskState> {
 
     return ChatMessage(
       text:
-          'Glimpse could not reach Gemini right now, so here are the most relevant saved links and what they contain.',
+          'Glimpse could not reach the AI right now, so here are the most relevant saved links and what they contain.',
       isUser: false,
       sources: sections.map((section) => section.source).toList(),
       sections: sections,
@@ -124,29 +121,34 @@ class AskNotifier extends StateNotifier<AskState> {
     final isarService = _ref.read(isarServiceProvider);
 
     try {
-      // Check subscription
-      final tier = await SubscriptionService().getTier();
+      // Read the reactive tier from Riverpod — NEVER call
+      // SubscriptionService.instance.getTier() here: that re-reads the
+      // RevenueCat SDK's 5-minute cache and will say "free" for several
+      // minutes after a successful purchase, even though the listener has
+      // already pushed "premium" into subscriptionTierProvider.
+      final tier = await _ref.read(subscriptionTierProvider.future);
       if (!SubscriptionService.isAvailable(PremiumFeature.askChat, tier)) {
         _addBotMessage(
-          'Ask Your Bookmarks is a premium feature. Upgrade to Glimpse Premium to unlock it.',
+          'Ask Your Bookmarks is a premium feature. Upgrade to Glimpse Pro to unlock it.',
         );
         return;
       }
 
-      if (!BundledKeys.hasGemini) {
+      final gemini = _ref.read(geminiServiceProvider);
+      if (gemini == null) {
         _addBotMessage(
           'AI is not configured for this build. Please update the app.',
         );
         return;
       }
 
-      // Retrieve relevant context
+      // Retrieve relevant context (semantic when possible, keyword otherwise).
+      final embeddings = _ref.read(embeddingServiceProvider);
       List<SavedUrl> contextUrls;
-      if (BundledKeys.hasVoyage) {
+      if (embeddings != null) {
         try {
-          final embeddingService = EmbeddingService(BundledKeys.voyageKey);
           final queryEmbedding =
-              await embeddingService.generateEmbedding(question);
+              await embeddings.generateEmbedding(question);
           if (queryEmbedding.isNotEmpty) {
             contextUrls = await isarService.semanticSearchUrls(
               queryEmbedding,
@@ -155,7 +157,7 @@ class AskNotifier extends StateNotifier<AskState> {
           } else {
             contextUrls = await isarService.fuzzySearchUrls(question);
           }
-        } catch (_) {
+        } on EmbeddingException {
           contextUrls = await isarService.fuzzySearchUrls(question);
         }
       } else {
@@ -169,8 +171,7 @@ class AskNotifier extends StateNotifier<AskState> {
         return;
       }
 
-      final geminiService = GeminiService(BundledKeys.geminiKey);
-      final answer = await geminiService.chat(
+      final answer = await gemini.chat(
         question: question,
         contextUrls: contextUrls,
       );
@@ -190,7 +191,7 @@ class AskNotifier extends StateNotifier<AskState> {
       );
     } catch (e) {
       developer.log('Ask AI error: $e', name: 'AskNotifier');
-      // Try local fallback for any AI failure
+      // Try local fallback for any AI failure.
       try {
         final fallbackUrls = await _fallbackContext(question);
         if (fallbackUrls.isNotEmpty) {

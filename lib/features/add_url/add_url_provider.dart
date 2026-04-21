@@ -6,11 +6,9 @@ import '../ask/ask_empty_suggestions_provider.dart';
 import '../home/home_provider.dart';
 import '../../core/services/link_preview_service.dart';
 import '../../core/services/domain_categorizer.dart';
-import '../../core/services/gemini_service.dart';
 import '../../core/services/embedding_input.dart';
 import '../../core/services/embedding_service.dart';
 import '../../core/services/category_resolver.dart';
-import '../../core/services/bundled_keys.dart';
 import '../mindmap/interest_clusters_provider.dart';
 
 /// State for the Add URL flow.
@@ -58,7 +56,7 @@ class AddUrlState {
 }
 
 /// Orchestrates: fetch metadata → AI categorize/summarize → embed → save.
-/// Falls back to domain-based categorization when no Gemini key is set.
+/// Falls back to domain-based categorization when Gemini is unavailable or fails.
 class AddUrlNotifier extends StateNotifier<AddUrlState> {
   final Ref _ref;
   bool _isSaving = false;
@@ -69,11 +67,10 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     if (_isSaving) return false;
     _isSaving = true;
 
-    // ignore: avoid_print
-    print('[AddUrl] BundledKeys: hasGemini=${BundledKeys.hasGemini}, hasVoyage=${BundledKeys.hasVoyage}, geminiLen=${BundledKeys.geminiKey.length}');
-
     final linkService = _ref.read(linkPreviewServiceProvider);
     final isarService = _ref.read(isarServiceProvider);
+    final geminiService = _ref.read(geminiServiceProvider);
+    final embeddingService = _ref.read(embeddingServiceProvider);
 
     final normalizedUrl = LinkPreviewService.normalizeUrl(rawUrl);
 
@@ -105,24 +102,21 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       );
       final metadata = await linkService.fetchMetadata(normalizedUrl);
 
-      // Step 2: Categorize — AI if key available, otherwise domain heuristic
+      // Step 2: Categorize — Gemini for every URL when configured, else heuristic
       state = state.copyWith(
         status: AddUrlStatus.categorizing,
         metadata: metadata,
       );
 
       final platformCategorization = DomainCategorizer.categorize(normalizedUrl);
-      final isKnownPlatform = platformCategorization.category != 'Web';
 
       String category;
       String emoji;
       List<String> tags;
       String? summary;
 
-      if (BundledKeys.hasGemini && !isKnownPlatform) {
-        // Unknown domain — use Gemini for full categorization + summary.
+      if (geminiService != null) {
         try {
-          final geminiService = GeminiService(BundledKeys.geminiKey);
           final result = await geminiService.categorize(
             title: metadata.title,
             description: metadata.description,
@@ -140,7 +134,6 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           summary = null;
         }
       } else {
-        // Known platform or no Gemini key — use heuristic directly.
         category = platformCategorization.category;
         emoji = platformCategorization.emoji;
         tags = platformCategorization.tags;
@@ -174,9 +167,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       state = state.copyWith(status: AddUrlStatus.generatingEmbedding);
       List<double>? embedding;
 
-      if (BundledKeys.hasVoyage) {
+      if (embeddingService != null) {
         try {
-          final embeddingService = EmbeddingService(BundledKeys.voyageKey);
           final textToEmbed = buildBookmarkEmbeddingInput(
             title: metadata.title,
             description: cleanDescription,
@@ -186,7 +178,11 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           );
           final vec = await embeddingService.generateEmbedding(textToEmbed);
           embedding = vec.isEmpty ? null : vec;
-        } catch (_) {
+        } on EmbeddingException catch (e) {
+          developer.log(
+            'Voyage embedding failed: $e',
+            name: 'AddUrl',
+          );
           embedding = null;
         }
       }

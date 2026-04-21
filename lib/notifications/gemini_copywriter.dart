@@ -1,16 +1,16 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/models/saved_url.dart';
+import '../core/services/ai_proxy_client.dart';
+import '../core/services/ai_proxy_config.dart';
 import '../core/services/digest_notifications.dart';
 import '../core/services/summary_trimmer.dart';
 import '../core/services/tag_noise_filter.dart';
 import '../core/services/title_resolver.dart';
 import '../core/services/user_fingerprint.dart';
 
-const _geminiKey = String.fromEnvironment('GEMINI_KEY');
 const _copyCacheTtl = Duration(hours: 24);
 const _copyCachePrefix = 'notif_copy_cache_';
 const _richnesMinUrls = 10;
@@ -24,18 +24,20 @@ class NotifCopy {
   final String body;
 }
 
-/// Calls Gemini Flash Lite to write notification copy from real user data.
-/// On any failure, returns hardcoded fallback copy (never throws to callers).
+/// Writes notification copy using the Cloudflare Worker proxy ONLY.
 ///
-/// Optimizations over the naive approach:
-/// - Uses gemini-2.0-flash-lite (cheaper, adequate for short push copy).
-/// - Skips LLM entirely when the user has fewer than 10 URLs or 3 clusters.
-/// - Caches generated copy per NotifType for 24h in SharedPreferences.
+/// Falls back to hardcoded templates when:
+///   - the proxy is disabled (no dev secret / user id),
+///   - the user profile is too thin for a useful LLM call, or
+///   - the proxy call fails for any reason.
+///
+/// Never throws. Never uses API keys in URLs. There is no direct Google
+/// Generative Language REST path — all Gemini traffic is unified through
+/// [AiProxyClient.postGemini].
 class GeminiCopywriter {
   GeminiCopywriter._();
 
-  static const _endpoint =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
+  static const _model = 'gemini-2.0-flash-lite';
 
   static const _systemInstruction = '''
 You are a copywriter for Glimpse, a personal URL saving app.
@@ -59,8 +61,8 @@ Rules:
   }) async {
     final letter = _letterForNotifType(type);
 
-    // Richness gate: skip LLM for thin profiles.
-    if (_geminiKey.isEmpty ||
+    // Richness gate: skip LLM for thin profiles OR when proxy is disabled.
+    if (!AiProxyConfig.enabled ||
         fingerprint.allUrls.length < _richnesMinUrls ||
         fingerprint.topClusters.length < _richnesMinClusters) {
       return _templateFallback(letter, fingerprint);
@@ -77,7 +79,7 @@ Rules:
         fingerprint: fingerprint,
         relevantLinks: relevantLinks,
       );
-      final raw = await _callGemini(userPrompt).timeout(const Duration(seconds: 6));
+      final raw = await _callGemini(userPrompt);
       final parsed = _parseGeminiJson(raw);
       final copy = _clampCopy(parsed);
       await _writeCachedCopy(type, copy);
@@ -96,7 +98,8 @@ Rules:
       final raw = prefs.getString(key);
       final ts = prefs.getInt('${key}_ts');
       if (raw == null || ts == null) return null;
-      if (DateTime.now().millisecondsSinceEpoch - ts > _copyCacheTtl.inMilliseconds) {
+      if (DateTime.now().millisecondsSinceEpoch - ts >
+          _copyCacheTtl.inMilliseconds) {
         return null;
       }
       final map = jsonDecode(raw) as Map<String, dynamic>;
@@ -113,7 +116,10 @@ Rules:
     try {
       final prefs = await SharedPreferences.getInstance();
       final key = '$_copyCachePrefix${type.name}';
-      await prefs.setString(key, jsonEncode({'title': copy.title, 'body': copy.body}));
+      await prefs.setString(
+        key,
+        jsonEncode({'title': copy.title, 'body': copy.body}),
+      );
       await prefs.setInt('${key}_ts', DateTime.now().millisecondsSinceEpoch);
     } catch (_) {}
   }
@@ -230,8 +236,8 @@ Write a notification for this user now.
         }
         final days = DateTime.now().difference(link.savedAt).inDays;
         final counts = _tagCounts(fp.allUrls);
-        final displayTitle =
-            TitleResolver.resolve(link, tagFrequency: counts).replaceAll("'", "''");
+        final displayTitle = TitleResolver.resolve(link, tagFrequency: counts)
+            .replaceAll("'", "''");
         final summ = SummaryTrimmer.trim(
           (link.summary ?? link.description).trim(),
           maxLength: 120,
@@ -273,55 +279,35 @@ Write a notification for this user now.
         .length;
   }
 
-  static Future<String> _callGemini(String userPrompt) async {
-    final uri =
-        Uri.parse(_endpoint).replace(queryParameters: {'key': _geminiKey});
-    final body = jsonEncode({
-      'systemInstruction': {
-        'parts': [
-          {'text': _systemInstruction.trim()},
-        ],
-      },
-      'contents': [
-        {
-          'role': 'user',
+  /// Single Gemini call path — always through the Cloudflare Worker proxy.
+  static Future<String> _callGemini(String userPrompt) {
+    return AiProxyClient.instance.postGemini(
+      body: {
+        'model': _model,
+        'systemInstruction': {
           'parts': [
-            {'text': userPrompt.trim()},
+            {'text': _systemInstruction.trim()},
           ],
         },
-      ],
-      'generationConfig': {
-        'temperature': 0.95,
-        'maxOutputTokens': 256,
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': userPrompt.trim()},
+            ],
+          },
+        ],
+        'generationConfig': {
+          'temperature': 0.95,
+          'maxOutputTokens': 256,
+        },
       },
-    });
-
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: body,
+      timeout: const Duration(seconds: 15),
     );
-
-    if (response.statusCode != 200) {
-      throw StateError('Gemini HTTP ${response.statusCode}');
-    }
-
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    final candidates = decoded['candidates'] as List<dynamic>?;
-    if (candidates == null || candidates.isEmpty) {
-      throw StateError('no candidates');
-    }
-    final content = candidates.first as Map<String, dynamic>;
-    final parts = (content['content'] as Map<String, dynamic>?)?['parts']
-        as List<dynamic>?;
-    if (parts == null || parts.isEmpty) throw StateError('no parts');
-    final text = (parts.first as Map<String, dynamic>)['text'] as String?;
-    if (text == null || text.isEmpty) throw StateError('empty text');
-    return text;
   }
 
   static NotifCopy _parseGeminiJson(String rawText) {
-    var clean = rawText
+    final clean = rawText
         .replaceAll('```json', '')
         .replaceAll('```', '')
         .trim();
@@ -354,7 +340,9 @@ Write a notification for this user now.
   static NotifCopy _templateFallback(String letter, UserFingerprint fp) {
     switch (letter) {
       case 'A':
-        final g = fp.geographySpread.isNotEmpty ? fp.geographySpread.first : 'a few places';
+        final g = fp.geographySpread.isNotEmpty
+            ? fp.geographySpread.first
+            : 'a few places';
         final u = fp.unreadGeoCount;
         return NotifCopy(
           title: '${_tc(g)} keeps showing up in your unread pile',
@@ -368,8 +356,10 @@ Write a notification for this user now.
           body: '$n saves this week in a topic you had not touched before.',
         );
       case 'C':
-        final c = fp.topClusters.isNotEmpty ? fp.topClusters.first.name : 'one topic';
-        final n = fp.topClusters.isNotEmpty ? fp.topClusters.first.unreadCount : 0;
+        final c =
+            fp.topClusters.isNotEmpty ? fp.topClusters.first.name : 'one topic';
+        final n =
+            fp.topClusters.isNotEmpty ? fp.topClusters.first.unreadCount : 0;
         return NotifCopy(
           title: '${_tc(c)} is stacking up unread',
           body: '$n links deep; the oldest has been waiting a while.',
@@ -387,12 +377,14 @@ Write a notification for this user now.
             : 'A save';
         return NotifCopy(
           title: 'Still sitting there: ${_short(t, 40)}',
-          body: '${fp.oldestUnreadDays} days since you grabbed it; still curious?',
+          body:
+              '${fp.oldestUnreadDays} days since you grabbed it; still curious?',
         );
       case 'F':
         return NotifCopy(
           title: '${fp.totalSavedThisWeek} saves this week',
-          body: '${_distinctTagCountWeek(fp)} tag threads; ${_tc(fp.dominantCluster)} is busiest.',
+          body:
+              '${_distinctTagCountWeek(fp)} tag threads; ${_tc(fp.dominantCluster)} is busiest.',
         );
       default:
         return const NotifCopy(

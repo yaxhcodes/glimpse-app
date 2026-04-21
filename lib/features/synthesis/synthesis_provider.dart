@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/models/saved_url.dart';
-import '../../core/services/gemini_service.dart';
-import '../../core/services/bundled_keys.dart';
+import '../../core/providers/service_providers.dart';
 import '../../core/services/subscription_service.dart';
 
 class SynthesisState {
@@ -46,17 +46,21 @@ class SynthesisNotifier extends StateNotifier<SynthesisState> {
     state = state.copyWith(isLoading: true, error: null, result: null);
 
     try {
-      // Premium check
-      final tier = await SubscriptionService().getTier();
+      // Read the reactive tier from Riverpod — SubscriptionService.instance
+      // .getTier() re-reads the RC SDK's stale cache; the provider is the
+      // single source of truth kept fresh by the listener + forceRefresh.
+      final tier = await _ref.read(subscriptionTierProvider.future);
       if (!SubscriptionService.isAvailable(PremiumFeature.synthesis, tier)) {
         state = state.copyWith(
           isLoading: false,
-          error: 'Multi-Link Synthesis is a premium feature. Upgrade to unlock it.',
+          error:
+              'Multi-Link Synthesis is a premium feature. Upgrade to unlock it.',
         );
         return;
       }
 
-      if (!BundledKeys.hasGemini) {
+      final gemini = _ref.read(geminiServiceProvider);
+      if (gemini == null) {
         state = state.copyWith(
           isLoading: false,
           error: 'AI is not configured for this build.',
@@ -64,8 +68,7 @@ class SynthesisNotifier extends StateNotifier<SynthesisState> {
         return;
       }
 
-      final geminiService = GeminiService(BundledKeys.geminiKey);
-      final result = await geminiService.synthesize(
+      final result = await gemini.synthesize(
         urls: state.selectedUrls,
         question: question,
       );

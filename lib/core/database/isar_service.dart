@@ -1,6 +1,9 @@
 import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+
 import '../models/saved_url.dart';
 import '../models/user_collection.dart';
 import '../services/category_resolver.dart';
@@ -440,41 +443,83 @@ class IsarService {
 
   /// Returns the number of saved URLs that are semantically similar
   /// to the given [embedding] above [threshold] cosine similarity.
+  /// Computation runs off the UI isolate.
   Future<int> countSimilarUrls({
     required List<double> embedding,
     double threshold = 0.88,
   }) async {
     if (embedding.isEmpty) return 0;
     final isar = await _db;
-    final allUrls = await isar.savedUrls.where().findAll();
-    int count = 0;
-    for (final url in allUrls) {
-      final emb = url.embedding;
-      if (emb == null || emb.isEmpty) continue;
-      final sim = cosineSimilarity(embedding, emb);
-      if (sim >= threshold) count++;
+    final all = await isar.savedUrls.where().findAll();
+
+    final embeddings = <List<double>>[];
+    for (final u in all) {
+      final e = u.embedding;
+      if (e == null || e.isEmpty) continue;
+      embeddings.add(e);
     }
-    return count;
+    if (embeddings.isEmpty) return 0;
+
+    return compute(
+      _countAboveThresholdIsolate,
+      _CosineCountPayload(
+        query: embedding,
+        embeddings: embeddings,
+        threshold: threshold,
+      ),
+    );
   }
 
   /// Returns saved URLs with embeddings closest to [queryEmbedding].
+  /// Cosine scoring runs off the UI isolate for libraries of any size.
   Future<List<SavedUrl>> semanticSearchUrls(
     List<double> queryEmbedding, {
     int limit = 20,
   }) async {
-    if (queryEmbedding.isEmpty) return [];
-    final isar = await _db;
-    final allUrls = await isar.savedUrls.where().findAll();
+    final scored = await semanticSearchScored(queryEmbedding, limit: limit);
+    return scored.map((e) => e.key).toList();
+  }
 
-    final scored = <MapEntry<SavedUrl, double>>[];
-    for (final url in allUrls) {
-      final emb = url.embedding;
-      if (emb == null || emb.isEmpty) continue;
-      final sim = cosineSimilarity(queryEmbedding, emb);
-      scored.add(MapEntry(url, sim));
+  /// Returns saved URLs + cosine score pairs (descending). Runs scoring
+  /// off the UI isolate.
+  Future<List<MapEntry<SavedUrl, double>>> semanticSearchScored(
+    List<double> queryEmbedding, {
+    int limit = 20,
+    double minScore = 0.0,
+  }) async {
+    if (queryEmbedding.isEmpty) return const [];
+    final isar = await _db;
+    final all = await isar.savedUrls.where().findAll();
+
+    final ids = <int>[];
+    final embeddings = <List<double>>[];
+    for (final u in all) {
+      final e = u.embedding;
+      if (e == null || e.isEmpty) continue;
+      ids.add(u.id);
+      embeddings.add(e);
     }
-    scored.sort((a, b) => b.value.compareTo(a.value));
-    return scored.take(limit).map((e) => e.key).toList();
+    if (ids.isEmpty) return const [];
+
+    final topIds = await compute(
+      _topKCosineIsolate,
+      _CosineTopKPayload(
+        query: queryEmbedding,
+        ids: ids,
+        embeddings: embeddings,
+        limit: limit,
+        minScore: minScore,
+      ),
+    );
+    if (topIds.isEmpty) return const [];
+
+    final byId = {for (final u in all) u.id: u};
+    final out = <MapEntry<SavedUrl, double>>[];
+    for (final row in topIds) {
+      final u = byId[row.id];
+      if (u != null) out.add(MapEntry(u, row.score));
+    }
+    return out;
   }
 
   /// Cosine similarity in [0.0, 1.0] for equal-length embedding vectors.
@@ -811,3 +856,71 @@ class IsarService {
         .watch(fireImmediately: true);
   }
 }
+
+// ─── Isolate payloads + entry points ─────────────────────────────────────────
+
+class _CosineTopKPayload {
+  const _CosineTopKPayload({
+    required this.query,
+    required this.ids,
+    required this.embeddings,
+    required this.limit,
+    required this.minScore,
+  });
+
+  final List<double> query;
+  final List<int> ids;
+  final List<List<double>> embeddings;
+  final int limit;
+  final double minScore;
+}
+
+class _CosineCountPayload {
+  const _CosineCountPayload({
+    required this.query,
+    required this.embeddings,
+    required this.threshold,
+  });
+
+  final List<double> query;
+  final List<List<double>> embeddings;
+  final double threshold;
+}
+
+class ScoredUrlId {
+  const ScoredUrlId(this.id, this.score);
+  final int id;
+  final double score;
+}
+
+double _cosine(List<double> a, List<double> b) {
+  if (a.length != b.length) return 0.0;
+  double dot = 0, normA = 0, normB = 0;
+  for (int i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  final denom = sqrt(normA) * sqrt(normB);
+  return denom == 0 ? 0.0 : dot / denom;
+}
+
+List<ScoredUrlId> _topKCosineIsolate(_CosineTopKPayload p) {
+  final scored = <ScoredUrlId>[];
+  for (var i = 0; i < p.ids.length; i++) {
+    final s = _cosine(p.query, p.embeddings[i]);
+    if (s > p.minScore) scored.add(ScoredUrlId(p.ids[i], s));
+  }
+  scored.sort((a, b) => b.score.compareTo(a.score));
+  if (scored.length <= p.limit) return scored;
+  return scored.sublist(0, p.limit);
+}
+
+int _countAboveThresholdIsolate(_CosineCountPayload p) {
+  var count = 0;
+  for (final emb in p.embeddings) {
+    if (_cosine(p.query, emb) >= p.threshold) count++;
+  }
+  return count;
+}
+

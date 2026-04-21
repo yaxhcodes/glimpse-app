@@ -6,14 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'core/providers/service_providers.dart';
-import 'core/services/bundled_keys.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/digest_scheduler.dart';
 import 'core/services/notification_router.dart';
 import 'core/services/tag_analyzer.dart';
 import 'digest_callback.dart' show notificationActionCallback;
 import 'core/services/embedding_backfill_service.dart';
-import 'core/services/embedding_service.dart';
 import 'core/services/link_preview_service.dart';
 import 'core/models/saved_url.dart';
 import 'features/ask/ask_empty_suggestions_provider.dart';
@@ -206,11 +204,12 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         .listen(_handleSharedMedia);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!BundledKeys.hasVoyage) return;
       final isar = ref.read(isarServiceProvider);
+      final embedding = ref.read(embeddingServiceProvider);
+      if (embedding == null) return;
       final backfill = EmbeddingBackfillService(
         isarService: isar,
-        embeddingService: EmbeddingService(BundledKeys.voyageKey),
+        embeddingService: embedding,
       );
       unawaited(() async {
         final n = await backfill.backfillIfNeeded();
@@ -337,6 +336,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(TagAnalyzer.recordAppOpen());
+      // No subscription re-sync on resume:
+      //   * RC auto-fetches CustomerInfo when the app foregrounds
+      //   * any change fires `addCustomerInfoUpdateListener`
+      //   * the notifier's listener writes the new tier into Riverpod
+      // Previously we called `.refresh()` here — that tore down the
+      // CustomerInfo cache on every resume and caused the "loader flash
+      // over a correct Pro badge" symptom.
     }
   }
 

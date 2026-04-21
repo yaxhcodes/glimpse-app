@@ -17,7 +17,8 @@ void main() async {
   final isarService = IsarService();
   await isarService.ensureInitialized();
 
-  // Initialise RevenueCat SDK.
+  // Initialise RevenueCat SDK. Never throws — falls back to free tier
+  // if the platform key is missing or configure() fails.
   await SubscriptionService.init();
 
   await Workmanager().initialize(digestCallbackDispatcher);

@@ -1,9 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/gemini_service.dart';
-import '../../core/services/bundled_keys.dart';
 import '../../core/services/subscription_service.dart';
 
 const _kRecapCacheKey = 'glimpse_recap_narrative';
@@ -61,8 +60,10 @@ class RecapNotifier extends StateNotifier<RecapState> {
     final isarService = _ref.read(isarServiceProvider);
 
     try {
-      // Premium check
-      final tier = await SubscriptionService().getTier();
+      // Read the reactive tier from Riverpod — see comment in ask_provider:
+      // SubscriptionService.instance.getTier() hits the RC SDK cache and
+      // would show "free" right after purchase.
+      final tier = await _ref.read(subscriptionTierProvider.future);
       if (!SubscriptionService.isAvailable(PremiumFeature.recap, tier)) {
         state = state.copyWith(
           isLoading: false,
@@ -75,7 +76,7 @@ class RecapNotifier extends StateNotifier<RecapState> {
       final weekStart = now.subtract(const Duration(days: 7));
       final urls = await isarService.getUrlsInDateRange(weekStart, now);
 
-      // Build topic counts
+      // Build topic counts.
       final topicCounts = <String, int>{};
       for (final u in urls) {
         topicCounts[u.category] = (topicCounts[u.category] ?? 0) + 1;
@@ -92,16 +93,16 @@ class RecapNotifier extends StateNotifier<RecapState> {
           cachedNarrative != null &&
           cachedNarrative.isNotEmpty) {
         narrative = cachedNarrative;
-      } else if (BundledKeys.hasGemini) {
-        try {
-          final geminiService = GeminiService(BundledKeys.geminiKey);
-          narrative = await geminiService.generateRecap(urls);
-          if (narrative != null) {
+      } else {
+        final gemini = _ref.read(geminiServiceProvider);
+        if (gemini != null) {
+          try {
+            narrative = await gemini.generateRecap(urls);
             await prefs.setString(_kRecapCacheKey, narrative);
             await prefs.setString(_kRecapWeekKey, currentWeek);
+          } catch (_) {
+            narrative = null;
           }
-        } catch (_) {
-          narrative = null;
         }
       }
 

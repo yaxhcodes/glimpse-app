@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/service_providers.dart';
-import '../../core/services/bundled_keys.dart';
-import '../../core/services/gemini_service.dart';
 import 'collections_provider.dart';
 
 class CreateCollectionScreen extends ConsumerStatefulWidget {
@@ -28,13 +26,13 @@ class _CreateCollectionScreenState extends ConsumerState<CreateCollectionScreen>
   }
 
   Future<void> _suggestName() async {
-    if (!BundledKeys.hasGemini) return;
+    final gemini = ref.read(geminiServiceProvider);
+    if (gemini == null) return;
     setState(() => _suggesting = true);
     try {
       final isar = ref.read(isarServiceProvider);
       final recent = await isar.getRecentUrls(limit: 5);
       if (recent.isEmpty) return;
-      final gemini = GeminiService(BundledKeys.geminiKey);
       final suggestion = await gemini.suggestCollectionName(recent);
       if (!mounted) return;
       final t = suggestion.trim();
@@ -63,6 +61,7 @@ class _CreateCollectionScreenState extends ConsumerState<CreateCollectionScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final geminiAvailable = ref.watch(geminiServiceProvider) != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -71,7 +70,7 @@ class _CreateCollectionScreenState extends ConsumerState<CreateCollectionScreen>
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          if (BundledKeys.hasGemini)
+          if (geminiAvailable)
             FilledButton.tonalIcon(
               onPressed: _suggesting ? null : _suggestName,
               icon: _suggesting
@@ -83,7 +82,7 @@ class _CreateCollectionScreenState extends ConsumerState<CreateCollectionScreen>
                   : const Icon(Icons.auto_awesome),
               label: const Text('Suggest name from recent saves'),
             ),
-          if (BundledKeys.hasGemini) const SizedBox(height: 20),
+          if (geminiAvailable) const SizedBox(height: 20),
           Row(
             children: [
               Material(

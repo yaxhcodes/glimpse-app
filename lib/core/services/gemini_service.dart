@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/saved_url.dart';
+import 'ai_proxy_client.dart';
+import 'ai_proxy_config.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
 
@@ -63,36 +65,50 @@ class GeminiService {
   );
   static final _textConfig = GenerationConfig(temperature: 0.4);
 
-  final GenerativeModel _jsonPrimary;
-  final GenerativeModel _jsonFallback;
-  final GenerativeModel _textPrimary;
-  final GenerativeModel _textFallback;
+  final bool _useProxy;
+  final GenerativeModel? _jsonPrimary;
+  final GenerativeModel? _jsonFallback;
+  final GenerativeModel? _textPrimary;
+  final GenerativeModel? _textFallback;
 
   GeminiService(String apiKey)
-    : _jsonPrimary = GenerativeModel(
-        model: _primaryModel,
-        apiKey: apiKey,
-        generationConfig: _jsonConfig,
-      ),
-      _jsonFallback = GenerativeModel(
-        model: _fallbackModel,
-        apiKey: apiKey,
-        generationConfig: _jsonConfig,
-      ),
-      _textPrimary = GenerativeModel(
-        model: _primaryModel,
-        apiKey: apiKey,
-        generationConfig: _textConfig,
-      ),
-      _textFallback = GenerativeModel(
-        model: _fallbackModel,
-        apiKey: apiKey,
-        generationConfig: _textConfig,
-      );
+    : _useProxy = AiProxyConfig.enabled,
+      _jsonPrimary = AiProxyConfig.enabled
+          ? null
+          : GenerativeModel(
+              model: _primaryModel,
+              apiKey: apiKey,
+              generationConfig: _jsonConfig,
+            ),
+      _jsonFallback = AiProxyConfig.enabled
+          ? null
+          : GenerativeModel(
+              model: _fallbackModel,
+              apiKey: apiKey,
+              generationConfig: _jsonConfig,
+            ),
+      _textPrimary = AiProxyConfig.enabled
+          ? null
+          : GenerativeModel(
+              model: _primaryModel,
+              apiKey: apiKey,
+              generationConfig: _textConfig,
+            ),
+      _textFallback = AiProxyConfig.enabled
+          ? null
+          : GenerativeModel(
+              model: _fallbackModel,
+              apiKey: apiKey,
+              generationConfig: _textConfig,
+            );
 
   // ─── Core infrastructure ──────────────────────────────────────────────────
 
   static bool _isRetryable(Object error) {
+    if (error is AiProxyException) {
+      final c = error.statusCode;
+      return c == 503 || c == 500 || c == 429;
+    }
     final s = error.toString().toLowerCase();
     return s.contains('503') ||
         s.contains('500') ||
@@ -109,15 +125,16 @@ class GeminiService {
 
   /// Calls [model] with [prompt], retrying once on retryable errors, with [timeout].
   Future<GenerateContentResponse> _tryModel(
-    GenerativeModel model,
+    GenerativeModel? model,
     String prompt,
     Duration timeout, {
     required String label,
   }) async {
+    final m = model!;
     for (var attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) await Future<void>.delayed(_retryDelay);
       try {
-        return await model
+        return await m
             .generateContent([Content.text(prompt)])
             .timeout(timeout);
       } catch (e) {
@@ -133,27 +150,104 @@ class GeminiService {
     throw StateError('Unreachable');
   }
 
+  Map<String, dynamic> _generationConfigForProxy(bool jsonMode) {
+    return jsonMode
+        ? {
+            'temperature': 0.2,
+            'responseMimeType': 'application/json',
+          }
+        : {
+            'temperature': 0.4,
+          };
+  }
+
+  Future<String> _tryProxyModel({
+    required String modelName,
+    required String prompt,
+    required Map<String, dynamic> generationConfig,
+    required Duration timeout,
+    required String label,
+  }) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await Future<void>.delayed(_retryDelay);
+      try {
+        final body = <String, dynamic>{
+          'model': modelName,
+          'contents': [
+            {
+              'parts': [
+                {'text': prompt},
+              ],
+            },
+          ],
+          'generationConfig': generationConfig,
+        };
+        return await AiProxyClient.instance.postGemini(
+          body: body,
+          timeout: timeout,
+        );
+      } catch (e) {
+        developer.log(
+          '$label proxy attempt $attempt failed: $e',
+          name: 'GeminiService',
+        );
+        if (attempt == 0 && _isRetryable(e)) continue;
+        rethrow;
+      }
+    }
+    throw StateError('Unreachable');
+  }
+
   /// Tries the primary model, then falls back to the fallback model.
-  /// Throws the fallback's error if both fail.
-  Future<GenerateContentResponse> _generate({
+  /// Returns model text (may be null if empty).
+  Future<String?> _generateText({
     required bool jsonMode,
     required String prompt,
   }) async {
-    final primary = jsonMode ? _jsonPrimary : _textPrimary;
-    final fallback = jsonMode ? _jsonFallback : _textFallback;
+    if (_useProxy) {
+      final cfg = _generationConfigForProxy(jsonMode);
+      try {
+        return await _tryProxyModel(
+          modelName: _primaryModel,
+          prompt: prompt,
+          generationConfig: cfg,
+          timeout: _primaryTimeout,
+          label: 'primary',
+        );
+      } catch (_) {
+        // Primary exhausted — try fallback.
+      }
+      return _tryProxyModel(
+        modelName: _fallbackModel,
+        prompt: prompt,
+        generationConfig: cfg,
+        timeout: _fallbackTimeout,
+        label: 'fallback',
+      );
+    }
+
+    final primary = jsonMode ? _jsonPrimary! : _textPrimary!;
+    final fallback = jsonMode ? _jsonFallback! : _textFallback!;
 
     try {
-      return await _tryModel(
+      final r = await _tryModel(
         primary,
         prompt,
         _primaryTimeout,
         label: 'primary',
       );
+      return r.text;
     } catch (_) {
       // Primary exhausted — try fallback.
     }
 
-    return _tryModel(fallback, prompt, _fallbackTimeout, label: 'fallback');
+    final r = await _tryModel(
+      fallback,
+      prompt,
+      _fallbackTimeout,
+      label: 'fallback',
+    );
+    return r.text;
   }
 
   // ─── Categorization ───────────────────────────────────────────────────────
@@ -185,8 +279,8 @@ URL: $url
 
 Output valid JSON only. No markdown, no explanation.''';
 
-    final response = await _generate(jsonMode: true, prompt: prompt);
-    return _parseCategorizationResult(response.text ?? '{}');
+    final text = await _generateText(jsonMode: true, prompt: prompt);
+    return _parseCategorizationResult(text ?? '{}');
   }
 
   CategorizationResult _parseCategorizationResult(String raw) {
@@ -272,8 +366,8 @@ $contextBlock
 
 QUESTION: $question''';
 
-    final response = await _generate(jsonMode: true, prompt: prompt);
-    return _parseChatResponse(response.text ?? '{}', contextUrls);
+    final text = await _generateText(jsonMode: true, prompt: prompt);
+    return _parseChatResponse(text ?? '{}', contextUrls);
   }
 
   ChatResponse _parseChatResponse(String raw, List<SavedUrl> contextUrls) {
@@ -367,8 +461,8 @@ Cite sources inline using [1], [2], etc.
 LINKS:
 $items''';
 
-    final response = await _generate(jsonMode: false, prompt: prompt);
-    return response.text?.trim() ?? 'No synthesis available.';
+    final text = await _generateText(jsonMode: false, prompt: prompt);
+    return text?.trim() ?? 'No synthesis available.';
   }
 
   // ─── Weekly recap ─────────────────────────────────────────────────────────
@@ -401,8 +495,8 @@ $sampleTitles
 
 Write 3–5 sentences that highlight their most active topic(s), note any interesting patterns, and encourage them to revisit something. Be warm, concise, and insightful. No bullet points.''';
 
-    final response = await _generate(jsonMode: false, prompt: prompt);
-    return response.text?.trim() ??
+    final text = await _generateText(jsonMode: false, prompt: prompt);
+    return text?.trim() ??
         'Great week of saving — keep building your knowledge!';
   }
 
@@ -445,7 +539,7 @@ Bad examples:
   ///
   /// Returns a list aligned with [mainClusterCount]; each entry has:
   ///   "label", "summary", "subLabels" (List of {"label","summary"} maps),
-  ///   and "reassignments" (Map<String, int> — urlIndex → correct subIdx).
+  ///   and "reassignments" (map from url index string to sub-cluster index).
   Future<List<Map<String, dynamic>>> nameHierarchicalClusters({
     required String descriptionsBlock,
     required int mainClusterCount,
@@ -476,8 +570,8 @@ Rules:
 - Do NOT include any emoji anywhere in your response.
 - Return valid JSON only: an array of exactly $mainClusterCount objects in cluster order. No markdown, no explanation.''';
 
-    final response = await _generate(jsonMode: true, prompt: prompt);
-    final cleaned = _cleanJson(response.text ?? '[]');
+    final text = await _generateText(jsonMode: true, prompt: prompt);
+    final cleaned = _cleanJson(text ?? '[]');
 
     try {
       final decoded = json.decode(cleaned);
@@ -558,11 +652,11 @@ Rules:
 Suggest a short, specific collection name (2-4 words) and one emoji.
 Return JSON only: {"name": "...", "emoji": "..."}''';
 
-    final response = await _generate(jsonMode: true, prompt: prompt);
+    final text = await _generateText(jsonMode: true, prompt: prompt);
 
     try {
       final data =
-          json.decode(_cleanJson(response.text ?? '{}'))
+          json.decode(_cleanJson(text ?? '{}'))
               as Map<String, dynamic>;
       final name = (data['name'] as String? ?? 'Collection').trim();
       final emoji = (data['emoji'] as String? ?? '📁').trim();
@@ -616,10 +710,10 @@ Bad examples:
     int n,
     String fallback,
   ) async {
-    final response = await _generate(jsonMode: true, prompt: prompt);
+    final text = await _generateText(jsonMode: true, prompt: prompt);
 
     try {
-      final decoded = json.decode(_cleanJson(response.text ?? '[]'));
+      final decoded = json.decode(_cleanJson(text ?? '[]'));
       if (decoded is! List<dynamic>) return List.filled(n, fallback);
 
       final out = decoded
@@ -629,7 +723,9 @@ Bad examples:
           .toList();
 
       // Pad to exactly n if the model returned fewer.
-      while (out.length < n) out.add(fallback);
+      while (out.length < n) {
+        out.add(fallback);
+      }
       return out;
     } catch (e, stack) {
       developer.log(

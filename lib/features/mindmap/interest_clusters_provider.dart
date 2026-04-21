@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/service_providers.dart';
-import '../../core/services/bundled_keys.dart';
-import '../../core/services/gemini_service.dart';
 import '../home/home_provider.dart';
 import 'cluster_theme.dart';
 import 'interest_cluster_service.dart';
@@ -35,9 +33,7 @@ final interestClusterThemesProvider = FutureProvider<List<ClusterTheme>>((
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
 
-  final gemini = BundledKeys.hasGemini
-      ? GeminiService(BundledKeys.geminiKey)
-      : null;
+  final gemini = ref.read(geminiServiceProvider);
 
   final result = await loadOrBuildInterestClusterThemes(
     isar: isar,

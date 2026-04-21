@@ -5,8 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/bundled_keys.dart';
-import '../../core/services/gemini_service.dart';
 import '../home/home_provider.dart';
 import '../mindmap/cluster_theme.dart';
 import '../mindmap/interest_clusters_provider.dart';
@@ -262,7 +260,8 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
 
     final themes = await ref.read(interestClusterThemesProvider.future);
     if (themes.isNotEmpty) {
-      if (BundledKeys.hasGemini) {
+      final gemini = ref.read(geminiServiceProvider);
+      if (gemini != null) {
         try {
           final themeLines = themes
               .take(6)
@@ -270,7 +269,6 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
                 (t) => '- "${t.label}" — ${t.summary} (${t.urls.length} links)',
               )
               .join('\n');
-          final gemini = GeminiService(BundledKeys.geminiKey);
           var questions = await gemini.generateAskSuggestionsFromClusterThemes(
             themeLines,
           );
@@ -298,13 +296,13 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
     return cached;
   }
 
-  if (!BundledKeys.hasGemini) {
+  final gemini = ref.read(geminiServiceProvider);
+  if (gemini == null) {
     return _heuristicChipsFromRecent(recent);
   }
 
   try {
     final context = _buildSuggestionContext(recent);
-    final gemini = GeminiService(BundledKeys.geminiKey);
     final questions = await gemini.generatePersonalAskSuggestions(context);
     final chips = _withEmojiPrefixes(questions, recent);
     await _writeCachedV2(prefs, chips);

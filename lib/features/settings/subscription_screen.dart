@@ -1,15 +1,33 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/subscription_service.dart';
 
-class SubscriptionScreen extends ConsumerWidget {
+class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubscriptionScreen> createState() =>
+      _SubscriptionScreenState();
+}
+
+class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
+  // NO initState refresh. The notifier's `build()` already serves the
+  // cached tier from RevenueCat's local cache instantly, and the
+  // `addCustomerInfoUpdateListener` pushes any future change into state.
+  // Kicking off a refresh here was the source of the "loader every time
+  // the screen opens" and the "Free flash over a correct Pro badge".
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final tierAsync = ref.watch(subscriptionTierProvider);
+    developer.log(
+      'SubscriptionScreen: rebuild with tier=$tierAsync',
+      name: 'Subscription',
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Subscription')),
@@ -34,7 +52,7 @@ class SubscriptionScreen extends ConsumerWidget {
         data: (tier) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ΓöÇΓöÇ Current plan badge ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // Current plan badge
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -85,7 +103,7 @@ class SubscriptionScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // ΓöÇΓöÇ Feature comparison ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // Feature comparison
             Text('What you get', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
             const _FeatureRow(
@@ -139,7 +157,7 @@ class SubscriptionScreen extends ConsumerWidget {
 
             const SizedBox(height: 32),
 
-            // ΓöÇΓöÇ Action buttons ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // Action buttons
             if (tier == SubscriptionTier.free) ...[
               FilledButton.icon(
                 onPressed: () => _showPaywall(context, ref),
@@ -160,7 +178,7 @@ class SubscriptionScreen extends ConsumerWidget {
               ),
             ] else ...[
               FilledButton.icon(
-                onPressed: () => _openCustomerCenter(context),
+                onPressed: () => _openCustomerCenter(context, ref),
                 icon: const Icon(Icons.manage_accounts_outlined),
                 label: const Text('Manage Subscription'),
                 style: FilledButton.styleFrom(
@@ -175,29 +193,55 @@ class SubscriptionScreen extends ConsumerWidget {
   }
 
   Future<void> _showPaywall(BuildContext context, WidgetRef ref) async {
-    final purchased = await SubscriptionService().presentPaywall();
-    if (purchased) {
-      ref.read(subscriptionTierProvider.notifier).refresh();
+    final service = ref.read(subscriptionServiceProvider);
+    if (!service.isConfigured) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Welcome to Glimpse Pro!'),
+            content: Text('Subscriptions are unavailable in this build.'),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
+      return;
+    }
+
+    // 1. Native purchase via RevenueCat.
+    final purchased = await service.purchaseRecommendedPackage();
+    if (!purchased) return;
+
+    // 2. Explicit, one-shot reconciliation. This is the ONLY call site
+    // of refreshAfterPurchase() in the app — it runs syncPurchases +
+    // invalidateCustomerInfoCache + getCustomerInfo and flips Riverpod
+    // state to Pro. Without it the local RC cache could serve the
+    // pre-purchase "free" payload for up to 5 minutes.
+    await ref.read(subscriptionTierProvider.notifier).refreshAfterPurchase();
+
+    if (!context.mounted) return;
+    final entitled = ref.read(subscriptionTierProvider).valueOrNull ==
+        SubscriptionTier.premium;
+    if (entitled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Welcome to Glimpse Pro!'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   Future<void> _restorePurchases(BuildContext context, WidgetRef ref) async {
-    final tier = await SubscriptionService().restorePurchases();
-    ref.read(subscriptionTierProvider.notifier).refresh();
+    final service = ref.read(subscriptionServiceProvider);
+    // Purchases.restorePurchases() returns fresh CustomerInfo AND fires
+    // the update listener, which the notifier is subscribed to — so the
+    // Riverpod state updates on its own. No manual refresh required.
+    final tier = await service.restorePurchases();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             tier == SubscriptionTier.premium
-                ? 'Purchases restored ΓÇö welcome back!'
+                ? 'Purchases restored — welcome back!'
                 : 'No previous purchases found',
           ),
           behavior: SnackBarBehavior.floating,
@@ -206,8 +250,11 @@ class SubscriptionScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _openCustomerCenter(BuildContext context) async {
-    await SubscriptionService().presentCustomerCenter();
+  Future<void> _openCustomerCenter(BuildContext context, WidgetRef ref) async {
+    // Any change the user makes inside the Customer Center (cancel, switch
+    // plan, etc.) fires the RC update listener, which flips Riverpod state
+    // automatically. No manual refresh required.
+    await ref.read(subscriptionServiceProvider).presentCustomerCenter();
   }
 }
 
