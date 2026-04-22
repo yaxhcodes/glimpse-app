@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/config/app_environment.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/providers/user_display_name_provider.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../collections/collections_provider.dart';
@@ -146,6 +148,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/settings/subscription'),
               ),
+              if (AppEnvironment.allowsLocalProOverride) ...[
+                SwitchListTile(
+                  title: const Text('Force Pro (Dev)'),
+                  subtitle: const Text(
+                    'Local only. Does not change store entitlements. '
+                    'Shown on dev Android install or when ENV=dev.',
+                  ),
+                  value: ref.watch(devProOverrideProvider).valueOrNull ?? false,
+                  onChanged: ref.watch(devProOverrideProvider).isLoading
+                      ? null
+                      : (v) {
+                          ref
+                              .read(devProOverrideProvider.notifier)
+                              .setDevProOverride(v);
+                        },
+                ),
+              ],
 
               const Divider(indent: 16, endIndent: 16),
 

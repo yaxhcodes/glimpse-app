@@ -3,6 +3,11 @@ import 'ai_proxy_config.dart';
 /// API keys injected at build time via --dart-define.
 /// Users never see or manage these directly.
 ///
+/// Use different `--dart-define=GEMINI_KEY=...` / `VOYAGE_KEY=...` per build
+/// script (e.g. dev vs prod) together with `--dart-define=ENV=dev` or
+/// `ENV=prod` so local runs can use test keys without touching production
+/// defines.
+///
 /// When [AiProxyConfig.enabled] is true (dev secret + user id set), Gemini and
 /// Voyage traffic goes through the Cloudflare Worker; direct keys may be empty.
 class BundledKeys {

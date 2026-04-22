@@ -5,12 +5,14 @@ import 'package:workmanager/workmanager.dart';
 
 import 'app.dart';
 import 'digest_callback.dart';
+import 'core/config/app_environment.dart';
 import 'core/database/isar_service.dart';
 import 'core/providers/service_providers.dart';
 import 'core/services/subscription_service.dart';
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  await AppEnvironment.initPackageInfo();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Pre-initialise Isar so the DB is ready before the first frame.

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 
 const _kRecapCacheKey = 'glimpse_recap_narrative';
@@ -64,7 +65,12 @@ class RecapNotifier extends StateNotifier<RecapState> {
       // SubscriptionService.instance.getTier() hits the RC SDK cache and
       // would show "free" right after purchase.
       final tier = await _ref.read(subscriptionTierProvider.future);
-      if (!SubscriptionService.isAvailable(PremiumFeature.recap, tier)) {
+      final devO = await _ref.read(devProOverrideProvider.future);
+      if (!EntitlementService.isFeatureUnlocked(
+        PremiumFeature.recap,
+        revenueCatTier: tier,
+        devProOverride: devO,
+      )) {
         state = state.copyWith(
           isLoading: false,
           error: 'Weekly Recap is a premium feature. Upgrade to unlock it.',

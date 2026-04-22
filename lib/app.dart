@@ -38,6 +38,8 @@ import 'features/ask/ask_screen.dart';
 import 'features/mindmap/mindmap_screen.dart';
 import 'features/recap/recap_screen.dart';
 import 'features/synthesis/synthesis_screen.dart';
+import 'core/config/app_environment.dart';
+import 'core/services/entitlement_service.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
 
@@ -358,6 +360,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     final themeMode = ref.watch(themeModeProvider);
     final amoledSurfaces = ref.watch(amoledSurfacesProvider);
     final accent = ref.watch(accentColorProvider);
+    final devProOverrideActive = ref.watch(devProOverrideActiveProvider);
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
@@ -387,13 +390,73 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         }
 
         return MaterialApp.router(
-          title: 'Glimpse',
+          title: AppEnvironment.isDevContext ? 'Glimpse Dev' : 'Glimpse',
           debugShowCheckedModeBanner: false,
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeMode,
           scrollBehavior: const AppScrollBehavior(),
           routerConfig: _router,
+          builder: (context, child) {
+            if (!AppEnvironment.isDevContext) {
+              return child ?? const SizedBox.shrink();
+            }
+            var content = child ?? const SizedBox.shrink();
+            content = Banner(
+              message: 'DEV',
+              location: BannerLocation.topStart,
+              color: const Color(0xFFE65100),
+              textStyle: const TextStyle(
+                color: Color(0xFFFFFFFF),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+              child: content,
+            );
+            if (devProOverrideActive) {
+              content = Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  content,
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Center(
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF4A148C),
+                            borderRadius: BorderRadius.vertical(
+                              bottom: Radius.circular(6),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Text(
+                              'DEV PRO MODE',
+                              style: const TextStyle(
+                                color: Color(0xFFFFFFFF),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+            return content;
+          },
         );
       },
     );

@@ -2,6 +2,8 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/config/app_environment.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
@@ -49,14 +51,19 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             ],
           ),
         ),
-        data: (tier) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // Current plan badge
+        data: (rcTier) {
+          final isPro = ref.watch(isProUserProvider);
+          final showDevOverrideHint = AppEnvironment.allowsLocalProOverride &&
+              (ref.watch(devProOverrideProvider).valueOrNull ?? false) &&
+              rcTier == SubscriptionTier.free;
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+            // Plan badge: reflects **effective** access. Store buttons below use RC.
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: tier == SubscriptionTier.premium
+                gradient: isPro
                     ? LinearGradient(
                         colors: [
                           colorScheme.primaryContainer,
@@ -64,7 +71,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                         ],
                       )
                     : null,
-                color: tier == SubscriptionTier.free
+                color: !isPro
                     ? colorScheme.surfaceContainerHigh
                     : null,
                 borderRadius: BorderRadius.circular(20),
@@ -72,17 +79,17 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               child: Column(
                 children: [
                   Icon(
-                    tier == SubscriptionTier.premium
+                    isPro
                         ? Icons.workspace_premium
                         : Icons.bookmark_outline,
                     size: 48,
-                    color: tier == SubscriptionTier.premium
+                    color: isPro
                         ? colorScheme.primary
                         : colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    tier == SubscriptionTier.premium
+                    isPro
                         ? 'Glimpse Pro'
                         : 'Glimpse Free',
                     style: theme.textTheme.headlineSmall?.copyWith(
@@ -91,9 +98,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    tier == SubscriptionTier.premium
-                        ? 'You have access to all features'
+                    isPro
+                        ? (showDevOverrideHint
+                            ? 'You have access to all features (dev override; store: Free)'
+                            : 'You have access to all features')
                         : 'AI tagging included for free',
+                    textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -130,35 +140,35 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               icon: Icons.psychology_outlined,
               title: 'Ask Your Bookmarks',
               subtitle: 'Chat with AI about your saved links',
-              included: tier == SubscriptionTier.premium,
+              included: isPro,
               isPremium: true,
             ),
             _FeatureRow(
               icon: Icons.auto_awesome_outlined,
               title: 'Weekly Recap',
               subtitle: 'AI-generated summary of your week',
-              included: tier == SubscriptionTier.premium,
+              included: isPro,
               isPremium: true,
             ),
             _FeatureRow(
               icon: Icons.merge_type_outlined,
               title: 'Multi-Link Synthesis',
               subtitle: 'Cross-analyze multiple bookmarks',
-              included: tier == SubscriptionTier.premium,
+              included: isPro,
               isPremium: true,
             ),
             _FeatureRow(
               icon: Icons.manage_search_outlined,
               title: 'Semantic Search',
               subtitle: 'Find links by meaning, not just keywords',
-              included: tier == SubscriptionTier.premium,
+              included: isPro,
               isPremium: true,
             ),
 
             const SizedBox(height: 32),
 
-            // Action buttons
-            if (tier == SubscriptionTier.free) ...[
+            // Action buttons: always follow **RevenueCat** tier, not the dev override.
+            if (rcTier == SubscriptionTier.free) ...[
               FilledButton.icon(
                 onPressed: () => _showPaywall(context, ref),
                 icon: const Icon(Icons.workspace_premium),
@@ -187,7 +197,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               ),
             ],
           ],
-        ),
+          );
+        },
       ),
     );
   }

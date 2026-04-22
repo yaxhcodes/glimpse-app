@@ -63,6 +63,7 @@ dependencies:
 
   # Shared Preferences for theme persistence
   shared_preferences: ^2.2.0
+  package_info_plus: ^8.0.0
 
   # Image caching (persists to disk so images are instant after first load)
   cached_network_image: ^3.3.1

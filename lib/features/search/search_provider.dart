@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/embedding_service.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 
 part 'search_provider.g.dart';
@@ -47,10 +48,12 @@ class Search extends _$Search {
       // Reactive tier from Riverpod — SubscriptionService.instance.getTier()
       // would serve a stale RC cache for up to 5 min after purchase.
       final tier = await ref.read(subscriptionTierProvider.future);
+      final devO = await ref.read(devProOverrideProvider.future);
       final canSemantic = embeddings != null &&
-          SubscriptionService.isAvailable(
+          EntitlementService.isFeatureUnlocked(
             PremiumFeature.semanticSearch,
-            tier,
+            revenueCatTier: tier,
+            devProOverride: devO,
           );
 
       void applyKeywordResults(List<MapEntry<SavedUrl, double>> scored) {

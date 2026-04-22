@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 
 class SynthesisState {
@@ -50,7 +51,12 @@ class SynthesisNotifier extends StateNotifier<SynthesisState> {
       // .getTier() re-reads the RC SDK's stale cache; the provider is the
       // single source of truth kept fresh by the listener + forceRefresh.
       final tier = await _ref.read(subscriptionTierProvider.future);
-      if (!SubscriptionService.isAvailable(PremiumFeature.synthesis, tier)) {
+      final devO = await _ref.read(devProOverrideProvider.future);
+      if (!EntitlementService.isFeatureUnlocked(
+        PremiumFeature.synthesis,
+        revenueCatTier: tier,
+        devProOverride: devO,
+      )) {
         state = state.copyWith(
           isLoading: false,
           error:

@@ -31,6 +31,22 @@ android {
         versionName = flutter.versionName
     }
 
+    // env: "prod" = Play Store / closed testing; "dev" = side-by-side local testing.
+    // Debuggable local runs: use `flutter run` (debug buildType is debuggable).
+    // Dev release APKs are not debuggable (same as prod release) unless you add
+    // a custom buildType.
+    flavorDimensions += "env"
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationId = "com.shinrinyoku.glimpse.dev"
+            versionNameSuffix = "-dev"
+        }
+        create("prod") {
+            dimension = "env"
+        }
+    }
+
     bundle {
     language {
         enableSplit = false

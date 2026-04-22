@@ -2,9 +2,11 @@ import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/app_environment.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/embedding_service.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 
 class ChatMessage {
@@ -127,7 +129,12 @@ class AskNotifier extends StateNotifier<AskState> {
       // minutes after a successful purchase, even though the listener has
       // already pushed "premium" into subscriptionTierProvider.
       final tier = await _ref.read(subscriptionTierProvider.future);
-      if (!SubscriptionService.isAvailable(PremiumFeature.askChat, tier)) {
+      final devO = await _ref.read(devProOverrideProvider.future);
+      if (!EntitlementService.isFeatureUnlocked(
+        PremiumFeature.askChat,
+        revenueCatTier: tier,
+        devProOverride: devO,
+      )) {
         _addBotMessage(
           'Ask Your Bookmarks is a premium feature. Upgrade to Glimpse Pro to unlock it.',
         );
@@ -137,7 +144,11 @@ class AskNotifier extends StateNotifier<AskState> {
       final gemini = _ref.read(geminiServiceProvider);
       if (gemini == null) {
         _addBotMessage(
-          'AI is not configured for this build. Please update the app.',
+          AppEnvironment.allowsLocalProOverride
+              ? 'AI is not configured in this build (no Gemini key or AI proxy). '
+                  'Add --dart-define=GEMINI_KEY=... or set up the proxy; '
+                  '“Force Pro” only unlocks in-app gates, not API access.'
+              : 'AI is not configured for this build. Please update the app.',
         );
         return;
       }

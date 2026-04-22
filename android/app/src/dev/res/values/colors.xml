@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Distinguish dev on the home screen: warmer adaptive-icon background. -->
+    <color name="ic_launcher_background">#FFF3E0</color>
+</resources>
