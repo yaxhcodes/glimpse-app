@@ -6,9 +6,12 @@ import '../ask/ask_empty_suggestions_provider.dart';
 import '../home/home_provider.dart';
 import '../../core/services/link_preview_service.dart';
 import '../../core/services/domain_categorizer.dart';
+import '../../core/providers/usage_providers.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/services/embedding_input.dart';
 import '../../core/services/embedding_service.dart';
 import '../../core/services/category_resolver.dart';
+import '../../core/services/usage_service.dart';
 import '../mindmap/interest_clusters_provider.dart';
 
 /// State for the Add URL flow.
@@ -29,6 +32,9 @@ class AddUrlState {
   final LinkMetadata? metadata;
   /// Non-null when a similar URL was already saved (for duplicate warning).
   final int? similarUrlCount;
+  /// `true` when the AI categorization step was skipped because the monthly
+  /// AI-save limit was reached (free tier).
+  final bool usedAiFallback;
 
   const AddUrlState({
     this.status = AddUrlStatus.idle,
@@ -36,6 +42,7 @@ class AddUrlState {
     this.url = '',
     this.metadata,
     this.similarUrlCount,
+    this.usedAiFallback = false,
   });
 
   AddUrlState copyWith({
@@ -44,6 +51,7 @@ class AddUrlState {
     String? url,
     LinkMetadata? metadata,
     int? similarUrlCount,
+    bool? usedAiFallback,
   }) {
     return AddUrlState(
       status: status ?? this.status,
@@ -51,6 +59,7 @@ class AddUrlState {
       url: url ?? this.url,
       metadata: metadata ?? this.metadata,
       similarUrlCount: similarUrlCount ?? this.similarUrlCount,
+      usedAiFallback: usedAiFallback ?? this.usedAiFallback,
     );
   }
 }
@@ -99,6 +108,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       state = state.copyWith(
         status: AddUrlStatus.fetchingMetadata,
         url: normalizedUrl,
+        usedAiFallback: false,
+        errorMessage: null,
       );
       final metadata = await linkService.fetchMetadata(normalizedUrl);
 
@@ -115,7 +126,15 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       List<String> tags;
       String? summary;
 
-      if (geminiService != null) {
+      // Check AI-save usage limit before calling Gemini.
+      final isPro = _ref.read(isProUserProvider);
+      final usageService = _ref.read(usageServiceProvider);
+      final aiLimitReached = await usageService.hasReachedLimit(
+        UsageFeature.aiSave,
+        isPro,
+      );
+
+      if (geminiService != null && !aiLimitReached) {
         try {
           final result = await geminiService.categorize(
             title: metadata.title,
@@ -126,6 +145,9 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           emoji = result.emoji;
           tags = result.tags;
           summary = result.summary.isNotEmpty ? result.summary : null;
+
+          await usageService.incrementUsage(UsageFeature.aiSave);
+          _ref.read(usageRevisionProvider.notifier).state++;
         } catch (e) {
           developer.log('Gemini categorize failed: $e', name: 'AddUrl');
           category = platformCategorization.category;
@@ -134,6 +156,10 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           summary = null;
         }
       } else {
+        if (aiLimitReached) {
+          developer.log('AI save limit reached — falling back to domain categorization', name: 'AddUrl');
+          state = state.copyWith(usedAiFallback: true);
+        }
         category = platformCategorization.category;
         emoji = platformCategorization.emoji;
         tags = platformCategorization.tags;

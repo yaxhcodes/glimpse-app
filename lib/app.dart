@@ -307,20 +307,35 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   Future<void> _quickSave(String url) async {
     final notifier = ref.read(addUrlProvider.notifier);
     final success = await notifier.saveUrl(url);
-    final errorMsg = ref.read(addUrlProvider).errorMessage;
+    final state = ref.read(addUrlProvider);
+    final errorMsg = state.errorMessage;
+    final usedFallback = state.usedAiFallback;
     notifier.reset();
 
     if (!mounted) return;
     final ctx = _router.routerDelegate.navigatorKey.currentContext;
     if (ctx == null) return;
 
+    String message;
+    if (!success) {
+      message = errorMsg ?? 'Failed to save URL';
+    } else if (usedFallback) {
+      message = 'URL saved! AI limit reached — basic categorization used.';
+    } else {
+      message = 'URL saved!';
+    }
+
     ScaffoldMessenger.of(ctx).showSnackBar(
       SnackBar(
-        content: Text(success
-            ? 'URL saved!'
-            : errorMsg ?? 'Failed to save URL'),
+        content: Text(message),
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: Duration(seconds: usedFallback ? 4 : 2),
+        action: usedFallback
+            ? SnackBarAction(
+                label: 'Upgrade',
+                onPressed: () => GoRouter.of(ctx).push('/settings/subscription'),
+              )
+            : null,
       ),
     );
   }

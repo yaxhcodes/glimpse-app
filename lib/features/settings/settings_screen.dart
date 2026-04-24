@@ -15,7 +15,9 @@ import '../../core/services/digest_notifications.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/services/digest_scheduler.dart';
 import '../../core/services/notification_scheduler.dart';
+import '../../core/providers/usage_providers.dart';
 import '../../core/services/tag_analyzer.dart';
+import '../../core/services/usage_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -164,6 +166,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               .setDevProOverride(v);
                         },
                 ),
+                ListTile(
+                  title: const Text('Reset Usage Counters (Dev)'),
+                  subtitle: const Text(
+                    'Clears AI save, Ask, and search monthly counters.',
+                  ),
+                  trailing: const Icon(Icons.restart_alt),
+                  onTap: () async {
+                    await ref.read(usageServiceProvider).resetAll();
+                    ref.read(usageRevisionProvider.notifier).state++;
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Usage counters reset'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const _UsageDebugCard(),
               ],
 
               const Divider(indent: 16, endIndent: 16),
@@ -488,6 +510,62 @@ class _StatusChip extends StatelessWidget {
           color: cs.onSurface,
         )),
       ],
+    );
+  }
+}
+
+/// Dev-only card that shows the currently active usage limits.
+class _UsageDebugCard extends StatelessWidget {
+  const _UsageDebugCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    Widget row(UsageFeature feature, String label) {
+      final limit = UsageService.limitFor(feature);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: theme.textTheme.bodyMedium),
+            Text(
+              '$limit / month',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: cs.primary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Card(
+        color: cs.surfaceContainerHighest,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Active Usage Limits (Dev)',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              row(UsageFeature.aiSave, 'AI saves'),
+              row(UsageFeature.ask, 'Ask Glimpse'),
+              row(UsageFeature.search, 'Search'),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

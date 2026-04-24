@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../core/services/usage_service.dart';
+import '../../shared/widgets/usage_badge.dart';
 import 'add_url_provider.dart';
 
 class AddUrlScreen extends ConsumerStatefulWidget {
@@ -175,6 +178,36 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                       ),
                     ],
 
+                    // AI-limit fallback warning
+                    if (state.usedAiFallback) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: theme.colorScheme.onTertiaryContainer,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "You've reached your monthly AI save limit. This link was saved with basic categorization. Upgrade to Pro for unlimited AI saves.",
+                                style: TextStyle(
+                                  color:
+                                      theme.colorScheme.onTertiaryContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     // Error message
                     if (state.status == AddUrlStatus.error &&
                         state.errorMessage != null) ...[
@@ -194,6 +227,10 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                     ],
 
                     const Spacer(),
+
+                    // Usage indicator
+                    const UsageInlineIndicator(feature: UsageFeature.aiSave),
+                    const SizedBox(height: 8),
 
                     FilledButton.icon(
                       onPressed: (state.status == AddUrlStatus.idle ||

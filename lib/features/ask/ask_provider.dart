@@ -6,8 +6,9 @@ import '../../core/config/app_environment.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/embedding_service.dart';
+import '../../core/providers/usage_providers.dart';
 import '../../core/services/entitlement_service.dart';
-import '../../core/services/subscription_service.dart';
+import '../../core/services/usage_service.dart';
 
 class ChatMessage {
   final String text;
@@ -123,20 +124,17 @@ class AskNotifier extends StateNotifier<AskState> {
     final isarService = _ref.read(isarServiceProvider);
 
     try {
-      // Read the reactive tier from Riverpod — NEVER call
-      // SubscriptionService.instance.getTier() here: that re-reads the
-      // RevenueCat SDK's 5-minute cache and will say "free" for several
-      // minutes after a successful purchase, even though the listener has
-      // already pushed "premium" into subscriptionTierProvider.
-      final tier = await _ref.read(subscriptionTierProvider.future);
-      final devO = await _ref.read(devProOverrideProvider.future);
-      if (!EntitlementService.isFeatureUnlocked(
-        PremiumFeature.askChat,
-        revenueCatTier: tier,
-        devProOverride: devO,
-      )) {
+      // Usage-based gating: free users get 5 Ask queries/month.
+      // Pro (or dev override) users bypass the limit entirely.
+      final isPro = _ref.read(isProUserProvider);
+      final usageService = _ref.read(usageServiceProvider);
+      final hasReached = await usageService.hasReachedLimit(
+        UsageFeature.ask,
+        isPro,
+      );
+      if (hasReached) {
         _addBotMessage(
-          'Ask Your Bookmarks is a premium feature. Upgrade to Glimpse Pro to unlock it.',
+          "You've reached your monthly limit for Ask Glimpse. Upgrade to Glimpse Pro for unlimited queries.",
         );
         return;
       }
@@ -194,6 +192,9 @@ class AskNotifier extends StateNotifier<AskState> {
                 source: contextUrls[section.sourceIndex - 1],
               ))
           .toList();
+
+      await usageService.incrementUsage(UsageFeature.ask);
+      _ref.read(usageRevisionProvider.notifier).state++;
 
       _addBotMessage(
         answer.intro,

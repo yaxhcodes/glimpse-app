@@ -3,9 +3,11 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/usage_providers.dart';
 import '../../core/services/embedding_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
+import '../../core/services/usage_service.dart';
 
 part 'search_provider.g.dart';
 
@@ -66,6 +68,22 @@ class Search extends _$Search {
         );
       }
 
+      // Usage gating: every search (keyword or semantic) counts toward the
+      // free-user monthly limit. Pro users bypass.
+      final isPro = ref.read(isProUserProvider);
+      final usageService = ref.read(usageServiceProvider);
+      final searchBlocked = await usageService.hasReachedLimit(
+        UsageFeature.search,
+        isPro,
+      );
+      if (searchBlocked) {
+        state = AsyncValue.error(
+          const UsageLimitReachedException(UsageFeature.search),
+          StackTrace.current,
+        );
+        return;
+      }
+
       if (canSemantic) {
         try {
           final queryEmbedding = await embeddings.generateEmbedding(query);
@@ -85,6 +103,8 @@ class Search extends _$Search {
                     .map((e) => SearchResult(url: e.key, score: e.value))
                     .toList(),
               );
+              await usageService.incrementUsage(UsageFeature.search);
+              ref.read(usageRevisionProvider.notifier).state++;
               return;
             }
           }
@@ -94,7 +114,11 @@ class Search extends _$Search {
       }
 
       final scored = await isar.keywordSearchWithScores(query);
-      applyKeywordResults(scored);
+      if (id == _requestId) {
+        applyKeywordResults(scored);
+        await usageService.incrementUsage(UsageFeature.search);
+        ref.read(usageRevisionProvider.notifier).state++;
+      }
     } catch (e, st) {
       if (id == _requestId) {
         state = AsyncValue.error(e, st);

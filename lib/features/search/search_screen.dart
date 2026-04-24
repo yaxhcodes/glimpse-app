@@ -8,9 +8,11 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
+import '../../core/services/usage_service.dart';
 import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/usage_badge.dart';
 import '../home/home_provider.dart';
 import 'search_provider.dart';
 
@@ -199,20 +201,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: DateFilter.values.map((f) {
-                final selected = dateFilter == f;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _DateFilterPill(
-                    label: f.label,
-                    selected: selected,
-                    onTap: () =>
-                        ref.read(dateFilterProvider.notifier).state = f,
-                    colorScheme: colorScheme,
-                    textTheme: theme.textTheme,
-                  ),
-                );
-              }).toList(),
+              children: [
+                ...DateFilter.values.map((f) {
+                  final selected = dateFilter == f;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _DateFilterPill(
+                      label: f.label,
+                      selected: selected,
+                      onTap: () =>
+                          ref.read(dateFilterProvider.notifier).state = f,
+                      colorScheme: colorScheme,
+                      textTheme: theme.textTheme,
+                    ),
+                  );
+                }),
+                const SizedBox(width: 8),
+                const UsageBadge(feature: UsageFeature.search),
+              ],
             ),
           ),
           Expanded(
@@ -369,47 +375,65 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         loading: () => const LoadingIndicator(
                           message: 'Searching your library…',
                         ),
-                        error: (err, _) => Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.cloud_off_outlined,
-                                  size: 48,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Search failed',
-                                  style: theme.textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '$err',
-                                  style: theme.textTheme.bodySmall?.copyWith(
+                        error: (err, _) {
+                          final isLimit = err is UsageLimitReachedException;
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isLimit
+                                        ? Icons.lock_clock_outlined
+                                        : Icons.cloud_off_outlined,
+                                    size: 48,
                                     color: colorScheme.onSurfaceVariant,
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 20),
-                                FilledButton.tonalIcon(
-                                  onPressed: () {
-                                    final t = _controller.text.trim();
-                                    if (t.length > 2) {
-                                      ref
-                                          .read(searchProvider.notifier)
-                                          .search(t);
-                                    }
-                                  },
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Try again'),
-                                ),
-                              ],
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    isLimit
+                                        ? 'Monthly limit reached'
+                                        : 'Search failed',
+                                    style: theme.textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    isLimit
+                                        ? "You've reached your monthly search limit. Upgrade to Glimpse Pro for unlimited searches."
+                                        : '$err',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  if (isLimit)
+                                    FilledButton.icon(
+                                      onPressed: () => context
+                                          .push('/settings/subscription'),
+                                      icon: const Icon(
+                                          Icons.workspace_premium_outlined),
+                                      label: const Text('Upgrade to Pro'),
+                                    )
+                                  else
+                                    FilledButton.tonalIcon(
+                                      onPressed: () {
+                                        final t = _controller.text.trim();
+                                        if (t.length > 2) {
+                                          ref
+                                              .read(searchProvider.notifier)
+                                              .search(t);
+                                        }
+                                      },
+                                      icon: const Icon(Icons.refresh),
+                                      label: const Text('Try again'),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
           ),
         ],

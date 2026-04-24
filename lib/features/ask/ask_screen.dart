@@ -9,6 +9,8 @@ import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/user_display_name_provider.dart';
+import '../../core/services/usage_service.dart';
+import '../../shared/widgets/usage_badge.dart';
 import '../../core/services/category_resolver.dart';
 import '../home/home_provider.dart';
 import 'ask_empty_suggestions_provider.dart';
@@ -131,6 +133,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         ),
         centerTitle: false,
         actions: [
+          const UsageBadge(feature: UsageFeature.ask),
           if (askState.messages.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
