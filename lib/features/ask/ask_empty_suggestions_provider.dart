@@ -242,7 +242,12 @@ Future<void> clearAskSuggestionsCache() async {
 
 Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
   final isar = ref.read(isarServiceProvider);
-  ref.watch(urlStreamProvider);
+  final displayedUrls = ref.watch(displayedUrlsProvider).valueOrNull;
+
+  // Respect dev-only first-time UX simulation.
+  if (displayedUrls != null && displayedUrls.isEmpty) {
+    return List<AskSuggestionChipData>.of(kAskOnboardingSuggestionChips);
+  }
 
   final recent = await isar.getRecentUrls(limit: 15);
   if (recent.isEmpty) {

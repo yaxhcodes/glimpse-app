@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../home/home_screen.dart';
+import '../home/home_provider.dart';
 import '../collections/collections_screen.dart';
 import '../mindmap/mindmap_screen.dart';
 import '../search/search_provider.dart';
@@ -32,6 +33,9 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final urlsAsync = ref.watch(displayedUrlsProvider);
+    final hasLinks = (urlsAsync.valueOrNull?.length ?? 0) > 0;
+
     return PopScope(
       canPop: _currentIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
@@ -44,7 +48,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           index: _currentIndex,
           children: _screens,
         ),
-        floatingActionButton: _currentIndex == 0
+        floatingActionButton: _currentIndex == 0 && hasLinks
             ? FloatingActionButton.extended(
                 onPressed: () {
                   HapticFeedback.lightImpact();

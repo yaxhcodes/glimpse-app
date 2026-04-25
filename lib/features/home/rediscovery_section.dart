@@ -28,7 +28,7 @@ class RediscoverySection extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 2),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
                 child: Text(
                   'Rediscover',
                   style: tt.titleSmall?.copyWith(
@@ -38,7 +38,7 @@ class RediscoverySection extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 child: Text(
                   'Based on your activity',
                   style: tt.labelSmall?.copyWith(

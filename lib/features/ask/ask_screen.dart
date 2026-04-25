@@ -81,7 +81,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final urlsAsync = ref.watch(urlStreamProvider);
+    final urlsAsync = ref.watch(displayedUrlsProvider);
     final linkCount = urlsAsync.valueOrNull?.length;
     final savedUrlCount = urlsAsync.valueOrNull?.length ?? 0;
     final userName = ref.watch(userDisplayNameProvider).valueOrNull;

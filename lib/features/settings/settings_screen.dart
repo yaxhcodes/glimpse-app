@@ -15,6 +15,7 @@ import '../../core/services/digest_notifications.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/services/digest_scheduler.dart';
 import '../../core/services/notification_scheduler.dart';
+import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/usage_service.dart';
@@ -173,10 +174,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   trailing: const Icon(Icons.restart_alt),
                   onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
                     await ref.read(usageServiceProvider).resetAll();
                     ref.read(usageRevisionProvider.notifier).state++;
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         const SnackBar(
                           content: Text('Usage counters reset'),
                           behavior: SnackBarBehavior.floating,
@@ -186,6 +188,106 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   },
                 ),
                 const _UsageDebugCard(),
+
+                const Divider(indent: 16, endIndent: 16),
+
+                // ─── App State (Dev) ────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text(
+                    'App State (Dev)',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+                SwitchListTile(
+                  title: const Text('Force Empty Library'),
+                  subtitle: const Text(
+                    'Simulate a first-time user with no saved links. '
+                    'Does not delete any data.',
+                  ),
+                  value: ref.watch(forceEmptyLibraryProvider),
+                  onChanged: (v) {
+                    ref.read(forceEmptyLibraryProvider.notifier).set(v);
+                  },
+                ),
+                SwitchListTile(
+                  title: const Text('Simulate First Save'),
+                  subtitle: const Text(
+                    'Pretend the library is empty so the first-save animation '
+                    'can be tested repeatedly. Does not delete any data.',
+                  ),
+                  value: ref.watch(simulateFirstSaveProvider),
+                  onChanged: (v) {
+                    ref.read(simulateFirstSaveProvider.notifier).set(v);
+                    // Also reset the session flag when toggling off so the
+                    // next enable starts fresh.
+                    if (!v) {
+                      ref.read(hasSimulatedFirstSaveInSessionProvider.notifier).state = false;
+                    }
+                  },
+                ),
+                ListTile(
+                  title: const Text('Reset Onboarding'),
+                  subtitle: const Text(
+                    'Mark onboarding as unseen so it shows again on next launch.',
+                  ),
+                  trailing: const Icon(Icons.replay),
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    await ref.read(hasSeenOnboardingProvider.notifier).reset();
+                    ref.read(hasSimulatedFirstSaveInSessionProvider.notifier).state = false;
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Onboarding reset'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                ListTile(
+                  title: const Text('Reset First Save Celebration'),
+                  subtitle: const Text(
+                    'Re-enable the first-save animation and toast.',
+                  ),
+                  trailing: const Icon(Icons.celebration_outlined),
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    await ref
+                        .read(hasShownFirstSaveCelebrationProvider.notifier)
+                        .reset();
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('First save celebration reset'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                ListTile(
+                  title: const Text('Reset First Save Simulation'),
+                  subtitle: const Text(
+                    'Reset the simulation session so empty state appears again.',
+                  ),
+                  trailing: const Icon(Icons.replay),
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    ref.read(hasSimulatedFirstSaveInSessionProvider.notifier).state = false;
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('First save simulation reset'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                ),
               ],
 
               const Divider(indent: 16, endIndent: 16),

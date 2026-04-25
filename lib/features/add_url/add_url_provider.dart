@@ -248,6 +248,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
 
       await isarService.saveUrl(savedUrl);
       _ref.invalidate(urlStreamProvider);
+      _ref.invalidate(categoriesProvider);
       _ref.invalidate(askEmptySuggestionsProvider);
       _ref.invalidate(interestClusterThemesProvider);
 
