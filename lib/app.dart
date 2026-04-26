@@ -325,19 +325,21 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       message = 'URL saved!';
     }
 
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: usedFallback ? 4 : 2),
-        action: usedFallback
-            ? SnackBarAction(
-                label: 'Upgrade',
-                onPressed: () => GoRouter.of(ctx).push('/settings/subscription'),
-              )
-            : null,
-      ),
-    );
+    ScaffoldMessenger.of(ctx)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          action: usedFallback
+              ? SnackBarAction(
+                  label: 'Upgrade',
+                  onPressed: () => GoRouter.of(ctx).push('/settings/subscription'),
+                )
+              : null,
+        ),
+      );
   }
 
   /// Pulls the first http(s) URL from a block of shared text.

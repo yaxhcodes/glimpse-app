@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/link_preview_service.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/widgets/usage_badge.dart';
 import 'add_url_provider.dart';
@@ -20,21 +21,41 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  String? _domainPreview;
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill URL if navigated from "Add Note & Save"
     if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
       _urlController.text = widget.initialUrl!;
+      _updateDomainPreview();
     }
+    _urlController.addListener(_updateDomainPreview);
   }
 
   @override
   void dispose() {
+    _urlController.removeListener(_updateDomainPreview);
     _urlController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  void _updateDomainPreview() {
+    final text = _urlController.text.trim();
+    String? preview;
+    if (text.isNotEmpty && LinkPreviewService.isValidUrl(text)) {
+      try {
+        var host = Uri.parse(text).host.toLowerCase();
+        if (host.startsWith('www.')) host = host.substring(4);
+        preview = host;
+      } catch (_) {
+        preview = null;
+      }
+    }
+    if (preview != _domainPreview) {
+      setState(() => _domainPreview = preview);
+    }
   }
 
   Future<void> _pasteFromClipboard() async {
@@ -63,60 +84,128 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(addUrlProvider);
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final isEnabled = state.status == AddUrlStatus.idle ||
+        state.status == AddUrlStatus.error;
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
-            title: const Text('Add URL'),
+            title: const Text('Save something worth keeping'),
           ),
           SliverFillRemaining(
             hasScrollBody: false,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(
-                      controller: _urlController,
-                      decoration: InputDecoration(
-                        hintText: 'https://example.com',
-                        labelText: 'URL',
-                        prefixIcon: const Icon(Icons.link),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.paste),
-                          tooltip: 'Paste from clipboard',
-                          onPressed: _pasteFromClipboard,
+                    // Subtitle
+                    Text(
+                      'Paste a link and add a note if you want.',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color:
+                            colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Grouped inputs
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.shadow.withValues(alpha: 0.08),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          // URL field
+                          TextFormField(
+                            controller: _urlController,
+                            decoration: InputDecoration(
+                              hintText: 'https://example.com',
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.paste),
+                                tooltip: 'Paste from clipboard',
+                                onPressed: _pasteFromClipboard,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(
+                                  color: colorScheme.primary,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            keyboardType: TextInputType.url,
+                            autocorrect: false,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter a URL';
+                              }
+                              return null;
+                            },
+                            enabled: isEnabled,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Note field
+                          TextFormField(
+                            controller: _notesController,
+                            decoration: InputDecoration(
+                              hintText: 'Add a note (optional)',
+                              hintStyle: TextStyle(
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.5),
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              filled: false,
+                              contentPadding: EdgeInsets.zero,
+                              isDense: true,
+                            ),
+                            maxLines: 2,
+                            enabled: isEnabled,
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface
+                                  .withValues(alpha: 0.85),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Domain preview
+                    if (_domainPreview != null && isEnabled)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'From $_domainPreview',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      keyboardType: TextInputType.url,
-                      autocorrect: false,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter a URL';
-                        }
-                        return null;
-                      },
-                      enabled: state.status == AddUrlStatus.idle ||
-                          state.status == AddUrlStatus.error,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Optional note field
-                    TextFormField(
-                      controller: _notesController,
-                      decoration: const InputDecoration(
-                        hintText: 'Add a note (optional)',
-                        labelText: 'Note',
-                        prefixIcon: Icon(Icons.sticky_note_2_outlined),
-                      ),
-                      maxLines: 3,
-                      enabled: state.status == AddUrlStatus.idle ||
-                          state.status == AddUrlStatus.error,
-                    ),
-                    const SizedBox(height: 16),
 
                     // Status indicator
                     if (state.status != AddUrlStatus.idle &&
@@ -130,7 +219,8 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                       ),
                       _StatusStep(
                         label: 'AI categorizing & summarizing...',
-                        isActive: state.status == AddUrlStatus.categorizing,
+                        isActive:
+                            state.status == AddUrlStatus.categorizing,
                         isDone: state.status.index >
                             AddUrlStatus.categorizing.index,
                       ),
@@ -232,14 +322,18 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                     const UsageInlineIndicator(feature: UsageFeature.aiSave),
                     const SizedBox(height: 8),
 
-                    FilledButton.icon(
-                      onPressed: (state.status == AddUrlStatus.idle ||
-                              state.status == AddUrlStatus.error)
-                          ? _onSave
-                          : null,
-                      icon: const Icon(Icons.save),
-                      label: const Text('Save URL'),
+                    FilledButton(
+                      onPressed: isEnabled ? _onSave : null,
+                      style: FilledButton.styleFrom(
+                        elevation: isEnabled ? 2 : 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Save to Glimpse'),
                     ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),

@@ -110,12 +110,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   void _copyUrlToClipboard(String raw) {
     Clipboard.setData(ClipboardData(text: raw));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Link copied'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Link copied'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
   }
 
   Future<void> _launchUrl(String url) async {
@@ -142,9 +145,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         .updateNotes(widget.urlId, _notesController.text);
     if (success && mounted) {
       setState(() => _notesEdited = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Notes saved')),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Notes saved'),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
     }
   }
 
@@ -383,9 +392,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ref.invalidate(categoriesProvider);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Moved to "$newCat"')),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Moved to "$newCat"'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
     }
   }
 

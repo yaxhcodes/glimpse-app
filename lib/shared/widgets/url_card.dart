@@ -331,13 +331,15 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               onTap: () {
                 Navigator.pop(ctx);
                 Clipboard.setData(ClipboardData(text: widget.savedUrl.rawUrl));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Link copied'),
-                    duration: Duration(seconds: 2),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('Link copied'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
               },
             ),
             ListTile(

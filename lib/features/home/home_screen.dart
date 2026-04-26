@@ -176,35 +176,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       // Undo snackbar
       if (justSavedId != null) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: const Text('Saved'),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Undo',
-              onPressed: () async {
-                final isarService = ref.read(isarServiceProvider);
-                await isarService.deleteUrl(justSavedId);
-              },
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: const Text('Saved'),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(
+                label: 'Undo',
+                onPressed: () async {
+                  final isarService = ref.read(isarServiceProvider);
+                  await isarService.deleteUrl(justSavedId);
+                },
+              ),
             ),
-          ),
-        );
+          );
       }
 
       // Show share tip on first successful save
       final hasSeenShareTip = ref.read(hasSeenShareTipProvider);
       if (!hasSeenShareTip) {
         ref.read(hasSeenShareTipProvider.notifier).set(true);
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Tip: You can share links directly to Glimpse from any app',
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Tip: You can share links directly to Glimpse from any app',
+              ),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
             ),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 5),
-          ),
-        );
+          );
       }
     } else {
       setState(() {
@@ -252,23 +256,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await isarService.deleteUrl(url.id);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).clearSnackBars();
     final tagFreq = ref.read(tagOccurrenceMapProvider);
     final label = TitleResolver.resolve(url, tagFrequency: tagFreq);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Deleted "$label"'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () async {
-            // Re-save the exact same object (Isar put with existing ID restores it)
-            await isarService.saveUrl(url);
-          },
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Deleted "$label"'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              // Re-save the exact same object (Isar put with existing ID restores it)
+              await isarService.saveUrl(url);
+            },
+          ),
         ),
-      ),
-    );
+      );
   }
 
   @override

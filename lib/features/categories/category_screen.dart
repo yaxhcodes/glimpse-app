@@ -22,21 +22,22 @@ class CategoryScreen extends ConsumerWidget {
     ref.invalidate(categoryUrlsProvider(categoryName));
     ref.invalidate(categoriesProvider);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).clearSnackBars();
     final tagFreq = ref.read(tagOccurrenceMapProvider);
     var label = TitleResolver.resolve(url, tagFrequency: tagFreq);
     if (label.length > 50) label = '${label.substring(0, 50)}…';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Deleted "$label"'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () async {
-            await isarService.saveUrl(url);
-            ref.invalidate(categoryUrlsProvider(categoryName));
-            ref.invalidate(categoriesProvider);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Deleted "$label"'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              await isarService.saveUrl(url);
+              ref.invalidate(categoryUrlsProvider(categoryName));
+              ref.invalidate(categoriesProvider);
           },
         ),
       ),

@@ -207,12 +207,15 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final service = ref.read(subscriptionServiceProvider);
     if (!service.isConfigured) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Subscriptions are unavailable in this build.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Subscriptions are unavailable in this build.'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
       }
       return;
     }
@@ -232,12 +235,15 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final entitled = ref.read(subscriptionTierProvider).valueOrNull ==
         SubscriptionTier.premium;
     if (entitled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Welcome to Glimpse Pro!'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Welcome to Glimpse Pro!'),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
     }
   }
 
@@ -248,15 +254,18 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     // Riverpod state updates on its own. No manual refresh required.
     final tier = await service.restorePurchases();
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            tier == SubscriptionTier.premium
-                ? 'Purchases restored — welcome back!'
-                : 'No previous purchases found',
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              tier == SubscriptionTier.premium
+                  ? 'Purchases restored — welcome back!'
+                  : 'No previous purchases found',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
           ),
-          behavior: SnackBarBehavior.floating,
-        ),
       );
     }
   }
