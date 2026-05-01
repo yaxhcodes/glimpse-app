@@ -76,7 +76,7 @@ class DigestNotifications {
     required void Function(String? payload) onOpenNotification,
     void Function(String action, String? payload)? onAction,
   }) async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('ic_notification');
     await _plugin.initialize(
       InitializationSettings(android: android),
       onDidReceiveNotificationResponse: (details) {
@@ -102,7 +102,7 @@ class DigestNotifications {
   }
 
   static Future<void> initForBackground() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('ic_notification');
     await _plugin.initialize(const InitializationSettings(android: android));
   }
 
@@ -134,6 +134,7 @@ class DigestNotifications {
       groupKey: _groupKey,
       styleInformation: BigTextStyleInformation(body),
       actions: actions,
+      icon: 'ic_notification',
     );
 
     final notifId = await type.nextId();
@@ -158,6 +159,7 @@ class DigestNotifications {
       groupKey: _groupKey,
       setAsGroupSummary: true,
       styleInformation: InboxStyleInformation([]),
+      icon: 'ic_notification',
     );
 
     await _plugin.show(
