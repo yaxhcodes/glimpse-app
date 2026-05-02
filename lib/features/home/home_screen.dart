@@ -560,7 +560,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     IconButton(
                       icon: Badge(
                         isLabelVisible: _unreadDigests > 0,
-                        label: Text('$_unreadDigests'),
+                        label: Text(
+                          _unreadDigests > 9 ? '9+' : '$_unreadDigests',
+                        ),
                         child: const Icon(Icons.notifications_outlined),
                       ),
                       tooltip: 'Notifications',
