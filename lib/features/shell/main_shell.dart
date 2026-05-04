@@ -56,8 +56,8 @@ class _MainShellState extends ConsumerState<MainShell> {
                 },
                 icon: SvgPicture.asset(
                   'assets/glimpse.svg',
-                  width: 26,
-                  height: 26,
+                  width: 20,
+                  height: 20,
                   colorFilter: ColorFilter.mode(
                     Theme.of(context).colorScheme.onPrimaryContainer,
                     BlendMode.srcIn,

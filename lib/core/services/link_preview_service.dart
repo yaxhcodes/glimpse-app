@@ -61,6 +61,12 @@ class LinkPreviewService {
         host.endsWith('.instagram.com') ||
         host == 'instagr.am';
 
+    // ---- Instagram: prefer mobile HTML (richer og:image than Googlebot-only pages) ----
+    if (isInstagram) {
+      final igMeta = await _fetchInstagramPageMetadata(normalized, domain);
+      if (igMeta != null) return igMeta;
+    }
+
     // ---- X / Twitter: use oEmbed endpoint ----
     if (host == 'x.com' || host == 'twitter.com' ||
         host == 'mobile.x.com' || host == 'mobile.twitter.com') {
@@ -410,6 +416,87 @@ class LinkPreviewService {
         .trim();
   }
 
+  /// Mobile Safari HTML often includes a usable [og:image] where Googlebot pages do not.
+  Future<LinkMetadata?> _fetchInstagramPageMetadata(String url, String domain) async {
+    try {
+      final response = await _dio.get(
+        url,
+        options: Options(
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 '
+                '(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept':
+                'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          followRedirects: true,
+          receiveTimeout: const Duration(seconds: 12),
+          sendTimeout: const Duration(seconds: 12),
+          responseType: ResponseType.plain,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      if (response.statusCode != 200) return null;
+
+      final html = response.data?.toString() ?? '';
+      var meta = _parseOgTags(html, domain);
+      meta = _cleanInstagramMetadata(meta, domain);
+
+      final hasImage = meta.imageUrl != null && meta.imageUrl!.trim().isNotEmpty;
+      if (!hasImage) return null;
+
+      final t = meta.title.toLowerCase();
+      if (_isGenericInstagramFetchedTitle(t)) {
+        meta = LinkMetadata(
+          title: meta.author != null && meta.author!.trim().isNotEmpty
+              ? '${meta.author!.trim()} on Instagram'
+              : domain,
+          description: meta.description,
+          imageUrl: meta.imageUrl,
+          domain: domain,
+          siteName: 'Instagram',
+          author: meta.author,
+          extractedTags: meta.extractedTags,
+        );
+      }
+      return meta;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isGenericInstagramFetchedTitle(String lowerTitle) {
+    return lowerTitle == 'instagram' ||
+        lowerTitle.contains('log in to instagram') ||
+        lowerTitle.contains('login • instagram') ||
+        lowerTitle == 'instagram.com' ||
+        lowerTitle.startsWith('instagram - ');
+  }
+
+  /// Protocol-relative URLs, relative paths, and larger CDN sizes when possible.
+  String? _normalizeInstagramImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return url;
+    var u = url.trim();
+    if (u.startsWith('//')) u = 'https:$u';
+    if (u.startsWith('/')) {
+      u = Uri.parse('https://www.instagram.com').resolve(u).toString();
+    }
+    u = u.replaceAllMapped(
+      RegExp(r'/s(\d+)x(\d+)/', caseSensitive: false),
+      (m) {
+        final w = int.tryParse(m.group(1) ?? '') ?? 0;
+        final h = int.tryParse(m.group(2) ?? '') ?? 0;
+        if (w > 0 && h > 0 && w < 1080 && h < 1080) {
+          return '/s1080x1080/';
+        }
+        return m.group(0)!;
+      },
+    );
+    return u;
+  }
+
   /// Cleans up Instagram OG metadata:
   /// - strips the quoted caption from titles like "username on Instagram: \"caption\"" 
   /// - strips the "N Likes, M Comments - " prefix from description
@@ -442,10 +529,11 @@ class LinkPreviewService {
     return LinkMetadata(
       title: title,
       description: description,
-      imageUrl: meta.imageUrl,
+      imageUrl: _normalizeInstagramImageUrl(meta.imageUrl),
       domain: domain,
       siteName: 'Instagram',
       author: meta.author,
+      extractedTags: meta.extractedTags,
     );
   }
 
@@ -455,11 +543,14 @@ class LinkPreviewService {
     String? ogTitle = _extractMeta(html, 'og:title');
     String? ogDesc = _extractMeta(html, 'og:description');
     String? ogImage = _extractMeta(html, 'og:image');
+    ogImage ??= _extractMeta(html, 'og:image:secure_url');
+    ogImage ??= _extractMeta(html, 'og:image:url');
 
     // Fallback to twitter card tags
     ogTitle ??= _extractMeta(html, 'twitter:title');
     ogDesc ??= _extractMeta(html, 'twitter:description');
     ogImage ??= _extractMeta(html, 'twitter:image');
+    ogImage ??= _extractMeta(html, 'twitter:image:src');
 
     // Fallback to plain meta description
     ogDesc ??= _extractMetaByName(html, 'description');
@@ -474,14 +565,28 @@ class LinkPreviewService {
         _extractMeta(html, 'twitter:creator') ??
         _extractMetaByName(html, 'twitter:creator');
 
+    final resolvedImage = _resolvePossiblyRelativeUrl(ogImage, domain);
+
     return LinkMetadata(
       title: ogTitle ?? domain,
       description: ogDesc ?? '',
-      imageUrl: ogImage,
+      imageUrl: resolvedImage,
       domain: domain,
       siteName: siteName,
       author: author,
     );
+  }
+
+  String? _resolvePossiblyRelativeUrl(String? url, String domain) {
+    if (url == null || url.trim().isEmpty) return null;
+    var u = url.trim();
+    if (u.startsWith('//')) return 'https:$u';
+    if (u.startsWith('/')) {
+      final hostOnly = domain.split(':').first;
+      final base = Uri.parse('https://$hostOnly');
+      return base.resolveUri(Uri.parse(u)).toString();
+    }
+    return u;
   }
 
   /// Extracts content from `<meta property="[property]" content="..."/>`.

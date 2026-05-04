@@ -16,6 +16,8 @@ class CollectionsScreen extends ConsumerWidget {
     final async = ref.watch(collectionsListProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final collections = async.valueOrNull;
+    final hasCollections = collections != null && collections.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -47,11 +49,13 @@ class CollectionsScreen extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/collections/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('New collection'),
-      ),
+      floatingActionButton: hasCollections
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/collections/new'),
+              icon: const Icon(Icons.add),
+              label: const Text('New collection'),
+            )
+          : null,
     );
   }
 }

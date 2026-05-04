@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
-import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/widgets/notifications/curated_notification_media.dart';
 import '../../shared/widgets/url_card.dart';
 import '../home/home_provider.dart';
 
@@ -16,39 +16,51 @@ class NotificationDetailScreen extends ConsumerStatefulWidget {
     super.key,
     required this.title,
     required this.linkIds,
+    this.insightLine,
   });
 
   final String title;
   final List<int> linkIds;
+
+  /// From notification body when opened via router payload.
+  final String? insightLine;
 
   @override
   ConsumerState<NotificationDetailScreen> createState() =>
       _NotificationDetailScreenState();
 }
 
-class _NotificationDetailScreenState
-    extends ConsumerState<NotificationDetailScreen> {
+class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScreen>
+    with SingleTickerProviderStateMixin {
   List<SavedUrl> _urls = [];
   bool _loading = true;
+  late final AnimationController _entrance;
 
   @override
   void initState() {
     super.initState();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 440),
+    );
     _load();
+  }
+
+  @override
+  void dispose() {
+    _entrance.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
     final isar = ref.read(isarServiceProvider);
-    final out = <SavedUrl>[];
-    for (final id in widget.linkIds) {
-      final u = await isar.getUrlById(id);
-      if (u != null) out.add(u);
-    }
+    final out = await isar.getUrlsByIdsOrdered(widget.linkIds);
     if (!mounted) return;
     setState(() {
       _urls = out;
       _loading = false;
     });
+    _entrance.forward(from: 0);
   }
 
   Future<void> _markAllRead() async {
@@ -62,11 +74,128 @@ class _NotificationDetailScreenState
     ref.invalidate(urlStreamProvider);
   }
 
+  String _effectiveInsight() {
+    final direct = widget.insightLine?.trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+    return _syntheticInsight(_urls);
+  }
+
+  /// Fallback when no stored notification body exists — conversational, no raw counts.
+  static String _syntheticInsight(List<SavedUrl> urls) {
+    if (urls.length < 2) return '';
+
+    final catCounts = <String, int>{};
+    for (final u in urls) {
+      for (final c in u.effectiveCategories) {
+        catCounts[c] = (catCounts[c] ?? 0) + 1;
+      }
+    }
+    final sorted = catCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (sorted.isEmpty) return '';
+
+    final a = sorted[0].key;
+    if (sorted.length >= 2 && sorted[1].value >= 2) {
+      final b = sorted[1].key;
+      return 'Reads like a blend of $a and $b.';
+    }
+    return 'Mostly in the vein of $a.';
+  }
+
+  Widget _leadingThumb(SavedUrl u) {
+    return CuratedNotificationThumbStripItem(
+      url: u,
+      size: 56,
+    );
+  }
+
+  /// Unified card row with curated thumbnails (same priority rules as hub).
+  Widget _linkRow(BuildContext context, SavedUrl u, ThemeData theme, ColorScheme cs,
+      Map<String, int> tagFreq, int animationIndex, double entranceT) {
+    final resolvedTitle = TitleResolver.formatForCompactCard(
+      u,
+      TitleResolver.collapseWhitespace(
+        TitleResolver.resolve(u, tagFrequency: tagFreq),
+      ),
+    );
+    final isRead = u.openedAt != null;
+    final isLight = theme.brightness == Brightness.light;
+    final platformLabel = CategoryResolver.displaySourceName(
+      rawUrl: u.rawUrl,
+      fallbackDomain: u.domain,
+    );
+    final metaStyle = TextStyle(fontSize: 12, color: cs.onSurfaceVariant);
+
+    final stagger = (animationIndex * 0.06).clamp(0.0, 0.35);
+    final rowT = ((entranceT - stagger) / (1 - stagger)).clamp(0.0, 1.0);
+
+    return Opacity(
+      opacity: rowT,
+      child: Transform.translate(
+        offset: Offset(0, 8 * (1 - rowT)),
+        child: Card(
+          margin: const EdgeInsets.only(bottom: 10),
+          clipBehavior: Clip.antiAlias,
+          color: UrlCard.listCardFillColor(theme),
+          elevation: 0,
+          shape: UrlCard.listCardShape(theme, radius: 12),
+          child: InkWell(
+            onTap: () => context.push('/url/${u.id}'),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _leadingThumb(u),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AnimatedOpacity(
+                          opacity: (isRead && isLight) ? 0.45 : 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            resolvedTitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: (theme.textTheme.titleSmall ?? const TextStyle())
+                                .copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize:
+                                  (theme.textTheme.titleSmall?.fontSize ?? 14) + 0.5,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(platformLabel, style: metaStyle),
+                            Text(' · ', style: metaStyle),
+                            Text(UrlCard.timeAgoSaved(u.savedAt), style: metaStyle),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final tagFreq = ref.watch(tagOccurrenceMapProvider);
+    final entranceAnim =
+        CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic);
 
     return Scaffold(
       appBar: AppBar(
@@ -105,152 +234,70 @@ class _NotificationDetailScreenState
                     ),
                   ),
                 )
-              : CustomScrollView(
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-                      sliver: SliverToBoxAdapter(
-                        child: Text(
-                          widget.title,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final u = _urls[index];
-                            final resolvedTitle =
-                                TitleResolver.formatForCompactCard(
-                              u,
-                              TitleResolver.collapseWhitespace(
-                                TitleResolver.resolve(u, tagFrequency: tagFreq),
-                              ),
-                            );
-                            final tagPool = TagNoiseFilter.filterTags(u.tags);
-                            final chips = TagNoiseFilter.visibleTagsForCard(
-                              tagPool,
-                              tagFreq,
-                            );
-                            final isRead = u.openedAt != null;
-                            final isLight = theme.brightness == Brightness.light;
-                            final platformLabel =
-                                CategoryResolver.displaySourceName(
-                              rawUrl: u.rawUrl,
-                              fallbackDomain: u.domain,
-                            );
-                            final metaStyle =
-                                TextStyle(fontSize: 12, color: cs.onSurfaceVariant);
+              : AnimatedBuilder(
+                  animation: _entrance,
+                  builder: (context, _) {
+                    final t = entranceAnim.value;
+                    final insight = _effectiveInsight();
+                    final onVar = cs.onSurfaceVariant.withValues(alpha: 0.84);
 
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              clipBehavior: Clip.antiAlias,
-                              color: UrlCard.listCardFillColor(theme),
-                              elevation: 0,
-                              shape: UrlCard.listCardShape(theme, radius: 12),
-                              child: InkWell(
-                                onTap: () => context.push('/url/${u.id}'),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      AnimatedOpacity(
-                                        opacity:
-                                            (isRead && isLight) ? 0.45 : 1.0,
-                                        duration:
-                                            const Duration(milliseconds: 300),
-                                        child: Text(
-                                          resolvedTitle,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: (theme.textTheme.titleSmall ??
-                                                  const TextStyle())
-                                              .copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: (theme.textTheme
-                                                        .titleSmall?.fontSize ??
-                                                    14) +
-                                                0.5,
-                                            color: cs.onSurface,
-                                          ),
+                    return CustomScrollView(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: FadeTransition(
+                            opacity: entranceAnim,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0, 0.06),
+                                end: Offset.zero,
+                              ).animate(entranceAnim),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.title,
+                                      style: theme.textTheme.headlineSmall?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.2,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                    if (insight.isNotEmpty) ...[
+                                      const SizedBox(height: 14),
+                                      Text(
+                                        insight,
+                                        style:
+                                            theme.textTheme.bodyLarge?.copyWith(
+                                          height: 1.45,
+                                          color: onVar,
+                                          fontWeight: FontWeight.w400,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Text(platformLabel, style: metaStyle),
-                                          Text(' · ', style: metaStyle),
-                                          Text(
-                                            UrlCard.timeAgoSaved(u.savedAt),
-                                            style: metaStyle,
-                                          ),
-                                        ],
-                                      ),
-                                      if (chips.visible.isNotEmpty ||
-                                          chips.overflow > 0) ...[
-                                        const SizedBox(height: 8),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 4,
-                                          children: [
-                                            ...chips.visible.map(
-                                              (t) => Chip(
-                                                label: Text(
-                                                  t,
-                                                  style: theme.textTheme
-                                                      .labelSmall
-                                                      ?.copyWith(
-                                                    color: cs.onSurfaceVariant
-                                                        .withValues(
-                                                            alpha: 0.85),
-                                                  ),
-                                                ),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                padding: EdgeInsets.zero,
-                                                materialTapTargetSize:
-                                                    MaterialTapTargetSize
-                                                        .shrinkWrap,
-                                              ),
-                                            ),
-                                            if (chips.overflow > 0)
-                                              Chip(
-                                                label: Text(
-                                                  '+${chips.overflow}',
-                                                  style: theme.textTheme
-                                                      .labelSmall
-                                                      ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                padding: EdgeInsets.zero,
-                                                materialTapTargetSize:
-                                                    MaterialTapTargetSize
-                                                        .shrinkWrap,
-                                              ),
-                                          ],
-                                        ),
-                                      ],
                                     ],
-                                  ),
+                                  ],
                                 ),
                               ),
-                            );
-                          },
-                          childCount: _urls.length,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final u = _urls[index];
+                                return _linkRow(context, u, theme, cs, tagFreq,
+                                    index, t);
+                              },
+                              childCount: _urls.length,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
     );
   }

@@ -98,6 +98,26 @@ class IsarService {
     return isar.savedUrls.get(id);
   }
 
+  /// Loads [SavedUrl]s for [ids]; missing ids are omitted. Order is not preserved.
+  Future<Map<int, SavedUrl>> getUrlsByIds(Set<int> ids) async {
+    if (ids.isEmpty) return {};
+    final isar = await _db;
+    final list = ids.toList();
+    final rows = await isar.savedUrls.getAll(list);
+    final out = <int, SavedUrl>{};
+    for (var i = 0; i < list.length; i++) {
+      final u = rows[i];
+      if (u != null) out[list[i]] = u;
+    }
+    return out;
+  }
+
+  Future<List<SavedUrl>> getUrlsByIdsOrdered(List<int> ids) async {
+    if (ids.isEmpty) return [];
+    final map = await getUrlsByIds(ids.toSet());
+    return ids.map((id) => map[id]).whereType<SavedUrl>().toList();
+  }
+
   Future<List<SavedUrl>> getUrlsByCategory(String category) async {
     final isar = await _db;
     final allUrls = await isar.savedUrls.where().sortBySavedAtDesc().findAll();

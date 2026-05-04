@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/models/saved_url.dart';
+import '../../core/providers/service_providers.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/services/notification_hub_labels.dart';
 import '../../core/services/notification_router.dart';
+import '../../shared/widgets/notifications/curated_notification_media.dart';
+import '../../shared/widgets/notifications/notification_type_style.dart';
+import '../../shared/widgets/url_card.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -15,6 +20,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   List<Map<String, dynamic>> _history = [];
+  Map<int, SavedUrl> _urlById = {};
   bool _loading = true;
 
   @override
@@ -23,11 +29,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     _load();
   }
 
+  /// First id = hero; up to three more for strip (`take(3)` downstream).
+  List<int> _idsFromEntry(Map<String, dynamic> entry) {
+    final raw = entry['ids'] as List<dynamic>? ?? [];
+    return raw.map((e) => (e as num).toInt()).take(4).toList();
+  }
+
   Future<void> _load() async {
     final history = await DigestPrefs.loadHistory();
+    final isar = ref.read(isarServiceProvider);
+    final idSet = <int>{};
+    for (final e in history) {
+      for (final id in _idsFromEntry(e)) {
+        idSet.add(id);
+      }
+    }
+    final urls = await isar.getUrlsByIds(idSet);
     if (!mounted) return;
     setState(() {
       _history = history;
+      _urlById = urls;
       _loading = false;
     });
   }
@@ -56,49 +77,58 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(
+        title: const Text('Notifications'),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _history.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.notifications_none_rounded,
-                            size: 64, color: cs.onSurfaceVariant),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No notifications yet',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Travel alerts, new discoveries, reading reminders,\nand weekly digests will appear here.',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
+              ? _EmptyNotifications(theme: theme)
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   itemCount: _history.length,
                   itemBuilder: (context, index) {
                     final entry = _history[index];
-                    return _NotificationTile(
-                      entry: entry,
-                      onTap: () => _openEntry(entry),
-                      onDelete: () => _delete(entry['id'] as String),
+                    final ids = _idsFromEntry(entry);
+                    final heroUrl =
+                        ids.isNotEmpty ? _urlById[ids.first] : null;
+                    final stripUrls = ids
+                        .skip(1)
+                        .take(3)
+                        .map((id) => _urlById[id])
+                        .whereType<SavedUrl>()
+                        .toList();
+
+                    return _StaggerReveal(
+                      index: index,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Dismissible(
+                          key: ValueKey(entry['id']),
+                          direction: DismissDirection.endToStart,
+                          onDismissed: (_) => _delete(entry['id'] as String),
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.error,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              Icons.delete_outline_rounded,
+                              color: Theme.of(context).colorScheme.onError,
+                            ),
+                          ),
+                          child: CuratedNotificationListTile(
+                            entry: entry,
+                            heroUrl: heroUrl,
+                            stripUrls: stripUrls,
+                            onTap: () => _openEntry(entry),
+                          ),
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -106,16 +136,110 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 }
 
-class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({
+class _EmptyNotifications extends StatelessWidget {
+  const _EmptyNotifications({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = theme.colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.notifications_none_rounded,
+                size: 64, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text(
+              'No notifications yet',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Travel alerts, new discoveries, reading reminders,\nand weekly digests will appear here.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StaggerReveal extends StatefulWidget {
+  const _StaggerReveal({required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  State<_StaggerReveal> createState() => _StaggerRevealState();
+}
+
+class _StaggerRevealState extends State<_StaggerReveal>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+    _opacity = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
+
+    final delay = Duration(milliseconds: 40 * widget.index.clamp(0, 12));
+    Future<void>.delayed(delay, () {
+      if (mounted) _c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _slide,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class CuratedNotificationListTile extends StatelessWidget {
+  const CuratedNotificationListTile({
+    super.key,
     required this.entry,
+    required this.heroUrl,
+    required this.stripUrls,
     required this.onTap,
-    required this.onDelete,
   });
 
   final Map<String, dynamic> entry;
+  final SavedUrl? heroUrl;
+  final List<SavedUrl> stripUrls;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
 
   static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _months = [
@@ -130,30 +254,50 @@ class _NotificationTile extends StatelessWidget {
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays == 1) return 'Yesterday';
-    if (diff.inDays < 7) return _days[d.weekday - 1];
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
 
     final day = _days[d.weekday - 1];
     final month = _months[d.month - 1];
     return '$day, $month ${d.day}';
   }
 
-  static IconData _iconForType(String? type) {
-    switch (type) {
-      case 'digest':
-        return Icons.summarize_outlined;
-      case 'geo':
-        return Icons.flight_outlined;
-      case 'new_interest':
-        return Icons.auto_awesome_outlined;
-      case 'collector':
-        return Icons.library_books_outlined;
-      case 'resurface':
-        return Icons.history_outlined;
-      case 'streak':
-        return Icons.local_fire_department_outlined;
-      default:
-        return Icons.notifications_outlined;
+  static String _fallbackContext(String topic, SavedUrl? hero) {
+    if (hero == null) return '';
+    final snippet = hero.summary?.trim();
+    if (snippet != null && snippet.isNotEmpty && snippet != topic) {
+      return snippet.length > 140 ? '${snippet.substring(0, 137)}…' : snippet;
     }
+    final d = hero.description.trim();
+    if (d.isNotEmpty && d != topic) {
+      return d.length > 140 ? '${d.substring(0, 137)}…' : d;
+    }
+    final platform = hero.domain.trim();
+    if (platform.isNotEmpty) return 'From $platform';
+    return '';
+  }
+
+  /// One bundle-level line when several links are grouped (no tag pills).
+  static String? _bundleHintLine(List<SavedUrl> urls) {
+    if (urls.length < 2) return null;
+    final catCounts = <String, int>{};
+    for (final u in urls) {
+      for (final c in u.effectiveCategories) {
+        final trimmed = c.trim();
+        if (trimmed.isEmpty) continue;
+        catCounts[trimmed] = (catCounts[trimmed] ?? 0) + 1;
+      }
+    }
+    if (catCounts.isEmpty) return null;
+    final sorted = catCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final primary = sorted.first.key;
+    if (sorted.length >= 2 &&
+        sorted[1].value >= 2 &&
+        sorted[1].key != primary) {
+      final second = sorted[1].key;
+      return 'Mostly $primary and $second.';
+    }
+    return 'Mostly about $primary.';
   }
 
   @override
@@ -164,82 +308,285 @@ class _NotificationTile extends StatelessWidget {
     final dateStr = entry['date'] as String? ?? '';
     final date = DateTime.tryParse(dateStr);
     final formatted = date != null ? _formatDate(date) : '';
+
     final topic = entry['topic'] as String? ?? 'Notification';
+    final body = entry['body'] as String?;
     final type = entry['type'] as String?;
     final isRead = entry['read'] == true;
-    final body = entry['body'] as String?;
-    final summaries = (entry['summaries'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        [];
-    final preview = (body != null && body.isNotEmpty)
-        ? body
-        : (summaries.isNotEmpty ? summaries.first : '');
-    final channelLabel = NotificationHubLabels.forHistoryType(type);
+    final typeStyle =
+        NotificationTypeStyle.forHistoryType(type, Theme.of(context).colorScheme);
 
-    return Dismissible(
-      key: ValueKey(entry['id']),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: cs.error,
-        child: Icon(Icons.delete_outline, color: cs.onError),
+    final channelLabel = NotificationHubLabels.forHistoryType(type);
+    final contextLine = (body != null && body.trim().isNotEmpty)
+        ? body.trim()
+        : _fallbackContext(topic, heroUrl);
+
+    final bundleUrls = <SavedUrl>[
+      ...[heroUrl].whereType<SavedUrl>(),
+      ...stripUrls,
+    ];
+    final rawHint = _bundleHintLine(bundleUrls);
+    String? bundleHint;
+    if (rawHint != null) {
+      final a = rawHint.trim().toLowerCase();
+      final b = contextLine.trim().toLowerCase();
+      final redundant = b.isNotEmpty && (a == b || b.contains(a) || a.contains(b));
+      bundleHint = redundant ? null : rawHint;
+    }
+
+    const kStateAnim = Duration(milliseconds: 180);
+
+    final baseSurface = UrlCard.listCardFillColor(theme);
+    final typeWash = typeStyle.accent.withValues(alpha: isRead ? 0.06 : 0.11);
+    var cardColor = Color.alphaBlend(typeWash, baseSurface);
+    if (!isRead) {
+      cardColor = Color.alphaBlend(
+        cs.primary.withValues(
+          alpha: theme.brightness == Brightness.light ? 0.038 : 0.055),
+        cardColor,
+      );
+    } else {
+      cardColor = Color.alphaBlend(
+        cs.onSurface.withValues(
+          alpha: theme.brightness == Brightness.light ? 0.022 : 0.04),
+        cardColor,
+      );
+    }
+
+    final titleWeight = isRead ? FontWeight.w400 : FontWeight.w600;
+
+    late final Widget hero;
+    if (heroUrl != null) {
+      hero = CuratedNotificationHero(
+        url: heroUrl!,
+        radius: 14,
+        blendBottomEdge: true,
+        showUnreadIndicator: !isRead,
+      );
+    } else {
+      hero = const CuratedMissingLinkHero(radius: 14);
+    }
+
+    final paddingOuter =
+        EdgeInsets.fromLTRB(14, typeStyle.isDigestHighlight ? 15 : 13, 14, 13);
+
+    final secondaryMuted =
+        theme.brightness == Brightness.light ? 0.88 : 0.84;
+
+    final borderSide =
+        BorderSide(color: cs.outlineVariant.withValues(alpha: 0.32));
+
+    return AnimatedContainer(
+      duration: kStateAnim,
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.fromBorderSide(borderSide),
+        boxShadow: isRead
+            ? const []
+            : [
+                BoxShadow(
+                  color: cs.shadow.withValues(alpha: 0.1),
+                  blurRadius: 9,
+                  offset: const Offset(0, 2),
+                  spreadRadius: -1,
+                ),
+              ],
       ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              isRead ? cs.surfaceContainerHighest : cs.primaryContainer,
-          child: Icon(
-            _iconForType(type),
-            color: isRead ? cs.onSurfaceVariant : cs.onPrimaryContainer,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          topic,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: isRead ? FontWeight.w400 : FontWeight.w600,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (preview.isNotEmpty)
-              Text(
-                preview,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            const SizedBox(height: 2),
-            Row(
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: paddingOuter,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  channelLabel,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                hero,
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: AnimatedDefaultTextStyle(
+                        duration: kStateAnim,
+                        curve: Curves.easeOutCubic,
+                        style: (theme.textTheme.titleMedium ?? const TextStyle())
+                            .copyWith(
+                          fontWeight: titleWeight,
+                          height: 1.22,
+                          color: cs.onSurface,
+                          fontSize:
+                              (theme.textTheme.titleMedium?.fontSize ?? 16),
+                        ),
+                        child: Text(
+                          topic,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  formatted,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.outline,
+                if (contextLine.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  AnimatedOpacity(
+                    duration: kStateAnim,
+                    curve: Curves.easeOut,
+                    opacity: isRead ? secondaryMuted : 1.0,
+                    child: Text(
+                      contextLine,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant
+                            .withValues(alpha: isRead ? 0.78 : 0.88),
+                        height: 1.4,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
                   ),
+                ],
+                if (bundleHint != null) ...[
+                  const SizedBox(height: 4),
+                  AnimatedOpacity(
+                    duration: kStateAnim,
+                    curve: Curves.easeOut,
+                    opacity: isRead ? 0.82 : 1.0,
+                    child: Text(
+                      bundleHint,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurface
+                            .withValues(alpha: isRead ? 0.64 : 0.82),
+                        height: 1.3,
+                        fontSize:
+                            (theme.textTheme.bodySmall?.fontSize ?? 12) + 0.75,
+                        fontWeight: FontWeight.w500,
+                        fontStyle: FontStyle.italic,
+                        letterSpacing: 0.15,
+                      ),
+                    ),
+                  ),
+                ],
+                if (stripUrls.isNotEmpty) ...[
+                  SizedBox(
+                    height: bundleHint != null
+                        ? 8
+                        : (contextLine.isNotEmpty ? 10 : 11),
+                  ),
+                  Row(
+                    children: [
+                      for (var i = 0; i < stripUrls.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        CuratedNotificationThumbStripItem(
+                          url: stripUrls[i],
+                          size: 50,
+                          squareRadius: 9,
+                          emphasized: true,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: cs.outlineVariant.withValues(alpha: 0.32),
+                  ),
+                  const SizedBox(height: 11),
+                ] else ...[
+                  const SizedBox(height: 16),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _TypeBadge(
+                      label: channelLabel,
+                      typeAccent: typeStyle.accent,
+                      isRead: isRead,
+                    ),
+                    const Spacer(),
+                    if (formatted.isNotEmpty)
+                      AnimatedOpacity(
+                        duration: kStateAnim,
+                        curve: Curves.easeOut,
+                        opacity: isRead ? 0.78 : 0.92,
+                        child: Text(
+                          formatted,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.12,
+                            color: cs.onSurfaceVariant
+                                .withValues(alpha: isRead ? 0.62 : 0.68),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
-        isThreeLine: true,
-        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _TypeBadge extends StatelessWidget {
+  const _TypeBadge({
+    required this.label,
+    required this.typeAccent,
+    required this.isRead,
+  });
+
+  final String label;
+  final Color typeAccent;
+  final bool isRead;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    final base = cs.surfaceContainerHighest;
+    final tinted = Color.alphaBlend(
+      typeAccent.withValues(alpha: isRead ? 0.085 : 0.13),
+      base,
+    );
+    final bg = isRead
+        ? Color.alphaBlend(cs.onSurface.withValues(alpha: 0.038), tinted)
+        : tinted;
+    final fg = cs.onSurface.withValues(alpha: isRead ? 0.7 : 0.82);
+
+    final borderColor = Color.alphaBlend(
+      typeAccent.withValues(alpha: isRead ? 0.15 : 0.22),
+      cs.outlineVariant,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+      decoration: ShapeDecoration(
+        color: bg,
+        shape: StadiumBorder(
+          side: BorderSide(color: borderColor),
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelMedium?.copyWith(
+              fontSize: 11.75,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.12,
+              height: 1.1,
+              color: fg,
+            ),
       ),
     );
   }

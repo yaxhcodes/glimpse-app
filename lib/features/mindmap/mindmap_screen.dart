@@ -5,8 +5,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../core/constants/app_assets.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/services/title_resolver.dart';
@@ -224,13 +225,12 @@ class _CenterHubNodeState extends State<_CenterHubNode>
             ),
           );
         },
-        child: SvgPicture.asset(
-          'assets/glimpse3.svg',
+        child: Image.asset(
+          AppAssets.logo,
           width: _kCenterNodeSize,
           height: _kCenterNodeSize,
           fit: BoxFit.cover,
           alignment: Alignment.center,
-          colorFilter: ColorFilter.mode(widget.cs.onPrimary, BlendMode.srcIn),
         ),
       ),
     );

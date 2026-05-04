@@ -107,7 +107,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/unown_bookmark_transparent.png"
+  image_path: "assets/glimpse.png"
   min_sdk_android: 21
 
 # ── Splash Screen ─────────────────────────────────────────────────────────────
@@ -140,11 +140,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/unown_bookmark_transparent.png
-    - assets/unown_bookmark_splash.png
-    - assets/unown_material_transparent.png
+    - assets/glimpse.png
     - assets/glimpse.svg
-    - assets/glimpse3.svg
     - assets/splash_icon.png
   # To add assets to your application, add an assets section, like this:
   # assets:

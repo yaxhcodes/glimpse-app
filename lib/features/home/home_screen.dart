@@ -17,6 +17,7 @@ import '../../core/services/link_preview_service.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
+import '../../core/constants/app_assets.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../add_url/add_url_provider.dart';
 import 'home_provider.dart';
@@ -418,7 +419,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const _LandingIdentity(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
                       child: _isCelebratingFirstSave && urls.isNotEmpty
@@ -558,10 +559,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   if (!isEmpty)
                     IconButton(
-                      icon: Badge(
+                      icon: Badge.count(
+                        count: _unreadDigests,
+                        maxCount: 9,
                         isLabelVisible: _unreadDigests > 0,
-                        label: Text(
-                          _unreadDigests > 9 ? '9+' : '$_unreadDigests',
+                        largeSize: 18,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        textStyle: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
                         ),
                         child: const Icon(Icons.notifications_outlined),
                       ),
@@ -901,31 +908,16 @@ class _Section {
 }
 
 class _LandingIdentity extends StatelessWidget {
-  const _LandingIdentity({super.key});
+  const _LandingIdentity();
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Center(
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: colorScheme.surfaceContainerLow,
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        child: Center(
-          child: ClipOval(
-            child: Image.asset(
-              'assets/unown_bookmark_transparent.png',
-              width: 38,
-              height: 38,
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
+      child: Image.asset(
+        AppAssets.logo,
+        width: 68,
+        height: 68,
+        fit: BoxFit.cover,
       ),
     );
   }

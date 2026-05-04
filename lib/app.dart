@@ -5,18 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'core/constants/app_assets.dart';
 import 'core/providers/service_providers.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/digest_scheduler.dart';
 import 'core/services/notification_router.dart';
 import 'core/services/tag_analyzer.dart';
-import 'digest_callback.dart' show notificationActionCallback;
 import 'core/services/embedding_backfill_service.dart';
 import 'core/services/link_preview_service.dart';
 import 'core/models/saved_url.dart';
 import 'features/ask/ask_empty_suggestions_provider.dart';
 import 'features/home/home_provider.dart';
-import 'features/home/home_screen.dart';
 import 'features/shell/main_shell.dart';
 import 'features/mindmap/interest_clusters_provider.dart';
 import 'features/add_url/add_url_screen.dart';
@@ -91,6 +90,7 @@ final _router = GoRouter(
         return NotificationDetailScreen(
           title: extra?.title ?? 'Notification',
           linkIds: extra?.linkIds ?? const [],
+          insightLine: extra?.insightLine,
         );
       },
     ),
@@ -177,18 +177,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       unawaited(
         DigestNotifications.init(
           onOpenNotification: (payload) {
-            final ctx = rootNavigatorKey.currentContext;
-            if (ctx == null) return;
-            NotificationRouter.openFromPayload(ctx, payload);
-          },
-          onAction: (action, payload) {
-            final ctx = rootNavigatorKey.currentContext;
-            if (ctx == null) return;
-            if (action == 'open_link') {
-              NotificationRouter.openFromPayload(ctx, payload);
-            } else {
-              unawaited(notificationActionCallback(action, payload));
-            }
+            NotificationRouter.deliverPayload(rootNavigatorKey, payload);
           },
         ),
       );
@@ -256,7 +245,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
                   children: [
                     ClipOval(
                       child: Image.asset(
-                        'assets/unown_bookmark_transparent.png',
+                        AppAssets.logo,
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,

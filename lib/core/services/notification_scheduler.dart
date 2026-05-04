@@ -105,6 +105,12 @@ class NotificationScheduler {
       'firedAt': firedAt,
     };
 
+    assert(
+      linkIds.isNotEmpty,
+      'Scheduled notifications must include linkIds for tap routing.',
+    );
+    assert(notifId.isNotEmpty);
+
     await DigestPrefs.saveNotifPayload(notifId, payload);
 
     final payloadJson = jsonEncode(payload);

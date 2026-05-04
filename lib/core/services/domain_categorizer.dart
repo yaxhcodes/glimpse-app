@@ -11,6 +11,7 @@ class DomainCategorizer {
     // Social
     'instagram.com': _PlatformInfo('Instagram', '📸', ['social', 'instagram']),
     'www.instagram.com': _PlatformInfo('Instagram', '📸', ['social', 'instagram']),
+    'instagr.am': _PlatformInfo('Instagram', '📸', ['social', 'instagram']),
     'x.com': _PlatformInfo('X', '🐦', ['social', 'x', 'twitter']),
     'twitter.com': _PlatformInfo('X', '🐦', ['social', 'x', 'twitter']),
     'mobile.twitter.com': _PlatformInfo('X', '🐦', ['social', 'x', 'twitter']),

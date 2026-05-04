@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/constants/app_assets.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/user_display_name_provider.dart';
 import '../../core/services/usage_service.dart';
@@ -108,28 +109,11 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               )
             : null,
         automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: colorScheme.secondaryContainer,
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/unown_bookmark_transparent.png',
-                  width: 22,
-                  height: 22,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Ask Glimpse',
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        title: Text(
+          'Ask Glimpse',
+          style: textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         centerTitle: false,
         actions: [
@@ -244,9 +228,9 @@ class _AskScreenState extends ConsumerState<AskScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 24),
-              const _GlimpsePulseOrb(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              const _GlimpseMark(),
+              const SizedBox(height: 16),
               Text(
                 _askGreetingLine(userName),
                 textAlign: TextAlign.center,
@@ -364,64 +348,17 @@ class _SuggestionShimmerRow extends StatelessWidget {
   }
 }
 
-/// Pulsing orb with Glimpse mark — uses [ColorScheme] only.
-class _GlimpsePulseOrb extends StatefulWidget {
-  const _GlimpsePulseOrb();
-
-  @override
-  State<_GlimpsePulseOrb> createState() => _GlimpsePulseOrbState();
-}
-
-class _GlimpsePulseOrbState extends State<_GlimpsePulseOrb>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-    _scale = Tween<double>(begin: 1.0, end: 1.08).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+/// Clean Glimpse mark for the empty state.
+class _GlimpseMark extends StatelessWidget {
+  const _GlimpseMark();
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return ScaleTransition(
-      scale: _scale,
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: colorScheme.surfaceContainerHigh,
-          border: Border.all(
-            color: colorScheme.outlineVariant,
-            width: 1.5,
-          ),
-        ),
-        child: Center(
-          child: ClipOval(
-            child: Image.asset(
-              'assets/unown_bookmark_transparent.png',
-              width: 36,
-              height: 36,
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-      ),
+    return Image.asset(
+      AppAssets.logo,
+      width: 60,
+      height: 60,
+      fit: BoxFit.cover,
     );
   }
 }

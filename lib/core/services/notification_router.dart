@@ -9,6 +9,25 @@ import 'digest_prefs.dart';
 class NotificationRouter {
   NotificationRouter._();
 
+  /// Resolves [navigatorKey] across frames (cold start) then calls [openFromPayload].
+  static void deliverPayload(
+    GlobalKey<NavigatorState> navigatorKey,
+    String? rawPayload,
+  ) {
+    var frames = 0;
+    void step() {
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        openFromPayload(ctx, rawPayload);
+        return;
+      }
+      if (frames++ >= 48) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) => step());
+    }
+
+    step();
+  }
+
   static List<int> _parseLinkIds(Map<String, dynamic> map) {
     final fromNew = map['linkIds'] as List<dynamic>?;
     if (fromNew != null) {
@@ -50,7 +69,7 @@ class NotificationRouter {
       map = historyEntry;
     }
     if (map == null) {
-      context.go('/');
+      context.go('/notifications');
       return;
     }
     _navigateWithMap(context, map);
@@ -60,12 +79,17 @@ class NotificationRouter {
     final ids = _parseLinkIds(map);
     final title = map['title'] as String? ?? 'Notification';
     if (ids.isEmpty) {
-      context.go('/');
+      context.go('/notifications');
       return;
     }
     context.push(
       '/notification_detail',
-      extra: NotificationDetailExtra(title: title, linkIds: ids),
+      extra: NotificationDetailExtra(
+        title: title,
+        linkIds: ids,
+        insightLine: map['body'] as String?,
+        historyType: historyTypeFromNotificationMap(map),
+      ),
     );
   }
 }
@@ -74,8 +98,53 @@ class NotificationDetailExtra {
   const NotificationDetailExtra({
     required this.title,
     required this.linkIds,
+    this.insightLine,
+    this.historyType,
   });
 
   final String title;
   final List<int> linkIds;
+
+  /// Copy from the Gemini / template notification body when available.
+  final String? insightLine;
+
+  /// Hub history type (`digest`, `geo`, …) or inferred from scheduler letter.
+  final String? historyType;
+}
+
+/// Maps scheduler letter (A–F) or persisted hub history [type] to a stable key.
+String? historyTypeFromNotificationMap(Map<String, dynamic> map) {
+  final t = map['type'] as String?;
+  final fromLetter = historyTypeFromPayloadLetter(t);
+  if (fromLetter != null) return fromLetter;
+  const known = {
+    'digest',
+    'geo',
+    'new_interest',
+    'collector',
+    'streak',
+    'resurface',
+  };
+  if (t != null && known.contains(t)) return t;
+  return null;
+}
+
+/// Maps scheduler payload `type` (A–F) to hub history snake_case.
+String? historyTypeFromPayloadLetter(String? letter) {
+  switch (letter) {
+    case 'A':
+      return 'geo';
+    case 'B':
+      return 'new_interest';
+    case 'C':
+      return 'collector';
+    case 'D':
+      return 'streak';
+    case 'E':
+      return 'resurface';
+    case 'F':
+      return 'digest';
+    default:
+      return null;
+  }
 }
