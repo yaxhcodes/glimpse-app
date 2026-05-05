@@ -502,29 +502,29 @@ Write 3–5 sentences that highlight their most active topic(s), note any intere
 
   // ─── Ask suggestions (recent saves) ──────────────────────────────────────
 
-  /// Returns exactly four short questions tailored to the user's recent bookmarks.
+  /// Returns exactly three short questions tailored to the user's recent bookmarks.
   Future<List<String>> generatePersonalAskSuggestions(
     String contextBlock,
   ) async {
-    const n = 4;
+    const n = 3;
     final prompt =
         '''You are a personal bookmark assistant called Glimpse.
 The user has saved these links recently:
 
 $contextBlock
 
-Generate exactly $n short, specific, conversational questions the user might genuinely want to ask about their saved content.
+Generate exactly $n short, specific questions the user might genuinely want to ask about their saved content.
 
 Rules:
 - Reference specific titles, topics, sources, or themes from the list above — do NOT be generic.
-- Each question must be under 10 words.
+- Each question must be 6–8 words max.
 - Write as if the user is asking themselves, not asking "you".
 - Do NOT start every question with "Show me" — vary phrasing.
-- Do NOT include emoji — emojis are added separately in the app.
+- Do NOT include emoji.
 - Return valid JSON only: a JSON array of exactly $n strings. No markdown, no explanation.
 
 Good examples:
-["What was that discipline post from chilvrs?", "Find the comfort zone article", "Anything about building a second brain?", "What morning routine content did I save?"]
+["What was that discipline post from chilvrs?", "Find the comfort zone article", "Anything about building a second brain?"]
 
 Bad examples:
 ["Any lifestyle tips saved?", "What's new on Instagram?", "Show me my tech links", "Any new videos?"]''';
@@ -676,7 +676,7 @@ Return JSON only: {"name": "...", "emoji": "..."}''';
   Future<List<String>> generateAskSuggestionsFromClusterThemes(
     String themeLinesBlock,
   ) async {
-    const n = 4;
+    const n = 3;
     final prompt =
         '''You are Glimpse, a personal bookmark assistant.
 The user's saved links cluster into these interest themes:
@@ -687,7 +687,7 @@ Generate exactly $n short, natural questions reflecting their genuine recurring 
 Each question should match the themes above — not random categories from the web.
 
 Rules:
-- Under 9 words each.
+- 6–8 words max each.
 - Vary the phrasing — don't start every question the same way.
 - Do NOT reference specific article titles or author names.
 - Do NOT centre questions on a host site (Reddit, YouTube, etc.) — ask about topics.
@@ -695,7 +695,7 @@ Rules:
 - Return valid JSON only: a JSON array of exactly $n strings. No markdown, no explanation.
 
 Good examples:
-["What have I saved about Himalayan treks?", "Show my AI and SaaS links", "Anything on agribusiness?", "What mindset content did I collect?"]
+["What have I saved about Himalayan treks?", "Show my AI and SaaS links", "Anything on agribusiness?"]
 
 Bad examples:
 ["Any Reddit links?", "Show me my links", "What's saved?"]''';

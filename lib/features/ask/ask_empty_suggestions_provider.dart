@@ -42,48 +42,18 @@ const _suggestionsTtl = Duration(hours: 24);
 /// No saves yet, or UI fallback when suggestion load fails.
 const kAskOnboardingSuggestionChips = <AskSuggestionChipData>[
   AskSuggestionChipData(
-    display: '💡  What can Glimpse do?',
-    promptText: 'What can Glimpse do?',
-  ),
-  AskSuggestionChipData(
-    display: '🔗  How do I save a link?',
+    display: 'Save your first link',
     promptText: 'How do I save a link?',
   ),
   AskSuggestionChipData(
-    display: '🔍  How does search work?',
-    promptText: 'How does search work?',
+    display: 'Paste something to start',
+    promptText: 'How do I save a link?',
+  ),
+  AskSuggestionChipData(
+    display: 'Try a quick save',
+    promptText: 'How do I save a link?',
   ),
 ];
-
-/// Longer host/substrings first so `youtube.com` wins over `youtube`.
-const _kDomainEmojiHints = <String, String>{
-  'youtube.com': '▶️',
-  'youtu.be': '▶️',
-  'instagram.com': '📸',
-  'linkedin.com': '💼',
-  'substack.com': '📬',
-  'medium.com': '📝',
-  'reddit.com': '🤖',
-  'github.com': '💻',
-  'tiktok.com': '🎵',
-  'twitter.com': '𝕏',
-  'x.com': '𝕏',
-  'youtube': '▶️',
-  'instagram': '📸',
-  'linkedin': '💼',
-  'substack': '📬',
-  'medium': '📝',
-  'reddit': '🤖',
-  'github': '💻',
-  'tiktok': '🎵',
-  'twitter': '𝕏',
-};
-
-final List<MapEntry<String, String>> _kDomainEmojiHintEntries = () {
-  final l = _kDomainEmojiHints.entries.toList();
-  l.sort((a, b) => b.key.length.compareTo(a.key.length));
-  return l;
-}();
 
 String _buildSuggestionContext(List<SavedUrl> urls) {
   return urls
@@ -105,57 +75,35 @@ String _buildSuggestionContext(List<SavedUrl> urls) {
       .join('\n');
 }
 
-String _emojiForQuestion(String question, int i, List<SavedUrl> recent) {
-  final q = question.toLowerCase();
-  for (final e in _kDomainEmojiHintEntries) {
-    if (q.contains(e.key)) return e.value;
-  }
-  if (recent.isEmpty) return '🔗';
-  final em = recent[i % recent.length].categoryEmoji.trim();
-  return em.isNotEmpty ? em : '🔗';
-}
-
-List<AskSuggestionChipData> _withEmojiPrefixes(
-  List<String> questions,
-  List<SavedUrl> recent,
-) {
-  return List<AskSuggestionChipData>.generate(questions.length, (i) {
-    final q = questions[i];
-    final emoji = _emojiForQuestion(q, i, recent);
-    return AskSuggestionChipData(display: '$emoji  $q', promptText: q);
-  });
-}
-
 List<AskSuggestionChipData> _chipsFromClusterThemesHeuristic(
   List<ClusterTheme> themes,
 ) {
   if (themes.isEmpty) return const [];
-  final fromThemes = themes.take(4).map((t) {
+  final fromThemes = themes.take(3).map((t) {
     final q = 'What did I save about ${t.label}?';
     return AskSuggestionChipData(display: q, promptText: q);
   }).toList();
-  if (fromThemes.length >= 4) return fromThemes;
+  if (fromThemes.length >= 3) return fromThemes;
   return [
     ...fromThemes,
-    ...kAskOnboardingSuggestionChips.take(4 - fromThemes.length),
+    ...kAskOnboardingSuggestionChips.take(3 - fromThemes.length),
   ];
 }
 
 List<AskSuggestionChipData> _heuristicChipsFromRecent(List<SavedUrl> recent) {
   if (recent.isEmpty)
     return List<AskSuggestionChipData>.of(kAskOnboardingSuggestionChips);
-  final fromUrls = recent.take(4).map((u) {
-    final short = u.title.length > 40
-        ? '${u.title.substring(0, 40)}…'
+  final fromUrls = recent.take(3).map((u) {
+    final short = u.title.length > 28
+        ? '${u.title.substring(0, 28)}…'
         : u.title;
     final q = 'What did I save about "$short"?';
-    final em = u.categoryEmoji.trim().isNotEmpty ? u.categoryEmoji : '🔗';
-    return AskSuggestionChipData(display: '$em  $q', promptText: q);
+    return AskSuggestionChipData(display: q, promptText: q);
   }).toList();
-  if (fromUrls.length >= 4) return fromUrls;
+  if (fromUrls.length >= 3) return fromUrls;
   return [
     ...fromUrls,
-    ...kAskOnboardingSuggestionChips.take(4 - fromUrls.length),
+    ...kAskOnboardingSuggestionChips.take(3 - fromUrls.length),
   ];
 }
 
@@ -259,7 +207,7 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
 
   if (embedded.length >= 3) {
     final clusterCacheHit = _readCachedClusterSuggestions(prefs);
-    if (clusterCacheHit != null && clusterCacheHit.length >= 4) {
+    if (clusterCacheHit != null && clusterCacheHit.length >= 3) {
       return clusterCacheHit;
     }
 
@@ -277,11 +225,11 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
           var questions = await gemini.generateAskSuggestionsFromClusterThemes(
             themeLines,
           );
-          final safeQs = questions.take(4).toList();
-          while (safeQs.length < 4) {
+          final safeQs = questions.take(3).toList();
+          while (safeQs.length < 3) {
             safeQs.add('What themes run through my bookmarks?');
           }
-          final chips = List<AskSuggestionChipData>.generate(4, (i) {
+          final chips = List<AskSuggestionChipData>.generate(3, (i) {
             final q = safeQs[i];
             return AskSuggestionChipData(display: q, promptText: q);
           });
@@ -297,7 +245,7 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
   }
 
   final cached = _readCachedV2(prefs);
-  if (cached != null && cached.length >= 4) {
+  if (cached != null && cached.length >= 3) {
     return cached;
   }
 
@@ -309,7 +257,10 @@ Future<List<AskSuggestionChipData>> _resolveSuggestions(Ref ref) async {
   try {
     final context = _buildSuggestionContext(recent);
     final questions = await gemini.generatePersonalAskSuggestions(context);
-    final chips = _withEmojiPrefixes(questions, recent);
+    final chips = questions
+        .take(3)
+        .map((q) => AskSuggestionChipData(display: q, promptText: q))
+        .toList();
     await _writeCachedV2(prefs, chips);
     return chips;
   } catch (_) {

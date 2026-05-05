@@ -15,26 +15,11 @@ import '../../shared/widgets/usage_badge.dart';
 import '../../core/services/category_resolver.dart';
 import '../home/home_provider.dart';
 import 'ask_empty_suggestions_provider.dart';
+import 'ask_greeting_service.dart';
 import 'ask_provider.dart';
 
 /// Max width for chat column on large phones / tablets (readable line length).
 const double _kChatMaxWidth = 680;
-
-String _askTimeGreeting() {
-  final hour = DateTime.now().hour;
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-String _askGreetingLine(String? userName) {
-  final time = _askTimeGreeting();
-  final name = userName?.trim();
-  if (name != null && name.isNotEmpty) {
-    return '$time, $name.';
-  }
-  return '$time.';
-}
 
 class AskScreen extends ConsumerStatefulWidget {
   const AskScreen({super.key, this.embedded = false});
@@ -49,6 +34,11 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _focusNode = FocusNode();
+
+  /// Cached greeting future so [FutureBuilder] does not flash on rebuilds.
+  Future<AskGreeting>? _greetingFuture;
+  String? _lastGreetingName;
+  int? _lastGreetingCount;
 
   @override
   void dispose() {
@@ -216,9 +206,18 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     int savedUrlCount,
     String? userName,
   ) {
-    final subtitle = savedUrlCount == 0
-        ? 'Save your first link to get started.'
-        : 'Ask me anything — find a link, summarize what you saved, or explore a topic.';
+    // Build or reuse the cached greeting future so the empty state does not
+    // flicker on every rebuild.
+    if (_greetingFuture == null ||
+        _lastGreetingName != userName ||
+        _lastGreetingCount != savedUrlCount) {
+      _lastGreetingName = userName;
+      _lastGreetingCount = savedUrlCount;
+      _greetingFuture = AskGreetingService().build(
+        savedUrlCount: savedUrlCount,
+        userName: userName,
+      );
+    }
 
     return Center(
       child: ConstrainedBox(
@@ -228,26 +227,45 @@ class _AskScreenState extends ConsumerState<AskScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               const _GlimpseMark(),
-              const SizedBox(height: 16),
-              Text(
-                _askGreetingLine(userName),
-                textAlign: TextAlign.center,
-                style: textTheme.headlineMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.45,
-                ),
+              const SizedBox(height: 12),
+              FutureBuilder<AskGreeting>(
+                future: _greetingFuture,
+                builder: (context, snapshot) {
+                  final greeting = snapshot.data;
+                  final line = greeting?.line ??
+                      (userName != null && userName.isNotEmpty
+                          ? 'Hey, $userName.'
+                          : 'Hey.');
+                  final hint = greeting?.hint;
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        line,
+                        textAlign: TextAlign.center,
+                        style: textTheme.headlineMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                      ),
+                      if (hint != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          hint,
+                          textAlign: TextAlign.center,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
               AnimatedOpacity(
                 opacity: keyboardOpen ? 0 : 1,
@@ -260,13 +278,13 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                   child: keyboardOpen
                       ? const SizedBox(width: double.infinity, height: 0)
                       : Padding(
-                          padding: const EdgeInsets.only(top: 24),
+                          padding: const EdgeInsets.only(top: 20),
                           child: suggestionsAsync.when(
                             data: (chips) => Wrap(
                               spacing: 8,
                               runSpacing: 8,
                               alignment: WrapAlignment.center,
-                              children: chips.map((chip) {
+                              children: chips.take(3).map((chip) {
                                 return ActionChip(
                                   label: Text(chip.display),
                                   onPressed: () {
@@ -288,7 +306,9 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                               spacing: 8,
                               runSpacing: 8,
                               alignment: WrapAlignment.center,
-                              children: kAskOnboardingSuggestionChips.map((chip) {
+                              children: kAskOnboardingSuggestionChips
+                                  .take(3)
+                                  .map((chip) {
                                 return ActionChip(
                                   label: Text(chip.display),
                                   onPressed: () {
