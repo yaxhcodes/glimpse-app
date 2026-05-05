@@ -722,12 +722,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.sticky_note_2_outlined,
-                      size: 16,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
                     Text(
                       'Notes',
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -921,21 +915,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.summarize_outlined,
-                size: 18,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Summary',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          Text(
+            'Summary',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(

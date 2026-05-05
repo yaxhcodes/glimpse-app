@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-import 'core/constants/app_assets.dart';
 import 'core/providers/service_providers.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/digest_scheduler.dart';
@@ -241,22 +240,11 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    ClipOval(
-                      child: Image.asset(
-                        AppAssets.logo,
-                        width: 32,
-                        height: 32,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Save URL',
-                      style: Theme.of(ctx).textTheme.titleLarge,
-                    ),
-                  ],
+                Text(
+                  'Save URL',
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -268,22 +256,20 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 20),
-                FilledButton.icon(
+                FilledButton(
                   onPressed: () {
                     Navigator.pop(ctx);
                     _quickSave(url);
                   },
-                  icon: const Icon(Icons.bolt),
-                  label: const Text('Quick Save'),
+                  child: const Text('Quick Save'),
                 ),
                 const SizedBox(height: 10),
-                OutlinedButton.icon(
+                OutlinedButton(
                   onPressed: () {
                     Navigator.pop(ctx);
                     _router.go('/add?url=${Uri.encodeComponent(url)}');
                   },
-                  icon: const Icon(Icons.edit_note),
-                  label: const Text('Add Note & Save'),
+                  child: const Text('Add Note & Save'),
                 ),
               ],
             ),

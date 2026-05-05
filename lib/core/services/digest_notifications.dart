@@ -1,3 +1,5 @@
+import 'dart:math' show Random;
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'digest_prefs.dart';
@@ -27,6 +29,8 @@ class DigestNotifications {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
+  static final _rnd = Random.secure();
+
   /// [onOpenNotification] receives the raw JSON payload string from a tap or cold start.
   static Future<void> init({
     required void Function(String? payload) onOpenNotification,
@@ -48,11 +52,45 @@ class DigestNotifications {
     if (launch?.didNotificationLaunchApp == true) {
       onOpenNotification(launch?.notificationResponse?.payload);
     }
+
+    // Ensure the channel exists with the correct importance BEFORE any
+    // notification is shown. Without this, the first notification to fire
+    // creates the channel — if that happens to be the low-importance summary,
+    // all subsequent child notifications inherit the low importance and may
+    // not appear reliably.
+    await _ensureChannel();
   }
 
   static Future<void> initForBackground() async {
     const android = AndroidInitializationSettings('ic_notification');
     await _plugin.initialize(const InitializationSettings(android: android));
+    await _ensureChannel();
+  }
+
+  static Future<void> _ensureChannel() async {
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
+
+    await androidPlugin.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _channelId,
+        _channelName,
+        description: _channelDesc,
+        importance: Importance.high,
+      ),
+    );
+  }
+
+  /// Generates a unique notification ID that fits inside Android's 32-bit
+  /// signed int. `DateTime.now().millisecondsSinceEpoch` overflows that range,
+  /// which silently suppresses notifications on some Android versions.
+  static int _uniqueNotifId() {
+    // Mix timestamp + random so collisions are extremely unlikely.
+    final ts = DateTime.now().millisecondsSinceEpoch % 0x7FFFFFFF;
+    final salt = _rnd.nextInt(0xFFFF);
+    return (ts ^ salt).abs();
   }
 
   /// [payloadJson] must be the full serialized notification payload (type, linkIds, title, …).
@@ -62,7 +100,7 @@ class DigestNotifications {
     required String body,
     required String payloadJson,
   }) async {
-    final notifId = DateTime.now().millisecondsSinceEpoch;
+    final notifId = _uniqueNotifId();
 
     final androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -96,32 +134,48 @@ class DigestNotifications {
         .toList();
 
     final count = notifEntries.length;
+
+    // No need for a summary when there are no notifications.
+    if (count == 0) return;
+
+    // For a single notification, Android shows it directly; a summary
+    // is unnecessary and can actually suppress the child on some devices.
+    if (count == 1) {
+      // Cancel any previously-shown summary so it doesn't linger.
+      await _plugin.cancel(_summaryNotifId);
+      return;
+    }
+
     final titles = notifEntries
         .map((e) => e['topic']?.toString() ?? 'Notification')
         .toList();
+
+    final summaryText =
+        count == 1 ? '1 new notification' : '$count new notifications';
 
     final summaryDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
       channelDescription: _channelDesc,
-      importance: Importance.low,
-      priority: Priority.low,
+      // Match child importance so the group is never demoted.
+      importance: Importance.high,
+      priority: Priority.high,
       groupKey: _groupKey,
       setAsGroupSummary: true,
       styleInformation: InboxStyleInformation(
         titles,
         contentTitle: 'Glimpse',
-        summaryText: count == 1
-            ? '1 new notification'
-            : '$count new notifications',
+        summaryText: summaryText,
       ),
       icon: 'ic_notification',
     );
 
+    // Provide a non-empty body — some OEM skins suppress notifications
+    // with empty content strings.
     await _plugin.show(
       _summaryNotifId,
       'Glimpse',
-      '',
+      summaryText,
       NotificationDetails(android: summaryDetails),
     );
   }

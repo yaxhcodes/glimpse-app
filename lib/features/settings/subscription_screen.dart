@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/app_environment.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
@@ -57,146 +58,171 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               (ref.watch(devProOverrideProvider).valueOrNull ?? false) &&
               rcTier == SubscriptionTier.free;
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             children: [
-            // Plan badge: reflects **effective** access. Store buttons below use RC.
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: isPro
-                    ? LinearGradient(
-                        colors: [
-                          colorScheme.primaryContainer,
-                          colorScheme.tertiaryContainer,
-                        ],
-                      )
-                    : null,
-                color: !isPro
-                    ? colorScheme.surfaceContainerHigh
-                    : null,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
+              // Header
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    isPro
-                        ? Icons.workspace_premium
-                        : Icons.bookmark_outline,
-                    size: 48,
-                    color: isPro
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 12),
                   Text(
-                    isPro
-                        ? 'Glimpse Pro'
-                        : 'Glimpse Free',
+                    isPro ? 'Glimpse Pro' : 'Glimpse Free',
                     style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Text(
                     isPro
                         ? (showDevOverrideHint
-                            ? 'You have access to all features (dev override; store: Free)'
-                            : 'You have access to all features')
-                        : 'AI tagging included for free',
-                    textAlign: TextAlign.center,
+                            ? 'Unlock the full power of AI across your entire library. Every feature, with no limits. (dev override; store: Free)'
+                            : 'Unlock the full power of AI across your entire library. Every feature, with no limits.')
+                        : 'Build your personal knowledge library with essential tools. AI features are included so you can explore before upgrading.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _StatusBadge(isPro: isPro),
+                ],
+              ),
+              const SizedBox(height: 40),
+
+              // Core Library
+              Text(
+                'Core Library',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const _FeatureRow(
+                title: 'Unlimited link saving',
+                subtitle: 'Save as many links as you want',
+                mode: _FeatureMode.free,
+              ),
+              const SizedBox(height: 20),
+              const _FeatureRow(
+                title: 'Collections & organization',
+                subtitle: 'Group and manage bookmarks your way',
+                mode: _FeatureMode.free,
+              ),
+              const SizedBox(height: 20),
+              const _FeatureRow(
+                title: 'Smart notifications',
+                subtitle: 'Behavior-based alerts and reading reminders',
+                mode: _FeatureMode.free,
+              ),
+              const SizedBox(height: 40),
+
+              // AI Assistant
+              Text(
+                'AI Assistant',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const _FeatureRow(
+                title: 'AI tagging & categorization',
+                subtitle: 'Free: 15 saves per month · Pro: Unlimited',
+                mode: _FeatureMode.limited,
+              ),
+              const SizedBox(height: 20),
+              const _FeatureRow(
+                title: 'Keyword search',
+                subtitle: 'Free: 15 searches per month · Pro: Unlimited',
+                mode: _FeatureMode.limited,
+              ),
+              const SizedBox(height: 20),
+              const _FeatureRow(
+                title: 'Ask Your Bookmarks',
+                subtitle: 'Free: 5 questions per month · Pro: Unlimited',
+                mode: _FeatureMode.limited,
+              ),
+              const SizedBox(height: 40),
+
+              // Pro Insights
+              Text(
+                'Pro Insights',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _FeatureRow(
+                title: 'Semantic search',
+                subtitle: 'Find links by meaning, not just words',
+                mode: _FeatureMode.proOnly,
+                isPro: isPro,
+              ),
+              const SizedBox(height: 20),
+              _FeatureRow(
+                title: 'Weekly Recap',
+                subtitle: 'AI-generated summary of your saved links',
+                mode: _FeatureMode.proOnly,
+                isPro: isPro,
+              ),
+              const SizedBox(height: 20),
+              _FeatureRow(
+                title: 'Multi-Link Synthesis',
+                subtitle: 'Cross-analyze any set of bookmarks',
+                mode: _FeatureMode.proOnly,
+                isPro: isPro,
+              ),
+              const SizedBox(height: 48),
+
+              // Action buttons: always follow **RevenueCat** tier, not the dev override.
+              if (rcTier == SubscriptionTier.free) ...[
+                FilledButton(
+                  onPressed: () => _showPaywall(context, ref),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  child: const Text('Upgrade to Glimpse Pro'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => _restorePurchases(context, ref),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  child: const Text('Restore Purchases'),
+                ),
+              ] else ...[
+                FilledButton(
+                  onPressed: () => _openCustomerCenter(context, ref),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  child: const Text('Manage Subscription'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => _manageSubscription(context),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  child: const Text('Manage on Google Play'),
+                ),
+                if (AppEnvironment.isDevContext) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'May not work in debug builds',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Feature comparison
-            Text('What you get', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 12),
-            const _FeatureRow(
-              icon: Icons.label_outlined,
-              title: 'AI Tagging & Categorization',
-              subtitle: 'Automatic when saving URLs',
-              included: true,
-            ),
-            const _FeatureRow(
-              icon: Icons.search,
-              title: 'Keyword Search',
-              subtitle: 'Search your saved bookmarks',
-              included: true,
-            ),
-            const Divider(height: 32),
-            Text(
-              'Premium Features',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _FeatureRow(
-              icon: Icons.psychology_outlined,
-              title: 'Ask Your Bookmarks',
-              subtitle: 'Chat with AI about your saved links',
-              included: isPro,
-              isPremium: true,
-            ),
-            _FeatureRow(
-              icon: Icons.auto_awesome_outlined,
-              title: 'Weekly Recap',
-              subtitle: 'AI-generated summary of your week',
-              included: isPro,
-              isPremium: true,
-            ),
-            _FeatureRow(
-              icon: Icons.merge_type_outlined,
-              title: 'Multi-Link Synthesis',
-              subtitle: 'Cross-analyze multiple bookmarks',
-              included: isPro,
-              isPremium: true,
-            ),
-            _FeatureRow(
-              icon: Icons.manage_search_outlined,
-              title: 'Semantic Search',
-              subtitle: 'Find links by meaning, not just keywords',
-              included: isPro,
-              isPremium: true,
-            ),
-
-            const SizedBox(height: 32),
-
-            // Action buttons: always follow **RevenueCat** tier, not the dev override.
-            if (rcTier == SubscriptionTier.free) ...[
-              FilledButton.icon(
-                onPressed: () => _showPaywall(context, ref),
-                icon: const Icon(Icons.workspace_premium),
-                label: const Text('Upgrade to Glimpse Pro'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => _restorePurchases(context, ref),
-                icon: const Icon(Icons.restore),
-                label: const Text('Restore Purchases'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-              ),
-            ] else ...[
-              FilledButton.icon(
-                onPressed: () => _openCustomerCenter(context, ref),
-                icon: const Icon(Icons.manage_accounts_outlined),
-                label: const Text('Manage Subscription'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-              ),
+              ],
             ],
-          ],
           );
         },
       ),
@@ -266,7 +292,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 3),
           ),
-      );
+        );
     }
   }
 
@@ -276,21 +302,88 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     // automatically. No manual refresh required.
     await ref.read(subscriptionServiceProvider).presentCustomerCenter();
   }
+
+  Future<void> _manageSubscription(BuildContext context) async {
+    const packageName = 'com.shinrinyoku.glimpse';
+    final uri = Uri.parse(
+      'https://play.google.com/store/account/subscriptions?package=$packageName',
+    );
+
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Could not open Google Play.'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Could not open Google Play.'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+      }
+    }
+  }
 }
 
+class _StatusBadge extends StatelessWidget {
+  final bool isPro;
+
+  const _StatusBadge({required this.isPro});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isPro
+            ? colorScheme.primaryContainer
+            : colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        isPro ? 'Active' : 'Free',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: isPro
+              ? colorScheme.onPrimaryContainer
+              : colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+enum _FeatureMode { free, limited, proOnly }
+
 class _FeatureRow extends StatelessWidget {
-  final IconData icon;
   final String title;
   final String subtitle;
-  final bool included;
-  final bool isPremium;
+  final _FeatureMode mode;
+  final bool isPro;
 
   const _FeatureRow({
-    required this.icon,
     required this.title,
     required this.subtitle,
-    required this.included,
-    this.isPremium = false,
+    required this.mode,
+    this.isPro = false,
   });
 
   @override
@@ -298,31 +391,133 @@ class _FeatureRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 24, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                )),
-                Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                )),
-              ],
-            ),
+    switch (mode) {
+      case _FeatureMode.free:
+        return _buildRow(
+          indicator: _SubtleTick(colorScheme: colorScheme),
+          title: title,
+          titleColor: colorScheme.onSurface,
+          subtitle: subtitle,
+          subtitleColor: colorScheme.onSurfaceVariant,
+        );
+      case _FeatureMode.limited:
+        return _buildRow(
+          indicator: _SubtleTick(colorScheme: colorScheme),
+          title: title,
+          titleColor: colorScheme.onSurface,
+          subtitle: subtitle,
+          subtitleColor: colorScheme.onSurfaceVariant,
+        );
+      case _FeatureMode.proOnly:
+        if (isPro) {
+          return _buildRow(
+            indicator: _SubtleTick(colorScheme: colorScheme),
+            title: title,
+            titleColor: colorScheme.onSurface,
+            subtitle: subtitle,
+            subtitleColor: colorScheme.onSurfaceVariant,
+          );
+        }
+        return _buildRow(
+          indicator: const SizedBox.shrink(),
+          title: title,
+          titleColor: colorScheme.onSurfaceVariant,
+          subtitle: subtitle,
+          subtitleColor: colorScheme.onSurfaceVariant,
+          trailing: const _ProLabel(),
+        );
+    }
+  }
+
+  Widget _buildRow({
+    required Widget indicator,
+    required String title,
+    required Color titleColor,
+    required String subtitle,
+    required Color subtitleColor,
+    Widget? trailing,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        indicator,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                        color: titleColor,
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 8),
+                    trailing,
+                  ],
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.3,
+                  color: subtitleColor,
+                ),
+              ),
+            ],
           ),
-          Icon(
-            included ? Icons.check_circle : Icons.lock_outline,
-            color: included ? Colors.green : colorScheme.onSurfaceVariant,
-            size: 22,
-          ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SubtleTick extends StatelessWidget {
+  final ColorScheme colorScheme;
+
+  const _SubtleTick({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '✓',
+      style: TextStyle(
+        fontSize: 14,
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+      ),
+    );
+  }
+}
+
+class _ProLabel extends StatelessWidget {
+  const _ProLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'Pro',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: colorScheme.onPrimaryContainer,
+        ),
       ),
     );
   }
