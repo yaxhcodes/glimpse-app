@@ -13,8 +13,8 @@ import '../../core/providers/service_providers.dart';
 import '../../core/providers/category_order_provider.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/services/digest_prefs.dart';
-import '../../core/services/link_preview_service.dart';
 import '../../core/services/title_resolver.dart';
+import '../../core/utils/url_extractor.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../core/constants/app_assets.dart';
@@ -59,7 +59,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onInputChanged() {
     final text = _urlInputController.text.trim();
-    final valid = text.isNotEmpty && LinkPreviewService.isValidUrl(text);
+    final extracted = UrlExtractor.extract(text);
+    final valid = text.isNotEmpty && extracted.urls.isNotEmpty;
     if (valid != _inputValid) setState(() => _inputValid = valid);
   }
 
@@ -67,7 +68,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       final text = data?.text?.trim() ?? '';
-      if (text.isNotEmpty && LinkPreviewService.isValidUrl(text)) {
+      final extracted = UrlExtractor.extract(text);
+      if (extracted.urls.isNotEmpty) {
         setState(() => _clipboardUrl = text);
       }
     } catch (_) {
@@ -79,7 +81,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final raw = _urlInputController.text.trim();
     if (raw.isEmpty || _inputUiState != _InputUiState.idle) return;
 
-    if (!LinkPreviewService.isValidUrl(raw)) {
+    final extracted = UrlExtractor.extract(raw);
+
+    if (extracted.urls.isEmpty) {
       setState(() {
         _inputUiState = _InputUiState.error;
         _inputErrorText = 'Paste a valid link to save it';
@@ -88,6 +92,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _resetTimer = Timer(const Duration(milliseconds: 1500), () {
         if (mounted) setState(() => _inputUiState = _InputUiState.idle);
       });
+      return;
+    }
+
+    // Multi-URL → batch preview
+    if (extracted.hasMultiple) {
+      _urlInputFocus.unfocus();
+      if (mounted) {
+        context.push('/batch-save', extra: extracted.urls);
+      }
+      _urlInputController.clear();
+      setState(() => _inputValid = false);
       return;
     }
 
@@ -593,22 +608,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                        child: Text(
-                          'Filter by source',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 6),
+                        child: InkWell(
+                          onTap: () => context.push('/sources'),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 0, vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Filter by source',
+                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 18,
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.40),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                       SizedBox(
-                        height: 40,
+                        height: 34,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           clipBehavior: Clip.none,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: orderedCategories.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemCount: orderedCategories.length.clamp(0, 10),
+                          separatorBuilder: (_, __) => const SizedBox(width: 6),
                           itemBuilder: (context, index) {
                             final cat = orderedCategories[index];
                             final name = cat['category'] as String;
@@ -623,14 +660,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         borderRadius: BorderRadius.circular(3),
                                         child: CachedNetworkImage(
                                           imageUrl: fav,
-                                          width: 18,
-                                          height: 18,
+                                          width: 14,
+                                          height: 14,
                                           errorWidget: (_, _, _) =>
-                                              Text(emoji),
+                                              Text(emoji, style: const TextStyle(fontSize: 10)),
                                         ),
                                       )
-                                    : Text(emoji),
+                                    : Text(emoji, style: const TextStyle(fontSize: 10)),
                                 label: Text(name),
+                                labelStyle: theme.textTheme.labelSmall?.copyWith(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.1,
+                                ),
                                 selected: false,
                                 onSelected: (_) => context.push(
                                   '/category/${Uri.encodeComponent(name)}',

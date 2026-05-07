@@ -46,6 +46,11 @@ class SavedUrl {
   /// Null or empty until embedded (new saves or backfill).
   List<double>? embedding;
 
+  /// Capture session ID for batch / multi-URL saves.
+  /// Not persisted in Isar (migration-safe); stored via [SessionTrackingService].
+  @ignore
+  String? saveSessionId;
+
   List<String> get effectiveCategories {
     final values = <String>[];
     for (final item in categories) {

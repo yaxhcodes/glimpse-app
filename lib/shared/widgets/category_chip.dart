@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 /// Brand accent colours for known platforms.
-const _platformColors = <String, Color>{
+const platformColors = <String, Color>{
   'YouTube': Color(0xFFFF0000),
   'Instagram': Color(0xFFC13584),
   'X': Color(0xFF536471),
@@ -157,7 +157,7 @@ class CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final rawColor = _platformColors[category] ?? theme.colorScheme.primary;
+    final rawColor = platformColors[category] ?? theme.colorScheme.primary;
     final brandColor = _ensureReadable(rawColor, isDark);
     final favicon = faviconUrl(category);
 

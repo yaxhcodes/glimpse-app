@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/link_preview_service.dart';
-import '../../core/services/usage_service.dart';
-import '../../shared/widgets/usage_badge.dart';
+import '../../core/utils/url_extractor.dart';
 import 'add_url_provider.dart';
 
 class AddUrlScreen extends ConsumerStatefulWidget {
@@ -61,14 +60,33 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   Future<void> _pasteFromClipboard() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text != null) {
-      _urlController.text = data!.text!;
+      final text = data!.text!;
+      final extracted = UrlExtractor.extract(text);
+      if (extracted.hasMultiple) {
+        if (mounted) {
+          context.push('/batch-save', extra: extracted.urls);
+        }
+        return;
+      }
+      _urlController.text = text;
     }
   }
 
   Future<void> _onSave() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final url = _urlController.text.trim();
+    final text = _urlController.text.trim();
+    final extracted = UrlExtractor.extract(text);
+
+    // Multi-URL paste → batch preview
+    if (extracted.hasMultiple) {
+      if (mounted) {
+        context.push('/batch-save', extra: extracted.urls);
+      }
+      return;
+    }
+
+    final url = text;
     final notes = _notesController.text.trim();
     final success = await ref
         .read(addUrlProvider.notifier)
@@ -86,6 +104,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final isSaving = state.status == AddUrlStatus.saving;
     final isEnabled = state.status == AddUrlStatus.idle ||
         state.status == AddUrlStatus.error;
 
@@ -139,7 +158,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                               suffixIcon: IconButton(
                                 icon: const Icon(Icons.paste),
                                 tooltip: 'Paste from clipboard',
-                                onPressed: _pasteFromClipboard,
+                                onPressed: isEnabled ? _pasteFromClipboard : null,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -207,95 +226,37 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                         ),
                       ),
 
-                    // Status indicator
-                    if (state.status != AddUrlStatus.idle &&
-                        state.status != AddUrlStatus.error) ...[
-                      _StatusStep(
-                        label: 'Fetching page metadata...',
-                        isActive:
-                            state.status == AddUrlStatus.fetchingMetadata,
-                        isDone: state.status.index >
-                            AddUrlStatus.fetchingMetadata.index,
-                      ),
-                      _StatusStep(
-                        label: 'AI categorizing & summarizing...',
-                        isActive:
-                            state.status == AddUrlStatus.categorizing,
-                        isDone: state.status.index >
-                            AddUrlStatus.categorizing.index,
-                      ),
-                      _StatusStep(
-                        label: 'Generating embedding...',
-                        isActive:
-                            state.status == AddUrlStatus.generatingEmbedding,
-                        isDone: state.status.index >
-                            AddUrlStatus.generatingEmbedding.index,
-                      ),
-                      _StatusStep(
-                        label: 'Saving to library...',
-                        isActive: state.status == AddUrlStatus.saving,
-                        isDone: state.status == AddUrlStatus.done,
-                      ),
-                    ],
-
-                    // Duplicate similarity warning
-                    if (state.status == AddUrlStatus.saving &&
-                        state.similarUrlCount != null &&
-                        state.similarUrlCount! > 0) ...[
-                      const SizedBox(height: 8),
+                    // Saving indicator
+                    if (isSaving) ...[
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.tertiaryContainer,
-                          borderRadius: BorderRadius.circular(8),
+                          color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.info_outline,
-                                color:
-                                    theme.colorScheme.onTertiaryContainer),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'You already have ${state.similarUrlCount} similar link${state.similarUrlCount! > 1 ? 's' : ''} saved.',
-                                style: TextStyle(
-                                    color: theme.colorScheme
-                                        .onTertiaryContainer),
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Saving...',
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-
-                    // AI-limit fallback warning
-                    if (state.usedAiFallback) ...[
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.tertiaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: theme.colorScheme.onTertiaryContainer,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                "You've reached your monthly AI save limit. This link was saved with basic categorization. Upgrade to Pro for unlimited AI saves.",
-                                style: TextStyle(
-                                  color:
-                                      theme.colorScheme.onTertiaryContainer,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
 
                     // Error message
@@ -305,22 +266,18 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.errorContainer,
+                          color: colorScheme.errorContainer,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           state.errorMessage!,
                           style: TextStyle(
-                              color: theme.colorScheme.onErrorContainer),
+                              color: colorScheme.onErrorContainer),
                         ),
                       ),
                     ],
 
                     const Spacer(),
-
-                    // Usage indicator
-                    const UsageInlineIndicator(feature: UsageFeature.aiSave),
-                    const SizedBox(height: 8),
 
                     FilledButton(
                       onPressed: isEnabled ? _onSave : null,
@@ -337,51 +294,6 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                   ],
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusStep extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final bool isDone;
-
-  const _StatusStep({
-    required this.label,
-    required this.isActive,
-    required this.isDone,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          if (isDone)
-            Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20)
-          else if (isActive)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Icon(Icons.circle_outlined,
-                color: theme.colorScheme.outlineVariant, size: 20),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: isDone || isActive
-                  ? theme.colorScheme.onSurface
-                  : theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],

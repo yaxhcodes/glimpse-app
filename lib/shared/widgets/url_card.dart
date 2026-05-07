@@ -251,32 +251,31 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                           ),
                         ],
                       ),
-                      if (chipData.visible.isNotEmpty ||
-                          chipData.overflow > 0) ...[
-                        const SizedBox(height: 8),
+if (chipData.visible.isNotEmpty ||
+                           chipData.overflow > 0) ...[
+                        const SizedBox(height: 6),
                         Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
+                          spacing: 4,
+                          runSpacing: 3,
                           children: [
                             ...chipData.visible.map((tag) {
                               return Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
+                                  horizontal: 6,
+                                  vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: cs.secondaryContainer
-                                      .withValues(alpha: 0.45),
+                                  color: cs.secondaryContainer.withValues(alpha: 0.7),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
                                   tag,
                                   style: TextStyle(
-                                    fontSize: 10.5,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.w500,
-                                    color: cs.onSecondaryContainer
-                                        .withValues(alpha: 0.75),
+                                    color: cs.onSecondaryContainer,
                                     fontFamily: tt.labelSmall?.fontFamily,
+                                    letterSpacing: 0.1,
                                   ),
                                 ),
                               );
@@ -284,21 +283,19 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             if (chipData.overflow > 0)
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
+                                  horizontal: 6,
+                                  vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: cs.surfaceContainerHighest
-                                      .withValues(alpha: 0.8),
+                                  color: cs.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
                                   '+${chipData.overflow}',
                                   style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: cs.onSurfaceVariant
-                                        .withValues(alpha: 0.7),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSurfaceVariant,
                                     fontFamily: tt.labelSmall?.fontFamily,
                                   ),
                                 ),

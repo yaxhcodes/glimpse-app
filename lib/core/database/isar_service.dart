@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/saved_url.dart';
 import '../models/user_collection.dart';
 import '../services/category_resolver.dart';
+import '../services/session_tracking_service.dart';
 
 /// Service handling all local database operations via Isar.
 class IsarService {
@@ -864,6 +865,7 @@ class IsarService {
       await isar.savedUrls.clear();
       await isar.userCollections.clear();
     });
+    await SessionTrackingService().clear();
   }
 
   // --------------- STREAM ---------------

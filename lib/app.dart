@@ -11,7 +11,6 @@ import 'core/services/digest_scheduler.dart';
 import 'core/services/notification_router.dart';
 import 'core/services/tag_analyzer.dart';
 import 'core/services/embedding_backfill_service.dart';
-import 'core/services/link_preview_service.dart';
 import 'core/models/saved_url.dart';
 import 'features/ask/ask_empty_suggestions_provider.dart';
 import 'features/home/home_provider.dart';
@@ -36,8 +35,12 @@ import 'features/ask/ask_screen.dart';
 import 'features/mindmap/mindmap_screen.dart';
 import 'features/recap/recap_screen.dart';
 import 'features/synthesis/synthesis_screen.dart';
+import 'features/rediscover/rediscover_screen.dart';
+import 'features/sources/sources_screen.dart';
+import 'features/batch_save/batch_preview_screen.dart';
 import 'core/config/app_environment.dart';
 import 'core/services/entitlement_service.dart';
+import 'core/utils/url_extractor.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
 
@@ -150,6 +153,21 @@ final _router = GoRouter(
         return SynthesisScreen(initialUrls: urls);
       },
     ),
+    GoRoute(
+      path: '/rediscover',
+      builder: (context, state) => const RediscoverScreen(),
+    ),
+    GoRoute(
+      path: '/sources',
+      builder: (context, state) => const SourcesScreen(),
+    ),
+    GoRoute(
+      path: '/batch-save',
+      builder: (context, state) {
+        final urls = (state.extra as List<String>?) ?? [];
+        return BatchPreviewScreen(urls: urls);
+      },
+    ),
   ],
 );
 
@@ -215,16 +233,21 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (files.isEmpty) return;
 
     final sharedText = files.first.path;
-    final url = _extractUrl(sharedText);
-    if (url == null) return;
+    final extracted = UrlExtractor.extract(sharedText);
 
-    final normalizedUrl = LinkPreviewService.normalizeUrl(url);
+    if (extracted.urls.isEmpty) return;
 
-    // Show a choice bottom sheet after a brief delay to let the UI settle
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _router.routerDelegate.navigatorKey.currentContext;
       if (ctx == null) return;
-      _showShareChoiceSheet(ctx, normalizedUrl);
+
+      if (extracted.hasMultiple) {
+        // Multi-share → batch preview
+        _router.push('/batch-save', extra: extracted.urls);
+      } else {
+        // Single share → existing choice sheet
+        _showShareChoiceSheet(ctx, extracted.urls.first);
+      }
     });
   }
 
@@ -284,21 +307,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     final success = await notifier.saveUrl(url);
     final state = ref.read(addUrlProvider);
     final errorMsg = state.errorMessage;
-    final usedFallback = state.usedAiFallback;
     notifier.reset();
 
     if (!mounted) return;
     final ctx = _router.routerDelegate.navigatorKey.currentContext;
     if (ctx == null) return;
 
-    String message;
-    if (!success) {
-      message = errorMsg ?? 'Failed to save URL';
-    } else if (usedFallback) {
-      message = 'URL saved! AI limit reached — basic categorization used.';
-    } else {
-      message = 'URL saved!';
-    }
+    final message = success ? 'Saved — organizing in background...' : (errorMsg ?? 'Failed to save URL');
 
     ScaffoldMessenger.of(ctx)
       ..hideCurrentSnackBar()
@@ -306,24 +321,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          action: usedFallback
-              ? SnackBarAction(
-                  label: 'Upgrade',
-                  onPressed: () => GoRouter.of(ctx).push('/settings/subscription'),
-                )
-              : null,
+          duration: Duration(seconds: success ? 3 : 4),
         ),
       );
-  }
-
-  /// Pulls the first http(s) URL from a block of shared text.
-  String? _extractUrl(String text) {
-    final match = RegExp(
-      r'https?://[^\s<>"{}|\\^`\[\]]+',
-      caseSensitive: false,
-    ).firstMatch(text);
-    return match?.group(0) ?? (text.contains('.') ? text.trim() : null);
   }
 
   @override

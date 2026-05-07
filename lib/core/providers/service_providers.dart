@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/isar_service.dart';
 import '../services/bundled_keys.dart';
 import '../services/embedding_service.dart';
+import '../services/enrichment_service.dart';
 import '../services/gemini_service.dart';
 import '../services/link_preview_service.dart';
+import '../services/entitlement_service.dart';
+import 'usage_providers.dart';
 
 /// Global provider for the Isar database service.
 final isarServiceProvider = Provider<IsarService>((ref) {
@@ -32,4 +35,25 @@ final embeddingServiceProvider = Provider<EmbeddingService?>((ref) {
 final geminiServiceProvider = Provider<GeminiService?>((ref) {
   if (!BundledKeys.hasGemini) return null;
   return GeminiService(BundledKeys.geminiKey);
+});
+
+/// Enrichment service factory. Creates a fresh instance each time because
+/// [isPro] status and the [onEnriched] callback may differ per call site.
+///
+/// Usage:
+///   final enricher = ref.read(enrichmentServiceProvider);
+///   final service = enricher(onEnriched: () { ref.invalidate(...); });
+final enrichmentServiceProvider =
+    Provider<EnrichmentService Function({void Function()? onEnriched})>((ref) {
+  return ({void Function()? onEnriched}) {
+    return EnrichmentService(
+      isarService: ref.read(isarServiceProvider),
+      geminiService: ref.read(geminiServiceProvider),
+      embeddingService: ref.read(embeddingServiceProvider),
+      linkService: ref.read(linkPreviewServiceProvider),
+      usageService: ref.read(usageServiceProvider),
+      isPro: ref.read(isProUserProvider),
+      onEnriched: onEnriched,
+    );
+  };
 });

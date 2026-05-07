@@ -22,40 +22,78 @@ class RediscoverySection extends ConsumerWidget {
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
         final tagFreq = ref.watch(tagOccurrenceMapProvider);
+        final size = MediaQuery.sizeOf(context);
+        final isTablet = size.width > 600;
+
+        final cardWidth = isTablet
+            ? (size.width - 48) / 2.8
+            : (size.width - 36) / 1.7;
+        final cardHeight = cardWidth * 0.65;
+        final previewCount = isTablet ? links.length : links.length.clamp(0, 5);
+
         return Padding(
           padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Tappable header row with chevron
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
-                child: Text(
-                  'Rediscover',
-                  style: tt.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: Text(
-                  'Based on your activity',
-                  style: tt.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
+                child: InkWell(
+                  onTap: () => context.push('/rediscover'),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 0, vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Rediscover',
+                                style: tt.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onSurface,
+                                  letterSpacing: -0.15,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                'Based on your activity',
+                                style: tt.labelSmall?.copyWith(
+                                  fontSize: 10,
+                                  color: cs.onSurfaceVariant,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 20,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ),
                   ),
                 ),
               ),
               SizedBox(
-                height: 150,
+                height: cardHeight + 8, // breathing room
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: links.length,
+                  itemCount: previewCount,
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
                   itemBuilder: (context, i) => _RediscoveryCard(
                     url: links[i],
                     tagFrequency: tagFreq,
+                    width: cardWidth,
+                    height: cardHeight,
                     onTap: () async {
                       final svc = RediscoveryService(
                         ref.read(isarServiceProvider),
@@ -85,11 +123,15 @@ class _RediscoveryCard extends StatelessWidget {
     required this.url,
     required this.tagFrequency,
     required this.onTap,
+    required this.width,
+    required this.height,
   });
 
   final SavedUrl url;
   final Map<String, int> tagFrequency;
   final VoidCallback onTap;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -100,14 +142,15 @@ class _RediscoveryCard extends StatelessWidget {
     final title = TitleResolver.resolve(url, tagFrequency: tagFrequency);
 
     return Material(
-      color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(16),
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: SizedBox(
-          width: 220,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: width,
+          height: height,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -117,28 +160,28 @@ class _RediscoveryCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorWidget: (_, __, ___) => const SizedBox.shrink(),
                 ),
+              // Stronger cinematic gradient
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: hasThumbnail
-                        ? const [0.25, 1.0]
-                        : null,
                     colors: hasThumbnail
                         ? [
-                            Colors.black.withValues(alpha: 0.05),
-                            Colors.black.withValues(alpha: 0.80),
+                            Colors.black.withValues(alpha: 0.08),
+                            Colors.black.withValues(alpha: 0.30),
+                            Colors.black.withValues(alpha: 0.70),
+                            Colors.black.withValues(alpha: 0.92),
                           ]
                         : [
-                            cs.surfaceContainerHigh,
-                            cs.surfaceContainerHigh,
+                            cs.surfaceContainerLow,
+                            cs.surfaceContainerLow,
                           ],
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -146,20 +189,26 @@ class _RediscoveryCard extends StatelessWidget {
                     Text(
                       title,
                       style: tt.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: hasThumbnail ? Colors.white : cs.onSurface,
-                        height: 1.3,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: hasThumbnail
+                            ? Colors.white.withValues(alpha: 0.92)
+                            : cs.onSurface,
+                        height: 1.2,
+                        letterSpacing: -0.1,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       url.domain,
                       style: tt.labelSmall?.copyWith(
+                        fontSize: 10,
                         color: hasThumbnail
-                            ? Colors.white70
+                            ? Colors.white.withValues(alpha: 0.50)
                             : cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w400,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
