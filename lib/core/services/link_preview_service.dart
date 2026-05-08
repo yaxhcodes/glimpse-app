@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:any_link_preview/any_link_preview.dart';
 import 'package:dio/dio.dart';
 
@@ -97,7 +99,9 @@ class LinkPreviewService {
           return result;
         }
       }
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('AnyLinkPreview failed for $normalized: $e',
+          name: 'LinkPreview', stackTrace: st);
       // fall through to manual attempt
     }
 
@@ -126,7 +130,10 @@ class LinkPreviewService {
         }
         return meta;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      developer.log('Manual OG parse failed for $normalized: $e',
+          name: 'LinkPreview', stackTrace: st);
+    }
 
     // Fallback: use domain as title
     return LinkMetadata(title: domain, description: '', domain: domain);
@@ -209,7 +216,10 @@ class LinkPreviewService {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      developer.log('Reddit metadata fetch failed for $domain: $e',
+          name: 'LinkPreview');
+    }
     return null;
   }
 
@@ -285,7 +295,9 @@ class LinkPreviewService {
           author: author != null ? '@$author' : null,
         );
       }
-    } catch (_) {}
+    } catch (e) {
+      developer.log('X oEmbed failed for $domain: $e', name: 'LinkPreview');
+    }
 
     // Fallback path for when oEmbed fails: still try to return full tweet text.
     final fallbackText = await _fetchFullXPostText(url);
@@ -345,7 +357,8 @@ class LinkPreviewService {
       final text = (data['text'] ?? data['full_text'])?.toString();
       if (text == null || text.trim().isEmpty) return null;
       return _decodeHtmlEntities(text);
-    } catch (_) {
+    } catch (e) {
+      developer.log('X syndication fetch failed: $e', name: 'LinkPreview');
       return null;
     }
   }
@@ -373,7 +386,8 @@ class LinkPreviewService {
       final text = (tweet['text'] ?? tweet['raw_text']?['text'])?.toString();
       if (text == null || text.trim().isEmpty) return null;
       return _decodeHtmlEntities(text);
-    } catch (_) {
+    } catch (e) {
+      developer.log('FxTwitter fetch failed: $e', name: 'LinkPreview');
       return null;
     }
   }
@@ -398,7 +412,8 @@ class LinkPreviewService {
       final text = data['text']?.toString();
       if (text == null || text.trim().isEmpty) return null;
       return _decodeHtmlEntities(text);
-    } catch (_) {
+    } catch (e) {
+      developer.log('VxTwitter fetch failed: $e', name: 'LinkPreview');
       return null;
     }
   }
@@ -462,7 +477,9 @@ class LinkPreviewService {
         );
       }
       return meta;
-    } catch (_) {
+    } catch (e) {
+      developer.log('Instagram page metadata failed for $domain: $e',
+          name: 'LinkPreview');
       return null;
     }
   }

@@ -214,8 +214,9 @@ class GeminiService {
           timeout: _primaryTimeout,
           label: 'primary',
         );
-      } catch (_) {
-        // Primary exhausted — try fallback.
+      } catch (e) {
+        developer.log('Primary proxy model failed, trying fallback: $e',
+            name: 'GeminiService');
       }
       return _tryProxyModel(
         modelName: _fallbackModel,
@@ -237,8 +238,9 @@ class GeminiService {
         label: 'primary',
       );
       return r.text;
-    } catch (_) {
-      // Primary exhausted — try fallback.
+    } catch (e) {
+      developer.log('Primary model failed, trying fallback: $e',
+          name: 'GeminiService');
     }
 
     final r = await _tryModel(

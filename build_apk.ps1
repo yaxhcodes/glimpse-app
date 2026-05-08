@@ -5,8 +5,11 @@
 #
 # Usage (Cloudflare Worker proxy — GEMINI_KEY / Voyage key can be empty):
 #   .\build_apk.ps1 -GeminiKey "" -VoyageKey "" `
-#     -ProxyDevSecret "YOUR_DEV_SECRET" -ProxyUserId "user-123" `
+#     -ProxyDevSecret "YOUR_DEV_SECRET" `
 #     -RevenueCatAndroidKey "goog_xxx"
+#
+# AI_PROXY_USER_ID is no longer needed — the app generates and persists a
+# per-install UUID at runtime (see ai_user_id_service.dart).
 #
 # The RevenueCat entitlement id ("Glimpse Pro") is hardcoded in
 # lib/core/services/subscription_service.dart — it never changes per
@@ -20,7 +23,6 @@ param(
     [string]$GeminiKey = "",
     [string]$VoyageKey = "",
     [string]$ProxyDevSecret = "",
-    [string]$ProxyUserId = "",
     [string]$ProxyBaseUrl = "",
     [string]$RevenueCatAndroidKey = "",
     [string]$RevenueCatIosKey = ""
@@ -34,7 +36,6 @@ $defines = @(
     "--dart-define=VOYAGE_KEY=$VoyageKey"
 )
 if ($ProxyDevSecret -ne "") { $defines += "--dart-define=AI_PROXY_DEV_SECRET=$ProxyDevSecret" }
-if ($ProxyUserId -ne "") { $defines += "--dart-define=AI_PROXY_USER_ID=$ProxyUserId" }
 if ($ProxyBaseUrl -ne "") { $defines += "--dart-define=AI_PROXY_BASE_URL=$ProxyBaseUrl" }
 if ($RevenueCatAndroidKey -ne "") { $defines += "--dart-define=REVENUECAT_ANDROID_KEY=$RevenueCatAndroidKey" }
 if ($RevenueCatIosKey -ne "") { $defines += "--dart-define=REVENUECAT_IOS_KEY=$RevenueCatIosKey" }

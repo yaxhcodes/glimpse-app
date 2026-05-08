@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 import '../database/isar_service.dart';
 import 'category_resolver.dart';
 import 'domain_categorizer.dart';
@@ -38,14 +40,26 @@ class EnrichmentService {
         _linkService = linkService,
         _usageService = usageService,
         _isPro = isPro,
-        _onEnriched = onEnriched;
+        _onEnriched = onEnriched {
+    if (kDebugMode) {
+      developer.log(
+        'EnrichmentService created: gemini=${_geminiService != null}, '
+        'embedding=${_embeddingService != null}, '
+        'linkPreview=${_linkService != null}, isPro=$_isPro',
+        name: 'Enrichment',
+      );
+    }
+  }
 
   /// Enrich a batch of URLs with bounded concurrency.
   ///
   /// AI (categorize + summarize) runs 2 at a time.
   /// Embeddings run 2 at a time, but only after AI completes for each URL.
+  /// Individual URL failures do NOT prevent other URLs from being enriched.
   Future<void> enrichBatch(List<int> urlIds) async {
     if (urlIds.isEmpty) return;
+
+    developer.log('enrichBatch START: ${urlIds.length} URLs', name: 'Enrichment');
 
     // Phase 1: AI categorization + summary (concurrency 2)
     final aiSemaphore = _Semaphore(2);
@@ -53,7 +67,7 @@ class EnrichmentService {
     for (final id in urlIds) {
       aiFutures.add(_runWithSemaphore(aiSemaphore, () => _enrichAi(id)));
     }
-    await Future.wait(aiFutures);
+    await Future.wait(aiFutures, eagerError: false);
 
     // Phase 2: Embeddings (concurrency 2)
     final embSemaphore = _Semaphore(2);
@@ -61,28 +75,53 @@ class EnrichmentService {
     for (final id in urlIds) {
       embFutures.add(_runWithSemaphore(embSemaphore, () => _enrichEmbedding(id)));
     }
-    await Future.wait(embFutures);
+    await Future.wait(embFutures, eagerError: false);
+
+    developer.log('enrichBatch COMPLETE', name: 'Enrichment');
 
     // Notify listeners that enrichment is complete
     _onEnriched?.call();
   }
 
   /// Enrich a single URL with all phases (AI then embedding).
+  /// Each phase is individually guarded so a failure in one does not
+  /// prevent the other from running or the callback from firing.
   Future<void> enrichSingle(int urlId) async {
-    await _enrichAi(urlId);
-    await _enrichEmbedding(urlId);
+    try {
+      await _enrichAi(urlId);
+    } catch (e, st) {
+      developer.log('enrichSingle AI phase failed for $urlId: $e',
+          name: 'Enrichment', stackTrace: st);
+    }
+    try {
+      await _enrichEmbedding(urlId);
+    } catch (e, st) {
+      developer.log('enrichSingle embedding phase failed for $urlId: $e',
+          name: 'Enrichment', stackTrace: st);
+    }
     _onEnriched?.call();
   }
 
   /// Enrich metadata for a single URL (fetch title/description/thumbnail).
   /// Used when the URL was saved with only a domain fallback.
   Future<void> enrichMetadata(int urlId) async {
-    if (_linkService == null) return;
+    if (_linkService == null) {
+      developer.log('enrichMetadata SKIP: linkService is null for $urlId',
+          name: 'Enrichment');
+      return;
+    }
     final url = await _isarService.getUrlById(urlId);
-    if (url == null) return;
+    if (url == null) {
+      developer.log('enrichMetadata SKIP: URL $urlId not found in Isar',
+          name: 'Enrichment');
+      return;
+    }
+
+    developer.log('enrichMetadata START: ${url.rawUrl}', name: 'Enrichment');
 
     try {
       final metadata = await _linkService.fetchMetadata(url.rawUrl);
+      developer.log('enrichMetadata FETCH OK: "${metadata.title}"', name: 'Enrichment');
 
       final cleanDescription = metadata.description.trim().toLowerCase() ==
               metadata.title.trim().toLowerCase()
@@ -111,22 +150,42 @@ class EnrichmentService {
       }
 
       await _isarService.updateUrl(url);
+      developer.log('enrichMetadata SAVE OK: ${url.rawUrl}', name: 'Enrichment');
       _onEnriched?.call();
-    } catch (e) {
-      developer.log('Metadata enrichment failed for $urlId: $e',
-          name: 'EnrichmentService');
+    } catch (e, st) {
+      developer.log('enrichMetadata FAILED for $urlId: $e',
+          name: 'Enrichment', stackTrace: st);
     }
   }
 
   /// Phase 1: AI categorization + summary.
+  /// Entire method is wrapped in try/catch so failures never crash
+  /// the batch or prevent Phase 2 (embedding) from running.
   Future<void> _enrichAi(int urlId) async {
+    try {
+      await _enrichAiInner(urlId);
+    } catch (e, st) {
+      developer.log('_enrichAi FAILED for $urlId: $e',
+          name: 'Enrichment', stackTrace: st);
+    }
+  }
+
+  Future<void> _enrichAiInner(int urlId) async {
     final url = await _isarService.getUrlById(urlId);
-    if (url == null) return;
+    if (url == null) {
+      developer.log('_enrichAi SKIP: URL $urlId not found in Isar',
+          name: 'Enrichment');
+      return;
+    }
+
+    developer.log('_enrichAi START: ${url.rawUrl}', name: 'Enrichment');
 
     final platformCat = DomainCategorizer.categorize(url.rawUrl);
 
     // Skip if already AI-categorized (not just domain fallback)
     if (url.category != platformCat.category && url.summary != null) {
+      developer.log('_enrichAi SKIP (already enriched): ${url.rawUrl}',
+          name: 'Enrichment');
       return;
     }
 
@@ -135,6 +194,13 @@ class EnrichmentService {
       _isPro,
     );
 
+    if (aiLimitReached) {
+      developer.log(
+        '_enrichAi SKIP: AI save limit reached (isPro=$_isPro)',
+        name: 'Enrichment',
+      );
+    }
+
     String category;
     String emoji;
     List<String> tags;
@@ -142,25 +208,36 @@ class EnrichmentService {
 
     if (_geminiService != null && !aiLimitReached) {
       try {
-        final result = await _geminiService.categorize(
+        developer.log('_enrichAi CALLING GeminiService.categorize: ${url.rawUrl}',
+            name: 'Enrichment');
+        final result = await _geminiService!.categorize(
           title: url.title,
           description: url.description,
           url: url.rawUrl,
+        );
+        developer.log(
+          '_enrichAi Gemini RESULT: cat=${result.category}, '
+          'emoji=${result.emoji}, tags=${result.tags.length}, '
+          'summary=${result.summary.length} chars',
+          name: 'Enrichment',
         );
         category = result.category;
         emoji = result.emoji;
         tags = result.tags;
         summary = result.summary.isNotEmpty ? result.summary : null;
         await _usageService.incrementUsage(UsageFeature.aiSave);
-      } catch (e) {
-        developer.log('AI enrichment failed for $urlId: $e',
-            name: 'EnrichmentService');
+      } catch (e, st) {
+        developer.log('_enrichAi Gemini FAILED for $urlId: $e',
+            name: 'Enrichment', stackTrace: st);
         category = platformCat.category;
         emoji = platformCat.emoji;
         tags = platformCat.tags;
         summary = null;
       }
     } else {
+      if (_geminiService == null) {
+        developer.log('_enrichAi SKIP: GeminiService is null', name: 'Enrichment');
+      }
       category = platformCat.category;
       emoji = platformCat.emoji;
       tags = platformCat.tags;
@@ -175,7 +252,11 @@ class EnrichmentService {
 
     // Reload url in case it was modified concurrently
     final freshUrl = await _isarService.getUrlById(urlId);
-    if (freshUrl == null) return;
+    if (freshUrl == null) {
+      developer.log('_enrichAi SKIP: URL $urlId disappeared before save',
+          name: 'Enrichment');
+      return;
+    }
 
     freshUrl.category = category;
     freshUrl.categoryEmoji = emoji;
@@ -187,17 +268,42 @@ class EnrichmentService {
     freshUrl.summary = summary;
 
     await _isarService.updateUrl(freshUrl);
+    developer.log('_enrichAi SAVE OK: ${freshUrl.rawUrl} → $category', name: 'Enrichment');
   }
 
   /// Phase 2: Generate embedding vector.
+  /// Entire method is wrapped in try/catch so failures never crash the batch.
   Future<void> _enrichEmbedding(int urlId) async {
-    if (_embeddingService == null) return;
+    try {
+      await _enrichEmbeddingInner(urlId);
+    } catch (e, st) {
+      developer.log('_enrichEmbedding FAILED for $urlId: $e',
+          name: 'Enrichment', stackTrace: st);
+    }
+  }
+
+  Future<void> _enrichEmbeddingInner(int urlId) async {
+    if (_embeddingService == null) {
+      developer.log('_enrichEmbedding SKIP: EmbeddingService is null for $urlId',
+          name: 'Enrichment');
+      return;
+    }
 
     final url = await _isarService.getUrlById(urlId);
-    if (url == null) return;
+    if (url == null) {
+      developer.log('_enrichEmbedding SKIP: URL $urlId not found in Isar',
+          name: 'Enrichment');
+      return;
+    }
 
     // Skip if already embedded
-    if (url.embedding != null && url.embedding!.isNotEmpty) return;
+    if (url.embedding != null && url.embedding!.isNotEmpty) {
+      developer.log('_enrichEmbedding SKIP (already embedded): ${url.rawUrl}',
+          name: 'Enrichment');
+      return;
+    }
+
+    developer.log('_enrichEmbedding START: ${url.rawUrl}', name: 'Enrichment');
 
     try {
       final textToEmbed = buildBookmarkEmbeddingInput(
@@ -207,18 +313,30 @@ class EnrichmentService {
         category: url.category,
         summary: url.summary,
       );
-      final vec = await _embeddingService.generateEmbedding(textToEmbed);
-      if (vec.isEmpty) return;
+      developer.log('_enrichEmbedding CALLING EmbeddingService for ${url.rawUrl}',
+          name: 'Enrichment');
+      final vec = await _embeddingService!.generateEmbedding(textToEmbed);
+      if (vec.isEmpty) {
+        developer.log('_enrichEmbedding EMPTY vector returned for ${url.rawUrl}',
+            name: 'Enrichment');
+        return;
+      }
 
       // Reload in case AI enrichment modified it concurrently
       final freshUrl = await _isarService.getUrlById(urlId);
-      if (freshUrl == null) return;
+      if (freshUrl == null) {
+        developer.log('_enrichEmbedding SKIP: URL $urlId disappeared before save',
+            name: 'Enrichment');
+        return;
+      }
 
       freshUrl.embedding = vec;
       await _isarService.updateUrl(freshUrl);
-    } on EmbeddingException catch (e) {
-      developer.log('Embedding enrichment failed for $urlId: $e',
-          name: 'EnrichmentService');
+      developer.log('_enrichEmbedding SAVE OK: ${freshUrl.rawUrl} (${vec.length} dims)',
+          name: 'Enrichment');
+    } on EmbeddingException catch (e, st) {
+      developer.log('_enrichEmbedding EmbeddingException for $urlId: $e',
+          name: 'Enrichment', stackTrace: st);
     }
   }
 

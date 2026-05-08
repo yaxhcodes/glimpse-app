@@ -24,7 +24,7 @@ class AiProxyException implements Exception {
 /// Headers (always):
 /// - `Content-Type: application/json`
 /// - `Authorization: Bearer <AI_PROXY_DEV_SECRET>`
-/// - `X-User-Id: <AI_PROXY_USER_ID>`
+/// - `X-User-Id: <runtime-generated user ID>`
 class AiProxyClient {
   AiProxyClient._()
     : _dio = Dio(

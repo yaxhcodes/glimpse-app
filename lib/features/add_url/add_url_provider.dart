@@ -3,9 +3,10 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/link_preview_service.dart';
 import '../../core/services/domain_categorizer.dart';
 import '../../core/services/category_resolver.dart';
+import '../../core/services/enrichment_service.dart';
+import '../../core/services/link_preview_service.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../home/home_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
@@ -113,6 +114,9 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
 
       await isarService.saveUrl(savedUrl);
 
+      developer.log('saveUrl OK: id=${savedUrl.id} url=$normalizedUrl',
+          name: 'AddUrl');
+
       // Invalidate providers so Home screen shows the new URL instantly
       _ref.invalidate(urlStreamProvider);
       _ref.invalidate(categoriesProvider);
@@ -153,16 +157,24 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     _findAndEnrich(normalizedUrl, enricher);
   }
 
-  Future<void> _findAndEnrich(String normalizedUrl, dynamic enricher) async {
+  Future<void> _findAndEnrich(String normalizedUrl, EnrichmentService enricher) async {
     try {
       final isarService = _ref.read(isarServiceProvider);
       final url = await isarService.findByRawUrl(normalizedUrl);
-      if (url == null) return;
+      if (url == null) {
+        developer.log('_findAndEnrich: URL not found after save: $normalizedUrl',
+            name: 'AddUrl');
+        return;
+      }
+      developer.log('_findAndEnrich START: id=${url.id} url=$normalizedUrl',
+          name: 'AddUrl');
       // First enrich metadata, then AI + embedding
       await enricher.enrichMetadata(url.id);
       await enricher.enrichSingle(url.id);
-    } catch (e) {
-      developer.log('Background enrichment failed: $e', name: 'AddUrl');
+      developer.log('_findAndEnrich DONE: $normalizedUrl', name: 'AddUrl');
+    } catch (e, st) {
+      developer.log('Background enrichment failed: $e',
+          name: 'AddUrl', stackTrace: st);
     }
   }
 

@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
-import 'dart:math';
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'ai_user_id_service.dart';
 
 import 'ai_proxy_config.dart';
 
@@ -59,34 +60,13 @@ class RevenueCatConfig {
 
 /// Stable identifier used as RevenueCat `appUserID`.
 ///
-/// Preference order:
-///   1. `--dart-define=AI_PROXY_USER_ID=...` — same id the AI proxy uses,
-///      so purchases and backend calls share ONE identity.
-///   2. Persisted per-install UUID in SharedPreferences — fallback.
+/// Uses [AiUserIdService] — a single per-install UUID persisted in
+/// SharedPreferences — so that purchases and AI proxy calls share
+/// ONE identity. Generated on first launch and never changes unless
+/// the user clears app data.
 class _AppUserId {
-  static const _prefsKey = 'glimpse_rc_app_user_id';
-
   static Future<String> getOrCreate() async {
-    final injected = AiProxyConfig.userId.trim();
-    if (injected.isNotEmpty) return injected;
-
-    final prefs = await SharedPreferences.getInstance();
-    final existing = prefs.getString(_prefsKey);
-    if (existing != null && existing.isNotEmpty) return existing;
-    final id = _generate();
-    await prefs.setString(_prefsKey, id);
-    return id;
-  }
-
-  static String _generate() {
-    final rnd = Random.secure();
-    final bytes = List<int>.generate(16, (_) => rnd.nextInt(256));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    String hex(int b) => b.toRadixString(16).padLeft(2, '0');
-    final h = bytes.map(hex).join();
-    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}'
-        '-${h.substring(16, 20)}-${h.substring(20)}';
+    return AiUserIdService.getOrCreateUserId();
   }
 }
 
@@ -160,9 +140,10 @@ class SubscriptionService {
         'entitlementId="${RevenueCatConfig.entitlementId}"',
         name: 'Subscription',
       );
-      // ignore: avoid_print
-      print('[Subscription] configured appUserId=$resolvedAppUserId '
-          'key=${_obfuscate(key)} entitlement="${RevenueCatConfig.entitlementId}"');
+      if (kDebugMode) {
+        print('[Subscription] configured appUserId=$resolvedAppUserId '
+            'key=${_obfuscate(key)} entitlement="${RevenueCatConfig.entitlementId}"');
+      }
 
       // WHY no `addCustomerInfoUpdateListener` here:
       // the listener is now owned by `SubscriptionTierNotifier` so it can
@@ -197,10 +178,11 @@ class SubscriptionService {
       'lookingFor="${RevenueCatConfig.entitlementId}"',
       name: 'Subscription',
     );
-    // ignore: avoid_print
-    print('[Subscription] $source — entitlements.active=$activeIds '
-        'activeSubscriptions=$subs '
-        '(lookingFor="${RevenueCatConfig.entitlementId}")');
+    if (kDebugMode) {
+      print('[Subscription] $source — entitlements.active=$activeIds '
+          'activeSubscriptions=$subs '
+          '(lookingFor="${RevenueCatConfig.entitlementId}")');
+    }
   }
 
   /// Derive the app tier from a [CustomerInfo]. Public so the notifier can
@@ -290,8 +272,9 @@ class SubscriptionService {
         'allOfferingKeys=${offerings.all.keys.toList()}',
         name: 'Subscription',
       );
-      // ignore: avoid_print
-      print('[Subscription] offerings current="$curId" packageIds=$pkgIds');
+      if (kDebugMode) {
+        print('[Subscription] offerings current="$curId" packageIds=$pkgIds');
+      }
 
       final offering = _offeringWithPackages(offerings);
       if (offering == null) {
@@ -310,9 +293,10 @@ class SubscriptionService {
         'package=${pkg.identifier} storeProduct=${pkg.storeProduct.identifier}',
         name: 'Subscription',
       );
-      // ignore: avoid_print
-      print('[Subscription] Purchases.purchase → package=${pkg.identifier} '
-          'product=${pkg.storeProduct.identifier}');
+      if (kDebugMode) {
+        print('[Subscription] Purchases.purchase → package=${pkg.identifier} '
+            'product=${pkg.storeProduct.identifier}');
+      }
 
       final result = await Purchases.purchase(PurchaseParams.package(pkg));
 
@@ -332,8 +316,9 @@ class SubscriptionService {
         name: 'Subscription',
         stackTrace: st,
       );
-      // ignore: avoid_print
-      print('[Subscription] purchase error code=$code message=${e.message}');
+      if (kDebugMode) {
+        print('[Subscription] purchase error code=$code message=${e.message}');
+      }
 
       if (code == PurchasesErrorCode.purchaseCancelledError) return false;
       if (code == PurchasesErrorCode.paymentPendingError) return false;
@@ -482,9 +467,10 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
         '(active=${info.entitlements.active.keys.toList()})',
         name: 'Subscription',
       );
-      // ignore: avoid_print
-      print('[Subscription] notifier listener → $tier '
-          '(active=${info.entitlements.active.keys.toList()})');
+      if (kDebugMode) {
+        print('[Subscription] notifier listener → $tier '
+            '(active=${info.entitlements.active.keys.toList()})');
+      }
       // Overwrite any AsyncLoading / AsyncError the UI might be showing.
       state = AsyncData(tier);
     };
@@ -518,9 +504,10 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
         '(active=${info.entitlements.active.keys.toList()})',
         name: 'Subscription',
       );
-      // ignore: avoid_print
-      print('[Subscription] notifier build (cached) → $tier '
-          '(active=${info.entitlements.active.keys.toList()})');
+      if (kDebugMode) {
+        print('[Subscription] notifier build (cached) → $tier '
+            '(active=${info.entitlements.active.keys.toList()})');
+      }
       return tier;
     } catch (e) {
       developer.log(
@@ -570,9 +557,10 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
         '(active=${info.entitlements.active.keys.toList()})',
         name: 'Subscription',
       );
-      // ignore: avoid_print
-      print('[Subscription] refreshAfterPurchase → $tier '
-          '(active=${info.entitlements.active.keys.toList()})');
+      if (kDebugMode) {
+        print('[Subscription] refreshAfterPurchase → $tier '
+            '(active=${info.entitlements.active.keys.toList()})');
+      }
       state = AsyncData(tier);
     } catch (e, st) {
       developer.log(

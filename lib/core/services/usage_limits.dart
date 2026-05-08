@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 import '../config/app_environment.dart';
 
 /// Features tracked for monthly usage limits.
@@ -23,8 +25,9 @@ class UsageLimits {
 
   static int getLimit(UsageFeature feature) {
     final limit = _isDev ? _devLimit(feature) : _prodLimit(feature);
-    // ignore: avoid_print
-    print('[UsageLimits] limit for ${feature.name}: $limit (dev: $_isDev)');
+    if (kDebugMode) {
+      print('[UsageLimits] limit for ${feature.name}: $limit (dev: $_isDev)');
+    }
     return limit;
   }
 

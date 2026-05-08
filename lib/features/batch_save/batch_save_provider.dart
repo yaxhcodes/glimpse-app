@@ -292,6 +292,9 @@ class BatchSaveNotifier extends StateNotifier<BatchSaveState> {
   /// Kick off background enrichment without awaiting it.
   /// Failures are logged but never block the user.
   void _enrichInBackground(List<int> urlIds) {
+    developer.log('_enrichInBackground START: ${urlIds.length} URLs: $urlIds',
+        name: 'BatchSave');
+
     final enricher = _ref.read(enrichmentServiceProvider)(
       onEnriched: () {
         // Refresh providers so the UI progressively updates
@@ -304,9 +307,11 @@ class BatchSaveNotifier extends StateNotifier<BatchSaveState> {
       },
     );
 
-    enricher.enrichBatch(urlIds).catchError((e) {
+    enricher.enrichBatch(urlIds).then((_) {
+      developer.log('_enrichInBackground COMPLETE', name: 'BatchSave');
+    }).catchError((e, st) {
       developer.log('Background enrichment batch failed: $e',
-          name: 'BatchSave');
+          name: 'BatchSave', stackTrace: st);
     });
   }
 

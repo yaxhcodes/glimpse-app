@@ -1,6 +1,9 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/isar_service.dart';
+import '../services/ai_proxy_config.dart';
 import '../services/bundled_keys.dart';
 import '../services/embedding_service.dart';
 import '../services/enrichment_service.dart';
@@ -24,7 +27,22 @@ final linkPreviewServiceProvider = Provider<LinkPreviewService>((ref) {
 /// Returns `null` when there is no Voyage key AND the AI proxy is not
 /// enabled, so call sites can gracefully degrade to keyword paths.
 final embeddingServiceProvider = Provider<EmbeddingService?>((ref) {
-  if (!BundledKeys.hasVoyage) return null;
+  BundledKeys.debugLogAvailability();
+  if (!BundledKeys.hasVoyage) {
+    developer.log(
+      'EmbeddingService: SKIP — no direct Voyage key and proxy not enabled '
+      '(proxyEnabled=${AiProxyConfig.enabled}, '
+      'userId=${AiProxyConfig.userId.isNotEmpty ? "set" : "MISSING"})',
+      name: 'ServiceProviders',
+    );
+    return null;
+  }
+  developer.log(
+    'EmbeddingService: INIT '
+    '(proxy=${AiProxyConfig.enabled}, '
+    'userId=${AiProxyConfig.userId.isNotEmpty ? "set" : "MISSING"})',
+    name: 'ServiceProviders',
+  );
   return EmbeddingService(apiKey: BundledKeys.voyageKey);
 });
 
@@ -33,7 +51,21 @@ final embeddingServiceProvider = Provider<EmbeddingService?>((ref) {
 /// Returns `null` when Gemini is unavailable (no key AND no proxy),
 /// so call sites can skip AI-only features without try/catching missing keys.
 final geminiServiceProvider = Provider<GeminiService?>((ref) {
-  if (!BundledKeys.hasGemini) return null;
+  if (!BundledKeys.hasGemini) {
+    developer.log(
+      'GeminiService: SKIP — no direct Gemini key and proxy not enabled '
+      '(proxyEnabled=${AiProxyConfig.enabled}, '
+      'userId=${AiProxyConfig.userId.isNotEmpty ? "set" : "MISSING"})',
+      name: 'ServiceProviders',
+    );
+    return null;
+  }
+  developer.log(
+    'GeminiService: INIT '
+    '(proxy=${AiProxyConfig.enabled}, '
+    'userId=${AiProxyConfig.userId.isNotEmpty ? "set" : "MISSING"})',
+    name: 'ServiceProviders',
+  );
   return GeminiService(BundledKeys.geminiKey);
 });
 
