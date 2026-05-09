@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/widgets/upgrade_gate.dart';
 import '../home/home_provider.dart';
 import 'synthesis_provider.dart';
 
@@ -112,17 +113,32 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
             // ─── Result ─────────────────────────────────────────────────
             if (state.error != null) ...[
               const SizedBox(height: 16),
-              Card(
-                color: theme.colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    state.error!,
-                    style: TextStyle(
-                        color: theme.colorScheme.onErrorContainer),
+              if (state.isProFeature)
+                _ProFeatureErrorCard(
+                  onUpgrade: () async {
+                    final upgraded = await showUpgradeGate(
+                      context,
+                      UpgradeFeature.synthesis,
+                    );
+                    if (upgraded == true && context.mounted) {
+                      ref
+                          .read(synthesisProvider.notifier)
+                          .synthesize(question: _questionController.text);
+                    }
+                  },
+                )
+              else
+                Card(
+                  color: theme.colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      state.error!,
+                      style: TextStyle(
+                          color: theme.colorScheme.onErrorContainer),
+                    ),
                   ),
                 ),
-              ),
             ],
             if (state.result != null) ...[
               const SizedBox(height: 20),
@@ -138,8 +154,61 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
+),
+             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProFeatureErrorCard extends StatelessWidget {
+  const _ProFeatureErrorCard({required this.onUpgrade});
+
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.merge_type_rounded,
+              size: 40,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Multi-link synthesis is a Pro feature',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
-            ],
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Connect ideas across your saves into a cohesive narrative.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onUpgrade,
+              icon: const Icon(Icons.auto_awesome, size: 18),
+              label: const Text('Upgrade for synthesis'),
+            ),
           ],
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../shared/widgets/upgrade_gate.dart';
 import 'recap_provider.dart';
 
 class RecapScreen extends ConsumerStatefulWidget {
@@ -41,9 +42,68 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (state.error != null)
+else if (state.error != null)
             SliverFillRemaining(
-              child: Center(child: Text('Error: ${state.error}')),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        state.isProFeature
+                            ? Icons.auto_stories_outlined
+                            : Icons.error_outline_rounded,
+                        size: 48,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        state.isProFeature
+                            ? 'Weekly Recap is a Pro feature'
+                            : 'Something went wrong',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        state.isProFeature
+                            ? 'Get a concise AI-powered summary of your week in saves — topics, patterns, and highlights.'
+                            : state.error ?? 'Please try again later.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.45,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      if (state.isProFeature)
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final upgraded = await showUpgradeGate(
+                              context,
+                              UpgradeFeature.recap,
+                            );
+                            if (upgraded == true && context.mounted) {
+                              ref.read(recapProvider.notifier).loadRecap();
+                            }
+                          },
+                          icon: const Icon(Icons.auto_stories_outlined),
+                          label: const Text('Upgrade for Weekly Recap'),
+                        )
+                      else
+                        FilledButton.tonalIcon(
+                          onPressed: () =>
+                              ref.read(recapProvider.notifier).loadRecap(),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Try again'),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             )
           else ...[
             SliverPadding(

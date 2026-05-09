@@ -11,6 +11,7 @@ import '../../core/constants/app_assets.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/user_display_name_provider.dart';
 import '../../core/services/usage_service.dart';
+import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/widgets/usage_badge.dart';
 import '../../core/services/category_resolver.dart';
 import '../home/home_provider.dart';
@@ -82,6 +83,21 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       if (!next.isLoading) {
         WidgetsBinding.instance
             .addPostFrameCallback((_) => _scrollToBottom());
+      }
+      if (next.limitReached != null) {
+        // Clear the flag immediately so it doesn't re-trigger on rebuilds.
+        ref.read(askProvider.notifier).clearLimitReached();
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          final upgraded = await showUpgradeGate(
+            context,
+            UpgradeFeature.ask,
+          );
+          if (!mounted) return;
+          if (upgraded == true) {
+            ref.read(askProvider.notifier).clearHistory();
+          }
+        });
       }
     });
 

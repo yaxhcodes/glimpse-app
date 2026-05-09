@@ -801,6 +801,11 @@ class IsarService {
     await isar.writeTxn(() => isar.userCollections.delete(id));
   }
 
+  Future<void> updateCollection(UserCollection collection) async {
+    final isar = await _db;
+    await isar.writeTxn(() => isar.userCollections.put(collection));
+  }
+
   Future<List<SavedUrl>> getUrlsInCollection(int collectionId) async {
     final isar = await _db;
     final c = await isar.userCollections.get(collectionId);

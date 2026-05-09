@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'core/providers/backup_provider.dart';
 import 'core/providers/service_providers.dart';
+import 'core/services/backup/backup_intent_service.dart';
+import 'core/services/backup/backup_models.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/digest_scheduler.dart';
 import 'core/services/notification_router.dart';
@@ -31,6 +35,8 @@ import 'features/settings/settings_screen.dart';
 import 'features/settings/look_and_feel_screen.dart';
 import 'features/settings/about_screen.dart';
 import 'features/settings/subscription_screen.dart';
+import 'features/settings/data_backup_screen.dart';
+import 'features/settings/backup_preview_screen.dart';
 import 'features/ask/ask_screen.dart';
 import 'features/mindmap/mindmap_screen.dart';
 import 'features/recap/recap_screen.dart';
@@ -135,6 +141,14 @@ final _router = GoRouter(
       builder: (context, state) => const SubscriptionScreen(),
     ),
     GoRoute(
+      path: '/settings/data-backup',
+      builder: (context, state) => const DataBackupScreen(),
+    ),
+    GoRoute(
+      path: '/settings/data-backup/preview',
+      builder: (context, state) => const BackupPreviewScreen(),
+    ),
+    GoRoute(
       path: '/ask',
       builder: (context, state) => const AskScreen(),
     ),
@@ -181,6 +195,8 @@ class GlimpseApp extends ConsumerStatefulWidget {
 class _GlimpseAppState extends ConsumerState<GlimpseApp>
     with WidgetsBindingObserver {
   late StreamSubscription _shareIntentSub;
+  StreamSubscription<String>? _backupIntentSub;
+  final BackupIntentService _backupIntentService = BackupIntentService();
 
   @override
   void initState() {
@@ -211,6 +227,10 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         .getMediaStream()
         .listen(_handleSharedMedia);
 
+    // Backup files opened via "Open with..." from a file manager.
+    _backupIntentSub = _backupIntentService.incoming.listen(_handleBackupFile);
+    unawaited(_backupIntentService.start());
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final isar = ref.read(isarServiceProvider);
       final embedding = ref.read(embeddingServiceProvider);
@@ -227,6 +247,51 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         ref.invalidate(askEmptySuggestionsProvider);
       }());
     });
+  }
+
+  Future<void> _handleBackupFile(String path) async {
+    final file = File(path);
+    if (!await file.exists()) return;
+
+    String content;
+    try {
+      content = await file.readAsString();
+    } catch (e) {
+      _showBackupOpenError('Could not read the backup file.');
+      return;
+    }
+
+    // Defer until the navigator is ready (cold start fires before the
+    // first frame).
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Validate via the backup notifier so the BackupPreviewScreen can
+      // pick it up directly from `state.previewData`.
+      await ref.read(backupProvider.notifier).validateBackupContent(content);
+      if (!mounted) return;
+
+      final state = ref.read(backupProvider);
+      if (state.status == BackupStatus.previewing &&
+          state.previewData != null) {
+        // Make sure we land somewhere visible before opening the preview
+        // (e.g. cold start may still be on '/').
+        _router.push('/settings/data-backup/preview');
+      } else if (state.status == BackupStatus.error && state.error != null) {
+        _showBackupOpenError(state.error!.message);
+        ref.read(backupProvider.notifier).reset();
+      }
+    });
+  }
+
+  void _showBackupOpenError(String message) {
+    final ctx = _router.routerDelegate.navigatorKey.currentContext;
+    if (ctx == null) return;
+    ScaffoldMessenger.of(ctx)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+      ));
   }
 
   void _handleSharedMedia(List<SharedMediaFile> files) {
@@ -344,6 +409,8 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _shareIntentSub.cancel();
+    _backupIntentSub?.cancel();
+    unawaited(_backupIntentService.dispose());
     super.dispose();
   }
 

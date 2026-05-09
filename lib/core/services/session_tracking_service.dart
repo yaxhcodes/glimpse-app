@@ -59,6 +59,10 @@ class SessionTrackingService {
     await file.writeAsString(json);
   }
 
+  Future<List<SessionRecord>> readAll() => _readAll();
+
+  Future<void> writeAll(List<SessionRecord> records) => _writeAll(records);
+
   /// Record that [urlId] belongs to [sessionId].
   Future<void> record({
     required int urlId,

@@ -22,6 +22,17 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Glimpse handles incoming ACTION_VIEW intents (e.g. opening
+                 a backup file from a file manager) entirely via the
+                 `com.shinrinyoku.glimpse/backup_intent` MethodChannel
+                 implemented in MainActivity.kt. We disable Flutter's
+                 built-in deep-link forwarder so the engine doesn't try
+                 to push the file URI into GoRouter as a route, which
+                 would surface as a "Page Not Found" error since these
+                 URIs don't correspond to any in-app route. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -32,6 +43,31 @@
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <!-- Open Glimpse backup files from a file manager / Files app.
+                 Broad: any application/json file via "Open with"… -->
+            <intent-filter android:label="Open with Glimpse">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/json" />
+            </intent-filter>
+            <!-- Backup files often arrive with the generic
+                 application/octet-stream mimetype (e.g. when downloaded
+                 from a cloud sync or shared via some apps). Also match
+                 .json by file path for those cases. -->
+            <intent-filter android:label="Open Glimpse backup">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.json" />
+                <data android:pathPattern=".*glimpse-backup-.*" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

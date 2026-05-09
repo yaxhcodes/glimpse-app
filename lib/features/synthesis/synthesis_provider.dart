@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
@@ -10,12 +12,14 @@ class SynthesisState {
   final bool isLoading;
   final String? result;
   final String? error;
+  final bool isProFeature;
 
   const SynthesisState({
     this.selectedUrls = const [],
     this.isLoading = false,
     this.result,
     this.error,
+    this.isProFeature = false,
   });
 
   SynthesisState copyWith({
@@ -23,12 +27,14 @@ class SynthesisState {
     bool? isLoading,
     String? result,
     String? error,
+    bool? isProFeature,
   }) {
     return SynthesisState(
       selectedUrls: selectedUrls ?? this.selectedUrls,
       isLoading: isLoading ?? this.isLoading,
       result: result ?? this.result,
       error: error,
+      isProFeature: isProFeature ?? this.isProFeature,
     );
   }
 }
@@ -57,10 +63,13 @@ class SynthesisNotifier extends StateNotifier<SynthesisState> {
         revenueCatTier: tier,
         devProOverride: devO,
       )) {
+        developer.log('Synthesis: Pro feature locked (tier=$tier, dev=$devO)',
+            name: 'Synthesis');
         state = state.copyWith(
           isLoading: false,
           error:
               'Multi-Link Synthesis is a premium feature. Upgrade to unlock it.',
+          isProFeature: true,
         );
         return;
       }

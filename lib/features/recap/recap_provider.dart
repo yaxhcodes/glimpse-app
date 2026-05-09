@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,6 +26,7 @@ class RecapState {
   final List<SavedUrl> urls;
   final Map<String, int> topicCounts;
   final String? error;
+  final bool isProFeature;
 
   const RecapState({
     this.isLoading = false,
@@ -31,6 +34,7 @@ class RecapState {
     this.urls = const [],
     this.topicCounts = const {},
     this.error,
+    this.isProFeature = false,
   });
 
   RecapState copyWith({
@@ -39,6 +43,7 @@ class RecapState {
     List<SavedUrl>? urls,
     Map<String, int>? topicCounts,
     String? error,
+    bool? isProFeature,
   }) {
     return RecapState(
       isLoading: isLoading ?? this.isLoading,
@@ -46,6 +51,7 @@ class RecapState {
       urls: urls ?? this.urls,
       topicCounts: topicCounts ?? this.topicCounts,
       error: error,
+      isProFeature: isProFeature ?? this.isProFeature,
     );
   }
 }
@@ -71,9 +77,12 @@ class RecapNotifier extends StateNotifier<RecapState> {
         revenueCatTier: tier,
         devProOverride: devO,
       )) {
+        developer.log('Recap: Pro feature locked (tier=$tier, dev=$devO)',
+            name: 'Recap');
         state = state.copyWith(
           isLoading: false,
           error: 'Weekly Recap is a premium feature. Upgrade to unlock it.',
+          isProFeature: true,
         );
         return;
       }

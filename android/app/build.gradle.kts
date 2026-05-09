@@ -81,4 +81,9 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
+    // SAF tree access for the user-chosen backup folder. DocumentFile lets
+    // us list / create / overwrite files inside a tree URI without
+    // touching the lower-level DocumentsContract APIs directly.
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }

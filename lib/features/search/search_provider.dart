@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -77,6 +79,7 @@ class Search extends _$Search {
         isPro,
       );
       if (searchBlocked) {
+        developer.log('Search limit reached (isPro=$isPro)', name: 'Search');
         state = AsyncValue.error(
           const UsageLimitReachedException(UsageFeature.search),
           StackTrace.current,

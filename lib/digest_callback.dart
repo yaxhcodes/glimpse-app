@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'core/services/backup_background_task.dart';
+import 'core/services/backup_scheduler.dart';
 import 'core/services/digest_background.dart';
 import 'core/services/digest_prefs.dart';
 import 'core/services/digest_scheduler.dart';
@@ -19,6 +21,8 @@ void digestCallbackDispatcher() {
           await DigestScheduler.scheduleNext();
         } catch (_) {}
       }
+    } else if (task == BackupScheduler.taskName) {
+      await BackupBackgroundTask.run();
     }
     return Future.value(true);
   });

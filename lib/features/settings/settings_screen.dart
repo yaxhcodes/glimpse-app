@@ -197,6 +197,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const SizedBox(height: 16),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
+                        title: const Text('Data & Backup'),
+                        subtitle: const Text('Protect and restore your saved knowledge'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/settings/data-backup'),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
                         title: const Text('Clear All Data'),
                         subtitle: const Text('Permanently delete all saved links'),
                         onTap: _clearData,

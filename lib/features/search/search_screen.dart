@@ -12,6 +12,7 @@ import '../../core/services/usage_service.dart';
 import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/widgets/usage_badge.dart';
 import '../home/home_provider.dart';
 import 'search_provider.dart';
@@ -410,8 +411,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   const SizedBox(height: 20),
                                   if (isLimit)
                                     FilledButton.icon(
-                                      onPressed: () => context
-                                          .push('/settings/subscription'),
+                                      onPressed: () async {
+                                        final upgraded = await showUpgradeGate(
+                                          context,
+                                          UpgradeFeature.search,
+                                        );
+                                        if (upgraded == true && mounted) {
+                                          final t = _controller.text.trim();
+                                          if (t.length > 2) {
+                                            ref
+                                                .read(searchProvider.notifier)
+                                                .search(t);
+                                          }
+                                        }
+                                      },
                                       icon: const Icon(
                                           Icons.workspace_premium_outlined),
                                       label: const Text('Upgrade to Pro'),

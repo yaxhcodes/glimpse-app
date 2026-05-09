@@ -36,26 +36,33 @@ class ChatMessageSection {
   });
 }
 
+/// Feature that hit a usage limit (for UI upgrade gate display).
+enum UsageLimitHit { ask, search, aiSave }
+
 class AskState {
   final List<ChatMessage> messages;
   final bool isLoading;
   final String? error;
+  final UsageLimitHit? limitReached;
 
   const AskState({
     this.messages = const [],
     this.isLoading = false,
     this.error,
+    this.limitReached,
   });
 
   AskState copyWith({
     List<ChatMessage>? messages,
     bool? isLoading,
     String? error,
+    UsageLimitHit? limitReached,
   }) {
     return AskState(
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      limitReached: limitReached,
     );
   }
 }
@@ -133,8 +140,10 @@ class AskNotifier extends StateNotifier<AskState> {
         isPro,
       );
       if (hasReached) {
-        _addBotMessage(
-          "You've reached your monthly limit for Ask Glimpse. Upgrade to Glimpse Pro for unlimited queries.",
+        developer.log('Ask limit reached (isPro=$isPro)', name: 'AskNotifier');
+        state = state.copyWith(
+          isLoading: false,
+          limitReached: UsageLimitHit.ask,
         );
         return;
       }
@@ -250,6 +259,14 @@ class AskNotifier extends StateNotifier<AskState> {
 
   void clearHistory() {
     state = const AskState();
+  }
+
+  /// Clear only the limit-reached flag so the gate doesn't re-appear
+  /// on every rebuild, while preserving the conversation history.
+  void clearLimitReached() {
+    if (state.limitReached != null) {
+      state = state.copyWith(limitReached: null);
+    }
   }
 }
 

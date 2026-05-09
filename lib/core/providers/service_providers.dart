@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/isar_service.dart';
 import '../services/ai_proxy_config.dart';
+import '../services/backup/backup_service.dart';
+import '../services/backup/backup_storage_service.dart';
 import '../services/bundled_keys.dart';
 import '../services/embedding_service.dart';
 import '../services/enrichment_service.dart';
@@ -15,6 +17,17 @@ import 'usage_providers.dart';
 /// Global provider for the Isar database service.
 final isarServiceProvider = Provider<IsarService>((ref) {
   return IsarService();
+});
+
+/// Global provider for the backup service.
+final backupServiceProvider = Provider<BackupService>((ref) {
+  return BackupService(isarService: ref.read(isarServiceProvider));
+});
+
+/// Bridge to the persistent backup-folder feature (Android SAF). Stateless
+/// — all state lives in SharedPreferences on the native side.
+final backupStorageServiceProvider = Provider<BackupStorageService>((ref) {
+  return BackupStorageService();
 });
 
 /// Global provider for the link preview service.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -5,6 +7,7 @@ import 'package:workmanager/workmanager.dart';
 
 import 'app.dart';
 import 'digest_callback.dart';
+import 'core/services/backup_scheduler.dart';
 import 'core/config/app_environment.dart';
 import 'core/database/isar_service.dart';
 import 'core/providers/service_providers.dart';
@@ -30,6 +33,7 @@ void main() async {
   await SubscriptionService.init();
 
   await Workmanager().initialize(digestCallbackDispatcher);
+  unawaited(BackupScheduler.reschedule());
 
   FlutterNativeSplash.remove();
 
