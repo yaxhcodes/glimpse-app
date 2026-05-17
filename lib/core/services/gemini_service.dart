@@ -39,8 +39,13 @@ class ChatResponseSection {
 class ChatResponse {
   final String intro;
   final List<ChatResponseSection> sections;
+  final String? proactiveTip;
 
-  const ChatResponse({required this.intro, required this.sections});
+  const ChatResponse({
+    required this.intro,
+    required this.sections,
+    this.proactiveTip,
+  });
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -341,27 +346,38 @@ Output valid JSON only. No markdown, no explanation.''';
         })
         .join('\n\n');
 
-    final prompt =
-        '''You are a personal knowledge assistant. Answer the user's question using ONLY the saved bookmarks provided below.
+    final isGreeting = _isGreeting(question);
 
-Return valid JSON only with this exact shape:
+    final prompt =
+        '''You are Glimpse — the user's personal second brain. You have access to their saved links and your job is to give sharp, useful answers that feel like a knowledgeable friend who has read everything they've saved.
+
+RESPONSE RULES:
+- Lead with a 1–2 sentence answer that directly addresses the question. Be direct. Never start with "Here are some links" or restate the question.
+- Each source gets one punchy sentence max 20 words — what's useful about it, not a description.
+- Vary how you refer to saves naturally across responses: "you saved", "from your vault", "you've got", "in your library", etc.
+- "proactiveTip": Only include this key if ALL of the following are true:
+  (1) The user asked a substantive question — not a greeting, not a one-word message
+  (2) 4 or more sources in the context share a single obvious theme
+  (3) That theme is clearly different from what the user just asked about
+  If any condition fails, omit the "proactiveTip" key entirely from the JSON.
+- Never pad. Never use bullet points or markdown in any field.
+- Each source may appear at most once per response. If you have already mentioned a source in the sections array, do not reference it again anywhere.
+- Tone: concise, warm, slightly informal. Brilliant friend, not a search engine.
+
+Return this exact JSON shape and nothing else:
 {
-  "intro": "one short sentence that introduces the answer",
+  "intro": "Direct 1-2 sentence answer to the question",
   "sections": [
     {
       "sourceIndex": 1,
-      "heading": "short heading for this source",
-      "summary": "2-4 sentences describing what this specific source says about the question"
+      "heading": "2-5 word heading",
+      "summary": "One sharp sentence max 20 words on why this source matters"
     }
-  ]
+  ],
+  "proactiveTip": "One sentence noticing a pattern, phrased as a question. Omit this key entirely if no strong pattern."
 }
 
-Rules:
-- Do not use markdown, bullet points, asterisks, or numbered lists in any text field.
-- Keep sections in ascending sourceIndex order.
-- Include one section per relevant bookmark.
-- If nothing is relevant, return an empty sections array and explain that in intro.
-- Do not output raw URLs — the app renders them separately.
+Only include sources genuinely relevant to the question. Return valid JSON only. No markdown, no explanation.
 
 SAVED BOOKMARKS:
 $contextBlock
@@ -369,10 +385,20 @@ $contextBlock
 QUESTION: $question''';
 
     final text = await _generateText(jsonMode: true, prompt: prompt);
-    return _parseChatResponse(text ?? '{}', contextUrls);
+    return _parseChatResponse(text ?? '{}', contextUrls, isGreeting: isGreeting);
   }
 
-  ChatResponse _parseChatResponse(String raw, List<SavedUrl> contextUrls) {
+  static bool _isGreeting(String message) {
+    final normalized = message.trim().toLowerCase();
+    const greetings = {
+      'hi', 'hey', 'hello', 'hii', 'hiii', 'yo', 'sup',
+      "what's up", 'whats up', 'good morning', 'good evening',
+      'good afternoon', 'howdy', 'greetings',
+    };
+    return greetings.contains(normalized);
+  }
+
+  ChatResponse _parseChatResponse(String raw, List<SavedUrl> contextUrls, {bool isGreeting = false}) {
     try {
       final data = json.decode(_cleanJson(raw)) as Map<String, dynamic>;
       final rawSections = data['sections'] as List<dynamic>? ?? const [];
@@ -396,11 +422,20 @@ QUESTION: $question''';
               .toList()
             ..sort((a, b) => a.sourceIndex.compareTo(b.sourceIndex));
 
+      // Deduplicate by sourceIndex so the same source never appears twice.
+      final seen = <int>{};
+      final deduped = sections.where((s) => seen.add(s.sourceIndex)).toList();
+
+      // Force proactiveTip to null for greetings regardless of model output.
+      final rawTip = (data['proactiveTip'] as String?)?.trim();
+      final tip = isGreeting ? null : ((rawTip != null && rawTip.isNotEmpty) ? rawTip : null);
+
       return ChatResponse(
         intro:
             (data['intro'] as String? ?? 'Here is what your saved links say.')
                 .trim(),
-        sections: sections,
+        sections: deduped,
+        proactiveTip: tip,
       );
     } catch (e, stack) {
       developer.log(

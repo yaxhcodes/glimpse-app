@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:math' show Random;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,12 +16,14 @@ class ChatMessage {
   final bool isUser;
   final List<SavedUrl> sources;
   final List<ChatMessageSection> sections;
+  final String? proactiveTip;
 
   const ChatMessage({
     required this.text,
     required this.isUser,
     this.sources = const [],
     this.sections = const [],
+    this.proactiveTip,
   });
 }
 
@@ -66,6 +69,23 @@ class AskState {
     );
   }
 }
+
+bool _isGreeting(String message) {
+  final normalized = message.trim().toLowerCase();
+  const greetings = {
+    'hi', 'hey', 'hello', 'hii', 'hiii', 'yo', 'sup',
+    "what's up", 'whats up', 'good morning', 'good evening',
+    'good afternoon', 'howdy', 'greetings',
+  };
+  return greetings.contains(normalized);
+}
+
+const _greetingReplies = [
+  "Hey! What do you want to dig into today?",
+  "Hi! What's on your mind?",
+  "Hey there! Ask me anything about your saves.",
+  "Hello! What shall we explore?",
+];
 
 class AskNotifier extends StateNotifier<AskState> {
   final Ref _ref;
@@ -127,6 +147,13 @@ class AskNotifier extends StateNotifier<AskState> {
       isLoading: true,
       error: null,
     );
+
+    // Instant local response for greetings — no API call, no loading flash.
+    if (_isGreeting(question)) {
+      final reply = _greetingReplies[Random().nextInt(_greetingReplies.length)];
+      _addBotMessage(reply);
+      return;
+    }
 
     final isarService = _ref.read(isarServiceProvider);
 
@@ -209,6 +236,7 @@ class AskNotifier extends StateNotifier<AskState> {
         answer.intro,
         sources: sections.map((section) => section.source).toList(),
         sections: sections,
+        proactiveTip: answer.proactiveTip,
       );
     } catch (e) {
       developer.log('Ask AI error: $e', name: 'AskNotifier');
@@ -242,6 +270,7 @@ class AskNotifier extends StateNotifier<AskState> {
     String text, {
     List<SavedUrl> sources = const [],
     List<ChatMessageSection> sections = const [],
+    String? proactiveTip,
   }) {
     state = state.copyWith(
       messages: [
@@ -251,6 +280,7 @@ class AskNotifier extends StateNotifier<AskState> {
           isUser: false,
           sources: sources,
           sections: sections,
+          proactiveTip: proactiveTip,
         ),
       ],
       isLoading: false,

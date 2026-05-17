@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -188,12 +188,23 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                               (askState.isLoading ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index == askState.messages.length) {
-                              return const _TypingRow();
+                              return const GlimpseTypingIndicator();
                             }
                             final msg = askState.messages[index];
                             return _ChatTurn(
                               message: msg,
                               onAssistantContentGrowth: _scrollToBottom,
+                              onProactiveTipTap: msg.proactiveTip != null
+                                  ? () {
+                                      _controller.value = TextEditingValue(
+                                        text: msg.proactiveTip!,
+                                        selection: TextSelection.collapsed(
+                                          offset: msg.proactiveTip!.length,
+                                        ),
+                                      );
+                                      _focusNode.requestFocus();
+                                    }
+                                  : null,
                             );
                           },
                         ),
@@ -404,10 +415,12 @@ class _ChatTurn extends StatelessWidget {
   const _ChatTurn({
     required this.message,
     this.onAssistantContentGrowth,
+    this.onProactiveTipTap,
   });
 
   final ChatMessage message;
   final VoidCallback? onAssistantContentGrowth;
+  final VoidCallback? onProactiveTipTap;
 
   @override
   Widget build(BuildContext context) {
@@ -417,6 +430,7 @@ class _ChatTurn extends StatelessWidget {
     return _AssistantBlock(
       message: message,
       onContentGrowth: onAssistantContentGrowth,
+      onProactiveTipTap: onProactiveTipTap,
     );
   }
 }
@@ -471,10 +485,12 @@ class _AssistantBlock extends StatefulWidget {
   const _AssistantBlock({
     required this.message,
     this.onContentGrowth,
+    this.onProactiveTipTap,
   });
 
   final ChatMessage message;
   final VoidCallback? onContentGrowth;
+  final VoidCallback? onProactiveTipTap;
 
   @override
   State<_AssistantBlock> createState() => _AssistantBlockState();
@@ -482,11 +498,12 @@ class _AssistantBlock extends StatefulWidget {
 
 class _AssistantBlockState extends State<_AssistantBlock>
     with SingleTickerProviderStateMixin {
-  AnimationController? _introAnim;
-  int _introVisibleChars = 0;
+  String _displayedIntro = '';
+  bool _introComplete = false;
   int _visibleCardCount = 0;
   bool _sectionRevealScheduled = false;
   DateTime? _lastScrollNudge;
+  bool _tipVisible = false;
 
   String get _intro => widget.message.text;
   bool get _hasBody => _intro.trim().isNotEmpty;
@@ -509,33 +526,54 @@ class _AssistantBlockState extends State<_AssistantBlock>
           .addPostFrameCallback((_) => _startSectionReveal());
       return;
     }
-    final charCount = _intro.characters.length;
-    final ms = (charCount * 16).clamp(450, 2800).round();
-    _introAnim = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: ms),
-    )
-      ..addListener(_onIntroTick)
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          setState(() => _introVisibleChars = charCount);
-          _throttledScroll();
-          _startSectionReveal();
-        }
-      });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _introAnim?.forward();
+      if (mounted) _streamIntro(_intro);
     });
   }
 
-  void _onIntroTick() {
-    final c = _introAnim;
-    if (c == null) return;
-    final total = _intro.characters.length;
-    final next = (total * c.value).round();
-    if (next != _introVisibleChars) {
-      setState(() => _introVisibleChars = next);
+  Future<void> _streamIntro(String fullText) async {
+    for (int i = 1; i <= fullText.length; i++) {
+      if (!mounted) return;
+      setState(() => _displayedIntro = fullText.substring(0, i));
+      final delay = fullText.length > 200 ? 6 : 15;
+      await Future.delayed(Duration(milliseconds: delay));
+    }
+    if (!mounted) return;
+    setState(() => _introComplete = true);
+    _throttledScroll();
+    _showCards();
+  }
+
+  void _showCards() {
+    if (_sectionRevealScheduled) return;
+    _sectionRevealScheduled = true;
+    _startSectionReveal();
+  }
+
+  Future<void> _startSectionReveal() async {
+    final n = _cardTotal;
+    if (n == 0) {
+      _showTipIfPresent();
       _throttledScroll();
+      return;
+    }
+    for (var i = 0; i < n; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      if (!mounted) return;
+      setState(() => _visibleCardCount = i + 1);
+      _throttledScroll();
+    }
+    _showTipIfPresent();
+  }
+
+  void _showTipIfPresent() {
+    if (widget.message.proactiveTip != null) {
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted) {
+          setState(() => _tipVisible = true);
+          _throttledScroll();
+        }
+      });
     }
   }
 
@@ -548,29 +586,6 @@ class _AssistantBlockState extends State<_AssistantBlock>
     }
   }
 
-  Future<void> _startSectionReveal() async {
-    if (_sectionRevealScheduled) return;
-    _sectionRevealScheduled = true;
-    final n = _cardTotal;
-    if (n == 0) {
-      _throttledScroll();
-      return;
-    }
-    for (var i = 0; i < n; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 95));
-      if (!mounted) return;
-      setState(() => _visibleCardCount = i + 1);
-      _throttledScroll();
-    }
-  }
-
-  @override
-  void dispose() {
-    _introAnim?.removeListener(_onIntroTick);
-    _introAnim?.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -578,11 +593,7 @@ class _AssistantBlockState extends State<_AssistantBlock>
     final textTheme = theme.textTheme;
     final hasSections = widget.message.sections.isNotEmpty;
     final hasSources = widget.message.sources.isNotEmpty;
-    final introComplete =
-        !_hasBody || (_introAnim?.isCompleted ?? false);
-    final introShown = _hasBody
-        ? _intro.characters.take(_introVisibleChars).toString()
-        : '';
+    final tip = widget.message.proactiveTip;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -604,7 +615,7 @@ class _AssistantBlockState extends State<_AssistantBlock>
                   bottomRight: Radius.circular(20),
                 ),
               ),
-              child: introComplete
+              child: _introComplete
                   ? SelectableText(
                       _intro,
                       style: textTheme.bodyLarge?.copyWith(
@@ -613,7 +624,7 @@ class _AssistantBlockState extends State<_AssistantBlock>
                       ),
                     )
                   : Text(
-                      introShown,
+                      _displayedIntro,
                       style: textTheme.bodyLarge?.copyWith(
                         color: colorScheme.onSurface,
                         height: 1.5,
@@ -621,31 +632,39 @@ class _AssistantBlockState extends State<_AssistantBlock>
                     ),
             ),
           if (_hasBody && (hasSections || hasSources))
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
           if (hasSections) ...[
             for (var index = 0; index < widget.message.sections.length; index++)
-              if (index < _visibleCardCount) ...[
+              if (index < _visibleCardCount)
                 _StaggerAppear(
                   child: _AnswerSectionCard(
                     order: index + 1,
+                    showIndex: widget.message.sections.length > 1,
                     section: widget.message.sections[index],
                   ),
                 ),
-                if (index != widget.message.sections.length - 1)
-                  const SizedBox(height: 12),
-              ],
           ] else if (hasSources) ...[
             for (var index = 0; index < widget.message.sources.length; index++)
-              if (index < _visibleCardCount) ...[
+              if (index < _visibleCardCount)
                 _StaggerAppear(
                   child: _SourceCard(
                     source: widget.message.sources[index],
                     order: index + 1,
+                    showIndex: widget.message.sources.length > 1,
                   ),
                 ),
-                if (index != widget.message.sources.length - 1)
-                  const SizedBox(height: 12),
-              ],
+          ],
+          if (tip != null) ...[
+            const SizedBox(height: 10),
+            AnimatedOpacity(
+              opacity: _tipVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOut,
+              child: _ProactiveTipNudge(
+                tip: tip,
+                onTap: widget.onProactiveTipTap,
+              ),
+            ),
           ],
         ],
       ),
@@ -679,14 +698,11 @@ class _StaggerAppear extends StatelessWidget {
   }
 }
 
-class _AnswerSectionCard extends StatelessWidget {
-  const _AnswerSectionCard({
-    required this.order,
-    required this.section,
-  });
+class _ProactiveTipNudge extends StatelessWidget {
+  const _ProactiveTipNudge({required this.tip, this.onTap});
 
-  final int order;
-  final ChatMessageSection section;
+  final String tip;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -694,158 +710,204 @@ class _AnswerSectionCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Material(
-      color: colorScheme.surface,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.8)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '$order',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w800,
-                    ),
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tip,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                    height: 1.4,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    section.heading,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              section.summary,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-            ),
-            const SizedBox(height: 14),
-            _SourceCard(source: section.source, order: order),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _SourceCard extends StatelessWidget {
-  const _SourceCard({required this.source, required this.order});
+class _AnswerSectionCard extends StatelessWidget {
+  const _AnswerSectionCard({
+    required this.order,
+    required this.showIndex,
+    required this.section,
+  });
 
-  final SavedUrl source;
   final int order;
+  final bool showIndex;
+  final ChatMessageSection section;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final displaySourceName = CategoryResolver.displaySourceName(
+    final source = section.source;
+    final title = section.heading;
+    final summary = section.summary;
+    final domain = CategoryResolver.displaySourceName(
       rawUrl: source.rawUrl,
       fallbackDomain: source.domain,
     );
-    final metaLabel = source.category == displaySourceName
-        ? '${source.categoryEmoji} ${source.category}'
-        : '${source.categoryEmoji} ${source.category} • $displaySourceName';
 
-    return Material(
-      color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () => context.push('/url/${source.id}'),
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161616),
         borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.link_rounded,
-                    size: 16,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Source $order',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w700,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showIndex) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, right: 8),
+                    child: Text(
+                      '$order',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2DD4AF).withValues(alpha: 0.7),
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                source.title.isNotEmpty ? source.title : source.domain,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFF0F0F0),
+                      height: 1.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 2),
+                  child: Icon(
+                    Icons.grid_view_rounded,
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.15),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            // Summary — indented only when numbered
+            Padding(
+              padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
+              child: Text(
+                summary,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: Colors.white.withValues(alpha: 0.48),
+                  height: 1.5,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                metaLabel,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 10),
+            // Footer
+            Padding(
+              padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      width: 0.5,
+                    ),
+                  ),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  FilledButton.tonalIcon(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      domain,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.25),
                       ),
                     ),
-                    onPressed: () => _openUrl(source.rawUrl),
-                    icon: const Icon(Icons.open_in_new, size: 18),
-                    label: const Text('Open'),
-                  ),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => context.push('/url/${source.id}'),
+                      child: const Text(
+                        'Details',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF2DD4AF),
+                        ),
                       ),
                     ),
-                    onPressed: () => context.push('/url/${source.id}'),
-                    icon: const Icon(Icons.article_outlined, size: 18),
-                    label: const Text('Details'),
-                  ),
-                ],
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      width: 0.5,
+                      height: 12,
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                    GestureDetector(
+                      onTap: () => _openUrl(source.rawUrl),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Open',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            size: 11,
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -858,88 +920,253 @@ class _SourceCard extends StatelessWidget {
   }
 }
 
-class _TypingRow extends StatelessWidget {
-  const _TypingRow();
+class _SourceCard extends StatelessWidget {
+  const _SourceCard({
+    required this.source,
+    required this.order,
+    required this.showIndex,
+  });
+
+  final SavedUrl source;
+  final int order;
+  final bool showIndex;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final title = source.title.isNotEmpty ? source.title : source.domain;
+    final summary = source.summary ?? source.description;
+    final domain = CategoryResolver.displaySourceName(
+      rawUrl: source.rawUrl,
+      fallbackDomain: source.domain,
+    );
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(4),
-            topRight: Radius.circular(20),
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(20),
-          ),
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161616),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.5,
         ),
-        child: const SizedBox(
-          width: 40,
-          height: 8,
-          child: _StaggerTypingDots(),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showIndex) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, right: 8),
+                    child: Text(
+                      '$order',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2DD4AF).withValues(alpha: 0.7),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ],
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFF0F0F0),
+                      height: 1.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 2),
+                  child: Icon(
+                    Icons.grid_view_rounded,
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.15),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            // Summary — indented only when numbered
+            Padding(
+              padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
+              child: Text(
+                summary,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: Colors.white.withValues(alpha: 0.48),
+                  height: 1.5,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Footer
+            Padding(
+              padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      domain,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => context.push('/url/${source.id}'),
+                      child: const Text(
+                        'Details',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF2DD4AF),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      width: 0.5,
+                      height: 12,
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                    GestureDetector(
+                      onTap: () => _openUrl(source.rawUrl),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Open',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            size: 11,
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Future<void> _openUrl(String rawUrl) async {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
 }
 
-/// Three staggered dots using [ColorScheme.primary].
-class _StaggerTypingDots extends StatefulWidget {
-  const _StaggerTypingDots();
+class GlimpseTypingIndicator extends StatefulWidget {
+  const GlimpseTypingIndicator({super.key});
 
   @override
-  State<_StaggerTypingDots> createState() => _StaggerTypingDotsState();
+  State<GlimpseTypingIndicator> createState() =>
+      _GlimpseTypingIndicatorState();
 }
 
-class _StaggerTypingDotsState extends State<_StaggerTypingDots>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
+    with TickerProviderStateMixin {
+  late final List<AnimationController> _controllers;
+  late final List<Animation<double>> _animations;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    _controllers = List.generate(
+      3,
+      (i) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 400),
+      ),
+    );
+    _animations = _controllers
+        .map((c) => Tween<double>(begin: 0, end: -6).animate(
+              CurvedAnimation(parent: c, curve: Curves.easeInOut),
+            ))
+        .toList();
+
+    for (int i = 0; i < 3; i++) {
+      Future.delayed(Duration(milliseconds: i * 150), () {
+        if (mounted) _controllers[i].repeat(reverse: true);
+      });
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        return Row(
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: List.generate(3, (i) {
-            final phase =
-                (_controller.value * 2 * math.pi) + (i * 2 * math.pi / 3);
-            final op = 0.3 + 0.7 * ((math.sin(phase) + 1) / 2);
-            return Container(
-              width: 8,
-              height: 8,
-              margin: EdgeInsets.only(left: i == 0 ? 0 : 4),
-              decoration: BoxDecoration(
-                color: primary.withValues(alpha: op.clamp(0.3, 1.0)),
-                shape: BoxShape.circle,
+          children: List.generate(
+            3,
+            (i) => AnimatedBuilder(
+              animation: _animations[i],
+              builder: (_, _) => Transform.translate(
+                offset: Offset(0, _animations[i].value),
+                child: Container(
+                  margin: EdgeInsets.only(right: i < 2 ? 5 : 0),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.7),
+                    shape: BoxShape.circle,
+                  ),
+                ),
               ),
-            );
-          }),
-        );
-      },
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1040,7 +1267,7 @@ class _ComposerBar extends StatelessWidget {
                   builder: (context, value, _) {
                     if (isLoading) {
                       return Tooltip(
-                        message: 'Sending…',
+                        message: 'Sendingâ€¦',
                         child: Container(
                           width: 36,
                           height: 36,
