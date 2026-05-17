@@ -797,7 +797,7 @@ class _AnswerSectionCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF2DD4AF).withValues(alpha: 0.7),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -867,12 +867,12 @@ class _AnswerSectionCard extends StatelessWidget {
                     const Spacer(),
                     GestureDetector(
                       onTap: () => context.push('/url/${source.id}'),
-                      child: const Text(
+                      child: Text(
                         'Details',
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF2DD4AF),
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ),
@@ -967,7 +967,7 @@ class _SourceCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF2DD4AF).withValues(alpha: 0.7),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -1037,12 +1037,12 @@ class _SourceCard extends StatelessWidget {
                     const Spacer(),
                     GestureDetector(
                       onTap: () => context.push('/url/${source.id}'),
-                      child: const Text(
+                      child: Text(
                         'Details',
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF2DD4AF),
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ),
@@ -1136,13 +1136,14 @@ class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -1158,7 +1159,7 @@ class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: Colors.teal.withValues(alpha: 0.7),
+                    color: colorScheme.primary.withValues(alpha: 0.7),
                     shape: BoxShape.circle,
                   ),
                 ),
