@@ -12,19 +12,27 @@ import '../../core/services/entitlement_service.dart';
 import '../../core/services/usage_service.dart';
 
 class ChatMessage {
+  final String id;
   final String text;
   final bool isUser;
   final List<SavedUrl> sources;
   final List<ChatMessageSection> sections;
   final String? proactiveTip;
 
-  const ChatMessage({
+  static int _idCounter = 0;
+  static String _generateId() {
+    _idCounter++;
+    return 'msg_${_idCounter}_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  ChatMessage({
+    String? id,
     required this.text,
     required this.isUser,
     this.sources = const [],
     this.sections = const [],
     this.proactiveTip,
-  });
+  }) : id = id ?? _generateId();
 }
 
 class ChatMessageSection {

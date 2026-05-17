@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
@@ -50,6 +50,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   }
 
   void _submit() {
+    FocusScope.of(context).unfocus();
     final question = _controller.text.trim();
     if (question.isEmpty) return;
     _controller.clear();
@@ -80,10 +81,10 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final suggestionsAsync = ref.watch(askEmptySuggestionsProvider);
 
     ref.listen(askProvider, (_, next) {
-      if (!next.isLoading) {
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _scrollToBottom());
-      }
+      // Scroll on every state change so the indicator and new messages
+      // are always visible.
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _scrollToBottom());
       if (next.limitReached != null) {
         // Clear the flag immediately so it doesn't re-trigger on rebuilds.
         ref.read(askProvider.notifier).clearLimitReached();
@@ -101,9 +102,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       }
     });
 
-    return KeyboardVisibilityBuilder(
-      builder: (context, keyboardVisible) {
-        return Scaffold(
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         surfaceTintColor: colorScheme.surfaceTint,
@@ -165,7 +165,6 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                   ? _buildEmptyState(
                       textTheme,
                       colorScheme,
-                      keyboardVisible,
                       suggestionsAsync,
                       savedUrlCount,
                       userName,
@@ -177,7 +176,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                         ),
                         child: ListView.builder(
                           controller: _scrollController,
-                          physics: const BouncingScrollPhysics(),
+                          physics: const ClampingScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(
                             16,
                             16,
@@ -187,11 +186,15 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                           itemCount: askState.messages.length +
                               (askState.isLoading ? 1 : 0),
                           itemBuilder: (context, index) {
-                            if (index == askState.messages.length) {
-                              return const GlimpseTypingIndicator();
+                            if (askState.isLoading &&
+                                index == askState.messages.length) {
+                              return const GlimpseTypingIndicator(
+                                key: PageStorageKey('typing-indicator'),
+                              );
                             }
                             final msg = askState.messages[index];
                             return _ChatTurn(
+                              key: ValueKey(msg.id),
                               message: msg,
                               onAssistantContentGrowth: _scrollToBottom,
                               onProactiveTipTap: msg.proactiveTip != null
@@ -221,18 +224,16 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         ],
       ),
     );
-      },
-    );
   }
 
   Widget _buildEmptyState(
     TextTheme textTheme,
     ColorScheme colorScheme,
-    bool keyboardOpen,
     AsyncValue<List<AskSuggestionChipData>> suggestionsAsync,
     int savedUrlCount,
     String? userName,
   ) {
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     // Build or reuse the cached greeting future so the empty state does not
     // flicker on every rebuild.
     if (_greetingFuture == null ||
@@ -413,6 +414,7 @@ class _GlimpseMark extends StatelessWidget {
 /// One user or assistant message block (modern chat layout).
 class _ChatTurn extends StatelessWidget {
   const _ChatTurn({
+    super.key,
     required this.message,
     this.onAssistantContentGrowth,
     this.onProactiveTipTap,
@@ -496,14 +498,14 @@ class _AssistantBlock extends StatefulWidget {
   State<_AssistantBlock> createState() => _AssistantBlockState();
 }
 
-class _AssistantBlockState extends State<_AssistantBlock>
-    with SingleTickerProviderStateMixin {
+class _AssistantBlockState extends State<_AssistantBlock> {
   String _displayedIntro = '';
   bool _introComplete = false;
   int _visibleCardCount = 0;
   bool _sectionRevealScheduled = false;
   DateTime? _lastScrollNudge;
   bool _tipVisible = false;
+  bool _streamingCancelled = false;
 
   String get _intro => widget.message.text;
   bool get _hasBody => _intro.trim().isNotEmpty;
@@ -532,13 +534,14 @@ class _AssistantBlockState extends State<_AssistantBlock>
   }
 
   Future<void> _streamIntro(String fullText) async {
+    _streamingCancelled = false;
     for (int i = 1; i <= fullText.length; i++) {
-      if (!mounted) return;
+      if (!mounted || _streamingCancelled) return;
       setState(() => _displayedIntro = fullText.substring(0, i));
       final delay = fullText.length > 200 ? 6 : 15;
       await Future.delayed(Duration(milliseconds: delay));
     }
-    if (!mounted) return;
+    if (!mounted || _streamingCancelled) return;
     setState(() => _introComplete = true);
     _throttledScroll();
     _showCards();
@@ -584,6 +587,12 @@ class _AssistantBlockState extends State<_AssistantBlock>
       _lastScrollNudge = now;
       widget.onContentGrowth?.call();
     }
+  }
+
+  @override
+  void dispose() {
+    _streamingCancelled = true;
+    super.dispose();
   }
 
   @override
@@ -1099,9 +1108,12 @@ class GlimpseTypingIndicator extends StatefulWidget {
 }
 
 class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late final List<AnimationController> _controllers;
   late final List<Animation<double>> _animations;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -1129,6 +1141,7 @@ class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
   @override
   void dispose() {
     for (final c in _controllers) {
+      c.stop();
       c.dispose();
     }
     super.dispose();
@@ -1136,6 +1149,7 @@ class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final colorScheme = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
@@ -1197,89 +1211,94 @@ class _ComposerBar extends StatelessWidget {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _kChatMaxWidth),
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 20),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: colorScheme.outlineVariant,
-                width: 1,
-              ),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // Pill only wraps the text field
                 Expanded(
-                  child: Theme(
-                    data: theme.copyWith(
-                      splashFactory: NoSplash.splashFactory,
-                      highlightColor: transparent,
-                      focusColor: transparent,
-                      hoverColor: transparent,
-                      inputDecorationTheme: const InputDecorationTheme(
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        focusedErrorBorder: InputBorder.none,
-                        filled: false,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant,
+                        width: 0.5,
                       ),
                     ),
-                    child: TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      onSubmitted: (_) {
-                        if (controller.text.trim().isNotEmpty) onSubmit();
-                      },
-                      minLines: 1,
-                      maxLines: 5,
-                      textInputAction: TextInputAction.newline,
-                      textCapitalization: TextCapitalization.sentences,
-                      style: textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurface,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Message Glimpse...',
-                        hintStyle: textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                    child: Theme(
+                      data: theme.copyWith(
+                        splashFactory: NoSplash.splashFactory,
+                        highlightColor: transparent,
+                        focusColor: transparent,
+                        hoverColor: transparent,
+                        inputDecorationTheme: const InputDecorationTheme(
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          filled: false,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 8),
                         ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        focusedErrorBorder: InputBorder.none,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 8,
+                      ),
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        onTap: () => focusNode.requestFocus(),
+                        onSubmitted: (_) {
+                          if (controller.text.trim().isNotEmpty) onSubmit();
+                        },
+                        minLines: 1,
+                        maxLines: 5,
+                        textInputAction: TextInputAction.newline,
+                        textCapitalization: TextCapitalization.sentences,
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Message Glimpse...',
+                          hintStyle: textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
+                // Send button sits outside the pill
                 ValueListenableBuilder<TextEditingValue>(
                   valueListenable: controller,
                   builder: (context, value, _) {
                     if (isLoading) {
                       return Tooltip(
-                        message: 'Sendingâ€¦',
+                        message: 'Sending…',
                         child: Container(
-                          width: 36,
-                          height: 36,
+                          width: 48,
+                          height: 48,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: colorScheme.primary,
                           ),
                           child: SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 24,
+                            height: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               color: colorScheme.onPrimary,
@@ -1300,8 +1319,8 @@ class _ComposerBar extends StatelessWidget {
                             : null,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          width: 36,
-                          height: 36,
+                          width: 48,
+                          height: 48,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: hasText
@@ -1315,7 +1334,7 @@ class _ComposerBar extends StatelessWidget {
                           ),
                           child: Icon(
                             Icons.arrow_upward_rounded,
-                            size: 18,
+                            size: 20,
                             color: hasText
                                 ? colorScheme.onPrimary
                                 : colorScheme.onSurfaceVariant,
