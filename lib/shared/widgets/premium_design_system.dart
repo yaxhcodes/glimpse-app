@@ -171,6 +171,7 @@ class PremiumSearchBar extends StatelessWidget {
                   onPressed: onClear,
                 )
               : null,
+          filled: false,
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
