@@ -482,6 +482,43 @@ QUESTION: $question''';
     }
   }
 
+  // ─── Plan generation ──────────────────────────────────────────────────────
+
+  Future<String> plan({
+    required List<SavedUrl> urls,
+    required String originalQuestion,
+  }) async {
+    final items = urls
+        .asMap()
+        .entries
+        .map((e) =>
+            '[${e.key + 1}] Title: ${e.value.title}\n'
+            'About: ${e.value.summary ?? e.value.description}')
+        .join('\n\n');
+
+    final prompt =
+        '''You are Glimpse — a sharp, practical second brain. The user wants to work on something this weekend.
+
+USER'S GOAL: $originalQuestion
+
+THEIR RELEVANT SAVES:
+$items
+
+Your job: write a genuinely useful weekend plan. Use the saves as context and inspiration — but think like a smart friend who has read them, not like a search engine listing them.
+
+RULES:
+- 3 phases max. Each phase has a name and 2-3 sentences of concrete, specific guidance.
+- Phase names should reflect actual actions: "Set up your environment", "Ship a rough version", "Polish and reflect" — not generic labels like "Phase 1: Foundation".
+- Reference the saves naturally where genuinely useful — don't force every save into every phase.
+- Fill gaps with real practical advice even if it's not in the saves. You are allowed to think beyond the saves.
+- End with one sentence on what success looks like by Sunday evening.
+- No bullet points. No markdown. Plain prose paragraphs separated by line breaks.
+- Max 220 words. Be sharp, not exhaustive.''';
+
+    return (await _generateText(jsonMode: false, prompt: prompt))?.trim()
+        ?? 'Could not build a plan from these saves.';
+  }
+
   // ─── Multi-link synthesis ─────────────────────────────────────────────────
 
   Future<String> synthesize({

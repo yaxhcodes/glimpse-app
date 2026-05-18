@@ -9,6 +9,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/embedding_service.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/entitlement_service.dart';
+import '../../core/services/gemini_service.dart';
 import '../../core/services/usage_service.dart';
 
 class ChatMessage {
@@ -18,6 +19,10 @@ class ChatMessage {
   final List<SavedUrl> sources;
   final List<ChatMessageSection> sections;
   final String? proactiveTip;
+  final ChatAction action;
+  final String? label;
+  final String? originalQuestion;
+  final bool actionConsumed;
 
   static int _idCounter = 0;
   static String _generateId() {
@@ -32,7 +37,26 @@ class ChatMessage {
     this.sources = const [],
     this.sections = const [],
     this.proactiveTip,
+    this.action = ChatAction.none,
+    this.label,
+    this.originalQuestion,
+    this.actionConsumed = false,
   }) : id = id ?? _generateId();
+
+  ChatMessage copyWith({bool? actionConsumed}) {
+    return ChatMessage(
+      id: id,
+      text: text,
+      isUser: isUser,
+      sources: sources,
+      sections: sections,
+      proactiveTip: proactiveTip,
+      action: action,
+      label: label,
+      originalQuestion: originalQuestion,
+      actionConsumed: actionConsumed ?? this.actionConsumed,
+    );
+  }
 }
 
 class ChatMessageSection {
@@ -46,6 +70,8 @@ class ChatMessageSection {
     required this.source,
   });
 }
+
+enum ChatAction { saveToCollection, synthesize, buildPlan, none }
 
 /// Feature that hit a usage limit (for UI upgrade gate display).
 enum UsageLimitHit { ask, search, aiSave }
@@ -144,7 +170,7 @@ class AskNotifier extends StateNotifier<AskState> {
     );
   }
 
-  Future<void> ask(String question) async {
+  Future<void> ask(String question, {List<SavedUrl>? preloadedSources, String? originalQuestion}) async {
     if (question.trim().isEmpty) return;
 
     state = state.copyWith(
@@ -191,6 +217,23 @@ class AskNotifier extends StateNotifier<AskState> {
                   'Add --dart-define=GEMINI_KEY=... or set up the proxy; '
                   '“Force Pro” only unlocks in-app gates, not API access.'
               : 'AI is not configured for this build. Please update the app.',
+        );
+        return;
+      }
+
+      // Preloaded sources skip RAG and go straight to synthesize / plan.
+      if (preloadedSources != null && preloadedSources.isNotEmpty) {
+        final isPlan = question.toLowerCase().contains('plan');
+        final text = isPlan
+            ? await gemini.plan(urls: preloadedSources, originalQuestion: originalQuestion ?? question)
+            : await gemini.synthesize(urls: preloadedSources);
+
+        await usageService.incrementUsage(UsageFeature.ask);
+        _ref.read(usageRevisionProvider.notifier).state++;
+
+        _addBotMessage(
+          text,
+          label: isPlan ? '📋 Plan' : null,
         );
         return;
       }
@@ -249,14 +292,23 @@ class AskNotifier extends StateNotifier<AskState> {
               ))
           .toList();
 
+      final actionSources = answer.sections
+          .where((s) => s.sourceIndex > 0 && s.sourceIndex <= contextUrls.length)
+          .map((s) => contextUrls[s.sourceIndex - 1])
+          .toList();
+
+      final action = _resolveAction(answer, question);
+
       await usageService.incrementUsage(UsageFeature.ask);
       _ref.read(usageRevisionProvider.notifier).state++;
 
       _addBotMessage(
         answer.intro,
-        sources: sections.map((section) => section.source).toList(),
+        sources: actionSources,
         sections: sections,
         proactiveTip: answer.proactiveTip,
+        action: action,
+        originalQuestion: question,
       );
     } catch (e) {
       developer.log('Ask AI error: $e', name: 'AskNotifier');
@@ -280,6 +332,22 @@ class AskNotifier extends StateNotifier<AskState> {
     }
   }
 
+  ChatAction _resolveAction(ChatResponse response, String userQuestion) {
+    if (response.sections.isEmpty) return ChatAction.none;
+
+    final q = userQuestion.toLowerCase();
+    if (q.contains('plan') || q.contains('build') ||
+        q.contains('project') || q.contains('weekend')) {
+      return ChatAction.buildPlan;
+    }
+
+    if (response.proactiveTip != null && response.sections.length >= 3) {
+      return ChatAction.synthesize;
+    }
+
+    return ChatAction.saveToCollection;
+  }
+
   Future<List<SavedUrl>> _fallbackContext(String question) async {
     final isarService = _ref.read(isarServiceProvider);
     final urls = await isarService.fuzzySearchUrls(question);
@@ -291,6 +359,9 @@ class AskNotifier extends StateNotifier<AskState> {
     List<SavedUrl> sources = const [],
     List<ChatMessageSection> sections = const [],
     String? proactiveTip,
+    ChatAction action = ChatAction.none,
+    String? label,
+    String? originalQuestion,
   }) {
     state = state.copyWith(
       messages: [
@@ -301,6 +372,9 @@ class AskNotifier extends StateNotifier<AskState> {
           sources: sources,
           sections: sections,
           proactiveTip: proactiveTip,
+          action: action,
+          label: label,
+          originalQuestion: originalQuestion,
         ),
       ],
       isLoading: false,
@@ -309,6 +383,18 @@ class AskNotifier extends StateNotifier<AskState> {
 
   void clearHistory() {
     state = const AskState();
+  }
+
+  void consumeAction(String messageId) {
+    final idx = state.messages.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+    state = state.copyWith(
+      messages: [
+        ...state.messages.sublist(0, idx),
+        state.messages[idx].copyWith(actionConsumed: true),
+        ...state.messages.sublist(idx + 1),
+      ],
+    );
   }
 
   /// Clear only the limit-reached flag so the gate doesn't re-appear

@@ -9,12 +9,16 @@ import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/user_collection.dart';
 import '../../core/providers/user_display_name_provider.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/widgets/usage_badge.dart';
+import '../../core/database/isar_service.dart';
+import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../home/home_provider.dart';
+import '../collections/collections_provider.dart';
 import 'ask_empty_suggestions_provider.dart';
 import 'ask_greeting_service.dart';
 import 'ask_provider.dart';
@@ -49,13 +53,47 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  void _onSendMessage(String text, {List<SavedUrl>? preloadedSources, String? originalQuestion}) {
     FocusScope.of(context).unfocus();
-    final question = _controller.text.trim();
+    final question = text.trim();
     if (question.isEmpty) return;
     _controller.clear();
-    ref.read(askProvider.notifier).ask(question);
+    ref.read(askProvider.notifier).ask(question, preloadedSources: preloadedSources, originalQuestion: originalQuestion);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  void _onSynthesizeTapped(List<SavedUrl> sources) {
+    _onSendMessage(
+      'Synthesize these ${sources.length} saves into one cohesive summary',
+      preloadedSources: sources,
+    );
+  }
+
+  void _onBuildPlanTapped(List<SavedUrl> sources, String originalQuestion) {
+    _onSendMessage(
+      'Build me a practical weekend plan from these saves',
+      preloadedSources: sources,
+      originalQuestion: originalQuestion,
+    );
+  }
+
+  void _showSaveToCollectionSheet(BuildContext context, List<SavedUrl> sources) {
+    final isar = ref.read(isarServiceProvider);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (_) => _SaveToCollectionSheet(
+        sources: sources,
+        isarService: isar,
+        onCollectionChanged: () {
+          ref.invalidate(collectionsListProvider);
+        },
+      ),
+    );
   }
 
   void _scrollToBottom() {
@@ -209,6 +247,15 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                                       _focusNode.requestFocus();
                                     }
                                   : null,
+                              onSynthesizeTap: msg.action == ChatAction.synthesize
+                                  ? () => _onSynthesizeTapped(msg.sources)
+                                  : null,
+                              onBuildPlanTap: msg.action == ChatAction.buildPlan
+                                  ? () => _onBuildPlanTapped(msg.sources, msg.originalQuestion ?? msg.text)
+                                  : null,
+                              onSaveToCollectionTap: msg.action == ChatAction.saveToCollection
+                                  ? () => _showSaveToCollectionSheet(context, msg.sources)
+                                  : null,
                             );
                           },
                         ),
@@ -220,7 +267,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
             controller: _controller,
             focusNode: _focusNode,
             isLoading: askState.isLoading,
-            onSubmit: _submit,
+            onSubmit: (text) => _onSendMessage(text),
           ),
         ],
       ),
@@ -419,11 +466,17 @@ class _ChatTurn extends StatelessWidget {
     required this.message,
     this.onAssistantContentGrowth,
     this.onProactiveTipTap,
+    this.onSynthesizeTap,
+    this.onBuildPlanTap,
+    this.onSaveToCollectionTap,
   });
 
   final ChatMessage message;
   final VoidCallback? onAssistantContentGrowth;
   final VoidCallback? onProactiveTipTap;
+  final VoidCallback? onSynthesizeTap;
+  final VoidCallback? onBuildPlanTap;
+  final VoidCallback? onSaveToCollectionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -434,6 +487,9 @@ class _ChatTurn extends StatelessWidget {
       message: message,
       onContentGrowth: onAssistantContentGrowth,
       onProactiveTipTap: onProactiveTipTap,
+      onSynthesizeTap: onSynthesizeTap,
+      onBuildPlanTap: onBuildPlanTap,
+      onSaveToCollectionTap: onSaveToCollectionTap,
     );
   }
 }
@@ -489,11 +545,17 @@ class _AssistantBlock extends StatefulWidget {
     required this.message,
     this.onContentGrowth,
     this.onProactiveTipTap,
+    this.onSynthesizeTap,
+    this.onBuildPlanTap,
+    this.onSaveToCollectionTap,
   });
 
   final ChatMessage message;
   final VoidCallback? onContentGrowth;
   final VoidCallback? onProactiveTipTap;
+  final VoidCallback? onSynthesizeTap;
+  final VoidCallback? onBuildPlanTap;
+  final VoidCallback? onSaveToCollectionTap;
 
   @override
   State<_AssistantBlock> createState() => _AssistantBlockState();
@@ -506,6 +568,8 @@ class _AssistantBlockState extends State<_AssistantBlock> {
   bool _sectionRevealScheduled = false;
   DateTime? _lastScrollNudge;
   bool _tipVisible = false;
+  bool _chipVisible = false;
+  bool _actionConsumed = false;
   bool _streamingCancelled = false;
 
   String get _intro => widget.message.text;
@@ -558,6 +622,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
     final n = _cardTotal;
     if (n == 0) {
       _showTipIfPresent();
+      _showChipIfPresent();
       _throttledScroll();
       return;
     }
@@ -568,6 +633,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
       _throttledScroll();
     }
     _showTipIfPresent();
+    _showChipIfPresent();
   }
 
   void _showTipIfPresent() {
@@ -575,6 +641,17 @@ class _AssistantBlockState extends State<_AssistantBlock> {
       Future.delayed(const Duration(milliseconds: 150), () {
         if (mounted) {
           setState(() => _tipVisible = true);
+          _throttledScroll();
+        }
+      });
+    }
+  }
+
+  void _showChipIfPresent() {
+    if (widget.message.action != ChatAction.none) {
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted) {
+          setState(() => _chipVisible = true);
           _throttledScroll();
         }
       });
@@ -604,12 +681,25 @@ class _AssistantBlockState extends State<_AssistantBlock> {
     final hasSections = widget.message.sections.isNotEmpty;
     final hasSources = widget.message.sources.isNotEmpty;
     final tip = widget.message.proactiveTip;
+    final label = widget.message.label;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (label != null && _introComplete) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, left: 4),
+              child: Text(
+                label,
+                style: textTheme.labelSmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
           if (_hasBody)
             Container(
               padding: const EdgeInsets.symmetric(
@@ -661,6 +751,30 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                     showIndex: widget.message.sources.length > 1,
                   ),
                 ),
+          ],
+          if (widget.message.action != ChatAction.none && !_actionConsumed && _chipVisible) ...[
+            const SizedBox(height: 10),
+            AnimatedOpacity(
+              opacity: _chipVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOut,
+              child: _ChatActionChip(
+                action: widget.message.action,
+                onTap: () {
+                  setState(() => _actionConsumed = true);
+                  switch (widget.message.action) {
+                    case ChatAction.saveToCollection:
+                      widget.onSaveToCollectionTap?.call();
+                    case ChatAction.synthesize:
+                      widget.onSynthesizeTap?.call();
+                    case ChatAction.buildPlan:
+                      widget.onBuildPlanTap?.call();
+                    case ChatAction.none:
+                      break;
+                  }
+                },
+              ),
+            ),
           ],
           if (tip != null) ...[
             const SizedBox(height: 10),
@@ -1196,7 +1310,7 @@ class _ComposerBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isLoading;
-  final VoidCallback onSubmit;
+  final ValueChanged<String> onSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -1249,7 +1363,7 @@ class _ComposerBar extends StatelessWidget {
                         focusNode: focusNode,
                         onTap: () => focusNode.requestFocus(),
                         onSubmitted: (_) {
-                          if (controller.text.trim().isNotEmpty) onSubmit();
+                          if (controller.text.trim().isNotEmpty) onSubmit(controller.text);
                         },
                         minLines: 1,
                         maxLines: 5,
@@ -1313,7 +1427,7 @@ class _ComposerBar extends StatelessWidget {
                         onTap: hasText
                             ? () {
                                 HapticFeedback.lightImpact();
-                                onSubmit();
+                                onSubmit(controller.text);
                               }
                             : null,
                         child: AnimatedContainer(
@@ -1349,5 +1463,273 @@ class _ComposerBar extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+
+class _ChatActionChip extends StatelessWidget {
+  final ChatAction action;
+  final VoidCallback onTap;
+
+  const _ChatActionChip({required this.action, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    final (icon, label) = switch (action) {
+      ChatAction.saveToCollection => (Icons.bookmark_add_outlined, 'Save these to a collection'),
+      ChatAction.synthesize       => (Icons.auto_awesome_outlined,  'Synthesize these'),
+      ChatAction.buildPlan        => (Icons.calendar_today_outlined, 'Build a plan from these'),
+      ChatAction.none             => (null, ''),
+    };
+
+    if (action == ChatAction.none) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: cs.primary.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: cs.primary),
+            const SizedBox(width: 8),
+            Text(label, style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: cs.primary,
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectionTile extends StatelessWidget {
+  final String emoji;
+  final String name;
+  final String subtitle;
+  final bool isCreate;
+  final VoidCallback onTap;
+
+  const _CollectionTile({
+    required this.emoji,
+    required this.name,
+    required this.subtitle,
+    this.isCreate = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isCreate
+              ? cs.primary.withValues(alpha: 0.1)
+              : cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(emoji, style: const TextStyle(fontSize: 18)),
+        ),
+      ),
+      title: Text(
+        name,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: isCreate ? cs.primary : cs.onSurface,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontSize: 12,
+          color: cs.onSurface.withValues(alpha: 0.4),
+        ),
+      ),
+      trailing: Icon(
+        isCreate ? Icons.add_rounded : Icons.chevron_right_rounded,
+        size: 18,
+        color: isCreate ? cs.primary : cs.onSurface.withValues(alpha: 0.3),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class _SaveToCollectionSheet extends StatefulWidget {
+  final List<SavedUrl> sources;
+  final IsarService isarService;
+  final VoidCallback onCollectionChanged;
+
+  const _SaveToCollectionSheet({
+    required this.sources,
+    required this.isarService,
+    required this.onCollectionChanged,
+  });
+
+  @override
+  State<_SaveToCollectionSheet> createState() => _SaveToCollectionSheetState();
+}
+
+class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
+  List<UserCollection> _existing = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final cols = await widget.isarService.getAllCollections();
+    setState(() { _existing = cols; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Save to collection', style: tt.titleMedium?.copyWith(
+                  color: cs.onSurface, fontWeight: FontWeight.w600,
+                )),
+                const SizedBox(height: 4),
+                Text('${widget.sources.length} links will be added',
+                  style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.4))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Create new — always first
+          _CollectionTile(
+            emoji: '\u2726',
+            name: 'New collection',
+            subtitle: 'Let Glimpse name it for you',
+            isCreate: true,
+            onTap: () => _createAndSave(context),
+          ),
+
+          if (_loading)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5, color: cs.primary,
+                ),
+              ),
+            )
+          else
+            ..._existing.map((col) => _CollectionTile(
+              emoji: col.emoji,
+              name: col.name,
+              subtitle: '${col.urlIds.length} links',
+              onTap: () => _addToExisting(context, col),
+            )),
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createAndSave(BuildContext context) async {
+    Navigator.pop(context);
+
+    final defaultName = widget.sources.length == 1
+        ? widget.sources.first.title
+        : '${widget.sources.length} links';
+    final name = defaultName.isNotEmpty ? defaultName : 'New collection';
+
+    final collection = await widget.isarService.createCollection(
+      name: name,
+      emoji: '\u{1F4C1}',
+    );
+    await widget.isarService.addUrlsToCollection(
+      collectionId: collection.id,
+      urlIds: widget.sources.map((u) => u.id).toList(),
+    );
+    widget.onCollectionChanged();
+    if (context.mounted) {
+      context.push('/collections/${collection.id}');
+    }
+  }
+
+  Future<void> _addToExisting(BuildContext context, UserCollection col) async {
+    Navigator.pop(context);
+    await widget.isarService.addUrlsToCollection(
+      collectionId: col.id,
+      urlIds: widget.sources.map((u) => u.id).toList(),
+    );
+    widget.onCollectionChanged();
+    if (context.mounted) {
+      final cs = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Row(
+          children: [
+            Expanded(child: Text('Added to "${col.name}"')),
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                context.push('/collections/${col.id}');
+              },
+              child: Text(
+                'View',
+                style: TextStyle(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: cs.surfaceContainerHigh,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ));
+    }
   }
 }

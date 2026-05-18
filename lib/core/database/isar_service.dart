@@ -783,6 +783,23 @@ class IsarService {
     });
   }
 
+  Future<void> addUrlsToCollection({
+    required int collectionId,
+    required List<int> urlIds,
+  }) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final c = await isar.userCollections.get(collectionId);
+      if (c == null) return;
+      final updated = <int>[...c.urlIds];
+      for (final id in urlIds) {
+        if (!updated.contains(id)) updated.add(id);
+      }
+      c.urlIds = updated;
+      await isar.userCollections.put(c);
+    });
+  }
+
   Future<void> removeUrlFromCollection({
     required int collectionId,
     required int urlId,
