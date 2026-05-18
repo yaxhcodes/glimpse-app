@@ -224,9 +224,21 @@ class AskNotifier extends StateNotifier<AskState> {
         return;
       }
 
+      // Build conversation history from previous messages, cap at 6 exchanges.
+      final history = state.messages
+          .where((m) => m.text.trim().isNotEmpty)
+          .map((m) => {
+                'role': m.isUser ? 'User' : 'Glimpse',
+                'content': m.text,
+              })
+          .toList();
+      final recentHistory =
+          history.length > 12 ? history.sublist(history.length - 12) : history;
+
       final answer = await gemini.chat(
         question: question,
         contextUrls: contextUrls,
+        conversationHistory: recentHistory,
       );
 
       final sections = answer.sections

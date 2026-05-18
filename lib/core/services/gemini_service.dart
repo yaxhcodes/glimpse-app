@@ -336,6 +336,7 @@ Output valid JSON only. No markdown, no explanation.''';
   Future<ChatResponse> chat({
     required String question,
     required List<SavedUrl> contextUrls,
+    List<Map<String, String>> conversationHistory = const [],
   }) async {
     final contextBlock = contextUrls
         .asMap()
@@ -348,8 +349,15 @@ Output valid JSON only. No markdown, no explanation.''';
 
     final isGreeting = _isGreeting(question);
 
+    final historyBlock = conversationHistory.isEmpty
+        ? ''
+        : '''PREVIOUS CONVERSATION:
+${conversationHistory.map((m) => '${m['role']}: ${m['content']}').join('\n')}
+
+''';
+
     final prompt =
-        '''You are Glimpse — the user's personal second brain. You have access to their saved links and your job is to give sharp, useful answers that feel like a knowledgeable friend who has read everything they've saved.
+        '''${historyBlock}You are Glimpse — the user's personal second brain. You have access to their saved links and your job is to give sharp, useful answers that feel like a knowledgeable friend who has read everything they've saved.
 
 RESPONSE RULES:
 - Lead with a 1–2 sentence answer that directly addresses the question. Be direct. Never start with "Here are some links" or restate the question.
@@ -362,6 +370,9 @@ RESPONSE RULES:
   If any condition fails, omit the "proactiveTip" key entirely from the JSON.
 - Never pad. Never use bullet points or markdown in any field.
 - Each source may appear at most once per response. If you have already mentioned a source in the sections array, do not reference it again anywhere.
+- You have access to the conversation history above. Never re-introduce yourself or give a greeting if history exists. Build on what was already discussed.
+- If the user asks a vague follow-up like "anything more?" or "what else?", surface different saves than what was already shown in this conversation.
+- Never repeat a source that was already cited earlier in this conversation.
 - Tone: concise, warm, slightly informal. Brilliant friend, not a search engine.
 
 Return this exact JSON shape and nothing else:

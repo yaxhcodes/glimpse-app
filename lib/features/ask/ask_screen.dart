@@ -177,6 +177,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                         child: ListView.builder(
                           controller: _scrollController,
                           physics: const ClampingScrollPhysics(),
+                          cacheExtent: 9999,
                           padding: const EdgeInsets.fromLTRB(
                             16,
                             16,
@@ -640,8 +641,6 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                       ),
                     ),
             ),
-          if (_hasBody && (hasSections || hasSources))
-            const SizedBox(height: 6),
           if (hasSections) ...[
             for (var index = 0; index < widget.message.sections.length; index++)
               if (index < _visibleCardCount)
