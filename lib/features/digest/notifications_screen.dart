@@ -8,7 +8,6 @@ import '../../core/services/notification_hub_labels.dart';
 import '../../core/services/notification_router.dart';
 import '../../shared/widgets/notifications/curated_notification_media.dart';
 import '../../shared/widgets/notifications/notification_type_style.dart';
-import '../../shared/widgets/url_card.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -79,7 +78,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
         title: const Text('Notifications'),
       ),
       body: _loading
@@ -336,22 +338,7 @@ class CuratedNotificationListTile extends StatelessWidget {
 
     const kStateAnim = Duration(milliseconds: 180);
 
-    final baseSurface = UrlCard.listCardFillColor(theme);
-    final typeWash = typeStyle.accent.withValues(alpha: isRead ? 0.06 : 0.11);
-    var cardColor = Color.alphaBlend(typeWash, baseSurface);
-    if (!isRead) {
-      cardColor = Color.alphaBlend(
-        cs.primary.withValues(
-          alpha: theme.brightness == Brightness.light ? 0.038 : 0.055),
-        cardColor,
-      );
-    } else {
-      cardColor = Color.alphaBlend(
-        cs.onSurface.withValues(
-          alpha: theme.brightness == Brightness.light ? 0.022 : 0.04),
-        cardColor,
-      );
-    }
+    final cardColor = cs.surfaceContainerLow;
 
     final titleWeight = isRead ? FontWeight.w400 : FontWeight.w600;
 
@@ -373,16 +360,12 @@ class CuratedNotificationListTile extends StatelessWidget {
     final secondaryMuted =
         theme.brightness == Brightness.light ? 0.88 : 0.84;
 
-    final borderSide =
-        BorderSide(color: cs.outlineVariant.withValues(alpha: 0.32));
-
     return AnimatedContainer(
       duration: kStateAnim,
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.fromBorderSide(borderSide),
         boxShadow: isRead
             ? const []
             : [
@@ -442,7 +425,7 @@ class CuratedNotificationListTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant
-                            .withValues(alpha: isRead ? 0.78 : 0.88),
+                            .withValues(alpha: isRead ? 0.78 : 1),
                         height: 1.4,
                         fontWeight: FontWeight.w400,
                       ),
@@ -460,8 +443,7 @@ class CuratedNotificationListTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurface
-                            .withValues(alpha: isRead ? 0.64 : 0.82),
+                        color: cs.onSurfaceVariant,
                         height: 1.3,
                         fontSize:
                             (theme.textTheme.bodySmall?.fontSize ?? 12) + 0.75,
@@ -506,8 +488,6 @@ class CuratedNotificationListTile extends StatelessWidget {
                   children: [
                     _TypeBadge(
                       label: channelLabel,
-                      typeAccent: typeStyle.accent,
-                      isRead: isRead,
                     ),
                     const Spacer(),
                     if (formatted.isNotEmpty)
@@ -521,8 +501,7 @@ class CuratedNotificationListTile extends StatelessWidget {
                             fontSize: 11.5,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 0.12,
-                            color: cs.onSurfaceVariant
-                                .withValues(alpha: isRead ? 0.62 : 0.68),
+                            color: cs.outline,
                           ),
                         ),
                       ),
@@ -540,40 +519,24 @@ class CuratedNotificationListTile extends StatelessWidget {
 class _TypeBadge extends StatelessWidget {
   const _TypeBadge({
     required this.label,
-    required this.typeAccent,
-    required this.isRead,
   });
 
   final String label;
-  final Color typeAccent;
-  final bool isRead;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    final base = cs.surfaceContainerHighest;
-    final tinted = Color.alphaBlend(
-      typeAccent.withValues(alpha: isRead ? 0.085 : 0.13),
-      base,
-    );
-    final bg = isRead
-        ? Color.alphaBlend(cs.onSurface.withValues(alpha: 0.038), tinted)
-        : tinted;
-    final fg = cs.onSurface.withValues(alpha: isRead ? 0.7 : 0.82);
-
-    final borderColor = Color.alphaBlend(
-      typeAccent.withValues(alpha: isRead ? 0.15 : 0.22),
-      cs.outlineVariant,
-    );
+    final bg = cs.secondaryContainer;
+    final fg = cs.onSecondaryContainer;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
       decoration: ShapeDecoration(
         color: bg,
         shape: StadiumBorder(
-          side: BorderSide(color: borderColor),
+          side: BorderSide(color: cs.outlineVariant),
         ),
       ),
       child: Text(

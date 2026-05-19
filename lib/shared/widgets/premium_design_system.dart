@@ -21,7 +21,7 @@ Color premiumBorderColor(BuildContext context) {
 }
 
 Color premiumPillSurface(BuildContext context) {
-  return Theme.of(context).colorScheme.surfaceContainerHighest;
+  return Theme.of(context).colorScheme.surfaceContainerLow;
 }
 
 Color premiumMutedColor(BuildContext context) {

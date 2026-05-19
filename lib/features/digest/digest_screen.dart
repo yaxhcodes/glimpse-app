@@ -39,6 +39,7 @@ class _DigestScreenState extends ConsumerState<DigestScreen> {
 
     if (_cached == null) {
       return Scaffold(
+        backgroundColor: cs.surface,
         appBar: AppBar(title: const Text('Digest')),
         body: const LoadingIndicator(message: 'Loading digest…'),
       );
@@ -50,6 +51,7 @@ class _DigestScreenState extends ConsumerState<DigestScreen> {
         const <int>[];
     if (ids.isEmpty) {
       return Scaffold(
+        backgroundColor: cs.surface,
         appBar: AppBar(title: const Text('Digest')),
         body: Center(
           child: Padding(
@@ -67,6 +69,7 @@ class _DigestScreenState extends ConsumerState<DigestScreen> {
     }
 
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: const Text('Your digest'),
       ),

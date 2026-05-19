@@ -26,6 +26,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
@@ -135,6 +136,7 @@ else if (state.error != null)
                             ?.copyWith(color: theme.colorScheme.primary)),
                     const SizedBox(height: 8),
                     Card(
+                      color: theme.colorScheme.surfaceContainerLow,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(

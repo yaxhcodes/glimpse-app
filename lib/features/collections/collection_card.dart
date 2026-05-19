@@ -55,28 +55,19 @@ class _CollectionCardState extends State<CollectionCard> {
             onTapCancel: () => setState(() => _pressed = false),
             onFocusChange: (value) => setState(() => _focused = value),
             borderRadius: BorderRadius.circular(26),
-            splashColor: visual.accent.withValues(alpha: 0.08),
-            highlightColor: visual.accent.withValues(alpha: 0.05),
+            splashColor: cs.primary.withValues(alpha: 0.08),
+            highlightColor: cs.primary.withValues(alpha: 0.05),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  visual.accent.withValues(alpha: _focused ? 0.045 : 0.018),
-                  cs.surfaceContainerHigh,
-                ),
+                color: cs.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(26),
-                border: Border.all(
-                  color: _focused
-                      ? visual.accent.withValues(alpha: 0.38)
-                      : Colors.white.withValues(alpha: 0.08),
-                  width: 0.9,
-                ),
                 boxShadow: _focused
                     ? [
                         BoxShadow(
-                          color: visual.accent.withValues(alpha: 0.10),
+                          color: cs.primary.withValues(alpha: 0.10),
                           blurRadius: 24,
                           spreadRadius: -6,
                         ),
@@ -192,8 +183,8 @@ class _CollectionListCardState extends State<CollectionListCard> {
               onTapDown: (_) => setState(() => _pressed = true),
               onTapUp: (_) => setState(() => _pressed = false),
               onTapCancel: () => setState(() => _pressed = false),
-              splashColor: visual.accent.withValues(alpha: 0.08),
-              highlightColor: visual.accent.withValues(alpha: 0.05),
+              splashColor: cs.primary.withValues(alpha: 0.08),
+              highlightColor: cs.primary.withValues(alpha: 0.05),
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Row(

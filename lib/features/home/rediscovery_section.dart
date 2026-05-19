@@ -137,6 +137,11 @@ class _RediscoveryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final isLight = cs.brightness == Brightness.light;
+    final photoTextColor = isLight ? cs.scrim : cs.inverseSurface;
+    final photoMetaColor = isLight
+        ? cs.scrim.withValues(alpha: 0.60)
+        : cs.inverseSurface.withValues(alpha: 0.50);
     final hasThumbnail =
         url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
     final title = TitleResolver.resolve(url, tagFrequency: tagFrequency);
@@ -145,6 +150,8 @@ class _RediscoveryCard extends StatelessWidget {
       color: cs.surfaceContainerLow,
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
+      elevation: isLight ? 1 : 0,
+      shadowColor: cs.shadow.withValues(alpha: 0.08),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
@@ -167,12 +174,19 @@ class _RediscoveryCard extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: hasThumbnail
-                        ? [
-                            Colors.black.withValues(alpha: 0.08),
-                            Colors.black.withValues(alpha: 0.30),
-                            Colors.black.withValues(alpha: 0.70),
-                            Colors.black.withValues(alpha: 0.92),
-                          ]
+                        ? isLight
+                            ? [
+                                cs.surface.withValues(alpha: 0.04),
+                                cs.surface.withValues(alpha: 0.18),
+                                cs.surface.withValues(alpha: 0.62),
+                                cs.surface.withValues(alpha: 0.88),
+                              ]
+                            : [
+                                cs.scrim.withValues(alpha: 0.08),
+                                cs.scrim.withValues(alpha: 0.30),
+                                cs.scrim.withValues(alpha: 0.70),
+                                cs.scrim.withValues(alpha: 0.92),
+                              ]
                         : [
                             cs.surfaceContainerLow,
                             cs.surfaceContainerLow,
@@ -192,7 +206,7 @@ class _RediscoveryCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                         color: hasThumbnail
-                            ? Colors.white.withValues(alpha: 0.92)
+                            ? photoTextColor.withValues(alpha: 0.92)
                             : cs.onSurface,
                         height: 1.2,
                         letterSpacing: -0.1,
@@ -206,7 +220,7 @@ class _RediscoveryCard extends StatelessWidget {
                       style: tt.labelSmall?.copyWith(
                         fontSize: 10,
                         color: hasThumbnail
-                            ? Colors.white.withValues(alpha: 0.50)
+                            ? photoMetaColor
                             : cs.onSurfaceVariant,
                         fontWeight: FontWeight.w400,
                       ),

@@ -198,6 +198,7 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
         CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic);
 
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: const Text('Notification'),
         actions: [

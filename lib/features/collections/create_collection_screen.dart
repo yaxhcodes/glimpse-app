@@ -36,8 +36,11 @@ class _CreateCollectionScreenState extends ConsumerState<CreateCollectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: const Center(child: CircularProgressIndicator()),
     );
   }
 }

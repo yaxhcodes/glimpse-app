@@ -423,11 +423,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        // Dynamic color: use the platform palette when accent is set to dynamic
-        final bool useDynamic =
-            accent == AppAccentColor.dynamic &&
-            lightDynamic != null &&
-            darkDynamic != null;
+        // Dynamic color: use each platform palette when available. Some
+        // devices/emulators may return only one brightness palette.
+        final bool useDynamic = accent == AppAccentColor.dynamic;
 
         final ThemeData lightTheme;
         final ThemeData darkTheme;
@@ -436,12 +434,26 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
             amoledSurfaces && themeMode != ThemeMode.light;
 
         if (useDynamic) {
-          lightTheme = AppTheme.fromColorScheme(lightDynamic);
+          final dynamicSeed =
+              lightDynamic?.primary ??
+              darkDynamic?.primary ??
+              const Color(0xFF1D9E75);
+          final lightScheme = ColorScheme.fromSeed(
+            seedColor: dynamicSeed,
+            brightness: Brightness.light,
+            dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
+          );
+          final darkScheme = ColorScheme.fromSeed(
+            seedColor: dynamicSeed,
+            brightness: Brightness.dark,
+            dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
+          );
+          lightTheme = AppTheme.fromColorScheme(lightScheme);
           darkTheme = useAmoledPalette
-              ? AppTheme.fromColorSchemeAmoled(darkDynamic)
-              : AppTheme.fromColorScheme(darkDynamic);
+              ? AppTheme.fromColorSchemeAmoled(darkScheme)
+              : AppTheme.fromColorScheme(darkScheme);
         } else {
-          final seed = accent.seedColor ?? const Color(0xFF6750A4);
+          final seed = accent.seedColor ?? const Color(0xFF1D9E75);
           lightTheme = AppTheme.lightTheme(seed);
           darkTheme = useAmoledPalette
               ? AppTheme.amoledTheme(seed)

@@ -122,6 +122,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         toolbarHeight: 72,
         titleSpacing: 0,
@@ -131,7 +132,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
+              color: colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(18),
             ),
             child: TextField(
@@ -623,4 +624,3 @@ Widget _buildSearchResultCard(
     ),
   );
 }
-

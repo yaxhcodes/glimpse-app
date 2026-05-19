@@ -83,7 +83,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final isar = ref.read(isarServiceProvider);
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -523,7 +523,7 @@ class _UserBubble extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
+              color: colorScheme.primary,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
                 topRight: Radius.circular(4),
@@ -534,7 +534,7 @@ class _UserBubble extends StatelessWidget {
             child: Text(
               text,
               style: textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onPrimaryContainer,
+                color: colorScheme.onPrimary,
                 height: 1.45,
               ),
             ),
@@ -837,7 +837,7 @@ class _ProactiveTipNudge extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Material(
-      color: colorScheme.surfaceContainerLow,
+      color: colorScheme.primaryContainer,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -847,7 +847,7 @@ class _ProactiveTipNudge extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: colorScheme.primary.withValues(alpha: 0.35),
+              color: colorScheme.primary.withValues(alpha: 0.25),
             ),
           ),
           child: Row(
@@ -862,7 +862,7 @@ class _ProactiveTipNudge extends StatelessWidget {
                 child: Text(
                   tip,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                    color: colorScheme.onSurface,
                     fontStyle: FontStyle.italic,
                     height: 1.4,
                   ),
@@ -889,6 +889,7 @@ class _AnswerSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final source = section.source;
     final title = section.heading;
     final summary = section.summary;
@@ -900,10 +901,10 @@ class _AnswerSectionCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF161616),
+        color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: cs.outlineVariant,
           width: 0.5,
         ),
       ),
@@ -924,7 +925,7 @@ class _AnswerSectionCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                        color: cs.primary,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -933,10 +934,10 @@ class _AnswerSectionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFF0F0F0),
+                      color: cs.onSurface,
                       height: 1.3,
                     ),
                     maxLines: 1,
@@ -948,7 +949,7 @@ class _AnswerSectionCard extends StatelessWidget {
                   child: Icon(
                     Icons.grid_view_rounded,
                     size: 14,
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -961,7 +962,7 @@ class _AnswerSectionCard extends StatelessWidget {
                 summary,
                 style: TextStyle(
                   fontSize: 12.5,
-                  color: Colors.white.withValues(alpha: 0.48),
+                  color: cs.onSurfaceVariant,
                   height: 1.5,
                 ),
                 maxLines: 2,
@@ -976,7 +977,7 @@ class _AnswerSectionCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border(
                     top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: cs.outlineVariant,
                       width: 0.5,
                     ),
                   ),
@@ -988,7 +989,7 @@ class _AnswerSectionCard extends StatelessWidget {
                       domain,
                       style: TextStyle(
                         fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.25),
+                        color: cs.outline,
                       ),
                     ),
                     const Spacer(),
@@ -999,7 +1000,7 @@ class _AnswerSectionCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w500,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: cs.primary,
                         ),
                       ),
                     ),
@@ -1007,7 +1008,7 @@ class _AnswerSectionCard extends StatelessWidget {
                       margin: const EdgeInsets.symmetric(horizontal: 8),
                       width: 0.5,
                       height: 12,
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: cs.outlineVariant,
                     ),
                     GestureDetector(
                       onTap: () => _openUrl(source.rawUrl),
@@ -1018,14 +1019,14 @@ class _AnswerSectionCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.35),
+                              color: cs.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(width: 3),
                           Icon(
                             Icons.open_in_new_rounded,
                             size: 11,
-                            color: Colors.white.withValues(alpha: 0.25),
+                            color: cs.outline,
                           ),
                         ],
                       ),
@@ -1060,6 +1061,7 @@ class _SourceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final title = source.title.isNotEmpty ? source.title : source.domain;
     final summary = source.summary ?? source.description;
     final domain = CategoryResolver.displaySourceName(
@@ -1070,10 +1072,10 @@ class _SourceCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF161616),
+        color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: cs.outlineVariant,
           width: 0.5,
         ),
       ),
@@ -1094,7 +1096,7 @@ class _SourceCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                        color: cs.primary,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -1103,10 +1105,10 @@ class _SourceCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFF0F0F0),
+                      color: cs.onSurface,
                       height: 1.3,
                     ),
                     maxLines: 1,
@@ -1118,7 +1120,7 @@ class _SourceCard extends StatelessWidget {
                   child: Icon(
                     Icons.grid_view_rounded,
                     size: 14,
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -1131,7 +1133,7 @@ class _SourceCard extends StatelessWidget {
                 summary,
                 style: TextStyle(
                   fontSize: 12.5,
-                  color: Colors.white.withValues(alpha: 0.48),
+                  color: cs.onSurfaceVariant,
                   height: 1.5,
                 ),
                 maxLines: 2,
@@ -1146,7 +1148,7 @@ class _SourceCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border(
                     top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: cs.outlineVariant,
                       width: 0.5,
                     ),
                   ),
@@ -1158,7 +1160,7 @@ class _SourceCard extends StatelessWidget {
                       domain,
                       style: TextStyle(
                         fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.25),
+                        color: cs.outline,
                       ),
                     ),
                     const Spacer(),
@@ -1169,7 +1171,7 @@ class _SourceCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w500,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: cs.primary,
                         ),
                       ),
                     ),
@@ -1177,7 +1179,7 @@ class _SourceCard extends StatelessWidget {
                       margin: const EdgeInsets.symmetric(horizontal: 8),
                       width: 0.5,
                       height: 12,
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: cs.outlineVariant,
                     ),
                     GestureDetector(
                       onTap: () => _openUrl(source.rawUrl),
@@ -1188,14 +1190,14 @@ class _SourceCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.35),
+                              color: cs.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(width: 3),
                           Icon(
                             Icons.open_in_new_rounded,
                             size: 11,
-                            color: Colors.white.withValues(alpha: 0.25),
+                            color: cs.outline,
                           ),
                         ],
                       ),
@@ -1338,7 +1340,7 @@ class _ComposerBar extends StatelessWidget {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
+                      color: colorScheme.surfaceContainerHigh,
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
                         color: colorScheme.outlineVariant,
@@ -1380,7 +1382,7 @@ class _ComposerBar extends StatelessWidget {
                         decoration: InputDecoration(
                           hintText: 'Message Glimpse...',
                           hintStyle: textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                            color: colorScheme.outline,
                           ),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
@@ -1443,7 +1445,7 @@ class _ComposerBar extends StatelessWidget {
                             shape: BoxShape.circle,
                             color: hasText
                                 ? colorScheme.primary
-                                : colorScheme.surfaceContainerHighest,
+                                : colorScheme.surfaceContainerHigh,
                             border: hasText
                                 ? null
                                 : Border.all(
@@ -1499,7 +1501,7 @@ class _ChatActionChip extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: cs.primary.withValues(alpha: 0.3),
+            color: cs.primary.withValues(alpha: 0.35),
             width: 0.5,
           ),
         ),

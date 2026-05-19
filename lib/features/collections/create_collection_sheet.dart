@@ -117,10 +117,10 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: cs.surface,
+          color: cs.surfaceContainerHighest,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           border: Border(
-            top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            top: BorderSide(color: cs.outlineVariant),
           ),
         ),
         child: SafeArea(

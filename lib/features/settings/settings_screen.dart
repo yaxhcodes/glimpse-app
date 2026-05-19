@@ -88,9 +88,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final displayNameAsync = ref.watch(userDisplayNameProvider);
 
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
             title: const Text('Settings'),
           ),
           SliverPadding(
@@ -180,8 +183,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       const Divider(height: 1),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Clear All Data'),
-                        subtitle: const Text('Permanently delete all saved links'),
+                        title: Text(
+                          'Clear All Data',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Permanently delete all saved links',
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                        ),
                         onTap: _clearData,
                       ),
                     ],
@@ -694,7 +709,7 @@ class _DigestTestingContentState
             labelText: 'Notification type',
             isDense: true,
             filled: true,
-            fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+            fillColor: cs.surfaceContainerHigh,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -734,12 +749,12 @@ class _DigestTestingContentState
               child: FilledButton.icon(
                 onPressed: _testing ? null : _fireNow,
                 icon: _testing
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: cs.onPrimary,
                         ),
                       )
                     : const Icon(Icons.send_outlined, size: 18),
@@ -753,7 +768,7 @@ class _DigestTestingContentState
         // Preview card.
         if (_previewTitle != null)
           Card(
-            color: cs.surfaceContainerHighest,
+            color: cs.surfaceContainerLow,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),

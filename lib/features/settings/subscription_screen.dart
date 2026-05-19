@@ -33,6 +33,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(title: const Text('Subscription')),
       body: tierAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

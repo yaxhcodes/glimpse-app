@@ -109,9 +109,12 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
         state.status == AddUrlStatus.error;
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
+            backgroundColor: colorScheme.surface,
+            foregroundColor: colorScheme.onSurfaceVariant,
             title: const Text('Save something worth keeping'),
           ),
           SliverFillRemaining(
@@ -127,8 +130,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                     Text(
                       'Paste a link and add a note if you want.',
                       style: textTheme.bodyMedium?.copyWith(
-                        color:
-                            colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -136,18 +138,17 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                     // Grouped inputs
                     Container(
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.35),
+                        color: colorScheme.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: colorScheme.shadow.withValues(alpha: 0.08),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
+                            color: colorScheme.shadow.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       child: Column(
                         children: [
                           // URL field
@@ -155,22 +156,39 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                             controller: _urlController,
                             decoration: InputDecoration(
                               hintText: 'https://example.com',
+                              hintStyle: TextStyle(color: colorScheme.outline),
                               suffixIcon: IconButton(
-                                icon: const Icon(Icons.paste),
+                                icon: Icon(
+                                  Icons.content_paste_rounded,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                                 tooltip: 'Paste from clipboard',
                                 onPressed: isEnabled ? _pasteFromClipboard : null,
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.surfaceContainerLow,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 16,
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
                                   color: colorScheme.primary,
                                   width: 2,
                                 ),
                               ),
+                            ),
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface,
                             ),
                             keyboardType: TextInputType.url,
                             autocorrect: false,
@@ -182,7 +200,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                             },
                             enabled: isEnabled,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 10),
 
                           // Note field
                           TextFormField(
@@ -190,21 +208,34 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                             decoration: InputDecoration(
                               hintText: 'Add a note (optional)',
                               hintStyle: TextStyle(
-                                color: colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.5),
+                                color: colorScheme.outline,
                               ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              filled: false,
-                              contentPadding: EdgeInsets.zero,
-                              isDense: true,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: colorScheme.primary,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.surfaceContainerLow,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
                             ),
                             maxLines: 2,
                             enabled: isEnabled,
                             style: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface
-                                  .withValues(alpha: 0.85),
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ],
@@ -219,8 +250,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                         child: Text(
                           'From $_domainPreview',
                           style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.6),
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -283,6 +313,8 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                       onPressed: isEnabled ? _onSave : null,
                       style: FilledButton.styleFrom(
                         elevation: isEnabled ? 2 : 0,
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

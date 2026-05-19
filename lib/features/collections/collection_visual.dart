@@ -7,176 +7,147 @@ enum CollectionVisualStyle {
     'travel',
     'Travel',
     Icons.flight_takeoff_rounded,
-    Color(0xFF85C7B7),
   ),
   places(
     'places',
     'Places',
     Icons.travel_explore_outlined,
-    Color(0xFF8FC6D6),
   ),
   outdoors(
     'outdoors',
     'Outdoors',
     Icons.terrain_outlined,
-    Color(0xFF9BCB8D),
   ),
   systems(
     'systems',
     'Systems',
     Icons.hub_outlined,
-    Color(0xFF9FA8DA),
   ),
   research(
     'research',
     'Research',
     Icons.menu_book_rounded,
-    Color(0xFFD7BA7D),
   ),
   development(
     'development',
     'Code',
     Icons.code_rounded,
-    Color(0xFF80CBC4),
   ),
   design(
     'design',
     'Design',
     Icons.palette_outlined,
-    Color(0xFFE7A6B8),
   ),
   knowledge(
     'knowledge',
     'Ideas',
     Icons.psychology_alt_outlined,
-    Color(0xFFC3B5FD),
   ),
   launch(
     'launch',
     'Launch',
     Icons.rocket_launch_outlined,
-    Color(0xFFE8C07D),
   ),
   finance(
     'finance',
     'Finance',
     Icons.account_balance_wallet_outlined,
-    Color(0xFFA8D08D),
   ),
   health(
     'health',
     'Health',
     Icons.favorite_border_rounded,
-    Color(0xFFE5A0A8),
   ),
   food(
     'food',
     'Food',
     Icons.restaurant_rounded,
-    Color(0xFFD9B06F),
   ),
   music(
     'music',
     'Music',
     Icons.headphones_rounded,
-    Color(0xFFB5A7E6),
   ),
   media(
     'media',
     'Media',
     Icons.movie_creation_outlined,
-    Color(0xFF8DB8E8),
   ),
   shopping(
     'shopping',
     'Shopping',
     Icons.shopping_bag_outlined,
-    Color(0xFFD6A786),
   ),
   work(
     'work',
     'Work',
     Icons.work_outline_rounded,
-    Color(0xFFB7C2D8),
   ),
   learning(
     'learning',
     'Learning',
     Icons.school_outlined,
-    Color(0xFFCFBE84),
   ),
   science(
     'science',
     'Science',
     Icons.science_outlined,
-    Color(0xFF92CEC8),
   ),
   news(
     'news',
     'Articles',
     Icons.article_outlined,
-    Color(0xFFB4C3D8),
   ),
   people(
     'people',
     'People',
     Icons.groups_outlined,
-    Color(0xFFD4A6C8),
   ),
   sports(
     'sports',
     'Sports',
     Icons.sports_soccer_outlined,
-    Color(0xFFAED28F),
   ),
   gaming(
     'gaming',
     'Gaming',
     Icons.sports_esports_outlined,
-    Color(0xFFB9A3E6),
   ),
   security(
     'security',
     'Security',
     Icons.shield_outlined,
-    Color(0xFF8FBED6),
   ),
   legal(
     'legal',
     'Legal',
     Icons.gavel_outlined,
-    Color(0xFFD1B07E),
   ),
   productivity(
     'productivity',
     'Productivity',
     Icons.checklist_rounded,
-    Color(0xFF9FC8BC),
   ),
   home(
     'home',
     'Home',
     Icons.home_work_outlined,
-    Color(0xFFAFC8A6),
   ),
   fallback(
     'space',
     'General',
     Icons.topic_outlined,
-    Color(0xFFBFC7D5),
   );
 
   const CollectionVisualStyle(
     this.key,
     this.label,
     this.icon,
-    this.accent,
   );
 
   final String key;
   final String label;
   final IconData icon;
-  final Color accent;
 }
 
 const collectionVisualOptions = <CollectionVisualStyle>[
@@ -733,7 +704,6 @@ class CollectionVisual extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final accent = style.accent;
 
     return Semantics(
       label: semanticLabel ?? style.label,
@@ -744,21 +714,16 @@ class CollectionVisual extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            accent.withValues(alpha: selected ? 0.16 : 0.08),
-            cs.surfaceContainerHigh,
-          ),
+          color: cs.secondaryContainer,
           borderRadius: BorderRadius.circular(size * 0.28),
           border: Border.all(
-            color: selected
-                ? accent.withValues(alpha: 0.46)
-                : Colors.white.withValues(alpha: 0.08),
+            color: selected ? cs.primary : cs.outlineVariant,
             width: selected ? 1.1 : 0.8,
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: accent.withValues(alpha: 0.12),
+                    color: cs.primary.withValues(alpha: 0.12),
                     blurRadius: 22,
                     spreadRadius: 1,
                   ),
@@ -768,7 +733,7 @@ class CollectionVisual extends StatelessWidget {
         child: Icon(
           style.icon,
           size: iconSize,
-          color: accent.withValues(alpha: selected ? 0.95 : 0.86),
+          color: cs.onSecondaryContainer,
         ),
       ),
     );

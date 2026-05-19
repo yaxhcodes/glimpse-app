@@ -31,6 +31,7 @@ class _CollectionDetailScreenState
     );
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: Text(title),
         actions: [

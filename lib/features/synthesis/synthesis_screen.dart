@@ -40,6 +40,7 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: const Text('Synthesize'),
         actions: [
@@ -66,6 +67,7 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
             ),
             const SizedBox(height: 8),
             ...state.selectedUrls.map((u) => Card(
+                  color: theme.colorScheme.surfaceContainerLow,
                   margin: const EdgeInsets.only(bottom: 6),
                   child: ListTile(
                     dense: true,
@@ -147,6 +149,7 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
                       ?.copyWith(color: theme.colorScheme.primary)),
               const SizedBox(height: 8),
               Card(
+                color: theme.colorScheme.surfaceContainerLow,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: SelectableText(

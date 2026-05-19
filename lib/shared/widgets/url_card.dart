@@ -140,9 +140,7 @@ class UrlCard extends ConsumerStatefulWidget {
   /// Shared with search / notification list rows: neutral light cards, tinted dark.
   static Color listCardFillColor(ThemeData theme) {
     final cs = theme.colorScheme;
-    return theme.brightness == Brightness.light
-        ? cs.surface
-        : cs.surfaceContainerLow;
+    return cs.surfaceContainerLow;
   }
 
   static ShapeBorder listCardShape(ThemeData _, {double radius = 14}) {
@@ -188,7 +186,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
 
     final isRead = widget.savedUrl.openedAt != null;
     final isLight = theme.brightness == Brightness.light;
-    final metaStyle = TextStyle(fontSize: 12, color: cs.onSurfaceVariant);
+    final metaStyle = TextStyle(fontSize: 12, color: cs.outline);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
@@ -265,7 +263,7 @@ if (chipData.visible.isNotEmpty ||
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: cs.secondaryContainer.withValues(alpha: 0.7),
+                                  color: cs.secondaryContainer,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -287,7 +285,7 @@ if (chipData.visible.isNotEmpty ||
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: cs.surfaceContainerHighest,
+                                  color: cs.secondaryContainer,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -295,7 +293,7 @@ if (chipData.visible.isNotEmpty ||
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w500,
-                                    color: cs.onSurfaceVariant,
+                                    color: cs.onSecondaryContainer,
                                     fontFamily: tt.labelSmall?.fontFamily,
                                   ),
                                 ),

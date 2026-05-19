@@ -79,8 +79,10 @@ class CategoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final urlsAsync = ref.watch(categoryUrlsProvider(categoryName));
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: cs.surface,
       body: urlsAsync.when(
         loading: () => CustomScrollView(
           slivers: [

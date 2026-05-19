@@ -16,10 +16,13 @@ class LookAndFeelScreen extends ConsumerWidget {
     final lightOnly = themeMode == ThemeMode.light;
 
     return Scaffold(
+      backgroundColor: cs.surface,
       body: CustomScrollView(
         slivers: [
-          const SliverAppBar.large(
-            title: Text('Look & feel'),
+          SliverAppBar.large(
+            backgroundColor: cs.surface,
+            foregroundColor: cs.onSurfaceVariant,
+            title: const Text('Look & feel'),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -45,6 +48,7 @@ class LookAndFeelScreen extends ConsumerWidget {
                         (mode) => RadioListTile<ThemeMode>(
                           value: mode,
                           groupValue: themeMode,
+                          activeColor: cs.primary,
                           onChanged: (v) {
                             if (v != null) {
                               ref.read(themeModeProvider.notifier).set(v);
@@ -53,7 +57,11 @@ class LookAndFeelScreen extends ConsumerWidget {
                           dense: true,
                           contentPadding: EdgeInsets.zero,
                           title: Text(_themeModeTitle(mode)),
-                          secondary: Icon(_themeModeIcon(mode), size: 22),
+                          secondary: Icon(
+                            _themeModeIcon(mode),
+                            size: 22,
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                       Divider(height: 28, color: cs.outlineVariant.withValues(alpha: 0.5)),
@@ -187,7 +195,7 @@ class _ThemePreviewStrip extends StatelessWidget {
     final radius = BorderRadius.circular(20);
 
     return Material(
-      color: colorScheme.surfaceContainerHigh,
+      color: colorScheme.primaryContainer,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
@@ -197,12 +205,12 @@ class _ThemePreviewStrip extends StatelessWidget {
             Expanded(
               flex: 5,
               child: Container(
-                color: colorScheme.primaryContainer,
+                color: colorScheme.primary,
                 alignment: Alignment.center,
                 child: Icon(
                   Icons.palette_rounded,
                   size: 36,
-                  color: colorScheme.onPrimaryContainer.withValues(alpha: 0.85),
+                  color: colorScheme.onPrimary,
                 ),
               ),
             ),
@@ -218,14 +226,15 @@ class _ThemePreviewStrip extends StatelessWidget {
                       'Theme preview',
                       style: tt.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
+                        color: colorScheme.onPrimaryContainer,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Accent and surfaces update from your choices below.',
                       style: tt.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                        color:
+                            colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
                         height: 1.35,
                       ),
                       maxLines: 3,
@@ -293,17 +302,16 @@ class _AccentSwatch extends StatelessWidget {
             shape: BoxShape.circle,
             color: isDynamic ? null : displayColor,
             gradient: isDynamic
-                ? const SweepGradient(
+                ? SweepGradient(
                     colors: [
-                      Color(0xFF1565C0),
-                      Color(0xFF00796B),
-                      Color(0xFF2E7D32),
-                      Color(0xFFF9A825),
-                      Color(0xFFEF6C00),
-                      Color(0xFFC62828),
-                      Color(0xFFAD1457),
-                      Color(0xFF6750A4),
-                      Color(0xFF1565C0),
+                      cs.primary,
+                      cs.secondary,
+                      cs.tertiary,
+                      cs.primaryContainer,
+                      cs.secondaryContainer,
+                      cs.tertiaryContainer,
+                      cs.error,
+                      cs.primary,
                     ],
                   )
                 : null,
@@ -316,15 +324,18 @@ class _AccentSwatch extends StatelessWidget {
               ? Icon(
                   Icons.check_rounded,
                   color: isDynamic
-                      ? Colors.white
+                      ? cs.onPrimary
                       : (displayColor.computeLuminance() > 0.45
-                          ? Colors.black87
-                          : Colors.white),
+                          ? cs.scrim
+                          : cs.onPrimary),
                   size: 26,
                 )
               : isDynamic
-                  ? const Icon(Icons.auto_awesome_rounded,
-                      color: Colors.white, size: 22)
+                  ? Icon(
+                      Icons.auto_awesome_rounded,
+                      color: cs.onPrimary,
+                      size: 22,
+                    )
                   : null,
         ),
       ),

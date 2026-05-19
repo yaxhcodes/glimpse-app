@@ -25,6 +25,7 @@ class AboutScreen extends StatelessWidget {
     final cs = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: cs.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(

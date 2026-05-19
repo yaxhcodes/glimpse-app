@@ -414,11 +414,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final url = urlAsync.valueOrNull;
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
           SliverAppBar(
             pinned: true,
+            backgroundColor: colorScheme.surface,
+            foregroundColor: colorScheme.onSurfaceVariant,
             title: const Text('Details'),
             actions: [
               if (url != null) ...[
@@ -431,11 +434,27 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   icon: const Icon(Icons.more_vert_rounded),
                   tooltip: 'More',
                   onSelected: (value) {
-                    if (value == 'delete') {
+                    if (value == 'change_category') {
+                      _changeCategory(url);
+                    } else if (value == 'delete') {
                       _deleteUrl();
                     }
                   },
                   itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'change_category',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.category_outlined,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('Change category'),
+                        ],
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'delete',
                       child: Row(
@@ -487,13 +506,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       rawUrl: url.rawUrl,
       fallbackDomain: url.domain,
     );
-    final sourceKey = displaySourceName.trim().toLowerCase();
-    final primaryTrimmed = url.category.trim();
-    final primaryMatchesSource =
-        primaryTrimmed.isNotEmpty && primaryTrimmed.toLowerCase() == sourceKey;
-    final categoryChipsForUi = url.effectiveCategories
-        .where((c) => c.trim().toLowerCase() != sourceKey)
-        .toList();
     final normalizedCategories =
         url.effectiveCategories.map((item) => item.toLowerCase()).toSet();
     final rawTagPool = url.tags
@@ -505,6 +517,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       tagFreq,
     );
     final showImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
+    final categoryLabel = url.category.trim();
     final hasDescription = formattedDescription.isNotEmpty;
     const collapseTagsAt = 5;
     final showAllTags = _tagsExpanded || visibleTags.length <= collapseTagsAt;
@@ -535,10 +548,39 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   onTap: () => _launchUrl(url.rawUrl),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
-                    child: CachedNetworkImage(
-                      imageUrl: url.thumbnailUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, _, _) => const SizedBox.shrink(),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(
+                          imageUrl: url.thumbnailUrl!,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, _, _) => const SizedBox.shrink(),
+                        ),
+                        if (categoryLabel.isNotEmpty)
+                          Positioned(
+                            left: 12,
+                            bottom: 12,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: colorScheme.scrim.withValues(alpha: 0.58),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                child: Text(
+                                  categoryLabel,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onInverseSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -553,6 +595,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
                 height: 1.25,
+                color: colorScheme.onSurface,
               ),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
@@ -567,7 +610,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 Text(
                   displaySourceName,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                    color: colorScheme.primary,
                     fontSize: 13,
                   ),
                 ),
@@ -576,7 +619,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   child: Text(
                     '·',
                     style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
+                      color: colorScheme.outline,
                       fontSize: 13,
                     ),
                   ),
@@ -584,7 +627,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 Text(
                   _formatDate(url.savedAt),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                    color: colorScheme.outline,
                     fontSize: 13,
                   ),
                 ),
@@ -592,76 +635,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
             const SizedBox(height: 10),
             _buildUrlAddressBlock(url, theme, colorScheme),
-            const SizedBox(height: 8),
-
-            // ── Category chips (topic / extra buckets; not the site name again)
-            if (primaryMatchesSource &&
-                url.category.trim().isNotEmpty) ...[
-              TextButton.icon(
-                onPressed: () => _changeCategory(url),
-                icon: Icon(
-                  Icons.edit_outlined,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
-                label: const Text('Edit category'),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                ),
-              ),
-            ],
-            if (categoryChipsForUi.isNotEmpty)
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: categoryChipsForUi.map((category) {
-                  final isPrimary = category == url.category;
-                  return GestureDetector(
-                    onTap: isPrimary ? () => _changeCategory(url) : null,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isPrimary
-                            ? colorScheme.secondaryContainer
-                            : colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _categoryIcon(
-                            category,
-                            isPrimary
-                                ? url.categoryEmoji
-                                : CategoryResolver.emojiForCategory(category),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            category,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w500,
-                              color: isPrimary
-                                  ? colorScheme.onSecondaryContainer
-                                  : colorScheme.onSurface,
-                            ),
-                          ),
-                          if (isPrimary) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.edit_outlined,
-                              size: 13,
-                              color: colorScheme.onSecondaryContainer
-                                  .withValues(alpha: 0.6),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
 
             // ── Description ─────────────────────────────────────────────
             if (hasDescription) ...[
@@ -690,6 +663,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               children: [
                 ...displayedTags.map((tag) => InputChip(
                       label: Text(tag),
+                      backgroundColor: colorScheme.secondaryContainer,
+                      labelStyle: theme.textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSecondaryContainer,
+                      ),
+                      deleteIconColor: colorScheme.onSecondaryContainer,
+                      side: BorderSide.none,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
                       onDeleted: () => _removeTag(url, tag),
@@ -697,13 +676,27 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 if (!showAllTags && hiddenTagCount > 0)
                   ActionChip(
                     label: Text('+$hiddenTagCount'),
+                    backgroundColor: colorScheme.secondaryContainer,
+                    labelStyle: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                    side: BorderSide.none,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
                     onPressed: () => setState(() => _tagsExpanded = true),
                   ),
                 ActionChip(
-                  avatar: const Icon(Icons.add, size: 16),
+                  avatar: Icon(
+                    Icons.add,
+                    size: 16,
+                    color: colorScheme.onSecondaryContainer,
+                  ),
                   label: const Text('Add tag'),
+                  backgroundColor: colorScheme.secondaryContainer,
+                  labelStyle: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSecondaryContainer,
+                  ),
+                  side: BorderSide(color: colorScheme.outline),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                   onPressed: () => _addTag(url),
@@ -726,6 +719,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       'Notes',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: colorScheme.primary,
                       ),
                     ),
                     const Spacer(),
@@ -749,29 +743,30 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     minLines: 3,
                     maxLines: 10,
                     keyboardType: TextInputType.multiline,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      height: 1.5,
+                      color: colorScheme.onSurface,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Add personal notes…',
+                      hintStyle: TextStyle(color: colorScheme.outline),
                       filled: true,
-                      fillColor: colorScheme.surfaceContainerLow,
+                      fillColor: colorScheme.surfaceContainerHigh,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 12,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colorScheme.outlineVariant),
+                        borderSide: BorderSide.none,
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colorScheme.outlineVariant),
+                        borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: colorScheme.primary,
-                          width: 1.5,
-                        ),
+                        borderSide: BorderSide.none,
                       ),
                     ),
                     onChanged: (_) {
@@ -828,14 +823,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       minimumSize: const Size(34, 34),
       padding: const EdgeInsets.all(6),
     );
+    final copyIconStyle = IconButton.styleFrom(
+      foregroundColor: colorScheme.primary,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      minimumSize: const Size(34, 34),
+      padding: const EdgeInsets.all(6),
+    );
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.22),
+        color: colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-        ),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
@@ -849,7 +848,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     ? SelectableText(
                         raw,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface,
+                          color: colorScheme.outline,
                           fontSize: 13,
                           height: 1.5,
                         ),
@@ -864,7 +863,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         child: Text(
                           display,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                            color: colorScheme.outline,
                             fontSize: 12.5,
                             height: 1.4,
                           ),
@@ -890,7 +889,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             IconButton(
               icon: const Icon(Icons.copy_rounded, size: 19),
               tooltip: 'Copy link',
-              style: subtleIconStyle,
+              style: copyIconStyle,
               onPressed: () => _copyUrlToClipboard(raw),
             ),
           ],
@@ -907,9 +906,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: colorScheme.secondaryContainer.withValues(alpha: 0.42),
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -919,6 +917,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             'Summary',
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
+              color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 8),
@@ -948,7 +947,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final openBtn = SizedBox(
       width: narrow ? double.infinity : null,
       child: FilledButton.tonalIcon(
-        style: compact,
+        style: compact.copyWith(
+          backgroundColor: WidgetStatePropertyAll(
+            Theme.of(context).colorScheme.primary,
+          ),
+          foregroundColor: WidgetStatePropertyAll(
+            Theme.of(context).colorScheme.onPrimary,
+          ),
+        ),
         onPressed: () => _launchUrl(url.rawUrl),
         icon: const Icon(Icons.open_in_new_rounded, size: 18),
         label: const Text('Open'),
@@ -957,7 +963,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final shareBtn = SizedBox(
       width: narrow ? double.infinity : null,
       child: OutlinedButton.icon(
-        style: compact,
+        style: compact.copyWith(
+          backgroundColor: WidgetStatePropertyAll(
+            Theme.of(context).colorScheme.secondaryContainer,
+          ),
+          foregroundColor: WidgetStatePropertyAll(
+            Theme.of(context).colorScheme.onSecondaryContainer,
+          ),
+          side: WidgetStatePropertyAll(
+            BorderSide(color: Theme.of(context).colorScheme.secondaryContainer),
+          ),
+        ),
         onPressed: () => Share.share(url.rawUrl),
         icon: const Icon(Icons.share_outlined, size: 18),
         label: const Text('Share'),
@@ -1156,23 +1172,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       );
     }
     return Icon(Icons.public_outlined, size: 14, color: variant);
-  }
-
-  Widget _categoryIcon(String category, String emoji) {
-    final favicon = faviconUrl(category);
-    if (favicon != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(3),
-        child: CachedNetworkImage(
-          imageUrl: favicon,
-          width: 16,
-          height: 16,
-          errorWidget: (_, _, _) =>
-              Text(emoji, style: const TextStyle(fontSize: 14)),
-        ),
-      );
-    }
-    return Text(emoji, style: const TextStyle(fontSize: 14));
   }
 
   String _formatDate(DateTime date) {

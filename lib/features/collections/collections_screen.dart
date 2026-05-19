@@ -164,14 +164,18 @@ class _LayoutToggle extends StatelessWidget {
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 10),
         ),
-        side: WidgetStatePropertyAll(
-          BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
+        side: const WidgetStatePropertyAll(BorderSide.none),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return cs.primary;
+          }
+          return cs.onSurfaceVariant;
+        }),
         backgroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return cs.primary.withValues(alpha: 0.12);
+            return cs.secondaryContainer;
           }
-          return cs.surfaceContainerHigh.withValues(alpha: 0.72);
+          return cs.surfaceContainerHigh;
         }),
       ),
       segments: const [

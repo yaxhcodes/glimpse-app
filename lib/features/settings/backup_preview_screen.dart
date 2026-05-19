@@ -59,6 +59,7 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
 
     if (backup == null) {
       return Scaffold(
+        backgroundColor: cs.surface,
         appBar: AppBar(),
         body: const Center(child: Text('No backup data')),
       );
@@ -68,6 +69,7 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
     final progress = state.progress;
 
     return Scaffold(
+      backgroundColor: cs.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(

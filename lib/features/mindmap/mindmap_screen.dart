@@ -690,9 +690,7 @@ class _ClusterSheetState extends State<_ClusterSheet> {
     final accent = widget.theme.accentColor;
     final hasSubs = widget.theme.hasSubClusters;
     final bottomPad = MediaQuery.viewPaddingOf(context).bottom;
-    final sheetBg = cs.brightness == Brightness.dark
-        ? cs.surfaceContainerLow
-        : cs.surface;
+    final sheetBg = cs.surfaceContainerHighest;
 
     // Starts at ~65 % height; snaps to fullscreen on drag up.
     return DraggableScrollableSheet(

@@ -94,10 +94,10 @@ class AppTheme {
     return scheme.copyWith(
       surface: black,
       surfaceContainerLowest: black,
-      surfaceContainerLow: const Color(0xFF0A0A0A),
-      surfaceContainer: const Color(0xFF121212),
-      surfaceContainerHigh: const Color(0xFF161616),
-      surfaceContainerHighest: const Color(0xFF1C1C1C),
+      surfaceContainerLow: const Color(0xFF0D0D0D),
+      surfaceContainer: const Color(0xFF151515),
+      surfaceContainerHigh: const Color(0xFF1A1A1A),
+      surfaceContainerHighest: const Color(0xFF202020),
     );
   }
 
@@ -171,7 +171,7 @@ class AppTheme {
       letterSpacing: 0.2,
       color: colorScheme.onSurface,
     );
-    // Chip labels use Fira Code with onSurface color so text is readable in
+    // Chip labels use Fira Code with container-aware text so text is readable in
     // both light and dark mode. A plain TextStyle (not MaterialStateTextStyle)
     // is required here — Flutter's chip widget reads `.color` directly and
     // does NOT call the MaterialStateTextStyle resolver, so a resolver-based
@@ -181,7 +181,7 @@ class AppTheme {
       fontSize: 12,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.24,
-      color: colorScheme.onSurface,
+      color: colorScheme.onSecondaryContainer,
     );
 
     final isDark = colorScheme.brightness == Brightness.dark;
@@ -191,15 +191,18 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      scaffoldBackgroundColor: colorScheme.surface,
       textTheme: textTheme,
       splashFactory: InkSparkle.splashFactory,
       appBarTheme: AppBarTheme(
         centerTitle: false,
         backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
+        foregroundColor: colorScheme.onSurfaceVariant,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         titleTextStyle: appBarTitleStyle,
+        iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
+        actionsIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: statusBarIcons,
@@ -232,20 +235,36 @@ class AppTheme {
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
         dragHandleColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
-        backgroundColor: colorScheme.surfaceContainerLow,
+        backgroundColor: colorScheme.surfaceContainerHighest,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
       listTileTheme: ListTileThemeData(
+        iconColor: colorScheme.onSurfaceVariant,
+        textColor: colorScheme.onSurface,
+        titleTextStyle: textTheme.bodyLarge?.copyWith(
+          color: colorScheme.onSurface,
+        ),
+        subtitleTextStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
       ),
+      dividerTheme: DividerThemeData(
+        color: colorScheme.outlineVariant,
+        thickness: 1,
+        space: 1,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        fillColor: colorScheme.surfaceContainerHigh,
+        hintStyle: TextStyle(color: colorScheme.outline),
+        prefixIconColor: colorScheme.onSurfaceVariant,
+        suffixIconColor: colorScheme.primary,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -260,8 +279,40 @@ class AppTheme {
       chipTheme: ChipThemeData(
         shape: const StadiumBorder(),
         labelStyle: chipLabelStyle,
+        backgroundColor: colorScheme.secondaryContainer,
+        selectedColor: colorScheme.secondaryContainer,
+        side: BorderSide.none,
+        deleteIconColor: colorScheme.onSecondaryContainer,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return colorScheme.onPrimary;
+          }
+          return colorScheme.onSurfaceVariant;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return colorScheme.primary;
+          }
+          return colorScheme.surfaceContainerHigh;
+        }),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return colorScheme.primary;
+          }
+          return colorScheme.onSurfaceVariant;
+        }),
+      ),
+      badgeTheme: BadgeThemeData(
+        backgroundColor: colorScheme.error,
+        textColor: colorScheme.onError,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -273,15 +324,15 @@ class AppTheme {
         elevation: 3,
         shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
         surfaceTintColor: Colors.transparent,
-        backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.surfaceContainerHigh,
+        backgroundColor: colorScheme.surfaceContainerLow,
+        indicatorColor: colorScheme.secondaryContainer,
         indicatorShape: const StadiumBorder(),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
             size: 24,
             color: selected
-                ? colorScheme.onSurface
+                ? colorScheme.primary
                 : colorScheme.onSurfaceVariant,
           );
         }),
@@ -293,7 +344,7 @@ class AppTheme {
             height: 1.3,
             letterSpacing: 0,
             color: selected
-                ? colorScheme.onSurface
+                ? colorScheme.primary
                 : colorScheme.onSurfaceVariant,
           );
         }),

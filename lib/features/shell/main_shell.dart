@@ -33,6 +33,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final urlsAsync = ref.watch(displayedUrlsProvider);
     final hasLinks = (urlsAsync.valueOrNull?.length ?? 0) > 0;
 
@@ -44,6 +45,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         }
       },
       child: Scaffold(
+        backgroundColor: cs.surface,
         body: IndexedStack(
           index: _currentIndex,
           children: _screens,
@@ -65,7 +67,10 @@ class _MainShellState extends ConsumerState<MainShell> {
                 ),
                 label: Text(
                   'Ask Glimpse',
-                  style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+                  style: tt.labelLarge?.copyWith(
+                    color: cs.onPrimaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 elevation: 2,
               )

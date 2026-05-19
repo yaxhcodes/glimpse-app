@@ -100,6 +100,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     final exportBusy = isExporting || isSavingLocal;
 
     return Scaffold(
+      backgroundColor: cs.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
@@ -650,7 +651,7 @@ class _AutoBackupSection extends ConsumerWidget {
     final picked = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       builder: (ctx) {
         return SafeArea(
           child: Column(

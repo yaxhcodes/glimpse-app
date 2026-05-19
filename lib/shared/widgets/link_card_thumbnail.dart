@@ -82,30 +82,13 @@ class LinkCardThumbnail {
   }) {
     final cs = Theme.of(context).colorScheme;
     final tag = _firstNonNoiseTag(url);
-    final colors = <Color>[
-      cs.primaryContainer,
-      cs.secondaryContainer,
-      cs.tertiaryContainer,
-      cs.surfaceContainerHighest,
-    ];
-    final textColors = <Color>[
-      cs.onPrimaryContainer,
-      cs.onSecondaryContainer,
-      cs.onTertiaryContainer,
-      cs.onSurfaceVariant,
-    ];
-    final colorIndex = tag != null
-        ? tag.codeUnits.fold<int>(0, (a, b) => a + b) % colors.length
-        : 0;
-    final bgColor = colors[colorIndex];
-    final textColor = textColors[colorIndex];
     final label = _placeholderLetter(url, tag);
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: bgColor,
+        color: cs.secondaryContainer,
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       alignment: Alignment.center,
@@ -114,7 +97,7 @@ class LinkCardThumbnail {
         style: TextStyle(
           fontSize: size * 0.35,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: cs.onSecondaryContainer,
         ),
       ),
     );

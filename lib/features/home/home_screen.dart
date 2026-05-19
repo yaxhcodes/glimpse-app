@@ -329,6 +329,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       body: urlsAsync.when(
         loading: () => const LoadingIndicator(message: 'Loading your URLs...'),
         error: (err, stack) => Center(
@@ -565,6 +566,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 floating: true,
                 snap: true,
                 centerTitle: false,
+                backgroundColor: theme.colorScheme.surface,
+                foregroundColor: theme.colorScheme.onSurfaceVariant,
                 title: _buildGlimpseTitle(context),
                 actions: [
                   IconButton(
@@ -668,11 +671,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       )
                                     : Text(emoji, style: const TextStyle(fontSize: 10)),
                                 label: Text(name),
+                                color: WidgetStatePropertyAll(
+                                  theme.colorScheme.surfaceContainerLow,
+                                ),
                                 labelStyle: theme.textTheme.labelSmall?.copyWith(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                   letterSpacing: 0.1,
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
+                                backgroundColor:
+                                    theme.colorScheme.surfaceContainerLow,
+                                side: BorderSide.none,
                                 selected: false,
                                 onSelected: (_) => context.push(
                                   '/category/${Uri.encodeComponent(name)}',
@@ -752,8 +762,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.45),
-                      Colors.transparent,
+                      Theme.of(context).colorScheme.scrim
+                          .withValues(alpha: 0.45),
+                      Theme.of(context).colorScheme.surface
+                          .withValues(alpha: 0),
                     ],
                   ),
                 ),
@@ -1009,11 +1021,11 @@ class _ClipboardSuggestion extends StatelessWidget {
     final displayUrl = url.length > 42 ? '${url.substring(0, 42)}…' : url;
 
     return Material(
-      color: colorScheme.surfaceContainerLowest.withValues(alpha: 0.5),
+      color: colorScheme.secondaryContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+          color: colorScheme.secondaryContainer,
         ),
       ),
       child: InkWell(
@@ -1030,7 +1042,7 @@ class _ClipboardSuggestion extends StatelessWidget {
                     Text(
                       'Paste from clipboard',
                       style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                        color: colorScheme.onSecondaryContainer,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1038,7 +1050,8 @@ class _ClipboardSuggestion extends StatelessWidget {
                     Text(
                       displayUrl,
                       style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        color: colorScheme.onSecondaryContainer
+                            .withValues(alpha: 0.7),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1050,7 +1063,8 @@ class _ClipboardSuggestion extends StatelessWidget {
                 icon: Icon(
                   Icons.close,
                   size: 16,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  color:
+                      colorScheme.onSecondaryContainer.withValues(alpha: 0.7),
                 ),
                 onPressed: onDismiss,
                 padding: EdgeInsets.zero,
@@ -1100,7 +1114,7 @@ class _InlineSaveInput extends StatelessWidget {
       decoration: BoxDecoration(
         color: isError
             ? colorScheme.errorContainer.withValues(alpha: 0.6)
-            : colorScheme.surfaceContainerLow,
+            : colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: pulse
