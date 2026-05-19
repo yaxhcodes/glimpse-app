@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/saved_url.dart';
 import '../models/user_collection.dart';
@@ -761,7 +762,8 @@ class IsarService {
       ..emoji = emoji
       ..description = description
       ..createdAt = DateTime.now()
-      ..urlIds = [];
+      ..urlIds = []
+      ..urlAddedAts = [];
     await isar.writeTxn(() async {
       await isar.userCollections.put(c);
     });
@@ -773,14 +775,19 @@ class IsarService {
     required int urlId,
   }) async {
     final isar = await _db;
+    var added = false;
     await isar.writeTxn(() async {
       final c = await isar.userCollections.get(collectionId);
       if (c == null) return;
       if (!c.urlIds.contains(urlId)) {
         c.urlIds = [...c.urlIds, urlId];
         await isar.userCollections.put(c);
+        added = true;
       }
     });
+    if (added) {
+      await _setCollectionAddedAt(collectionId, urlId, DateTime.now());
+    }
   }
 
   Future<void> addUrlsToCollection({
@@ -788,16 +795,26 @@ class IsarService {
     required List<int> urlIds,
   }) async {
     final isar = await _db;
+    final addedIds = <int>[];
     await isar.writeTxn(() async {
       final c = await isar.userCollections.get(collectionId);
       if (c == null) return;
       final updated = <int>[...c.urlIds];
       for (final id in urlIds) {
-        if (!updated.contains(id)) updated.add(id);
+        if (!updated.contains(id)) {
+          updated.add(id);
+          addedIds.add(id);
+        }
       }
       c.urlIds = updated;
       await isar.userCollections.put(c);
     });
+    if (addedIds.isNotEmpty) {
+      final now = DateTime.now();
+      for (final id in addedIds) {
+        await _setCollectionAddedAt(collectionId, id, now);
+      }
+    }
   }
 
   Future<void> removeUrlFromCollection({
@@ -805,17 +822,23 @@ class IsarService {
     required int urlId,
   }) async {
     final isar = await _db;
+    var removed = false;
     await isar.writeTxn(() async {
       final c = await isar.userCollections.get(collectionId);
       if (c == null) return;
+      removed = c.urlIds.contains(urlId);
       c.urlIds = c.urlIds.where((id) => id != urlId).toList();
       await isar.userCollections.put(c);
     });
+    if (removed) {
+      await _removeCollectionAddedAt(collectionId, urlId);
+    }
   }
 
   Future<void> deleteCollection(int id) async {
     final isar = await _db;
     await isar.writeTxn(() => isar.userCollections.delete(id));
+    await _removeCollectionAddedAtPrefix(id);
   }
 
   Future<void> updateCollection(UserCollection collection) async {
@@ -840,7 +863,8 @@ class IsarService {
 
   Future<bool> deleteUrl(int id) async {
     final isar = await _db;
-    return isar.writeTxn(() async {
+    final removedFromCollections = <int>[];
+    final ok = await isar.writeTxn(() async {
       final ok = await isar.savedUrls.delete(id);
       if (ok) {
         final collections = await isar.userCollections.where().findAll();
@@ -848,11 +872,69 @@ class IsarService {
           if (col.urlIds.contains(id)) {
             col.urlIds = col.urlIds.where((x) => x != id).toList();
             await isar.userCollections.put(col);
+            removedFromCollections.add(col.id);
           }
         }
       }
       return ok;
     });
+    if (ok) {
+      for (final collectionId in removedFromCollections) {
+        await _removeCollectionAddedAt(collectionId, id);
+      }
+    }
+    return ok;
+  }
+
+  Future<DateTime?> getLatestCollectionAddedAt(
+    UserCollection collection,
+  ) async {
+    DateTime? latest;
+    for (final urlId in collection.urlIds) {
+      final value = await _getCollectionAddedAt(collection.id, urlId);
+      if (value != null && (latest == null || value.isAfter(latest))) {
+        latest = value;
+      }
+    }
+    return latest;
+  }
+
+  Future<void> _setCollectionAddedAt(
+    int collectionId,
+    int urlId,
+    DateTime value,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _collectionAddedAtKey(collectionId, urlId),
+      value.toIso8601String(),
+    );
+  }
+
+  Future<DateTime?> _getCollectionAddedAt(int collectionId, int urlId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_collectionAddedAtKey(collectionId, urlId));
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  Future<void> _removeCollectionAddedAt(int collectionId, int urlId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_collectionAddedAtKey(collectionId, urlId));
+  }
+
+  Future<void> _removeCollectionAddedAtPrefix(int collectionId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final prefix = 'collection_added_at_${collectionId}_';
+    for (final key in prefs.getKeys()) {
+      if (key.startsWith(prefix)) {
+        await prefs.remove(key);
+      }
+    }
+  }
+
+  String _collectionAddedAtKey(int collectionId, int urlId) {
+    return 'collection_added_at_${collectionId}_$urlId';
   }
 
   Future<void> deleteUrlsByCategory(String category) async {

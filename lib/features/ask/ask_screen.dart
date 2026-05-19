@@ -18,7 +18,9 @@ import '../../core/database/isar_service.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../home/home_provider.dart';
+import '../collections/collection_visual.dart';
 import '../collections/collections_provider.dart';
+import '../collections/create_collection_sheet.dart';
 import 'ask_empty_suggestions_provider.dart';
 import 'ask_greeting_service.dart';
 import 'ask_provider.dart';
@@ -87,10 +89,13 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       ),
       isScrollControlled: true,
       builder: (_) => _SaveToCollectionSheet(
+        hostContext: context,
         sources: sources,
         isarService: isar,
-        onCollectionChanged: () {
+        onCollectionChanged: (collectionId) {
           ref.invalidate(collectionsListProvider);
+          ref.invalidate(collectionsSummaryProvider);
+          ref.invalidate(collectionUrlsProvider(collectionId));
         },
       ),
     );
@@ -1516,14 +1521,14 @@ class _ChatActionChip extends StatelessWidget {
 }
 
 class _CollectionTile extends StatelessWidget {
-  final String emoji;
+  final CollectionVisualStyle visualStyle;
   final String name;
   final String subtitle;
   final bool isCreate;
   final VoidCallback onTap;
 
   const _CollectionTile({
-    required this.emoji,
+    required this.visualStyle,
     required this.name,
     required this.subtitle,
     this.isCreate = false,
@@ -1539,14 +1544,13 @@ class _CollectionTile extends StatelessWidget {
       leading: Container(
         width: 40,
         height: 40,
-        decoration: BoxDecoration(
-          color: isCreate
-              ? cs.primary.withValues(alpha: 0.1)
-              : cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(
-          child: Text(emoji, style: const TextStyle(fontSize: 18)),
+        alignment: Alignment.center,
+        child: CollectionVisual(
+          style: visualStyle,
+          seed: name,
+          selected: isCreate,
+          size: 40,
+          iconSize: isCreate ? 19 : 18,
         ),
       ),
       title: Text(
@@ -1575,11 +1579,13 @@ class _CollectionTile extends StatelessWidget {
 }
 
 class _SaveToCollectionSheet extends StatefulWidget {
+  final BuildContext hostContext;
   final List<SavedUrl> sources;
   final IsarService isarService;
-  final VoidCallback onCollectionChanged;
+  final ValueChanged<int> onCollectionChanged;
 
   const _SaveToCollectionSheet({
+    required this.hostContext,
     required this.sources,
     required this.isarService,
     required this.onCollectionChanged,
@@ -1646,9 +1652,9 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
 
           // Create new — always first
           _CollectionTile(
-            emoji: '\u2726',
+            visualStyle: CollectionVisualStyle.knowledge,
             name: 'New collection',
-            subtitle: 'Let Glimpse name it for you',
+            subtitle: 'Create a focused space',
             isCreate: true,
             onTap: () => _createAndSave(context),
           ),
@@ -1664,7 +1670,7 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
             )
           else
             ..._existing.map((col) => _CollectionTile(
-              emoji: col.emoji,
+              visualStyle: resolveCollectionVisual(col),
               name: col.name,
               subtitle: '${col.urlIds.length} links',
               onTap: () => _addToExisting(context, col),
@@ -1682,19 +1688,24 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
     final defaultName = widget.sources.length == 1
         ? widget.sources.first.title
         : '${widget.sources.length} links';
-    final name = defaultName.isNotEmpty ? defaultName : 'New collection';
-
-    final collection = await widget.isarService.createCollection(
-      name: name,
-      emoji: '\u{1F4C1}',
+    final collection = await showCreateCollectionSheet(
+      widget.hostContext,
+      initialName: defaultName.isNotEmpty ? defaultName : null,
+      initialVisual: resolveCollectionVisualStyle(
+        null,
+        name: defaultName,
+        description: widget.sources.map((source) => source.category).join(' '),
+      ),
     );
+    if (collection == null) return;
+
     await widget.isarService.addUrlsToCollection(
       collectionId: collection.id,
       urlIds: widget.sources.map((u) => u.id).toList(),
     );
-    widget.onCollectionChanged();
-    if (context.mounted) {
-      context.push('/collections/${collection.id}');
+    widget.onCollectionChanged(collection.id);
+    if (widget.hostContext.mounted) {
+      widget.hostContext.push('/collections/${collection.id}');
     }
   }
 
@@ -1704,17 +1715,17 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
       collectionId: col.id,
       urlIds: widget.sources.map((u) => u.id).toList(),
     );
-    widget.onCollectionChanged();
-    if (context.mounted) {
-      final cs = Theme.of(context).colorScheme;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    widget.onCollectionChanged(col.id);
+    if (widget.hostContext.mounted) {
+      final cs = Theme.of(widget.hostContext).colorScheme;
+      ScaffoldMessenger.of(widget.hostContext).showSnackBar(SnackBar(
         content: Row(
           children: [
             Expanded(child: Text('Added to "${col.name}"')),
             GestureDetector(
               onTap: () {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                context.push('/collections/${col.id}');
+                ScaffoldMessenger.of(widget.hostContext).hideCurrentSnackBar();
+                widget.hostContext.push('/collections/${col.id}');
               },
               child: Text(
                 'View',

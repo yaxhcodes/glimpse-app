@@ -26,7 +26,7 @@ class _CollectionDetailScreenState
     final theme = Theme.of(context);
 
     final title = metaAsync.maybeWhen(
-      data: (c) => c != null ? '${c.emoji} ${c.name}' : 'Collection',
+      data: (c) => c?.name ?? 'Collection',
       orElse: () => 'Collection',
     );
 
@@ -67,6 +67,7 @@ class _CollectionDetailScreenState
                     .read(isarServiceProvider)
                     .deleteCollection(widget.collectionId);
                 ref.invalidate(collectionsListProvider);
+                ref.invalidate(collectionsSummaryProvider);
                 ref.invalidate(
                     collectionMetaProvider(widget.collectionId));
                 ref.invalidate(
@@ -132,6 +133,8 @@ class _CollectionDetailScreenState
                         collectionId: widget.collectionId,
                         urlId: url.id,
                       );
+                  ref.invalidate(collectionsListProvider);
+                  ref.invalidate(collectionsSummaryProvider);
                   ref.invalidate(
                       collectionUrlsProvider(widget.collectionId));
                 },
@@ -186,6 +189,7 @@ class _CollectionDetailScreenState
           ..urlIds = collection.urlIds,
       );
       ref.invalidate(collectionsListProvider);
+      ref.invalidate(collectionsSummaryProvider);
       ref.invalidate(collectionMetaProvider(widget.collectionId));
     }
     controller.dispose();

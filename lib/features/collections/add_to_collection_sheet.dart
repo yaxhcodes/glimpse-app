@@ -6,7 +6,9 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/title_resolver.dart';
 import '../home/home_provider.dart';
+import 'collection_visual.dart';
 import 'collections_provider.dart';
+import 'create_collection_sheet.dart';
 
 class AddToCollectionSheet extends ConsumerStatefulWidget {
   const AddToCollectionSheet({super.key, required this.url});
@@ -62,11 +64,24 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                       ),
                       const SizedBox(height: 12),
                       FilledButton.tonal(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          context.push('/collections/new');
+                        onPressed: () async {
+                          final collection =
+                              await showCreateCollectionSheet(context);
+                          if (collection == null) return;
+                          if (!context.mounted) return;
+                          await ref.read(isarServiceProvider).addUrlToCollection(
+                                collectionId: collection.id,
+                                urlId: widget.url.id,
+                              );
+                          ref.invalidate(collectionsListProvider);
+                          ref.invalidate(collectionsSummaryProvider);
+                          ref.invalidate(collectionUrlsProvider(collection.id));
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            context.push('/collections/${collection.id}');
+                          }
                         },
-                        child: const Text('Create collection'),
+                        child: const Text('New collection'),
                       ),
                     ],
                   );
@@ -80,10 +95,19 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                       final c = collections[i];
                       final inCollection =
                           c.urlIds.contains(widget.url.id);
-                      return CheckboxListTile(
-                        value: inCollection,
-                        title: Text('${c.emoji} ${c.name}'),
-                        onChanged: (v) async {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        minLeadingWidth: 44,
+                        leading: CollectionVisual(
+                          style: resolveCollectionVisual(c),
+                          seed: c.name,
+                          size: 40,
+                          iconSize: 18,
+                        ),
+                        title: Text(c.name),
+                        trailing: Checkbox(
+                          value: inCollection,
+                          onChanged: (v) async {
                           final isar = ref.read(isarServiceProvider);
                           if (v == true) {
                             await isar.addUrlToCollection(
@@ -97,9 +121,29 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                             );
                           }
                           ref.invalidate(collectionsListProvider);
+                          ref.invalidate(collectionsSummaryProvider);
                           ref.invalidate(
                             collectionUrlsProvider(c.id),
                           );
+                          setState(() {});
+                          },
+                        ),
+                        onTap: () async {
+                          final isar = ref.read(isarServiceProvider);
+                          if (inCollection) {
+                            await isar.removeUrlFromCollection(
+                              collectionId: c.id,
+                              urlId: widget.url.id,
+                            );
+                          } else {
+                            await isar.addUrlToCollection(
+                              collectionId: c.id,
+                              urlId: widget.url.id,
+                            );
+                          }
+                          ref.invalidate(collectionsListProvider);
+                          ref.invalidate(collectionsSummaryProvider);
+                          ref.invalidate(collectionUrlsProvider(c.id));
                           setState(() {});
                         },
                       );

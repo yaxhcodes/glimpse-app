@@ -73,38 +73,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _editDisplayName() async {
     final prefsName = await ref.read(userDisplayNameProvider.future);
     if (!mounted) return;
-    final controller = TextEditingController(text: prefsName ?? '');
-    try {
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Your name'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              hintText: 'Used in Ask Glimpse greetings',
-            ),
-            textCapitalization: TextCapitalization.words,
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      );
-      if (ok == true && mounted) {
-        await setUserDisplayName(controller.text);
-        ref.invalidate(userDisplayNameProvider);
-      }
-    } finally {
-      controller.dispose();
+    final name = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => _DisplayNameDialog(initialName: prefsName),
+    );
+    if (name != null && mounted) {
+      await setUserDisplayName(name);
+      ref.invalidate(userDisplayNameProvider);
     }
   }
 
@@ -416,6 +391,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DisplayNameDialog extends StatefulWidget {
+  const _DisplayNameDialog({required this.initialName});
+
+  final String? initialName;
+
+  @override
+  State<_DisplayNameDialog> createState() => _DisplayNameDialogState();
+}
+
+class _DisplayNameDialogState extends State<_DisplayNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _close(String? value) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.pop(context, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Your name'),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(
+          hintText: 'Used in Ask Glimpse greetings',
+        ),
+        textCapitalization: TextCapitalization.words,
+        autofocus: true,
+        onSubmitted: (_) => _close(_controller.text),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => _close(null),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => _close(_controller.text),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

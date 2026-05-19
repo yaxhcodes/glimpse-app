@@ -2,27 +2,67 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/models/user_collection.dart';
-import '../../shared/formatting.dart';
+import 'collection_card.dart';
+import 'collection_visual.dart';
 import 'collections_provider.dart';
+import 'create_collection_sheet.dart';
 
-class CollectionsScreen extends ConsumerWidget {
+enum _CollectionsLayout { grid, list }
+
+class CollectionsScreen extends ConsumerStatefulWidget {
   const CollectionsScreen({super.key, this.embedded = false});
 
   final bool embedded;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(collectionsListProvider);
+  ConsumerState<CollectionsScreen> createState() => _CollectionsScreenState();
+}
+
+class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
+  _CollectionsLayout _layout = _CollectionsLayout.grid;
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(collectionsSummaryProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final collections = async.valueOrNull;
-    final hasCollections = collections != null && collections.isNotEmpty;
+    final hasCollections = async.valueOrNull?.isNotEmpty ?? false;
 
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: AppBar(
-        title: const Text('Collections'),
-        automaticallyImplyLeading: !embedded,
+        titleSpacing: widget.embedded ? 20 : null,
+        automaticallyImplyLeading: !widget.embedded,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Collections',
+              style: tt.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Your saved spaces',
+              style: tt.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (hasCollections)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _LayoutToggle(
+                value: _layout,
+                onChanged: (value) => setState(() => _layout = value),
+              ),
+            ),
+        ],
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -32,30 +72,122 @@ class CollectionsScreen extends ConsumerWidget {
             return _CollectionsEmptyState(
               colorScheme: cs,
               textTheme: tt,
-              onCreate: () => context.push('/collections/new'),
+              onCreate: () => _createCollection(context),
             );
           }
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.1,
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  cs.surface,
+                  cs.surfaceContainerLow.withValues(alpha: 0.42),
+                ],
+              ),
             ),
-            itemCount: collections.length,
-            itemBuilder: (context, i) =>
-                _CollectionCard(collection: collections[i]),
+            child: Column(
+              children: [
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeOutCubic,
+                    child: _layout == _CollectionsLayout.grid
+                        ? GridView.builder(
+                            key: const ValueKey('collections-grid'),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 224,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.96,
+                            ),
+                            itemCount: collections.length,
+                            itemBuilder: (context, i) =>
+                                CollectionCard(summary: collections[i]),
+                          )
+                        : ListView.builder(
+                            key: const ValueKey('collections-list'),
+                            padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
+                            itemCount: collections.length,
+                            itemBuilder: (context, i) =>
+                                CollectionListCard(summary: collections[i]),
+                          ),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
       floatingActionButton: hasCollections
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/collections/new'),
-              icon: const Icon(Icons.add),
-              label: const Text('New collection'),
+          ? FloatingActionButton(
+              heroTag: 'collections-create',
+              tooltip: 'New collection',
+              onPressed: () => _createCollection(context),
+              elevation: 1,
+              child: const Icon(Icons.add_rounded),
             )
           : null,
+    );
+  }
+
+  Future<void> _createCollection(BuildContext context) async {
+    final collection = await showCreateCollectionSheet(context);
+    if (collection == null || !context.mounted) return;
+    ref.invalidate(collectionsListProvider);
+    ref.invalidate(collectionsSummaryProvider);
+    context.push('/collections/${collection.id}');
+  }
+}
+
+class _LayoutToggle extends StatelessWidget {
+  const _LayoutToggle({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final _CollectionsLayout value;
+  final ValueChanged<_CollectionsLayout> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return SegmentedButton<_CollectionsLayout>(
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        minimumSize: const WidgetStatePropertyAll(Size(44, 34)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 10),
+        ),
+        side: WidgetStatePropertyAll(
+          BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return cs.primary.withValues(alpha: 0.12);
+          }
+          return cs.surfaceContainerHigh.withValues(alpha: 0.72);
+        }),
+      ),
+      segments: const [
+        ButtonSegment(
+          value: _CollectionsLayout.grid,
+          icon: Icon(Icons.grid_view_rounded, size: 18),
+          tooltip: 'Grid view',
+        ),
+        ButtonSegment(
+          value: _CollectionsLayout.list,
+          icon: Icon(Icons.view_agenda_outlined, size: 18),
+          tooltip: 'List view',
+        ),
+      ],
+      selected: {value},
+      onSelectionChanged: (selection) => onChanged(selection.first),
     );
   }
 }
@@ -73,88 +205,55 @@ class _CollectionsEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.folder_special_rounded,
-              size: 56,
-              color: colorScheme.primary.withValues(alpha: 0.7),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'No collections yet',
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Group saves into projects — trip ideas, learning lists, research, anything you’re planning.',
-              textAlign: TextAlign.center,
-              style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 28),
-            FilledButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Create collection'),
-            ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            colorScheme.surface,
+            colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _CollectionCard extends StatelessWidget {
-  const _CollectionCard({required this.collection});
-
-  final UserCollection collection;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return GestureDetector(
-      onTap: () => context.push('/collections/${collection.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: cs.outlineVariant, width: 1),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(collection.emoji, style: const TextStyle(fontSize: 28)),
-            const Spacer(),
-            Text(
-              collection.name,
-              style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              formatLinkCount(collection.urlIds.length),
-              style: tt.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CollectionVisual(
+                style: CollectionVisualStyle.knowledge,
+                size: 64,
+                iconSize: 28,
               ),
-            ),
-          ],
+              const SizedBox(height: 22),
+              Text(
+                'Create your first collection',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Group links into calm, focused spaces.',
+                textAlign: TextAlign.center,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 26),
+              FilledButton.icon(
+                onPressed: onCreate,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('New collection'),
+              ),
+            ],
+          ),
         ),
       ),
     );
