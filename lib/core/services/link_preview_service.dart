@@ -3,6 +3,8 @@ import 'dart:developer' as developer;
 import 'package:any_link_preview/any_link_preview.dart';
 import 'package:dio/dio.dart';
 
+import '../utils/network/url_security_validator.dart';
+
 /// Metadata extracted from a URL's Open Graph tags.
 class LinkMetadata {
   final String title;
@@ -34,6 +36,8 @@ class LinkPreviewService {
   /// Normalise a raw URL to ensure it has a scheme.
   static String normalizeUrl(String url) {
     var trimmed = url.trim();
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed != null && parsed.hasScheme) return trimmed;
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
       trimmed = 'https://$trimmed';
     }
@@ -49,6 +53,12 @@ class LinkPreviewService {
     final uri = Uri.tryParse(normalized);
     final domain = uri?.host ?? url;
     final host = uri?.host.replaceFirst('www.', '') ?? '';
+
+    if (!await urlSecurityValidator.isSafePublicUrl(normalized)) {
+      developer.log('Blocked unsafe preview URL: $normalized',
+          name: 'LinkPreview');
+      return LinkMetadata(title: domain, description: '', domain: domain);
+    }
 
     // ---- Reddit: use their JSON API ----
     if (host == 'reddit.com' || host.endsWith('.reddit.com') ||
@@ -76,38 +86,9 @@ class LinkPreviewService {
       if (result != null) return result;
     }
 
-    // ---- Attempt 1: any_link_preview ----
+    // ---- Manual OG tag parsing via Dio ----
     try {
-      final metadata = await AnyLinkPreview.getMetadata(
-        link: normalized,
-      );
-
-      if (metadata != null &&
-          (metadata.title != null && metadata.title!.isNotEmpty)) {
-        // Reject generic site-level titles
-        final t = metadata.title!.trim().toLowerCase();
-        if (!_isGenericTitle(t, host)) {
-          var result = LinkMetadata(
-            title: metadata.title ?? domain,
-            description: metadata.desc ?? '',
-            imageUrl: metadata.image,
-            domain: domain,
-          );
-          if (isInstagram) {
-            result = _cleanInstagramMetadata(result, domain);
-          }
-          return result;
-        }
-      }
-    } catch (e, st) {
-      developer.log('AnyLinkPreview failed for $normalized: $e',
-          name: 'LinkPreview', stackTrace: st);
-      // fall through to manual attempt
-    }
-
-    // ---- Attempt 2: Manual OG tag parsing via Dio ----
-    try {
-      final response = await _dio.get(
+      final response = await _safeGet(
         normalized,
         options: Options(
           headers: {
@@ -156,6 +137,56 @@ class LinkPreviewService {
     return false;
   }
 
+  Future<Response<dynamic>> _safeGet(
+    String url, {
+    required Options options,
+    int maxRedirects = 5,
+  }) async {
+    var current = url;
+    final chain = <String>[];
+
+    for (var redirects = 0; redirects <= maxRedirects; redirects++) {
+      if (!await urlSecurityValidator.isSafePublicUrl(current)) {
+        throw StateError('blocked unsafe URL: $current');
+      }
+      chain.add(current);
+
+      final response = await _dio.get<dynamic>(
+        current,
+        options: options.copyWith(
+          followRedirects: false,
+          validateStatus: (_) => true,
+        ),
+      );
+
+      final status = response.statusCode ?? 0;
+      if (!_isRedirectStatus(status)) {
+        return response;
+      }
+
+      final location = response.headers.value('location');
+      if (location == null || location.trim().isEmpty) {
+        return response;
+      }
+
+      final next = Uri.parse(current).resolve(location.trim()).toString();
+      final nextChain = [...chain, next];
+      if (!await urlSecurityValidator.validateRedirectChain(nextChain)) {
+        throw StateError('blocked unsafe redirect: $next');
+      }
+      current = next;
+    }
+
+    throw StateError('too many redirects');
+  }
+
+  bool _isRedirectStatus(int status) =>
+      status == 301 ||
+      status == 302 ||
+      status == 303 ||
+      status == 307 ||
+      status == 308;
+
   /// Fetches Reddit post metadata via their JSON API.
   Future<LinkMetadata?> _fetchReddit(String url, String domain) async {
     try {
@@ -164,7 +195,7 @@ class LinkPreviewService {
       if (jsonUrl.endsWith('/')) jsonUrl = jsonUrl.substring(0, jsonUrl.length - 1);
       jsonUrl = '$jsonUrl.json';
 
-      final response = await _dio.get(
+      final response = await _safeGet(
         jsonUrl,
         options: Options(
           headers: {
@@ -230,7 +261,7 @@ class LinkPreviewService {
       final embedUrl =
           'https://publish.twitter.com/oembed?url=${Uri.encodeComponent(url)}&omit_script=true';
 
-      final response = await _dio.get(
+      final response = await _safeGet(
         embedUrl,
         options: Options(
           receiveTimeout: const Duration(seconds: 10),
@@ -339,7 +370,7 @@ class LinkPreviewService {
 
   Future<String?> _fetchXTextFromSyndication(String postId) async {
     try {
-      final response = await _dio.get(
+      final response = await _safeGet(
         'https://cdn.syndication.twimg.com/tweet-result?id=$postId&lang=en',
         options: Options(
           headers: {
@@ -365,7 +396,7 @@ class LinkPreviewService {
 
   Future<String?> _fetchXTextFromFxTwitter(String postId) async {
     try {
-      final response = await _dio.get(
+      final response = await _safeGet(
         'https://api.fxtwitter.com/i/status/$postId',
         options: Options(
           headers: {
@@ -394,7 +425,7 @@ class LinkPreviewService {
 
   Future<String?> _fetchXTextFromVxTwitter(String postId) async {
     try {
-      final response = await _dio.get(
+      final response = await _safeGet(
         'https://api.vxtwitter.com/i/status/$postId',
         options: Options(
           headers: {
@@ -434,7 +465,7 @@ class LinkPreviewService {
   /// Mobile Safari HTML often includes a usable [og:image] where Googlebot pages do not.
   Future<LinkMetadata?> _fetchInstagramPageMetadata(String url, String domain) async {
     try {
-      final response = await _dio.get(
+      final response = await _safeGet(
         url,
         options: Options(
           headers: {
@@ -680,6 +711,7 @@ class LinkPreviewService {
   /// Validates whether a string is a valid URL.
   static bool isValidUrl(String url) {
     final normalized = normalizeUrl(url);
-    return AnyLinkPreview.isValidLink(normalized);
+    return UrlSecurityValidator.hasAllowedPublicUrlSyntax(normalized) &&
+        AnyLinkPreview.isValidLink(normalized);
   }
 }

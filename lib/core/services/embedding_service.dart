@@ -1,9 +1,6 @@
 import 'dart:developer' as developer;
 
-import 'package:dio/dio.dart';
-
 import 'ai_proxy_client.dart';
-import 'ai_proxy_config.dart';
 
 /// Thrown when the Voyage embedding pipeline fails after all retries.
 class EmbeddingException implements Exception {
@@ -17,17 +14,13 @@ class EmbeddingException implements Exception {
       'EmbeddingException($message${statusCode != null ? ', status=$statusCode' : ''})';
 }
 
-/// Calls the Voyage AI API (direct) or the Cloudflare Worker `POST /voyage`
-/// when [AiProxyConfig.enabled].
+/// Calls the Cloudflare Worker embedding endpoint.
 ///
 /// Intended to be used as a single shared instance via a Riverpod provider.
 /// See [embeddingServiceProvider] in `core/providers/service_providers.dart`.
 class EmbeddingService {
-  EmbeddingService({required String apiKey, Dio? dio})
-      : _apiKey = apiKey,
-        _dio = dio ?? Dio();
+  EmbeddingService({String? legacyApiKey});
 
-  static const _directEndpoint = 'https://api.voyageai.com/v1/embeddings';
   static const _embeddingModel = 'voyage-3-lite';
   static const _queryCacheMaxSize = 50;
   static const _maxAttempts = 3;
@@ -37,9 +30,6 @@ class EmbeddingService {
   /// Keyed on the normalized (trimmed, lowercased) input string.
   static final Map<String, List<double>> _queryCache =
       <String, List<double>>{};
-
-  final Dio _dio;
-  final String _apiKey;
 
   /// Generates a single embedding vector for the given text.
   ///
@@ -118,56 +108,19 @@ class EmbeddingService {
     final Map<String, dynamic> responseData;
     int? status;
 
-    if (AiProxyConfig.enabled) {
-      try {
-        responseData = await AiProxyClient.instance.postVoyage(
-          body: {
-            'model': _embeddingModel,
-            'input': trimmed,
-          },
-          timeout: const Duration(seconds: 15),
-        );
-      } on AiProxyException catch (e) {
-        throw EmbeddingException(
-          'proxy error: ${e.message}',
-          statusCode: e.statusCode,
-        );
-      }
-    } else {
-      try {
-        final response = await _dio
-            .post<Map<String, dynamic>>(
-              _directEndpoint,
-              data: {
-                'input': trimmed,
-                'model': _embeddingModel,
-              },
-              options: Options(
-                headers: {
-                  'Authorization': 'Bearer $_apiKey',
-                  'Content-Type': 'application/json',
-                },
-                receiveTimeout: const Duration(seconds: 60),
-                sendTimeout: const Duration(seconds: 15),
-                validateStatus: (_) => true,
-              ),
-            )
-            .timeout(const Duration(seconds: 30));
-
-        status = response.statusCode;
-        if (status != 200) {
-          throw EmbeddingException(
-            'voyage HTTP $status',
-            statusCode: status,
-          );
-        }
-        responseData = response.data ?? const {};
-      } on DioException catch (e) {
-        throw EmbeddingException(
-          'network error: ${e.message}',
-          statusCode: e.response?.statusCode,
-        );
-      }
+    try {
+      responseData = await AiProxyClient.instance.postVoyage(
+        body: {
+          'model': _embeddingModel,
+          'input': trimmed,
+        },
+        timeout: const Duration(seconds: 15),
+      );
+    } on AiProxyException catch (e) {
+      throw EmbeddingException(
+        'proxy error: ${e.message}',
+        statusCode: e.statusCode,
+      );
     }
 
     final data = responseData['data'] as List<dynamic>?;

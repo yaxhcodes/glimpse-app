@@ -1,0 +1,18 @@
+name = "glimpse-proxy"
+main = "src/index.js"
+compatibility_date = "2026-05-20"
+
+# Set these as Worker secrets, not plain vars:
+# wrangler secret put GEMINI_KEY
+# wrangler secret put VOYAGE_KEY
+
+# Required plain vars:
+# FIREBASE_PROJECT_NUMBER = "1234567890"
+#
+# Optional comma-separated Firebase app IDs to allow:
+# FIREBASE_APP_IDS = "1:1234567890:android:abc...,1:1234567890:ios:def..."
+#
+# Optional KV namespace for Worker-side rate limits:
+# [[kv_namespaces]]
+# binding = "RATE_LIMITS"
+# id = "..."

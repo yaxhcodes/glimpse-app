@@ -11,6 +11,7 @@ import 'core/services/backup_scheduler.dart';
 import 'core/config/app_environment.dart';
 import 'core/database/isar_service.dart';
 import 'core/providers/service_providers.dart';
+import 'core/services/ai/app_attestation_service.dart';
 import 'core/services/ai_proxy_config.dart';
 import 'core/services/subscription_service.dart';
 
@@ -22,6 +23,15 @@ void main() async {
   // Pre-initialise Isar so the DB is ready before the first frame.
   final isarService = IsarService();
   await isarService.ensureInitialized();
+
+  // App attestation protects the no-login AI proxy without putting any
+  // shared secret in the Flutter client.
+  debugPrint('[Startup] Initializing App Check');
+  await AppAttestationService.initialize();
+  debugPrint(
+    '[Startup] App Check ready=${AppAttestationService.isAvailable} '
+    'error=${AppAttestationService.initError}',
+  );
 
   // Generate or load the persistent AI proxy user ID before any
   // service reads AiProxyConfig.enabled. This must complete before

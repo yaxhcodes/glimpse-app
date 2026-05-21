@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "757281560900",
+    "project_id": "glimpseai-app",
+    "storage_bucket": "glimpseai-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:757281560900:android:6e5a1534c3c0c13883df11",
+        "android_client_info": {
+          "package_name": "com.shinrinyoku.glimpse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7E__5SMr18XACxnaBSJaqMwf0L0hA1ww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:757281560900:android:7dbd700d263f649483df11",
+        "android_client_info": {
+          "package_name": "com.shinrinyoku.glimpse.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7E__5SMr18XACxnaBSJaqMwf0L0hA1ww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

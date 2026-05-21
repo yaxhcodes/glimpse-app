@@ -56,7 +56,7 @@ final embeddingServiceProvider = Provider<EmbeddingService?>((ref) {
     'userId=${AiProxyConfig.userId.isNotEmpty ? "set" : "MISSING"})',
     name: 'ServiceProviders',
   );
-  return EmbeddingService(apiKey: BundledKeys.voyageKey);
+  return EmbeddingService();
 });
 
 /// Single shared Gemini client.
@@ -79,7 +79,7 @@ final geminiServiceProvider = Provider<GeminiService?>((ref) {
     'userId=${AiProxyConfig.userId.isNotEmpty ? "set" : "MISSING"})',
     name: 'ServiceProviders',
   );
-  return GeminiService(BundledKeys.geminiKey);
+  return GeminiService();
 });
 
 /// Enrichment service factory. Creates a fresh instance each time because

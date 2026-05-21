@@ -1,11 +1,7 @@
 # ─── Glimpse Release Build ─────────────────────────────────────────────
-# Usage (direct Google / Voyage):
-#   .\build_apk.ps1 -GeminiKey "YOUR_KEY" -VoyageKey "YOUR_KEY" `
-#     -RevenueCatAndroidKey "goog_xxx"
-#
-# Usage (Cloudflare Worker proxy — GEMINI_KEY / Voyage key can be empty):
-#   .\build_apk.ps1 -GeminiKey "" -VoyageKey "" `
-#     -ProxyDevSecret "YOUR_DEV_SECRET" `
+# Usage:
+#   .\build_apk.ps1 `
+#     -ProxyBaseUrl "https://glimpse-proxy.glimpse.workers.dev" `
 #     -RevenueCatAndroidKey "goog_xxx"
 #
 # AI_PROXY_USER_ID is no longer needed — the app generates and persists a
@@ -17,12 +13,9 @@
 # quote-injection bugs (e.g. the literal string ended up as
 # `"Glimpse Pro"` at runtime and silently missed the real key).
 #
-# API keys are injected at build time via --dart-define and are NOT
-# stored in source code.
+# AI provider keys are never injected into the Flutter app. Gemini and
+# embedding requests go through the Cloudflare Worker proxy.
 param(
-    [string]$GeminiKey = "",
-    [string]$VoyageKey = "",
-    [string]$ProxyDevSecret = "",
     [string]$ProxyBaseUrl = "",
     [string]$RevenueCatAndroidKey = "",
     [string]$RevenueCatIosKey = ""
@@ -31,11 +24,7 @@ param(
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-17"
 $env:PATH = "C:\flutter\bin;$env:JAVA_HOME\bin;$env:LOCALAPPDATA\Android\Sdk\platform-tools;$env:PATH"
 
-$defines = @(
-    "--dart-define=GEMINI_KEY=$GeminiKey",
-    "--dart-define=VOYAGE_KEY=$VoyageKey"
-)
-if ($ProxyDevSecret -ne "") { $defines += "--dart-define=AI_PROXY_DEV_SECRET=$ProxyDevSecret" }
+$defines = @()
 if ($ProxyBaseUrl -ne "") { $defines += "--dart-define=AI_PROXY_BASE_URL=$ProxyBaseUrl" }
 if ($RevenueCatAndroidKey -ne "") { $defines += "--dart-define=REVENUECAT_ANDROID_KEY=$RevenueCatAndroidKey" }
 if ($RevenueCatIosKey -ne "") { $defines += "--dart-define=REVENUECAT_IOS_KEY=$RevenueCatIosKey" }

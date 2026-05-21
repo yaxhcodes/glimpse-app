@@ -213,8 +213,8 @@ class AskNotifier extends StateNotifier<AskState> {
       if (gemini == null) {
         _addBotMessage(
           AppEnvironment.allowsLocalProOverride
-              ? 'AI is not configured in this build (no Gemini key or AI proxy). '
-                  'Add --dart-define=GEMINI_KEY=... or set up the proxy; '
+              ? 'AI is not configured in this build. '
+                  'Set AI_PROXY_BASE_URL to the Cloudflare Worker proxy; '
                   '“Force Pro” only unlocks in-app gates, not API access.'
               : 'AI is not configured for this build. Please update the app.',
         );

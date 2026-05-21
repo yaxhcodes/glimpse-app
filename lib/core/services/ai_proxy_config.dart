@@ -3,9 +3,6 @@ import 'ai_user_id_service.dart';
 
 /// Cloudflare Worker proxy for Gemini and Voyage.
 ///
-/// Build with:
-/// `--dart-define=AI_PROXY_DEV_SECRET=...`
-///
 /// The user ID is generated at runtime on first launch and persisted
 /// locally via [AiUserIdService]. No `--dart-define=AI_PROXY_USER_ID`
 /// is needed.
@@ -22,7 +19,6 @@ class AiProxyConfig {
       AppEnvironment.isDev ? _devDefaultBaseUrl : _prodDefaultBaseUrl;
 
   static const baseUrlOverride = String.fromEnvironment('AI_PROXY_BASE_URL');
-  static const devSecret = String.fromEnvironment('AI_PROXY_DEV_SECRET');
 
   /// Runtime-injected user ID. Set by [initUserId] during app startup.
   /// Falls back to a cached value from [AiUserIdService.cachedUserId]
@@ -48,9 +44,12 @@ class AiProxyConfig {
   static String get baseUrl =>
       baseUrlOverride.isEmpty ? defaultBaseUrlForEnv : baseUrlOverride;
 
-  /// When true, [EmbeddingService] and [GeminiService] use the worker instead
-  /// of calling Google / Voyage directly.
-  ///
-  /// Requires both [devSecret] (compile-time) and a runtime [userId].
-  static bool get enabled => devSecret.isNotEmpty && userId.isNotEmpty;
+  /// When true, AI features use the Cloudflare Worker instead of provider APIs.
+  static bool get enabled {
+    final uri = Uri.tryParse(baseUrl);
+    return uri != null &&
+        uri.hasScheme &&
+        (uri.scheme == 'https' || uri.scheme == 'http') &&
+        uri.host.isNotEmpty;
+  }
 }
