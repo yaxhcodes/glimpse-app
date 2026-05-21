@@ -302,6 +302,9 @@ Allowed categories:
 ${CategoryTaxonomy.promptOptions()}
 
 Important rules:
+- Use only the title, description, and URL provided below. Do not infer unseen video/article content from the title alone.
+- If the description is unavailable or too thin, make the summary conservative: say it is a saved item with the provided title and summarize only what the title/platform safely imply.
+- Never invent specifics such as people, locations, stunts, tools, claims, or plot details unless they appear in the title or description.
 - Keep categories broad and stable.
 - Put the specific topic in tags, not the category.
 - Examples: React, Flutter, AI agents → category "Technology"; gardening, composting → "Home & Garden"; investing, budgeting → "Finance".
@@ -368,7 +371,11 @@ Output valid JSON only. No markdown, no explanation.''';
         .entries
         .map((e) {
           final u = e.value;
-          return '[${e.key + 1}] ${u.title}\n${u.summary ?? u.description}\nURL: ${u.rawUrl}';
+          final tags = u.tags.isEmpty ? '' : '\nTags: ${u.tags.join(', ')}';
+          final notes = (u.userNotes?.trim().isNotEmpty ?? false)
+              ? '\nUser notes: ${u.userNotes!.trim()}'
+              : '';
+          return '[${e.key + 1}] ${u.title}\n${u.summary ?? u.description}$tags$notes\nURL: ${u.rawUrl}';
         })
         .join('\n\n');
 
@@ -387,6 +394,7 @@ ${_untrustedBlock(conversationHistory.map((m) => '${m['role']}: ${m['content']}'
 RESPONSE RULES:
 - Lead with a 1–2 sentence answer that directly addresses the question. Be direct. Never start with "Here are some links" or restate the question.
 - Each source gets one punchy sentence max 20 words — what's useful about it, not a description.
+- Respect quantities exactly from the user question. If they asked for 2, include at most 2 sections.
 - Vary how you refer to saves naturally across responses: "you saved", "from your vault", "you've got", "in your library", etc.
 - "proactiveTip": Only include this key if ALL of the following are true:
   (1) The user asked a substantive question — not a greeting, not a one-word message
@@ -398,6 +406,9 @@ RESPONSE RULES:
 - You have access to the conversation history above. Never re-introduce yourself or give a greeting if history exists. Build on what was already discussed.
 - If the user asks a vague follow-up like "anything more?" or "what else?", surface different saves than what was already shown in this conversation.
 - Never repeat a source that was already cited earlier in this conversation.
+- If the saved bookmarks do not actually contain the answer, say that plainly and return an empty "sections" array. Do not force unrelated sources into the answer.
+- Never invent or recommend URLs. Use only the saved bookmarks listed below.
+- Never say "Here is what your saved links say about that topic."
 - Tone: concise, warm, slightly informal. Brilliant friend, not a search engine.
 
 Return this exact JSON shape and nothing else:
@@ -469,7 +480,8 @@ ${_untrustedBlock(question)}''';
 
       return ChatResponse(
         intro:
-            (data['intro'] as String? ?? 'Here is what your saved links say.')
+            (data['intro'] as String? ??
+                    'I found a few likely matches from your saves.')
                 .trim(),
         sections: deduped,
         proactiveTip: tip,
@@ -502,7 +514,7 @@ ${_untrustedBlock(question)}''';
           .toList();
 
       return ChatResponse(
-        intro: 'Here is what your saved links say about that topic.',
+        intro: 'I found a few likely matches from your saves.',
         sections: fallbackSections,
       );
     }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:any_link_preview/any_link_preview.dart';
@@ -64,6 +65,12 @@ class LinkPreviewService {
     if (host == 'reddit.com' || host.endsWith('.reddit.com') ||
         host == 'redd.it') {
       final result = await _fetchReddit(normalized, domain);
+      if (result != null) return result;
+    }
+
+    // ---- YouTube: the real video description is in player JSON, not OG tags ----
+    if (_isYouTubeHost(host)) {
+      final result = await _fetchYouTubeMetadata(normalized, domain);
       if (result != null) return result;
     }
 
@@ -252,6 +259,151 @@ class LinkPreviewService {
           name: 'LinkPreview');
     }
     return null;
+  }
+
+  bool _isYouTubeHost(String host) {
+    return host == 'youtube.com' ||
+        host.endsWith('.youtube.com') ||
+        host == 'youtu.be' ||
+        host == 'youtube-nocookie.com' ||
+        host.endsWith('.youtube-nocookie.com');
+  }
+
+  Future<LinkMetadata?> _fetchYouTubeMetadata(String url, String domain) async {
+    try {
+      final response = await _safeGet(
+        url,
+        options: Options(
+          headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept':
+                'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          followRedirects: true,
+          receiveTimeout: const Duration(seconds: 12),
+          sendTimeout: const Duration(seconds: 12),
+          responseType: ResponseType.plain,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      final html = response.data?.toString() ?? '';
+      final playerJson = _extractJsonObjectAfter(
+        html,
+        'ytInitialPlayerResponse',
+      );
+      final player = playerJson == null
+          ? null
+          : json.decode(playerJson) as Map<String, dynamic>?;
+      final details = player?['videoDetails'] as Map<String, dynamic>?;
+      final microformat = player?['microformat']?['playerMicroformatRenderer']
+          as Map<String, dynamic>?;
+
+      final parsed = _parseOgTags(html, domain);
+      final title = _firstNonEmpty([
+        details?['title']?.toString(),
+        microformat?['title']?['simpleText']?.toString(),
+        parsed.title,
+      ]);
+      final description = _firstNonEmpty([
+        details?['shortDescription']?.toString(),
+        microformat?['description']?['simpleText']?.toString(),
+        parsed.description,
+      ]);
+      final author = _firstNonEmpty([
+        details?['author']?.toString(),
+        microformat?['ownerChannelName']?.toString(),
+        parsed.author,
+      ]);
+      final imageUrl = _bestYouTubeThumbnail(details) ?? parsed.imageUrl;
+
+      if (title.trim().isEmpty || _isGenericTitle(title.toLowerCase(), domain)) {
+        return null;
+      }
+
+      return LinkMetadata(
+        title: _decodeHtmlEntities(title.trim()),
+        description: _normalizeLargeText(_decodeHtmlEntities(description)),
+        imageUrl: imageUrl,
+        domain: domain,
+        siteName: 'YouTube',
+        author: author.trim().isNotEmpty ? author.trim() : null,
+      );
+    } catch (e, st) {
+      developer.log(
+        'YouTube metadata fetch failed for $domain: $e',
+        name: 'LinkPreview',
+        stackTrace: st,
+      );
+      return null;
+    }
+  }
+
+  String? _extractJsonObjectAfter(String html, String marker) {
+    final markerIndex = html.indexOf(marker);
+    if (markerIndex < 0) return null;
+    final equalsIndex = html.indexOf('=', markerIndex);
+    if (equalsIndex < 0) return null;
+    final start = html.indexOf('{', equalsIndex);
+    if (start < 0) return null;
+
+    var depth = 0;
+    var inString = false;
+    var escaping = false;
+    for (var i = start; i < html.length; i++) {
+      final code = html.codeUnitAt(i);
+      if (inString) {
+        if (escaping) {
+          escaping = false;
+        } else if (code == 0x5c) {
+          escaping = true;
+        } else if (code == 0x22) {
+          inString = false;
+        }
+        continue;
+      }
+      if (code == 0x22) {
+        inString = true;
+        continue;
+      }
+      if (code == 0x7b) depth++;
+      if (code == 0x7d) {
+        depth--;
+        if (depth == 0) return html.substring(start, i + 1);
+      }
+    }
+    return null;
+  }
+
+  String _firstNonEmpty(List<String?> values) {
+    for (final value in values) {
+      final trimmed = value?.trim() ?? '';
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return '';
+  }
+
+  String? _bestYouTubeThumbnail(Map<String, dynamic>? details) {
+    final thumbnails = details?['thumbnail']?['thumbnails'];
+    if (thumbnails is! List || thumbnails.isEmpty) return null;
+    String? best;
+    var bestArea = -1;
+    for (final item in thumbnails) {
+      if (item is! Map) continue;
+      final url = item['url']?.toString();
+      if (url == null || url.isEmpty) continue;
+      final width = (item['width'] as num?)?.toInt() ?? 0;
+      final height = (item['height'] as num?)?.toInt() ?? 0;
+      final area = width * height;
+      if (area > bestArea) {
+        bestArea = area;
+        best = url;
+      }
+    }
+    return best;
   }
 
   /// Fetches X/Twitter post metadata via the oEmbed endpoint.

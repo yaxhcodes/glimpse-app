@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/app_environment.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/ask_retrieval_service.dart';
 import '../../core/services/embedding_service.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/entitlement_service.dart';
@@ -238,27 +239,33 @@ class AskNotifier extends StateNotifier<AskState> {
         return;
       }
 
-      // Retrieve relevant context (semantic when possible, keyword otherwise).
+      // Retrieve relevant context with lexical matches first and semantic
+      // matches as a recall boost. Ask should never force unrelated nearest
+      // neighbors into the model just because embeddings exist.
       final embeddings = _ref.read(embeddingServiceProvider);
-      List<SavedUrl> contextUrls;
+      final allUrls = await isarService.getAllUrls();
+      var semanticScored = <MapEntry<SavedUrl, double>>[];
       if (embeddings != null) {
         try {
           final queryEmbedding =
               await embeddings.generateEmbedding(question);
           if (queryEmbedding.isNotEmpty) {
-            contextUrls = await isarService.semanticSearchUrls(
+            semanticScored = await isarService.semanticSearchScored(
               queryEmbedding,
-              limit: 6,
+              limit: 18,
+              minScore: AskRetrievalService.semanticMinScore,
             );
-          } else {
-            contextUrls = await isarService.fuzzySearchUrls(question);
           }
         } on EmbeddingException {
-          contextUrls = await isarService.fuzzySearchUrls(question);
+          semanticScored = const [];
         }
-      } else {
-        contextUrls = await isarService.fuzzySearchUrls(question);
       }
+      final contextUrls = AskRetrievalService.retrieve(
+        query: question,
+        allUrls: allUrls,
+        semanticScored: semanticScored,
+        limit: 6,
+      );
 
       if (contextUrls.isEmpty) {
         _addBotMessage(
@@ -350,8 +357,13 @@ class AskNotifier extends StateNotifier<AskState> {
 
   Future<List<SavedUrl>> _fallbackContext(String question) async {
     final isarService = _ref.read(isarServiceProvider);
-    final urls = await isarService.fuzzySearchUrls(question);
-    return urls.isEmpty ? await isarService.getAllUrls() : urls;
+    final allUrls = await isarService.getAllUrls();
+    final urls = AskRetrievalService.retrieve(
+      query: question,
+      allUrls: allUrls,
+      limit: 3,
+    );
+    return urls.isEmpty ? allUrls.take(3).toList() : urls;
   }
 
   void _addBotMessage(

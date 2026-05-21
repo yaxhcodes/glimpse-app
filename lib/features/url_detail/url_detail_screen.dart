@@ -40,6 +40,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _descExpanded = false;
   bool _tagsExpanded = false;
   bool _showFullUrl = false;
+  String? _localNotesOverride;
   Timer? _notesTimer;
 
   @override
@@ -49,6 +50,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _showFullUrl = false;
       _descExpanded = false;
       _tagsExpanded = false;
+      _localNotesOverride = null;
     }
   }
 
@@ -56,6 +58,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   void initState() {
     super.initState();
     _notesController = TextEditingController();
+    _notesFocusNode.addListener(_handleNotesFocusChange);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final repaired = await ref
           .read(urlDetailNotifierProvider.notifier)
@@ -69,10 +72,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   @override
   void dispose() {
     _notesTimer?.cancel();
+    if (_notesEdited) {
+      ref
+          .read(urlDetailNotifierProvider.notifier)
+          .updateNotes(widget.urlId, _notesController.text);
+    }
+    _notesFocusNode.removeListener(_handleNotesFocusChange);
     _notesFocusNode.dispose();
     _notesController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleNotesFocusChange() {
+    if (!_notesFocusNode.hasFocus && _notesEdited) {
+      _notesTimer?.cancel();
+      _autoSaveNotes();
+    }
   }
 
   Future<void> _toggleDescription() async {
@@ -144,7 +160,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         .read(urlDetailNotifierProvider.notifier)
         .updateNotes(widget.urlId, _notesController.text);
     if (success && mounted) {
-      setState(() => _notesEdited = false);
+      setState(() {
+        _localNotesOverride = _notesController.text;
+        _notesEdited = false;
+      });
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -160,9 +179,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   /// Persists notes without invalidating [urlDetailProvider] — a refetch shows
   /// loading and replaces the whole body, which disposed the field and dropped focus.
   Future<void> _autoSaveNotes() async {
-    await ref
+    final success = await ref
         .read(urlDetailNotifierProvider.notifier)
         .updateNotes(widget.urlId, _notesController.text);
+    if (success && mounted) {
+      setState(() {
+        _localNotesOverride = _notesController.text;
+        _notesEdited = false;
+      });
+    }
   }
 
   Future<void> _deleteUrl() async {
@@ -499,7 +524,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     Map<String, int> tagFreq,
   ) {
     if (!_notesEdited && !_notesFocusNode.hasFocus) {
-      _notesController.text = url.userNotes ?? '';
+      _notesController.text = _localNotesOverride ?? url.userNotes ?? '';
     }
     final formattedDescription = _formatDescription(url.description);
     final displaySourceName = CategoryResolver.displaySourceName(
@@ -560,23 +585,32 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                           Positioned(
                             left: 12,
                             bottom: 12,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: colorScheme.scrim.withValues(alpha: 0.58),
-                                borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 4,
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface
+                                    .withValues(alpha: 0.92),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant,
+                                  width: 1,
                                 ),
-                                child: Text(
-                                  categoryLabel,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: colorScheme.onInverseSurface,
-                                    fontWeight: FontWeight.w600,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    categoryLabel,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.1,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
                           ),

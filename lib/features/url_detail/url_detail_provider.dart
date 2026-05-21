@@ -57,14 +57,27 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
       final linkService = _ref.read(linkPreviewServiceProvider);
       final fresh = await linkService.fetchMetadata(url.rawUrl);
       final freshDescription = fresh.description.trim();
-      if (freshDescription.isEmpty) return false;
+      final isYouTube = _isYouTubeSource(url.rawUrl);
+      final needsAiRefresh = isYouTube && _needsAiRefresh(url);
+      if (freshDescription.isEmpty && !needsAiRefresh) return false;
 
       final hasMeaningfulIncrease =
           freshDescription.length >= url.description.trim().length + 20;
-      if (!hasMeaningfulIncrease) return false;
+      if (!hasMeaningfulIncrease && !needsAiRefresh) return false;
 
-      url.description = freshDescription;
-      await isarService.updateUrl(url);
+      if (hasMeaningfulIncrease) {
+        url.description = freshDescription;
+        await isarService.updateUrl(url);
+      }
+      if (isYouTube) {
+        final enricher = _ref.read(enrichmentServiceProvider)();
+        await enricher.enrichSingle(
+          id,
+          forceAi: true,
+          forceEmbedding: true,
+          countAiUsage: false,
+        );
+      }
       return true;
     } catch (_, __) {
       return false;
@@ -76,7 +89,27 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
     return host.contains('x.com') ||
         host.contains('twitter.com') ||
         host.contains('reddit.com') ||
-        host == 'redd.it';
+        host == 'redd.it' ||
+        _isYouTubeSource(rawUrl);
+  }
+
+  bool _isYouTubeSource(String rawUrl) {
+    final host = Uri.tryParse(rawUrl)?.host.toLowerCase() ?? '';
+    return host == 'youtube.com' ||
+        host.endsWith('.youtube.com') ||
+        host == 'youtu.be';
+  }
+
+  bool _needsAiRefresh(SavedUrl url) {
+    final hasSummary = url.summary?.trim().isNotEmpty ?? false;
+    if (!hasSummary) return true;
+
+    final meaningfulTags = url.tags
+        .map((tag) => tag.trim().toLowerCase())
+        .where((tag) =>
+            tag.isNotEmpty && tag != 'youtube' && tag != 'video')
+        .toList();
+    return meaningfulTags.isEmpty;
   }
 }
 

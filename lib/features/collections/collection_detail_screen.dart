@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
 import '../../shared/widgets/url_card.dart';
+import 'collection_visual.dart';
 import 'collections_provider.dart';
 
 class CollectionDetailScreen extends ConsumerStatefulWidget {
@@ -180,11 +181,16 @@ class _CollectionDetailScreenState
       ),
     );
     if (result != null && result.isNotEmpty && context.mounted) {
+      final visual = resolveCollectionVisualStyle(
+        null,
+        name: result,
+        description: collection.description,
+      );
       await ref.read(isarServiceProvider).updateCollection(
         UserCollection()
           ..id = collection.id
           ..name = result
-          ..emoji = collection.emoji
+          ..emoji = visual.key
           ..description = collection.description
           ..createdAt = collection.createdAt
           ..urlIds = collection.urlIds,

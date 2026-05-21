@@ -4,12 +4,14 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 import '../database/isar_service.dart';
+import '../models/saved_url.dart';
 import 'category_resolver.dart';
 import 'domain_categorizer.dart';
 import 'embedding_input.dart';
 import 'embedding_service.dart';
 import 'gemini_service.dart';
 import 'link_preview_service.dart';
+import 'tag_noise_filter.dart';
 import 'usage_service.dart';
 
 /// Background enrichment for saved URLs.
@@ -86,15 +88,20 @@ class EnrichmentService {
   /// Enrich a single URL with all phases (AI then embedding).
   /// Each phase is individually guarded so a failure in one does not
   /// prevent the other from running or the callback from firing.
-  Future<void> enrichSingle(int urlId) async {
+  Future<void> enrichSingle(
+    int urlId, {
+    bool forceAi = false,
+    bool forceEmbedding = false,
+    bool countAiUsage = true,
+  }) async {
     try {
-      await _enrichAi(urlId);
+      await _enrichAi(urlId, force: forceAi, countUsage: countAiUsage);
     } catch (e, st) {
       developer.log('enrichSingle AI phase failed for $urlId: $e',
           name: 'Enrichment', stackTrace: st);
     }
     try {
-      await _enrichEmbedding(urlId);
+      await _enrichEmbedding(urlId, force: forceEmbedding);
     } catch (e, st) {
       developer.log('enrichSingle embedding phase failed for $urlId: $e',
           name: 'Enrichment', stackTrace: st);
@@ -161,16 +168,24 @@ class EnrichmentService {
   /// Phase 1: AI categorization + summary.
   /// Entire method is wrapped in try/catch so failures never crash
   /// the batch or prevent Phase 2 (embedding) from running.
-  Future<void> _enrichAi(int urlId) async {
+  Future<void> _enrichAi(
+    int urlId, {
+    bool force = false,
+    bool countUsage = true,
+  }) async {
     try {
-      await _enrichAiInner(urlId);
+      await _enrichAiInner(urlId, force: force, countUsage: countUsage);
     } catch (e, st) {
       developer.log('_enrichAi FAILED for $urlId: $e',
           name: 'Enrichment', stackTrace: st);
     }
   }
 
-  Future<void> _enrichAiInner(int urlId) async {
+  Future<void> _enrichAiInner(
+    int urlId, {
+    bool force = false,
+    bool countUsage = true,
+  }) async {
     final url = await _isarService.getUrlById(urlId);
     if (url == null) {
       developer.log('_enrichAi SKIP: URL $urlId not found in Isar',
@@ -183,16 +198,18 @@ class EnrichmentService {
     final platformCat = DomainCategorizer.categorize(url.rawUrl);
 
     // Skip if already AI-categorized (not just domain fallback)
-    if (url.category != platformCat.category && url.summary != null) {
+    if (!force && url.category != platformCat.category && url.summary != null) {
       developer.log('_enrichAi SKIP (already enriched): ${url.rawUrl}',
           name: 'Enrichment');
       return;
     }
 
-    final aiLimitReached = await _usageService.hasReachedLimit(
-      UsageFeature.aiSave,
-      _isPro,
-    );
+    final aiLimitReached = countUsage
+        ? await _usageService.hasReachedLimit(
+            UsageFeature.aiSave,
+            _isPro,
+          )
+        : false;
 
     if (aiLimitReached) {
       developer.log(
@@ -224,15 +241,19 @@ class EnrichmentService {
         category = result.category;
         emoji = result.emoji;
         tags = result.tags;
-        summary = result.summary.isNotEmpty ? result.summary : null;
-        await _usageService.incrementUsage(UsageFeature.aiSave);
+        summary = result.summary.isNotEmpty
+            ? result.summary
+            : _metadataFallbackSummary(url);
+        if (countUsage) {
+          await _usageService.incrementUsage(UsageFeature.aiSave);
+        }
       } catch (e, st) {
         developer.log('_enrichAi Gemini FAILED for $urlId: $e',
             name: 'Enrichment', stackTrace: st);
         category = platformCat.category;
         emoji = platformCat.emoji;
-        tags = platformCat.tags;
-        summary = null;
+        tags = _metadataFallbackTags(url, platformCat.tags);
+        summary = _metadataFallbackSummary(url);
       }
     } else {
       if (_geminiService == null) {
@@ -240,8 +261,8 @@ class EnrichmentService {
       }
       category = platformCat.category;
       emoji = platformCat.emoji;
-      tags = platformCat.tags;
-      summary = null;
+      tags = _metadataFallbackTags(url, platformCat.tags);
+      summary = _metadataFallbackSummary(url);
     }
 
     // Enrich tags with platform data already stored
@@ -271,18 +292,78 @@ class EnrichmentService {
     developer.log('_enrichAi SAVE OK: ${freshUrl.rawUrl} → $category', name: 'Enrichment');
   }
 
+  List<String> _metadataFallbackTags(SavedUrl url, List<String> baseTags) {
+    final tags = <String>[...baseTags];
+    final text = '${url.title} ${url.description}'.toLowerCase();
+    for (final phrase in _candidatePhrases(text)) {
+      if (tags.length >= 5) break;
+      if (phrase.length < 3 || phrase.length > 28) continue;
+      if (TagNoiseFilter.isNoiseTag(phrase)) continue;
+      if (!tags.contains(phrase)) tags.add(phrase);
+    }
+    return tags;
+  }
+
+  Iterable<String> _candidatePhrases(String text) sync* {
+    const stop = {
+      'the', 'and', 'for', 'with', 'from', 'into', 'this', 'that', 'his',
+      'her', 'their', 'your', 'you', 'are', 'was', 'were', 'video', 'youtube',
+      'http', 'https', 'www', 'com',
+    };
+    final words = text
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((w) => w.length >= 3 && !stop.contains(w))
+        .toList();
+    for (var i = 0; i < words.length; i++) {
+      yield words[i];
+      if (i < words.length - 1) yield '${words[i]} ${words[i + 1]}';
+    }
+  }
+
+  String? _metadataFallbackSummary(SavedUrl url) {
+    final description = url.description.trim();
+    if (description.isNotEmpty) {
+      return _firstSentences(description, maxSentences: 2, maxChars: 360);
+    }
+    final title = url.title.trim();
+    if (title.isNotEmpty && title.toLowerCase() != url.domain.toLowerCase()) {
+      return 'Saved item titled "$title". Add notes or refresh metadata for a richer summary.';
+    }
+    return null;
+  }
+
+  String _firstSentences(
+    String text, {
+    required int maxSentences,
+    required int maxChars,
+  }) {
+    final normalized = text
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    final matches = RegExp(r'[^.!?]+[.!?]').allMatches(normalized).toList();
+    final candidate = matches.isEmpty
+        ? normalized
+        : matches.take(maxSentences).map((m) => m.group(0)!.trim()).join(' ');
+    if (candidate.length <= maxChars) return candidate;
+    final cut = candidate.substring(0, maxChars);
+    final lastSpace = cut.lastIndexOf(' ');
+    return '${cut.substring(0, lastSpace > 120 ? lastSpace : maxChars).trim()}...';
+  }
+
   /// Phase 2: Generate embedding vector.
   /// Entire method is wrapped in try/catch so failures never crash the batch.
-  Future<void> _enrichEmbedding(int urlId) async {
+  Future<void> _enrichEmbedding(int urlId, {bool force = false}) async {
     try {
-      await _enrichEmbeddingInner(urlId);
+      await _enrichEmbeddingInner(urlId, force: force);
     } catch (e, st) {
       developer.log('_enrichEmbedding FAILED for $urlId: $e',
           name: 'Enrichment', stackTrace: st);
     }
   }
 
-  Future<void> _enrichEmbeddingInner(int urlId) async {
+  Future<void> _enrichEmbeddingInner(int urlId, {bool force = false}) async {
     if (_embeddingService == null) {
       developer.log('_enrichEmbedding SKIP: EmbeddingService is null for $urlId',
           name: 'Enrichment');
@@ -297,7 +378,7 @@ class EnrichmentService {
     }
 
     // Skip if already embedded
-    if (url.embedding != null && url.embedding!.isNotEmpty) {
+    if (!force && url.embedding != null && url.embedding!.isNotEmpty) {
       developer.log('_enrichEmbedding SKIP (already embedded): ${url.rawUrl}',
           name: 'Enrichment');
       return;
