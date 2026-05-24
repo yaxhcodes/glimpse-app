@@ -6,14 +6,14 @@ import '../../core/models/saved_url.dart';
 /// Intentionally avoids pure primaries — these are muted/saturated tones that
 /// look good on both light and dark surfaces.
 const List<Color> kClusterAccentColors = [
-  Color(0xFF6C8EBF), // slate blue
-  Color(0xFF7EB89A), // sage green
-  Color(0xFFBF8C6C), // warm terracotta
-  Color(0xFF9B7EC8), // soft violet
-  Color(0xFFBF6C8E), // dusty rose
-  Color(0xFF6CBFBF), // muted teal
-  Color(0xFFBFBF6C), // muted gold
-  Color(0xFF8E6CBF), // indigo
+  Color(0xFF1DB954), // vivid green
+  Color(0xFF2D7FF9), // electric blue
+  Color(0xFFFF4FA3), // hot pink
+  Color(0xFFFF8A00), // bright orange
+  Color(0xFF8B5CF6), // violet
+  Color(0xFF00B8A9), // teal
+  Color(0xFFFFC857), // warm yellow
+  Color(0xFFFF5A5F), // coral
 ];
 
 /// A fine-grained sub-grouping within a [ClusterTheme].

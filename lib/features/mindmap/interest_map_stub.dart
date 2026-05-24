@@ -1,0 +1,78 @@
+import 'package:flutter/material.dart';
+
+import 'cluster_card.dart' show InterestCluster;
+
+const stubClusters = <InterestCluster>[
+  InterestCluster(
+    id: 'treks',
+    label: 'Treks',
+    saveCount: 23,
+    subtopics: ['Himalayan', 'New Zealand', 'Iceland', 'Mountain routes'],
+    dominance: 0.42,
+    coverImageUrl: null,
+    accentColor: Color(0xFF4A8DC4),
+  ),
+  InterestCluster(
+    id: 'ai-agents',
+    label: 'AI Agents',
+    saveCount: 19,
+    subtopics: ['Claude & OpenAI', 'Workflows', 'LLMs'],
+    dominance: 0.24,
+    coverImageUrl: null,
+    accentColor: Color(0xFF4EADA0),
+  ),
+  InterestCluster(
+    id: 'dev-tools',
+    label: 'Dev Tools & OSS',
+    saveCount: 14,
+    subtopics: ['GitHub', 'OSS', 'Frameworks'],
+    dominance: 0.18,
+    coverImageUrl: null,
+    accentColor: Color(0xFFB07C3A),
+  ),
+  InterestCluster(
+    id: 'design-systems',
+    label: 'Design Systems',
+    saveCount: 8,
+    subtopics: ['Patterns', 'Components', 'UI tools'],
+    dominance: 0.11,
+    coverImageUrl: null,
+    accentColor: Color(0xFF7B6FD4),
+  ),
+  InterestCluster(
+    id: 'typography',
+    label: 'Typography Tools',
+    saveCount: 6,
+    subtopics: ['Fonts', 'Type pairing'],
+    dominance: 0.08,
+    coverImageUrl: null,
+    accentColor: Color(0xFFB05A7A),
+  ),
+  InterestCluster(
+    id: 'growth',
+    label: 'Website Growth',
+    saveCount: 5,
+    subtopics: ['SEO', 'Revenue'],
+    dominance: 0.07,
+    coverImageUrl: null,
+    accentColor: Color(0xFF6B9E5E),
+  ),
+  InterestCluster(
+    id: 'growth-duplicate',
+    label: 'website growth',
+    saveCount: 4,
+    subtopics: ['Search Console', 'Conversion'],
+    dominance: 0.06,
+    coverImageUrl: null,
+    accentColor: Color(0xFF6B9E5E),
+  ),
+  InterestCluster(
+    id: 'filtered-one-save',
+    label: 'Animal Facts',
+    saveCount: 1,
+    subtopics: ['Nature'],
+    dominance: 0.01,
+    coverImageUrl: null,
+    accentColor: Color(0xFF4EADA0),
+  ),
+];

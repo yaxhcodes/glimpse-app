@@ -157,6 +157,13 @@ final _router = GoRouter(
       builder: (context, state) => const MindmapScreen(),
     ),
     GoRoute(
+      path: '/mindmap/cluster/:id',
+      builder: (context, state) {
+        final id = int.parse(state.pathParameters['id']!);
+        return MindmapClusterScreen(clusterId: id);
+      },
+    ),
+    GoRoute(
       path: '/recap',
       builder: (context, state) => const RecapScreen(),
     ),

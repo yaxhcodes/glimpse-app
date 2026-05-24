@@ -8,15 +8,13 @@ import '../../core/clustering/embedding_clustering.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/gemini_service.dart';
+import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import 'cluster_theme.dart';
 
 /// Persisted cluster snapshot — bump version to invalidate stale caches.
-const kInterestClustersJsonKey = 'glimpse_clusters_v8';
-const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v8';
-
-/// Max top-level clusters shown in the map.
-const _maxDisplayClusters = 8;
+const kInterestClustersJsonKey = 'glimpse_clusters_v12';
+const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v12';
 
 /// How many URLs must change before we force a full rebuild.
 const _clusterRebuildThreshold = 5;
@@ -50,30 +48,368 @@ List<List<double>> _embeddingsFromRows(List<Map<String, dynamic>> rows) {
   }).toList();
 }
 
-// ─── Tag frequency ────────────────────────────────────────────────────────────
+const _genericTopicWords = <String>{
+  'ai',
+  'article',
+  'bookmark',
+  'bookmarks',
+  'design tools',
+  'general',
+  'google',
+  'instagram',
+  'link',
+  'links',
+  'other',
+  'reddit',
+  'saved',
+  'social',
+  'unclassified',
+  'technology',
+  'travel',
+  'video',
+  'web',
+  'website',
+  'x',
+  'youtube',
+};
 
-Map<String, int> _tagCountsForClusters(List<List<SavedUrl>> clusters) {
+bool _isWeakClusterLabel(String label) {
+  final l = label.trim().toLowerCase();
+  if (l.isEmpty) return true;
+  if (l.startsWith('interest group')) return true;
+  if (l == 'cluster' || l == 'saved links' || l == 'related bookmarks') {
+    return true;
+  }
+  return _genericTopicWords.contains(l);
+}
+
+String _titleCaseTopic(String value) {
+  return value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .map((w) {
+        final lower = w.toLowerCase();
+        const keepUpper = {'ai', 'ml', 'ui', 'ux', 'seo', 'saas', 'api'};
+        if (keepUpper.contains(lower)) return lower.toUpperCase();
+        if (w.length == 1) return w.toUpperCase();
+        return '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}';
+      })
+      .join(' ');
+}
+
+String _textForUrls(List<SavedUrl> urls) {
+  return urls
+      .map((u) => [
+            u.title,
+            u.description,
+            u.summary ?? '',
+            u.tags.join(' '),
+            u.category,
+            u.domain,
+          ].join(' '))
+      .join(' ')
+      .toLowerCase();
+}
+
+bool _isTrekLike(List<SavedUrl> urls, [String label = '']) {
+  final text = '${label.toLowerCase()} ${_textForUrls(urls)}';
+  return text.contains('trek') ||
+      text.contains('trail') ||
+      text.contains('himalaya') ||
+      text.contains('kanchenjunga') ||
+      text.contains('te araroa') ||
+      text.contains('iceland') ||
+      text.contains('mountain route');
+}
+
+String _trekRegionLabel(List<SavedUrl> urls) {
+  final text = _textForUrls(urls);
+  if (text.contains('iceland')) return 'Iceland';
+  if (text.contains('new zealand') || text.contains('te araroa')) {
+    return 'New Zealand';
+  }
+  if (text.contains('rajasthan')) return 'Rajasthan';
+  if (text.contains('nepal') ||
+      text.contains('himalaya') ||
+      text.contains('kanchenjunga')) {
+    return 'Himalayan';
+  }
+  return 'Mountain routes';
+}
+
+List<SubClusterTheme> _trekSubClustersForUrls(List<SavedUrl> urls) {
+  final byRegion = <String, List<SavedUrl>>{};
+  for (final url in urls) {
+    final label = _trekRegionLabel([url]);
+    byRegion.putIfAbsent(label, () => <SavedUrl>[]).add(url);
+  }
+
+  final result = byRegion.entries.map((entry) {
+    return SubClusterTheme(
+      label: entry.key,
+      summary: _heuristicSummaryForUrls(entry.value, '${entry.key} treks'),
+      urls: entry.value,
+    );
+  }).toList()
+    ..sort((a, b) => b.urls.length.compareTo(a.urls.length));
+
+  return result;
+}
+
+String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
+  final text = _textForUrls(urls);
+  final scores = <String, int>{
+    'AI Agents': _keywordScore(text, [
+      'agent',
+      'genai',
+      'openai',
+      'anthropic',
+      'claude',
+      'llm',
+      'prompt',
+      'ai engineer',
+      'aimaxing',
+    ]),
+    'Dev Tools & OSS': _keywordScore(text, [
+      'github',
+      'repo',
+      'oss',
+      'open source',
+      'react',
+      'next.js',
+      'vercel',
+      'linear',
+      'code',
+      'backend',
+      'linux',
+      'cybersecurity',
+      'software engineering',
+    ]),
+    'Website Growth': _keywordScore(text, [
+      'seo',
+      'search console',
+      'website optimization',
+      'traffic',
+      'conversion',
+      'growth',
+      'revenue',
+    ]),
+    'Startup Building': _keywordScore(text, [
+      'startup',
+      'founder',
+      'first 100 users',
+      'credits',
+      'money',
+      'saas',
+    ]),
+    'Design Systems': _keywordScore(text, [
+      'design system',
+      'ui tools',
+      'patterns',
+      'refero',
+      'figma',
+      'ux',
+      'designiti',
+      'design inspiration',
+    ]),
+    'Typography Tools': _keywordScore(text, [
+      'font',
+      'fontjoy',
+      'typography',
+      'typeface',
+    ]),
+    'Modern Agriculture': _keywordScore(text, [
+      'agriculture',
+      'farming',
+      'farm',
+      'agribusiness',
+      'agritech',
+    ]),
+  };
+
+  final hasTrek = text.contains('trek') ||
+      text.contains('himalaya') ||
+      text.contains('kanchenjunga') ||
+      text.contains('te araroa') ||
+      text.contains('trail');
+  if (hasTrek) {
+    return 'Treks';
+  }
+
+  final ranked = scores.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  if (ranked.isNotEmpty && ranked.first.value >= 2) {
+    return ranked.first.key;
+  }
+
+  return null;
+}
+
+int _keywordScore(String text, List<String> keywords) {
+  var score = 0;
+  for (final keyword in keywords) {
+    var start = 0;
+    while (true) {
+      final index = text.indexOf(keyword, start);
+      if (index < 0) break;
+      score++;
+      start = index + keyword.length;
+    }
+  }
+  return score;
+}
+
+Map<String, int> _topicCountsForUrls(List<SavedUrl> urls) {
   final counts = <String, int>{};
-  for (final c in clusters) {
-    for (final u in c) {
-      for (final t in u.tags) {
-        final k = t.toLowerCase().trim();
-        if (k.isEmpty) continue;
-        counts[k] = (counts[k] ?? 0) + 1;
-      }
+  for (final u in urls) {
+    final filteredTags = TagNoiseFilter.filterTags(u.tags);
+    for (final tag in filteredTags) {
+      final k = tag.toLowerCase().trim();
+      if (k.isEmpty || _genericTopicWords.contains(k)) continue;
+      counts[k] = (counts[k] ?? 0) + 1;
     }
   }
   return counts;
 }
 
+String _heuristicLabelForUrls(
+  List<SavedUrl> urls, {
+  String fallback = 'Saved links',
+}) {
+  if (urls.isEmpty) return fallback;
+
+  final ruleLabel = _ruleBasedTopicLabel(urls);
+  if (ruleLabel != null) return ruleLabel;
+
+  final counts = _topicCountsForUrls(urls).entries.toList()
+    ..sort((a, b) {
+      final byCount = b.value.compareTo(a.value);
+      if (byCount != 0) return byCount;
+      return b.key.length.compareTo(a.key.length);
+    });
+
+  if (counts.isNotEmpty) {
+    final first = counts.first;
+    final second = counts.length > 1 ? counts[1] : null;
+    if (second != null &&
+        second.value >= first.value - 1 &&
+        '${first.key} ${second.key}'.length <= 26) {
+      return '${_titleCaseTopic(first.key)} + ${_titleCaseTopic(second.key)}';
+    }
+    return _titleCaseTopic(first.key);
+  }
+
+  final nonGenericCategories = urls
+      .map((u) => u.category.trim())
+      .where((c) => c.isNotEmpty && !_genericTopicWords.contains(c.toLowerCase()))
+      .toList();
+  if (nonGenericCategories.isNotEmpty) {
+    return _titleCaseTopic(nonGenericCategories.first);
+  }
+
+  final resolved = TitleResolver.resolve(urls.first, tagFrequency: null);
+  if (resolved.trim().isNotEmpty) return TitleResolver.truncateTitle(resolved);
+  return fallback;
+}
+
+String _heuristicSummaryForUrls(List<SavedUrl> urls, String label) {
+  final count = urls.length;
+  final noun = count == 1 ? 'save' : 'saves';
+  return '$count related $noun around ${label.toLowerCase()}.';
+}
+
+String _canonicalThemeKey(ClusterTheme theme) {
+  final label = theme.label.trim().toLowerCase();
+  if (_isTrekLike(theme.urls, label)) return 'treks';
+  if (!_isWeakClusterLabel(label)) return label;
+  return _heuristicLabelForUrls(theme.urls).trim().toLowerCase();
+}
+
+List<SubClusterTheme> _mergeSubClusters(List<SubClusterTheme> subClusters) {
+  final byKey = <String, List<SavedUrl>>{};
+  for (final sub in subClusters) {
+    final label = _isWeakClusterLabel(sub.label)
+        ? _heuristicLabelForUrls(sub.urls, fallback: 'Related')
+        : sub.label;
+    final key = label.trim().toLowerCase();
+    final bucket = byKey.putIfAbsent(key, () => <SavedUrl>[]);
+    final seen = bucket.map((u) => u.id).toSet();
+    for (final url in sub.urls) {
+      if (seen.add(url.id)) bucket.add(url);
+    }
+  }
+
+  final merged = byKey.entries.map((entry) {
+    final label = _titleCaseTopic(entry.key);
+    return SubClusterTheme(
+      label: label,
+      summary: _heuristicSummaryForUrls(entry.value, label),
+      urls: entry.value,
+    );
+  }).toList()
+    ..sort((a, b) => b.urls.length.compareTo(a.urls.length));
+
+  return merged;
+}
+
+List<ClusterTheme> _mergeDuplicateThemes(List<ClusterTheme> themes) {
+  final grouped = <String, List<ClusterTheme>>{};
+  for (final theme in themes) {
+    grouped.putIfAbsent(_canonicalThemeKey(theme), () => []).add(theme);
+  }
+
+  final merged = <ClusterTheme>[];
+  for (final entry in grouped.entries) {
+    final group = entry.value;
+    final urlsById = <int, SavedUrl>{};
+    final allSubs = <SubClusterTheme>[];
+
+    for (final theme in group) {
+      for (final url in theme.urls) {
+        urlsById[url.id] = url;
+      }
+      allSubs.addAll(theme.subClusters);
+    }
+
+    final urls = urlsById.values.toList();
+    final label = _heuristicLabelForUrls(
+      urls,
+      fallback: group.first.label,
+    );
+    final subClusters = label == 'Treks' || _isTrekLike(urls, label)
+        ? _trekSubClustersForUrls(urls)
+        : _mergeSubClusters(allSubs);
+
+    merged.add(
+      ClusterTheme(
+        index: merged.length,
+        label: label,
+        summary: _heuristicSummaryForUrls(urls, label),
+        urls: urls,
+        subClusters: subClusters,
+      ),
+    );
+  }
+
+  merged.sort((a, b) => b.urls.length.compareTo(a.urls.length));
+  return List<ClusterTheme>.generate(merged.length, (i) {
+    final theme = merged[i];
+    return ClusterTheme(
+      index: i,
+      label: theme.label,
+      summary: theme.summary,
+      urls: theme.urls,
+      subClusters: theme.subClusters,
+    );
+  });
+}
+
 // ─── Heuristic (no-Gemini) theme builders ────────────────────────────────────
 
 ClusterTheme _singletonClusterTheme(List<SavedUrl> c, int index) {
-  final u = c.first;
-  var label = u.category.trim();
-  if (label.isEmpty) label = TitleResolver.resolve(u, tagFrequency: null);
-  if (label.isEmpty) label = 'Saved link';
-  final summary = TitleResolver.resolve(u, tagFrequency: null);
+  final label = _heuristicLabelForUrls(c, fallback: 'Saved link');
+  final summary = _heuristicSummaryForUrls(c, label);
   return ClusterTheme(
     index: index,
     label: label,
@@ -84,14 +420,11 @@ ClusterTheme _singletonClusterTheme(List<SavedUrl> c, int index) {
 }
 
 List<ClusterTheme> _heuristicThemes(List<List<SavedUrl>> clusters) {
-  final tagFreq = _tagCountsForClusters(clusters);
   return List<ClusterTheme>.generate(clusters.length, (i) {
     final urls = clusters[i];
     if (urls.length == 1) return _singletonClusterTheme(urls, i);
-    final first = urls.first;
-    var label = TitleResolver.resolve(first, tagFrequency: tagFreq);
-    if (label.isEmpty) label = 'Saved links';
-    final summary = '${urls.length} bookmarks on similar topics.';
+    final label = _heuristicLabelForUrls(urls);
+    final summary = _heuristicSummaryForUrls(urls, label);
     return ClusterTheme(
       index: i,
       label: label,
@@ -104,15 +437,23 @@ List<ClusterTheme> _heuristicThemes(List<List<SavedUrl>> clusters) {
 
 // ─── Gemini description block builder ────────────────────────────────────────
 
-String _titlesBlock(List<SavedUrl> urls, {int take = 5}) {
+String _titlesBlock(List<SavedUrl> urls, {int take = 8}) {
   return urls
       .take(take)
       .map((u) {
-        final safe = TitleResolver.resolve(
+        final title = TitleResolver.resolve(
           u,
           tagFrequency: null,
         ).replaceAll('"', "'");
-        return '"$safe"';
+        final tags = TagNoiseFilter.filterTags(u.tags).take(5).join(', ');
+        final summary = (u.summary ?? '').replaceAll('"', "'").trim();
+        final bits = <String>[
+          'title: "$title"',
+          if (tags.isNotEmpty) 'tags: [$tags]',
+          if (u.category.trim().isNotEmpty) 'category: ${u.category}',
+          if (summary.isNotEmpty) 'summary: $summary',
+        ];
+        return '{${bits.join('; ')}}';
       })
       .join(', ');
 }
@@ -138,9 +479,12 @@ String _buildDescriptionsBlock(
         final group = subGroups[si];
         final subUrls = group.map((li) => c[li]).toList();
         final indexed = group.take(4).map((li) {
-          final safe = TitleResolver.resolve(c[li], tagFrequency: null)
+          final u = c[li];
+          final safe = TitleResolver.resolve(u, tagFrequency: null)
               .replaceAll('"', "'");
-          return 'url $li: "$safe"';
+          final tags = TagNoiseFilter.filterTags(u.tags).take(4).join(', ');
+          final suffix = tags.isEmpty ? '' : ' tags: [$tags]';
+          return 'url $li: "$safe"$suffix';
         }).join(', ');
         buffer.writeln(
           '  Sub-group $si (${subUrls.length} links): $indexed',
@@ -179,8 +523,12 @@ List<SubClusterTheme> _buildSubClusters(
       summary = '';
     }
     if (label.isEmpty) label = subUrls.first.category.trim();
-    if (label.isEmpty) label = 'Group ${i + 1}';
-    if (summary.isEmpty) summary = '${subUrls.length} related links.';
+    if (_isWeakClusterLabel(label)) {
+      label = _heuristicLabelForUrls(subUrls, fallback: 'Group ${i + 1}');
+    }
+    if (summary.isEmpty || summary == 'Related bookmarks.') {
+      summary = _heuristicSummaryForUrls(subUrls, label);
+    }
 
     result.add(SubClusterTheme(label: label, summary: summary, urls: subUrls));
   }
@@ -195,7 +543,7 @@ Future<void> _writeClusterCache(
   List<ClusterTheme> themes,
 ) async {
   final payload = <String, dynamic>{
-    'version': 5,
+    'version': 9,
     'themes': themes.map((t) {
       return {
         'label': t.label,
@@ -244,9 +592,9 @@ Future<List<ClusterTheme>?> tryHydrateClustersFromPrefs({
 
     // Reject caches from old schema versions.
     final version = decoded['version'] as int? ?? 0;
-    if (version < 5) {
+    if (version < 9) {
       developer.log(
-        'Cluster cache version $version < 5 — rebuilding.',
+        'Cluster cache version $version < 9 — rebuilding.',
         name: 'Mindmap',
       );
       return null;
@@ -362,7 +710,6 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
   }
 
   final topClusters = indexClusters
-      .take(_maxDisplayClusters)
       .map((indices) => indices.map((i) => urls[i]).toList())
       .toList();
 
@@ -510,9 +857,10 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
         if (namePos >= 0 && namePos < names.length) {
           row = names[namePos];
         } else {
+          final fallbackLabel = _heuristicLabelForUrls(c);
           row = {
-            'label': 'Interest group ${multiNameIdx + 1}',
-            'summary': '${c.length} related bookmarks.',
+            'label': fallbackLabel,
+            'summary': _heuristicSummaryForUrls(c, fallbackLabel),
             'subLabels': <Map<String, String>>[],
           };
         }
@@ -535,16 +883,25 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
             ? _buildSubClusters(c, localGroups, subLabels)
             : const <SubClusterTheme>[];
 
+        var label = row['label'] as String? ?? '';
+        if (_isWeakClusterLabel(label)) {
+          label = _heuristicLabelForUrls(c);
+        }
+        var summary = row['summary'] as String? ?? '';
+        if (summary.trim().isEmpty || summary == 'Related bookmarks.') {
+          summary = _heuristicSummaryForUrls(c, label);
+        }
+
         developer.log(
-          'Cluster[$i] "${row['label']}": ${c.length} URLs, '
+          'Cluster[$i] "$label": ${c.length} URLs, '
           '${subClusters.length} sub-clusters.',
           name: 'Mindmap',
         );
 
         return ClusterTheme(
           index: i,
-          label: row['label'] as String? ?? 'Cluster',
-          summary: row['summary'] as String? ?? '',
+          label: label,
+          summary: summary,
           urls: c,
           subClusters: subClusters,
         );
@@ -596,6 +953,8 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
       );
     });
   }
+
+  themes = _mergeDuplicateThemes(themes);
 
   await _writeClusterCache(prefs, urls.length, themes);
   developer.log(

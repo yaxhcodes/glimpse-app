@@ -1,39 +1,21 @@
-import 'dart:math' as math;
-import 'dart:ui' as ui;
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/constants/app_assets.dart';
-
 import '../../core/models/saved_url.dart';
+import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
-import '../../shared/formatting.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import '../home/home_provider.dart';
+import 'cluster_card.dart';
 import 'cluster_theme.dart';
 import 'interest_clusters_provider.dart';
-
-// ─── Layout constants ──────────────────────────────────────────────────────
-
-const double _kCenterNodeSize = 80;
-const double _kNodeSizeBase = 62;
-const double _kNodeSizeMax = 80;
-const double _kLabelColumnWidth = 110;
+import 'title_cleaner.dart';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-
-SavedUrl? _representativeUrl(List<SavedUrl> urls) {
-  for (final u in urls) {
-    final t = u.thumbnailUrl?.trim();
-    if (t != null && t.isNotEmpty) return u;
-  }
-  return urls.isEmpty ? null : urls.first;
-}
 
 String? _previewImageUrl(SavedUrl u) {
   final t = u.thumbnailUrl?.trim();
@@ -47,826 +29,408 @@ String? _previewImageUrl(SavedUrl u) {
   return null;
 }
 
-List<Offset> _radialPositions(int count, Offset center, double radius) {
-  if (count <= 0) return const [];
-  return List.generate(count, (i) {
-    final angle = (i / count) * 2 * math.pi - math.pi / 2;
-    return Offset(
-      center.dx + radius * math.cos(angle),
-      center.dy + radius * math.sin(angle),
-    );
-  });
-}
+// ─── Mindmap atlas ─────────────────────────────────────────────────────────
 
-double _nodeSize(int urlCount) {
-  if (urlCount <= 1) return _kNodeSizeBase;
-  if (urlCount >= 15) return _kNodeSizeMax;
-  return _kNodeSizeBase +
-      (_kNodeSizeMax - _kNodeSizeBase) * ((urlCount - 1) / 14);
-}
-
-// ─── Constellation line painter ───────────────────────────────────────────
-
-class _ConstellationPainter extends CustomPainter {
-  _ConstellationPainter({
-    required this.center,
-    required this.nodePositions,
-    required this.accentColors,
-    required this.progress,
-  }) : super(repaint: progress);
-
-  final Offset center;
-  final List<Offset> nodePositions;
-  final List<Color> accentColors;
-  final Animation<double> progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final t = progress.value;
-
-    for (var i = 0; i < nodePositions.length; i++) {
-      final pos = nodePositions[i];
-      final color = accentColors[i % accentColors.length];
-
-      // Interpolate line endpoint along the arc for draw-in effect
-      final drawPos = Offset.lerp(center, pos, t)!;
-
-      // Draw-in endpoint along curve
-      final drawCp = Offset(
-        (center.dx + drawPos.dx) / 2,
-        (center.dy + drawPos.dy) / 2 - 30 * t,
-      );
-
-      final path = Path()
-        ..moveTo(center.dx, center.dy)
-        ..quadraticBezierTo(drawCp.dx, drawCp.dy, drawPos.dx, drawPos.dy);
-
-      // Base subtle line
-      final basePaint = Paint()
-        ..shader = ui.Gradient.linear(center, pos, [
-          color.withValues(alpha: 0.18 * t),
-          color.withValues(alpha: 0.04 * t),
-        ])
-        ..strokeWidth = 1.0
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-
-      // Accent glow on top
-      final glowPaint = Paint()
-        ..shader = ui.Gradient.linear(
-          center,
-          pos,
-          [
-            color.withValues(alpha: 0.0),
-            color.withValues(alpha: 0.45 * t),
-            color.withValues(alpha: 0.0),
-          ],
-          [0.0, 0.42, 1.0],
-        )
-        ..strokeWidth = 2.0
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5);
-
-      canvas.drawPath(path, basePaint);
-      canvas.drawPath(path, glowPaint);
-
-      // Dot at the node end (fades in last 20% of draw)
-      if (t > 0.7) {
-        final dotT = ((t - 0.7) / 0.3).clamp(0.0, 1.0);
-        final dotPaint = Paint()
-          ..color = color.withValues(alpha: 0.55 * dotT)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
-        canvas.drawCircle(pos, 4.0 * dotT, dotPaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ConstellationPainter old) =>
-      old.center != center ||
-      old.nodePositions != nodePositions ||
-      old.accentColors != accentColors;
-}
-
-// ─── Center hub node (pulsing) ─────────────────────────────────────────────
-
-class _CenterHubNode extends StatefulWidget {
-  const _CenterHubNode({required this.center, required this.cs});
-
-  final Offset center;
-  final ColorScheme cs;
-
-  @override
-  State<_CenterHubNode> createState() => _CenterHubNodeState();
-}
-
-class _CenterHubNodeState extends State<_CenterHubNode>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
-  late final Animation<double> _scale;
-  late final Animation<double> _glow;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2600),
-    )..repeat(reverse: true);
-
-    _scale = Tween<double>(
-      begin: 1.0,
-      end: 1.055,
-    ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
-    _glow = Tween<double>(
-      begin: 12.0,
-      end: 26.0,
-    ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: widget.center.dx - _kCenterNodeSize / 2,
-      top: widget.center.dy - _kCenterNodeSize / 2,
-      child: AnimatedBuilder(
-        animation: _pulse,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scale.value,
-            child: Container(
-              width: _kCenterNodeSize,
-              height: _kCenterNodeSize,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: widget.cs.primary,
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.cs.primary.withValues(alpha: 0.50),
-                    blurRadius: _glow.value,
-                    spreadRadius: (_glow.value - 12) * 0.25,
-                  ),
-                  BoxShadow(
-                    color: widget.cs.primary.withValues(alpha: 0.20),
-                    blurRadius: _glow.value * 2.2,
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: child,
-            ),
-          );
-        },
-        child: Image.asset(
-          AppAssets.logo,
-          width: _kCenterNodeSize,
-          height: _kCenterNodeSize,
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Circle image preview ──────────────────────────────────────────────────
-
-class _CirclePreview extends StatelessWidget {
-  const _CirclePreview({
-    required this.urls,
-    required this.size,
-    required this.fallbackLetter,
-    required this.accentColor,
-  });
-
-  final List<SavedUrl> urls;
-  final double size;
-  final String fallbackLetter;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final rep = _representativeUrl(urls);
-    final imageUrl = rep != null ? _previewImageUrl(rep) : null;
-
-    Widget child;
-    if (imageUrl != null) {
-      child = CachedNetworkImage(
-        imageUrl: imageUrl,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        fadeInDuration: const Duration(milliseconds: 250),
-        placeholder: (_, _) => _LetterFallback(
-          letter: fallbackLetter,
-          size: size,
-          accentColor: accentColor,
-        ),
-        errorWidget: (_, _, _) => _LetterFallback(
-          letter: fallbackLetter,
-          size: size,
-          accentColor: accentColor,
-        ),
-      );
-    } else {
-      child = _LetterFallback(
-        letter: fallbackLetter,
-        size: size,
-        accentColor: accentColor,
-      );
-    }
-
-    return ClipOval(
-      child: SizedBox(width: size, height: size, child: child),
-    );
-  }
-}
-
-class _LetterFallback extends StatelessWidget {
-  const _LetterFallback({
-    required this.letter,
-    required this.size,
-    required this.accentColor,
-  });
-
-  final String letter;
-  final double size;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final ch = letter.isNotEmpty ? letter[0].toUpperCase() : '?';
-    return Container(
-      color: accentColor.withValues(alpha: 0.18),
-      child: Center(
-        child: Text(
-          ch,
-          style: TextStyle(
-            color: accentColor,
-            fontWeight: FontWeight.w700,
-            fontSize: (size * 0.38).clamp(14.0, 24.0),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Cluster map node ─────────────────────────────────────────────────────
-
-class _ClusterMapNode extends StatelessWidget {
-  const _ClusterMapNode({
-    required this.cluster,
-    required this.position,
-    required this.cs,
-    required this.tt,
-    required this.onTap,
-    required this.entranceAnim,
-  });
-
-  final ClusterTheme cluster;
-  final Offset position;
-  final ColorScheme cs;
-  final TextTheme tt;
-  final VoidCallback onTap;
-  final Animation<double> entranceAnim;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = _nodeSize(cluster.urls.length);
-    final count = cluster.urls.length;
-    final accent = cluster.accentColor;
-    final rep = _representativeUrl(cluster.urls);
-    final letter = rep != null && rep.domain.isNotEmpty ? rep.domain[0] : 'G';
-
-    return Positioned(
-      left: position.dx - _kLabelColumnWidth / 2,
-      top: position.dy - size / 2,
-      child: SizedBox(
-        width: _kLabelColumnWidth,
-        child: AnimatedBuilder(
-          animation: entranceAnim,
-          builder: (context, child) {
-            final t = entranceAnim.value;
-            return Opacity(
-              opacity: t.clamp(0.0, 1.0),
-              child: Transform.scale(scale: 0.55 + 0.45 * t, child: child),
-            );
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Semantics(
-                label:
-                    '${cluster.label}, ${formatLinkCount(count)}. Double tap to open.',
-                button: true,
-                child: GestureDetector(
-                  onTap: onTap,
-                  child: Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Outer glow ring
-                        Container(
-                          width: size + 8,
-                          height: size + 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: accent.withValues(alpha: 0.22),
-                                blurRadius: 14,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Main node
-                        Container(
-                          width: size,
-                          height: size,
-                          margin: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: accent.withValues(alpha: 0.70),
-                              width: 1.75,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(2),
-                            child: _CirclePreview(
-                              urls: cluster.urls,
-                              size: size - 4,
-                              fallbackLetter: letter,
-                              accentColor: accent,
-                            ),
-                          ),
-                        ),
-                        // Count badge
-                        if (count > 1)
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Container(
-                              constraints: const BoxConstraints(minWidth: 22),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: accent,
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: accent.withValues(alpha: 0.40),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                '$count',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  height: 1.1,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 9),
-              Text(
-                cluster.label,
-                textAlign: TextAlign.center,
-                softWrap: true,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurface,
-                  fontWeight: FontWeight.w600,
-                  height: 1.25,
-                  fontSize: 11.5,
-                  letterSpacing: 0.1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Mindmap canvas (animated) ─────────────────────────────────────────────
-
-class _MindmapCanvas extends StatefulWidget {
-  const _MindmapCanvas({required this.themes, required this.tagFrequency});
+class _MindmapCanvas extends StatelessWidget {
+  const _MindmapCanvas({required this.themes});
 
   final List<ClusterTheme> themes;
-  final Map<String, int> tagFrequency;
-
-  @override
-  State<_MindmapCanvas> createState() => _MindmapCanvasState();
-}
-
-class _MindmapCanvasState extends State<_MindmapCanvas>
-    with TickerProviderStateMixin {
-  late final AnimationController _lineCtrl;
-  late final AnimationController _nodesCtrl;
-  late final Animation<double> _lineAnim;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _lineCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-
-    _nodesCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    );
-
-    _lineAnim = CurvedAnimation(parent: _lineCtrl, curve: Curves.easeInOut);
-
-    // Lines draw first, then nodes pop in
-    _lineCtrl.forward().then((_) {
-      if (mounted) _nodesCtrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _lineCtrl.dispose();
-    _nodesCtrl.dispose();
-    super.dispose();
-  }
-
-  Animation<double> _nodeEntrance(int i, int total) {
-    const windowSize = 0.38;
-    final step = total > 1 ? (1.0 - windowSize) / (total - 1) : 0.0;
-    final start = (i * step).clamp(0.0, 1.0 - windowSize);
-    final end = (start + windowSize).clamp(0.0, 1.0);
-    return CurvedAnimation(
-      parent: _nodesCtrl,
-      curve: Interval(start, end, curve: Curves.easeOutBack),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final themes = widget.themes;
+    final clusters = _displayClustersForThemes(themes);
+    if (clusters.isEmpty) return const _MindmapEmptyState();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        var w = constraints.maxWidth;
-        var h = constraints.maxHeight;
-        if (!w.isFinite || !h.isFinite) {
-          final mq = MediaQuery.sizeOf(context);
-          if (!w.isFinite) w = mq.width;
-          if (!h.isFinite) h = mq.height;
-        }
-        w = w.clamp(1.0, double.infinity);
-        h = h.clamp(1.0, double.infinity);
+    return InterestMapView(
+      clusters: clusters,
+      onClusterTap: (cluster) {
+        final theme = _themeById(themes, int.tryParse(cluster.id) ?? -1);
+        if (theme == null) return;
+        HapticFeedback.lightImpact();
+        context.push('/mindmap/cluster/${theme.index}');
+      },
+    );
+  }
+}
 
-        final center = Offset(w / 2, h * 0.46);
-        final radius = (w * 0.5).clamp(120.0, 220.0);
-        final positions = _radialPositions(themes.length, center, radius);
-        final accentColors = themes.map((t) => t.accentColor).toList();
+class InterestMapView extends StatelessWidget {
+  const InterestMapView({
+    super.key,
+    required this.clusters,
+    required this.onClusterTap,
+  });
 
-        return InteractiveViewer(
-          boundaryMargin: const EdgeInsets.all(160),
-          minScale: 0.55,
-          maxScale: 3.0,
-          child: SizedBox(
-            width: w,
-            height: h,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Constellation lines
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _ConstellationPainter(
-                      center: center,
-                      nodePositions: positions,
-                      accentColors: accentColors,
-                      progress: _lineAnim,
-                    ),
-                  ),
+  final List<InterestCluster> clusters;
+  final ValueChanged<InterestCluster> onClusterTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (clusters.isEmpty) return const _MindmapEmptyState();
+
+    final heroCluster = clusters.first;
+    final mediumEnd = clusters.length < 5 ? clusters.length : 5;
+    final medium =
+        clusters.length <= 1 ? <InterestCluster>[] : clusters.sublist(1, mediumEnd);
+    final slim = clusters.length <= 5 ? <InterestCluster>[] : clusters.sublist(5);
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate.fixed(
+              [
+                _SectionEyebrow('Top signal'),
+                ClusterCard(
+                  cluster: heroCluster,
+                  tier: ClusterCardTier.hero,
+                  onTap: () => onClusterTap(heroCluster),
                 ),
-
-                // Pulsing center hub
-                _CenterHubNode(center: center, cs: cs),
-
-                // Cluster nodes
-                for (var i = 0; i < themes.length; i++)
-                  _ClusterMapNode(
-                    cluster: themes[i],
-                    position: positions[i],
-                    cs: cs,
-                    tt: tt,
-                    entranceAnim: _nodeEntrance(i, themes.length),
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      _openClusterSheet(
-                        context,
-                        themes[i],
-                        widget.tagFrequency,
-                      );
-                    },
-                  ),
+                if (medium.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _SectionEyebrow('Active interests'),
+                ],
               ],
             ),
           ),
-        );
-      },
+        ),
+        if (medium.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: _MasonryClusterGrid(
+                items: medium,
+                onOpen: onClusterTap,
+              ),
+            ),
+          ),
+        if (slim.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate.fixed([
+                _SectionEyebrow('Smaller signals'),
+              ]),
+            ),
+          ),
+        if (slim.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index.isOdd) return const SizedBox(height: 8);
+                  final cluster = slim[index ~/ 2];
+                  return ClusterCard(
+                    cluster: cluster,
+                    tier: ClusterCardTier.slim,
+                    onTap: () => onClusterTap(cluster),
+                  );
+                },
+                childCount: slim.length * 2 - 1,
+              ),
+            ),
+          ),
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      ],
     );
   }
 }
 
-// ─── Cluster bottom sheet ─────────────────────────────────────────────────
+List<InterestCluster> _displayClustersForThemes(List<ClusterTheme> themes) {
+  final orderedThemes = _mergeThemesForDisplay(themes)
+    ..sort((a, b) => b.urls.length.compareTo(a.urls.length));
+  final totalSaves = orderedThemes.fold<int>(0, (sum, t) => sum + t.urls.length);
+  if (totalSaves <= 0) return const [];
+  final topLabels = {
+    for (final theme in orderedThemes) theme.label.trim().toLowerCase(),
+  };
 
-void _openClusterSheet(
-  BuildContext context,
-  ClusterTheme theme,
-  Map<String, int> tagFrequency,
+  return [
+    for (final theme in orderedThemes)
+      if (theme.urls.length >= 3 && _isDisplaySafeLabel(theme.label))
+        InterestCluster(
+          id: theme.index.toString(),
+          label: theme.label.trim(),
+          saveCount: theme.urls.length,
+          subtopics: _displaySubtopics(theme, topLabels),
+          dominance: theme.urls.length / totalSaves,
+          coverImageUrl: null,
+          accentColor: theme.accentColor,
+        ),
+  ].take(12).toList();
+}
+
+class _MasonryClusterGrid extends StatelessWidget {
+  const _MasonryClusterGrid({required this.items, required this.onOpen});
+
+  final List<InterestCluster> items;
+  final ValueChanged<InterestCluster> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final columns = _masonryColumns(items);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: _MasonryColumn(items: columns.$1, onOpen: onOpen)),
+        const SizedBox(width: 10),
+        Expanded(child: _MasonryColumn(items: columns.$2, onOpen: onOpen)),
+      ],
+    );
+  }
+}
+
+class _MasonryColumn extends StatelessWidget {
+  const _MasonryColumn({required this.items, required this.onOpen});
+
+  final List<InterestCluster> items;
+  final ValueChanged<InterestCluster> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          ClusterCard(
+            cluster: items[i],
+            tier: ClusterCardTier.medium,
+            onTap: () => onOpen(items[i]),
+          ),
+          if (i != items.length - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+(List<InterestCluster>, List<InterestCluster>) _masonryColumns(
+  List<InterestCluster> items,
 ) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    // Theme sets BottomSheetThemeData.showDragHandle: true; we draw our own
-    // handle inside [_ClusterSheet] for [DraggableScrollableSheet] sizing.
-    showDragHandle: false,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) => _ClusterSheet(
-      theme: theme,
-      tagFrequency: tagFrequency,
-      rootCtx: context,
-    ),
-  );
-}
+  final left = <InterestCluster>[];
+  final right = <InterestCluster>[];
+  var leftHeight = 0.0;
+  var rightHeight = 0.0;
 
-// ─── Cluster bottom sheet (stateful for sub-cluster filter) ───────────────
-
-class _ClusterSheet extends StatefulWidget {
-  const _ClusterSheet({
-    required this.theme,
-    required this.tagFrequency,
-    required this.rootCtx,
-  });
-
-  final ClusterTheme theme;
-  final Map<String, int> tagFrequency;
-  final BuildContext rootCtx;
-
-  @override
-  State<_ClusterSheet> createState() => _ClusterSheetState();
-}
-
-class _ClusterSheetState extends State<_ClusterSheet> {
-  // null = "All"; non-null = index into theme.subClusters
-  int? _selectedSub;
-
-  // Maps each url.id -> the sub-cluster label it belongs to (for the "All" view)
-  late final Map<int, String> _urlSubLabel;
-
-  final _sheetController = DraggableScrollableController();
-
-  @override
-  void initState() {
-    super.initState();
-    _urlSubLabel = {};
-    for (final sub in widget.theme.subClusters) {
-      for (final u in sub.urls) {
-        _urlSubLabel[u.id] = sub.label;
-      }
+  for (final item in items) {
+    final height = _estimatedMediumHeight(item);
+    if (leftHeight <= rightHeight) {
+      left.add(item);
+      leftHeight += height + 10;
+    } else {
+      right.add(item);
+      rightHeight += height + 10;
     }
   }
 
-  @override
-  void dispose() {
-    _sheetController.dispose();
-    super.dispose();
+  return (left, right);
+}
+
+double _estimatedMediumHeight(InterestCluster cluster) {
+  if (cluster.saveCount >= 18 || cluster.dominance >= 0.25) return 190;
+  if (cluster.saveCount >= 10 || cluster.dominance >= 0.18) return 176;
+  return 154;
+}
+
+List<ClusterTheme> _mergeThemesForDisplay(List<ClusterTheme> themes) {
+  final groups = <String, List<ClusterTheme>>{};
+  for (final theme in themes) {
+    final key = theme.label.trim().toLowerCase();
+    if (key.isEmpty) continue;
+    groups.putIfAbsent(key, () => <ClusterTheme>[]).add(theme);
   }
 
-  List<SavedUrl> get _visibleUrls {
-    if (_selectedSub == null) return widget.theme.urls;
-    return widget.theme.subClusters[_selectedSub!].urls;
+  final merged = <ClusterTheme>[];
+  for (final group in groups.values) {
+    final urlsById = <int, SavedUrl>{};
+    final subtopicsByLabel = <String, SubClusterTheme>{};
+
+    for (final theme in group) {
+      for (final url in theme.urls) {
+        urlsById[url.id] = url;
+      }
+      for (final sub in theme.subClusters) {
+        final key = sub.label.trim().toLowerCase();
+        if (key.isEmpty) continue;
+        final existing = subtopicsByLabel[key];
+        if (existing == null) {
+          subtopicsByLabel[key] = sub;
+        } else {
+          final subUrls = {for (final url in existing.urls) url.id: url};
+          for (final url in sub.urls) {
+            subUrls[url.id] = url;
+          }
+          subtopicsByLabel[key] = SubClusterTheme(
+            label: existing.label,
+            summary: existing.summary,
+            urls: subUrls.values.toList(),
+          );
+        }
+      }
+    }
+
+    final first = group.first;
+    merged.add(
+      ClusterTheme(
+        index: merged.length,
+        label: first.label,
+        summary: first.summary,
+        urls: urlsById.values.toList(),
+        subClusters: subtopicsByLabel.values.toList()
+          ..sort((a, b) => b.urls.length.compareTo(a.urls.length)),
+      ),
+    );
   }
 
-  String? _subLabelFor(SavedUrl u) {
-    if (!widget.theme.hasSubClusters) return null;
-    // Only show the sub-label in the "All" view
-    if (_selectedSub != null) return null;
-    return _urlSubLabel[u.id];
+  return merged;
+}
+
+List<String> _displaySubtopics(ClusterTheme theme, Set<String> topLabels) {
+  final parent = theme.label.trim().toLowerCase();
+  final seen = <String>{};
+  final out = <String>[];
+  for (final sub in theme.subClusters) {
+    final label = sub.label.trim();
+    final key = label.toLowerCase();
+    if (!_isDisplaySafeLabel(label)) continue;
+    if (key == parent) continue;
+    if (topLabels.contains(key)) continue;
+    if (!seen.add(key)) continue;
+    out.add(label);
+    if (out.length >= 4) break;
   }
+  for (final label in _curatedFallbackSubtopics(theme)) {
+    final key = label.toLowerCase();
+    if (!_isDisplaySafeLabel(label)) continue;
+    if (key == parent) continue;
+    if (topLabels.contains(key)) continue;
+    if (!seen.add(key)) continue;
+    out.add(label);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+List<String> _curatedFallbackSubtopics(ClusterTheme theme) {
+  final label = theme.label.toLowerCase();
+  final text = _themeSignalText(theme);
+
+  if (_hasAny(label, ['ai agent', 'ai agents'])) {
+    return [
+      if (_hasAny(text, ['claude', 'openai', 'anthropic'])) 'Claude & OpenAI',
+      if (_hasAny(text, ['workflow', 'agent'])) 'Workflows',
+      if (_hasAny(text, ['llm', 'internals', 'prompt'])) 'LLMs',
+      'Automation',
+    ];
+  }
+  if (_hasAny(label, ['dev tools', 'oss'])) {
+    return [
+      if (_hasAny(text, ['github', 'repo'])) 'GitHub',
+      if (_hasAny(text, ['oss', 'open source'])) 'OSS',
+      if (_hasAny(text, ['react', 'next', 'vercel'])) 'Frameworks',
+      if (_hasAny(text, ['linear', 'sync', 'backend'])) 'Backend',
+      'Repos',
+    ];
+  }
+  if (_hasAny(label, ['treks'])) {
+    return [
+      if (_hasAny(text, ['himalaya', 'nepal', 'kanchenjunga'])) 'Himalayan',
+      if (_hasAny(text, ['new zealand', 'te araroa'])) 'New Zealand',
+      if (_hasAny(text, ['iceland'])) 'Iceland',
+      if (_hasAny(text, ['trail', 'mountain'])) 'Mountain routes',
+    ];
+  }
+  if (_hasAny(label, ['website growth'])) {
+    return [
+      if (_hasAny(text, ['seo'])) 'SEO',
+      if (_hasAny(text, ['search console'])) 'Search Console',
+      if (_hasAny(text, ['revenue', 'conversion'])) 'Revenue',
+    ];
+  }
+  if (_hasAny(label, ['typography'])) {
+    return ['Fonts', 'Typography', 'UI tools'];
+  }
+  if (_hasAny(label, ['design system'])) {
+    return ['Patterns', 'Components', 'UI tools'];
+  }
+
+  final counts = <String, int>{};
+  for (final url in theme.urls) {
+    for (final tag in TagNoiseFilter.filterTags(url.tags)) {
+      final cleaned = tag.trim();
+      final key = cleaned.toLowerCase();
+      if (key.isEmpty || key.length > 22) continue;
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+  }
+  final ranked = counts.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  return ranked.take(4).map((entry) => _titleCaseLabel(entry.key)).toList();
+}
+
+String _themeSignalText(ClusterTheme theme) {
+  return theme.urls
+      .map(
+        (url) => [
+          url.title,
+          url.description,
+          url.summary ?? '',
+          url.domain,
+          url.tags.join(' '),
+        ].join(' '),
+      )
+      .join(' ')
+      .toLowerCase();
+}
+
+String _titleCaseLabel(String value) {
+  return value
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .map((word) {
+        const keepUpper = {'ai', 'ui', 'ux', 'seo', 'oss', 'llm'};
+        if (keepUpper.contains(word.toLowerCase())) return word.toUpperCase();
+        return word.length == 1
+            ? word.toUpperCase()
+            : '${word[0].toUpperCase()}${word.substring(1)}';
+      })
+      .join(' ');
+}
+
+bool _hasAny(String text, List<String> needles) {
+  return needles.any(text.contains);
+}
+
+bool _isDisplaySafeLabel(String label) {
+  final trimmed = label.trim();
+  final lower = trimmed.toLowerCase();
+  if (trimmed.isEmpty) return false;
+  if (lower.contains('interest group')) return false;
+  if (RegExp(r'^technology\s+\d+$').hasMatch(lower)) return false;
+  if (RegExp(r'\b[a-z0-9-]+\.(com|in|org|net|io|ai|dev)\b').hasMatch(lower)) {
+    return false;
+  }
+  return true;
+}
+
+class _SectionEyebrow extends StatelessWidget {
+  const _SectionEyebrow(this.label);
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final accent = widget.theme.accentColor;
-    final hasSubs = widget.theme.hasSubClusters;
-    final bottomPad = MediaQuery.viewPaddingOf(context).bottom;
-    final sheetBg = cs.surfaceContainerHighest;
-
-    // Starts at ~65 % height; snaps to fullscreen on drag up.
-    return DraggableScrollableSheet(
-      controller: _sheetController,
-      initialChildSize: 0.65,
-      minChildSize: 0.4,
-      maxChildSize: 1.0,
-      snap: true,
-      snapSizes: const [0.65, 1.0],
-      expand: false,
-      builder: (ctx, scrollCtrl) {
-        return ListenableBuilder(
-          listenable: _sheetController,
-          builder: (context, child) {
-            final size = _sheetController.isAttached
-                ? _sheetController.size
-                : 0.65;
-            final radius = size >= 0.99 ? 0.0 : 28.0;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 120),
-              decoration: BoxDecoration(
-                color: sheetBg,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(radius)),
-              ),
-              child: child,
-            );
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Drag handle ──────────────────────────────────────────────
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 12, bottom: 8),
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.28),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-              ),
-
-              // ── Header ───────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.theme.label,
-                      style: tt.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
-                        height: 1.25,
-                      ),
-                    ),
-                    if (widget.theme.summary.trim().isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        widget.theme.summary,
-                        style: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${widget.theme.urls.length} ${widget.theme.urls.length == 1 ? 'link' : 'links'}',
-                        style: tt.labelSmall?.copyWith(
-                          color: accent,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-              Divider(
-                height: 1,
-                color: cs.outlineVariant.withValues(alpha: 0.40),
-              ),
-
-              // ── Sub-cluster chip bar ──────────────────────────────────────
-              if (hasSubs) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        _SubChip(
-                          label: 'All',
-                          count: widget.theme.urls.length,
-                          selected: _selectedSub == null,
-                          accent: accent,
-                          cs: cs,
-                          tt: tt,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _selectedSub = null);
-                          },
-                        ),
-                        for (
-                          var i = 0;
-                          i < widget.theme.subClusters.length;
-                          i++
-                        ) ...[
-                          const SizedBox(width: 8),
-                          _SubChip(
-                            label: widget.theme.subClusters[i].label,
-                            count: widget.theme.subClusters[i].urls.length,
-                            selected: _selectedSub == i,
-                            accent: accent,
-                            cs: cs,
-                            tt: tt,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _selectedSub = i);
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-
-              // ── URL list (fills remaining height) ─────────────────────────
-              Expanded(
-                child: ListView.separated(
-                  controller: scrollCtrl,
-                  padding: EdgeInsets.fromLTRB(16, 4, 16, 16 + bottomPad),
-                  itemCount: _visibleUrls.length,
-                  separatorBuilder: (_, _) => Divider(
-                    height: 1,
-                    indent: 72,
-                    color: cs.outlineVariant.withValues(alpha: 0.30),
-                  ),
-                  itemBuilder: (context, i) {
-                    final u = _visibleUrls[i];
-                    return _ClusterUrlRow(
-                      url: u,
-                      tagFrequency: widget.tagFrequency,
-                      accentColor: accent,
-                      subLabel: _subLabelFor(u),
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.pop(context);
-                        widget.rootCtx.push('/url/${u.id}');
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.4,
+            ),
+      ),
     );
   }
 }
@@ -980,7 +544,13 @@ class _ClusterUrlRow extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final previewUrl = _previewImageUrl(url);
-    final title = TitleResolver.resolve(url, tagFrequency: tagFrequency);
+    final resolvedTitle = TitleResolver.resolve(url, tagFrequency: tagFrequency);
+    final title = _displayTitleForUrl(url, resolvedTitle);
+    if (title == null) return const SizedBox.shrink();
+    final placeholder = _UrlPlaceholder(
+      letter: url.domain.isNotEmpty ? url.domain[0].toUpperCase() : '?',
+      accentColor: accentColor,
+    );
 
     return Material(
       color: Colors.transparent,
@@ -998,7 +568,7 @@ class _ClusterUrlRow extends StatelessWidget {
                 height: _thumb,
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: accentColor.withValues(alpha: 0.25),
                     width: 1,
@@ -1009,52 +579,10 @@ class _ClusterUrlRow extends StatelessWidget {
                         imageUrl: previewUrl,
                         fit: BoxFit.cover,
                         fadeInDuration: const Duration(milliseconds: 150),
-                        placeholder: (_, _) => Container(
-                          color: accentColor.withValues(alpha: 0.10),
-                          child: Center(
-                            child: Text(
-                              url.domain.isNotEmpty
-                                  ? url.domain[0].toUpperCase()
-                                  : '?',
-                              style: TextStyle(
-                                color: accentColor,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                        errorWidget: (_, _, _) => Container(
-                          color: accentColor.withValues(alpha: 0.10),
-                          child: Center(
-                            child: Text(
-                              url.domain.isNotEmpty
-                                  ? url.domain[0].toUpperCase()
-                                  : '?',
-                              style: TextStyle(
-                                color: accentColor,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
-                        ),
+                        placeholder: (_, _) => placeholder,
+                        errorWidget: (_, _, _) => placeholder,
                       )
-                    : Container(
-                        color: accentColor.withValues(alpha: 0.10),
-                        child: Center(
-                          child: Text(
-                            url.domain.isNotEmpty
-                                ? url.domain[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              color: accentColor,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
-                      ),
+                    : placeholder,
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -1129,6 +657,44 @@ class _ClusterUrlRow extends StatelessWidget {
   }
 }
 
+class _UrlPlaceholder extends StatelessWidget {
+  const _UrlPlaceholder({required this.letter, required this.accentColor});
+
+  final String letter;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      color: Color.alphaBlend(
+        accentColor.withValues(alpha: 0.18),
+        cs.surfaceContainerHighest,
+      ),
+      child: Center(
+        child: Text(
+          letter.isNotEmpty ? letter[0].toUpperCase() : '?',
+          style: TextStyle(
+            color: accentColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String? _displayTitleForUrl(SavedUrl url, String resolvedTitle) {
+  final cleanedTitle = TitleCleaner.clean(resolvedTitle);
+  if (cleanedTitle != null) return cleanedTitle;
+
+  final fallback =
+      TitleCleaner.clean(url.description) ?? TitleCleaner.clean(url.summary);
+  if (fallback == null) return null;
+  return fallback.length <= 80 ? fallback : '${fallback.substring(0, 80)}...';
+}
+
 // ─── Empty state ───────────────────────────────────────────────────────────
 
 class _MindmapEmptyState extends StatelessWidget {
@@ -1196,6 +762,17 @@ class MindmapScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final themesAsync = ref.watch(interestClusterThemesProvider);
+    final subtitle = themesAsync.maybeWhen(
+      data: (themes) {
+        final clusters = _displayClustersForThemes(themes);
+        final saveCount = clusters.fold<int>(
+          0,
+          (sum, cluster) => sum + cluster.saveCount,
+        );
+        return '${clusters.length} themes · $saveCount saves';
+      },
+      orElse: () => 'Mapping your saves',
+    );
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -1206,11 +783,11 @@ class MindmapScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Interest Map',
-              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              'Interest map',
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w400),
             ),
             Text(
-              'Tap a cluster to browse saves',
+              subtitle,
               style: tt.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontSize: 12,
@@ -1266,10 +843,199 @@ class MindmapScreen extends ConsumerWidget {
 
           return _MindmapCanvas(
             themes: themes,
-            tagFrequency: ref.watch(tagOccurrenceMapProvider),
           );
         },
       ),
     );
   }
+}
+
+class MindmapClusterScreen extends ConsumerStatefulWidget {
+  const MindmapClusterScreen({super.key, required this.clusterId});
+
+  final int clusterId;
+
+  @override
+  ConsumerState<MindmapClusterScreen> createState() =>
+      _MindmapClusterScreenState();
+}
+
+class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
+  int? _selectedSub;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final themesAsync = ref.watch(interestClusterThemesProvider);
+    final tagFrequency = ref.watch(tagOccurrenceMapProvider);
+
+    return themesAsync.when(
+      loading: () => const Scaffold(
+        body: LoadingIndicator(message: 'Opening interest...'),
+      ),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Text(
+              'Could not open this interest.',
+              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+      data: (themes) {
+        final theme = _themeById(themes, widget.clusterId);
+        if (theme == null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: const Center(child: Text('Interest not found')),
+          );
+        }
+
+        final subClusters = theme.subClusters;
+        final selectedSub =
+            _selectedSub != null && _selectedSub! < subClusters.length
+                ? subClusters[_selectedSub!]
+                : null;
+        final visibleUrls = selectedSub?.urls ?? theme.urls;
+        final subLabelByUrl = <int, String>{};
+        for (final sub in subClusters) {
+          for (final url in sub.urls) {
+            subLabelByUrl[url.id] = sub.label;
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: cs.surface,
+          appBar: AppBar(
+            titleSpacing: 0,
+            title: Text(
+              theme.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w400),
+            ),
+            backgroundColor: cs.surface,
+            surfaceTintColor: Colors.transparent,
+          ),
+          body: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate.fixed([
+                    Text(
+                      _clusterDetailSummary(theme),
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                    if (subClusters.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _SubChip(
+                              label: 'All',
+                              count: theme.urls.length,
+                              selected: _selectedSub == null,
+                              accent: theme.accentColor,
+                              cs: cs,
+                              tt: tt,
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _selectedSub = null);
+                              },
+                            ),
+                            for (var i = 0; i < subClusters.length; i++) ...[
+                              const SizedBox(width: 8),
+                              _SubChip(
+                                label: subClusters[i].label,
+                                count: subClusters[i].urls.length,
+                                selected: _selectedSub == i,
+                                accent: theme.accentColor,
+                                cs: cs,
+                                tt: tt,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _selectedSub = i);
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ]),
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index.isOdd) {
+                      return Divider(
+                        height: 1,
+                        indent: 92,
+                        endIndent: 20,
+                        color: cs.outlineVariant.withValues(alpha: 0.28),
+                      );
+                    }
+                    final url = visibleUrls[index ~/ 2];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _ClusterUrlRow(
+                        url: url,
+                        tagFrequency: tagFrequency,
+                        accentColor: theme.accentColor,
+                        subLabel:
+                            selectedSub == null ? subLabelByUrl[url.id] : null,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          context.push('/url/${url.id}');
+                        },
+                      ),
+                    );
+                  },
+                  childCount:
+                      visibleUrls.isEmpty ? 0 : visibleUrls.length * 2 - 1,
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+ClusterTheme? _themeById(List<ClusterTheme> themes, int id) {
+  for (final theme in themes) {
+    if (theme.index == id) return theme;
+  }
+  return null;
+}
+
+String _clusterDetailSummary(ClusterTheme theme) {
+  final topics = theme.subClusters
+      .map((sub) => sub.label.trim())
+      .where((label) => label.isNotEmpty)
+      .take(3)
+      .toList();
+  if (topics.isEmpty) {
+    return '${theme.urls.length} saves in this interest.';
+  }
+  return '${theme.urls.length} saves across ${_naturalJoin(topics)} topics.';
+}
+
+String _naturalJoin(List<String> values) {
+  if (values.length <= 1) return values.join();
+  if (values.length == 2) return '${values[0]} and ${values[1]}';
+  return '${values.take(values.length - 1).join(', ')}, and ${values.last}';
 }
