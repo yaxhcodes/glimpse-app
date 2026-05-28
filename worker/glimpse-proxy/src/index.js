@@ -27,8 +27,17 @@ export default {
     const url = new URL(request.url);
 
     try {
+      if (url.pathname === "/health") {
+        return json({ ok: true }, 200, request);
+      }
+
       if (request.method !== "POST") {
         return json({ error: "method_not_allowed" }, 405, request);
+      }
+
+      if (url.pathname === "/internal/gemini") {
+        requireInternalSecret(request, env);
+        return await handleGemini(request, env, "worker:glimpse-enrichment-backend");
       }
 
       const appId = await requireAppCheck(request, env);
@@ -79,6 +88,18 @@ async function handleGemini(request, env, appId) {
   });
 
   return proxyJson(response, request);
+}
+
+function requireInternalSecret(request, env) {
+  const expected = env.INTERNAL_PROXY_SECRET || env.DEV_SECRET;
+  if (!expected) {
+    throw new ProxyError("missing_internal_secret", 500);
+  }
+  const auth = request.headers.get("authorization") || "";
+  const header = request.headers.get("x-internal-secret") || "";
+  if (auth !== `Bearer ${expected}` && header !== expected) {
+    throw new ProxyError("unauthorized", 401);
+  }
 }
 
 async function handleEmbedding(request, env, appId) {

@@ -5,6 +5,7 @@ compatibility_date = "2026-05-20"
 # Set these as Worker secrets, not plain vars:
 # wrangler secret put GEMINI_KEY
 # wrangler secret put VOYAGE_KEY
+# wrangler secret put INTERNAL_PROXY_SECRET
 
 # Required plain vars:
 # FIREBASE_PROJECT_NUMBER = "1234567890"

@@ -14,6 +14,8 @@ assets/**/*.exe
 .svn/
 .swiftpm/
 migrate_working_dir/
+.wrangler/
+glimpse-enrichment-backend/
 
 # IntelliJ related
 *.iml
