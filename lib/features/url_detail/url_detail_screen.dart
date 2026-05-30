@@ -9,9 +9,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
+import '../../core/services/category_taxonomy.dart';
 import '../../core/services/summary_rewriter.dart';
 import '../../core/services/tag_noise_filter.dart';
+import '../../core/services/text_cleaner.dart';
 import '../../core/services/title_resolver.dart';
+import '../../core/services/transcript_enrichment_service.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import '../collections/add_to_collection_sheet.dart';
@@ -41,6 +44,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _tagsExpanded = false;
   bool _showFullUrl = false;
   String? _localNotesOverride;
+  String? _transcriptEnrichmentUrl;
+  DateTime? _lastTranscriptEnrichmentAttempt;
+  bool _loadingTranscriptEnrichment = false;
+  TranscriptEnrichmentResult? _transcriptEnrichment;
   Timer? _notesTimer;
 
   @override
@@ -51,6 +58,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _descExpanded = false;
       _tagsExpanded = false;
       _localNotesOverride = null;
+      _transcriptEnrichmentUrl = null;
+      _lastTranscriptEnrichmentAttempt = null;
+      _loadingTranscriptEnrichment = false;
+      _transcriptEnrichment = null;
     }
   }
 
@@ -256,6 +267,101 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     url.tags = [...url.tags, newTag];
     await isarService.updateUrl(url);
     ref.invalidate(urlDetailProvider(widget.urlId));
+  }
+
+  Future<void> _loadTranscriptEnrichment(SavedUrl url) async {
+    if (!TranscriptEnrichmentService.supportsUrl(url.rawUrl)) return;
+    if (_loadingTranscriptEnrichment) {
+      return;
+    }
+    if (_transcriptEnrichmentUrl == url.rawUrl &&
+        _transcriptEnrichment?.hasUsefulContent == true) {
+      return;
+    }
+    final lastAttempt = _lastTranscriptEnrichmentAttempt;
+    if (lastAttempt != null &&
+        DateTime.now().difference(lastAttempt) < const Duration(seconds: 20)) {
+      return;
+    }
+
+    _transcriptEnrichmentUrl = url.rawUrl;
+    _lastTranscriptEnrichmentAttempt = DateTime.now();
+    setState(() => _loadingTranscriptEnrichment = true);
+
+    final service = ref.read(transcriptEnrichmentServiceProvider);
+    final result = await service.enrichUrl(
+      rawUrl: url.rawUrl,
+      title: url.title,
+      description: url.description,
+      thumbnailUrl: url.thumbnailUrl,
+      domain: url.domain,
+    );
+
+    if (!mounted || _transcriptEnrichmentUrl != url.rawUrl) return;
+    setState(() {
+      _transcriptEnrichment = result;
+      _loadingTranscriptEnrichment = false;
+    });
+    if (result != null && result.hasUsefulContent) {
+      await _persistTranscriptFields(url, result);
+    }
+  }
+
+  Future<void> _persistTranscriptFields(
+    SavedUrl url,
+    TranscriptEnrichmentResult result,
+  ) async {
+    final title = result.meaningfulTitle.trim();
+    final summary = result.summary.trim();
+    final tags = TagNoiseFilter.filterTags(result.tags);
+    final normalized = CategoryTaxonomy.normalize(
+      category: result.category,
+      tags: tags,
+    );
+
+    var changed = false;
+    if (title.isNotEmpty && url.title != title) {
+      url.title = title;
+      changed = true;
+    }
+    if (summary.isNotEmpty && url.summary != summary) {
+      url.summary = summary;
+      changed = true;
+    }
+    if (tags.isNotEmpty && !_sameStringList(url.tags, tags)) {
+      url.tags = tags;
+      changed = true;
+    }
+    if (url.category != normalized.name) {
+      url.category = normalized.name;
+      url.categoryEmoji = normalized.emoji;
+      url.categories = CategoryResolver.buildCategories(
+        primaryCategory: normalized.name,
+        additionalCategories: url.effectiveCategories
+            .where((item) => item != url.category)
+            .toList(),
+      );
+      changed = true;
+    }
+    final thumbnail = result.thumbnailUrl?.trim();
+    if (thumbnail != null && thumbnail.isNotEmpty && url.thumbnailUrl != thumbnail) {
+      url.thumbnailUrl = thumbnail;
+      changed = true;
+    }
+    if (!changed) return;
+
+    await ref.read(isarServiceProvider).updateUrl(url);
+    if (!mounted) return;
+    ref.invalidate(urlDetailProvider(widget.urlId));
+    ref.invalidate(tagOccurrenceMapProvider);
+  }
+
+  bool _sameStringList(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   Future<void> _changeCategory(SavedUrl url) async {
@@ -523,9 +629,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ColorScheme colorScheme,
     Map<String, int> tagFreq,
   ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadTranscriptEnrichment(url);
+    });
+
     if (!_notesEdited && !_notesFocusNode.hasFocus) {
       _notesController.text = _localNotesOverride ?? url.userNotes ?? '';
     }
+    final live = _transcriptEnrichmentUrl == url.rawUrl
+        ? _transcriptEnrichment
+        : null;
+    final liveTitle = live?.meaningfulTitle.trim() ?? '';
     final formattedDescription = _formatDescription(url.description);
     final displaySourceName = CategoryResolver.displaySourceName(
       rawUrl: url.rawUrl,
@@ -533,9 +647,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     final normalizedCategories =
         url.effectiveCategories.map((item) => item.toLowerCase()).toSet();
-    final rawTagPool = url.tags
+    final mentionTitles = (live?.mentions ?? const <EnrichedMention>[])
+        .map((item) => TagNoiseFilter.cleanTag(item.title))
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final sourceTags = (live?.tags.isNotEmpty ?? false) ? live!.tags : url.tags;
+    final rawTagPool = sourceTags
         .where((tag) => !normalizedCategories.contains(tag.toLowerCase()))
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
+        .where((tag) => !mentionTitles.contains(TagNoiseFilter.cleanTag(tag)))
         .toList();
     final visibleTags = TagNoiseFilter.orderByRarity(
       TagNoiseFilter.filterTags(rawTagPool),
@@ -549,7 +669,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final displayedTags =
         showAllTags ? visibleTags : visibleTags.take(collapseTagsAt).toList();
     final hiddenTagCount = visibleTags.length - collapseTagsAt;
-    final summaryText = url.summary?.trim() ?? '';
+    final summaryText = TextCleaner.clean(
+      (live?.summary.trim().isNotEmpty ?? false)
+          ? live!.summary.trim()
+          : url.summary?.trim() ?? '',
+    );
     final showSummary = summaryText.isNotEmpty &&
         summaryText.toLowerCase() != formattedDescription.trim().toLowerCase();
     final cleanedSummary = SummaryRewriter.clean(summaryText);
@@ -624,7 +748,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
             // ── Title ───────────────────────────────────────────────────
             Text(
-              TitleResolver.resolve(url, tagFrequency: tagFreq),
+              liveTitle.isNotEmpty
+                  ? liveTitle
+                  : TitleResolver.resolve(url, tagFrequency: tagFreq),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
@@ -669,6 +795,24 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
             const SizedBox(height: 10),
             _buildUrlAddressBlock(url, theme, colorScheme),
+
+            if (live?.recipe?.hasUsefulContent ?? false) ...[
+              const SizedBox(height: 16),
+              _buildRecipeSection(
+                recipe: live!.recipe!,
+                theme: theme,
+                colorScheme: colorScheme,
+              ),
+            ],
+
+            if (live?.mentions.isNotEmpty ?? false) ...[
+              const SizedBox(height: 16),
+              _buildMentionsSection(
+                mentions: live!.mentions,
+                theme: theme,
+                colorScheme: colorScheme,
+              ),
+            ],
 
             // ── Description ─────────────────────────────────────────────
             if (hasDescription) ...[
@@ -967,6 +1111,308 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
+  Widget _buildRecipeSection({
+    required EnrichedRecipe recipe,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final image = recipe.image?.trim() ?? '';
+    final metadata = [
+      if ((recipe.cuisine ?? '').isNotEmpty) recipe.cuisine!,
+      if ((recipe.category ?? '').isNotEmpty) recipe.category!,
+      if ((recipe.prepTime ?? '').isNotEmpty) recipe.prepTime!,
+    ];
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+          width: 0.7,
+        ),
+      ),
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          tilePadding: const EdgeInsets.fromLTRB(14, 8, 10, 4),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Detected recipe',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.primary,
+            ),
+          ),
+          subtitle: recipe.title.isNotEmpty
+              ? Text(
+                  [
+                    recipe.title,
+                    if (metadata.isNotEmpty) metadata.join(' · '),
+                  ].join('\n'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                )
+              : null,
+          children: [
+            if (image.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: CachedNetworkImage(
+                    imageUrl: image,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (recipe.ingredients.isNotEmpty) ...[
+              _buildRecipeSubheading('Ingredients', theme, colorScheme),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: recipe.ingredients.take(18).map((ingredient) {
+                  final measure = ingredient.measure?.trim() ?? '';
+                  final label = measure.isEmpty
+                      ? ingredient.name
+                      : '${ingredient.name} · $measure';
+                  return Chip(
+                    label: Text(label),
+                    backgroundColor: colorScheme.secondaryContainer,
+                    labelStyle: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                    side: BorderSide.none,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if ((recipe.instructions ?? '').trim().isNotEmpty) ...[
+              _buildRecipeSubheading('Instructions', theme, colorScheme),
+              const SizedBox(height: 6),
+              Text(
+                recipe.instructions!.trim(),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecipeSubheading(
+    String label,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        label,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMentionsSection({
+    required List<EnrichedMention> mentions,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final movieCount = mentions.where((item) => item.type == 'movie').length;
+    final bookCount = mentions.where((item) => item.type == 'book').length;
+    final title = movieCount == mentions.length && movieCount > 0
+        ? 'Movie recommendations'
+        : bookCount == mentions.length && bookCount > 0
+            ? 'Book recommendations'
+            : 'Mentions';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+          width: 0.7,
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...mentions.take(12).map(
+                (mention) => _buildMentionRow(
+                  mention: mention,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMentionRow({
+    required EnrichedMention mention,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final reason = mention.whyMentioned?.trim() ?? '';
+    final posterUrl = mention.posterUrl?.trim() ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _launchMentionSearch(mention),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 54,
+                    height: 72,
+                    child: posterUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: posterUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) =>
+                                _mentionPlaceholder(mention, colorScheme),
+                          )
+                        : _mentionPlaceholder(mention, colorScheme),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          [
+                            mention.title,
+                            if ((mention.year ?? '').isNotEmpty) mention.year!,
+                          ].join(' · '),
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
+                            height: 1.25,
+                          ),
+                        ),
+                        if (reason.isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            _sentenceCase(reason),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.42,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(
+                    Icons.open_in_new_rounded,
+                    size: 16,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchMentionSearch(EnrichedMention mention) async {
+    final suffix = switch (mention.type) {
+      'movie' => 'movie',
+      'book' => 'book',
+      'place' => 'place',
+      _ => '',
+    };
+    final query = [mention.title, suffix]
+        .where((item) => item.isNotEmpty)
+        .join(' ');
+    final uri = Uri.https('www.google.com', '/search', {'q': query});
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _mentionPlaceholder(
+    EnrichedMention mention,
+    ColorScheme colorScheme,
+  ) {
+    final initial = mention.title.trim().isEmpty
+        ? 'M'
+        : mention.title.trim().substring(0, 1).toUpperCase();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.42),
+      ),
+      child: Center(
+        child: Text(
+          initial,
+          style: TextStyle(
+            color: colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _sentenceCase(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return '';
+    return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1);
+  }
+
   Widget _buildOpenShareActions(SavedUrl url) {
     final narrow =
         MediaQuery.sizeOf(context).width < _narrowLayoutWidth;
@@ -1114,7 +1560,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   String _formatDescription(String description) {
-    var text = description
+    var text = TextCleaner.clean(description)
         .replaceAll('\r\n', '\n')
         .replaceAll('\r', '\n')
         .trim();

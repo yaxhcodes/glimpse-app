@@ -6,12 +6,15 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import '../database/isar_service.dart';
 import '../models/saved_url.dart';
 import 'category_resolver.dart';
+import 'category_taxonomy.dart';
 import 'domain_categorizer.dart';
 import 'embedding_input.dart';
 import 'embedding_service.dart';
 import 'gemini_service.dart';
 import 'link_preview_service.dart';
 import 'tag_noise_filter.dart';
+import 'text_cleaner.dart';
+import 'transcript_enrichment_service.dart';
 import 'usage_service.dart';
 
 /// Background enrichment for saved URLs.
@@ -24,6 +27,7 @@ class EnrichmentService {
   final GeminiService? _geminiService;
   final EmbeddingService? _embeddingService;
   final LinkPreviewService? _linkService;
+  final TranscriptEnrichmentService? _transcriptEnrichmentService;
   final UsageService _usageService;
   final bool _isPro;
   final void Function()? _onEnriched;
@@ -33,6 +37,7 @@ class EnrichmentService {
     GeminiService? geminiService,
     EmbeddingService? embeddingService,
     LinkPreviewService? linkService,
+    TranscriptEnrichmentService? transcriptEnrichmentService,
     required UsageService usageService,
     required bool isPro,
     void Function()? onEnriched,
@@ -40,6 +45,7 @@ class EnrichmentService {
         _geminiService = geminiService,
         _embeddingService = embeddingService,
         _linkService = linkService,
+        _transcriptEnrichmentService = transcriptEnrichmentService,
         _usageService = usageService,
         _isPro = isPro,
         _onEnriched = onEnriched {
@@ -222,8 +228,44 @@ class EnrichmentService {
     String emoji;
     List<String> tags;
     String? summary;
+    String? enrichedTitle;
+    String? enrichedThumbnailUrl;
 
-    if (_geminiService != null && !aiLimitReached) {
+    final transcriptResult = !aiLimitReached && _transcriptEnrichmentService != null
+        ? await _transcriptEnrichmentService!.enrichUrl(
+            rawUrl: url.rawUrl,
+            title: url.title,
+            description: url.description,
+            thumbnailUrl: url.thumbnailUrl,
+            domain: url.domain,
+          )
+        : null;
+
+    if (transcriptResult != null) {
+      final normalized = CategoryTaxonomy.normalize(
+        category: transcriptResult.category,
+        tags: transcriptResult.tags,
+      );
+      category = normalized.name;
+      emoji = normalized.emoji;
+      tags = transcriptResult.tags;
+      summary = transcriptResult.summary.isNotEmpty
+          ? transcriptResult.summary
+          : _metadataFallbackSummary(url);
+      enrichedTitle = transcriptResult.meaningfulTitle.isNotEmpty
+          ? transcriptResult.meaningfulTitle
+          : null;
+      enrichedThumbnailUrl = transcriptResult.thumbnailUrl;
+      if (countUsage) {
+        await _usageService.incrementUsage(UsageFeature.aiSave);
+      }
+      developer.log(
+        '_enrichAi transcript backend RESULT: cat=$category, '
+        'tags=${tags.length}, summary=${summary?.length ?? 0} chars',
+        name: 'Enrichment',
+      );
+    } else if (_geminiService != null && !aiLimitReached) {
+
       try {
         developer.log('_enrichAi CALLING GeminiService.categorize: ${url.rawUrl}',
             name: 'Enrichment');
@@ -265,10 +307,13 @@ class EnrichmentService {
       summary = _metadataFallbackSummary(url);
     }
 
-    // Enrich tags with platform data already stored
-    final enrichedTags = [...tags];
+    // Enrich tags with platform data already stored, then sanitize aggressively.
+    final enrichedTags = TagNoiseFilter.filterTags(tags);
     for (final t in url.tags) {
-      if (!enrichedTags.contains(t)) enrichedTags.add(t);
+      final clean = TagNoiseFilter.cleanTag(t);
+      if (!TagNoiseFilter.isNoiseTag(clean) && !enrichedTags.contains(clean)) {
+        enrichedTags.add(clean);
+      }
     }
 
     // Reload url in case it was modified concurrently
@@ -285,6 +330,12 @@ class EnrichmentService {
       primaryCategory: category,
       platformCategory: platformCat.category,
     );
+    if (enrichedTitle != null && _shouldReplaceTitle(freshUrl.title, freshUrl.domain)) {
+      freshUrl.title = enrichedTitle;
+    }
+    if (enrichedThumbnailUrl != null && enrichedThumbnailUrl.isNotEmpty) {
+      freshUrl.thumbnailUrl = enrichedThumbnailUrl;
+    }
     freshUrl.tags = enrichedTags;
     freshUrl.summary = summary;
 
@@ -293,7 +344,7 @@ class EnrichmentService {
   }
 
   List<String> _metadataFallbackTags(SavedUrl url, List<String> baseTags) {
-    final tags = <String>[...baseTags];
+    final tags = TagNoiseFilter.filterTags(baseTags);
     final text = '${url.title} ${url.description}'.toLowerCase();
     for (final phrase in _candidatePhrases(text)) {
       if (tags.length >= 5) break;
@@ -321,7 +372,7 @@ class EnrichmentService {
   }
 
   String? _metadataFallbackSummary(SavedUrl url) {
-    final description = url.description.trim();
+    final description = _cleanDisplayText(url.description);
     if (description.isNotEmpty) {
       return _firstSentences(description, maxSentences: 2, maxChars: 360);
     }
@@ -330,6 +381,18 @@ class EnrichmentService {
       return 'Saved item titled "$title". Add notes or refresh metadata for a richer summary.';
     }
     return null;
+  }
+
+  bool _shouldReplaceTitle(String currentTitle, String domain) {
+    final lower = currentTitle.trim().toLowerCase();
+    if (lower.isEmpty || lower == domain.toLowerCase()) return true;
+    if (lower == 'instagram' || lower == 'instagram reel') return true;
+    if (RegExp(r'^(x[0-9a-f]{2,}\s*[·-]?\s*)+$').hasMatch(lower)) return true;
+    return lower.contains('on instagram') || lower.startsWith('www.instagram.com');
+  }
+
+  String _cleanDisplayText(String text) {
+    return TextCleaner.cleanLoose(text);
   }
 
   String _firstSentences(

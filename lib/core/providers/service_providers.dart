@@ -11,6 +11,7 @@ import '../services/embedding_service.dart';
 import '../services/enrichment_service.dart';
 import '../services/gemini_service.dart';
 import '../services/link_preview_service.dart';
+import '../services/transcript_enrichment_service.dart';
 import '../services/entitlement_service.dart';
 import 'usage_providers.dart';
 
@@ -33,6 +34,11 @@ final backupStorageServiceProvider = Provider<BackupStorageService>((ref) {
 /// Global provider for the link preview service.
 final linkPreviewServiceProvider = Provider<LinkPreviewService>((ref) {
   return LinkPreviewService();
+});
+
+final transcriptEnrichmentServiceProvider =
+    Provider<TranscriptEnrichmentService>((ref) {
+  return TranscriptEnrichmentService();
 });
 
 /// Single shared Voyage embedding client.
@@ -96,6 +102,7 @@ final enrichmentServiceProvider =
       geminiService: ref.read(geminiServiceProvider),
       embeddingService: ref.read(embeddingServiceProvider),
       linkService: ref.read(linkPreviewServiceProvider),
+      transcriptEnrichmentService: ref.read(transcriptEnrichmentServiceProvider),
       usageService: ref.read(usageServiceProvider),
       isPro: ref.read(isProUserProvider),
       onEnriched: onEnriched,

@@ -5,6 +5,7 @@ import 'package:any_link_preview/any_link_preview.dart';
 import 'package:dio/dio.dart';
 
 import '../utils/network/url_security_validator.dart';
+import 'text_cleaner.dart';
 
 /// Metadata extracted from a URL's Open Graph tags.
 class LinkMetadata {
@@ -850,14 +851,7 @@ class LinkPreviewService {
 
   /// Basic HTML entity decoding.
   String _decodeHtmlEntities(String text) {
-    return text
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#39;', "'")
-        .replaceAll('&#x27;', "'")
-        .replaceAll('&apos;', "'");
+    return TextCleaner.clean(text);
   }
 
   /// Validates whether a string is a valid URL.

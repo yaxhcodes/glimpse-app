@@ -6,6 +6,7 @@ import 'ai_proxy_client.dart';
 import 'ai_proxy_config.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
+import 'tag_noise_filter.dart';
 
 // ─── Result types ─────────────────────────────────────────────────────────────
 
@@ -324,12 +325,9 @@ Output valid JSON only. No markdown, no explanation.''';
 
       final rawTags = data['tags'];
       final tags = rawTags is List
-          ? rawTags
-                .map((t) => t.toString().trim().toLowerCase())
-                .where((t) => t.isNotEmpty)
-                .toSet()
-                .take(5)
-                .toList()
+          ? TagNoiseFilter.filterTags(
+              rawTags.map((t) => t.toString()).toList(),
+            ).take(5).toList()
           : <String>[];
 
       final normalized = CategoryTaxonomy.normalize(

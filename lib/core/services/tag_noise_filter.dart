@@ -1,3 +1,5 @@
+import 'text_cleaner.dart';
+
 /// Platform / generic tags that add no value on cards or in LLM prompts.
 class TagNoiseFilter {
   TagNoiseFilter._();
@@ -24,12 +26,48 @@ class TagNoiseFilter {
   };
 
   static bool isNoiseTag(String tag) {
-    if (tag.startsWith('@')) return true;
-    return noiseTags.contains(tag.toLowerCase().trim());
+    final cleaned = cleanTag(tag);
+    if (cleaned.isEmpty) return true;
+    if (cleaned.startsWith('@')) return true;
+    if (noiseTags.contains(cleaned)) return true;
+    if (RegExp(r'^x[0-9a-f]{2,}$').hasMatch(cleaned)) return true;
+    if (RegExp(r'\bx[0-9a-f]{2,}\b').hasMatch(cleaned)) return true;
+    if (RegExp(r'^(x[0-9a-f]{2,}\s*)+$').hasMatch(cleaned)) return true;
+    if (RegExp(r'^\d+(?:\.\d+)?[kmb]?$').hasMatch(cleaned)) return true;
+    if (RegExp(r'^\d+$').hasMatch(cleaned)) return true;
+    if (cleaned.contains('&#x') || cleaned.contains('&amp')) return true;
+    if (RegExp(r'\b(like|likes|comment|comments|views)\b').hasMatch(cleaned)) {
+      return true;
+    }
+    if (RegExp(r'\b(instagram|twitter|facebook|youtube|tiktok|threads)\b')
+        .hasMatch(cleaned)) {
+      return true;
+    }
+    if (cleaned.endsWith('.com') || cleaned.endsWith('.in')) return true;
+    return false;
   }
 
   static List<String> filterTags(List<String> tags) {
-    return tags.where((t) => !isNoiseTag(t)).toList();
+    final seen = <String>{};
+    final out = <String>[];
+    for (final tag in tags) {
+      final cleaned = cleanTag(tag);
+      if (cleaned.isEmpty || isNoiseTag(cleaned) || seen.contains(cleaned)) {
+        continue;
+      }
+      seen.add(cleaned);
+      out.add(cleaned);
+    }
+    return out;
+  }
+
+  static String cleanTag(String tag) {
+    return TextCleaner.cleanLoose(tag)
+        .replaceAll(RegExp(r'https?://\S+'), '')
+        .replaceAll(RegExp(r'[#,"\.;:()\[\]{}]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase();
   }
 
   /// Rarest first (lowest [occurrences] count). Unknown tags count as 0 (most specific).
