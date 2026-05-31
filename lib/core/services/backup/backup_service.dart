@@ -19,7 +19,7 @@ class BackupService {
   static const _tag = 'BackupService';
 
   BackupService({required IsarService isarService})
-      : _isarService = isarService;
+    : _isarService = isarService;
 
   BackupResult? _lastResult;
   BackupResult? get lastResult => _lastResult;
@@ -87,8 +87,9 @@ class BackupService {
     ..summary = b.summary
     ..savedAt = DateTime.parse(b.savedAt)
     ..openedAt = b.openedAt != null ? DateTime.parse(b.openedAt!) : null
-    ..resurfacedAt =
-        b.resurfacedAt != null ? DateTime.parse(b.resurfacedAt!) : null
+    ..resurfacedAt = b.resurfacedAt != null
+        ? DateTime.parse(b.resurfacedAt!)
+        : null
     ..embedding = b.embedding != null ? List<double>.from(b.embedding!) : null;
 
   SessionRecordBackup toSessionBackup(SessionRecord r, String rawUrl) =>
@@ -116,7 +117,10 @@ class BackupService {
     developer.log('Loading session records...', name: _tag);
     final sessionService = SessionTrackingService();
     final sessionRecords = await sessionService.readAll();
-    developer.log('Loaded ${sessionRecords.length} session records', name: _tag);
+    developer.log(
+      'Loaded ${sessionRecords.length} session records',
+      name: _tag,
+    );
 
     final urlById = {for (final u in urls) u.id: u};
 
@@ -124,8 +128,10 @@ class BackupService {
     final linkBackups = urls.map((u) => toBackup(u)).toList();
 
     final embeddingCount = linkBackups.where((l) => l.embedding != null).length;
-    final totalEmbeddingDims =
-        linkBackups.fold<int>(0, (sum, l) => sum + (l.embedding?.length ?? 0));
+    final totalEmbeddingDims = linkBackups.fold<int>(
+      0,
+      (sum, l) => sum + (l.embedding?.length ?? 0),
+    );
     developer.log(
       'Embeddings: $embeddingCount links with vectors, $totalEmbeddingDims total dimensions',
       name: _tag,
@@ -133,16 +139,18 @@ class BackupService {
 
     final urlMap = {for (final u in urls) u.id: u.rawUrl};
     final collectionBackups = collections
-        .map((c) => UserCollectionBackup(
-              name: c.name,
-              emoji: c.emoji,
-              description: c.description,
-              createdAt: c.createdAt.toIso8601String(),
-              linkUrls: c.urlIds
-                  .map((id) => urlMap[id] ?? '')
-                  .where((u) => u.isNotEmpty)
-                  .toList(),
-            ))
+        .map(
+          (c) => UserCollectionBackup(
+            name: c.name,
+            emoji: c.emoji,
+            description: c.description,
+            createdAt: c.createdAt.toIso8601String(),
+            linkUrls: c.urlIds
+                .map((id) => urlMap[id] ?? '')
+                .where((u) => u.isNotEmpty)
+                .toList(),
+          ),
+        )
         .toList();
 
     final sessionBackups = sessionRecords
@@ -178,8 +186,12 @@ class BackupService {
       json = const JsonEncoder.withIndent('  ').convert(backup.toJson());
       developer.log('JSON encoded: ${json.length} characters', name: _tag);
     } catch (e, st) {
-      developer.log('jsonEncode FAILED: $e',
-          name: _tag, error: e, stackTrace: st);
+      developer.log(
+        'jsonEncode FAILED: $e',
+        name: _tag,
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     }
 
@@ -208,11 +220,16 @@ class BackupService {
     try {
       await file.writeAsString(payload.json);
       developer.log(
-          'Temp file written: ${file.path} (${payload.json.length} chars)',
-          name: _tag);
+        'Temp file written: ${file.path} (${payload.json.length} chars)',
+        name: _tag,
+      );
     } catch (e, st) {
-      developer.log('File write FAILED: $e',
-          name: _tag, error: e, stackTrace: st);
+      developer.log(
+        'File write FAILED: $e',
+        name: _tag,
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     }
 
@@ -252,8 +269,7 @@ class BackupService {
   /// Returns the JSON payload as UTF-8 bytes plus its metadata, without
   /// writing anywhere. Use this when handing the file off to the platform
   /// file picker (which writes through SAF on Android).
-  Future<({Uint8List bytes, BackupPayload payload})>
-      buildBackupBytes() async {
+  Future<({Uint8List bytes, BackupPayload payload})> buildBackupBytes() async {
     final payload = await buildBackupPayload();
     final bytes = Uint8List.fromList(utf8.encode(payload.json));
     _lastResult = BackupResult(
@@ -267,32 +283,36 @@ class BackupService {
 
   Future<ShareResult> shareBackup(String filePath) async {
     developer.log('Sharing backup file: $filePath', name: _tag);
-    final result = await Share.shareXFiles(
-      [XFile(filePath)],
-      text: 'Glimpse backup — ${_lastResult?.linkCount ?? 0} links',
-    );
+    final result = await Share.shareXFiles([
+      XFile(filePath),
+    ], text: 'Glimpse backup — ${_lastResult?.linkCount ?? 0} links');
     developer.log('Share result: ${result.status}', name: _tag);
     return result;
   }
 
   Future<BackupData> validateBackup(String jsonContent) async {
-    developer.log('Validating backup (${jsonContent.length} chars)', name: _tag);
+    developer.log(
+      'Validating backup (${jsonContent.length} chars)',
+      name: _tag,
+    );
 
     if (jsonContent.isEmpty) {
-      throw BackupValidationException(
-          'The selected file is empty.');
+      throw BackupValidationException('The selected file is empty.');
     }
 
     // Quick sniff: if the content doesn't even look like JSON (no opening
     // brace early on, or contains lots of NUL bytes from a binary file
     // like an Isar DB), give a friendlier message than "invalid JSON".
-    final head = jsonContent.length > 64 ? jsonContent.substring(0, 64) : jsonContent;
+    final head = jsonContent.length > 64
+        ? jsonContent.substring(0, 64)
+        : jsonContent;
     final looksBinary =
         head.contains('\u0000') || !RegExp(r'\s*\{').hasMatch(head);
     if (looksBinary) {
       throw BackupValidationException(
-          'This isn\u2019t a Glimpse backup file. '
-          'Backups are JSON files named "glimpse-backup.json".');
+        'This isn\u2019t a Glimpse backup file. '
+        'Backups are JSON files named "glimpse-backup.json".',
+      );
     }
 
     Object decoded;
@@ -301,44 +321,45 @@ class BackupService {
     } catch (e) {
       developer.log('JSON decode failed: $e', name: _tag);
       throw BackupValidationException(
-          'This file isn\u2019t a valid Glimpse backup. '
-          'It may be corrupted or from a different app.');
+        'This file isn\u2019t a valid Glimpse backup. '
+        'It may be corrupted or from a different app.',
+      );
     }
 
     if (decoded is! Map<String, dynamic>) {
-      throw BackupValidationException(
-          'Invalid format: not a JSON object');
+      throw BackupValidationException('Invalid format: not a JSON object');
     }
 
     final version = decoded['version'] as int?;
     if (version == null) {
-      throw BackupValidationException(
-          'Invalid backup: missing version field');
+      throw BackupValidationException('Invalid backup: missing version field');
     }
 
     if (version > BackupData.currentVersion) {
       throw BackupValidationException(
-          'This backup was created with a newer version of Glimpse (v$version). '
-          'Please update the app to restore it.');
+        'This backup was created with a newer version of Glimpse (v$version). '
+        'Please update the app to restore it.',
+      );
     }
 
     if (version < 1) {
       throw BackupValidationException(
-          'This backup format is no longer supported');
+        'This backup format is no longer supported',
+      );
     }
 
     final requiredFields = ['createdAt', 'appVersion', 'links'];
     for (final field in requiredFields) {
       if (!decoded.containsKey(field)) {
         throw BackupValidationException(
-            'Invalid backup: missing required field "$field"');
+          'Invalid backup: missing required field "$field"',
+        );
       }
     }
 
     final links = decoded['links'];
     if (links is! List) {
-      throw BackupValidationException(
-          'Invalid backup: links is not a list');
+      throw BackupValidationException('Invalid backup: links is not a list');
     }
 
     try {
@@ -357,7 +378,8 @@ class BackupService {
         stackTrace: st,
       );
       throw BackupValidationException(
-          'Could not read backup data. The file may be corrupted.');
+        'Could not read backup data. The file may be corrupted.',
+      );
     }
   }
 
@@ -439,12 +461,7 @@ class BackupService {
       developer.log('Restore complete: $count links restored', name: _tag);
       return count;
     } catch (e, st) {
-      developer.log(
-        'Restore FAILED: $e',
-        name: _tag,
-        error: e,
-        stackTrace: st,
-      );
+      developer.log('Restore FAILED: $e', name: _tag, error: e, stackTrace: st);
       rethrow;
     }
   }
@@ -549,11 +566,13 @@ class BackupService {
         if (!existingSessionSet.contains(sb.sessionId)) {
           final urlId = urlIdByRawUrl[sb.rawUrl];
           if (urlId != null) {
-            newRecords.add(SessionRecord(
-              urlId: urlId,
-              sessionId: sb.sessionId,
-              savedAt: DateTime.parse(sb.savedAt),
-            ));
+            newRecords.add(
+              SessionRecord(
+                urlId: urlId,
+                sessionId: sb.sessionId,
+                savedAt: DateTime.parse(sb.savedAt),
+              ),
+            );
           }
         }
       }
@@ -617,11 +636,13 @@ class BackupService {
       for (final sb in backup.saveSessions) {
         final urlId = urlIdByRawUrl[sb.rawUrl];
         if (urlId != null) {
-          records.add(SessionRecord(
-            urlId: urlId,
-            sessionId: sb.sessionId,
-            savedAt: DateTime.parse(sb.savedAt),
-          ));
+          records.add(
+            SessionRecord(
+              urlId: urlId,
+              sessionId: sb.sessionId,
+              savedAt: DateTime.parse(sb.savedAt),
+            ),
+          );
         }
       }
       await sessionService.writeAll(records);
@@ -650,11 +671,13 @@ class BackupService {
       ..userNotes = incoming.userNotes ?? existing.userNotes
       ..summary = incoming.summary ?? existing.summary
       ..savedAt = _earliest(existing.savedAt, incomingSavedAt)
-      ..openedAt = existing.openedAt ??
+      ..openedAt =
+          existing.openedAt ??
           (incoming.openedAt != null
               ? DateTime.parse(incoming.openedAt!)
               : null)
-      ..resurfacedAt = existing.resurfacedAt ??
+      ..resurfacedAt =
+          existing.resurfacedAt ??
           (incoming.resurfacedAt != null
               ? DateTime.parse(incoming.resurfacedAt!)
               : null)
@@ -684,8 +707,10 @@ class BackupService {
       digestEnabled: _readBoolFlexible(prefs, 'digest_enabled'),
       hasSeenOnboarding: _readBoolFlexible(prefs, 'has_seen_onboarding'),
       hasSeenShareTip: _readBoolFlexible(prefs, 'has_seen_share_tip'),
-      hasShownFirstSaveCelebration:
-          _readBoolFlexible(prefs, 'has_shown_first_save_celebration'),
+      hasShownFirstSaveCelebration: _readBoolFlexible(
+        prefs,
+        'has_shown_first_save_celebration',
+      ),
     );
   }
 
@@ -733,8 +758,10 @@ class BackupService {
     return null;
   }
 
-  Future<void> _importSettings(SettingsBackup settings,
-      {required bool merge}) async {
+  Future<void> _importSettings(
+    SettingsBackup settings, {
+    required bool merge,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
 
     if (!merge) {
@@ -745,27 +772,34 @@ class BackupService {
         }
       }
       if (settings.amoledSurfaces != null) {
-        await prefs.setInt(
-            'amoled_surfaces', settings.amoledSurfaces! ? 1 : 0);
+        await prefs.setInt('amoled_surfaces', settings.amoledSurfaces! ? 1 : 0);
       }
       if (settings.accentColorIndex != null) {
         await prefs.setInt('accent_color', settings.accentColorIndex!);
       }
       if (settings.userDisplayName != null) {
         await prefs.setString(
-            'glimpse_user_display_name', settings.userDisplayName!);
+          'glimpse_user_display_name',
+          settings.userDisplayName!,
+        );
       }
       if (settings.categoryOrder != null) {
         await prefs.setString(
-            'glimpse_category_order', settings.categoryOrder!);
+          'glimpse_category_order',
+          settings.categoryOrder!,
+        );
       }
       if (settings.leftSwipeAction != null) {
         await prefs.setString(
-            'glimpse_left_swipe_action', settings.leftSwipeAction!);
+          'glimpse_left_swipe_action',
+          settings.leftSwipeAction!,
+        );
       }
       if (settings.rightSwipeAction != null) {
         await prefs.setString(
-            'glimpse_right_swipe_action', settings.rightSwipeAction!);
+          'glimpse_right_swipe_action',
+          settings.rightSwipeAction!,
+        );
       }
       if (settings.digestEnabled != null) {
         await prefs.setBool('digest_enabled', settings.digestEnabled!);
@@ -774,20 +808,23 @@ class BackupService {
       if (settings.userDisplayName != null &&
           (prefs.getString('glimpse_user_display_name') ?? '').isEmpty) {
         await prefs.setString(
-            'glimpse_user_display_name', settings.userDisplayName!);
+          'glimpse_user_display_name',
+          settings.userDisplayName!,
+        );
       }
     }
 
     if (settings.hasSeenOnboarding != null) {
-      await prefs.setBool(
-          'has_seen_onboarding', settings.hasSeenOnboarding!);
+      await prefs.setBool('has_seen_onboarding', settings.hasSeenOnboarding!);
     }
     if (settings.hasSeenShareTip != null) {
       await prefs.setBool('has_seen_share_tip', settings.hasSeenShareTip!);
     }
     if (settings.hasShownFirstSaveCelebration != null) {
-      await prefs.setBool('has_shown_first_save_celebration',
-          settings.hasShownFirstSaveCelebration!);
+      await prefs.setBool(
+        'has_shown_first_save_celebration',
+        settings.hasShownFirstSaveCelebration!,
+      );
     }
   }
 }

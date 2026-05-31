@@ -22,39 +22,44 @@ class BackupData {
   });
 
   Map<String, dynamic> toJson() => {
-        'version': version,
-        'createdAt': createdAt,
-        'appVersion': appVersion,
-        if (device != null) 'device': device,
-        'links': links.map((e) => e.toJson()).toList(),
-        'collections': collections.map((e) => e.toJson()).toList(),
-        'saveSessions': saveSessions.map((e) => e.toJson()).toList(),
-        'settings': settings.toJson(),
-      };
+    'version': version,
+    'createdAt': createdAt,
+    'appVersion': appVersion,
+    if (device != null) 'device': device,
+    'links': links.map((e) => e.toJson()).toList(),
+    'collections': collections.map((e) => e.toJson()).toList(),
+    'saveSessions': saveSessions.map((e) => e.toJson()).toList(),
+    'settings': settings.toJson(),
+  };
 
   factory BackupData.fromJson(Map<String, dynamic> json) => BackupData(
-        version: json['version'] as int? ?? 0,
-        createdAt: json['createdAt'] as String? ?? '',
-        appVersion: json['appVersion'] as String? ?? '',
-        device: json['device'] as String?,
-        links: (json['links'] as List<dynamic>?)
-                ?.map(
-                    (e) => SavedUrlBackup.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
-        collections: (json['collections'] as List<dynamic>?)
-                ?.map((e) =>
-                    UserCollectionBackup.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
-        saveSessions: (json['saveSessions'] as List<dynamic>?)
-                ?.map((e) =>
-                    SessionRecordBackup.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
-        settings: SettingsBackup.fromJson(
-            json['settings'] as Map<String, dynamic>? ?? {}),
-      );
+    version: json['version'] as int? ?? 0,
+    createdAt: json['createdAt'] as String? ?? '',
+    appVersion: json['appVersion'] as String? ?? '',
+    device: json['device'] as String?,
+    links:
+        (json['links'] as List<dynamic>?)
+            ?.map((e) => SavedUrlBackup.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [],
+    collections:
+        (json['collections'] as List<dynamic>?)
+            ?.map(
+              (e) => UserCollectionBackup.fromJson(e as Map<String, dynamic>),
+            )
+            .toList() ??
+        [],
+    saveSessions:
+        (json['saveSessions'] as List<dynamic>?)
+            ?.map(
+              (e) => SessionRecordBackup.fromJson(e as Map<String, dynamic>),
+            )
+            .toList() ??
+        [],
+    settings: SettingsBackup.fromJson(
+      json['settings'] as Map<String, dynamic>? ?? {},
+    ),
+  );
 }
 
 class SavedUrlBackup {
@@ -127,33 +132,32 @@ class SavedUrlBackup {
   }
 
   factory SavedUrlBackup.fromJson(Map<String, dynamic> json) => SavedUrlBackup(
-        rawUrl: (json['rawUrl'] as String?) ?? '',
-        domain: (json['domain'] as String?) ?? '',
-        title: (json['title'] as String?) ?? '',
-        description: (json['description'] as String?) ?? '',
-        thumbnailUrl: json['thumbnailUrl'] as String?,
-        category: (json['category'] as String?) ?? 'Other',
-        categoryEmoji: (json['categoryEmoji'] as String?) ?? '📂',
-        categories: (json['categories'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            [],
-        tags: (json['tags'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            [],
-        userNotes: json['userNotes'] as String?,
-        summary: json['summary'] as String?,
-        savedAt:
-            (json['savedAt'] as String?) ?? DateTime.now().toIso8601String(),
-        openedAt: json['openedAt'] as String?,
-        resurfacedAt: json['resurfacedAt'] as String?,
-        embedding: _sanitizeEmbeddingForJson(
-          (json['embedding'] as List<dynamic>?)
-              ?.map((e) => (e as num).toDouble())
-              .toList(),
-        ),
-      );
+    rawUrl: (json['rawUrl'] as String?) ?? '',
+    domain: (json['domain'] as String?) ?? '',
+    title: (json['title'] as String?) ?? '',
+    description: (json['description'] as String?) ?? '',
+    thumbnailUrl: json['thumbnailUrl'] as String?,
+    category: (json['category'] as String?) ?? 'Other',
+    categoryEmoji: (json['categoryEmoji'] as String?) ?? '📂',
+    categories:
+        (json['categories'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [],
+    tags:
+        (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+        [],
+    userNotes: json['userNotes'] as String?,
+    summary: json['summary'] as String?,
+    savedAt: (json['savedAt'] as String?) ?? DateTime.now().toIso8601String(),
+    openedAt: json['openedAt'] as String?,
+    resurfacedAt: json['resurfacedAt'] as String?,
+    embedding: _sanitizeEmbeddingForJson(
+      (json['embedding'] as List<dynamic>?)
+          ?.map((e) => (e as num).toDouble())
+          .toList(),
+    ),
+  );
 }
 
 class UserCollectionBackup {
@@ -172,12 +176,12 @@ class UserCollectionBackup {
   });
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'emoji': emoji,
-        if (description != null) 'description': description,
-        'createdAt': createdAt,
-        'linkUrls': linkUrls,
-      };
+    'name': name,
+    'emoji': emoji,
+    if (description != null) 'description': description,
+    'createdAt': createdAt,
+    'linkUrls': linkUrls,
+  };
 
   factory UserCollectionBackup.fromJson(Map<String, dynamic> json) =>
       UserCollectionBackup(
@@ -186,7 +190,8 @@ class UserCollectionBackup {
         description: json['description'] as String?,
         createdAt:
             (json['createdAt'] as String?) ?? DateTime.now().toIso8601String(),
-        linkUrls: (json['linkUrls'] as List<dynamic>?)
+        linkUrls:
+            (json['linkUrls'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??
             [],
@@ -205,10 +210,10 @@ class SessionRecordBackup {
   });
 
   Map<String, dynamic> toJson() => {
-        'rawUrl': rawUrl,
-        'sessionId': sessionId,
-        'savedAt': savedAt,
-      };
+    'rawUrl': rawUrl,
+    'sessionId': sessionId,
+    'savedAt': savedAt,
+  };
 
   factory SessionRecordBackup.fromJson(Map<String, dynamic> json) =>
       SessionRecordBackup(
@@ -247,34 +252,33 @@ class SettingsBackup {
   });
 
   Map<String, dynamic> toJson() => {
-        if (themeMode != null) 'themeMode': themeMode,
-        if (amoledSurfaces != null) 'amoledSurfaces': amoledSurfaces,
-        if (accentColorIndex != null) 'accentColorIndex': accentColorIndex,
-        if (userDisplayName != null) 'userDisplayName': userDisplayName,
-        if (categoryOrder != null) 'categoryOrder': categoryOrder,
-        if (leftSwipeAction != null) 'leftSwipeAction': leftSwipeAction,
-        if (rightSwipeAction != null) 'rightSwipeAction': rightSwipeAction,
-        if (digestEnabled != null) 'digestEnabled': digestEnabled,
-        if (hasSeenOnboarding != null) 'hasSeenOnboarding': hasSeenOnboarding,
-        if (hasSeenShareTip != null) 'hasSeenShareTip': hasSeenShareTip,
-        if (hasShownFirstSaveCelebration != null)
-          'hasShownFirstSaveCelebration': hasShownFirstSaveCelebration,
-      };
+    if (themeMode != null) 'themeMode': themeMode,
+    if (amoledSurfaces != null) 'amoledSurfaces': amoledSurfaces,
+    if (accentColorIndex != null) 'accentColorIndex': accentColorIndex,
+    if (userDisplayName != null) 'userDisplayName': userDisplayName,
+    if (categoryOrder != null) 'categoryOrder': categoryOrder,
+    if (leftSwipeAction != null) 'leftSwipeAction': leftSwipeAction,
+    if (rightSwipeAction != null) 'rightSwipeAction': rightSwipeAction,
+    if (digestEnabled != null) 'digestEnabled': digestEnabled,
+    if (hasSeenOnboarding != null) 'hasSeenOnboarding': hasSeenOnboarding,
+    if (hasSeenShareTip != null) 'hasSeenShareTip': hasSeenShareTip,
+    if (hasShownFirstSaveCelebration != null)
+      'hasShownFirstSaveCelebration': hasShownFirstSaveCelebration,
+  };
 
   factory SettingsBackup.fromJson(Map<String, dynamic> json) => SettingsBackup(
-        themeMode: json['themeMode'] as String?,
-        amoledSurfaces: json['amoledSurfaces'] as bool?,
-        accentColorIndex: json['accentColorIndex'] as int?,
-        userDisplayName: json['userDisplayName'] as String?,
-        categoryOrder: json['categoryOrder'] as String?,
-        leftSwipeAction: json['leftSwipeAction'] as String?,
-        rightSwipeAction: json['rightSwipeAction'] as String?,
-        digestEnabled: json['digestEnabled'] as bool?,
-        hasSeenOnboarding: json['hasSeenOnboarding'] as bool?,
-        hasSeenShareTip: json['hasSeenShareTip'] as bool?,
-        hasShownFirstSaveCelebration:
-            json['hasShownFirstSaveCelebration'] as bool?,
-      );
+    themeMode: json['themeMode'] as String?,
+    amoledSurfaces: json['amoledSurfaces'] as bool?,
+    accentColorIndex: json['accentColorIndex'] as int?,
+    userDisplayName: json['userDisplayName'] as String?,
+    categoryOrder: json['categoryOrder'] as String?,
+    leftSwipeAction: json['leftSwipeAction'] as String?,
+    rightSwipeAction: json['rightSwipeAction'] as String?,
+    digestEnabled: json['digestEnabled'] as bool?,
+    hasSeenOnboarding: json['hasSeenOnboarding'] as bool?,
+    hasSeenShareTip: json['hasSeenShareTip'] as bool?,
+    hasShownFirstSaveCelebration: json['hasShownFirstSaveCelebration'] as bool?,
+  );
 }
 
 enum RestoreMode { merge, replace }

@@ -160,7 +160,9 @@ class DigestPrefs {
 
   static const _lastTimestampKey = 'notif_last_timestamp';
 
-  static Future<bool> hasMinGap({Duration minGap = const Duration(hours: 20)}) async {
+  static Future<bool> hasMinGap({
+    Duration minGap = const Duration(hours: 20),
+  }) async {
     final p = await SharedPreferences.getInstance();
     final s = p.getString(_lastTimestampKey);
     if (s == null) return true;
@@ -201,10 +203,16 @@ class DigestPrefs {
 
   static Future<void> setLastFired(String type) async {
     final p = await SharedPreferences.getInstance();
-    await p.setString('$_lastFiredPrefix$type', DateTime.now().toIso8601String());
+    await p.setString(
+      '$_lastFiredPrefix$type',
+      DateTime.now().toIso8601String(),
+    );
   }
 
-  static Future<bool> canFireType(String type, {Duration minInterval = const Duration(days: 6)}) async {
+  static Future<bool> canFireType(
+    String type, {
+    Duration minInterval = const Duration(days: 6),
+  }) async {
     final last = await lastFired(type);
     if (last == null) return true;
     return DateTime.now().difference(last) >= minInterval;

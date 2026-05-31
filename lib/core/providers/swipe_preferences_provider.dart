@@ -75,17 +75,17 @@ class SwipePreferences {
 
 final swipePreferencesProvider =
     StateNotifierProvider<SwipePreferencesNotifier, SwipePreferences>((ref) {
-  return SwipePreferencesNotifier();
-});
+      return SwipePreferencesNotifier();
+    });
 
 class SwipePreferencesNotifier extends StateNotifier<SwipePreferences> {
   SwipePreferencesNotifier()
-      : super(
-          const SwipePreferences(
-            leftSwipeAction: SwipeActionType.delete,
-            rightSwipeAction: SwipeActionType.addToCollection,
-          ),
-        ) {
+    : super(
+        const SwipePreferences(
+          leftSwipeAction: SwipeActionType.delete,
+          rightSwipeAction: SwipeActionType.addToCollection,
+        ),
+      ) {
     _load();
   }
 
@@ -100,10 +100,7 @@ class SwipePreferencesNotifier extends StateNotifier<SwipePreferences> {
       fallback: SwipeActionType.addToCollection,
     );
     if (mounted) {
-      state = SwipePreferences(
-        leftSwipeAction: left,
-        rightSwipeAction: right,
-      );
+      state = SwipePreferences(leftSwipeAction: left, rightSwipeAction: right);
     }
   }
 

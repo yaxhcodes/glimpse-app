@@ -106,44 +106,43 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _history.isEmpty
-              ? _EmptyNotifications(theme: theme)
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-                  itemCount: _history.length,
-                  itemBuilder: (context, index) {
-                    final entry = _history[index];
-                    final ids = _idsFromEntry(entry);
-                    final heroUrl =
-                        ids.isNotEmpty ? _urlById[ids.first] : null;
-                    final stripUrls = ids
-                        .skip(1)
-                        .take(3)
-                        .map((id) => _urlById[id])
-                        .whereType<SavedUrl>()
-                        .toList();
+          ? _EmptyNotifications(theme: theme)
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              itemCount: _history.length,
+              itemBuilder: (context, index) {
+                final entry = _history[index];
+                final ids = _idsFromEntry(entry);
+                final heroUrl = ids.isNotEmpty ? _urlById[ids.first] : null;
+                final stripUrls = ids
+                    .skip(1)
+                    .take(3)
+                    .map((id) => _urlById[id])
+                    .whereType<SavedUrl>()
+                    .toList();
 
-                    return _StaggerReveal(
-                      index: index,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: PremiumSwipeCard(
-                          key: ValueKey(entry['id']),
-                          leftSwipeAction: SwipeActionType.delete,
-                          rightSwipeAction: SwipeActionType.none,
-                          borderRadius: BorderRadius.circular(20),
-                          onAction: (_) => true,
-                          onDismissed: (_) => _deleteWithUndo(entry, index),
-                          child: CuratedNotificationListTile(
-                            entry: entry,
-                            heroUrl: heroUrl,
-                            stripUrls: stripUrls,
-                            onTap: () => _openEntry(entry),
-                          ),
-                        ),
+                return _StaggerReveal(
+                  index: index,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: PremiumSwipeCard(
+                      key: ValueKey(entry['id']),
+                      leftSwipeAction: SwipeActionType.delete,
+                      rightSwipeAction: SwipeActionType.none,
+                      borderRadius: BorderRadius.circular(20),
+                      onAction: (_) => true,
+                      onDismissed: (_) => _deleteWithUndo(entry, index),
+                      child: CuratedNotificationListTile(
+                        entry: entry,
+                        heroUrl: heroUrl,
+                        stripUrls: stripUrls,
+                        onTap: () => _openEntry(entry),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -162,8 +161,11 @@ class _EmptyNotifications extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.notifications_none_rounded,
-                size: 64, color: cs.onSurfaceVariant),
+            Icon(
+              Icons.notifications_none_rounded,
+              size: 64,
+              color: cs.onSurfaceVariant,
+            ),
             const SizedBox(height: 16),
             Text(
               'No notifications yet',
@@ -231,10 +233,7 @@ class _StaggerRevealState extends State<_StaggerReveal>
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _opacity,
-      child: SlideTransition(
-        position: _slide,
-        child: widget.child,
-      ),
+      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }
@@ -255,8 +254,18 @@ class CuratedNotificationListTile extends StatelessWidget {
 
   static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   static String _formatDate(DateTime d) {
@@ -325,8 +334,10 @@ class CuratedNotificationListTile extends StatelessWidget {
     final body = entry['body'] as String?;
     final type = entry['type'] as String?;
     final isRead = entry['read'] == true;
-    final typeStyle =
-        NotificationTypeStyle.forHistoryType(type, Theme.of(context).colorScheme);
+    final typeStyle = NotificationTypeStyle.forHistoryType(
+      type,
+      Theme.of(context).colorScheme,
+    );
 
     final channelLabel = NotificationHubLabels.forHistoryType(type);
     final contextLine = (body != null && body.trim().isNotEmpty)
@@ -342,7 +353,8 @@ class CuratedNotificationListTile extends StatelessWidget {
     if (rawHint != null) {
       final a = rawHint.trim().toLowerCase();
       final b = contextLine.trim().toLowerCase();
-      final redundant = b.isNotEmpty && (a == b || b.contains(a) || a.contains(b));
+      final redundant =
+          b.isNotEmpty && (a == b || b.contains(a) || a.contains(b));
       bundleHint = redundant ? null : rawHint;
     }
 
@@ -364,11 +376,14 @@ class CuratedNotificationListTile extends StatelessWidget {
       hero = const CuratedMissingLinkHero(radius: 14);
     }
 
-    final paddingOuter =
-        EdgeInsets.fromLTRB(14, typeStyle.isDigestHighlight ? 15 : 13, 14, 13);
+    final paddingOuter = EdgeInsets.fromLTRB(
+      14,
+      typeStyle.isDigestHighlight ? 15 : 13,
+      14,
+      13,
+    );
 
-    final secondaryMuted =
-        theme.brightness == Brightness.light ? 0.88 : 0.84;
+    final secondaryMuted = theme.brightness == Brightness.light ? 0.88 : 0.84;
 
     return AnimatedContainer(
       duration: kStateAnim,
@@ -406,14 +421,16 @@ class CuratedNotificationListTile extends StatelessWidget {
                       child: AnimatedDefaultTextStyle(
                         duration: kStateAnim,
                         curve: Curves.easeOutCubic,
-                        style: (theme.textTheme.titleMedium ?? const TextStyle())
-                            .copyWith(
-                          fontWeight: titleWeight,
-                          height: 1.22,
-                          color: cs.onSurface,
-                          fontSize:
-                              (theme.textTheme.titleMedium?.fontSize ?? 16),
-                        ),
+                        style:
+                            (theme.textTheme.titleMedium ?? const TextStyle())
+                                .copyWith(
+                                  fontWeight: titleWeight,
+                                  height: 1.22,
+                                  color: cs.onSurface,
+                                  fontSize:
+                                      (theme.textTheme.titleMedium?.fontSize ??
+                                      16),
+                                ),
                         child: Text(
                           topic,
                           maxLines: 2,
@@ -434,8 +451,9 @@ class CuratedNotificationListTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant
-                            .withValues(alpha: isRead ? 0.78 : 1),
+                        color: cs.onSurfaceVariant.withValues(
+                          alpha: isRead ? 0.78 : 1,
+                        ),
                         height: 1.4,
                         fontWeight: FontWeight.w400,
                       ),
@@ -496,9 +514,7 @@ class CuratedNotificationListTile extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _TypeBadge(
-                      label: channelLabel,
-                    ),
+                    _TypeBadge(label: channelLabel),
                     const Spacer(),
                     if (formatted.isNotEmpty)
                       AnimatedOpacity(
@@ -527,9 +543,7 @@ class CuratedNotificationListTile extends StatelessWidget {
 }
 
 class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({
-    required this.label,
-  });
+  const _TypeBadge({required this.label});
 
   final String label;
 
@@ -545,21 +559,19 @@ class _TypeBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
       decoration: ShapeDecoration(
         color: bg,
-        shape: StadiumBorder(
-          side: BorderSide(color: cs.outlineVariant),
-        ),
+        shape: StadiumBorder(side: BorderSide(color: cs.outlineVariant)),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.labelMedium?.copyWith(
-              fontSize: 11.75,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.12,
-              height: 1.1,
-              color: fg,
-            ),
+          fontSize: 11.75,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.12,
+          height: 1.1,
+          color: fg,
+        ),
       ),
     );
   }

@@ -1,0 +1,340 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/models/saved_url.dart';
+import '../../core/providers/bulk_selection_provider.dart';
+import '../../core/providers/pinned_urls_provider.dart';
+import '../../core/providers/service_providers.dart';
+import '../../features/collections/add_to_collection_sheet.dart';
+import '../../features/collections/collections_provider.dart';
+import '../../features/home/home_provider.dart';
+
+class BulkSelectionTitle extends StatelessWidget {
+  const BulkSelectionTitle({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
+            child: child,
+          ),
+        );
+      },
+      child: Text(
+        '$count ${count == 1 ? 'selected' : 'selected'}',
+        key: ValueKey(count),
+      ),
+    );
+  }
+}
+
+class BulkSelectionActionButtons extends ConsumerWidget {
+  const BulkSelectionActionButtons({
+    super.key,
+    required this.scope,
+    required this.selectedUrls,
+    required this.visibleUrls,
+    required this.onDone,
+    this.onViewPinned,
+  });
+
+  final String scope;
+  final List<SavedUrl> selectedUrls;
+  final List<SavedUrl> visibleUrls;
+  final VoidCallback onDone;
+  final VoidCallback? onViewPinned;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final readLabel = _readActionLabel(selectedUrls);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
+          padding: EdgeInsets.zero,
+          tooltip: 'Select all',
+          icon: const Icon(Icons.select_all_rounded),
+          onPressed: visibleUrls.isEmpty
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  ref
+                      .read(bulkSelectionProvider(scope).notifier)
+                      .selectAll(visibleUrls.map((url) => url.id));
+                },
+        ),
+        IconButton(
+          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
+          padding: EdgeInsets.zero,
+          tooltip: readLabel,
+          icon: Icon(_readActionIcon(selectedUrls)),
+          onPressed: selectedUrls.isEmpty
+              ? null
+              : () => _markReadState(context, ref, selectedUrls, onDone),
+        ),
+        IconButton(
+          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
+          padding: EdgeInsets.zero,
+          tooltip: 'Add to collection',
+          icon: const Icon(Icons.create_new_folder_outlined),
+          onPressed: selectedUrls.isEmpty
+              ? null
+              : () {
+                  showAddManyToCollectionSheet(
+                    context,
+                    selectedUrls,
+                    onCompleted: onDone,
+                  );
+                },
+        ),
+        IconButton(
+          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
+          padding: EdgeInsets.zero,
+          tooltip: 'Pin',
+          icon: const Icon(Icons.push_pin_outlined),
+          onPressed: selectedUrls.isEmpty
+              ? null
+              : () => _pinSelected(
+                  context,
+                  ref,
+                  selectedUrls,
+                  onDone,
+                  onViewPinned,
+                ),
+        ),
+        IconButton(
+          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
+          padding: EdgeInsets.zero,
+          tooltip: 'Delete',
+          icon: Icon(Icons.delete_outline_rounded, color: cs.error),
+          onPressed: selectedUrls.isEmpty
+              ? null
+              : () => _confirmDelete(context, ref, selectedUrls, onDone),
+        ),
+      ],
+    );
+  }
+}
+
+String _readActionLabel(List<SavedUrl> urls) {
+  if (urls.isEmpty) return 'Mark read';
+  final read = urls.where((url) => url.openedAt != null).length;
+  if (read == 0) return 'Mark Read';
+  if (read == urls.length) return 'Mark Unread';
+  return 'Toggle Read Status';
+}
+
+IconData _readActionIcon(List<SavedUrl> urls) {
+  if (urls.isNotEmpty && urls.every((url) => url.openedAt != null)) {
+    return Icons.mark_email_unread_outlined;
+  }
+  return Icons.mark_email_read_outlined;
+}
+
+Future<void> _markReadState(
+  BuildContext context,
+  WidgetRef ref,
+  List<SavedUrl> urls,
+  VoidCallback onDone,
+) async {
+  final isar = ref.read(isarServiceProvider);
+  final allRead = urls.every((url) => url.openedAt != null);
+  final allUnread = urls.every((url) => url.openedAt == null);
+  final now = DateTime.now();
+  for (final url in urls) {
+    if (allRead) {
+      await isar.clearOpenedAt(url.id);
+    } else if (allUnread) {
+      await isar.updateOpenedAt(url.id, now);
+    } else if (url.openedAt == null) {
+      await isar.updateOpenedAt(url.id, now);
+    } else {
+      await isar.clearOpenedAt(url.id);
+    }
+  }
+  onDone();
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(_readActionLabel(urls).replaceFirst('Mark', 'Marked')),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+}
+
+Future<void> _pinSelected(
+  BuildContext context,
+  WidgetRef ref,
+  List<SavedUrl> urls,
+  VoidCallback onDone,
+  VoidCallback? onViewPinned,
+) async {
+  final currentPins = ref.read(pinnedUrlsProvider);
+  final newIds = urls
+      .map((url) => url.id)
+      .where((id) => !currentPins.contains(id))
+      .toList();
+  if (currentPins.length + newIds.length > maxPinnedUrls) {
+    if (!context.mounted) return;
+    _showPinLimitReached(context, onViewPinned);
+    return;
+  }
+
+  final notifier = ref.read(pinnedUrlsProvider.notifier);
+  for (final id in newIds) {
+    await notifier.pin(id);
+  }
+  onDone();
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(
+          '${urls.length} ${urls.length == 1 ? 'item' : 'items'} pinned',
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+}
+
+void _showPinLimitReached(BuildContext context, VoidCallback? onViewPinned) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Pin limit reached.',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                onViewPinned?.call();
+              },
+              icon: const Icon(Icons.vertical_align_top_rounded),
+              label: const Text('View Pinned Items'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _confirmDelete(
+  BuildContext context,
+  WidgetRef ref,
+  List<SavedUrl> urls,
+  VoidCallback onDone,
+) async {
+  final confirmed = await showModalBottomSheet<bool>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) {
+      final count = urls.length;
+      final cs = Theme.of(context).colorScheme;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Delete $count ${count == 1 ? 'item' : 'items'}?',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: cs.error,
+                        foregroundColor: cs.onError,
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  if (confirmed != true) return;
+
+  final isar = ref.read(isarServiceProvider);
+  final pins = ref.read(pinnedUrlsProvider);
+  for (final url in urls) {
+    await isar.deleteUrl(url.id);
+    if (pins.contains(url.id)) {
+      await ref.read(pinnedUrlsProvider.notifier).unpin(url.id);
+    }
+  }
+  ref.invalidate(categoriesProvider);
+  ref.invalidate(collectionsListProvider);
+  ref.invalidate(collectionsSummaryProvider);
+  onDone();
+
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: const Text('Deleted'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            for (final url in urls) {
+              await isar.saveUrl(url);
+              if (pins.contains(url.id)) {
+                await ref.read(pinnedUrlsProvider.notifier).pin(url.id);
+              }
+            }
+            ref.invalidate(categoriesProvider);
+            ref.invalidate(collectionsListProvider);
+            ref.invalidate(collectionsSummaryProvider);
+          },
+        ),
+      ),
+    );
+}

@@ -34,10 +34,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Add to collection',
-              style: theme.textTheme.titleLarge,
-            ),
+            Text('Add to collection', style: theme.textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
               TitleResolver.resolve(widget.url, tagFrequency: tagFreq),
@@ -65,11 +62,14 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                       const SizedBox(height: 12),
                       FilledButton.tonal(
                         onPressed: () async {
-                          final collection =
-                              await showCreateCollectionSheet(context);
+                          final collection = await showCreateCollectionSheet(
+                            context,
+                          );
                           if (collection == null) return;
                           if (!context.mounted) return;
-                          await ref.read(isarServiceProvider).addUrlToCollection(
+                          await ref
+                              .read(isarServiceProvider)
+                              .addUrlToCollection(
                                 collectionId: collection.id,
                                 urlId: widget.url.id,
                               );
@@ -93,8 +93,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                     itemCount: collections.length,
                     itemBuilder: (ctx, i) {
                       final c = collections[i];
-                      final inCollection =
-                          c.urlIds.contains(widget.url.id);
+                      final inCollection = c.urlIds.contains(widget.url.id);
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         minLeadingWidth: 44,
@@ -108,24 +107,22 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                         trailing: Checkbox(
                           value: inCollection,
                           onChanged: (v) async {
-                          final isar = ref.read(isarServiceProvider);
-                          if (v == true) {
-                            await isar.addUrlToCollection(
-                              collectionId: c.id,
-                              urlId: widget.url.id,
-                            );
-                          } else {
-                            await isar.removeUrlFromCollection(
-                              collectionId: c.id,
-                              urlId: widget.url.id,
-                            );
-                          }
-                          ref.invalidate(collectionsListProvider);
-                          ref.invalidate(collectionsSummaryProvider);
-                          ref.invalidate(
-                            collectionUrlsProvider(c.id),
-                          );
-                          setState(() {});
+                            final isar = ref.read(isarServiceProvider);
+                            if (v == true) {
+                              await isar.addUrlToCollection(
+                                collectionId: c.id,
+                                urlId: widget.url.id,
+                              );
+                            } else {
+                              await isar.removeUrlFromCollection(
+                                collectionId: c.id,
+                                urlId: widget.url.id,
+                              );
+                            }
+                            ref.invalidate(collectionsListProvider);
+                            ref.invalidate(collectionsSummaryProvider);
+                            ref.invalidate(collectionUrlsProvider(c.id));
+                            setState(() {});
                           },
                         ),
                         onTap: () async {
@@ -165,5 +162,125 @@ void showAddToCollectionSheet(BuildContext context, SavedUrl url) {
     showDragHandle: true,
     isScrollControlled: true,
     builder: (_) => AddToCollectionSheet(url: url),
+  );
+}
+
+class AddManyToCollectionSheet extends ConsumerWidget {
+  const AddManyToCollectionSheet({
+    super.key,
+    required this.urls,
+    this.onCompleted,
+  });
+
+  final List<SavedUrl> urls;
+  final VoidCallback? onCompleted;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final collectionsAsync = ref.watch(collectionsListProvider);
+    final theme = Theme.of(context);
+    final count = urls.length;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Add to collection', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              '$count ${count == 1 ? 'item' : 'items'} selected',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            collectionsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Text('Could not load collections: $e'),
+              data: (collections) {
+                if (collections.isEmpty) {
+                  return FilledButton.tonal(
+                    onPressed: () async {
+                      final collection = await showCreateCollectionSheet(
+                        context,
+                      );
+                      if (collection == null || !context.mounted) return;
+                      await ref
+                          .read(isarServiceProvider)
+                          .addUrlsToCollection(
+                            collectionId: collection.id,
+                            urlIds: urls.map((url) => url.id).toList(),
+                          );
+                      ref.invalidate(collectionsListProvider);
+                      ref.invalidate(collectionsSummaryProvider);
+                      ref.invalidate(collectionUrlsProvider(collection.id));
+                      onCompleted?.call();
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    child: const Text('New collection'),
+                  );
+                }
+                return SizedBox(
+                  height: (collections.length * 56.0).clamp(120, 360),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: collections.length,
+                    itemBuilder: (ctx, i) {
+                      final c = collections[i];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        minLeadingWidth: 44,
+                        leading: CollectionVisual(
+                          style: resolveCollectionVisual(c),
+                          seed: c.name,
+                          size: 40,
+                          iconSize: 18,
+                        ),
+                        title: Text(c.name),
+                        subtitle: Text('${c.urlIds.length} links'),
+                        onTap: () async {
+                          await ref
+                              .read(isarServiceProvider)
+                              .addUrlsToCollection(
+                                collectionId: c.id,
+                                urlIds: urls.map((url) => url.id).toList(),
+                              );
+                          ref.invalidate(collectionsListProvider);
+                          ref.invalidate(collectionsSummaryProvider);
+                          ref.invalidate(collectionUrlsProvider(c.id));
+                          onCompleted?.call();
+                          if (context.mounted) Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void showAddManyToCollectionSheet(
+  BuildContext context,
+  List<SavedUrl> urls, {
+  VoidCallback? onCompleted,
+}) {
+  if (urls.isEmpty) return;
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) =>
+        AddManyToCollectionSheet(urls: urls, onCompleted: onCompleted),
   );
 }

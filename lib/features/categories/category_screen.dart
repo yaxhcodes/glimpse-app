@@ -14,7 +14,11 @@ class CategoryScreen extends ConsumerWidget {
   const CategoryScreen({super.key, required this.categoryName});
 
   Future<void> _deleteCategory(
-      BuildContext context, WidgetRef ref, String name, int count) async {
+    BuildContext context,
+    WidgetRef ref,
+    String name,
+    int count,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -75,7 +79,11 @@ class CategoryScreen extends ConsumerWidget {
                     icon: const Icon(Icons.delete_outline),
                     tooltip: 'Delete category',
                     onPressed: () => _deleteCategory(
-                        context, ref, categoryName, urls.length),
+                      context,
+                      ref,
+                      categoryName,
+                      urls.length,
+                    ),
                   ),
                 ],
               ),
@@ -90,30 +98,27 @@ class CategoryScreen extends ConsumerWidget {
                     child: Text(
                       '${urls.length} ${urls.length == 1 ? 'link' : 'links'}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
                 SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final url = urls[index];
-                      return SwipeableUrlCard(
-                        key: ValueKey(url.id),
-                        url: url,
-                        onTap: () => context.push('/url/${url.id}'),
-                        onDelete: (context, ref, url) async {
-                          await deleteUrlWithUndo(context, ref, url);
-                          ref.invalidate(categoryUrlsProvider(categoryName));
-                        },
-                        onChanged: () {
-                          ref.invalidate(categoryUrlsProvider(categoryName));
-                        },
-                      );
-                    },
-                    childCount: urls.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final url = urls[index];
+                    return SwipeableUrlCard(
+                      key: ValueKey(url.id),
+                      url: url,
+                      onTap: () => context.push('/url/${url.id}'),
+                      onDelete: (context, ref, url) async {
+                        await deleteUrlWithUndo(context, ref, url);
+                        ref.invalidate(categoryUrlsProvider(categoryName));
+                      },
+                      onChanged: () {
+                        ref.invalidate(categoryUrlsProvider(categoryName));
+                      },
+                    );
+                  }, childCount: urls.length),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 16)),
               ],

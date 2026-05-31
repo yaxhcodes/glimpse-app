@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
@@ -98,8 +100,12 @@ class _ShimmerBox extends StatelessWidget {
   final double width;
   final double radius;
 
-  const _ShimmerBox(this.color,
-      {required this.height, required this.width, this.radius = 5});
+  const _ShimmerBox(
+    this.color, {
+    required this.height,
+    required this.width,
+    this.radius = 5,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -118,13 +124,21 @@ class _ShimmerBox extends StatelessWidget {
 class UrlCard extends ConsumerStatefulWidget {
   final SavedUrl savedUrl;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onSelectionTap;
   final bool isPinned;
+  final bool selectionMode;
+  final bool isSelected;
 
   const UrlCard({
     super.key,
     required this.savedUrl,
     this.onTap,
+    this.onLongPress,
+    this.onSelectionTap,
     this.isPinned = false,
+    this.selectionMode = false,
+    this.isSelected = false,
   });
 
   /// Relative time for the source · time row (shared with other link cards).
@@ -147,9 +161,7 @@ class UrlCard extends ConsumerStatefulWidget {
   }
 
   static ShapeBorder listCardShape(ThemeData _, {double radius = 14}) {
-    return RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(radius),
-    );
+    return RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
   }
 
   @override
@@ -217,10 +229,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         : '';
     final titleSource = cachedTitle.isNotEmpty
         ? cachedTitle
-        : TitleResolver.resolve(
-            widget.savedUrl,
-            tagFrequency: tagFreq,
-          );
+        : TitleResolver.resolve(widget.savedUrl, tagFrequency: tagFreq);
     final resolvedTitle = TitleResolver.formatForCompactCard(
       widget.savedUrl,
       TitleResolver.collapseWhitespace(titleSource),
@@ -230,37 +239,65 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final isRead = widget.savedUrl.openedAt != null;
     final isLight = theme.brightness == Brightness.light;
     final metaStyle = TextStyle(fontSize: 12, color: cs.outline);
+    final selectedFill = Color.alphaBlend(
+      cs.primary.withValues(alpha: 0.045),
+      UrlCard.listCardFillColor(theme),
+    );
+    final cardShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: widget.isSelected
+          ? BorderSide(color: cs.primary.withValues(alpha: 0.45))
+          : BorderSide.none,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       child: Material(
-        color: UrlCard.listCardFillColor(theme),
-        elevation: 0,
-        shadowColor: Colors.transparent,
+        color: widget.isSelected
+            ? selectedFill
+            : UrlCard.listCardFillColor(theme),
+        elevation: widget.isSelected ? 2 : 0,
+        shadowColor: widget.isSelected
+            ? cs.shadow.withValues(alpha: 0.18)
+            : Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        shape: UrlCard.listCardShape(theme, radius: 14),
+        shape: cardShape,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
-            widget.onTap?.call();
+            if (widget.selectionMode) {
+              widget.onSelectionTap?.call();
+            } else {
+              widget.onTap?.call();
+            }
           },
           onLongPress: () {
             HapticFeedback.mediumImpact();
-            _showActions(context);
+            if (widget.onLongPress != null) {
+              widget.onLongPress?.call();
+            } else if (!widget.selectionMode) {
+              _showActions(context);
+            }
           },
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LinkCardThumbnail.build(
-                  url: widget.savedUrl,
-                  isRead: isRead,
-                  context: context,
-                  size: 64,
-                  borderRadius: 10,
-                ),
+                widget.selectionMode
+                    ? _SelectionThumbnailControl(
+                        selected: widget.isSelected,
+                        size: 64,
+                        onTap: widget.onSelectionTap,
+                      )
+                    : LinkCardThumbnail.build(
+                        url: widget.savedUrl,
+                        isRead: isRead,
+                        context: context,
+                        size: 64,
+                        borderRadius: 10,
+                      ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -277,14 +314,14 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                 resolvedTitle,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style:
-                                    (tt.titleSmall ?? const TextStyle()).copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.25,
-                                  fontSize:
-                                      (tt.titleSmall?.fontSize ?? 14) + 0.5,
-                                  color: cs.onSurface,
-                                ),
+                                style: (tt.titleSmall ?? const TextStyle())
+                                    .copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.25,
+                                      fontSize:
+                                          (tt.titleSmall?.fontSize ?? 14) + 0.5,
+                                      color: cs.onSurface,
+                                    ),
                               ),
                             ),
                           ),
@@ -313,10 +350,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             style: metaStyle,
                           ),
                           Text(' · ', style: metaStyle),
-                          Text(
-                            isRead ? 'Read' : 'Unread',
-                            style: metaStyle,
-                          ),
+                          Text(isRead ? 'Read' : 'Unread', style: metaStyle),
                         ],
                       ),
                       if (chipData.visible.isNotEmpty ||
@@ -392,7 +426,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
           children: [
             ListTile(
               leading: const Icon(Icons.copy_outlined),
-              title: const Text('Copy link'),
+              title: const Text('Copy Link'),
               onTap: () {
                 Navigator.pop(ctx);
                 Clipboard.setData(ClipboardData(text: widget.savedUrl.rawUrl));
@@ -415,8 +449,73 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                 Share.share(widget.savedUrl.rawUrl);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.open_in_new_rounded),
+              title: const Text('Open Original'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final uri = Uri.tryParse(widget.savedUrl.rawUrl);
+                if (uri != null) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionThumbnailControl extends StatelessWidget {
+  const _SelectionThumbnailControl({
+    required this.selected,
+    required this.size,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final double size;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: selected ? 'Deselect item' : 'Select item',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Center(
+            child: AnimatedScale(
+              scale: selected ? 1 : 0.84,
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOutCubic,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOutCubic,
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? cs.primary : Colors.transparent,
+                  border: Border.all(
+                    color: selected ? cs.primary : cs.outline,
+                    width: selected ? 0 : 1.6,
+                  ),
+                ),
+                child: selected
+                    ? Icon(Icons.check_rounded, size: 20, color: cs.onPrimary)
+                    : null,
+              ),
+            ),
+          ),
         ),
       ),
     );

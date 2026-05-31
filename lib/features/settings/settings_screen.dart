@@ -38,13 +38,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error),
-              child: const Text('Delete All')),
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete All'),
+          ),
         ],
       ),
     );
@@ -180,7 +183,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Data & Backup'),
-                        subtitle: const Text('Protect and restore your saved knowledge'),
+                        subtitle: const Text(
+                          'Protect and restore your saved knowledge',
+                        ),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => context.push('/settings/data-backup'),
                       ),
@@ -196,9 +201,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: Text(
                           'Permanently delete all saved links',
                           style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         onTap: _clearData,
@@ -251,10 +256,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           subtitle: const Text('Local dev override'),
                           value:
                               ref.watch(devProOverrideProvider).valueOrNull ??
-                                  false,
-                          onChanged: ref
-                                  .watch(devProOverrideProvider)
-                                  .isLoading
+                              false,
+                          onChanged: ref.watch(devProOverrideProvider).isLoading
                               ? null
                               : (v) {
                                   ref
@@ -271,9 +274,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           onTap: () async {
                             final messenger = ScaffoldMessenger.of(context);
                             await ref.read(usageServiceProvider).resetAll();
-                            ref
-                                .read(usageRevisionProvider.notifier)
-                                .state++;
+                            ref.read(usageRevisionProvider.notifier).state++;
                             if (mounted) {
                               messenger
                                 ..hideCurrentSnackBar()
@@ -295,9 +296,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           subtitle: const Text('Simulate empty library'),
                           value: ref.watch(forceEmptyLibraryProvider),
                           onChanged: (v) {
-                            ref
-                                .read(forceEmptyLibraryProvider.notifier)
-                                .set(v);
+                            ref.read(forceEmptyLibraryProvider.notifier).set(v);
                           },
                         ),
                         const Divider(height: 1),
@@ -307,14 +306,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           subtitle: const Text('Test first-save animation'),
                           value: ref.watch(simulateFirstSaveProvider),
                           onChanged: (v) {
-                            ref
-                                .read(simulateFirstSaveProvider.notifier)
-                                .set(v);
+                            ref.read(simulateFirstSaveProvider.notifier).set(v);
                             if (!v) {
                               ref
-                                  .read(hasSimulatedFirstSaveInSessionProvider
-                                      .notifier)
-                                  .state = false;
+                                      .read(
+                                        hasSimulatedFirstSaveInSessionProvider
+                                            .notifier,
+                                      )
+                                      .state =
+                                  false;
                             }
                           },
                         ),
@@ -322,8 +322,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Reset Onboarding'),
-                          subtitle:
-                              const Text('Show onboarding on next launch'),
+                          subtitle: const Text(
+                            'Show onboarding on next launch',
+                          ),
                           trailing: const Icon(Icons.replay),
                           onTap: () async {
                             final messenger = ScaffoldMessenger.of(context);
@@ -331,9 +332,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 .read(hasSeenOnboardingProvider.notifier)
                                 .reset();
                             ref
-                                .read(hasSimulatedFirstSaveInSessionProvider
-                                    .notifier)
-                                .state = false;
+                                    .read(
+                                      hasSimulatedFirstSaveInSessionProvider
+                                          .notifier,
+                                    )
+                                    .state =
+                                false;
                             if (mounted) {
                               messenger
                                 ..hideCurrentSnackBar()
@@ -351,22 +355,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Reset First Save Celebration'),
-                          subtitle:
-                              const Text('Re-enable first-save celebration'),
+                          subtitle: const Text(
+                            'Re-enable first-save celebration',
+                          ),
                           trailing: const Icon(Icons.celebration_outlined),
                           onTap: () async {
                             final messenger = ScaffoldMessenger.of(context);
                             await ref
                                 .read(
-                                    hasShownFirstSaveCelebrationProvider.notifier)
+                                  hasShownFirstSaveCelebrationProvider.notifier,
+                                )
                                 .reset();
                             if (mounted) {
                               messenger
                                 ..hideCurrentSnackBar()
                                 ..showSnackBar(
                                   const SnackBar(
-                                    content:
-                                        Text('First save celebration reset'),
+                                    content: Text(
+                                      'First save celebration reset',
+                                    ),
                                     behavior: SnackBarBehavior.floating,
                                     duration: Duration(seconds: 3),
                                   ),
@@ -383,16 +390,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           onTap: () async {
                             final messenger = ScaffoldMessenger.of(context);
                             ref
-                                .read(hasSimulatedFirstSaveInSessionProvider
-                                    .notifier)
-                                .state = false;
+                                    .read(
+                                      hasSimulatedFirstSaveInSessionProvider
+                                          .notifier,
+                                    )
+                                    .state =
+                                false;
                             if (mounted) {
                               messenger
                                 ..hideCurrentSnackBar()
                                 ..showSnackBar(
                                   const SnackBar(
-                                    content:
-                                        Text('First save simulation reset'),
+                                    content: Text(
+                                      'First save simulation reset',
+                                    ),
                                     behavior: SnackBarBehavior.floating,
                                     duration: Duration(seconds: 3),
                                   ),
@@ -457,10 +468,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
         onSubmitted: (_) => _close(_controller.text),
       ),
       actions: [
-        TextButton(
-          onPressed: () => _close(null),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => _close(null), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => _close(_controller.text),
           child: const Text('Save'),
@@ -488,7 +496,10 @@ class _SwipeActionsSettings extends ConsumerWidget {
           label: 'Left swipe',
           value: prefs.leftSwipeAction,
           onTap: () async {
-            final action = await _pickSwipeAction(context, prefs.leftSwipeAction);
+            final action = await _pickSwipeAction(
+              context,
+              prefs.leftSwipeAction,
+            );
             if (action != null) {
               await ref.read(swipePreferencesProvider.notifier).setLeft(action);
             }
@@ -500,10 +511,14 @@ class _SwipeActionsSettings extends ConsumerWidget {
           label: 'Right swipe',
           value: prefs.rightSwipeAction,
           onTap: () async {
-            final action =
-                await _pickSwipeAction(context, prefs.rightSwipeAction);
+            final action = await _pickSwipeAction(
+              context,
+              prefs.rightSwipeAction,
+            );
             if (action != null) {
-              await ref.read(swipePreferencesProvider.notifier).setRight(action);
+              await ref
+                  .read(swipePreferencesProvider.notifier)
+                  .setRight(action);
             }
           },
           colorScheme: cs,
@@ -630,10 +645,10 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: cs.primary,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-          ),
+        color: cs.primary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.2,
+      ),
     );
   }
 }
@@ -648,9 +663,9 @@ class _SubsectionHeader extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: cs.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
+        color: cs.onSurfaceVariant,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }
@@ -724,8 +739,7 @@ class _DigestTestingContent extends ConsumerStatefulWidget {
       _DigestTestingContentState();
 }
 
-class _DigestTestingContentState
-    extends ConsumerState<_DigestTestingContent> {
+class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
   bool _testing = false;
   String _testType = 'A';
   String? _previewTitle;
@@ -847,11 +861,15 @@ class _DigestTestingContentState
             ),
           ),
           items: _testTypes.entries
-              .map((e) => DropdownMenuItem(
-                    value: e.key,
-                    child: Text('${e.key} — ${e.value}',
-                        style: const TextStyle(fontSize: 14)),
-                  ))
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e.key,
+                  child: Text(
+                    '${e.key} — ${e.value}',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              )
               .toList(),
           onChanged: (v) {
             if (v != null) {
@@ -935,9 +953,7 @@ class _DigestTestingContentState
             _lastRun!,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: cs.outline,
-            ),
+            style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
           ),
       ],
     );
@@ -956,13 +972,17 @@ class _StatusChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('$label ',
-            style: theme.textTheme.labelSmall?.copyWith(color: cs.outline)),
-        Text(value,
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
-            )),
+        Text(
+          '$label ',
+          style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: cs.onSurface,
+          ),
+        ),
       ],
     );
   }

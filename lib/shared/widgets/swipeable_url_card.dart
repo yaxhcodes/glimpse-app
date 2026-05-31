@@ -24,16 +24,28 @@ class SwipeableUrlCard extends ConsumerWidget {
     this.onDelete,
     this.onChanged,
     this.onViewPinned,
+    this.selectionMode = false,
+    this.isSelected = false,
+    this.onSelectionStart,
+    this.onSelectionToggle,
   });
 
   final SavedUrl url;
   final VoidCallback? onTap;
   final SwipeActionType? leftSwipeAction;
   final SwipeActionType? rightSwipeAction;
-  final Future<void> Function(BuildContext context, WidgetRef ref, SavedUrl url)?
-      onDelete;
+  final Future<void> Function(
+    BuildContext context,
+    WidgetRef ref,
+    SavedUrl url,
+  )?
+  onDelete;
   final VoidCallback? onChanged;
   final VoidCallback? onViewPinned;
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback? onSelectionStart;
+  final VoidCallback? onSelectionToggle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,6 +53,18 @@ class SwipeableUrlCard extends ConsumerWidget {
     final pinnedIds = ref.watch(pinnedUrlsProvider);
     final left = leftSwipeAction ?? prefs.leftSwipeAction;
     final right = rightSwipeAction ?? prefs.rightSwipeAction;
+
+    final card = UrlCard(
+      savedUrl: url,
+      isPinned: pinnedIds.contains(url.id),
+      selectionMode: selectionMode,
+      isSelected: isSelected,
+      onSelectionTap: onSelectionToggle,
+      onLongPress: selectionMode ? onSelectionToggle : onSelectionStart,
+      onTap: onTap,
+    );
+
+    if (selectionMode) return card;
 
     return PremiumSwipeCard(
       leftSwipeAction: left,
@@ -51,11 +75,7 @@ class SwipeableUrlCard extends ConsumerWidget {
         final delete = onDelete ?? deleteUrlWithUndo;
         await delete(context, ref, url);
       },
-      child: UrlCard(
-        savedUrl: url,
-        isPinned: pinnedIds.contains(url.id),
-        onTap: onTap,
-      ),
+      child: card,
     );
   }
 

@@ -7,8 +7,8 @@ import 'package:flutter/services.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
 
 typedef SwipeActionCallback = FutureOr<bool> Function(SwipeActionType action);
-typedef SwipeDismissedCallback = FutureOr<void> Function(
-    SwipeActionType action);
+typedef SwipeDismissedCallback =
+    FutureOr<void> Function(SwipeActionType action);
 
 class PremiumSwipeCard extends StatefulWidget {
   const PremiumSwipeCard({
@@ -57,16 +57,17 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 180),
-    )..addListener(() {
-        if (!mounted) return;
-        setState(() {
-          _offset = _offsetAnimation?.value ?? _offset;
-          _opacity = _opacityAnimation?.value ?? _opacity;
+    _controller =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 180),
+        )..addListener(() {
+          if (!mounted) return;
+          setState(() {
+            _offset = _offsetAnimation?.value ?? _offset;
+            _opacity = _opacityAnimation?.value ?? _opacity;
+          });
         });
-      });
   }
 
   @override
@@ -239,8 +240,9 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
         final width = constraints.maxWidth > 0
             ? constraints.maxWidth
             : MediaQuery.of(context).size.width;
-        final progress =
-            width <= 0 ? 0.0 : (_offset.abs() / width).clamp(0.0, 1.0).toDouble();
+        final progress = width <= 0
+            ? 0.0
+            : (_offset.abs() / width).clamp(0.0, 1.0).toDouble();
         final sign = _offset == 0 ? 0.0 : _offset.sign;
         final action = _actionForOffset(_offset);
         final easedProgress = Curves.easeOutCubic.transform(progress);
@@ -253,10 +255,7 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
             offset: Offset(_offset, 0),
             child: Transform.rotate(
               angle: rotation,
-              child: Transform.scale(
-                scale: scale,
-                child: widget.child,
-              ),
+              child: Transform.scale(scale: scale, child: widget.child),
             ),
           ),
         );
@@ -322,14 +321,12 @@ class _SwipeRevealSurface extends StatelessWidget {
       borderRadius: borderRadius,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            tint.withValues(alpha: alpha),
-            cs.surface,
-          ),
+          color: Color.alphaBlend(tint.withValues(alpha: alpha), cs.surface),
         ),
         child: Align(
-          alignment:
-              revealFromRight ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: revealFromRight
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
           child: Padding(
             padding: EdgeInsets.only(
               left: revealFromRight ? 0 : 28,

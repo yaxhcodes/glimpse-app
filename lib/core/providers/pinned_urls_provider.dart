@@ -4,10 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 const int maxPinnedUrls = 5;
 const _kPinnedUrlIdsKey = 'glimpse_pinned_url_ids';
 
-final pinnedUrlsProvider =
-    StateNotifierProvider<PinnedUrlsNotifier, List<int>>((ref) {
-  return PinnedUrlsNotifier();
-});
+final pinnedUrlsProvider = StateNotifierProvider<PinnedUrlsNotifier, List<int>>(
+  (ref) {
+    return PinnedUrlsNotifier();
+  },
+);
 
 class PinnedUrlsNotifier extends StateNotifier<List<int>> {
   PinnedUrlsNotifier() : super(const []) {

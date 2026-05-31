@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/config/app_environment.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/category_order_provider.dart';
@@ -16,6 +17,7 @@ import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/utils/url_extractor.dart';
 import '../../shared/widgets/url_card.dart';
+import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../core/constants/app_assets.dart';
@@ -109,7 +111,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Detect first save BEFORE the save completes.
     final simulateFirstSave = ref.read(simulateFirstSaveProvider);
-    final hasSimulatedInSession = ref.read(hasSimulatedFirstSaveInSessionProvider);
+    final hasSimulatedInSession = ref.read(
+      hasSimulatedFirstSaveInSessionProvider,
+    );
 
     bool isFirstSave;
     if (simulateFirstSave && !hasSimulatedInSession) {
@@ -117,7 +121,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       isFirstSave = true;
     } else {
       final currentUrls = ref.read(urlStreamProvider).valueOrNull ?? [];
-      isFirstSave = currentUrls.isEmpty &&
+      isFirstSave =
+          currentUrls.isEmpty &&
           !(ref.read(hasShownFirstSaveCelebrationProvider));
     }
 
@@ -149,10 +154,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (isFirstSave) {
         // ── First-save celebration ──
         final simulateFirstSave = ref.read(simulateFirstSaveProvider);
-        final hasSimulatedInSession = ref.read(hasSimulatedFirstSaveInSessionProvider);
+        final hasSimulatedInSession = ref.read(
+          hasSimulatedFirstSaveInSessionProvider,
+        );
 
         if (simulateFirstSave && !hasSimulatedInSession) {
-          ref.read(hasSimulatedFirstSaveInSessionProvider.notifier).state = true;
+          ref.read(hasSimulatedFirstSaveInSessionProvider.notifier).state =
+              true;
         }
 
         setState(() {
@@ -160,7 +168,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         });
 
         if (!simulateFirstSave) {
-          await ref.read(hasShownFirstSaveCelebrationProvider.notifier).set(true);
+          await ref
+              .read(hasShownFirstSaveCelebrationProvider.notifier)
+              .set(true);
         }
 
         // Let the user see the saved card settle, then return to the real Home.
@@ -273,7 +283,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final urlsAsync = ref.watch(displayedUrlsProvider);
     final orderedCategories = ref.watch(orderedCategoriesProvider);
     final addUrlStatus = ref.watch(addUrlProvider.select((s) => s.status));
-    final isAddingUrl = addUrlStatus != AddUrlStatus.idle &&
+    final isAddingUrl =
+        addUrlStatus != AddUrlStatus.idle &&
         addUrlStatus != AddUrlStatus.done &&
         addUrlStatus != AddUrlStatus.error;
     final theme = Theme.of(context);
@@ -351,7 +362,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           if (isEmptyOrCelebrating) {
             return _buildEmptyState(
-                context, urls, theme, colorScheme, textTheme);
+              context,
+              urls,
+              theme,
+              colorScheme,
+              textTheme,
+            );
           }
 
           return _buildContentState(
@@ -441,9 +457,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _isCelebratingFirstSave && urls.isNotEmpty
                             ? 'Your first saved item is ready below.'
                             : 'Glimpse organizes it, so you don\'t have to.',
-                        key: ValueKey(_isCelebratingFirstSave && urls.isNotEmpty
-                            ? 'sub_success'
-                            : 'sub_empty'),
+                        key: ValueKey(
+                          _isCelebratingFirstSave && urls.isNotEmpty
+                              ? 'sub_success'
+                              : 'sub_empty',
+                        ),
                         style: textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                           height: 1.45,
@@ -484,7 +502,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       )
                     else
                       _SaveButton(
-                          onPressed: _inputValid ? _saveFromInput : null),
+                        onPressed: _inputValid ? _saveFromInput : null,
+                      ),
                   ],
                 ),
               ),
@@ -505,9 +524,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required List<SavedUrl> actualUrls,
     required bool isAddingUrl,
   }) {
+    const selectionScope = 'home';
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
     final startOfWeek = startOfToday.subtract(const Duration(days: 7));
+    final selectionState = ref.watch(bulkSelectionProvider(selectionScope));
+    final selectionNotifier = ref.read(
+      bulkSelectionProvider(selectionScope).notifier,
+    );
     final pinnedIds = ref.watch(pinnedUrlsProvider);
     final existingIds = urls.map((url) => url.id).toSet();
     final stalePinnedIds = pinnedIds.any((id) => !existingIds.contains(id));
@@ -523,15 +547,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (byId[id] != null) byId[id]!,
     ];
     final pinnedSet = pinnedUrls.map((url) => url.id).toSet();
-    final regularUrls =
-        urls.where((url) => !pinnedSet.contains(url.id)).toList();
+    final regularUrls = urls
+        .where((url) => !pinnedSet.contains(url.id))
+        .toList();
 
-    final todayUrls =
-        regularUrls.where((u) => u.savedAt.isAfter(startOfToday)).toList();
-    final weekUrls = regularUrls.where((u) =>
-        u.savedAt.isAfter(startOfWeek) && !u.savedAt.isAfter(startOfToday)).toList();
-    final earlierUrls =
-        regularUrls.where((u) => !u.savedAt.isAfter(startOfWeek)).toList();
+    final todayUrls = regularUrls
+        .where((u) => u.savedAt.isAfter(startOfToday))
+        .toList();
+    final weekUrls = regularUrls
+        .where(
+          (u) =>
+              u.savedAt.isAfter(startOfWeek) &&
+              !u.savedAt.isAfter(startOfToday),
+        )
+        .toList();
+    final earlierUrls = regularUrls
+        .where((u) => !u.savedAt.isAfter(startOfWeek))
+        .toList();
 
     final sections = <_Section>[
       if (pinnedUrls.isNotEmpty) _Section('Pinned', pinnedUrls),
@@ -541,6 +573,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
 
     final isEmpty = urls.isEmpty;
+    final selectedUrls = urls
+        .where((url) => selectionState.selectedIds.contains(url.id))
+        .toList();
+    if (selectionState.enabled && selectedUrls.length != selectionState.count) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        selectionNotifier.pruneToVisible(urls.map((url) => url.id));
+      });
+    }
 
     return Stack(
       children: [
@@ -562,42 +603,100 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 centerTitle: false,
                 backgroundColor: theme.colorScheme.surface,
                 foregroundColor: theme.colorScheme.onSurfaceVariant,
-                title: _buildGlimpseTitle(context),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.add_link_rounded),
-                    tooltip: 'Add URL',
-                    onPressed: () => context.push('/add'),
-                  ),
-                  if (!isEmpty)
-                    IconButton(
-                      icon: Badge.count(
-                        count: _unreadDigests,
-                        maxCount: 9,
-                        isLabelVisible: _unreadDigests > 0,
-                        largeSize: 18,
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        textStyle: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          height: 1.0,
+                leading: selectionState.isActive
+                    ? IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        tooltip: 'Exit selection',
+                        onPressed: selectionNotifier.clear,
+                      )
+                    : null,
+                title: selectionState.isActive
+                    ? BulkSelectionTitle(count: selectedUrls.length)
+                    : _buildGlimpseTitle(context),
+                actions: selectionState.isActive
+                    ? [
+                        BulkSelectionActionButtons(
+                          scope: selectionScope,
+                          selectedUrls: selectedUrls,
+                          visibleUrls: urls,
+                          onDone: selectionNotifier.clear,
+                          onViewPinned: () {
+                            _scrollController.animateTo(
+                              0,
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeOutCubic,
+                            );
+                          },
                         ),
-                        child: const Icon(Icons.notifications_outlined),
-                      ),
-                      tooltip: 'Notifications',
-                      onPressed: () async {
-                        await context.push('/notifications');
-                        _refreshUnreadBadge();
-                      },
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.settings_outlined),
-                    tooltip: 'Settings',
-                    onPressed: () => context.push('/settings'),
-                  ),
-                ],
+                      ]
+                    : [
+                        IconButton(
+                          icon: const Icon(Icons.add_link_rounded),
+                          tooltip: 'Add URL',
+                          onPressed: () => context.push('/add'),
+                        ),
+                        if (!isEmpty)
+                          IconButton(
+                            icon: Badge.count(
+                              count: _unreadDigests,
+                              maxCount: 9,
+                              isLabelVisible: _unreadDigests > 0,
+                              largeSize: 18,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                height: 1.0,
+                              ),
+                              child: const Icon(Icons.notifications_outlined),
+                            ),
+                            tooltip: 'Notifications',
+                            onPressed: () async {
+                              await context.push('/notifications');
+                              _refreshUnreadBadge();
+                            },
+                          ),
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_horiz),
+                          onSelected: (value) {
+                            switch (value) {
+                              case 'select':
+                                if (urls.isNotEmpty) {
+                                  selectionNotifier.startWith(urls.first.id);
+                                }
+                                break;
+                              case 'settings':
+                                context.push('/settings');
+                                break;
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            if (!isEmpty)
+                              const PopupMenuItem(
+                                value: 'select',
+                                child: ListTile(
+                                  leading: Icon(Icons.check_circle_outline),
+                                  title: Text('Select'),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            const PopupMenuItem(
+                              value: 'settings',
+                              child: ListTile(
+                                leading: Icon(Icons.settings_outlined),
+                                title: Text('Settings'),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
               ),
-              if (!simulateFirstSave && !forceEmptyLibrary && actualUrls.isNotEmpty)
+              if (!simulateFirstSave &&
+                  !forceEmptyLibrary &&
+                  actualUrls.isNotEmpty)
                 const SliverToBoxAdapter(child: RediscoverySection()),
               if (orderedCategories.isNotEmpty)
                 SliverToBoxAdapter(
@@ -611,16 +710,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           borderRadius: BorderRadius.circular(8),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 0, vertical: 4),
+                              horizontal: 0,
+                              vertical: 4,
+                            ),
                             child: Row(
                               children: [
                                 Expanded(
                                   child: Text(
                                     'Filter by source',
-                                    style: theme.textTheme.labelMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: theme.textTheme.labelMedium
+                                        ?.copyWith(
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                   ),
                                 ),
                                 Icon(
@@ -642,7 +746,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           clipBehavior: Clip.none,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: orderedCategories.length.clamp(0, 10),
-                          separatorBuilder: (_, __) => const SizedBox(width: 6),
+                          separatorBuilder: (_, _) => const SizedBox(width: 6),
                           itemBuilder: (context, index) {
                             final cat = orderedCategories[index];
                             final name = cat['category'] as String;
@@ -659,21 +763,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           imageUrl: fav,
                                           width: 14,
                                           height: 14,
-                                          errorWidget: (_, _, _) =>
-                                              Text(emoji, style: const TextStyle(fontSize: 10)),
+                                          errorWidget: (_, _, _) => Text(
+                                            emoji,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
+                                          ),
                                         ),
                                       )
-                                    : Text(emoji, style: const TextStyle(fontSize: 10)),
+                                    : Text(
+                                        emoji,
+                                        style: const TextStyle(fontSize: 10),
+                                      ),
                                 label: Text(name),
                                 color: WidgetStatePropertyAll(
                                   theme.colorScheme.surfaceContainerLow,
                                 ),
-                                labelStyle: theme.textTheme.labelSmall?.copyWith(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0.1,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
+                                labelStyle: theme.textTheme.labelSmall
+                                    ?.copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.1,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
                                 backgroundColor:
                                     theme.colorScheme.surfaceContainerLow,
                                 side: BorderSide.none,
@@ -706,24 +818,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final url = section.urls[index];
-                      return SwipeableUrlCard(
-                        key: ValueKey(url.id),
-                        url: url,
-                        onTap: () => context.push('/url/${url.id}'),
-                        onViewPinned: () {
-                          _scrollController.animateTo(
-                            0,
-                            duration: const Duration(milliseconds: 260),
-                            curve: Curves.easeOutCubic,
-                          );
-                        },
-                      );
-                    },
-                    childCount: section.urls.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final url = section.urls[index];
+                    return SwipeableUrlCard(
+                      key: ValueKey(url.id),
+                      url: url,
+                      selectionMode: selectionState.isActive,
+                      isSelected: selectionState.isSelected(url.id),
+                      onSelectionStart: () =>
+                          selectionNotifier.startWith(url.id),
+                      onSelectionToggle: () => selectionNotifier.toggle(url.id),
+                      onTap: () => context.push('/url/${url.id}'),
+                      onViewPinned: () {
+                        _scrollController.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                        );
+                      },
+                    );
+                  }, childCount: section.urls.length),
                 ),
               ],
               const SliverToBoxAdapter(child: SizedBox(height: 96)),
@@ -745,10 +859,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Theme.of(context).colorScheme.scrim
-                          .withValues(alpha: 0.45),
-                      Theme.of(context).colorScheme.surface
-                          .withValues(alpha: 0),
+                      Theme.of(
+                        context,
+                      ).colorScheme.scrim.withValues(alpha: 0.45),
+                      Theme.of(
+                        context,
+                      ).colorScheme.surface.withValues(alpha: 0),
                     ],
                   ),
                 ),
@@ -805,8 +921,7 @@ class _CategoryReorderSheet extends ConsumerStatefulWidget {
       _CategoryReorderSheetState();
 }
 
-class _CategoryReorderSheetState
-    extends ConsumerState<_CategoryReorderSheet> {
+class _CategoryReorderSheetState extends ConsumerState<_CategoryReorderSheet> {
   Future<void> _deleteCategory(String name, int count) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -855,8 +970,7 @@ class _CategoryReorderSheetState
               padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
               child: Row(
                 children: [
-                  Text('Edit Categories',
-                      style: theme.textTheme.titleLarge),
+                  Text('Edit Categories', style: theme.textTheme.titleLarge),
                   const Spacer(),
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
@@ -870,7 +984,8 @@ class _CategoryReorderSheetState
               child: Text(
                 'Hold the handle to reorder · Tap 🗑️ to delete',
                 style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant),
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             Expanded(
@@ -900,26 +1015,28 @@ class _CategoryReorderSheetState
                                     width: 28,
                                     height: 28,
                                     errorWidget: (_, _, _) => Text(
-                                        emoji,
-                                        style: const TextStyle(
-                                            fontSize: 22)),
+                                      emoji,
+                                      style: const TextStyle(fontSize: 22),
+                                    ),
                                   ),
                                 )
-                              : Text(emoji,
-                                  style:
-                                      const TextStyle(fontSize: 22)),
+                              : Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 22),
+                                ),
                           title: Text(name),
                           subtitle: Text(
-                              '$count ${count == 1 ? 'link' : 'links'}'),
+                            '$count ${count == 1 ? 'link' : 'links'}',
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: Icon(Icons.delete_outline,
-                                    color:
-                                        theme.colorScheme.error),
-                                onPressed: () =>
-                                    _deleteCategory(name, count),
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: theme.colorScheme.error,
+                                ),
+                                onPressed: () => _deleteCategory(name, count),
                               ),
                               ReorderableDragStartListener(
                                 index: index,
@@ -972,13 +1089,9 @@ class _SaveButton extends StatelessWidget {
       onPressed: onPressed,
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(52),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-        disabledBackgroundColor:
-            colorScheme.onSurface.withValues(alpha: 0.08),
-        disabledForegroundColor:
-            colorScheme.onSurface.withValues(alpha: 0.35),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        disabledBackgroundColor: colorScheme.onSurface.withValues(alpha: 0.08),
+        disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.35),
       ),
       child: const Text('Save to Glimpse'),
     );
@@ -1007,9 +1120,7 @@ class _ClipboardSuggestion extends StatelessWidget {
       color: colorScheme.secondaryContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: colorScheme.secondaryContainer,
-        ),
+        side: BorderSide(color: colorScheme.secondaryContainer),
       ),
       child: InkWell(
         onTap: onTap,
@@ -1033,8 +1144,9 @@ class _ClipboardSuggestion extends StatelessWidget {
                     Text(
                       displayUrl,
                       style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSecondaryContainer
-                            .withValues(alpha: 0.7),
+                        color: colorScheme.onSecondaryContainer.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1046,15 +1158,13 @@ class _ClipboardSuggestion extends StatelessWidget {
                 icon: Icon(
                   Icons.close,
                   size: 16,
-                  color:
-                      colorScheme.onSecondaryContainer.withValues(alpha: 0.7),
+                  color: colorScheme.onSecondaryContainer.withValues(
+                    alpha: 0.7,
+                  ),
                 ),
                 onPressed: onDismiss,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 28,
-                  minHeight: 28,
-                ),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
             ],
           ),
@@ -1102,9 +1212,7 @@ class _InlineSaveInput extends StatelessWidget {
         border: Border.all(
           color: pulse
               ? colorScheme.outline
-              : (isError
-                  ? colorScheme.error
-                  : colorScheme.outlineVariant),
+              : (isError ? colorScheme.error : colorScheme.outlineVariant),
           width: isError ? 1.5 : 1,
         ),
       ),
@@ -1117,7 +1225,10 @@ class _InlineSaveInput extends StatelessWidget {
               opacity: animation,
               child: ScaleTransition(
                 scale: Tween<double>(begin: 0.98, end: 1.0).animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
                 ),
                 child: child,
               ),
@@ -1171,10 +1282,7 @@ class _InlineSaveInput extends StatelessWidget {
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
         filled: false,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
@@ -1277,10 +1385,7 @@ class _ProcessingDotsState extends State<_ProcessingDots>
         final dots = '.' * (phase + 1);
         return Text(
           dots,
-          style: TextStyle(
-            color: widget.color,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: widget.color, fontWeight: FontWeight.w600),
         );
       },
     );
@@ -1311,13 +1416,17 @@ class _PulseContainerState extends State<_PulseContainer>
     );
     _scale = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.05)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: 1.0,
+          end: 1.05,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 50,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.05, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween(
+          begin: 1.05,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
         weight: 50,
       ),
     ]).animate(_controller);
@@ -1338,10 +1447,7 @@ class _PulseContainerState extends State<_PulseContainer>
     return AnimatedBuilder(
       animation: _scale,
       builder: (context, child) {
-        return Transform.scale(
-          scale: _scale.value,
-          child: widget.child,
-        );
+        return Transform.scale(scale: _scale.value, child: widget.child);
       },
     );
   }
@@ -1379,17 +1485,20 @@ class _FirstSaveCelebrationCardState extends State<_FirstSaveCelebrationCard>
       duration: const Duration(milliseconds: 250),
     );
 
-    _scale = Tween<double>(begin: 0.95, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _scale = Tween<double>(
+      begin: 0.95,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
-    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _opacity = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    _slide = Tween<double>(begin: 12.0, end: 0.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _slide = Tween<double>(
+      begin: 12.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _controller.forward();
   }
@@ -1405,10 +1514,7 @@ class _FirstSaveCelebrationCardState extends State<_FirstSaveCelebrationCard>
     final reduceMotion = MediaQuery.of(context).accessibleNavigation;
     final colorScheme = Theme.of(context).colorScheme;
 
-    Widget card = UrlCard(
-      savedUrl: widget.url,
-      onTap: widget.onTap,
-    );
+    Widget card = UrlCard(savedUrl: widget.url, onTap: widget.onTap);
 
     if (widget.showGlow && !reduceMotion) {
       card = AnimatedContainer(
@@ -1436,10 +1542,7 @@ class _FirstSaveCelebrationCardState extends State<_FirstSaveCelebrationCard>
         builder: (context, child) {
           return Transform.translate(
             offset: Offset(0, _slide.value),
-            child: ScaleTransition(
-              scale: _scale,
-              child: child,
-            ),
+            child: ScaleTransition(scale: _scale, child: child),
           );
         },
         child: card,
