@@ -278,6 +278,19 @@ class TranscriptEnrichmentService {
         RegExp(r'/(reel|reels|p)/').hasMatch(uri.path);
   }
 
+  /// Reads only local transcript enrichment cache. This never calls the backend.
+  static Future<TranscriptEnrichmentResult?> cachedResultForUrl(
+    String rawUrl,
+  ) async {
+    final cached = _memoryCache[rawUrl];
+    if (cached != null) return cached;
+    final persisted = await _readPersisted(rawUrl);
+    if (persisted != null) {
+      _memoryCache[rawUrl] = persisted;
+    }
+    return persisted;
+  }
+
   Future<TranscriptEnrichmentResult?> enrichUrl({
     required String rawUrl,
     required String title,
@@ -423,7 +436,13 @@ class TranscriptEnrichmentService {
       for (final item in entities) {
         if (item is! Map) continue;
         final type = _cleanText(item['type']).toLowerCase();
-        if (type != 'movie' && type != 'book' && type != 'place') continue;
+        if (type != 'movie' &&
+            type != 'book' &&
+            type != 'place' &&
+            type != 'product' &&
+            type != 'person') {
+          continue;
+        }
         final title = _cleanText(item['name'] ?? item['title']);
         if (title.isEmpty) continue;
         final key = _mentionKey(title);

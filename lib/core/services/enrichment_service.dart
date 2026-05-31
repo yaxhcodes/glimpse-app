@@ -14,6 +14,7 @@ import 'gemini_service.dart';
 import 'link_preview_service.dart';
 import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
+import 'title_resolver.dart';
 import 'transcript_enrichment_service.dart';
 import 'usage_service.dart';
 
@@ -102,6 +103,7 @@ class EnrichmentService {
   }) async {
     try {
       await _enrichAi(urlId, force: forceAi, countUsage: countAiUsage);
+      _onEnriched?.call();
     } catch (e, st) {
       developer.log('enrichSingle AI phase failed for $urlId: $e',
           name: 'Enrichment', stackTrace: st);
@@ -330,7 +332,9 @@ class EnrichmentService {
       primaryCategory: category,
       platformCategory: platformCat.category,
     );
-    if (enrichedTitle != null && _shouldReplaceTitle(freshUrl.title, freshUrl.domain)) {
+    if (enrichedTitle != null &&
+        !TitleResolver.isLowSignalTitle(enrichedTitle, domain: freshUrl.domain) &&
+        freshUrl.title != enrichedTitle) {
       freshUrl.title = enrichedTitle;
     }
     if (enrichedThumbnailUrl != null && enrichedThumbnailUrl.isNotEmpty) {
@@ -381,14 +385,6 @@ class EnrichmentService {
       return 'Saved item titled "$title". Add notes or refresh metadata for a richer summary.';
     }
     return null;
-  }
-
-  bool _shouldReplaceTitle(String currentTitle, String domain) {
-    final lower = currentTitle.trim().toLowerCase();
-    if (lower.isEmpty || lower == domain.toLowerCase()) return true;
-    if (lower == 'instagram' || lower == 'instagram reel') return true;
-    if (RegExp(r'^(x[0-9a-f]{2,}\s*[·-]?\s*)+$').hasMatch(lower)) return true;
-    return lower.contains('on instagram') || lower.startsWith('www.instagram.com');
   }
 
   String _cleanDisplayText(String text) {

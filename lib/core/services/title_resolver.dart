@@ -7,6 +7,29 @@ class TitleResolver {
 
   static final _nameThenSep = RegExp(r'^[A-Z][a-z]+\s[\|•·]');
   static final _ampersandName = RegExp(r'\b&\s+[A-Z][a-z]+\b');
+  static final _hexEntity = RegExp(r'&#x[0-9a-fA-F]+;');
+  static final _rawDomain = RegExp(
+    r'^(?:https?://)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:/.*)?$',
+    caseSensitive: false,
+  );
+  static final _socialStatsTitle = RegExp(
+    r'\b\d+(?:[.,]\d+)?\s*[km]?\s+(?:likes?|comments?|views?)\b',
+    caseSensitive: false,
+  );
+  static const _lowSignalTitles = {
+    'instagram',
+    'instagram reel',
+    'reel',
+    'video',
+    'post',
+    'photo',
+    'article',
+    'untitled',
+    'home',
+    'x',
+    'twitter',
+    'facebook',
+  };
 
   static String resolve(
     SavedUrl link, {
@@ -23,7 +46,9 @@ class TitleResolver {
       candidateTitle = _extractTweetTitle(rawTitle);
     }
 
-    if (candidateTitle.isNotEmpty && !isCreatorHandle(candidateTitle)) {
+    if (candidateTitle.isNotEmpty &&
+        !isCreatorHandle(candidateTitle) &&
+        !isLowSignalTitle(candidateTitle, domain: link.domain)) {
       return candidateTitle;
     }
 
@@ -34,6 +59,57 @@ class TitleResolver {
     if (fromSummary != null) return fromSummary;
 
     return _cleanDomain(link.domain);
+  }
+
+  /// Decides when a richer AI/transcript title should become the stored title.
+  ///
+  /// Home cards and detail pages both resolve from [SavedUrl.title], so the
+  /// enrichment pipeline must be willing to replace noisy platform metadata
+  /// instead of letting detail-only live results drift away from the library.
+  static bool shouldPreferEnrichedTitle({
+    required String currentTitle,
+    required String candidateTitle,
+    required String domain,
+    required String rawUrl,
+  }) {
+    final current = collapseWhitespace(currentTitle);
+    final candidate = collapseWhitespace(candidateTitle);
+    if (candidate.isEmpty || isLowSignalTitle(candidate, domain: domain)) {
+      return false;
+    }
+    if (current == candidate) return false;
+    if (isLowSignalTitle(current, domain: domain)) return true;
+    if (isCreatorHandle(current)) return true;
+
+    if (_isShortFormOrSocialUrl(rawUrl, domain)) {
+      final currentWords = _wordCount(current);
+      final candidateWords = _wordCount(candidate);
+      final hasSemanticSeparator =
+          candidate.contains(' · ') || candidate.contains(' • ');
+      return hasSemanticSeparator || candidateWords >= currentWords;
+    }
+
+    return false;
+  }
+
+  static bool isLowSignalTitle(String title, {String? domain}) {
+    final t = collapseWhitespace(title);
+    if (t.isEmpty) return true;
+    final lower = t.toLowerCase();
+    final cleanDomain = (domain ?? '').trim().toLowerCase();
+    if (cleanDomain.isNotEmpty && lower == cleanDomain) return true;
+    if (_lowSignalTitles.contains(lower)) return true;
+    if (_rawDomain.hasMatch(lower)) return true;
+    if (_hexEntity.hasMatch(t)) return true;
+    if (RegExp(r'^(x[0-9a-f]{2,}\s*[·-]?\s*)+$').hasMatch(lower)) {
+      return true;
+    }
+    if (_socialStatsTitle.hasMatch(t)) return true;
+    if (lower.startsWith('www.instagram.com') ||
+        lower.contains('on instagram')) {
+      return true;
+    }
+    return false;
   }
 
   static bool isCreatorHandle(String title) {
@@ -130,6 +206,41 @@ class TitleResolver {
         host == 'x.com' ||
         host.endsWith('.twitter.com') ||
         host.endsWith('.x.com');
+  }
+
+  static bool _isShortFormOrSocialUrl(String rawUrl, String domain) {
+    final host = _hostFrom(rawUrl).isNotEmpty
+        ? _hostFrom(rawUrl)
+        : domain.trim().toLowerCase();
+    if (host.isEmpty) return false;
+    return host == 'instagram.com' ||
+        host.endsWith('.instagram.com') ||
+        host == 'tiktok.com' ||
+        host.endsWith('.tiktok.com') ||
+        host == 'youtube.com' ||
+        host.endsWith('.youtube.com') ||
+        host == 'youtu.be' ||
+        host == 'x.com' ||
+        host.endsWith('.x.com') ||
+        host == 'twitter.com' ||
+        host.endsWith('.twitter.com');
+  }
+
+  static String _hostFrom(String rawUrl) {
+    try {
+      var host = Uri.parse(rawUrl).host.toLowerCase();
+      if (host.startsWith('www.')) host = host.substring(4);
+      return host;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static int _wordCount(String text) {
+    return text
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty)
+        .length;
   }
 
   /// X/Twitter: headline before a blank line, else first sentence / truncation.

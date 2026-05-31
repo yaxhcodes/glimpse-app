@@ -6,6 +6,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
+import '../../core/services/transcript_enrichment_service.dart';
 import '../../features/home/home_provider.dart';
 import 'link_card_thumbnail.dart';
 
@@ -154,6 +155,42 @@ class UrlCard extends ConsumerStatefulWidget {
 }
 
 class _UrlCardState extends ConsumerState<UrlCard> {
+  String? _cachedTranscriptUrl;
+  String? _cachedTranscriptTitle;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedTranscriptTitle();
+  }
+
+  @override
+  void didUpdateWidget(covariant UrlCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.savedUrl.rawUrl != widget.savedUrl.rawUrl ||
+        oldWidget.savedUrl.title != widget.savedUrl.title) {
+      _cachedTranscriptUrl = null;
+      _cachedTranscriptTitle = null;
+      _loadCachedTranscriptTitle();
+    }
+  }
+
+  Future<void> _loadCachedTranscriptTitle() async {
+    final rawUrl = widget.savedUrl.rawUrl;
+    if (!TranscriptEnrichmentService.supportsUrl(rawUrl)) return;
+    final result = await TranscriptEnrichmentService.cachedResultForUrl(rawUrl);
+    if (!mounted || widget.savedUrl.rawUrl != rawUrl) return;
+    final title = result?.meaningfulTitle.trim() ?? '';
+    if (title.isEmpty ||
+        TitleResolver.isLowSignalTitle(title, domain: widget.savedUrl.domain)) {
+      return;
+    }
+    setState(() {
+      _cachedTranscriptUrl = rawUrl;
+      _cachedTranscriptTitle = title;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -173,14 +210,18 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
         .toList();
 
+    final cachedTitle = _cachedTranscriptUrl == widget.savedUrl.rawUrl
+        ? _cachedTranscriptTitle?.trim() ?? ''
+        : '';
+    final titleSource = cachedTitle.isNotEmpty
+        ? cachedTitle
+        : TitleResolver.resolve(
+            widget.savedUrl,
+            tagFrequency: tagFreq,
+          );
     final resolvedTitle = TitleResolver.formatForCompactCard(
       widget.savedUrl,
-      TitleResolver.collapseWhitespace(
-        TitleResolver.resolve(
-          widget.savedUrl,
-          tagFrequency: tagFreq,
-        ),
-      ),
+      TitleResolver.collapseWhitespace(titleSource),
     );
     final chipData = TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
 

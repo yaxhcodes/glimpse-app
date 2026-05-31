@@ -16,7 +16,12 @@ import '../../core/services/text_cleaner.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/services/transcript_enrichment_service.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
+import '../../shared/widgets/content_recommendation_section.dart';
+import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/metadata_pill.dart';
+import '../../shared/widgets/section_header.dart';
+import '../../shared/widgets/tag_group.dart';
 import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
 import 'url_detail_provider.dart';
@@ -28,6 +33,61 @@ class UrlDetailScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<UrlDetailScreen> createState() => _UrlDetailScreenState();
+}
+
+class _DetailMetadata {
+  const _DetailMetadata({
+    this.likesLabel,
+    this.commentsLabel,
+    this.creatorUsername,
+  });
+
+  final String? likesLabel;
+  final String? commentsLabel;
+  final String? creatorUsername;
+
+  bool get hasStats => likesLabel != null || commentsLabel != null;
+  bool get hasSocialRow => hasStats || creatorUsername != null;
+}
+
+class _NoteSuggestionChip extends StatelessWidget {
+  const _NoteSuggestionChip({
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Material(
+      color: Colors.transparent,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.78),
+          width: 0.8,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
@@ -43,6 +103,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _descExpanded = false;
   bool _tagsExpanded = false;
   bool _showFullUrl = false;
+  bool _showExactSavedDate = false;
   String? _localNotesOverride;
   String? _transcriptEnrichmentUrl;
   DateTime? _lastTranscriptEnrichmentAttempt;
@@ -57,6 +118,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _showFullUrl = false;
       _descExpanded = false;
       _tagsExpanded = false;
+      _showExactSavedDate = false;
       _localNotesOverride = null;
       _transcriptEnrichmentUrl = null;
       _lastTranscriptEnrichmentAttempt = null;
@@ -201,6 +263,38 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     }
   }
 
+  void _scheduleNotesAutosave() {
+    if (!_notesEdited) {
+      setState(() => _notesEdited = true);
+    }
+    _notesTimer?.cancel();
+    _notesTimer = Timer(
+      const Duration(milliseconds: 1500),
+      _autoSaveNotes,
+    );
+  }
+
+  void _applyNoteSuggestion(String suggestion) {
+    final current = _notesController.text.trim();
+    final next = current.isEmpty
+        ? suggestion
+        : current
+                .toLowerCase()
+                .split('\n')
+                .map((line) => line.trim())
+                .contains(suggestion.toLowerCase())
+            ? current
+            : '$current\n$suggestion';
+
+    _notesController.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+    _localNotesOverride = next;
+    _scheduleNotesAutosave();
+    _notesFocusNode.requestFocus();
+  }
+
   Future<void> _deleteUrl() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -320,7 +414,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
 
     var changed = false;
-    if (title.isNotEmpty && url.title != title) {
+    if (title.isNotEmpty &&
+        !TitleResolver.isLowSignalTitle(title, domain: url.domain) &&
+        url.title != title) {
       url.title = title;
       changed = true;
     }
@@ -353,6 +449,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     await ref.read(isarServiceProvider).updateUrl(url);
     if (!mounted) return;
     ref.invalidate(urlDetailProvider(widget.urlId));
+    ref.invalidate(urlStreamProvider);
+    ref.invalidate(categoriesProvider);
     ref.invalidate(tagOccurrenceMapProvider);
   }
 
@@ -639,8 +737,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final live = _transcriptEnrichmentUrl == url.rawUrl
         ? _transcriptEnrichment
         : null;
-    final liveTitle = live?.meaningfulTitle.trim() ?? '';
+    final metadata = _extractDetailMetadata(
+      description: url.description,
+      creator: live?.creator,
+      rawUrl: url.rawUrl,
+    );
     final formattedDescription = _formatDescription(url.description);
+    final captionText = _stripHashtagsFromCaption(formattedDescription);
     final displaySourceName = CategoryResolver.displaySourceName(
       rawUrl: url.rawUrl,
       fallbackDomain: url.domain,
@@ -663,7 +766,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     final showImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
     final categoryLabel = url.category.trim();
-    final hasDescription = formattedDescription.isNotEmpty;
+    final hasCaption = captionText.isNotEmpty;
     const collapseTagsAt = 5;
     final showAllTags = _tagsExpanded || visibleTags.length <= collapseTagsAt;
     final displayedTags =
@@ -675,10 +778,24 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           : url.summary?.trim() ?? '',
     );
     final showSummary = summaryText.isNotEmpty &&
-        summaryText.toLowerCase() != formattedDescription.trim().toLowerCase();
+        summaryText.toLowerCase() != captionText.trim().toLowerCase();
+    final liveTitle = live?.meaningfulTitle.trim() ?? '';
+    final resolvedTitle = TitleResolver.resolve(url, tagFrequency: tagFreq);
+    final displayTitle =
+        liveTitle.isNotEmpty &&
+                !TitleResolver.isLowSignalTitle(liveTitle, domain: url.domain)
+            ? liveTitle
+            : resolvedTitle;
     final cleanedSummary = SummaryRewriter.clean(summaryText);
     final summaryDisplayText =
         cleanedSummary.isNotEmpty ? cleanedSummary : summaryText;
+    final noteSuggestions = _buildNoteSuggestions(
+      url: url,
+      live: live,
+      tags: visibleTags,
+      caption: captionText,
+      summary: summaryDisplayText,
+    );
     final bottomPad = MediaQuery.paddingOf(context).bottom + 28;
 
     return SliverToBoxAdapter(
@@ -748,9 +865,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
             // ── Title ───────────────────────────────────────────────────
             Text(
-              liveTitle.isNotEmpty
-                  ? liveTitle
-                  : TitleResolver.resolve(url, tagFrequency: tagFreq),
+              displayTitle,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
@@ -762,63 +877,31 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
             const SizedBox(height: 12),
 
-            // ── Metadata: source (favicon) · date — source not repeated in chips
-            Row(
-              children: [
-                _buildSourceLeadingIcon(url, displaySourceName, colorScheme),
-                const SizedBox(width: 6),
-                Text(
-                  displaySourceName,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.primary,
-                    fontSize: 13,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    '·',
-                    style: TextStyle(
-                      color: colorScheme.outline,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                Text(
-                  _formatDate(url.savedAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.outline,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
+            // ── Source ──────────────────────────────────────────────────
+            _buildSourceSavedRow(
+              url: url,
+              displaySourceName: displaySourceName,
+              colorScheme: colorScheme,
+              theme: theme,
             ),
-            const SizedBox(height: 10),
+
+            if (metadata.hasSocialRow) ...[
+              const SizedBox(height: 10),
+              _buildSocialMetricsRow(
+                metadata: metadata,
+                displaySourceName: displaySourceName,
+                theme: theme,
+                colorScheme: colorScheme,
+              ),
+            ],
+
+            SizedBox(height: metadata.hasSocialRow ? 8 : 10),
             _buildUrlAddressBlock(url, theme, colorScheme),
 
-            if (live?.recipe?.hasUsefulContent ?? false) ...[
-              const SizedBox(height: 16),
-              _buildRecipeSection(
-                recipe: live!.recipe!,
-                theme: theme,
-                colorScheme: colorScheme,
-              ),
-            ],
-
-            if (live?.mentions.isNotEmpty ?? false) ...[
-              const SizedBox(height: 16),
-              _buildMentionsSection(
-                mentions: live!.mentions,
-                theme: theme,
-                colorScheme: colorScheme,
-              ),
-            ],
-
-            // ── Description ─────────────────────────────────────────────
-            if (hasDescription) ...[
+            if (hasCaption) ...[
               const SizedBox(height: 16),
               _buildDescriptionSection(
-                description: formattedDescription,
+                description: captionText,
                 theme: theme,
                 colorScheme: colorScheme,
               ),
@@ -833,53 +916,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               ),
             ],
 
+            ..._buildEnrichmentSections(
+              live: live,
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
+
+            // ── Description ─────────────────────────────────────────────
             // ── Tags ────────────────────────────────────────────────────
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ...displayedTags.map((tag) => InputChip(
-                      label: Text(tag),
-                      backgroundColor: colorScheme.secondaryContainer,
-                      labelStyle: theme.textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSecondaryContainer,
-                      ),
-                      deleteIconColor: colorScheme.onSecondaryContainer,
-                      side: BorderSide.none,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                      onDeleted: () => _removeTag(url, tag),
-                    )),
-                if (!showAllTags && hiddenTagCount > 0)
-                  ActionChip(
-                    label: Text('+$hiddenTagCount'),
-                    backgroundColor: colorScheme.secondaryContainer,
-                    labelStyle: theme.textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                    ),
-                    side: BorderSide.none,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => setState(() => _tagsExpanded = true),
-                  ),
-                ActionChip(
-                  avatar: Icon(
-                    Icons.add,
-                    size: 16,
-                    color: colorScheme.onSecondaryContainer,
-                  ),
-                  label: const Text('Add tag'),
-                  backgroundColor: colorScheme.secondaryContainer,
-                  labelStyle: theme.textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSecondaryContainer,
-                  ),
-                  side: BorderSide(color: colorScheme.outline),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _addTag(url),
-                ),
-              ],
+            TagGroup(
+              tags: displayedTags,
+              hiddenCount: !showAllTags && hiddenTagCount > 0
+                  ? hiddenTagCount
+                  : 0,
+              onShowMore: () => setState(() => _tagsExpanded = true),
+              onDelete: (tag) => _removeTag(url, tag),
+              onAdd: () => _addTag(url),
             ),
 
             // ── Open / share (copy is on the URL row) ───────────────────
@@ -893,13 +946,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      'Notes',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.primary,
-                      ),
-                    ),
+                    SectionHeader(title: 'Notes', accent: colorScheme.primary),
                     const Spacer(),
                     if (_notesEdited)
                       TextButton(
@@ -913,51 +960,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 220),
-                  child: TextField(
-                    controller: _notesController,
-                    focusNode: _notesFocusNode,
-                    minLines: 3,
-                    maxLines: 10,
-                    keyboardType: TextInputType.multiline,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      height: 1.5,
-                      color: colorScheme.onSurface,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Add personal notes…',
-                      hintStyle: TextStyle(color: colorScheme.outline),
-                      filled: true,
-                      fillColor: colorScheme.surfaceContainerHigh,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onChanged: (_) {
-                      if (!_notesEdited) {
-                        setState(() => _notesEdited = true);
-                      }
-                      _notesTimer?.cancel();
-                      _notesTimer = Timer(
-                        const Duration(milliseconds: 1500),
-                        _autoSaveNotes,
-                      );
-                    },
-                  ),
+                _buildNotesComposer(
+                  theme: theme,
+                  colorScheme: colorScheme,
+                  suggestions: noteSuggestions,
                 ),
               ],
             ),
@@ -1081,37 +1087,251 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    return Container(
-      width: double.infinity,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title: 'Summary', accent: colorScheme.primary),
+        const SizedBox(height: 8),
+        Text(
+          summary,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            height: 1.5,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotesComposer({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required List<String> suggestions,
+  }) {
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+        color: colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(12),
       ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Summary',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.primary,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 160),
+              child: TextField(
+                controller: _notesController,
+                focusNode: _notesFocusNode,
+                minLines: 2,
+                maxLines: 8,
+                keyboardType: TextInputType.multiline,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.5,
+                  color: colorScheme.onSurface,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Add your thoughts…',
+                  hintStyle: TextStyle(color: colorScheme.outline),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                  border: InputBorder.none,
+                ),
+                onChanged: (_) => _scheduleNotesAutosave(),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            summary,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              height: 1.5,
-              color: colorScheme.onSurface,
-            ),
-          ),
-        ],
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: suggestions
+                    .map(
+                      (suggestion) => _NoteSuggestionChip(
+                        label: suggestion,
+                        onTap: () => _applyNoteSuggestion(suggestion),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildRecipeSection({
+  Widget _buildSocialMetricsRow({
+    required _DetailMetadata metadata,
+    required String displaySourceName,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final pills = <Widget>[
+      if (metadata.likesLabel != null)
+        MetadataPill(
+          value: metadata.likesLabel!,
+          icon: Icons.favorite_border_rounded,
+        ),
+      if (metadata.commentsLabel != null)
+        MetadataPill(
+          value: metadata.commentsLabel!,
+          icon: Icons.chat_bubble_outline_rounded,
+        ),
+      if (metadata.creatorUsername != null)
+        CreatorProfileLink(
+          username: metadata.creatorUsername!,
+          platform: displaySourceName,
+          accent: colorScheme.onSurfaceVariant,
+          compact: true,
+        ),
+    ];
+    if (pills.isEmpty) return const SizedBox.shrink();
+    return Wrap(spacing: 8, runSpacing: 8, children: pills);
+  }
+
+  Widget _buildSourceSavedRow({
+    required SavedUrl url,
+    required String displaySourceName,
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+  }) {
+    final savedLabel = _showExactSavedDate
+        ? _formatExactSavedDate(url.savedAt)
+        : _formatDate(url.savedAt);
+    return Row(
+      children: [
+        _buildSourceLeadingIcon(url, displaySourceName, colorScheme),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            displaySourceName,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.primary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Text(
+            '•',
+            style: TextStyle(
+              color: colorScheme.outline,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        Flexible(
+          flex: 2,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              setState(() => _showExactSavedDate = !_showExactSavedDate);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text(
+                savedLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 13,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildEnrichmentSections({
+    required TranscriptEnrichmentResult? live,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    if (live == null) return const [];
+    final sections = <Widget>[];
+    final grouped = <String, List<EnrichedMention>>{};
+    for (final mention in live.mentions) {
+      final key = _mentionSectionKey(mention.type);
+      grouped.putIfAbsent(key, () => []).add(mention);
+    }
+
+    for (final key in _mentionSectionOrder) {
+      final items = grouped[key] ?? const <EnrichedMention>[];
+      if (items.isEmpty) continue;
+      sections.addAll([
+        const SizedBox(height: 18),
+        ContentRecommendationSection<EnrichedMention>(
+          title: _mentionSectionTitle(key),
+          accent: _sectionAccent(key, colorScheme),
+          items: items,
+          itemBuilder: (context, mention) => _buildMentionRow(
+            mention: mention,
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
+        ),
+      ]);
+    }
+
+    final recipe = live.recipe;
+    if (recipe?.hasUsefulContent ?? false) {
+      sections.addAll([
+        const SizedBox(height: 18),
+        ContentRecommendationSection<EnrichedRecipe>(
+          title: 'Recipes',
+          accent: _sectionAccent('recipe', colorScheme),
+          items: [recipe!],
+          itemBuilder: (context, item) => _buildRecipeItem(
+            recipe: item,
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
+        ),
+      ]);
+    }
+    return sections;
+  }
+
+  static const _mentionSectionOrder = [
+    'movie',
+    'book',
+    'product',
+    'person',
+    'place',
+    'other',
+  ];
+
+  String _mentionSectionKey(String type) {
+    final lower = type.toLowerCase().trim();
+    if (_mentionSectionOrder.contains(lower)) return lower;
+    if (lower == 'show' || lower == 'anime' || lower == 'documentary') {
+      return 'movie';
+    }
+    return 'other';
+  }
+
+  String _mentionSectionTitle(String type) {
+    return switch (type) {
+      'movie' => 'Movie recommendations',
+      'book' => 'Book recommendations',
+      'product' => 'Products',
+      'person' => 'People',
+      'place' => 'Places',
+      _ => 'Mentions',
+    };
+  }
+
+  Color _sectionAccent(String type, ColorScheme colorScheme) {
+    return colorScheme.primary;
+  }
+
+  Widget _buildRecipeItem({
     required EnrichedRecipe recipe,
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -1123,100 +1343,95 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       if ((recipe.prepTime ?? '').isNotEmpty) recipe.prepTime!,
     ];
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
-          width: 0.7,
+    return Theme(
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        shape: const RoundedRectangleBorder(),
+        collapsedShape: const RoundedRectangleBorder(),
+        title: Text(
+          recipe.title.isNotEmpty ? recipe.title : 'Recipe',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
         ),
-      ),
-      child: Theme(
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: true,
-          tilePadding: const EdgeInsets.fromLTRB(14, 8, 10, 4),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          collapsedShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            'Detected recipe',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.primary,
+        subtitle: metadata.isNotEmpty
+            ? Text(
+                metadata.join(' · '),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              )
+            : null,
+        children: [
+          if (image.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: CachedNetworkImage(
+                  imageUrl: image,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (recipe.ingredients.isNotEmpty) ...[
+            _buildRecipeSubheading('Ingredients', theme, colorScheme),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: recipe.ingredients.take(18).map((ingredient) {
+                final measure = ingredient.measure?.trim() ?? '';
+                final label = measure.isEmpty
+                    ? ingredient.name
+                    : '${ingredient.name} · $measure';
+                return Chip(
+                  label: Text(label),
+                  backgroundColor: colorScheme.secondaryContainer,
+                  labelStyle: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSecondaryContainer,
+                  ),
+                  side: BorderSide.none,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if ((recipe.instructions ?? '').trim().isNotEmpty) ...[
+            _buildRecipeSubheading('Instructions', theme, colorScheme),
+            const SizedBox(height: 6),
+            Text(
+              recipe.instructions!.trim(),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
+                height: 1.5,
+              ),
+            ),
+          ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => _launchRecipeSearch(recipe),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Search recipe'),
             ),
           ),
-          subtitle: recipe.title.isNotEmpty
-              ? Text(
-                  [
-                    recipe.title,
-                    if (metadata.isNotEmpty) metadata.join(' · '),
-                  ].join('\n'),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-                )
-              : null,
-          children: [
-            if (image.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: CachedNetworkImage(
-                    imageUrl: image,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (recipe.ingredients.isNotEmpty) ...[
-              _buildRecipeSubheading('Ingredients', theme, colorScheme),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: recipe.ingredients.take(18).map((ingredient) {
-                  final measure = ingredient.measure?.trim() ?? '';
-                  final label = measure.isEmpty
-                      ? ingredient.name
-                      : '${ingredient.name} · $measure';
-                  return Chip(
-                    label: Text(label),
-                    backgroundColor: colorScheme.secondaryContainer,
-                    labelStyle: theme.textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                    ),
-                    side: BorderSide.none,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-            ],
-            if ((recipe.instructions ?? '').trim().isNotEmpty) ...[
-              _buildRecipeSubheading('Instructions', theme, colorScheme),
-              const SizedBox(height: 6),
-              Text(
-                recipe.instructions!.trim(),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1238,53 +1453,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
-  Widget _buildMentionsSection({
-    required List<EnrichedMention> mentions,
-    required ThemeData theme,
-    required ColorScheme colorScheme,
-  }) {
-    final movieCount = mentions.where((item) => item.type == 'movie').length;
-    final bookCount = mentions.where((item) => item.type == 'book').length;
-    final title = movieCount == mentions.length && movieCount > 0
-        ? 'Movie recommendations'
-        : bookCount == mentions.length && bookCount > 0
-            ? 'Book recommendations'
-            : 'Mentions';
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
-          width: 0.7,
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ...mentions.take(12).map(
-                (mention) => _buildMentionRow(
-                  mention: mention,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                ),
-              ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMentionRow({
     required EnrichedMention mention,
     required ThemeData theme,
@@ -1292,81 +1460,94 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }) {
     final reason = mention.whyMentioned?.trim() ?? '';
     final posterUrl = mention.posterUrl?.trim() ?? '';
+    final metadata = _mentionMetadataLine(mention);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => _launchMentionSearch(mention),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    width: 54,
-                    height: 72,
-                    child: posterUrl.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: posterUrl,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, _, _) =>
-                                _mentionPlaceholder(mention, colorScheme),
-                          )
-                        : _mentionPlaceholder(mention, colorScheme),
-                  ),
+        onTap: () => _launchMentionSearch(mention),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 54,
+                  height: 72,
+                  child: posterUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: posterUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, _, _) =>
+                              _mentionPlaceholder(mention, colorScheme),
+                        )
+                      : _mentionPlaceholder(mention, colorScheme),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        mention.title,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                        ),
+                      ),
+                      if (metadata.isNotEmpty) ...[
+                        const SizedBox(height: 3),
                         Text(
-                          [
-                            mention.title,
-                            if ((mention.year ?? '').isNotEmpty) mention.year!,
-                          ].join(' · '),
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurface,
+                          metadata,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colorScheme.primary,
                             fontWeight: FontWeight.w700,
                             height: 1.25,
                           ),
                         ),
-                        if (reason.isNotEmpty) ...[
-                          const SizedBox(height: 5),
-                          Text(
-                            _sentenceCase(reason),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              height: 1.42,
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                      if (reason.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          _sentenceCase(reason),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.42,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.open_in_new_rounded,
-                    size: 16,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38),
-                  ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.open_in_new_rounded,
+                  size: 16,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  String _mentionMetadataLine(EnrichedMention mention) {
+    final type = mention.type.toLowerCase();
+    final year = mention.year?.trim() ?? '';
+    if (type == 'movie' && year.isNotEmpty) return year;
+    return '';
   }
 
   Future<void> _launchMentionSearch(EnrichedMention mention) async {
@@ -1374,10 +1555,19 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       'movie' => 'movie',
       'book' => 'book',
       'place' => 'place',
+      'product' => 'product',
       _ => '',
     };
     final query = [mention.title, suffix]
         .where((item) => item.isNotEmpty)
+        .join(' ');
+    final uri = Uri.https('www.google.com', '/search', {'q': query});
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _launchRecipeSearch(EnrichedRecipe recipe) async {
+    final query = [recipe.title, 'recipe']
+        .where((item) => item.trim().isNotEmpty)
         .join(' ');
     final uri = Uri.https('www.google.com', '/search', {'q': query});
     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -1411,6 +1601,243 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return '';
     return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1);
+  }
+
+  _DetailMetadata _extractDetailMetadata({
+    required String description,
+    required String? creator,
+    required String rawUrl,
+  }) {
+    final text = TextCleaner.cleanLoose(description);
+    String? matchFirst(String pattern) {
+      return RegExp(pattern, caseSensitive: false).firstMatch(text)?.group(1);
+    }
+
+    final likes = matchFirst(r'\b([\d,.]+[KMBkmb]?)\s+likes?\b');
+    final comments = matchFirst(r'\b([\d,.]+[KMBkmb]?)\s+comments?\b');
+    final fromDescription = matchFirst(r'-\s*@?([A-Za-z0-9._]+)\s+on\s+');
+    final parsedUsername = _supportsProfileUsername(rawUrl)
+        ? _cleanUsername(creator) ??
+            _cleanUsername(fromDescription) ??
+            _usernameFromUrl(rawUrl)
+        : null;
+
+    return _DetailMetadata(
+      likesLabel: likes == null ? null : _compactCountLabel(likes),
+      commentsLabel: comments == null ? null : _compactCountLabel(comments),
+      creatorUsername: parsedUsername,
+    );
+  }
+
+  String? _cleanUsername(String? value) {
+    if (value == null) return null;
+    final cleaned = value.replaceFirst('@', '').trim();
+    if (!RegExp(r'^[A-Za-z0-9._]{2,}$').hasMatch(cleaned)) return null;
+    return cleaned;
+  }
+
+  String? _usernameFromUrl(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null) return null;
+    if (!_supportsProfileUsername(rawUrl)) return null;
+    final segments = uri.pathSegments.where((item) => item.isNotEmpty).toList();
+    if (segments.length >= 2 &&
+        !{'reel', 'reels', 'p', 'tv'}.contains(segments.first.toLowerCase())) {
+      return _cleanUsername(segments.first);
+    }
+    return null;
+  }
+
+  bool _supportsProfileUsername(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null) return false;
+    var host = uri.host.toLowerCase();
+    if (host.startsWith('www.')) host = host.substring(4);
+    return host == 'instagram.com' ||
+        host.endsWith('.instagram.com') ||
+        host == 'x.com' ||
+        host.endsWith('.x.com') ||
+        host == 'twitter.com' ||
+        host.endsWith('.twitter.com') ||
+        host == 'tiktok.com' ||
+        host.endsWith('.tiktok.com') ||
+        host == 'threads.net' ||
+        host.endsWith('.threads.net');
+  }
+
+  String _compactCountLabel(String raw) {
+    final clean = raw.replaceAll(',', '').trim();
+    if (RegExp(r'[KMBkmb]$').hasMatch(clean)) {
+      return clean.toUpperCase();
+    }
+    final value = double.tryParse(clean);
+    if (value == null) return raw.trim();
+    if (value >= 1000000) return '${_trimDecimal(value / 1000000)}M';
+    if (value >= 1000) return '${_trimDecimal(value / 1000)}K';
+    return value.round().toString();
+  }
+
+  String _trimDecimal(double value) {
+    return value >= 10
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1).replaceFirst(RegExp(r'\.0$'), '');
+  }
+
+  List<String> _buildNoteSuggestions({
+    required SavedUrl url,
+    required TranscriptEnrichmentResult? live,
+    required List<String> tags,
+    required String caption,
+    required String summary,
+  }) {
+    final mentionTypes = (live?.mentions ?? const <EnrichedMention>[])
+        .map((mention) => mention.type.toLowerCase())
+        .toSet();
+    final text = [
+      url.title,
+      url.category,
+      url.description,
+      url.summary ?? '',
+      caption,
+      summary,
+      ...url.tags,
+      ...tags,
+      if (live != null) ...[
+        live.meaningfulTitle,
+        live.category,
+        live.summary,
+        ...live.tags,
+        ...live.mentions.map((mention) => mention.title),
+        if (live.recipe != null) live.recipe!.title,
+      ],
+    ].join(' ').toLowerCase();
+
+    if (live?.recipe?.hasUsefulContent == true ||
+        _hasAny(text, const [
+          'recipe',
+          'cook',
+          'ingredient',
+          'meal',
+          'protein',
+          'vegan',
+          'paneer',
+          'pasta',
+          'ramen',
+          'smoothie',
+          'dessert',
+          'food',
+          'dairy',
+        ])) {
+      return const [
+        'try this weekend',
+        'need ingredients',
+        'share with someone',
+        'already tried',
+      ];
+    }
+
+    if (mentionTypes.contains('movie') ||
+        _hasAny(text, const [
+          'movie',
+          'film',
+          'cinema',
+          'watchlist',
+          'sci-fi',
+          'series',
+          'anime',
+        ])) {
+      return const [
+        'watch this weekend',
+        'add to watchlist',
+        'share with someone',
+        'already watched',
+      ];
+    }
+
+    if (mentionTypes.contains('book') ||
+        _hasAny(text, const [
+          'book',
+          'reading',
+          'author',
+          'novel',
+          'essay',
+          'newsletter',
+        ])) {
+      return const [
+        'add to reading list',
+        'read later',
+        'summarize later',
+        'already read',
+      ];
+    }
+
+    if (mentionTypes.contains('product') ||
+        _hasAny(text, const [
+          'tool',
+          'app',
+          'software',
+          'github',
+          'repo',
+          'agent',
+          'workflow',
+          'design system',
+          'product',
+        ])) {
+      return const [
+        'try this tool',
+        'compare alternatives',
+        'use in project',
+        'share with team',
+      ];
+    }
+
+    if (mentionTypes.contains('place') ||
+        _hasAny(text, const [
+          'travel',
+          'trek',
+          'route',
+          'hike',
+          'trip',
+          'itinerary',
+          'hotel',
+          'restaurant',
+          'destination',
+        ])) {
+      return const [
+        'plan itinerary',
+        'check best season',
+        'save route',
+        'share with someone',
+      ];
+    }
+
+    if (_hasAny(text, const [
+      'tutorial',
+      'guide',
+      'framework',
+      'learn',
+      'course',
+      'productivity',
+      'strategy',
+    ])) {
+      return const [
+        'practice later',
+        'make checklist',
+        'use in project',
+        'revisit notes',
+      ];
+    }
+
+    return const [
+      'revisit later',
+      'share with someone',
+      'worth trying',
+      'already checked',
+    ];
+  }
+
+  bool _hasAny(String text, List<String> needles) {
+    return needles.any((needle) => text.contains(needle));
   }
 
   Widget _buildOpenShareActions(SavedUrl url) {
@@ -1567,7 +1994,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
     if (text.isEmpty) return '';
 
+    text = _stripScrapedMetadataPrefix(text);
     text = text.replaceFirst(RegExp(r'^@[A-Za-z0-9_]+:\s*'), '');
+    text = text
+        .replaceFirst(RegExp(r'^["“]+'), '')
+        .replaceFirst(RegExp(r'["”]+\s*\.?$'), '')
+        .trim();
 
     final lines = text.split('\n');
     while (lines.isNotEmpty && lines.last.trim().isEmpty) {
@@ -1581,6 +2013,42 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     text = normalizedLines.join('\n');
     text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
     return text;
+  }
+
+  String _stripScrapedMetadataPrefix(String text) {
+    return text
+        .replaceFirst(
+          RegExp(
+            r'^[\d,.]+[KMBkmb]?\s+likes?,\s*[\d,.]+[KMBkmb]?\s+comments?\s*-\s*[A-Za-z0-9._]+\s+on\s+[^:"]+:\s*',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceFirst(
+          RegExp(
+            r'^[\d,.]+[KMBkmb]?\s+likes?,\s*[\d,.]+[KMBkmb]?\s+comments?\s*-\s*',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
+  }
+
+  String _stripHashtagsFromCaption(String text) {
+    final lines = text
+        .split('\n')
+        .map((line) {
+          final kept = line
+              .split(RegExp(r'\s+'))
+              .where((token) => token.trim().isNotEmpty)
+              .where((token) => !token.trimLeft().startsWith('#'))
+              .join(' ')
+              .trim();
+          return kept;
+        })
+        .where((line) => line.isNotEmpty)
+        .toList();
+    return lines.join('\n').trim();
   }
 
   String _normalizeDescriptionLine(String line) {
@@ -1659,10 +2127,30 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (diff.inMinutes < 1) return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'yesterday';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
     if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
     return '${(diff.inDays / 365).floor()}y ago';
+  }
+
+  String _formatExactSavedDate(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final hour12 = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+    return '${months[date.month - 1]} ${date.day}, ${date.year} • $hour12:$minute $period';
   }
 }
