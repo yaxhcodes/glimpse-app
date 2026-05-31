@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +16,7 @@ import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/text_cleaner.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/services/transcript_enrichment_service.dart';
-import '../../shared/widgets/category_chip.dart' show faviconUrl;
+import '../../shared/widgets/category_chip.dart' show faviconUrl, platformColors;
 import '../../shared/widgets/content_recommendation_section.dart';
 import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/loading_indicator.dart';
@@ -84,6 +85,33 @@ class _NoteSuggestionChip extends StatelessWidget {
               height: 1,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadStatePill extends StatelessWidget {
+  const _ReadStatePill({required this.isRead});
+
+  final bool isRead;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        isRead ? 'Read' : 'Unread',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+          height: 1,
         ),
       ),
     );
@@ -412,6 +440,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       category: result.category,
       tags: tags,
     );
+    final inferredCategories = CategoryTaxonomy.inferAdditionalCategories(
+      tags: tags,
+      text: '${result.meaningfulTitle} ${result.summary} ${result.caption ?? ''}',
+    );
 
     var changed = false;
     if (title.isNotEmpty &&
@@ -428,15 +460,26 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       url.tags = tags;
       changed = true;
     }
-    if (url.category != normalized.name) {
+    final platformName = CategoryResolver.displaySourceName(
+      rawUrl: url.rawUrl,
+      fallbackDomain: url.domain,
+    );
+    final nextCategories = CategoryResolver.buildCategories(
+      primaryCategory: normalized.name,
+      platformCategory: platformName == url.domain ? null : platformName,
+      additionalCategories: [
+        ...inferredCategories.where((item) => item != normalized.name),
+        ...url.effectiveCategories.where((item) =>
+            item != url.category &&
+            item != 'Other' &&
+            item != normalized.name),
+      ],
+    );
+    if (url.category != normalized.name ||
+        !_sameStringList(url.categories, nextCategories)) {
       url.category = normalized.name;
       url.categoryEmoji = normalized.emoji;
-      url.categories = CategoryResolver.buildCategories(
-        primaryCategory: normalized.name,
-        additionalCategories: url.effectiveCategories
-            .where((item) => item != url.category)
-            .toList(),
-      );
+      url.categories = nextCategories;
       changed = true;
     }
     final thumbnail = result.thumbnailUrl?.trim();
@@ -765,7 +808,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       tagFreq,
     );
     final showImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
-    final categoryLabel = url.category.trim();
+    final categoryLabels = _displayCategories(url);
     final hasCaption = captionText.isNotEmpty;
     const collapseTagsAt = 5;
     final showAllTags = _tagsExpanded || visibleTags.length <= collapseTagsAt;
@@ -805,63 +848,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Image ───────────────────────────────────────────────────
-            if (showImage) ...[
-              Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => _launchUrl(url.rawUrl),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CachedNetworkImage(
-                          imageUrl: url.thumbnailUrl!,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => const SizedBox.shrink(),
-                        ),
-                        if (categoryLabel.isNotEmpty)
-                          Positioned(
-                            left: 12,
-                            bottom: 12,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surface
-                                    .withValues(alpha: 0.92),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: colorScheme.outlineVariant,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    categoryLabel,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.1,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+            _buildDetailMedia(
+              url: url,
+              showImage: showImage,
+              categoryLabels: categoryLabels,
+              displaySourceName: displaySourceName,
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
+            const SizedBox(height: 16),
 
             // ── Title ───────────────────────────────────────────────────
             Text(
@@ -985,6 +980,212 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     s += q;
     if (s.length > 140) return '${s.substring(0, 137)}…';
     return s;
+  }
+
+  Widget _buildDetailMedia({
+    required SavedUrl url,
+    required bool showImage,
+    required List<String> categoryLabels,
+    required String displaySourceName,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _launchUrl(url.rawUrl),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (showImage)
+                CachedNetworkImage(
+                  imageUrl: url.thumbnailUrl!,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => _buildMediaPlaceholder(
+                    url: url,
+                    displaySourceName: displaySourceName,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                  ),
+                )
+              else
+                _buildMediaPlaceholder(
+                  url: url,
+                  displaySourceName: displaySourceName,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.26),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (categoryLabels.isNotEmpty)
+                Positioned(
+                  left: 12,
+                  bottom: 12,
+                  right: 12,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: categoryLabels.take(3).map((label) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          label,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            height: 1.1,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaPlaceholder({
+    required SavedUrl url,
+    required String displaySourceName,
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+  }) {
+    final favicon = _faviconUrlForSource(url, displaySourceName);
+    final accent = _sourceAccentColor(url, displaySourceName, colorScheme);
+    final base = Color.alphaBlend(
+      accent.withValues(alpha: 0.10),
+      colorScheme.surfaceContainerHigh,
+    );
+    final glow = Color.alphaBlend(
+      accent.withValues(alpha: 0.16),
+      colorScheme.secondaryContainer,
+    );
+    final label = displaySourceName.trim().isNotEmpty
+        ? displaySourceName.trim()
+        : url.domain.trim();
+    final initial = _placeholderInitial(label);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            glow,
+            base,
+          ],
+        ),
+      ),
+      child: Center(
+        child: Container(
+          width: 86,
+          height: 86,
+          decoration: BoxDecoration(
+            color: colorScheme.surface.withValues(alpha: 0.68),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.58),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: favicon != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl: favicon,
+                    width: 42,
+                    height: 42,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => Text(
+                      initial,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                )
+              : Text(
+                  initial,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  String _placeholderInitial(String value) {
+    for (final rune in value.runes) {
+      final char = String.fromCharCode(rune);
+      if (RegExp(r'[A-Za-z0-9]').hasMatch(char)) {
+        return char.toUpperCase();
+      }
+    }
+    return 'G';
+  }
+
+  List<String> _displayCategories(SavedUrl url) {
+    final content = <String>[];
+    for (final category in url.effectiveCategories) {
+      final trimmed = category.trim();
+      if (trimmed.isEmpty || trimmed == 'Web') continue;
+      if (trimmed == 'Other') continue;
+      if (CategoryTaxonomy.tryByName(trimmed) == null) continue;
+      if (trimmed == 'Technology' && !_hasTechnologySignal(url)) continue;
+      if (!content.contains(trimmed)) content.add(trimmed);
+    }
+    for (final category in CategoryTaxonomy.inferAdditionalCategories(
+      tags: url.tags,
+      text: '${url.title} ${url.summary ?? ''} ${url.description}',
+    )) {
+      if (!content.contains(category)) content.add(category);
+    }
+    return content.isEmpty ? ['Other'] : content;
+  }
+
+  bool _hasTechnologySignal(SavedUrl url) {
+    final text = [
+      url.title,
+      url.summary ?? '',
+      url.description,
+      url.tags.join(' '),
+      url.rawUrl,
+    ].join(' ').toLowerCase();
+    return RegExp(
+      r'\b(ai|llm|ml|code|coding|software|developer|github|gitlab|programming|react|flutter|dart|javascript|typescript|api|model|agent|agentic)\b',
+    ).hasMatch(text);
   }
 
   Widget _buildUrlAddressBlock(
@@ -1244,6 +1445,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
           ),
         ),
+        const SizedBox(width: 8),
+        _ReadStatePill(isRead: url.openedAt != null),
       ],
     );
   }
@@ -1935,9 +2138,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             key: _descriptionSectionKey,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                description,
-                style: textStyle,
+              Text.rich(
+                TextSpan(
+                  style: textStyle,
+                  children: _linkifiedTextSpans(
+                    description,
+                    textStyle,
+                    colorScheme,
+                  ),
+                ),
                 softWrap: true,
                 maxLines: _descExpanded ? null : _collapsedDescriptionLines,
                 overflow: _descExpanded
@@ -1984,6 +2193,56 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     )..layout(maxWidth: maxWidth);
 
     return painter.didExceedMaxLines;
+  }
+
+  List<InlineSpan> _linkifiedTextSpans(
+    String text,
+    TextStyle? baseStyle,
+    ColorScheme colorScheme,
+  ) {
+    final spans = <InlineSpan>[];
+    final linkPattern = RegExp(
+      r'(https?:\/\/[^\s]+|www\.[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)',
+      caseSensitive: false,
+    );
+    var index = 0;
+    for (final match in linkPattern.allMatches(text)) {
+      if (match.start > index) {
+        spans.add(TextSpan(text: text.substring(index, match.start)));
+      }
+      final raw = match.group(0) ?? '';
+      final trailing = RegExp(r'[),.;:!?]+$').stringMatch(raw) ?? '';
+      final clean = trailing.isEmpty
+          ? raw
+          : raw.substring(0, raw.length - trailing.length);
+      spans.add(
+        TextSpan(
+          text: clean,
+          style: baseStyle?.copyWith(
+            color: colorScheme.primary,
+            fontWeight: FontWeight.w700,
+            decoration: TextDecoration.underline,
+            decorationColor: colorScheme.primary.withValues(alpha: 0.7),
+          ),
+          recognizer: TapGestureRecognizer()..onTap = () => _launchInlineLink(clean),
+        ),
+      );
+      if (trailing.isNotEmpty) {
+        spans.add(TextSpan(text: trailing));
+      }
+      index = match.end;
+    }
+    if (index < text.length) {
+      spans.add(TextSpan(text: text.substring(index)));
+    }
+    return spans.isEmpty ? [TextSpan(text: text, style: baseStyle)] : spans;
+  }
+
+  Future<void> _launchInlineLink(String raw) async {
+    final value = raw.startsWith('http') ? raw : 'https://$raw';
+    final uri = Uri.tryParse(value);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   String _formatDescription(String description) {
@@ -2094,6 +2353,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         : url.domain.trim();
     if (host.isEmpty) return null;
     return 'https://www.google.com/s2/favicons?domain=$host&sz=64';
+  }
+
+  Color _sourceAccentColor(
+    SavedUrl url,
+    String displaySourceName,
+    ColorScheme colorScheme,
+  ) {
+    final byName = platformColors[displaySourceName.trim()];
+    if (byName != null) return byName;
+    final parsed = Uri.tryParse(url.rawUrl.trim());
+    final seed = ((parsed?.host.isNotEmpty ?? false)
+            ? parsed!.host
+            : url.domain.trim())
+        .toLowerCase();
+    if (seed.isEmpty) return colorScheme.primary;
+    final hue = seed.codeUnits.fold<int>(0, (sum, item) => sum + item) % 360;
+    return HSLColor.fromAHSL(1, hue.toDouble(), 0.42, 0.56).toColor();
   }
 
   Widget _buildSourceLeadingIcon(

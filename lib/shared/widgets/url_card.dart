@@ -280,7 +280,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Row(
+                      Wrap(
+                        spacing: 0,
+                        runSpacing: 2,
                         children: [
                           Text(displaySourceName, style: metaStyle),
                           Text(' · ', style: metaStyle),
@@ -288,10 +290,15 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             UrlCard.timeAgoSaved(widget.savedUrl.savedAt),
                             style: metaStyle,
                           ),
+                          Text(' · ', style: metaStyle),
+                          Text(
+                            isRead ? 'Read' : 'Unread',
+                            style: metaStyle,
+                          ),
                         ],
                       ),
-if (chipData.visible.isNotEmpty ||
-                           chipData.overflow > 0) ...[
+                      if (chipData.visible.isNotEmpty ||
+                          chipData.overflow > 0) ...[
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 4,

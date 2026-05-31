@@ -67,8 +67,10 @@ class CategoryTaxonomy {
       'ui': 'Design',
       'gardening': 'Home & Garden',
       'home': 'Home & Garden',
+      'food': 'Food & Cooking',
       'cooking': 'Food & Cooking',
       'recipe': 'Food & Cooking',
+      'nutrition': 'Health',
       'movies': 'Entertainment',
       'music': 'Entertainment',
       'gaming': 'Entertainment',
@@ -97,13 +99,40 @@ class CategoryTaxonomy {
     if (_containsAny(searchable, ['garden', 'plants', 'balcony', 'compost', 'tomato'])) {
       return byName('Home & Garden');
     }
-    if (_containsAny(searchable, ['recipe', 'kitchen', 'cook', 'bake', 'meal'])) {
+    if (_containsAny(searchable, [
+      'recipe',
+      'kitchen',
+      'cook',
+      'bake',
+      'meal',
+      'food',
+      'food hacks',
+      'vegan',
+      'vegetarian',
+      'dairy',
+      'paneer',
+      'protein',
+      'plant-based',
+      'smoothie',
+      'dessert',
+    ])) {
       return byName('Food & Cooking');
     }
     if (_containsAny(searchable, ['design', 'figma', 'brand', 'typography', 'ux', 'ui'])) {
       return byName('Design');
     }
-    if (_containsAny(searchable, ['health', 'fitness', 'nutrition', 'sleep', 'medicine'])) {
+    if (_containsAny(searchable, [
+      'health',
+      'fitness',
+      'nutrition',
+      'sleep',
+      'medicine',
+      'protein',
+      'plant-based',
+      'vegan',
+      'calcium',
+      'healthy',
+    ])) {
       return byName('Health');
     }
     if (_containsAny(searchable, ['learn', 'study', 'course', 'lesson', 'tutorial'])) {
@@ -122,6 +151,91 @@ class CategoryTaxonomy {
     }
 
     return byName('Other');
+  }
+
+  static List<String> inferAdditionalCategories({
+    required List<String> tags,
+    String text = '',
+  }) {
+    final searchable = [text, ...tags].join(' ').toLowerCase();
+    final inferred = <String>[];
+
+    void add(String category) {
+      if (!inferred.contains(category)) inferred.add(category);
+    }
+
+    if (_containsAny(searchable, [
+      'recipe',
+      'cook',
+      'food',
+      'meal',
+      'vegan',
+      'vegetarian',
+      'dairy',
+      'paneer',
+      'protein',
+      'plant-based',
+      'smoothie',
+      'dessert',
+    ])) {
+      add('Food & Cooking');
+    }
+    if (_containsAny(searchable, [
+      'health',
+      'nutrition',
+      'fitness',
+      'protein',
+      'plant-based',
+      'vegan',
+      'calcium',
+      'healthy',
+    ])) {
+      add('Health');
+    }
+    if (_containsAny(searchable, [
+      'react',
+      'flutter',
+      'dart',
+      'javascript',
+      'software',
+      'code',
+      'artificial intelligence',
+      'machine learning',
+      'llm',
+      'agent',
+    ])) {
+      add('Technology');
+    }
+    if (_containsAny(searchable, [
+      'design',
+      'figma',
+      'typography',
+      'ui',
+      'ux',
+    ])) {
+      add('Design');
+    }
+    if (_containsAny(searchable, [
+      'travel',
+      'trek',
+      'hike',
+      'destination',
+      'route',
+    ])) {
+      add('Travel');
+    }
+    if (_containsAny(searchable, [
+      'movie',
+      'film',
+      'cinema',
+      'music',
+      'gaming',
+      'anime',
+    ])) {
+      add('Entertainment');
+    }
+
+    return inferred;
   }
 
   static CategoryDefinition byName(String name) {

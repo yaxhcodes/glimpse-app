@@ -328,9 +328,15 @@ class EnrichmentService {
 
     freshUrl.category = category;
     freshUrl.categoryEmoji = emoji;
+    final inferredCategories = CategoryTaxonomy.inferAdditionalCategories(
+      tags: enrichedTags,
+      text: '${enrichedTitle ?? freshUrl.title} ${summary ?? ''} ${freshUrl.description}',
+    );
     freshUrl.categories = CategoryResolver.buildCategories(
       primaryCategory: category,
       platformCategory: platformCat.category,
+      additionalCategories:
+          inferredCategories.where((item) => item != category).toList(),
     );
     if (enrichedTitle != null &&
         !TitleResolver.isLowSignalTitle(enrichedTitle, domain: freshUrl.domain) &&

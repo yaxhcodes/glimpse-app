@@ -23,6 +23,7 @@ class TagNoiseFilter {
     'video',
     'link',
     'url',
+    'technology',
   };
 
   static bool isNoiseTag(String tag) {

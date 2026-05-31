@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/services/tag_noise_filter.dart';
+import 'category_chip.dart' show faviconUrl, platformColors;
 
 /// Read/unread styling for compact link cards (home, search, etc.).
 ///
@@ -83,24 +84,102 @@ class LinkCardThumbnail {
     final cs = Theme.of(context).colorScheme;
     final tag = _firstNonNoiseTag(url);
     final label = _placeholderLetter(url, tag);
+    final favicon = faviconUrl(url.category) ??
+        faviconUrl(url.domain) ??
+        _googleFaviconUrl(url);
+    final accent = _sourceAccent(url, cs);
+    final containerColor = Color.alphaBlend(
+      accent.withValues(alpha: 0.12),
+      cs.secondaryContainer,
+    );
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: cs.secondaryContainer,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(accent.withValues(alpha: 0.18), containerColor),
+            containerColor,
+          ],
+        ),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: size * 0.35,
-          fontWeight: FontWeight.w600,
-          color: cs.onSecondaryContainer,
-        ),
-      ),
+      child: favicon == null
+          ? Text(
+              label,
+              style: TextStyle(
+                fontSize: size * 0.35,
+                fontWeight: FontWeight.w600,
+                color: cs.onSecondaryContainer,
+              ),
+            )
+          : Padding(
+              padding: EdgeInsets.all(size * 0.22),
+              child: CachedNetworkImage(
+                imageUrl: favicon,
+                fit: BoxFit.contain,
+                errorWidget: (_, _, _) => Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: size * 0.35,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSecondaryContainer,
+                  ),
+                ),
+              ),
+            ),
     );
+  }
+
+  static String? _googleFaviconUrl(SavedUrl url) {
+    try {
+      final host = Uri.parse(url.rawUrl).host;
+      if (host.isNotEmpty) {
+        return 'https://www.google.com/s2/favicons?domain=$host&sz=64';
+      }
+    } catch (_) {}
+    final domain = url.domain.trim();
+    if (domain.isEmpty) return null;
+    return 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
+  }
+
+  static Color _sourceAccent(SavedUrl url, ColorScheme cs) {
+    final byCategory = platformColors[url.category.trim()];
+    if (byCategory != null) return byCategory;
+    final byDomain = platformColors[url.domain.trim()];
+    if (byDomain != null) return byDomain;
+    String seed = '';
+    try {
+      seed = Uri.parse(url.rawUrl).host;
+    } catch (_) {
+      seed = url.domain;
+    }
+    seed = seed.replaceFirst(RegExp(r'^www\.'), '').toLowerCase();
+    final byHost = _platformAccentForHost(seed);
+    if (byHost != null) return byHost;
+    if (seed.isEmpty) return cs.primary;
+    final hue = seed.codeUnits.fold<int>(0, (sum, item) => sum + item) % 360;
+    return HSLColor.fromAHSL(1, hue.toDouble(), 0.42, 0.56).toColor();
+  }
+
+  static Color? _platformAccentForHost(String host) {
+    if (host.contains('instagram.com')) return platformColors['Instagram'];
+    if (host == 'x.com' || host.contains('twitter.com')) {
+      return platformColors['X'];
+    }
+    if (host.contains('github.com')) return platformColors['GitHub'];
+    if (host.contains('youtube.com') || host.contains('youtu.be')) {
+      return platformColors['YouTube'];
+    }
+    if (host.contains('reddit.com')) return platformColors['Reddit'];
+    if (host.contains('spotify.com')) return platformColors['Spotify'];
+    if (host.contains('pinterest.com')) return platformColors['Pinterest'];
+    if (host.contains('linkedin.com')) return platformColors['LinkedIn'];
+    return null;
   }
 
   /// Network image when [SavedUrl.thumbnailUrl] is set; otherwise tag placeholder.
