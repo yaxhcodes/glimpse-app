@@ -1,8 +1,10 @@
 package com.shinrinyoku.glimpse
 
 import android.content.Intent
+import android.view.Display
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -35,6 +37,16 @@ class MainActivity : FlutterFragmentActivity() {
     private var methodChannel: MethodChannel? = null
     private var pendingBackupPath: String? = null
     private var storageBridge: BackupStorageBridge? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        preferHighestRefreshRate()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) preferHighestRefreshRate()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -77,6 +89,45 @@ class MainActivity : FlutterFragmentActivity() {
         pendingBackupPath?.let { path ->
             methodChannel?.invokeMethod("onBackupFile", path)
             pendingBackupPath = null
+        }
+    }
+
+    private fun preferHighestRefreshRate() {
+        val attrs = window.attributes
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val display = currentDisplay() ?: return
+            val bestMode = display.supportedModes
+                .maxWithOrNull(
+                    compareBy<Display.Mode> { it.refreshRate }
+                        .thenBy { it.physicalWidth * it.physicalHeight },
+                )
+
+            if (
+                bestMode != null &&
+                (attrs.preferredDisplayModeId != bestMode.modeId ||
+                    attrs.preferredRefreshRate != bestMode.refreshRate)
+            ) {
+                attrs.preferredDisplayModeId = bestMode.modeId
+                attrs.preferredRefreshRate = bestMode.refreshRate
+                window.attributes = attrs
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            val refreshRate = windowManager.defaultDisplay.refreshRate
+            if (refreshRate > 0f && attrs.preferredRefreshRate != refreshRate) {
+                attrs.preferredRefreshRate = refreshRate
+                window.attributes = attrs
+            }
+        }
+    }
+
+    private fun currentDisplay(): Display? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay
         }
     }
 
