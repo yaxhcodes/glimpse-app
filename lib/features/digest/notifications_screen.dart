@@ -8,6 +8,8 @@ import '../../core/services/notification_hub_labels.dart';
 import '../../core/services/notification_router.dart';
 import '../../shared/widgets/notifications/curated_notification_media.dart';
 import '../../shared/widgets/notifications/notification_type_style.dart';
+import '../../core/providers/swipe_preferences_provider.dart';
+import '../../shared/widgets/premium_swipe_card.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -52,9 +54,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     });
   }
 
-  Future<void> _delete(String digestId) async {
-    await DigestPrefs.deleteDigest(digestId);
+  Future<void> _deleteWithUndo(Map<String, dynamic> entry, int index) async {
+    await DigestPrefs.deleteDigest(entry['id'] as String);
     await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('Deleted'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              await DigestPrefs.restoreDigest(entry, index: index);
+              await _load();
+            },
+          ),
+        ),
+      );
   }
 
   Future<void> _openEntry(Map<String, dynamic> entry) async {
@@ -107,22 +126,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       index: index,
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: Dismissible(
+                        child: PremiumSwipeCard(
                           key: ValueKey(entry['id']),
-                          direction: DismissDirection.endToStart,
-                          onDismissed: (_) => _delete(entry['id'] as String),
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.error,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Icon(
-                              Icons.delete_outline_rounded,
-                              color: Theme.of(context).colorScheme.onError,
-                            ),
-                          ),
+                          leftSwipeAction: SwipeActionType.delete,
+                          rightSwipeAction: SwipeActionType.none,
+                          borderRadius: BorderRadius.circular(20),
+                          onAction: (_) => true,
+                          onDismissed: (_) => _deleteWithUndo(entry, index),
                           child: CuratedNotificationListTile(
                             entry: entry,
                             heroUrl: heroUrl,

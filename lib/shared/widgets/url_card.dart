@@ -118,11 +118,13 @@ class _ShimmerBox extends StatelessWidget {
 class UrlCard extends ConsumerStatefulWidget {
   final SavedUrl savedUrl;
   final VoidCallback? onTap;
+  final bool isPinned;
 
   const UrlCard({
     super.key,
     required this.savedUrl,
     this.onTap,
+    this.isPinned = false,
   });
 
   /// Relative time for the source · time row (shared with other link cards).
@@ -264,20 +266,40 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      AnimatedOpacity(
-                        opacity: (isRead && isLight) ? 0.45 : 1.0,
-                        duration: const Duration(milliseconds: 300),
-                        child: Text(
-                          resolvedTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: (tt.titleSmall ?? const TextStyle()).copyWith(
-                            fontWeight: FontWeight.w600,
-                            height: 1.25,
-                            fontSize: (tt.titleSmall?.fontSize ?? 14) + 0.5,
-                            color: cs.onSurface,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: AnimatedOpacity(
+                              opacity: (isRead && isLight) ? 0.45 : 1.0,
+                              duration: const Duration(milliseconds: 300),
+                              child: Text(
+                                resolvedTitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style:
+                                    (tt.titleSmall ?? const TextStyle()).copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.25,
+                                  fontSize:
+                                      (tt.titleSmall?.fontSize ?? 14) + 0.5,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          if (widget.isPinned) ...[
+                            const SizedBox(width: 8),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 1),
+                              child: Icon(
+                                Icons.push_pin_rounded,
+                                size: 13,
+                                color: cs.primary.withValues(alpha: 0.68),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Wrap(

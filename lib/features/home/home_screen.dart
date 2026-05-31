@@ -9,13 +9,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/config/app_environment.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/category_order_provider.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/services/digest_prefs.dart';
-import '../../core/services/title_resolver.dart';
 import '../../core/utils/url_extractor.dart';
 import '../../shared/widgets/url_card.dart';
+import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../core/constants/app_assets.dart';
 import '../../shared/widgets/loading_indicator.dart';
@@ -267,31 +268,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _deleteWithUndo(SavedUrl url) async {
-    final isarService = ref.read(isarServiceProvider);
-    await isarService.deleteUrl(url.id);
-
-    if (!mounted) return;
-    final tagFreq = ref.read(tagOccurrenceMapProvider);
-    final label = TitleResolver.resolve(url, tagFrequency: tagFreq);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('Deleted "$label"'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () async {
-              // Re-save the exact same object (Isar put with existing ID restores it)
-              await isarService.saveUrl(url);
-            },
-          ),
-        ),
-      );
-  }
-
   @override
   Widget build(BuildContext context) {
     final urlsAsync = ref.watch(displayedUrlsProvider);
@@ -532,15 +508,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
     final startOfWeek = startOfToday.subtract(const Duration(days: 7));
+    final pinnedIds = ref.watch(pinnedUrlsProvider);
+    final existingIds = urls.map((url) => url.id).toSet();
+    final stalePinnedIds = pinnedIds.any((id) => !existingIds.contains(id));
+    if (stalePinnedIds) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(pinnedUrlsProvider.notifier).pruneToExisting(existingIds);
+      });
+    }
+    final byId = {for (final url in urls) url.id: url};
+    final pinnedUrls = [
+      for (final id in pinnedIds)
+        if (byId[id] != null) byId[id]!,
+    ];
+    final pinnedSet = pinnedUrls.map((url) => url.id).toSet();
+    final regularUrls =
+        urls.where((url) => !pinnedSet.contains(url.id)).toList();
 
     final todayUrls =
-        urls.where((u) => u.savedAt.isAfter(startOfToday)).toList();
-    final weekUrls = urls.where((u) =>
+        regularUrls.where((u) => u.savedAt.isAfter(startOfToday)).toList();
+    final weekUrls = regularUrls.where((u) =>
         u.savedAt.isAfter(startOfWeek) && !u.savedAt.isAfter(startOfToday)).toList();
     final earlierUrls =
-        urls.where((u) => !u.savedAt.isAfter(startOfWeek)).toList();
+        regularUrls.where((u) => !u.savedAt.isAfter(startOfWeek)).toList();
 
     final sections = <_Section>[
+      if (pinnedUrls.isNotEmpty) _Section('Pinned', pinnedUrls),
       if (todayUrls.isNotEmpty) _Section('Today', todayUrls),
       if (weekUrls.isNotEmpty) _Section('This Week', weekUrls),
       if (earlierUrls.isNotEmpty) _Section('Earlier', earlierUrls),
@@ -715,28 +709,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final url = section.urls[index];
-                      return Dismissible(
+                      return SwipeableUrlCard(
                         key: ValueKey(url.id),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 24),
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.delete_outline,
-                            color: theme.colorScheme.onErrorContainer,
-                          ),
-                        ),
-                        onDismissed: (_) => _deleteWithUndo(url),
-                        child: UrlCard(
-                          savedUrl: url,
-                          onTap: () => context.push('/url/${url.id}'),
-                        ),
+                        url: url,
+                        onTap: () => context.push('/url/${url.id}'),
+                        onViewPinned: () {
+                          _scrollController.animateTo(
+                            0,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                          );
+                        },
                       );
                     },
                     childCount: section.urls.length,

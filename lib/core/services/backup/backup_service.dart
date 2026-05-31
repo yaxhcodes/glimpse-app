@@ -679,6 +679,8 @@ class BackupService {
       accentColorIndex: _readInt(prefs, 'accent_color'),
       userDisplayName: _readString(prefs, 'glimpse_user_display_name'),
       categoryOrder: _readString(prefs, 'glimpse_category_order'),
+      leftSwipeAction: _readString(prefs, 'glimpse_left_swipe_action'),
+      rightSwipeAction: _readString(prefs, 'glimpse_right_swipe_action'),
       digestEnabled: _readBoolFlexible(prefs, 'digest_enabled'),
       hasSeenOnboarding: _readBoolFlexible(prefs, 'has_seen_onboarding'),
       hasSeenShareTip: _readBoolFlexible(prefs, 'has_seen_share_tip'),
@@ -756,6 +758,14 @@ class BackupService {
       if (settings.categoryOrder != null) {
         await prefs.setString(
             'glimpse_category_order', settings.categoryOrder!);
+      }
+      if (settings.leftSwipeAction != null) {
+        await prefs.setString(
+            'glimpse_left_swipe_action', settings.leftSwipeAction!);
+      }
+      if (settings.rightSwipeAction != null) {
+        await prefs.setString(
+            'glimpse_right_swipe_action', settings.rightSwipeAction!);
       }
       if (settings.digestEnabled != null) {
         await prefs.setBool('digest_enabled', settings.digestEnabled!);

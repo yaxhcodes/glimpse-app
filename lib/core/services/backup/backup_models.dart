@@ -225,6 +225,8 @@ class SettingsBackup {
   final int? accentColorIndex;
   final String? userDisplayName;
   final String? categoryOrder;
+  final String? leftSwipeAction;
+  final String? rightSwipeAction;
   final bool? digestEnabled;
   final bool? hasSeenOnboarding;
   final bool? hasSeenShareTip;
@@ -236,6 +238,8 @@ class SettingsBackup {
     this.accentColorIndex,
     this.userDisplayName,
     this.categoryOrder,
+    this.leftSwipeAction,
+    this.rightSwipeAction,
     this.digestEnabled,
     this.hasSeenOnboarding,
     this.hasSeenShareTip,
@@ -248,6 +252,8 @@ class SettingsBackup {
         if (accentColorIndex != null) 'accentColorIndex': accentColorIndex,
         if (userDisplayName != null) 'userDisplayName': userDisplayName,
         if (categoryOrder != null) 'categoryOrder': categoryOrder,
+        if (leftSwipeAction != null) 'leftSwipeAction': leftSwipeAction,
+        if (rightSwipeAction != null) 'rightSwipeAction': rightSwipeAction,
         if (digestEnabled != null) 'digestEnabled': digestEnabled,
         if (hasSeenOnboarding != null) 'hasSeenOnboarding': hasSeenOnboarding,
         if (hasSeenShareTip != null) 'hasSeenShareTip': hasSeenShareTip,
@@ -261,6 +267,8 @@ class SettingsBackup {
         accentColorIndex: json['accentColorIndex'] as int?,
         userDisplayName: json['userDisplayName'] as String?,
         categoryOrder: json['categoryOrder'] as String?,
+        leftSwipeAction: json['leftSwipeAction'] as String?,
+        rightSwipeAction: json['rightSwipeAction'] as String?,
         digestEnabled: json['digestEnabled'] as bool?,
         hasSeenOnboarding: json['hasSeenOnboarding'] as bool?,
         hasSeenShareTip: json['hasSeenShareTip'] as bool?,

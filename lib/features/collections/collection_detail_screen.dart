@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
-import '../../shared/widgets/url_card.dart';
+import '../../core/providers/swipe_preferences_provider.dart';
+import '../../shared/widgets/swipeable_url_card.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 
@@ -99,51 +100,23 @@ class _CollectionDetailScreenState
             itemCount: urls.length,
             itemBuilder: (_, i) {
               final url = urls[i];
-              return Dismissible(
+              return SwipeableUrlCard(
                 key: ValueKey(url.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 24),
-                  color: theme.colorScheme.error,
-                  child: Icon(Icons.remove_circle_outline,
-                      color: theme.colorScheme.onError),
-                ),
-                confirmDismiss: (_) async {
-                  return showDialog<bool>(
+                url: url,
+                leftSwipeAction: SwipeActionType.delete,
+                rightSwipeAction: SwipeActionType.none,
+                onDelete: (context, ref, url) {
+                  return removeUrlFromCollectionWithUndo(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Remove link?'),
-                      content: Text(
-                        '"${url.title}" will be removed from this collection. It stays in your library.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Remove'),
-                        ),
-                      ],
-                    ),
+                    ref: ref,
+                    url: url,
+                    collectionId: widget.collectionId,
                   );
                 },
-                onDismissed: (_) async {
-                  await ref.read(isarServiceProvider).removeUrlFromCollection(
-                        collectionId: widget.collectionId,
-                        urlId: url.id,
-                      );
-                  ref.invalidate(collectionsListProvider);
-                  ref.invalidate(collectionsSummaryProvider);
-                  ref.invalidate(
-                      collectionUrlsProvider(widget.collectionId));
+                onChanged: () {
+                  ref.invalidate(collectionUrlsProvider(widget.collectionId));
                 },
-                child: UrlCard(
-                  savedUrl: url,
-                  onTap: () => context.push('/url/${url.id}'),
-                ),
+                onTap: () => context.push('/url/${url.id}'),
               );
             },
           );

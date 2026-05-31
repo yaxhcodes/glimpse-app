@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_environment.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/swipe_preferences_provider.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/providers/user_display_name_provider.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
@@ -129,6 +130,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         trailing: const Icon(Icons.chevron_right),
                         onTap: _editDisplayName,
                       ),
+                      const Divider(height: 1),
+                      const SizedBox(height: 16),
+                      const _SwipeActionsSettings(),
                     ],
                   ),
                 ),
@@ -462,6 +466,133 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
           child: const Text('Save'),
         ),
       ],
+    );
+  }
+}
+
+class _SwipeActionsSettings extends ConsumerWidget {
+  const _SwipeActionsSettings();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prefs = ref.watch(swipePreferencesProvider);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SubsectionHeader(text: 'Swipe actions'),
+        const SizedBox(height: 12),
+        _SwipeActionRow(
+          label: 'Left swipe',
+          value: prefs.leftSwipeAction,
+          onTap: () async {
+            final action = await _pickSwipeAction(context, prefs.leftSwipeAction);
+            if (action != null) {
+              await ref.read(swipePreferencesProvider.notifier).setLeft(action);
+            }
+          },
+          colorScheme: cs,
+        ),
+        const Divider(height: 1),
+        _SwipeActionRow(
+          label: 'Right swipe',
+          value: prefs.rightSwipeAction,
+          onTap: () async {
+            final action =
+                await _pickSwipeAction(context, prefs.rightSwipeAction);
+            if (action != null) {
+              await ref.read(swipePreferencesProvider.notifier).setRight(action);
+            }
+          },
+          colorScheme: cs,
+        ),
+      ],
+    );
+  }
+
+  Future<SwipeActionType?> _pickSwipeAction(
+    BuildContext context,
+    SwipeActionType selected,
+  ) {
+    return showModalBottomSheet<SwipeActionType>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => _SwipeActionSheet(selected: selected),
+    );
+  }
+}
+
+class _SwipeActionRow extends StatelessWidget {
+  const _SwipeActionRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    required this.colorScheme,
+  });
+
+  final String label;
+  final SwipeActionType value;
+  final VoidCallback onTap;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: onTap,
+      leading: Icon(
+        value.icon,
+        size: 22,
+        color: value.tint(colorScheme).withValues(alpha: 0.82),
+      ),
+      title: Text(label),
+      subtitle: Text(value.label),
+      trailing: const Icon(Icons.chevron_right),
+    );
+  }
+}
+
+class _SwipeActionSheet extends StatelessWidget {
+  const _SwipeActionSheet({required this.selected});
+
+  final SwipeActionType selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(
+              'Choose swipe action',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          for (final action in SwipeActionType.values)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                action.icon,
+                color: action.tint(cs).withValues(alpha: 0.82),
+              ),
+              title: Text(action.label),
+              trailing: action == selected
+                  ? Icon(Icons.check_rounded, color: cs.primary)
+                  : null,
+              onTap: () => Navigator.pop(context, action),
+            ),
+        ],
+      ),
     );
   }
 }

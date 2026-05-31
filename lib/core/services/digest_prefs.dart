@@ -115,6 +115,20 @@ class DigestPrefs {
     await p.setString(_historyKey, jsonEncode(history));
   }
 
+  static Future<void> restoreDigest(
+    Map<String, dynamic> entry, {
+    int index = 0,
+  }) async {
+    final p = await SharedPreferences.getInstance();
+    final history = await loadHistory();
+    final id = entry['id'];
+    history.removeWhere((e) => e['id'] == id);
+    final insertAt = index.clamp(0, history.length).toInt();
+    history.insert(insertAt, Map<String, dynamic>.from(entry));
+    if (history.length > 50) history.removeRange(50, history.length);
+    await p.setString(_historyKey, jsonEncode(history));
+  }
+
   static Future<int> unreadCount() async {
     final history = await loadHistory();
     return history.where((e) => e['read'] != true).length;
