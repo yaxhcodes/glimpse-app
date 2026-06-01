@@ -583,296 +583,280 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       });
     }
 
-    return Stack(
-      children: [
-        RefreshIndicator(
-          edgeOffset: 60,
-          onRefresh: () async {
-            ref.invalidate(urlStreamProvider);
-            ref.invalidate(categoriesProvider);
-            await ref.read(urlStreamProvider.future);
-          },
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                floating: true,
-                snap: true,
-                centerTitle: false,
-                backgroundColor: theme.colorScheme.surface,
-                foregroundColor: theme.colorScheme.onSurfaceVariant,
-                leading: selectionState.isActive
-                    ? IconButton(
-                        icon: const Icon(Icons.arrow_back_rounded),
-                        tooltip: 'Exit selection',
-                        onPressed: selectionNotifier.clear,
-                      )
-                    : null,
-                title: selectionState.isActive
-                    ? BulkSelectionTitle(count: selectedUrls.length)
-                    : _buildGlimpseTitle(context),
-                actions: selectionState.isActive
-                    ? [
-                        BulkSelectionActionButtons(
-                          scope: selectionScope,
-                          selectedUrls: selectedUrls,
-                          visibleUrls: urls,
-                          onDone: selectionNotifier.clear,
-                          onViewPinned: () {
-                            _scrollController.animateTo(
-                              0,
-                              duration: const Duration(milliseconds: 260),
-                              curve: Curves.easeOutCubic,
-                            );
-                          },
-                        ),
-                      ]
-                    : [
-                        IconButton(
-                          icon: const Icon(Icons.add_link_rounded),
-                          tooltip: 'Add URL',
-                          onPressed: () => context.push('/add'),
-                        ),
-                        if (!isEmpty)
-                          IconButton(
-                            icon: Badge.count(
-                              count: _unreadDigests,
-                              maxCount: 9,
-                              isLabelVisible: _unreadDigests > 0,
-                              largeSize: 18,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                              ),
-                              textStyle: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                height: 1.0,
-                              ),
-                              child: const Icon(Icons.notifications_outlined),
-                            ),
-                            tooltip: 'Notifications',
-                            onPressed: () async {
-                              await context.push('/notifications');
-                              _refreshUnreadBadge();
+    return PopScope(
+      canPop: !selectionState.isActive,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && selectionState.isActive) {
+          selectionNotifier.clear();
+        }
+      },
+      child: Stack(
+        children: [
+          RefreshIndicator(
+            edgeOffset: 60,
+            onRefresh: () async {
+              ref.invalidate(urlStreamProvider);
+              ref.invalidate(categoriesProvider);
+              await ref.read(urlStreamProvider.future);
+            },
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  floating: true,
+                  snap: true,
+                  centerTitle: false,
+                  backgroundColor: theme.colorScheme.surface,
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                  leading: selectionState.isActive
+                      ? IconButton(
+                          icon: const Icon(Icons.arrow_back_rounded),
+                          tooltip: 'Exit selection',
+                          onPressed: selectionNotifier.clear,
+                        )
+                      : null,
+                  title: selectionState.isActive
+                      ? BulkSelectionTitle(count: selectedUrls.length)
+                      : _buildGlimpseTitle(context),
+                  actions: selectionState.isActive
+                      ? [
+                          BulkSelectionActionButtons(
+                            scope: selectionScope,
+                            selectedUrls: selectedUrls,
+                            visibleUrls: urls,
+                            onDone: selectionNotifier.clear,
+                            onViewPinned: () {
+                              _scrollController.animateTo(
+                                0,
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOutCubic,
+                              );
                             },
                           ),
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_horiz),
-                          onSelected: (value) {
-                            switch (value) {
-                              case 'select':
-                                if (urls.isNotEmpty) {
-                                  selectionNotifier.startWith(urls.first.id);
-                                }
-                                break;
-                              case 'settings':
-                                context.push('/settings');
-                                break;
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            if (!isEmpty)
-                              const PopupMenuItem(
-                                value: 'select',
-                                child: ListTile(
-                                  leading: Icon(Icons.check_circle_outline),
-                                  title: Text('Select'),
-                                  contentPadding: EdgeInsets.zero,
+                        ]
+                      : [
+                          IconButton(
+                            icon: const Icon(Icons.add_link_rounded),
+                            tooltip: 'Add URL',
+                            onPressed: () => context.push('/add'),
+                          ),
+                          if (!isEmpty)
+                            IconButton(
+                              icon: Badge.count(
+                                count: _unreadDigests,
+                                maxCount: 9,
+                                isLabelVisible: _unreadDigests > 0,
+                                largeSize: 18,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
                                 ),
+                                textStyle: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.0,
+                                ),
+                                child: const Icon(Icons.notifications_outlined),
                               ),
-                            const PopupMenuItem(
-                              value: 'settings',
-                              child: ListTile(
-                                leading: Icon(Icons.settings_outlined),
-                                title: Text('Settings'),
-                                contentPadding: EdgeInsets.zero,
+                              tooltip: 'Notifications',
+                              onPressed: () async {
+                                await context.push('/notifications');
+                                _refreshUnreadBadge();
+                              },
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.settings_outlined),
+                            tooltip: 'Settings',
+                            onPressed: () => context.push('/settings'),
+                          ),
+                        ],
+                ),
+                if (!simulateFirstSave &&
+                    !forceEmptyLibrary &&
+                    actualUrls.isNotEmpty)
+                  const SliverToBoxAdapter(child: RediscoverySection()),
+                if (orderedCategories.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 8, 6),
+                          child: InkWell(
+                            onTap: () => context.push('/sources'),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 0,
+                                vertical: 4,
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-              ),
-              if (!simulateFirstSave &&
-                  !forceEmptyLibrary &&
-                  actualUrls.isNotEmpty)
-                const SliverToBoxAdapter(child: RediscoverySection()),
-              if (orderedCategories.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 6),
-                        child: InkWell(
-                          onTap: () => context.push('/sources'),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 0,
-                              vertical: 4,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Filter by source',
-                                    style: theme.textTheme.labelMedium
-                                        ?.copyWith(
-                                          color: theme
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Filter by source',
+                                      style: theme.textTheme.labelMedium
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
                                   ),
-                                ),
-                                Icon(
-                                  Icons.chevron_right,
-                                  size: 18,
-                                  color: theme.colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.40),
-                                ),
-                                const SizedBox(width: 8),
-                              ],
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 18,
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.40),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        height: 34,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          clipBehavior: Clip.none,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: orderedCategories.length.clamp(0, 10),
-                          separatorBuilder: (_, _) => const SizedBox(width: 6),
-                          itemBuilder: (context, index) {
-                            final cat = orderedCategories[index];
-                            final name = cat['category'] as String;
-                            final emoji = cat['emoji'] as String;
-                            final fav = faviconUrl(name);
-                            return GestureDetector(
-                              onLongPress: () => _showReorderSheet(context),
-                              child: FilterChip(
-                                showCheckmark: false,
-                                avatar: fav != null
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(3),
-                                        child: CachedNetworkImage(
-                                          imageUrl: fav,
-                                          width: 14,
-                                          height: 14,
-                                          errorWidget: (_, _, _) => Text(
-                                            emoji,
-                                            style: const TextStyle(
-                                              fontSize: 10,
+                        SizedBox(
+                          height: 34,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            clipBehavior: Clip.none,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: orderedCategories.length.clamp(0, 10),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 6),
+                            itemBuilder: (context, index) {
+                              final cat = orderedCategories[index];
+                              final name = cat['category'] as String;
+                              final emoji = cat['emoji'] as String;
+                              final fav = faviconUrl(name);
+                              return GestureDetector(
+                                onLongPress: () => _showReorderSheet(context),
+                                child: FilterChip(
+                                  showCheckmark: false,
+                                  avatar: fav != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
+                                          child: CachedNetworkImage(
+                                            imageUrl: fav,
+                                            width: 14,
+                                            height: 14,
+                                            errorWidget: (_, _, _) => Text(
+                                              emoji,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                              ),
                                             ),
                                           ),
+                                        )
+                                      : Text(
+                                          emoji,
+                                          style: const TextStyle(fontSize: 10),
                                         ),
-                                      )
-                                    : Text(
-                                        emoji,
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                label: Text(name),
-                                color: WidgetStatePropertyAll(
-                                  theme.colorScheme.surfaceContainerLow,
-                                ),
-                                labelStyle: theme.textTheme.labelSmall
-                                    ?.copyWith(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.1,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                backgroundColor:
+                                  label: Text(name),
+                                  color: WidgetStatePropertyAll(
                                     theme.colorScheme.surfaceContainerLow,
-                                side: BorderSide.none,
-                                selected: false,
-                                onSelected: (_) => context.push(
-                                  '/category/${Uri.encodeComponent(name)}',
+                                  ),
+                                  labelStyle: theme.textTheme.labelSmall
+                                      ?.copyWith(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        letterSpacing: 0.1,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                  backgroundColor:
+                                      theme.colorScheme.surfaceContainerLow,
+                                  side: BorderSide.none,
+                                  selected: false,
+                                  onSelected: (_) => context.push(
+                                    '/category/${Uri.encodeComponent(name)}',
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              if (isAddingUrl)
-                const SliverToBoxAdapter(child: UrlCardSkeleton()),
-              for (final section in sections) ...[
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                    child: Text(
-                      section.label,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
+                if (isAddingUrl)
+                  const SliverToBoxAdapter(child: UrlCardSkeleton()),
+                for (final section in sections) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                      child: Text(
+                        section.label,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final url = section.urls[index];
-                    return SwipeableUrlCard(
-                      key: ValueKey(url.id),
-                      url: url,
-                      selectionMode: selectionState.isActive,
-                      isSelected: selectionState.isSelected(url.id),
-                      onSelectionStart: () =>
-                          selectionNotifier.startWith(url.id),
-                      onSelectionToggle: () => selectionNotifier.toggle(url.id),
-                      onTap: () => context.push('/url/${url.id}'),
-                      onViewPinned: () {
-                        _scrollController.animateTo(
-                          0,
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeOutCubic,
-                        );
-                      },
-                    );
-                  }, childCount: section.urls.length),
-                ),
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final url = section.urls[index];
+                      return SwipeableUrlCard(
+                        key: ValueKey(url.id),
+                        url: url,
+                        selectionMode: selectionState.isActive,
+                        isSelected: selectionState.isSelected(url.id),
+                        onSelectionStart: () =>
+                            selectionNotifier.startWith(url.id),
+                        onSelectionToggle: () =>
+                            selectionNotifier.toggle(url.id),
+                        onTap: () => context.push('/url/${url.id}'),
+                        onViewPinned: () {
+                          _scrollController.animateTo(
+                            0,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                          );
+                        },
+                      );
+                    }, childCount: section.urls.length),
+                  ),
+                ],
+                const SliverToBoxAdapter(child: SizedBox(height: 96)),
               ],
-              const SliverToBoxAdapter(child: SizedBox(height: 96)),
-            ],
+            ),
           ),
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 180),
-              opacity: _isScrolled ? 1.0 : 0.0,
-              child: Container(
-                height: MediaQuery.of(context).padding.top + 16,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Theme.of(
-                        context,
-                      ).colorScheme.scrim.withValues(alpha: 0.45),
-                      Theme.of(
-                        context,
-                      ).colorScheme.surface.withValues(alpha: 0),
-                    ],
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: _isScrolled ? 1.0 : 0.0,
+                child: Container(
+                  height: MediaQuery.of(context).padding.top + 16,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Theme.of(
+                          context,
+                        ).colorScheme.scrim.withValues(alpha: 0.45),
+                        Theme.of(
+                          context,
+                        ).colorScheme.surface.withValues(alpha: 0),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

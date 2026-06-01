@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers/bulk_selection_provider.dart';
 import '../home/home_screen.dart';
 import '../home/home_provider.dart';
 import '../collections/collections_screen.dart';
@@ -36,20 +37,34 @@ class _MainShellState extends ConsumerState<MainShell> {
     final cs = Theme.of(context).colorScheme;
     final urlsAsync = ref.watch(displayedUrlsProvider);
     final hasLinks = (urlsAsync.valueOrNull?.length ?? 0) > 0;
+    final homeSelection = ref.watch(bulkSelectionProvider('home'));
+    final searchSelection = ref.watch(bulkSelectionProvider('search'));
+    final currentSelectionScope = switch (_currentIndex) {
+      0 => 'home',
+      _searchTabIndex => 'search',
+      _ => null,
+    };
+    final hasActiveSelection = switch (_currentIndex) {
+      0 => homeSelection.isActive,
+      _searchTabIndex => searchSelection.isActive,
+      _ => false,
+    };
 
     return PopScope(
-      canPop: _currentIndex == 0,
+      canPop: _currentIndex == 0 && !hasActiveSelection,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _currentIndex != 0) {
+        if (didPop) return;
+        if (hasActiveSelection && currentSelectionScope != null) {
+          ref
+              .read(bulkSelectionProvider(currentSelectionScope).notifier)
+              .clear();
+        } else if (_currentIndex != 0) {
           setState(() => _currentIndex = 0);
         }
       },
       child: Scaffold(
         backgroundColor: cs.surface,
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _screens,
-        ),
+        body: IndexedStack(index: _currentIndex, children: _screens),
         floatingActionButton: _currentIndex == 0 && hasLinks
             ? FloatingActionButton.extended(
                 onPressed: () {

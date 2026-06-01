@@ -126,394 +126,394 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         .where((url) => selectionState.selectedIds.contains(url.id))
         .toList();
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        toolbarHeight: 72,
-        titleSpacing: 0,
-        automaticallyImplyLeading: !widget.embedded,
-        scrolledUnderElevation: 0,
-        leading: selectionState.isActive
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Exit selection',
-                onPressed: selectionNotifier.clear,
-              )
-            : null,
-        title: selectionState.isActive
-            ? BulkSelectionTitle(count: selectedUrls.length)
-            : Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _searchFocus,
-                    autofocus: true,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      height: 1.35,
+    return PopScope(
+      canPop: !selectionState.isActive,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && selectionState.isActive) {
+          selectionNotifier.clear();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: AppBar(
+          toolbarHeight: 72,
+          titleSpacing: 0,
+          automaticallyImplyLeading: !widget.embedded,
+          scrolledUnderElevation: 0,
+          leading: selectionState.isActive
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Exit selection',
+                  onPressed: selectionNotifier.clear,
+                )
+              : null,
+          title: selectionState.isActive
+              ? BulkSelectionTitle(count: selectedUrls.length)
+              : Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                    cursorHeight: 22,
-                    decoration: InputDecoration(
-                      hintText: 'Search your library…',
-                      hintStyle: theme.textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.75,
-                        ),
-                        fontWeight: FontWeight.w200,
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _searchFocus,
+                      autofocus: true,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
                         height: 1.35,
                       ),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      filled: false,
-                      isDense: false,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 4,
-                      ),
-                      prefixIcon: Padding(
-                        padding: const EdgeInsets.only(left: 6, right: 2),
-                        child: Icon(
-                          Icons.search_rounded,
-                          size: 26,
+                      cursorHeight: 22,
+                      decoration: InputDecoration(
+                        hintText: 'Search your library…',
+                        hintStyle: theme.textTheme.titleMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.85,
+                            alpha: 0.75,
+                          ),
+                          fontWeight: FontWeight.w200,
+                          height: 1.35,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        filled: false,
+                        isDense: false,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 4,
+                        ),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.only(left: 6, right: 2),
+                          child: Icon(
+                            Icons.search_rounded,
+                            size: 26,
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.85,
+                            ),
                           ),
                         ),
-                      ),
-                      prefixIconConstraints: const BoxConstraints(
-                        minWidth: 48,
-                        minHeight: 48,
-                      ),
-                      suffixIcon: query.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(
-                                Icons.close_rounded,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              tooltip: 'Clear',
-                              onPressed: () {
-                                _controller.clear();
-                                ref.read(searchProvider.notifier).clear();
-                                setState(() {});
-                              },
-                            )
-                          : null,
-                    ),
-                    onChanged: (value) {
-                      setState(() {});
-                      _onQueryChanged(value);
-                    },
-                  ),
-                ),
-              ),
-        actions: selectionState.isActive
-            ? [
-                BulkSelectionActionButtons(
-                  scope: selectionScope,
-                  selectedUrls: selectedUrls,
-                  visibleUrls: visibleUrls,
-                  onDone: selectionNotifier.clear,
-                ),
-              ]
-            : [
-                if (visibleUrls.isNotEmpty)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_horiz),
-                    onSelected: (value) {
-                      if (value == 'select' && visibleUrls.isNotEmpty) {
-                        selectionNotifier.startWith(visibleUrls.first.id);
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'select',
-                        child: ListTile(
-                          leading: Icon(Icons.check_circle_outline),
-                          title: Text('Select'),
-                          contentPadding: EdgeInsets.zero,
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 48,
+                          minHeight: 48,
                         ),
-                      ),
-                    ],
-                  ),
-              ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ...DateFilter.values.map((f) {
-                  final selected = dateFilter == f;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _DateFilterPill(
-                      label: f.label,
-                      selected: selected,
-                      onTap: () =>
-                          ref.read(dateFilterProvider.notifier).state = f,
-                      colorScheme: colorScheme,
-                      textTheme: theme.textTheme,
-                    ),
-                  );
-                }),
-                const SizedBox(width: 8),
-                const UsageBadge(feature: UsageFeature.search),
-              ],
-            ),
-          ),
-          Expanded(
-            child: queryTrim.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 40),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.travel_explore_rounded,
-                            size: 56,
-                            color: colorScheme.primary.withValues(alpha: 0.65),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Find anything you saved',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Search titles, tags, notes, and summaries. '
-                            'Use the time filters to narrow results.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              height: 1.4,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : _pendingSearch || resultsAsync.isLoading
-                ? const LoadingIndicator(message: 'Searching your library…')
-                : resultsAsync.when(
-                    data: (results) {
-                      final filtered = _applyDateFilter(results, dateFilter);
-                      if (selectionState.enabled &&
-                          selectedUrls.length != selectionState.count) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (!mounted) return;
-                          selectionNotifier.pruneToVisible(
-                            filtered.map((result) => result.url.id),
-                          );
-                        });
-                      }
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (mode == SearchMode.semantic &&
-                              queryTrim.length > 2)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.secondaryContainer
-                                        .withValues(alpha: 0.65),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.auto_awesome,
-                                          size: 16,
-                                          color: colorScheme.primary,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Semantic match',
-                                          style: theme.textTheme.labelLarge
-                                              ?.copyWith(
-                                                color: colorScheme
-                                                    .onSecondaryContainer,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                        suffixIcon: query.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
+                                tooltip: 'Clear',
+                                onPressed: () {
+                                  _controller.clear();
+                                  ref.read(searchProvider.notifier).clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (value) {
+                        setState(() {});
+                        _onQueryChanged(value);
+                      },
+                    ),
+                  ),
+                ),
+          actions: selectionState.isActive
+              ? [
+                  BulkSelectionActionButtons(
+                    scope: selectionScope,
+                    selectedUrls: selectedUrls,
+                    visibleUrls: visibleUrls,
+                    onDone: selectionNotifier.clear,
+                  ),
+                ]
+              : null,
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ...DateFilter.values.map((f) {
+                    final selected = dateFilter == f;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _DateFilterPill(
+                        label: f.label,
+                        selected: selected,
+                        onTap: () =>
+                            ref.read(dateFilterProvider.notifier).state = f,
+                        colorScheme: colorScheme,
+                        textTheme: theme.textTheme,
+                      ),
+                    );
+                  }),
+                  const SizedBox(width: 8),
+                  const UsageBadge(feature: UsageFeature.search),
+                ],
+              ),
+            ),
+            Expanded(
+              child: queryTrim.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.travel_explore_rounded,
+                              size: 56,
+                              color: colorScheme.primary.withValues(
+                                alpha: 0.65,
                               ),
                             ),
-                          Expanded(
-                            child: filtered.isEmpty
-                                ? Center(
+                            const SizedBox(height: 20),
+                            Text(
+                              'Find anything you saved',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Search titles, tags, notes, and summaries. '
+                              'Use the time filters to narrow results.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _pendingSearch || resultsAsync.isLoading
+                  ? const LoadingIndicator(message: 'Searching your library…')
+                  : resultsAsync.when(
+                      data: (results) {
+                        final filtered = _applyDateFilter(results, dateFilter);
+                        if (selectionState.enabled &&
+                            selectedUrls.length != selectionState.count) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            selectionNotifier.pruneToVisible(
+                              filtered.map((result) => result.url.id),
+                            );
+                          });
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (mode == SearchMode.semantic &&
+                                queryTrim.length > 2)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.secondaryContainer
+                                          .withValues(alpha: 0.65),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 32,
+                                        horizontal: 12,
+                                        vertical: 6,
                                       ),
-                                      child: Column(
+                                      child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
-                                            Icons.search_off_rounded,
-                                            size: 52,
-                                            color: colorScheme.onSurfaceVariant,
+                                            Icons.auto_awesome,
+                                            size: 16,
+                                            color: colorScheme.primary,
                                           ),
-                                          const SizedBox(height: 16),
+                                          const SizedBox(width: 8),
                                           Text(
-                                            'No matches for this filter',
-                                            style: theme.textTheme.titleMedium,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Try another time range or '
-                                            'broaden your search.',
-                                            style: theme.textTheme.bodyMedium
+                                            'Semantic match',
+                                            style: theme.textTheme.labelLarge
                                                 ?.copyWith(
                                                   color: colorScheme
-                                                      .onSurfaceVariant,
+                                                      .onSecondaryContainer,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
-                                            textAlign: TextAlign.center,
                                           ),
                                         ],
                                       ),
                                     ),
-                                  )
-                                : ListView.builder(
-                                    padding: const EdgeInsets.only(
-                                      top: 4,
-                                      bottom: 24,
-                                    ),
-                                    itemCount: filtered.length,
-                                    itemBuilder: (context, index) {
-                                      final result = filtered[index];
-                                      final url = result.url;
-                                      return SwipeableUrlCard(
-                                        key: ValueKey(url.id),
-                                        url: url,
-                                        selectionMode: selectionState.isActive,
-                                        isSelected: selectionState.isSelected(
-                                          url.id,
-                                        ),
-                                        onSelectionStart: () =>
-                                            selectionNotifier.startWith(url.id),
-                                        onSelectionToggle: () =>
-                                            selectionNotifier.toggle(url.id),
-                                        onChanged: () {
-                                          final t = _controller.text.trim();
-                                          if (t.length > 2) {
-                                            ref
-                                                .read(searchProvider.notifier)
-                                                .search(t);
-                                          }
-                                        },
-                                        onTap: () => _onOpenResult(result),
-                                      );
-                                    },
                                   ),
-                          ),
-                        ],
-                      );
-                    },
-                    loading: () => const LoadingIndicator(
-                      message: 'Searching your library…',
-                    ),
-                    error: (err, _) {
-                      final isLimit = err is UsageLimitReachedException;
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isLimit
-                                    ? Icons.lock_clock_outlined
-                                    : Icons.cloud_off_outlined,
-                                size: 48,
-                                color: colorScheme.onSurfaceVariant,
+                                ),
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                isLimit
-                                    ? 'Monthly limit reached'
-                                    : 'Search failed',
-                                style: theme.textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                isLimit
-                                    ? "You've reached your monthly search limit. Upgrade to Glimpse Pro for unlimited searches."
-                                    : '$err',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                            Expanded(
+                              child: filtered.isEmpty
+                                  ? Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 32,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.search_off_rounded,
+                                              size: 52,
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'No matches for this filter',
+                                              style:
+                                                  theme.textTheme.titleMedium,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Try another time range or '
+                                              'broaden your search.',
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                    color: colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.only(
+                                        top: 4,
+                                        bottom: 24,
+                                      ),
+                                      itemCount: filtered.length,
+                                      itemBuilder: (context, index) {
+                                        final result = filtered[index];
+                                        final url = result.url;
+                                        return SwipeableUrlCard(
+                                          key: ValueKey(url.id),
+                                          url: url,
+                                          selectionMode:
+                                              selectionState.isActive,
+                                          isSelected: selectionState.isSelected(
+                                            url.id,
+                                          ),
+                                          onSelectionStart: () =>
+                                              selectionNotifier.startWith(
+                                                url.id,
+                                              ),
+                                          onSelectionToggle: () =>
+                                              selectionNotifier.toggle(url.id),
+                                          onChanged: () {
+                                            final t = _controller.text.trim();
+                                            if (t.length > 2) {
+                                              ref
+                                                  .read(searchProvider.notifier)
+                                                  .search(t);
+                                            }
+                                          },
+                                          onTap: () => _onOpenResult(result),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        );
+                      },
+                      loading: () => const LoadingIndicator(
+                        message: 'Searching your library…',
+                      ),
+                      error: (err, _) {
+                        final isLimit = err is UsageLimitReachedException;
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isLimit
+                                      ? Icons.lock_clock_outlined
+                                      : Icons.cloud_off_outlined,
+                                  size: 48,
                                   color: colorScheme.onSurfaceVariant,
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 20),
-                              if (isLimit)
-                                FilledButton.icon(
-                                  onPressed: () async {
-                                    final upgraded = await showUpgradeGate(
-                                      context,
-                                      UpgradeFeature.search,
-                                    );
-                                    if (upgraded == true && mounted) {
+                                const SizedBox(height: 16),
+                                Text(
+                                  isLimit
+                                      ? 'Monthly limit reached'
+                                      : 'Search failed',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  isLimit
+                                      ? "You've reached your monthly search limit. Upgrade to Glimpse Pro for unlimited searches."
+                                      : '$err',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 20),
+                                if (isLimit)
+                                  FilledButton.icon(
+                                    onPressed: () async {
+                                      final upgraded = await showUpgradeGate(
+                                        context,
+                                        UpgradeFeature.search,
+                                      );
+                                      if (upgraded == true && mounted) {
+                                        final t = _controller.text.trim();
+                                        if (t.length > 2) {
+                                          ref
+                                              .read(searchProvider.notifier)
+                                              .search(t);
+                                        }
+                                      }
+                                    },
+                                    icon: const Icon(
+                                      Icons.workspace_premium_outlined,
+                                    ),
+                                    label: const Text('Upgrade to Pro'),
+                                  )
+                                else
+                                  FilledButton.tonalIcon(
+                                    onPressed: () {
                                       final t = _controller.text.trim();
                                       if (t.length > 2) {
                                         ref
                                             .read(searchProvider.notifier)
                                             .search(t);
                                       }
-                                    }
-                                  },
-                                  icon: const Icon(
-                                    Icons.workspace_premium_outlined,
+                                    },
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text('Try again'),
                                   ),
-                                  label: const Text('Upgrade to Pro'),
-                                )
-                              else
-                                FilledButton.tonalIcon(
-                                  onPressed: () {
-                                    final t = _controller.text.trim();
-                                    if (t.length > 2) {
-                                      ref
-                                          .read(searchProvider.notifier)
-                                          .search(t);
-                                    }
-                                  },
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Try again'),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

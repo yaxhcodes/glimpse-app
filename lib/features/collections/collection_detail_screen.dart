@@ -44,117 +44,112 @@ class _CollectionDetailScreenState
       orElse: () => 'Collection',
     );
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        leading: selectionState.isActive
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Exit selection',
-                onPressed: selectionNotifier.clear,
-              )
-            : null,
-        title: selectionState.isActive
-            ? BulkSelectionTitle(count: selectedUrls.length)
-            : Text(title),
-        actions: selectionState.isActive
-            ? [
-                BulkSelectionActionButtons(
-                  scope: selectionScope,
-                  selectedUrls: selectedUrls,
-                  visibleUrls: visibleUrls,
-                  onDone: () {
-                    selectionNotifier.clear();
-                    ref.invalidate(collectionUrlsProvider(widget.collectionId));
-                  },
-                ),
-              ]
-            : [
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  tooltip: 'Rename',
-                  onPressed: () => _rename(context, metaAsync.valueOrNull),
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (value) async {
-                    switch (value) {
-                      case 'select':
-                        final urls = urlsAsync.valueOrNull ?? [];
-                        if (urls.isNotEmpty) {
-                          selectionNotifier.startWith(urls.first.id);
-                        }
-                        break;
-                      case 'delete':
-                        await _confirmDeleteCollection(context);
-                        break;
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    if ((urlsAsync.valueOrNull ?? []).isNotEmpty)
+    return PopScope(
+      canPop: !selectionState.isActive,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && selectionState.isActive) {
+          selectionNotifier.clear();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        appBar: AppBar(
+          leading: selectionState.isActive
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Exit selection',
+                  onPressed: selectionNotifier.clear,
+                )
+              : null,
+          title: selectionState.isActive
+              ? BulkSelectionTitle(count: selectedUrls.length)
+              : Text(title),
+          actions: selectionState.isActive
+              ? [
+                  BulkSelectionActionButtons(
+                    scope: selectionScope,
+                    selectedUrls: selectedUrls,
+                    visibleUrls: visibleUrls,
+                    onDone: () {
+                      selectionNotifier.clear();
+                      ref.invalidate(
+                        collectionUrlsProvider(widget.collectionId),
+                      );
+                    },
+                  ),
+                ]
+              : [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Rename',
+                    onPressed: () => _rename(context, metaAsync.valueOrNull),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) async {
+                      switch (value) {
+                        case 'delete':
+                          await _confirmDeleteCollection(context);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
                       const PopupMenuItem(
-                        value: 'select',
+                        value: 'delete',
                         child: ListTile(
-                          leading: Icon(Icons.check_circle_outline),
-                          title: Text('Select'),
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('Delete collection'),
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: ListTile(
-                        leading: Icon(Icons.delete_outline),
-                        title: Text('Delete collection'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                ],
+        ),
+        body: urlsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('$e')),
+          data: (urls) {
+            if (urls.isEmpty) {
+              return Center(
+                child: Text(
+                  'No links in this collection yet.',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ],
-      ),
-      body: urlsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
-        data: (urls) {
-          if (urls.isEmpty) {
-            return Center(
-              child: Text(
-                'No links in this collection yet.',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: urls.length,
-            itemBuilder: (_, i) {
-              final url = urls[i];
-              return SwipeableUrlCard(
-                key: ValueKey(url.id),
-                url: url,
-                leftSwipeAction: SwipeActionType.delete,
-                rightSwipeAction: SwipeActionType.none,
-                selectionMode: selectionState.isActive,
-                isSelected: selectionState.isSelected(url.id),
-                onSelectionStart: () => selectionNotifier.startWith(url.id),
-                onSelectionToggle: () => selectionNotifier.toggle(url.id),
-                onDelete: (context, ref, url) {
-                  return removeUrlFromCollectionWithUndo(
-                    context: context,
-                    ref: ref,
-                    url: url,
-                    collectionId: widget.collectionId,
-                  );
-                },
-                onChanged: () {
-                  ref.invalidate(collectionUrlsProvider(widget.collectionId));
-                },
-                onTap: () => context.push('/url/${url.id}'),
               );
-            },
-          );
-        },
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: urls.length,
+              itemBuilder: (_, i) {
+                final url = urls[i];
+                return SwipeableUrlCard(
+                  key: ValueKey(url.id),
+                  url: url,
+                  leftSwipeAction: SwipeActionType.delete,
+                  rightSwipeAction: SwipeActionType.none,
+                  selectionMode: selectionState.isActive,
+                  isSelected: selectionState.isSelected(url.id),
+                  onSelectionStart: () => selectionNotifier.startWith(url.id),
+                  onSelectionToggle: () => selectionNotifier.toggle(url.id),
+                  onDelete: (context, ref, url) {
+                    return removeUrlFromCollectionWithUndo(
+                      context: context,
+                      ref: ref,
+                      url: url,
+                      collectionId: widget.collectionId,
+                    );
+                  },
+                  onChanged: () {
+                    ref.invalidate(collectionUrlsProvider(widget.collectionId));
+                  },
+                  onTap: () => context.push('/url/${url.id}'),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

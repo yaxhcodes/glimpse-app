@@ -28,10 +28,7 @@ class BulkSelectionTitle extends StatelessWidget {
           ),
         );
       },
-      child: Text(
-        '$count ${count == 1 ? 'selected' : 'selected'}',
-        key: ValueKey(count),
-      ),
+      child: Text('$count', key: ValueKey(count)),
     );
   }
 }
@@ -56,6 +53,8 @@ class BulkSelectionActionButtons extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final readLabel = _readActionLabel(selectedUrls);
+    final pinnedIds = ref.watch(pinnedUrlsProvider);
+    final pinLabel = _pinActionLabel(selectedUrls, pinnedIds);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -100,8 +99,8 @@ class BulkSelectionActionButtons extends ConsumerWidget {
         IconButton(
           constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
           padding: EdgeInsets.zero,
-          tooltip: 'Pin',
-          icon: const Icon(Icons.push_pin_outlined),
+          tooltip: pinLabel,
+          icon: Icon(_pinActionIcon(selectedUrls, pinnedIds)),
           onPressed: selectedUrls.isEmpty
               ? null
               : () => _pinSelected(
@@ -139,6 +138,20 @@ IconData _readActionIcon(List<SavedUrl> urls) {
     return Icons.mark_email_unread_outlined;
   }
   return Icons.mark_email_read_outlined;
+}
+
+String _pinActionLabel(List<SavedUrl> urls, List<int> pinnedIds) {
+  if (urls.isNotEmpty && urls.every((url) => pinnedIds.contains(url.id))) {
+    return 'Unpin';
+  }
+  return 'Pin';
+}
+
+IconData _pinActionIcon(List<SavedUrl> urls, List<int> pinnedIds) {
+  if (urls.isNotEmpty && urls.every((url) => pinnedIds.contains(url.id))) {
+    return Icons.push_pin_rounded;
+  }
+  return Icons.push_pin_outlined;
 }
 
 Future<void> _markReadState(
@@ -183,6 +196,28 @@ Future<void> _pinSelected(
   VoidCallback? onViewPinned,
 ) async {
   final currentPins = ref.read(pinnedUrlsProvider);
+  final allPinned = urls.every((url) => currentPins.contains(url.id));
+  if (allPinned) {
+    final notifier = ref.read(pinnedUrlsProvider.notifier);
+    for (final url in urls) {
+      await notifier.unpin(url.id);
+    }
+    onDone();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            '${urls.length} ${urls.length == 1 ? 'item' : 'items'} unpinned',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    return;
+  }
+
   final newIds = urls
       .map((url) => url.id)
       .where((id) => !currentPins.contains(id))
