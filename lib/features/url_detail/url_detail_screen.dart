@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -133,10 +134,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _showFullUrl = false;
   bool _showExactSavedDate = false;
   String? _localNotesOverride;
-  String? _transcriptEnrichmentUrl;
-  DateTime? _lastTranscriptEnrichmentAttempt;
-  bool _loadingTranscriptEnrichment = false;
-  TranscriptEnrichmentResult? _transcriptEnrichment;
   Timer? _notesTimer;
 
   @override
@@ -148,10 +145,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _tagsExpanded = false;
       _showExactSavedDate = false;
       _localNotesOverride = null;
-      _transcriptEnrichmentUrl = null;
-      _lastTranscriptEnrichmentAttempt = null;
-      _loadingTranscriptEnrichment = false;
-      _transcriptEnrichment = null;
     }
   }
 
@@ -389,120 +382,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     url.tags = [...url.tags, newTag];
     await isarService.updateUrl(url);
     ref.invalidate(urlDetailProvider(widget.urlId));
-  }
-
-  Future<void> _loadTranscriptEnrichment(SavedUrl url) async {
-    if (!TranscriptEnrichmentService.supportsUrl(url.rawUrl)) return;
-    if (_loadingTranscriptEnrichment) {
-      return;
-    }
-    if (_transcriptEnrichmentUrl == url.rawUrl &&
-        _transcriptEnrichment?.hasUsefulContent == true) {
-      return;
-    }
-    final lastAttempt = _lastTranscriptEnrichmentAttempt;
-    if (lastAttempt != null &&
-        DateTime.now().difference(lastAttempt) < const Duration(seconds: 20)) {
-      return;
-    }
-
-    _transcriptEnrichmentUrl = url.rawUrl;
-    _lastTranscriptEnrichmentAttempt = DateTime.now();
-    setState(() => _loadingTranscriptEnrichment = true);
-
-    final service = ref.read(transcriptEnrichmentServiceProvider);
-    final result = await service.enrichUrl(
-      rawUrl: url.rawUrl,
-      title: url.title,
-      description: url.description,
-      thumbnailUrl: url.thumbnailUrl,
-      domain: url.domain,
-    );
-
-    if (!mounted || _transcriptEnrichmentUrl != url.rawUrl) return;
-    setState(() {
-      _transcriptEnrichment = result;
-      _loadingTranscriptEnrichment = false;
-    });
-    if (result != null && result.hasUsefulContent) {
-      await _persistTranscriptFields(url, result);
-    }
-  }
-
-  Future<void> _persistTranscriptFields(
-    SavedUrl url,
-    TranscriptEnrichmentResult result,
-  ) async {
-    final title = result.meaningfulTitle.trim();
-    final summary = result.summary.trim();
-    final tags = TagNoiseFilter.filterTags(result.tags);
-    final normalized = CategoryTaxonomy.normalize(
-      category: result.category,
-      tags: tags,
-    );
-    final inferredCategories = CategoryTaxonomy.inferAdditionalCategories(
-      tags: tags,
-      text: '${result.meaningfulTitle} ${result.summary} ${result.caption ?? ''}',
-    );
-
-    var changed = false;
-    if (title.isNotEmpty &&
-        !TitleResolver.isLowSignalTitle(title, domain: url.domain) &&
-        url.title != title) {
-      url.title = title;
-      changed = true;
-    }
-    if (summary.isNotEmpty && url.summary != summary) {
-      url.summary = summary;
-      changed = true;
-    }
-    if (tags.isNotEmpty && !_sameStringList(url.tags, tags)) {
-      url.tags = tags;
-      changed = true;
-    }
-    final platformName = CategoryResolver.displaySourceName(
-      rawUrl: url.rawUrl,
-      fallbackDomain: url.domain,
-    );
-    final nextCategories = CategoryResolver.buildCategories(
-      primaryCategory: normalized.name,
-      platformCategory: platformName == url.domain ? null : platformName,
-      additionalCategories: [
-        ...inferredCategories.where((item) => item != normalized.name),
-        ...url.effectiveCategories.where((item) =>
-            item != url.category &&
-            item != 'Other' &&
-            item != normalized.name),
-      ],
-    );
-    if (url.category != normalized.name ||
-        !_sameStringList(url.categories, nextCategories)) {
-      url.category = normalized.name;
-      url.categoryEmoji = normalized.emoji;
-      url.categories = nextCategories;
-      changed = true;
-    }
-    final thumbnail = result.thumbnailUrl?.trim();
-    if (thumbnail != null && thumbnail.isNotEmpty && url.thumbnailUrl != thumbnail) {
-      url.thumbnailUrl = thumbnail;
-      changed = true;
-    }
-    if (!changed) return;
-
-    await ref.read(isarServiceProvider).updateUrl(url);
-    if (!mounted) return;
-    ref.invalidate(urlDetailProvider(widget.urlId));
-    ref.invalidate(urlStreamProvider);
-    ref.invalidate(categoriesProvider);
-    ref.invalidate(tagOccurrenceMapProvider);
-  }
-
-  bool _sameStringList(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
 
   Future<void> _changeCategory(SavedUrl url) async {
@@ -770,19 +649,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ColorScheme colorScheme,
     Map<String, int> tagFreq,
   ) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _loadTranscriptEnrichment(url);
-    });
-
     if (!_notesEdited && !_notesFocusNode.hasFocus) {
       _notesController.text = _localNotesOverride ?? url.userNotes ?? '';
     }
-    final live = _transcriptEnrichmentUrl == url.rawUrl
-        ? _transcriptEnrichment
-        : null;
+    final live = _savedEnrichment(url);
     final metadata = _extractDetailMetadata(
       description: url.description,
       creator: live?.creator,
+      likeCount: live?.likeCount,
+      commentCount: live?.commentCount,
       rawUrl: url.rawUrl,
     );
     final formattedDescription = _formatDescription(url.description);
@@ -797,7 +672,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         .map((item) => TagNoiseFilter.cleanTag(item.title))
         .where((item) => item.isNotEmpty)
         .toSet();
-    final sourceTags = (live?.tags.isNotEmpty ?? false) ? live!.tags : url.tags;
+    final sourceTags = url.tags;
     final rawTagPool = sourceTags
         .where((tag) => !normalizedCategories.contains(tag.toLowerCase()))
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
@@ -816,19 +691,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         showAllTags ? visibleTags : visibleTags.take(collapseTagsAt).toList();
     final hiddenTagCount = visibleTags.length - collapseTagsAt;
     final summaryText = TextCleaner.clean(
-      (live?.summary.trim().isNotEmpty ?? false)
-          ? live!.summary.trim()
-          : url.summary?.trim() ?? '',
+      url.summary?.trim() ?? '',
     );
     final showSummary = summaryText.isNotEmpty &&
         summaryText.toLowerCase() != captionText.trim().toLowerCase();
-    final liveTitle = live?.meaningfulTitle.trim() ?? '';
-    final resolvedTitle = TitleResolver.resolve(url, tagFrequency: tagFreq);
-    final displayTitle =
-        liveTitle.isNotEmpty &&
-                !TitleResolver.isLowSignalTitle(liveTitle, domain: url.domain)
-            ? liveTitle
-            : resolvedTitle;
+    final displayTitle = TitleResolver.resolveStableDisplayTitle(
+      url,
+      tagFrequency: tagFreq,
+    );
     final cleanedSummary = SummaryRewriter.clean(summaryText);
     final summaryDisplayText =
         cleanedSummary.isNotEmpty ? cleanedSummary : summaryText;
@@ -1501,6 +1371,21 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return sections;
   }
 
+  TranscriptEnrichmentResult? _savedEnrichment(SavedUrl url) {
+    final raw = url.enrichmentJson;
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final result = TranscriptEnrichmentResult.fromJson(
+        Map<String, dynamic>.from(decoded),
+      );
+      return result?.hasUsefulContent == true ? result : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static const _mentionSectionOrder = [
     'movie',
     'book',
@@ -1590,38 +1475,44 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           if (recipe.ingredients.isNotEmpty) ...[
             _buildRecipeSubheading('Ingredients', theme, colorScheme),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: recipe.ingredients.take(18).map((ingredient) {
-                final measure = ingredient.measure?.trim() ?? '';
-                final label = measure.isEmpty
-                    ? ingredient.name
-                    : '${ingredient.name} · $measure';
-                return Chip(
-                  label: Text(label),
-                  backgroundColor: colorScheme.secondaryContainer,
-                  labelStyle: theme.textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSecondaryContainer,
-                  ),
-                  side: BorderSide.none,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final useTwoColumns = constraints.maxWidth >= 560;
+                final itemWidth = useTwoColumns
+                    ? (constraints.maxWidth - 8) / 2
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: recipe.ingredients.take(18).map((ingredient) {
+                    return SizedBox(
+                      width: itemWidth,
+                      child: _buildIngredientRow(
+                        ingredient: ingredient,
+                        theme: theme,
+                        colorScheme: colorScheme,
+                      ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
           ],
           if ((recipe.instructions ?? '').trim().isNotEmpty) ...[
             _buildRecipeSubheading('Instructions', theme, colorScheme),
-            const SizedBox(height: 6),
-            Text(
-              recipe.instructions!.trim(),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface,
-                height: 1.5,
-              ),
-            ),
+            const SizedBox(height: 8),
+            ..._recipeInstructionSteps(recipe.instructions!)
+                .asMap()
+                .entries
+                .map(
+                  (entry) => _buildInstructionStep(
+                    number: entry.key + 1,
+                    text: entry.value,
+                    theme: theme,
+                    colorScheme: colorScheme,
+                  ),
+                ),
           ],
           Align(
             alignment: Alignment.centerLeft,
@@ -1637,6 +1528,114 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildIngredientRow({
+    required EnrichedRecipeIngredient ingredient,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final measure = ingredient.measure?.trim() ?? '';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle_outline_rounded,
+            size: 17,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              ingredient.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (measure.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                measure,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.1,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstructionStep({
+    required int number,
+    required String text,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.primaryContainer,
+            ),
+            child: Text(
+              '$number',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<String> _recipeInstructionSteps(String raw) {
+    final cleaned = raw.trim();
+    if (cleaned.isEmpty) return const [];
+    final parts = cleaned
+        .split(RegExp(r'\r?\n+|(?:^|\s)(?:step\s*)?\d+\.\s+', caseSensitive: false))
+        .map((part) => part.trim())
+        .where((part) => part.length > 2)
+        .toList();
+    return parts.isEmpty ? [cleaned] : parts.take(12).toList();
   }
 
   Widget _buildRecipeSubheading(
@@ -1809,6 +1808,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   _DetailMetadata _extractDetailMetadata({
     required String description,
     required String? creator,
+    required int? likeCount,
+    required int? commentCount,
     required String rawUrl,
   }) {
     final text = TextCleaner.cleanLoose(description);
@@ -1826,8 +1827,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         : null;
 
     return _DetailMetadata(
-      likesLabel: likes == null ? null : _compactCountLabel(likes),
-      commentsLabel: comments == null ? null : _compactCountLabel(comments),
+      likesLabel: likeCount != null
+          ? _compactCountLabel(likeCount.toString())
+          : likes == null
+              ? null
+              : _compactCountLabel(likes),
+      commentsLabel: commentCount != null
+          ? _compactCountLabel(commentCount.toString())
+          : comments == null
+              ? null
+              : _compactCountLabel(comments),
       creatorUsername: parsedUsername,
     );
   }

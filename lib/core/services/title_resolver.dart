@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../models/saved_url.dart';
 import 'tag_noise_filter.dart';
 
@@ -61,6 +63,18 @@ class TitleResolver {
     return _cleanDomain(link.domain);
   }
 
+  static String resolveStableDisplayTitle(
+    SavedUrl link, {
+    Map<String, int>? tagFrequency,
+  }) {
+    final enrichedTitle = _titleFromSavedEnrichment(link);
+    final candidate = enrichedTitle != null &&
+            !isLowSignalTitle(enrichedTitle, domain: link.domain)
+        ? enrichedTitle
+        : resolve(link, tagFrequency: tagFrequency);
+    return formatForCompactCard(link, collapseWhitespace(candidate));
+  }
+
   /// Decides when a richer AI/transcript title should become the stored title.
   ///
   /// Home cards and detail pages both resolve from [SavedUrl.title], so the
@@ -110,6 +124,21 @@ class TitleResolver {
       return true;
     }
     return false;
+  }
+
+  static String? _titleFromSavedEnrichment(SavedUrl link) {
+    final raw = link.enrichmentJson;
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final title = decoded['meaningful_title'] ?? decoded['meaningfulTitle'];
+      if (title is! String) return null;
+      final cleaned = collapseWhitespace(title);
+      return cleaned.isEmpty ? null : cleaned;
+    } catch (_) {
+      return null;
+    }
   }
 
   static bool isCreatorHandle(String title) {

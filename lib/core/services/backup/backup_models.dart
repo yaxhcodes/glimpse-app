@@ -74,6 +74,7 @@ class SavedUrlBackup {
   final List<String> tags;
   final String? userNotes;
   final String? summary;
+  final String? enrichmentJson;
   final String savedAt;
   final String? openedAt;
   final String? resurfacedAt;
@@ -91,6 +92,7 @@ class SavedUrlBackup {
     required this.tags,
     this.userNotes,
     this.summary,
+    this.enrichmentJson,
     required this.savedAt,
     this.openedAt,
     this.resurfacedAt,
@@ -112,11 +114,16 @@ class SavedUrlBackup {
       'tags': tags,
       if (userNotes != null) 'userNotes': userNotes,
       if (summary != null) 'summary': summary,
+      if (enrichmentJson != null) 'enrichmentJson': enrichmentJson,
       'savedAt': savedAt,
       if (openedAt != null) 'openedAt': openedAt,
       if (resurfacedAt != null) 'resurfacedAt': resurfacedAt,
-      if (sanitizedEmbedding != null) 'embedding': sanitizedEmbedding,
+      ...?_optionalEmbeddingJson(sanitizedEmbedding),
     };
+  }
+
+  static Map<String, dynamic>? _optionalEmbeddingJson(List<double>? embedding) {
+    return embedding == null ? null : {'embedding': embedding};
   }
 
   static List<double>? _sanitizeEmbeddingForJson(List<double>? embedding) {
@@ -149,6 +156,7 @@ class SavedUrlBackup {
         [],
     userNotes: json['userNotes'] as String?,
     summary: json['summary'] as String?,
+    enrichmentJson: json['enrichmentJson'] as String?,
     savedAt: (json['savedAt'] as String?) ?? DateTime.now().toIso8601String(),
     openedAt: json['openedAt'] as String?,
     resurfacedAt: json['resurfacedAt'] as String?,

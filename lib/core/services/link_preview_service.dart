@@ -38,12 +38,65 @@ class LinkPreviewService {
   /// Normalise a raw URL to ensure it has a scheme.
   static String normalizeUrl(String url) {
     var trimmed = url.trim();
-    final parsed = Uri.tryParse(trimmed);
-    if (parsed != null && parsed.hasScheme) return trimmed;
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
       trimmed = 'https://$trimmed';
     }
-    return trimmed;
+    return canonicalizeUrl(trimmed);
+  }
+
+  /// Canonicalises share URLs that otherwise create duplicate saves or cache keys.
+  static String canonicalizeUrl(String url) {
+    final parsed = Uri.tryParse(url.trim());
+    if (parsed == null || !parsed.hasScheme) return url.trim();
+    var host = parsed.host.toLowerCase();
+    if (host.startsWith('www.')) host = host.substring(4);
+
+    if (host == 'youtu.be') {
+      final id = parsed.pathSegments.isNotEmpty ? parsed.pathSegments.first : '';
+      if (id.isNotEmpty) {
+        return Uri.https('www.youtube.com', '/watch', {'v': id}).toString();
+      }
+    }
+
+    if (host == 'youtube.com' ||
+        host.endsWith('.youtube.com') ||
+        host == 'youtube-nocookie.com' ||
+        host.endsWith('.youtube-nocookie.com')) {
+      final segments = parsed.pathSegments.where((item) => item.isNotEmpty).toList();
+      String? id;
+      if (segments.isNotEmpty && segments.first == 'shorts' && segments.length >= 2) {
+        id = segments[1];
+      } else if (segments.isNotEmpty && segments.first == 'embed' && segments.length >= 2) {
+        id = segments[1];
+      } else {
+        id = parsed.queryParameters['v'];
+      }
+      if (id != null && id.isNotEmpty) {
+        return Uri.https('www.youtube.com', '/watch', {'v': id}).toString();
+      }
+    }
+
+    if (host == 'instagram.com' || host.endsWith('.instagram.com') || host == 'instagr.am') {
+      final segments = parsed.pathSegments.where((item) => item.isNotEmpty).toList();
+      if (segments.length >= 2 &&
+          {'reel', 'reels', 'p', 'tv'}.contains(segments.first.toLowerCase())) {
+        return Uri.https('www.instagram.com', '/${segments.first}/${segments[1]}/')
+            .toString();
+      }
+    }
+
+    if (host == 'tiktok.com' || host.endsWith('.tiktok.com')) {
+      final segments = parsed.pathSegments.where((item) => item.isNotEmpty).toList();
+      final videoIndex = segments.indexWhere((item) => item.toLowerCase() == 'video');
+      if (videoIndex > 0 && videoIndex + 1 < segments.length) {
+        return Uri.https(
+          'www.tiktok.com',
+          '/${segments[videoIndex - 1]}/video/${segments[videoIndex + 1]}',
+        ).toString();
+      }
+    }
+
+    return parsed.replace(fragment: '', query: '').toString();
   }
 
   /// Fetches OG metadata for the given [url].

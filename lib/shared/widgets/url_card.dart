@@ -8,7 +8,6 @@ import '../../core/models/saved_url.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
-import '../../core/services/transcript_enrichment_service.dart';
 import '../../features/home/home_provider.dart';
 import 'link_card_thumbnail.dart';
 
@@ -169,42 +168,6 @@ class UrlCard extends ConsumerStatefulWidget {
 }
 
 class _UrlCardState extends ConsumerState<UrlCard> {
-  String? _cachedTranscriptUrl;
-  String? _cachedTranscriptTitle;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCachedTranscriptTitle();
-  }
-
-  @override
-  void didUpdateWidget(covariant UrlCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.savedUrl.rawUrl != widget.savedUrl.rawUrl ||
-        oldWidget.savedUrl.title != widget.savedUrl.title) {
-      _cachedTranscriptUrl = null;
-      _cachedTranscriptTitle = null;
-      _loadCachedTranscriptTitle();
-    }
-  }
-
-  Future<void> _loadCachedTranscriptTitle() async {
-    final rawUrl = widget.savedUrl.rawUrl;
-    if (!TranscriptEnrichmentService.supportsUrl(rawUrl)) return;
-    final result = await TranscriptEnrichmentService.cachedResultForUrl(rawUrl);
-    if (!mounted || widget.savedUrl.rawUrl != rawUrl) return;
-    final title = result?.meaningfulTitle.trim() ?? '';
-    if (title.isEmpty ||
-        TitleResolver.isLowSignalTitle(title, domain: widget.savedUrl.domain)) {
-      return;
-    }
-    setState(() {
-      _cachedTranscriptUrl = rawUrl;
-      _cachedTranscriptTitle = title;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -224,17 +187,16 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
         .toList();
 
-    final cachedTitle = _cachedTranscriptUrl == widget.savedUrl.rawUrl
-        ? _cachedTranscriptTitle?.trim() ?? ''
-        : '';
-    final titleSource = cachedTitle.isNotEmpty
-        ? cachedTitle
-        : TitleResolver.resolve(widget.savedUrl, tagFrequency: tagFreq);
-    final resolvedTitle = TitleResolver.formatForCompactCard(
-      widget.savedUrl,
-      TitleResolver.collapseWhitespace(titleSource),
-    );
-    final chipData = TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
+    final isEnriching = _isRecentlyEnriching(widget.savedUrl);
+    final resolvedTitle = isEnriching
+        ? _processingTitle(displaySourceName)
+        : TitleResolver.resolveStableDisplayTitle(
+            widget.savedUrl,
+            tagFrequency: tagFreq,
+          );
+    final chipData = isEnriching
+        ? (visible: <String>[], overflow: 0)
+        : TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
 
     final isRead = widget.savedUrl.openedAt != null;
     final isLight = theme.brightness == Brightness.light;
@@ -404,6 +366,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                               ),
                           ],
                         ),
+                      ] else if (isEnriching) ...[
+                        const SizedBox(height: 8),
+                        _EnrichmentProgressPill(sourceName: displaySourceName),
                       ],
                     ],
                   ),
@@ -414,6 +379,31 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         ),
       ),
     );
+  }
+
+  bool _isRecentlyEnriching(SavedUrl url) {
+    if ((url.enrichmentJson ?? '').trim().isNotEmpty) return false;
+    if ((url.summary ?? '').trim().isNotEmpty) return false;
+    if (DateTime.now().difference(url.savedAt) > const Duration(minutes: 10)) {
+      return false;
+    }
+    if (TitleResolver.isLowSignalTitle(url.title, domain: url.domain)) {
+      return true;
+    }
+    final lowerTitle = url.title.trim().toLowerCase();
+    if (const {'social', 'web', 'link', 'video', 'reel'}.contains(lowerTitle)) {
+      return true;
+    }
+    final noisyTags = {'social', 'instagram', 'youtube', 'tiktok', 'video'};
+    return url.tags.any((tag) => noisyTags.contains(tag.trim().toLowerCase()));
+  }
+
+  String _processingTitle(String sourceName) {
+    final source = sourceName.trim().isEmpty ? 'link' : sourceName.trim();
+    if (source.toLowerCase() == 'instagram') return 'Reading Instagram reel';
+    if (source.toLowerCase() == 'youtube') return 'Reading YouTube video';
+    if (source.toLowerCase() == 'tiktok') return 'Reading TikTok video';
+    return 'Reading $source';
   }
 
   void _showActions(BuildContext context) {
@@ -463,6 +453,56 @@ class _UrlCardState extends ConsumerState<UrlCard> {
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EnrichmentProgressPill extends StatelessWidget {
+  const _EnrichmentProgressPill({required this.sourceName});
+
+  final String sourceName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final label = sourceName.trim().isEmpty
+        ? 'Enriching save'
+        : 'Enriching ${sourceName.trim()} save';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.8,
+              color: cs.primary,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+                height: 1,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

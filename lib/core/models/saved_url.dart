@@ -34,6 +34,12 @@ class SavedUrl {
   /// AI-generated 2–3 sentence summary of the page content.
   String? summary;
 
+  /// Durable structured enrichment payload for content recommendations.
+  ///
+  /// This stores actor/Gemini-derived entities such as books, movies, recipes,
+  /// creator, stats, and captions so Details can remain stable after app restarts.
+  String? enrichmentJson;
+
   late DateTime savedAt;
 
   /// When the user first opened the link from the app (null = never opened).

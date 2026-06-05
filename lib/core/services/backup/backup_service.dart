@@ -39,6 +39,7 @@ class BackupService {
       tags: List<String>.from(url.tags),
       userNotes: url.userNotes,
       summary: url.summary,
+      enrichmentJson: url.enrichmentJson,
       savedAt: url.savedAt.toIso8601String(),
       openedAt: url.openedAt?.toIso8601String(),
       resurfacedAt: url.resurfacedAt?.toIso8601String(),
@@ -85,6 +86,7 @@ class BackupService {
     ..tags = List<String>.from(b.tags)
     ..userNotes = b.userNotes
     ..summary = b.summary
+    ..enrichmentJson = b.enrichmentJson
     ..savedAt = DateTime.parse(b.savedAt)
     ..openedAt = b.openedAt != null ? DateTime.parse(b.openedAt!) : null
     ..resurfacedAt = b.resurfacedAt != null
@@ -670,6 +672,7 @@ class BackupService {
       ..tags = _mergeLists(existing.tags, incoming.tags)
       ..userNotes = incoming.userNotes ?? existing.userNotes
       ..summary = incoming.summary ?? existing.summary
+      ..enrichmentJson = incoming.enrichmentJson ?? existing.enrichmentJson
       ..savedAt = _earliest(existing.savedAt, incomingSavedAt)
       ..openedAt =
           existing.openedAt ??

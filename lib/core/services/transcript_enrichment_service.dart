@@ -20,6 +20,8 @@ class TranscriptEnrichmentResult {
     this.creator,
     this.caption,
     this.transcript,
+    this.likeCount,
+    this.commentCount,
   });
 
   final String meaningfulTitle;
@@ -33,6 +35,8 @@ class TranscriptEnrichmentResult {
   final String? creator;
   final String? caption;
   final String? transcript;
+  final int? likeCount;
+  final int? commentCount;
 
   bool get hasUsefulContent =>
       meaningfulTitle.trim().isNotEmpty ||
@@ -55,6 +59,8 @@ class TranscriptEnrichmentResult {
       'creator': creator,
       'caption': caption,
       'transcript': transcript,
+      'like_count': likeCount,
+      'comment_count': commentCount,
     };
   }
 
@@ -88,6 +94,12 @@ class TranscriptEnrichmentResult {
       caption: TranscriptEnrichmentService._cleanNullableText(json['caption']),
       transcript: TranscriptEnrichmentService._cleanNullableText(
         json['transcript'],
+      ),
+      likeCount: TranscriptEnrichmentService._extractPositiveInt(
+        json['like_count'],
+      ),
+      commentCount: TranscriptEnrichmentService._extractPositiveInt(
+        json['comment_count'],
       ),
     );
   }
@@ -256,7 +268,7 @@ class TranscriptEnrichmentService {
 
   final Dio _dio;
   static final Map<String, TranscriptEnrichmentResult> _memoryCache = {};
-  static const _cachePrefix = 'transcript_enrichment_v3_';
+  static const _cachePrefix = 'transcript_enrichment_v4_';
 
   static Dio _defaultDio() {
     return Dio(
@@ -274,19 +286,38 @@ class TranscriptEnrichmentService {
     final uri = Uri.tryParse(rawUrl);
     if (uri == null) return false;
     final host = uri.host.toLowerCase();
-    return (host == 'instagram.com' || host.endsWith('.instagram.com')) &&
-        RegExp(r'/(reel|reels|p)/').hasMatch(uri.path);
+    final normalizedHost =
+        host.startsWith('www.') ? host.substring(4) : host;
+    if ((normalizedHost == 'instagram.com' ||
+            normalizedHost.endsWith('.instagram.com')) &&
+        RegExp(r'/(reel|reels|p)/').hasMatch(uri.path)) {
+      return true;
+    }
+    if (normalizedHost == 'tiktok.com' ||
+        normalizedHost.endsWith('.tiktok.com')) {
+      return RegExp(r'/@[^/]+/video/\d+').hasMatch(uri.path);
+    }
+    if (normalizedHost == 'youtu.be') return uri.pathSegments.isNotEmpty;
+    if (normalizedHost == 'youtube.com' ||
+        normalizedHost.endsWith('.youtube.com') ||
+        normalizedHost == 'youtube-nocookie.com' ||
+        normalizedHost.endsWith('.youtube-nocookie.com')) {
+      return uri.queryParameters['v']?.isNotEmpty == true ||
+          RegExp(r'^/(shorts|embed)/[^/]+').hasMatch(uri.path);
+    }
+    return false;
   }
 
   /// Reads only local transcript enrichment cache. This never calls the backend.
   static Future<TranscriptEnrichmentResult?> cachedResultForUrl(
     String rawUrl,
   ) async {
-    final cached = _memoryCache[rawUrl];
+    final cacheKey = _cacheKeyForUrl(rawUrl);
+    final cached = _memoryCache[cacheKey];
     if (cached != null) return cached;
-    final persisted = await _readPersisted(rawUrl);
+    final persisted = await _readPersisted(cacheKey);
     if (persisted != null) {
-      _memoryCache[rawUrl] = persisted;
+      _memoryCache[cacheKey] = persisted;
     }
     return persisted;
   }
@@ -299,11 +330,12 @@ class TranscriptEnrichmentService {
     required String domain,
   }) async {
     if (!supportsUrl(rawUrl)) return null;
-    final cached = _memoryCache[rawUrl];
+    final cacheKey = _cacheKeyForUrl(rawUrl);
+    final cached = _memoryCache[cacheKey];
     if (cached != null) return cached;
-    final persisted = await _readPersisted(rawUrl);
+    final persisted = await _readPersisted(cacheKey);
     if (persisted != null) {
-      _memoryCache[rawUrl] = persisted;
+      _memoryCache[cacheKey] = persisted;
       return persisted;
     }
 
@@ -368,11 +400,13 @@ class TranscriptEnrichmentService {
         transcript: _cleanText(data['transcript']).isNotEmpty
             ? _cleanText(data['transcript'])
             : null,
+        likeCount: _extractPositiveInt(data['like_count']),
+        commentCount: _extractPositiveInt(data['comment_count']),
       );
 
       if (!result.hasUsefulContent) return null;
-      _memoryCache[rawUrl] = result;
-      await _writePersisted(rawUrl, result);
+      _memoryCache[cacheKey] = result;
+      await _writePersisted(cacheKey, result);
       return result;
     } catch (e, st) {
       developer.log(
@@ -510,6 +544,59 @@ class TranscriptEnrichmentService {
   static String? _cleanNullableText(Object? raw) {
     final text = _cleanText(raw);
     return text.isEmpty ? null : text;
+  }
+
+  static int? _extractPositiveInt(Object? raw) {
+    if (raw is int && raw > 0) return raw;
+    if (raw is num && raw > 0) return raw.round();
+    final text = _cleanText(raw).replaceAll(',', '');
+    final value = double.tryParse(text);
+    if (value == null || value <= 0) return null;
+    return value.round();
+  }
+
+  static String _cacheKeyForUrl(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl.trim());
+    if (uri == null) return rawUrl.trim();
+    var host = uri.host.toLowerCase();
+    if (host.startsWith('www.')) host = host.substring(4);
+
+    if (host == 'youtu.be') {
+      final id = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : '';
+      if (id.isNotEmpty) return 'https://www.youtube.com/watch?v=$id';
+    }
+    if (host == 'youtube.com' ||
+        host.endsWith('.youtube.com') ||
+        host == 'youtube-nocookie.com' ||
+        host.endsWith('.youtube-nocookie.com')) {
+      final segments = uri.pathSegments.where((item) => item.isNotEmpty).toList();
+      String? id;
+      if (segments.isNotEmpty && segments.first == 'shorts' && segments.length >= 2) {
+        id = segments[1];
+      } else if (segments.isNotEmpty && segments.first == 'embed' && segments.length >= 2) {
+        id = segments[1];
+      } else {
+        id = uri.queryParameters['v'];
+      }
+      if (id != null && id.isNotEmpty) {
+        return 'https://www.youtube.com/watch?v=$id';
+      }
+    }
+    if (host == 'instagram.com' || host.endsWith('.instagram.com') || host == 'instagr.am') {
+      final segments = uri.pathSegments.where((item) => item.isNotEmpty).toList();
+      if (segments.length >= 2 &&
+          {'reel', 'reels', 'p', 'tv'}.contains(segments.first.toLowerCase())) {
+        return 'https://www.instagram.com/${segments.first}/${segments[1]}/';
+      }
+    }
+    if (host == 'tiktok.com' || host.endsWith('.tiktok.com')) {
+      final segments = uri.pathSegments.where((item) => item.isNotEmpty).toList();
+      final videoIndex = segments.indexWhere((item) => item.toLowerCase() == 'video');
+      if (videoIndex > 0 && videoIndex + 1 < segments.length) {
+        return 'https://www.tiktok.com/${segments[videoIndex - 1]}/video/${segments[videoIndex + 1]}';
+      }
+    }
+    return uri.replace(fragment: '', query: '').toString();
   }
 
   static String _mentionKey(String value) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -206,7 +207,9 @@ class EnrichmentService {
     final platformCat = DomainCategorizer.categorize(url.rawUrl);
 
     // Skip if already AI-categorized (not just domain fallback)
-    if (!force && url.category != platformCat.category && url.summary != null) {
+    if (!force &&
+        (url.category != platformCat.category || _hasStableEnrichment(url)) &&
+        url.summary != null) {
       developer.log('_enrichAi SKIP (already enriched): ${url.rawUrl}',
           name: 'Enrichment');
       return;
@@ -232,9 +235,10 @@ class EnrichmentService {
     String? summary;
     String? enrichedTitle;
     String? enrichedThumbnailUrl;
+    String? enrichmentJson;
 
     final transcriptResult = !aiLimitReached && _transcriptEnrichmentService != null
-        ? await _transcriptEnrichmentService!.enrichUrl(
+        ? await _transcriptEnrichmentService.enrichUrl(
             rawUrl: url.rawUrl,
             title: url.title,
             description: url.description,
@@ -258,6 +262,7 @@ class EnrichmentService {
           ? transcriptResult.meaningfulTitle
           : null;
       enrichedThumbnailUrl = transcriptResult.thumbnailUrl;
+      enrichmentJson = jsonEncode(transcriptResult.toJson());
       if (countUsage) {
         await _usageService.incrementUsage(UsageFeature.aiSave);
       }
@@ -271,7 +276,7 @@ class EnrichmentService {
       try {
         developer.log('_enrichAi CALLING GeminiService.categorize: ${url.rawUrl}',
             name: 'Enrichment');
-        final result = await _geminiService!.categorize(
+        final result = await _geminiService.categorize(
           title: url.title,
           description: url.description,
           url: url.rawUrl,
@@ -348,6 +353,9 @@ class EnrichmentService {
     }
     freshUrl.tags = enrichedTags;
     freshUrl.summary = summary;
+    if (enrichmentJson != null && enrichmentJson.isNotEmpty) {
+      freshUrl.enrichmentJson = enrichmentJson;
+    }
 
     await _isarService.updateUrl(freshUrl);
     developer.log('_enrichAi SAVE OK: ${freshUrl.rawUrl} → $category', name: 'Enrichment');
@@ -363,6 +371,15 @@ class EnrichmentService {
       if (!tags.contains(phrase)) tags.add(phrase);
     }
     return tags;
+  }
+
+  bool _hasStableEnrichment(SavedUrl url) {
+    final title = url.title.trim();
+    final summary = url.summary?.trim() ?? '';
+    if (summary.length < 24) return false;
+    if (TitleResolver.isLowSignalTitle(title, domain: url.domain)) return false;
+    if (title.toLowerCase() == url.domain.toLowerCase()) return false;
+    return true;
   }
 
   Iterable<String> _candidatePhrases(String text) sync* {
@@ -461,7 +478,7 @@ class EnrichmentService {
       );
       developer.log('_enrichEmbedding CALLING EmbeddingService for ${url.rawUrl}',
           name: 'Enrichment');
-      final vec = await _embeddingService!.generateEmbedding(textToEmbed);
+      final vec = await _embeddingService.generateEmbedding(textToEmbed);
       if (vec.isEmpty) {
         developer.log('_enrichEmbedding EMPTY vector returned for ${url.rawUrl}',
             name: 'Enrichment');

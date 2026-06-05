@@ -52,48 +52,53 @@ const SavedUrlSchema = CollectionSchema(
       name: r'embedding',
       type: IsarType.doubleList,
     ),
-    r'openedAt': PropertySchema(
+    r'enrichmentJson': PropertySchema(
       id: 7,
+      name: r'enrichmentJson',
+      type: IsarType.string,
+    ),
+    r'openedAt': PropertySchema(
+      id: 8,
       name: r'openedAt',
       type: IsarType.dateTime,
     ),
     r'rawUrl': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'rawUrl',
       type: IsarType.string,
     ),
     r'resurfacedAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'resurfacedAt',
       type: IsarType.dateTime,
     ),
     r'savedAt': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -182,6 +187,12 @@ int _savedUrlEstimateSize(
       bytesCount += 3 + value.length * 8;
     }
   }
+  {
+    final value = object.enrichmentJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.rawUrl.length * 3;
   {
     final value = object.summary;
@@ -225,15 +236,16 @@ void _savedUrlSerialize(
   writer.writeString(offsets[4], object.domain);
   writer.writeStringList(offsets[5], object.effectiveCategories);
   writer.writeDoubleList(offsets[6], object.embedding);
-  writer.writeDateTime(offsets[7], object.openedAt);
-  writer.writeString(offsets[8], object.rawUrl);
-  writer.writeDateTime(offsets[9], object.resurfacedAt);
-  writer.writeDateTime(offsets[10], object.savedAt);
-  writer.writeString(offsets[11], object.summary);
-  writer.writeStringList(offsets[12], object.tags);
-  writer.writeString(offsets[13], object.thumbnailUrl);
-  writer.writeString(offsets[14], object.title);
-  writer.writeString(offsets[15], object.userNotes);
+  writer.writeString(offsets[7], object.enrichmentJson);
+  writer.writeDateTime(offsets[8], object.openedAt);
+  writer.writeString(offsets[9], object.rawUrl);
+  writer.writeDateTime(offsets[10], object.resurfacedAt);
+  writer.writeDateTime(offsets[11], object.savedAt);
+  writer.writeString(offsets[12], object.summary);
+  writer.writeStringList(offsets[13], object.tags);
+  writer.writeString(offsets[14], object.thumbnailUrl);
+  writer.writeString(offsets[15], object.title);
+  writer.writeString(offsets[16], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -249,16 +261,17 @@ SavedUrl _savedUrlDeserialize(
   object.description = reader.readString(offsets[3]);
   object.domain = reader.readString(offsets[4]);
   object.embedding = reader.readDoubleList(offsets[6]);
+  object.enrichmentJson = reader.readStringOrNull(offsets[7]);
   object.id = id;
-  object.openedAt = reader.readDateTimeOrNull(offsets[7]);
-  object.rawUrl = reader.readString(offsets[8]);
-  object.resurfacedAt = reader.readDateTimeOrNull(offsets[9]);
-  object.savedAt = reader.readDateTime(offsets[10]);
-  object.summary = reader.readStringOrNull(offsets[11]);
-  object.tags = reader.readStringList(offsets[12]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[13]);
-  object.title = reader.readString(offsets[14]);
-  object.userNotes = reader.readStringOrNull(offsets[15]);
+  object.openedAt = reader.readDateTimeOrNull(offsets[8]);
+  object.rawUrl = reader.readString(offsets[9]);
+  object.resurfacedAt = reader.readDateTimeOrNull(offsets[10]);
+  object.savedAt = reader.readDateTime(offsets[11]);
+  object.summary = reader.readStringOrNull(offsets[12]);
+  object.tags = reader.readStringList(offsets[13]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[14]);
+  object.title = reader.readString(offsets[15]);
+  object.userNotes = reader.readStringOrNull(offsets[16]);
   return object;
 }
 
@@ -284,22 +297,24 @@ P _savedUrlDeserializeProp<P>(
     case 6:
       return (reader.readDoubleList(offset)) as P;
     case 7:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readString(offset)) as P;
-    case 9:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 10:
-      return (reader.readDateTime(offset)) as P;
-    case 11:
-      return (reader.readStringOrNull(offset)) as P;
-    case 12:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 13:
-      return (reader.readStringOrNull(offset)) as P;
-    case 14:
+    case 9:
       return (reader.readString(offset)) as P;
+    case 10:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 11:
+      return (reader.readDateTime(offset)) as P;
+    case 12:
+      return (reader.readStringOrNull(offset)) as P;
+    case 13:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 14:
+      return (reader.readStringOrNull(offset)) as P;
     case 15:
+      return (reader.readString(offset)) as P;
+    case 16:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1776,6 +1791,159 @@ extension SavedUrlQueryFilter
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'enrichmentJson',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'enrichmentJson',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> enrichmentJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'enrichmentJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'enrichmentJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'enrichmentJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> enrichmentJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'enrichmentJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'enrichmentJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'enrichmentJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'enrichmentJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> enrichmentJsonMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'enrichmentJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'enrichmentJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      enrichmentJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'enrichmentJson',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -2997,6 +3165,18 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByEnrichmentJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'enrichmentJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByEnrichmentJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'enrichmentJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByOpenedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openedAt', Sort.asc);
@@ -3141,6 +3321,18 @@ extension SavedUrlQuerySortThenBy
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByDomainDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'domain', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByEnrichmentJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'enrichmentJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByEnrichmentJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'enrichmentJson', Sort.desc);
     });
   }
 
@@ -3302,6 +3494,14 @@ extension SavedUrlQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByEnrichmentJson(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'enrichmentJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByOpenedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'openedAt');
@@ -3410,6 +3610,12 @@ extension SavedUrlQueryProperty
   QueryBuilder<SavedUrl, List<double>?, QQueryOperations> embeddingProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'embedding');
+    });
+  }
+
+  QueryBuilder<SavedUrl, String?, QQueryOperations> enrichmentJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'enrichmentJson');
     });
   }
 

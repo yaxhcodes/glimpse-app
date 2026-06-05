@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/saved_url.dart';
+import '../services/link_preview_service.dart';
 import '../models/user_collection.dart';
 import '../services/category_resolver.dart';
 import '../services/session_tracking_service.dart';
@@ -429,7 +430,23 @@ class IsarService {
   /// Check if a URL already exists in the database.
   Future<SavedUrl?> findByRawUrl(String rawUrl) async {
     final isar = await _db;
-    return isar.savedUrls.filter().rawUrlEqualTo(rawUrl).findFirst();
+    final exact = await isar.savedUrls.filter().rawUrlEqualTo(rawUrl).findFirst();
+    if (exact != null) return exact;
+
+    final canonical = LinkPreviewService.canonicalizeUrl(rawUrl);
+    if (canonical != rawUrl) {
+      final canonicalExact =
+          await isar.savedUrls.filter().rawUrlEqualTo(canonical).findFirst();
+      if (canonicalExact != null) return canonicalExact;
+    }
+
+    final all = await isar.savedUrls.where().findAll();
+    for (final saved in all) {
+      if (LinkPreviewService.canonicalizeUrl(saved.rawUrl) == canonical) {
+        return saved;
+      }
+    }
+    return null;
   }
 
   /// Fuzzy / keyword retrieval for natural-language questions (e.g. Ask).
