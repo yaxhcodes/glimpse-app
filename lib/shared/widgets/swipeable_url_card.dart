@@ -96,7 +96,7 @@ class SwipeableUrlCard extends ConsumerWidget {
         await _toggleRead(context, ref);
         return true;
       case SwipeActionType.askGlimpse:
-        context.push('/ask');
+        context.push('/ask', extra: url);
         return true;
       case SwipeActionType.share:
         await Share.share(url.rawUrl);

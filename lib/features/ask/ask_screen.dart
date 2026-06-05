@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +17,7 @@ import '../../shared/widgets/usage_badge.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
+import '../../core/services/title_resolver.dart';
 import '../home/home_provider.dart';
 import '../collections/collection_visual.dart';
 import '../collections/collections_provider.dart';
@@ -29,9 +30,10 @@ import 'ask_provider.dart';
 const double _kChatMaxWidth = 680;
 
 class AskScreen extends ConsumerStatefulWidget {
-  const AskScreen({super.key, this.embedded = false});
+  const AskScreen({super.key, this.embedded = false, this.initialSource});
 
   final bool embedded;
+  final SavedUrl? initialSource;
 
   @override
   ConsumerState<AskScreen> createState() => _AskScreenState();
@@ -46,6 +48,31 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   Future<AskGreeting>? _greetingFuture;
   String? _lastGreetingName;
   int? _lastGreetingCount;
+  bool _clearedForInitialSource = false;
+  SavedUrl? _attachedSource;
+
+  @override
+  void initState() {
+    super.initState();
+    _attachedSource = widget.initialSource;
+    if (widget.initialSource != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _clearedForInitialSource) return;
+        _clearedForInitialSource = true;
+        ref.read(askProvider.notifier).clearHistory();
+        _focusNode.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AskScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSource?.id != widget.initialSource?.id) {
+      _attachedSource = widget.initialSource;
+      _clearedForInitialSource = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -55,12 +82,30 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     super.dispose();
   }
 
-  void _onSendMessage(String text, {List<SavedUrl>? preloadedSources, String? originalQuestion}) {
+  void _onSendMessage(
+    String text, {
+    List<SavedUrl>? preloadedSources,
+    String? originalQuestion,
+  }) {
     FocusScope.of(context).unfocus();
     final question = text.trim();
     if (question.isEmpty) return;
     _controller.clear();
-    ref.read(askProvider.notifier).ask(question, preloadedSources: preloadedSources, originalQuestion: originalQuestion);
+    final contextualSource = _attachedSource;
+    ref
+        .read(askProvider.notifier)
+        .ask(
+          question,
+          preloadedSources:
+              preloadedSources ??
+              (contextualSource != null ? [contextualSource] : null),
+          originalQuestion: originalQuestion,
+          usePreloadedAsContext:
+              preloadedSources == null && contextualSource != null,
+          saveAnswerToUrlId: preloadedSources == null
+              ? contextualSource?.id
+              : null,
+        );
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
@@ -79,7 +124,10 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     );
   }
 
-  void _showSaveToCollectionSheet(BuildContext context, List<SavedUrl> sources) {
+  void _showSaveToCollectionSheet(
+    BuildContext context,
+    List<SavedUrl> sources,
+  ) {
     final isar = ref.read(isarServiceProvider);
     showModalBottomSheet(
       context: context,
@@ -126,17 +174,13 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     ref.listen(askProvider, (_, next) {
       // Scroll on every state change so the indicator and new messages
       // are always visible.
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _scrollToBottom());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
       if (next.limitReached != null) {
         // Clear the flag immediately so it doesn't re-trigger on rebuilds.
         ref.read(askProvider.notifier).clearLimitReached();
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
-          final upgraded = await showUpgradeGate(
-            context,
-            UpgradeFeature.ask,
-          );
+          final upgraded = await showUpgradeGate(context, UpgradeFeature.ask);
           if (!mounted) return;
           if (upgraded == true) {
             ref.read(askProvider.notifier).clearHistory();
@@ -160,9 +204,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         automaticallyImplyLeading: false,
         title: Text(
           'Ask Glimpse',
-          style: textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         centerTitle: false,
         actions: [
@@ -174,6 +216,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               onPressed: () {
                 HapticFeedback.lightImpact();
                 ref.read(askProvider.notifier).clearHistory();
+                setState(() => _attachedSource = null);
               },
             ),
           if (linkCount != null)
@@ -221,13 +264,9 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                           controller: _scrollController,
                           physics: const ClampingScrollPhysics(),
                           cacheExtent: 9999,
-                          padding: const EdgeInsets.fromLTRB(
-                            16,
-                            16,
-                            16,
-                            8,
-                          ),
-                          itemCount: askState.messages.length +
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          itemCount:
+                              askState.messages.length +
                               (askState.isLoading ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (askState.isLoading &&
@@ -252,14 +291,22 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                                       _focusNode.requestFocus();
                                     }
                                   : null,
-                              onSynthesizeTap: msg.action == ChatAction.synthesize
+                              onSynthesizeTap:
+                                  msg.action == ChatAction.synthesize
                                   ? () => _onSynthesizeTapped(msg.sources)
                                   : null,
                               onBuildPlanTap: msg.action == ChatAction.buildPlan
-                                  ? () => _onBuildPlanTapped(msg.sources, msg.originalQuestion ?? msg.text)
+                                  ? () => _onBuildPlanTapped(
+                                      msg.sources,
+                                      msg.originalQuestion ?? msg.text,
+                                    )
                                   : null,
-                              onSaveToCollectionTap: msg.action == ChatAction.saveToCollection
-                                  ? () => _showSaveToCollectionSheet(context, msg.sources)
+                              onSaveToCollectionTap:
+                                  msg.action == ChatAction.saveToCollection
+                                  ? () => _showSaveToCollectionSheet(
+                                      context,
+                                      msg.sources,
+                                    )
                                   : null,
                             );
                           },
@@ -272,6 +319,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
             controller: _controller,
             focusNode: _focusNode,
             isLoading: askState.isLoading,
+            attachedSource: _attachedSource,
             onSubmit: (text) => _onSendMessage(text),
           ),
         ],
@@ -315,7 +363,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                 future: _greetingFuture,
                 builder: (context, snapshot) {
                   final greeting = snapshot.data;
-                  final line = greeting?.line ??
+                  final line =
+                      greeting?.line ??
                       (userName != null && userName.isNotEmpty
                           ? 'Hey, $userName.'
                           : 'Hey.');
@@ -390,21 +439,22 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                               children: kAskOnboardingSuggestionChips
                                   .take(3)
                                   .map((chip) {
-                                return ActionChip(
-                                  label: Text(chip.display),
-                                  onPressed: () {
-                                    HapticFeedback.selectionClick();
-                                    final t = chip.promptText;
-                                    _controller.value = TextEditingValue(
-                                      text: t,
-                                      selection: TextSelection.collapsed(
-                                        offset: t.length,
-                                      ),
+                                    return ActionChip(
+                                      label: Text(chip.display),
+                                      onPressed: () {
+                                        HapticFeedback.selectionClick();
+                                        final t = chip.promptText;
+                                        _controller.value = TextEditingValue(
+                                          text: t,
+                                          selection: TextSelection.collapsed(
+                                            offset: t.length,
+                                          ),
+                                        );
+                                        _focusNode.requestFocus();
+                                      },
                                     );
-                                    _focusNode.requestFocus();
-                                  },
-                                );
-                              }).toList(),
+                                  })
+                                  .toList(),
                             ),
                           ),
                         ),
@@ -509,10 +559,7 @@ class _UserBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final maxW = math.min(
-      520.0,
-      MediaQuery.sizeOf(context).width * 0.86,
-    );
+    final maxW = math.min(520.0, MediaQuery.sizeOf(context).width * 0.86);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -594,8 +641,9 @@ class _AssistantBlockState extends State<_AssistantBlock> {
   void initState() {
     super.initState();
     if (!_hasBody) {
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _startSectionReveal());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _startSectionReveal(),
+      );
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -707,10 +755,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
           ],
           if (_hasBody)
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHigh,
                 borderRadius: const BorderRadius.only(
@@ -757,7 +802,9 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                   ),
                 ),
           ],
-          if (widget.message.action != ChatAction.none && !_actionConsumed && _chipVisible) ...[
+          if (widget.message.action != ChatAction.none &&
+              !_actionConsumed &&
+              _chipVisible) ...[
             const SizedBox(height: 10),
             AnimatedOpacity(
               opacity: _chipVisible ? 1.0 : 0.0,
@@ -814,10 +861,7 @@ class _StaggerAppear extends StatelessWidget {
       builder: (context, t, c) {
         return Opacity(
           opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, 10 * (1 - t)),
-            child: c,
-          ),
+          child: Transform.translate(offset: Offset(0, 10 * (1 - t)), child: c),
         );
       },
       child: child,
@@ -903,10 +947,7 @@ class _AnswerSectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: cs.outlineVariant,
-          width: 0.5,
-        ),
+        border: Border.all(color: cs.outlineVariant, width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
@@ -976,10 +1017,7 @@ class _AnswerSectionCard extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(
-                      color: cs.outlineVariant,
-                      width: 0.5,
-                    ),
+                    top: BorderSide(color: cs.outlineVariant, width: 0.5),
                   ),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -987,10 +1025,7 @@ class _AnswerSectionCard extends StatelessWidget {
                   children: [
                     Text(
                       domain,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.outline,
-                      ),
+                      style: TextStyle(fontSize: 11, color: cs.outline),
                     ),
                     const Spacer(),
                     GestureDetector(
@@ -1074,10 +1109,7 @@ class _SourceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: cs.outlineVariant,
-          width: 0.5,
-        ),
+        border: Border.all(color: cs.outlineVariant, width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
@@ -1147,10 +1179,7 @@ class _SourceCard extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(
-                      color: cs.outlineVariant,
-                      width: 0.5,
-                    ),
+                    top: BorderSide(color: cs.outlineVariant, width: 0.5),
                   ),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1158,10 +1187,7 @@ class _SourceCard extends StatelessWidget {
                   children: [
                     Text(
                       domain,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.outline,
-                      ),
+                      style: TextStyle(fontSize: 11, color: cs.outline),
                     ),
                     const Spacer(),
                     GestureDetector(
@@ -1223,8 +1249,7 @@ class GlimpseTypingIndicator extends StatefulWidget {
   const GlimpseTypingIndicator({super.key});
 
   @override
-  State<GlimpseTypingIndicator> createState() =>
-      _GlimpseTypingIndicatorState();
+  State<GlimpseTypingIndicator> createState() => _GlimpseTypingIndicatorState();
 }
 
 class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
@@ -1246,9 +1271,12 @@ class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
       ),
     );
     _animations = _controllers
-        .map((c) => Tween<double>(begin: 0, end: -6).animate(
-              CurvedAnimation(parent: c, curve: Curves.easeInOut),
-            ))
+        .map(
+          (c) => Tween<double>(
+            begin: 0,
+            end: -6,
+          ).animate(CurvedAnimation(parent: c, curve: Curves.easeInOut)),
+        )
         .toList();
 
     for (int i = 0; i < 3; i++) {
@@ -1311,12 +1339,14 @@ class _ComposerBar extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.isLoading,
+    this.attachedSource,
     required this.onSubmit,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isLoading;
+  final SavedUrl? attachedSource;
   final ValueChanged<String> onSubmit;
 
   @override
@@ -1333,136 +1363,149 @@ class _ComposerBar extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: _kChatMaxWidth),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Pill only wraps the text field
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: colorScheme.outlineVariant,
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Theme(
-                      data: theme.copyWith(
-                        splashFactory: NoSplash.splashFactory,
-                        highlightColor: transparent,
-                        focusColor: transparent,
-                        hoverColor: transparent,
-                        inputDecorationTheme: const InputDecorationTheme(
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          filled: false,
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        onTap: () => focusNode.requestFocus(),
-                        onSubmitted: (_) {
-                          if (controller.text.trim().isNotEmpty) onSubmit(controller.text);
-                        },
-                        minLines: 1,
-                        maxLines: 5,
-                        textInputAction: TextInputAction.newline,
-                        textCapitalization: TextCapitalization.sentences,
-                        style: textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurface,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Message Glimpse...',
-                          hintStyle: textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.outline,
-                          ),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                if (attachedSource != null) ...[
+                  _AttachedSourceBar(source: attachedSource!),
+                  const SizedBox(height: 8),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Pill only wraps the text field
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant,
+                            width: 0.5,
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Send button sits outside the pill
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: controller,
-                  builder: (context, value, _) {
-                    if (isLoading) {
-                      return Tooltip(
-                        message: 'Sending…',
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: colorScheme.primary,
+                        child: Theme(
+                          data: theme.copyWith(
+                            splashFactory: NoSplash.splashFactory,
+                            highlightColor: transparent,
+                            focusColor: transparent,
+                            hoverColor: transparent,
+                            inputDecorationTheme: const InputDecorationTheme(
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
+                              filled: false,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            ),
                           ),
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colorScheme.onPrimary,
+                          child: TextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            onTap: () => focusNode.requestFocus(),
+                            onSubmitted: (_) {
+                              if (controller.text.trim().isNotEmpty) {
+                                onSubmit(controller.text);
+                              }
+                            },
+                            minLines: 1,
+                            maxLines: 5,
+                            textInputAction: TextInputAction.newline,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: textTheme.bodyLarge?.copyWith(
+                              color: colorScheme.onSurface,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: attachedSource == null
+                                  ? 'Message Glimpse...'
+                                  : 'Ask about this save...',
+                              hintStyle: textTheme.bodyLarge?.copyWith(
+                                color: colorScheme.outline,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                             ),
                           ),
                         ),
-                      );
-                    }
-                    final hasText = value.text.trim().isNotEmpty;
-                    return Tooltip(
-                      message: 'Send',
-                      child: GestureDetector(
-                        onTap: hasText
-                            ? () {
-                                HapticFeedback.lightImpact();
-                                onSubmit(controller.text);
-                              }
-                            : null,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: hasText
-                                ? colorScheme.primary
-                                : colorScheme.surfaceContainerHigh,
-                            border: hasText
-                                ? null
-                                : Border.all(
-                                    color: colorScheme.outlineVariant,
-                                  ),
-                          ),
-                          child: Icon(
-                            Icons.arrow_upward_rounded,
-                            size: 20,
-                            color: hasText
-                                ? colorScheme.onPrimary
-                                : colorScheme.onSurfaceVariant,
-                          ),
-                        ),
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 8),
+                    // Send button sits outside the pill
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: controller,
+                      builder: (context, value, _) {
+                        if (isLoading) {
+                          return Tooltip(
+                            message: 'Sending...',
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colorScheme.primary,
+                              ),
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colorScheme.onPrimary,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        final hasText = value.text.trim().isNotEmpty;
+                        return Tooltip(
+                          message: 'Send',
+                          child: GestureDetector(
+                            onTap: hasText
+                                ? () {
+                                    HapticFeedback.lightImpact();
+                                    onSubmit(controller.text);
+                                  }
+                                : null,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: hasText
+                                    ? colorScheme.primary
+                                    : colorScheme.surfaceContainerHigh,
+                                border: hasText
+                                    ? null
+                                    : Border.all(
+                                        color: colorScheme.outlineVariant,
+                                      ),
+                              ),
+                              child: Icon(
+                                Icons.arrow_upward_rounded,
+                                size: 20,
+                                color: hasText
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1473,6 +1516,70 @@ class _ComposerBar extends StatelessWidget {
   }
 }
 
+class _AttachedSourceBar extends ConsumerWidget {
+  const _AttachedSourceBar({required this.source});
+
+  final SavedUrl source;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tagFreq = ref.watch(tagOccurrenceMapProvider);
+    final title = TitleResolver.resolveStableDisplayTitle(
+      source,
+      tagFrequency: tagFreq,
+    );
+    final platform = CategoryResolver.displaySourceName(
+      rawUrl: source.rawUrl,
+      fallbackDomain: source.domain,
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.link_rounded, size: 18, color: cs.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: cs.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  platform,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onPrimaryContainer.withValues(alpha: 0.74),
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ChatActionChip extends StatelessWidget {
   final ChatAction action;
@@ -1485,10 +1592,19 @@ class _ChatActionChip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     final (icon, label) = switch (action) {
-      ChatAction.saveToCollection => (Icons.bookmark_add_outlined, 'Save these to a collection'),
-      ChatAction.synthesize       => (Icons.auto_awesome_outlined,  'Synthesize these'),
-      ChatAction.buildPlan        => (Icons.calendar_today_outlined, 'Build a plan from these'),
-      ChatAction.none             => (null, ''),
+      ChatAction.saveToCollection => (
+        Icons.bookmark_add_outlined,
+        'Save these to a collection',
+      ),
+      ChatAction.synthesize => (
+        Icons.auto_awesome_outlined,
+        'Synthesize these',
+      ),
+      ChatAction.buildPlan => (
+        Icons.calendar_today_outlined,
+        'Build a plan from these',
+      ),
+      ChatAction.none => (null, ''),
     };
 
     if (action == ChatAction.none) return const SizedBox.shrink();
@@ -1510,11 +1626,14 @@ class _ChatActionChip extends StatelessWidget {
           children: [
             Icon(icon, size: 15, color: cs.primary),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: cs.primary,
-            )),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.primary,
+              ),
+            ),
           ],
         ),
       ),
@@ -1609,7 +1728,10 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
 
   Future<void> _load() async {
     final cols = await widget.isarService.getAllCollections();
-    setState(() { _existing = cols; _loading = false; });
+    setState(() {
+      _existing = cols;
+      _loading = false;
+    });
   }
 
   @override
@@ -1618,7 +1740,9 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
     final tt = Theme.of(context).textTheme;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1627,7 +1751,8 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: 12, bottom: 20),
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
                 color: cs.onSurface.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(2),
@@ -1641,12 +1766,20 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Save to collection', style: tt.titleMedium?.copyWith(
-                  color: cs.onSurface, fontWeight: FontWeight.w600,
-                )),
+                Text(
+                  'Save to collection',
+                  style: tt.titleMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text('${widget.sources.length} links will be added',
-                  style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.4))),
+                Text(
+                  '${widget.sources.length} links will be added',
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1666,17 +1799,20 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
               padding: const EdgeInsets.all(20),
               child: Center(
                 child: CircularProgressIndicator(
-                  strokeWidth: 1.5, color: cs.primary,
+                  strokeWidth: 1.5,
+                  color: cs.primary,
                 ),
               ),
             )
           else
-            ..._existing.map((col) => _CollectionTile(
-              visualStyle: resolveCollectionVisual(col),
-              name: col.name,
-              subtitle: '${col.urlIds.length} links',
-              onTap: () => _addToExisting(context, col),
-            )),
+            ..._existing.map(
+              (col) => _CollectionTile(
+                visualStyle: resolveCollectionVisual(col),
+                name: col.name,
+                subtitle: '${col.urlIds.length} links',
+                onTap: () => _addToExisting(context, col),
+              ),
+            ),
 
           const SizedBox(height: 24),
         ],
@@ -1720,29 +1856,33 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
     widget.onCollectionChanged(col.id);
     if (widget.hostContext.mounted) {
       final cs = Theme.of(widget.hostContext).colorScheme;
-      ScaffoldMessenger.of(widget.hostContext).showSnackBar(SnackBar(
-        content: Row(
-          children: [
-            Expanded(child: Text('Added to "${col.name}"')),
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(widget.hostContext).hideCurrentSnackBar();
-                widget.hostContext.push('/collections/${col.id}');
-              },
-              child: Text(
-                'View',
-                style: TextStyle(
-                  color: cs.primary,
-                  fontWeight: FontWeight.w600,
+      ScaffoldMessenger.of(widget.hostContext).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Expanded(child: Text('Added to "${col.name}"')),
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(
+                    widget.hostContext,
+                  ).hideCurrentSnackBar();
+                  widget.hostContext.push('/collections/${col.id}');
+                },
+                child: Text(
+                  'View',
+                  style: TextStyle(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: cs.surfaceContainerHigh,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
         ),
-        backgroundColor: cs.surfaceContainerHigh,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ));
+      );
     }
   }
 }

@@ -150,7 +150,10 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/ask',
-      builder: (context, state) => const AskScreen(),
+      builder: (context, state) {
+        final source = state.extra is SavedUrl ? state.extra as SavedUrl : null;
+        return AskScreen(initialSource: source);
+      },
     ),
     GoRoute(
       path: '/mindmap',
@@ -384,6 +387,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (!mounted) return;
     final ctx = _router.routerDelegate.navigatorKey.currentContext;
     if (ctx == null) return;
+    if (!ctx.mounted) return;
 
     final message = success ? 'Saved — organizing in background...' : (errorMsg ?? 'Failed to save URL');
 

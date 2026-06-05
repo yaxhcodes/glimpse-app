@@ -52,6 +52,93 @@ class _DetailMetadata {
   bool get hasSocialRow => hasStats || creatorUsername != null;
 }
 
+class _GlimpseSavedNote {
+  const _GlimpseSavedNote({
+    required this.answer,
+    this.asked,
+    this.question,
+  });
+
+  final String answer;
+  final String? asked;
+  final String? question;
+}
+
+class _GlimpseSavedNoteCard extends StatelessWidget {
+  const _GlimpseSavedNoteCard({
+    required this.note,
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  final _GlimpseSavedNote note;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, size: 16, color: colorScheme.primary),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Ask Glimpse',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              if ((note.asked ?? '').isNotEmpty)
+                Text(
+                  note.asked!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.66),
+                    height: 1,
+                  ),
+                ),
+            ],
+          ),
+          if ((note.question ?? '').isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Text(
+              note.question!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ],
+          if (note.answer.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              note.answer,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _NoteSuggestionChip extends StatelessWidget {
   const _NoteSuggestionChip({
     required this.label,
@@ -1179,6 +1266,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ColorScheme colorScheme,
     required List<String> suggestions,
   }) {
+    final glimpseNotes = _parseGlimpseNoteBlocks(_notesController.text);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
@@ -1189,6 +1277,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (glimpseNotes.isNotEmpty) ...[
+              ...glimpseNotes.map(
+                (note) => _GlimpseSavedNoteCard(
+                  note: note,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Divider(color: colorScheme.outlineVariant),
+              const SizedBox(height: 6),
+            ],
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 160),
               child: TextField(
@@ -1582,6 +1682,40 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         ],
       ),
     );
+  }
+
+  List<_GlimpseSavedNote> _parseGlimpseNoteBlocks(String raw) {
+    final blocks = <_GlimpseSavedNote>[];
+    final matches = RegExp(
+      r'(?:^|\n)## Ask Glimpse\n([\s\S]*?)(?=\n## Ask Glimpse\n|$)',
+    ).allMatches(raw);
+    for (final match in matches) {
+      final block = match.group(1)?.trim() ?? '';
+      if (block.isEmpty) continue;
+      final lines = block.split('\n').map((line) => line.trimRight()).toList();
+      String? asked;
+      String? question;
+      final body = <String>[];
+      for (final line in lines) {
+        if (line.startsWith('Asked:')) {
+          asked = line.substring('Asked:'.length).trim();
+        } else if (line.startsWith('Question:')) {
+          question = line.substring('Question:'.length).trim();
+        } else {
+          body.add(line);
+        }
+      }
+      final answer = body.join('\n').trim();
+      if ((question ?? '').isEmpty && answer.isEmpty) continue;
+      blocks.add(
+        _GlimpseSavedNote(
+          asked: asked,
+          question: question,
+          answer: answer,
+        ),
+      );
+    }
+    return blocks.reversed.take(3).toList();
   }
 
   Widget _buildInstructionStep({

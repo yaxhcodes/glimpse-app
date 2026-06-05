@@ -12,6 +12,7 @@ import '../../core/providers/usage_providers.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/usage_service.dart';
+import '../home/home_provider.dart';
 
 class ChatMessage {
   final String id;
@@ -171,7 +172,13 @@ class AskNotifier extends StateNotifier<AskState> {
     );
   }
 
-  Future<void> ask(String question, {List<SavedUrl>? preloadedSources, String? originalQuestion}) async {
+  Future<void> ask(
+    String question, {
+    List<SavedUrl>? preloadedSources,
+    String? originalQuestion,
+    bool usePreloadedAsContext = false,
+    int? saveAnswerToUrlId,
+  }) async {
     if (question.trim().isEmpty) return;
 
     state = state.copyWith(
@@ -218,6 +225,19 @@ class AskNotifier extends StateNotifier<AskState> {
                   'Set AI_PROXY_BASE_URL to the Cloudflare Worker proxy; '
                   '“Force Pro” only unlocks in-app gates, not API access.'
               : 'AI is not configured for this build. Please update the app.',
+        );
+        return;
+      }
+
+      if (usePreloadedAsContext &&
+          preloadedSources != null &&
+          preloadedSources.isNotEmpty) {
+        await _answerWithFixedContext(
+          question: question,
+          contextUrls: preloadedSources,
+          saveAnswerToUrlId: saveAnswerToUrlId,
+          usageService: usageService,
+          gemini: gemini,
         );
         return;
       }
@@ -353,6 +373,99 @@ class AskNotifier extends StateNotifier<AskState> {
     }
 
     return ChatAction.saveToCollection;
+  }
+
+  Future<void> _answerWithFixedContext({
+    required String question,
+    required List<SavedUrl> contextUrls,
+    required UsageService usageService,
+    required GeminiService gemini,
+    int? saveAnswerToUrlId,
+  }) async {
+    final history = state.messages
+        .where((m) => m.text.trim().isNotEmpty)
+        .map((m) => {
+              'role': m.isUser ? 'User' : 'Glimpse',
+              'content': m.text,
+            })
+        .toList();
+    final recentHistory =
+        history.length > 12 ? history.sublist(history.length - 12) : history;
+
+    final answer = await gemini.chat(
+      question: question,
+      contextUrls: contextUrls,
+      conversationHistory: recentHistory,
+    );
+
+    final sections = answer.sections
+        .map((section) => ChatMessageSection(
+              heading: section.heading,
+              summary: section.summary,
+              source: contextUrls[section.sourceIndex - 1],
+            ))
+        .toList();
+    final sources = answer.sections
+        .where((s) => s.sourceIndex > 0 && s.sourceIndex <= contextUrls.length)
+        .map((s) => contextUrls[s.sourceIndex - 1])
+        .toList();
+
+    await usageService.incrementUsage(UsageFeature.ask);
+    _ref.read(usageRevisionProvider.notifier).state++;
+
+    if (saveAnswerToUrlId != null) {
+      await _appendAskNote(
+        urlId: saveAnswerToUrlId,
+        question: question,
+        answer: answer.intro,
+        sections: sections,
+      );
+    }
+
+    _addBotMessage(
+      answer.intro,
+      sources: sources.isEmpty ? contextUrls.take(1).toList() : sources,
+      sections: sections,
+      proactiveTip: answer.proactiveTip,
+      originalQuestion: question,
+    );
+  }
+
+  Future<void> _appendAskNote({
+    required int urlId,
+    required String question,
+    required String answer,
+    required List<ChatMessageSection> sections,
+  }) async {
+    final isarService = _ref.read(isarServiceProvider);
+    final url = await isarService.getUrlById(urlId);
+    if (url == null) return;
+
+    final existing = url.userNotes?.trimRight() ?? '';
+    final details = sections
+        .map((section) => '${section.heading}: ${section.summary}')
+        .where((line) => line.trim().isNotEmpty)
+        .join('\n');
+    final timestamp = DateTime.now();
+    final block = [
+      '## Ask Glimpse',
+      'Asked: ${_formatNoteTimestamp(timestamp)}',
+      'Question: ${question.trim()}',
+      '',
+      answer.trim(),
+      if (details.isNotEmpty) '',
+      if (details.isNotEmpty) details,
+    ].join('\n');
+
+    url.userNotes = existing.isEmpty ? block : '$existing\n\n$block';
+    await isarService.updateUrl(url);
+    _ref.invalidate(urlStreamProvider);
+  }
+
+  String _formatNoteTimestamp(DateTime when) {
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${when.year}-${two(when.month)}-${two(when.day)} '
+        '${two(when.hour)}:${two(when.minute)}';
   }
 
   Future<List<SavedUrl>> _fallbackContext(String question) async {
