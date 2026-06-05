@@ -12,8 +12,9 @@ final allUrlsProvider = FutureProvider<List<SavedUrl>>((ref) async {
 });
 
 /// Provider for the list of categories (with emoji and count).
-final categoriesProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final categoriesProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
   final isarService = ref.watch(isarServiceProvider);
   return isarService.getCategories();
 });
@@ -50,7 +51,9 @@ final displayedUrlsProvider = Provider<AsyncValue<List<SavedUrl>>>((ref) {
   final urlsAsync = ref.watch(urlStreamProvider);
   final forceEmpty = ref.watch(forceEmptyLibraryProvider);
   final simulateFirstSave = ref.watch(simulateFirstSaveProvider);
-  final hasSimulatedInSession = ref.watch(hasSimulatedFirstSaveInSessionProvider);
+  final hasSimulatedInSession = ref.watch(
+    hasSimulatedFirstSaveInSessionProvider,
+  );
 
   if (simulateFirstSave) {
     if (!hasSimulatedInSession) return const AsyncValue.data([]);
@@ -67,21 +70,22 @@ final displayedUrlsProvider = Provider<AsyncValue<List<SavedUrl>>>((ref) {
 /// Categories displayed in the UI. Respects the dev-only "Force Empty Library" flag.
 final displayedCategoriesProvider =
     Provider<AsyncValue<List<Map<String, dynamic>>>>((ref) {
-  final catsAsync = ref.watch(categoriesProvider);
-  final forceEmpty = ref.watch(forceEmptyLibraryProvider);
-  final simulateFirstSave = ref.watch(simulateFirstSaveProvider);
-  final hasSimulatedInSession =
-      ref.watch(hasSimulatedFirstSaveInSessionProvider);
-  if (simulateFirstSave && !hasSimulatedInSession) {
-    return const AsyncValue.data([]);
-  }
-  if (simulateFirstSave) {
-    final urls = ref.watch(displayedUrlsProvider).valueOrNull ?? [];
-    return AsyncValue.data(_categoriesFromUrls(urls));
-  }
-  if (forceEmpty) return const AsyncValue.data([]);
-  return catsAsync;
-});
+      final catsAsync = ref.watch(categoriesProvider);
+      final forceEmpty = ref.watch(forceEmptyLibraryProvider);
+      final simulateFirstSave = ref.watch(simulateFirstSaveProvider);
+      final hasSimulatedInSession = ref.watch(
+        hasSimulatedFirstSaveInSessionProvider,
+      );
+      if (simulateFirstSave && !hasSimulatedInSession) {
+        return const AsyncValue.data([]);
+      }
+      if (simulateFirstSave) {
+        final urls = ref.watch(displayedUrlsProvider).valueOrNull ?? [];
+        return AsyncValue.data(_categoriesFromUrls(urls));
+      }
+      if (forceEmpty) return const AsyncValue.data([]);
+      return catsAsync;
+    });
 
 List<Map<String, dynamic>> _categoriesFromUrls(List<SavedUrl> urls) {
   final categoryMap = <String, Map<String, dynamic>>{};
@@ -121,3 +125,7 @@ final tagOccurrenceMapProvider = Provider<Map<String, int>>((ref) {
   }
   return counts;
 });
+
+/// Incremented when the Home destination is tapped while Home is already
+/// selected, so the embedded Home screen can return to the top.
+final homeScrollToTopSignalProvider = StateProvider<int>((ref) => 0);

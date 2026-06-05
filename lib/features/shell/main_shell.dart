@@ -95,9 +95,13 @@ class _MainShellState extends ConsumerState<MainShell> {
           selectedIndex: _currentIndex,
           onDestinationSelected: (i) {
             HapticFeedback.selectionClick();
+            final wasAlreadyHome = _currentIndex == 0 && i == 0;
             final wasAlreadySearch =
                 _currentIndex == _searchTabIndex && i == _searchTabIndex;
             setState(() => _currentIndex = i);
+            if (wasAlreadyHome) {
+              ref.read(homeScrollToTopSignalProvider.notifier).state++;
+            }
             if (wasAlreadySearch) {
               ref.read(searchShellRefocusProvider.notifier).state++;
             }

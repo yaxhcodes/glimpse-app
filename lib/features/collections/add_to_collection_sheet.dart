@@ -21,6 +21,12 @@ class AddToCollectionSheet extends ConsumerStatefulWidget {
 }
 
 class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
+  Future<void> _createCollection() {
+    return _createCollectionAndAddUrls(context, ref, [
+      widget.url,
+    ], openCollection: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final collectionsAsync = ref.watch(collectionsListProvider);
@@ -60,92 +66,86 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                         style: theme.textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 12),
-                      FilledButton.tonal(
-                        onPressed: () async {
-                          final collection = await showCreateCollectionSheet(
-                            context,
-                          );
-                          if (collection == null) return;
-                          if (!context.mounted) return;
-                          await ref
-                              .read(isarServiceProvider)
-                              .addUrlToCollection(
-                                collectionId: collection.id,
-                                urlId: widget.url.id,
-                              );
-                          ref.invalidate(collectionsListProvider);
-                          ref.invalidate(collectionsSummaryProvider);
-                          ref.invalidate(collectionUrlsProvider(collection.id));
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            context.push('/collections/${collection.id}');
-                          }
-                        },
-                        child: const Text('New collection'),
+                      FilledButton.tonalIcon(
+                        onPressed: _createCollection,
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('New collection'),
                       ),
                     ],
                   );
                 }
-                return SizedBox(
-                  height: (collections.length * 52.0).clamp(120, 320),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: collections.length,
-                    itemBuilder: (ctx, i) {
-                      final c = collections[i];
-                      final inCollection = c.urlIds.contains(widget.url.id);
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        minLeadingWidth: 44,
-                        leading: CollectionVisual(
-                          style: resolveCollectionVisual(c),
-                          seed: c.name,
-                          size: 40,
-                          iconSize: 18,
-                        ),
-                        title: Text(c.name),
-                        trailing: Checkbox(
-                          value: inCollection,
-                          onChanged: (v) async {
-                            final isar = ref.read(isarServiceProvider);
-                            if (v == true) {
-                              await isar.addUrlToCollection(
-                                collectionId: c.id,
-                                urlId: widget.url.id,
-                              );
-                            } else {
-                              await isar.removeUrlFromCollection(
-                                collectionId: c.id,
-                                urlId: widget.url.id,
-                              );
-                            }
-                            ref.invalidate(collectionsListProvider);
-                            ref.invalidate(collectionsSummaryProvider);
-                            ref.invalidate(collectionUrlsProvider(c.id));
-                            setState(() {});
-                          },
-                        ),
-                        onTap: () async {
-                          final isar = ref.read(isarServiceProvider);
-                          if (inCollection) {
-                            await isar.removeUrlFromCollection(
-                              collectionId: c.id,
-                              urlId: widget.url.id,
-                            );
-                          } else {
-                            await isar.addUrlToCollection(
-                              collectionId: c.id,
-                              urlId: widget.url.id,
-                            );
-                          }
-                          ref.invalidate(collectionsListProvider);
-                          ref.invalidate(collectionsSummaryProvider);
-                          ref.invalidate(collectionUrlsProvider(c.id));
-                          setState(() {});
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: _createCollection,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('New collection'),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: (collections.length * 52.0).clamp(120, 320),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: collections.length,
+                        itemBuilder: (ctx, i) {
+                          final c = collections[i];
+                          final inCollection = c.urlIds.contains(widget.url.id);
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            minLeadingWidth: 44,
+                            leading: CollectionVisual(
+                              style: resolveCollectionVisual(c),
+                              seed: c.name,
+                              size: 40,
+                              iconSize: 18,
+                            ),
+                            title: Text(c.name),
+                            trailing: Checkbox(
+                              value: inCollection,
+                              onChanged: (v) async {
+                                final isar = ref.read(isarServiceProvider);
+                                if (v == true) {
+                                  await isar.addUrlToCollection(
+                                    collectionId: c.id,
+                                    urlId: widget.url.id,
+                                  );
+                                } else {
+                                  await isar.removeUrlFromCollection(
+                                    collectionId: c.id,
+                                    urlId: widget.url.id,
+                                  );
+                                }
+                                ref.invalidate(collectionsListProvider);
+                                ref.invalidate(collectionsSummaryProvider);
+                                ref.invalidate(collectionUrlsProvider(c.id));
+                                setState(() {});
+                              },
+                            ),
+                            onTap: () async {
+                              final isar = ref.read(isarServiceProvider);
+                              if (inCollection) {
+                                await isar.removeUrlFromCollection(
+                                  collectionId: c.id,
+                                  urlId: widget.url.id,
+                                );
+                              } else {
+                                await isar.addUrlToCollection(
+                                  collectionId: c.id,
+                                  urlId: widget.url.id,
+                                );
+                              }
+                              ref.invalidate(collectionsListProvider);
+                              ref.invalidate(collectionsSummaryProvider);
+                              ref.invalidate(collectionUrlsProvider(c.id));
+                              setState(() {});
+                            },
+                          );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -205,61 +205,68 @@ class AddManyToCollectionSheet extends ConsumerWidget {
               error: (e, _) => Text('Could not load collections: $e'),
               data: (collections) {
                 if (collections.isEmpty) {
-                  return FilledButton.tonal(
-                    onPressed: () async {
-                      final collection = await showCreateCollectionSheet(
-                        context,
-                      );
-                      if (collection == null || !context.mounted) return;
-                      await ref
-                          .read(isarServiceProvider)
-                          .addUrlsToCollection(
-                            collectionId: collection.id,
-                            urlIds: urls.map((url) => url.id).toList(),
-                          );
-                      ref.invalidate(collectionsListProvider);
-                      ref.invalidate(collectionsSummaryProvider);
-                      ref.invalidate(collectionUrlsProvider(collection.id));
-                      onCompleted?.call();
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                    child: const Text('New collection'),
+                  return FilledButton.tonalIcon(
+                    onPressed: () => _createCollectionAndAddUrls(
+                      context,
+                      ref,
+                      urls,
+                      onCompleted: onCompleted,
+                    ),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('New collection'),
                   );
                 }
-                return SizedBox(
-                  height: (collections.length * 56.0).clamp(120, 360),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: collections.length,
-                    itemBuilder: (ctx, i) {
-                      final c = collections[i];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        minLeadingWidth: 44,
-                        leading: CollectionVisual(
-                          style: resolveCollectionVisual(c),
-                          seed: c.name,
-                          size: 40,
-                          iconSize: 18,
-                        ),
-                        title: Text(c.name),
-                        subtitle: Text('${c.urlIds.length} links'),
-                        onTap: () async {
-                          await ref
-                              .read(isarServiceProvider)
-                              .addUrlsToCollection(
-                                collectionId: c.id,
-                                urlIds: urls.map((url) => url.id).toList(),
-                              );
-                          ref.invalidate(collectionsListProvider);
-                          ref.invalidate(collectionsSummaryProvider);
-                          ref.invalidate(collectionUrlsProvider(c.id));
-                          onCompleted?.call();
-                          if (context.mounted) Navigator.pop(context);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: () => _createCollectionAndAddUrls(
+                        context,
+                        ref,
+                        urls,
+                        onCompleted: onCompleted,
+                      ),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('New collection'),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: (collections.length * 56.0).clamp(120, 360),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: collections.length,
+                        itemBuilder: (ctx, i) {
+                          final c = collections[i];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            minLeadingWidth: 44,
+                            leading: CollectionVisual(
+                              style: resolveCollectionVisual(c),
+                              seed: c.name,
+                              size: 40,
+                              iconSize: 18,
+                            ),
+                            title: Text(c.name),
+                            subtitle: Text('${c.urlIds.length} links'),
+                            onTap: () async {
+                              await ref
+                                  .read(isarServiceProvider)
+                                  .addUrlsToCollection(
+                                    collectionId: c.id,
+                                    urlIds: urls.map((url) => url.id).toList(),
+                                  );
+                              ref.invalidate(collectionsListProvider);
+                              ref.invalidate(collectionsSummaryProvider);
+                              ref.invalidate(collectionUrlsProvider(c.id));
+                              onCompleted?.call();
+                              if (context.mounted) Navigator.pop(context);
+                            },
+                          );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -283,4 +290,32 @@ void showAddManyToCollectionSheet(
     builder: (_) =>
         AddManyToCollectionSheet(urls: urls, onCompleted: onCompleted),
   );
+}
+
+Future<void> _createCollectionAndAddUrls(
+  BuildContext context,
+  WidgetRef ref,
+  List<SavedUrl> urls, {
+  bool openCollection = false,
+  VoidCallback? onCompleted,
+}) async {
+  final collection = await showCreateCollectionSheet(context);
+  if (collection == null || !context.mounted) return;
+
+  await ref
+      .read(isarServiceProvider)
+      .addUrlsToCollection(
+        collectionId: collection.id,
+        urlIds: urls.map((url) => url.id).toList(),
+      );
+  ref.invalidate(collectionsListProvider);
+  ref.invalidate(collectionsSummaryProvider);
+  ref.invalidate(collectionUrlsProvider(collection.id));
+  onCompleted?.call();
+
+  if (!context.mounted) return;
+  Navigator.pop(context);
+  if (openCollection) {
+    context.push('/collections/${collection.id}');
+  }
 }

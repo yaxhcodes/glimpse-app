@@ -102,7 +102,6 @@ class CuratedNotificationHero extends StatelessWidget {
               visible: showUnreadIndicator,
               color: Theme.of(context).colorScheme.primary,
             ),
-            if (spec.showVideoPlayBadge) const _MinimalPlayBadge(),
           ],
         );
     }
@@ -193,29 +192,6 @@ class _UnreadCornerDot extends StatelessWidget {
   }
 }
 
-class _MinimalPlayBadge extends StatelessWidget {
-  const _MinimalPlayBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.center,
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.4),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.play_arrow_rounded,
-          color: Colors.white,
-          size: 22,
-        ),
-      ),
-    );
-  }
-}
-
 /// Small rounded square strip cell (consistent with heroes where applicable).
 class CuratedNotificationThumbStripItem extends StatelessWidget {
   const CuratedNotificationThumbStripItem({
@@ -254,22 +230,6 @@ class CuratedNotificationThumbStripItem extends StatelessWidget {
             borderRadius: squareRadius,
           ),
         );
-        if (spec.showVideoPlayBadge) {
-          core = Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Positioned.fill(child: core),
-              const Padding(
-                padding: EdgeInsets.only(right: 2, bottom: 2),
-                child: Icon(
-                  Icons.play_circle_rounded,
-                  color: Colors.white,
-                  size: 14,
-                ),
-              ),
-            ],
-          );
-        }
       case NotificationVisualMode.neutralPlaceholder:
         core = LinkCardThumbnail.tagLetterPlaceholder(
           url,

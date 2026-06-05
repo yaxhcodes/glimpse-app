@@ -267,6 +267,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
@@ -296,6 +305,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final forceEmptyLibrary = ref.watch(forceEmptyLibraryProvider);
     final actualUrlsAsync = ref.watch(urlStreamProvider);
     final actualUrls = actualUrlsAsync.valueOrNull ?? [];
+
+    ref.listen(homeScrollToTopSignalProvider, (previous, next) {
+      if (previous == null || next == previous) return;
+      _scrollToTop();
+    });
 
     // Keep category order in sync with the DB
     ref.listen(categoriesProvider, (_, next) {
