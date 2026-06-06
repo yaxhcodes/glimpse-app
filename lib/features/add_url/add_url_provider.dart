@@ -7,6 +7,7 @@ import '../../core/services/domain_categorizer.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/enrichment_service.dart';
 import '../../core/services/link_preview_service.dart';
+import '../../core/services/url_save_notifications.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../home/home_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
@@ -14,7 +15,7 @@ import '../mindmap/interest_clusters_provider.dart';
 /// State for the Add URL flow.
 enum AddUrlStatus {
   idle,
-  saving,        // instant save in progress
+  saving, // instant save in progress
   done,
   error,
 }
@@ -23,22 +24,27 @@ class AddUrlState {
   final AddUrlStatus status;
   final String? errorMessage;
   final String url;
+  final int? savedUrlId;
 
   const AddUrlState({
     this.status = AddUrlStatus.idle,
     this.errorMessage,
     this.url = '',
+    this.savedUrlId,
   });
 
   AddUrlState copyWith({
     AddUrlStatus? status,
     String? errorMessage,
     String? url,
+    int? savedUrlId,
+    bool clearSavedUrlId = false,
   }) {
     return AddUrlState(
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
       url: url ?? this.url,
+      savedUrlId: clearSavedUrlId ? null : savedUrlId ?? this.savedUrlId,
     );
   }
 }
@@ -55,7 +61,11 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
   /// Background enrichment (AI categorization, embedding) runs afterwards.
   ///
   /// Returns `true` if saved successfully, `false` on validation / duplicate error.
-  Future<bool> saveUrl(String rawUrl, {String? notes}) async {
+  Future<bool> saveUrl(
+    String rawUrl, {
+    String? notes,
+    bool notifyCapture = false,
+  }) async {
     if (_isSaving) return false;
     _isSaving = true;
 
@@ -69,6 +79,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         state = state.copyWith(
           status: AddUrlStatus.error,
           errorMessage: 'Please enter a valid URL',
+          clearSavedUrlId: true,
         );
         return false;
       }
@@ -76,10 +87,14 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       // Exact duplicate check
       final existing = await isarService.findByRawUrl(normalizedUrl);
       if (existing != null) {
+        if (notifyCapture) {
+          await UrlSaveNotifications.showAlreadyCaptured(existing);
+        }
         _isSaving = false;
         state = state.copyWith(
           status: AddUrlStatus.error,
           errorMessage: 'This URL has already been saved',
+          savedUrlId: existing.id,
         );
         return false;
       }
@@ -89,6 +104,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         status: AddUrlStatus.saving,
         url: normalizedUrl,
         errorMessage: null,
+        clearSavedUrlId: true,
       );
 
       final platformCat = DomainCategorizer.categorize(normalizedUrl);
@@ -97,9 +113,11 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       final savedUrl = SavedUrl()
         ..rawUrl = normalizedUrl
         ..domain = domain
-        ..title = domain // placeholder — enrichment will update
+        ..title =
+            domain // placeholder — enrichment will update
         ..description = ''
-        ..thumbnailUrl = null // enrichment will update
+        ..thumbnailUrl =
+            null // enrichment will update
         ..category = platformCat.category
         ..categoryEmoji = platformCat.emoji
         ..categories = CategoryResolver.buildCategories(
@@ -107,15 +125,22 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           platformCategory: platformCat.category,
         )
         ..tags = platformCat.tags
-        ..summary = null // enrichment will update
+        ..summary =
+            null // enrichment will update
         ..userNotes = notes
         ..savedAt = DateTime.now()
         ..embedding = null; // enrichment will update
 
       await isarService.saveUrl(savedUrl);
 
-      developer.log('saveUrl OK: id=${savedUrl.id} url=$normalizedUrl',
-          name: 'AddUrl');
+      developer.log(
+        'saveUrl OK: id=${savedUrl.id} url=$normalizedUrl',
+        name: 'AddUrl',
+      );
+
+      if (notifyCapture) {
+        await UrlSaveNotifications.showCaptureStarted();
+      }
 
       // Invalidate providers so Home screen shows the new URL instantly
       _ref.invalidate(urlStreamProvider);
@@ -123,11 +148,14 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       _ref.invalidate(askEmptySuggestionsProvider);
       _ref.invalidate(interestClusterThemesProvider);
 
-      state = state.copyWith(status: AddUrlStatus.done);
+      state = state.copyWith(
+        status: AddUrlStatus.done,
+        savedUrlId: savedUrl.id,
+      );
       _isSaving = false;
 
       // Kick off background enrichment (fire and forget)
-      _enrichInBackground(normalizedUrl);
+      _enrichInBackground(normalizedUrl, notifyCapture: notifyCapture);
 
       return true;
     } catch (e) {
@@ -135,6 +163,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       state = state.copyWith(
         status: AddUrlStatus.error,
         errorMessage: e.toString(),
+        clearSavedUrlId: true,
       );
       return false;
     }
@@ -142,7 +171,10 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
 
   /// Background enrichment: fetch metadata, AI categorize, generate embedding.
   /// Runs after instant save so the user never waits for it.
-  void _enrichInBackground(String normalizedUrl) {
+  void _enrichInBackground(
+    String normalizedUrl, {
+    required bool notifyCapture,
+  }) {
     final enricher = _ref.read(enrichmentServiceProvider)(
       onEnriched: () {
         // Refresh providers so the URL card progressively hydrates
@@ -154,27 +186,44 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     );
 
     // Find the URL's ID we just saved and enrich it
-    _findAndEnrich(normalizedUrl, enricher);
+    _findAndEnrich(normalizedUrl, enricher, notifyCapture: notifyCapture);
   }
 
-  Future<void> _findAndEnrich(String normalizedUrl, EnrichmentService enricher) async {
+  Future<void> _findAndEnrich(
+    String normalizedUrl,
+    EnrichmentService enricher, {
+    required bool notifyCapture,
+  }) async {
     try {
       final isarService = _ref.read(isarServiceProvider);
       final url = await isarService.findByRawUrl(normalizedUrl);
       if (url == null) {
-        developer.log('_findAndEnrich: URL not found after save: $normalizedUrl',
-            name: 'AddUrl');
+        developer.log(
+          '_findAndEnrich: URL not found after save: $normalizedUrl',
+          name: 'AddUrl',
+        );
         return;
       }
-      developer.log('_findAndEnrich START: id=${url.id} url=$normalizedUrl',
-          name: 'AddUrl');
+      developer.log(
+        '_findAndEnrich START: id=${url.id} url=$normalizedUrl',
+        name: 'AddUrl',
+      );
       // First enrich metadata, then AI + embedding
       await enricher.enrichMetadata(url.id);
       await enricher.enrichSingle(url.id);
+      if (notifyCapture) {
+        final enriched = await isarService.getUrlById(url.id);
+        if (enriched != null) {
+          await UrlSaveNotifications.showCaptureReady(enriched);
+        }
+      }
       developer.log('_findAndEnrich DONE: $normalizedUrl', name: 'AddUrl');
     } catch (e, st) {
-      developer.log('Background enrichment failed: $e',
-          name: 'AddUrl', stackTrace: st);
+      developer.log(
+        'Background enrichment failed: $e',
+        name: 'AddUrl',
+        stackTrace: st,
+      );
     }
   }
 
@@ -193,7 +242,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
   }
 }
 
-final addUrlProvider =
-    StateNotifierProvider<AddUrlNotifier, AddUrlState>((ref) {
+final addUrlProvider = StateNotifierProvider<AddUrlNotifier, AddUrlState>((
+  ref,
+) {
   return AddUrlNotifier(ref);
 });

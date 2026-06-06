@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'core/providers/backup_provider.dart';
@@ -61,10 +62,7 @@ final _router = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const MainShell(),
-    ),
+    GoRoute(path: '/', builder: (context, state) => const MainShell()),
     GoRoute(
       path: '/add',
       builder: (context, state) {
@@ -79,14 +77,8 @@ final _router = GoRouter(
         return CategoryScreen(categoryName: name);
       },
     ),
-    GoRoute(
-      path: '/search',
-      builder: (context, state) => const SearchScreen(),
-    ),
-    GoRoute(
-      path: '/digest',
-      builder: (context, state) => const DigestScreen(),
-    ),
+    GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
+    GoRoute(path: '/digest', builder: (context, state) => const DigestScreen()),
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationsScreen(),
@@ -166,10 +158,7 @@ final _router = GoRouter(
         return MindmapClusterScreen(clusterId: id);
       },
     ),
-    GoRoute(
-      path: '/recap',
-      builder: (context, state) => const RecapScreen(),
-    ),
+    GoRoute(path: '/recap', builder: (context, state) => const RecapScreen()),
     GoRoute(
       path: '/synthesis',
       builder: (context, state) {
@@ -228,14 +217,12 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     });
 
     // Handle intent that launched the app (cold start)
-    ReceiveSharingIntent.instance
-        .getInitialMedia()
-        .then(_handleSharedMedia);
+    ReceiveSharingIntent.instance.getInitialMedia().then(_handleSharedMedia);
 
     // Handle intents while app is already running (warm start)
-    _shareIntentSub = ReceiveSharingIntent.instance
-        .getMediaStream()
-        .listen(_handleSharedMedia);
+    _shareIntentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
+      _handleSharedMedia,
+    );
 
     // Backup files opened via "Open with..." from a file manager.
     _backupIntentSub = _backupIntentService.incoming.listen(_handleBackupFile);
@@ -297,11 +284,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (ctx == null) return;
     ScaffoldMessenger.of(ctx)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+        ),
+      );
   }
 
   void _handleSharedMedia(List<SharedMediaFile> files) {
@@ -320,76 +309,42 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         // Multi-share → batch preview
         _router.push('/batch-save', extra: extracted.urls);
       } else {
-        // Single share → existing choice sheet
-        _showShareChoiceSheet(ctx, extracted.urls.first);
+        // Single share → capture immediately and let notifications carry the result.
+        unawaited(
+          _quickSave(
+            extracted.urls.first,
+            notifyCapture: true,
+            returnAfterSave: true,
+          ),
+        );
       }
     });
   }
 
-  void _showShareChoiceSheet(BuildContext context, String url) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Save URL',
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  url,
-                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                      ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _quickSave(url);
-                  },
-                  child: const Text('Quick Save'),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _router.go('/add?url=${Uri.encodeComponent(url)}');
-                  },
-                  child: const Text('Add Note & Save'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _quickSave(String url) async {
+  Future<void> _quickSave(
+    String url, {
+    bool notifyCapture = false,
+    bool returnAfterSave = false,
+  }) async {
     final notifier = ref.read(addUrlProvider.notifier);
-    final success = await notifier.saveUrl(url);
+    final success = await notifier.saveUrl(url, notifyCapture: notifyCapture);
     final state = ref.read(addUrlProvider);
     final errorMsg = state.errorMessage;
     notifier.reset();
+
+    if (returnAfterSave && (success || state.savedUrlId != null)) {
+      await SystemNavigator.pop();
+      return;
+    }
 
     if (!mounted) return;
     final ctx = _router.routerDelegate.navigatorKey.currentContext;
     if (ctx == null) return;
     if (!ctx.mounted) return;
 
-    final message = success ? 'Saved — organizing in background...' : (errorMsg ?? 'Failed to save URL');
+    final message = success
+        ? 'Capturing what caught your eye.'
+        : (errorMsg ?? 'Failed to save URL');
 
     ScaffoldMessenger.of(ctx)
       ..hideCurrentSnackBar()
@@ -441,8 +396,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         final ThemeData lightTheme;
         final ThemeData darkTheme;
 
-        final useAmoledPalette =
-            amoledSurfaces && themeMode != ThemeMode.light;
+        final useAmoledPalette = amoledSurfaces && themeMode != ThemeMode.light;
 
         if (useDynamic) {
           final dynamicSeed =

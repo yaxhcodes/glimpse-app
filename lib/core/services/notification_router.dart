@@ -78,6 +78,10 @@ class NotificationRouter {
   static void _navigateWithMap(BuildContext context, Map<String, dynamic> map) {
     final ids = _parseLinkIds(map);
     final title = map['title'] as String? ?? 'Notification';
+    if (map['route'] == 'url_detail' && ids.length == 1) {
+      context.push('/url/${ids.first}');
+      return;
+    }
     if (ids.isEmpty) {
       context.go('/notifications');
       return;

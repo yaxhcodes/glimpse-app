@@ -73,7 +73,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final text = data?.text?.trim() ?? '';
       final extracted = UrlExtractor.extract(text);
       if (extracted.urls.isNotEmpty) {
-        setState(() => _clipboardUrl = text);
+        if (extracted.urls.length == 1 &&
+            _urlInputController.text.trim().isEmpty) {
+          _urlInputController.text = extracted.urls.first;
+          setState(() => _clipboardUrl = null);
+        } else {
+          setState(() => _clipboardUrl = text);
+        }
       }
     } catch (_) {
       // Ignore clipboard errors
@@ -207,7 +213,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
-              content: const Text('Saved'),
+              content: const Text('Captured'),
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 3),
               action: SnackBarAction(
@@ -447,7 +453,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: _isCelebratingFirstSave && urls.isNotEmpty
                           ? Text(
                               key: const ValueKey('headline_success'),
-                              'Saved to your library',
+                              'Captured in Glimpse',
                               style: textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
                                 height: 1.2,
@@ -456,7 +462,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             )
                           : Text(
                               key: const ValueKey('headline_empty'),
-                              'Save something worth keeping',
+                              'Capture something worth returning to',
                               style: textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
                                 height: 1.2,
@@ -469,7 +475,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       duration: const Duration(milliseconds: 200),
                       child: Text(
                         _isCelebratingFirstSave && urls.isNotEmpty
-                            ? 'Your first saved item is ready below.'
+                            ? 'Your first captured item is ready below.'
                             : 'Glimpse organizes it, so you don\'t have to.',
                         key: ValueKey(
                           _isCelebratingFirstSave && urls.isNotEmpty
@@ -1091,7 +1097,7 @@ class _SaveButton extends StatelessWidget {
         disabledBackgroundColor: colorScheme.onSurface.withValues(alpha: 0.08),
         disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.35),
       ),
-      child: const Text('Save to Glimpse'),
+      child: const Text('Capture'),
     );
   }
 }
@@ -1287,8 +1293,8 @@ class _InlineSaveInput extends StatelessWidget {
 
   Widget _buildProcessingState(ColorScheme colorScheme, TextTheme textTheme) {
     final label = isFirstSaveCelebration
-        ? 'Fetching your link'
-        : 'Fetching preview';
+        ? 'Capturing what caught your eye'
+        : 'Finding the context';
     return Padding(
       key: const ValueKey('input_processing'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1314,7 +1320,7 @@ class _InlineSaveInput extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'Saved',
+            'Captured',
             style: textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface,
               fontWeight: FontWeight.w600,

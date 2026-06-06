@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,23 +23,38 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   final _notesController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _domainPreview;
+  String? _clipboardPrefillUrl;
+  bool _clipboardPrefilled = false;
 
   @override
   void initState() {
     super.initState();
+    _urlController.addListener(_handleUrlChanged);
     if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
       _urlController.text = widget.initialUrl!;
       _updateDomainPreview();
+    } else {
+      unawaited(_prefillFromClipboard());
     }
-    _urlController.addListener(_updateDomainPreview);
   }
 
   @override
   void dispose() {
-    _urlController.removeListener(_updateDomainPreview);
+    _urlController.removeListener(_handleUrlChanged);
     _urlController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  void _handleUrlChanged() {
+    _updateDomainPreview();
+    if (!_clipboardPrefilled) return;
+    if (_urlController.text.trim() != _clipboardPrefillUrl) {
+      setState(() {
+        _clipboardPrefilled = false;
+        _clipboardPrefillUrl = null;
+      });
+    }
   }
 
   void _updateDomainPreview() {
@@ -57,6 +74,23 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
     }
   }
 
+  Future<void> _prefillFromClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text?.trim() ?? '';
+      final extracted = UrlExtractor.extract(text);
+      if (!mounted || extracted.urls.length != 1) return;
+
+      final url = extracted.urls.first;
+      _clipboardPrefillUrl = url;
+      _clipboardPrefilled = true;
+      _urlController.text = url;
+      _updateDomainPreview();
+    } catch (_) {
+      // Clipboard reads can fail on some Android builds; leave the form empty.
+    }
+  }
+
   Future<void> _pasteFromClipboard() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text != null) {
@@ -68,7 +102,11 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
         }
         return;
       }
-      _urlController.text = text;
+      _clipboardPrefilled = false;
+      _clipboardPrefillUrl = null;
+      _urlController.text = extracted.urls.isNotEmpty
+          ? extracted.urls.first
+          : text;
     }
   }
 
@@ -105,8 +143,8 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
     final isSaving = state.status == AddUrlStatus.saving;
-    final isEnabled = state.status == AddUrlStatus.idle ||
-        state.status == AddUrlStatus.error;
+    final isEnabled =
+        state.status == AddUrlStatus.idle || state.status == AddUrlStatus.error;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -115,7 +153,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
           SliverAppBar.large(
             backgroundColor: colorScheme.surface,
             foregroundColor: colorScheme.onSurfaceVariant,
-            title: const Text('Save something worth keeping'),
+            title: const Text('Capture something worth returning to'),
           ),
           SliverFillRemaining(
             hasScrollBody: false,
@@ -128,7 +166,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                   children: [
                     // Subtitle
                     Text(
-                      'Paste a link and add a note if you want.',
+                      'Add a note if you want. Glimpse will find the context after you capture it.',
                       style: textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -163,7 +201,9 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                                   color: colorScheme.onSurfaceVariant,
                                 ),
                                 tooltip: 'Paste from clipboard',
-                                onPressed: isEnabled ? _pasteFromClipboard : null,
+                                onPressed: isEnabled
+                                    ? _pasteFromClipboard
+                                    : null,
                               ),
                               filled: true,
                               fillColor: colorScheme.surfaceContainerLow,
@@ -207,9 +247,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                             controller: _notesController,
                             decoration: InputDecoration(
                               hintText: 'Add a note (optional)',
-                              hintStyle: TextStyle(
-                                color: colorScheme.outline,
-                              ),
+                              hintStyle: TextStyle(color: colorScheme.outline),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
@@ -247,12 +285,27 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                     if (_domainPreview != null && isEnabled)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          'From $_domainPreview',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
+                        child: Column(
+                          children: [
+                            Text(
+                              'From $_domainPreview',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (_clipboardPrefilled) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Detected from clipboard',
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
 
@@ -261,7 +314,9 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                          color: colorScheme.primaryContainer.withValues(
+                            alpha: 0.3,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -277,7 +332,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              'Saving...',
+                              'Capturing what caught your eye.',
                               style: textTheme.bodyMedium?.copyWith(
                                 color: colorScheme.onSurface,
                                 fontWeight: FontWeight.w500,
@@ -301,8 +356,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                         ),
                         child: Text(
                           state.errorMessage!,
-                          style: TextStyle(
-                              color: colorScheme.onErrorContainer),
+                          style: TextStyle(color: colorScheme.onErrorContainer),
                         ),
                       ),
                     ],
@@ -320,7 +374,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('Save to Glimpse'),
+                      child: const Text('Capture'),
                     ),
                     const SizedBox(height: 16),
                   ],

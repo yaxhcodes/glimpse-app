@@ -353,7 +353,38 @@ class TitleResolver {
 
   /// After [resolve] + [collapseWhitespace], apply tweet sentence trim + [truncateTitle].
   static String formatForCompactCard(SavedUrl link, String resolvedCollapsed) {
-    final t = maybeTwitterFirstSentence(resolvedCollapsed, link.rawUrl);
+    final t = maybeTwitterFirstSentence(
+      dropTrailingSubtitle(resolvedCollapsed),
+      link.rawUrl,
+    );
     return truncateTitle(t);
+  }
+
+  /// Drops short trailing subtitle fragments from AI/social titles.
+  ///
+  /// Example: "Life-Changing Anime Recommendations • Impactful Stories"
+  /// becomes "Life-Changing Anime Recommendations".
+  static String dropTrailingSubtitle(String title) {
+    final collapsed = collapseWhitespace(title);
+    if (collapsed.isEmpty) return collapsed;
+
+    for (final separator in const [' • ', ' · ', ' * ']) {
+      final index = collapsed.indexOf(separator);
+      if (index <= 0) continue;
+
+      final leading = collapsed.substring(0, index).trim();
+      final trailing = collapsed.substring(index + separator.length).trim();
+      final trailingWords =
+          trailing.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+
+      if (leading.length >= 16 &&
+          trailing.length <= 36 &&
+          trailingWords <= 5 &&
+          !_rawDomain.hasMatch(trailing.toLowerCase())) {
+        return leading;
+      }
+    }
+
+    return collapsed;
   }
 }

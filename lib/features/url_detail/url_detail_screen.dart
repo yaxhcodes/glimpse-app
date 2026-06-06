@@ -207,7 +207,6 @@ class _ReadStatePill extends StatelessWidget {
 }
 
 class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
-  static const int _collapsedDescriptionLines = 7;
   /// Layouts narrower than this use stacked action buttons (small display / dense phones).
   static const double _narrowLayoutWidth = 360;
 
@@ -2264,24 +2263,40 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       color: colorScheme.onSurface,
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final canExpand = _descriptionExceedsPreview(
-          context: context,
-          text: description,
-          style: textStyle,
-          maxWidth: constraints.maxWidth,
-        );
-
-        return AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeInOutCubic,
-          alignment: Alignment.topCenter,
-          child: Column(
-            key: _descriptionSectionKey,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text.rich(
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: Column(
+        key: _descriptionSectionKey,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: _toggleDescription,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SectionHeader(
+                      title: 'Description',
+                      accent: colorScheme.primary,
+                    ),
+                  ),
+                  Icon(
+                    _descExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: colorScheme.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_descExpanded) ...[
+            const SizedBox(height: 8),
+            Text.rich(
                 TextSpan(
                   style: textStyle,
                   children: _linkifiedTextSpans(
@@ -2291,51 +2306,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                 ),
                 softWrap: true,
-                maxLines: _descExpanded ? null : _collapsedDescriptionLines,
-                overflow: _descExpanded
-                    ? TextOverflow.visible
-                    : TextOverflow.ellipsis,
+                overflow: TextOverflow.visible,
               ),
-              if (canExpand) ...[
-                const SizedBox(height: 6),
-                TextButton(
-                  onPressed: _toggleDescription,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    foregroundColor: colorScheme.primary,
-                  ),
-                  child: Text(
-                    _descExpanded ? 'Show less' : 'Read more',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+          ],
+        ],
+      ),
     );
-  }
-
-  bool _descriptionExceedsPreview({
-    required BuildContext context,
-    required String text,
-    required TextStyle? style,
-    required double maxWidth,
-  }) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: Directionality.of(context),
-      maxLines: _collapsedDescriptionLines,
-    )..layout(maxWidth: maxWidth);
-
-    return painter.didExceedMaxLines;
   }
 
   List<InlineSpan> _linkifiedTextSpans(
