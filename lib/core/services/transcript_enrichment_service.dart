@@ -13,6 +13,8 @@ class TranscriptEnrichmentResult {
     required this.summary,
     required this.category,
     required this.tags,
+    this.brief,
+    this.steps = const [],
     this.mentions = const [],
     this.recipe,
     this.keyPoints = const [],
@@ -28,6 +30,8 @@ class TranscriptEnrichmentResult {
   final String summary;
   final String category;
   final List<String> tags;
+  final String? brief;
+  final List<EnrichedContentStep> steps;
   final List<EnrichedMention> mentions;
   final EnrichedRecipe? recipe;
   final List<String> keyPoints;
@@ -41,7 +45,9 @@ class TranscriptEnrichmentResult {
   bool get hasUsefulContent =>
       meaningfulTitle.trim().isNotEmpty ||
       summary.trim().isNotEmpty ||
+      (brief?.trim().isNotEmpty ?? false) ||
       tags.isNotEmpty ||
+      steps.isNotEmpty ||
       mentions.isNotEmpty ||
       (recipe?.hasUsefulContent ?? false) ||
       (transcript?.trim().isNotEmpty ?? false);
@@ -52,6 +58,8 @@ class TranscriptEnrichmentResult {
       'summary': summary,
       'category': category,
       'tags': tags,
+      'brief': brief,
+      'steps': steps.map((item) => item.toJson()).toList(),
       'mentions': mentions.map((item) => item.toJson()).toList(),
       'recipe': recipe?.toJson(),
       'key_points': keyPoints,
@@ -75,6 +83,12 @@ class TranscriptEnrichmentResult {
       tags: TagNoiseFilter.filterTags(
         TranscriptEnrichmentService._extractStringList(json['tags']),
       ),
+      brief: TranscriptEnrichmentService._cleanNullableText(
+        json['brief'] ??
+            json['short_description'] ??
+            json['content_description'],
+      ),
+      steps: TranscriptEnrichmentService._extractContentSteps(json),
       mentions: mentions is List
           ? mentions
               .map((item) => item is Map
@@ -211,6 +225,26 @@ class EnrichedRecipeIngredient {
       'measure': measure,
     };
   }
+}
+
+class EnrichedContentStep {
+  const EnrichedContentStep({
+    required this.title,
+    this.description,
+  });
+
+  final String title;
+  final String? description;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'description': description,
+    };
+  }
+
+  bool get hasUsefulContent =>
+      title.trim().isNotEmpty || (description?.trim().isNotEmpty ?? false);
 }
 
 class EnrichedMention {
@@ -385,6 +419,12 @@ class TranscriptEnrichmentService {
         summary: _cleanText(data['summary']),
         category: _cleanText(data['category']),
         tags: usefulTags,
+        brief: _cleanNullableText(
+          data['brief'] ??
+              data['short_description'] ??
+              data['content_description'],
+        ),
+        steps: _extractContentSteps(data),
         mentions: mentions,
         recipe: EnrichedRecipe.fromJsonOrNull(data['recipe']),
         keyPoints: _extractStringList(data['key_points']),
@@ -422,6 +462,77 @@ class TranscriptEnrichmentService {
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);
     return null;
+  }
+
+  static List<EnrichedContentStep> _extractContentSteps(
+    Map<String, dynamic> data,
+  ) {
+    final raw = data['steps'] ?? data['key_steps'] ?? data['takeaways'];
+    final parsed = _parseContentSteps(raw);
+    if (parsed.isNotEmpty) return parsed;
+
+    final keyPoints = data['key_points'];
+    return _parseContentSteps(keyPoints);
+  }
+
+  static List<EnrichedContentStep> _parseContentSteps(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((item) {
+          if (item is String) {
+            final text = _cleanText(item);
+            if (text.isEmpty) return null;
+            final split = _splitStepTitle(text);
+            return EnrichedContentStep(
+              title: split.$1,
+              description: split.$2,
+            );
+          }
+          if (item is Map) {
+            final json = Map<String, dynamic>.from(item);
+            final title = _cleanText(
+              json['title'] ??
+                  json['label'] ??
+                  json['step'] ??
+                  json['name'] ??
+                  json['point'],
+            );
+            final description = _cleanNullableText(
+              json['description'] ??
+                  json['summary'] ??
+                  json['detail'] ??
+                  json['why'],
+            );
+            if (title.isEmpty && (description ?? '').isEmpty) return null;
+            if (title.isEmpty) {
+              final split = _splitStepTitle(description!);
+              return EnrichedContentStep(
+                title: split.$1,
+                description: split.$2,
+              );
+            }
+            return EnrichedContentStep(
+              title: title,
+              description: description,
+            );
+          }
+          return null;
+        })
+        .whereType<EnrichedContentStep>()
+        .where((item) => item.hasUsefulContent)
+        .take(12)
+        .toList();
+  }
+
+  static (String, String?) _splitStepTitle(String text) {
+    final cleaned = _cleanText(text);
+    final index = cleaned.indexOf(':');
+    if (index > 2 && index <= 48) {
+      final title = cleaned.substring(0, index).trim();
+      final description = cleaned.substring(index + 1).trim();
+      return (title, description.isEmpty ? null : description);
+    }
+    return (cleaned, null);
   }
 
   static List<String> _extractTags(Map<String, dynamic> data) {

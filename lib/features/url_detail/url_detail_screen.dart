@@ -786,8 +786,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       tagFrequency: tagFreq,
     );
     final cleanedSummary = SummaryRewriter.clean(summaryText);
+    final cleanedBrief = SummaryRewriter.clean(live?.brief);
     final summaryDisplayText =
-        cleanedSummary.isNotEmpty ? cleanedSummary : summaryText;
+        cleanedBrief.isNotEmpty
+            ? cleanedBrief
+            : cleanedSummary.isNotEmpty
+                ? cleanedSummary
+                : summaryText;
     final noteSuggestions = _buildNoteSuggestions(
       url: url,
       live: live,
@@ -1247,7 +1252,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Summary', accent: colorScheme.primary),
+        SectionHeader(title: 'Brief', accent: colorScheme.primary),
         const SizedBox(height: 8),
         Text(
           summary,
@@ -1427,6 +1432,19 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }) {
     if (live == null) return const [];
     final sections = <Widget>[];
+    final showContentSteps =
+        live.steps.isNotEmpty && !(live.recipe?.hasUsefulContent ?? false);
+    if (showContentSteps) {
+      sections.addAll([
+        const SizedBox(height: 18),
+        _buildContentStepsSection(
+          steps: live.steps,
+          theme: theme,
+          colorScheme: colorScheme,
+        ),
+      ]);
+    }
+
     final grouped = <String, List<EnrichedMention>>{};
     for (final mention in live.mentions) {
       final key = _mentionSectionKey(mention.type);
@@ -1516,6 +1534,87 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   Color _sectionAccent(String type, ColorScheme colorScheme) {
     return colorScheme.primary;
+  }
+
+  Widget _buildContentStepsSection({
+    required List<EnrichedContentStep> steps,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title: 'Steps', accent: colorScheme.primary),
+        const SizedBox(height: 10),
+        for (final entry in steps.asMap().entries)
+          _buildContentStep(
+            number: entry.key + 1,
+            step: entry.value,
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildContentStep({
+    required int number,
+    required EnrichedContentStep step,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final description = step.description?.trim() ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.primaryContainer,
+            ),
+            child: Text(
+              '$number',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  step.title,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    height: 1.28,
+                  ),
+                ),
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.42,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildRecipeItem({
@@ -1644,12 +1743,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.check_circle_outline_rounded,
-            size: 17,
-            color: colorScheme.primary,
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.primary,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               ingredient.name,
@@ -1761,10 +1863,19 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   List<String> _recipeInstructionSteps(String raw) {
-    final cleaned = raw.trim();
+    final cleaned = raw.trim().replaceAll(RegExp(r'[ \t]+'), ' ');
     if (cleaned.isEmpty) return const [];
-    final parts = cleaned
-        .split(RegExp(r'\r?\n+|(?:^|\s)(?:step\s*)?\d+\.\s+', caseSensitive: false))
+    final withPhaseBreaks = cleaned.replaceAllMapped(
+      RegExp(r'\s+([A-Z][A-Za-z ]{2,34}:)\s+'),
+      (match) => '\n${match.group(1)} ',
+    );
+    final parts = withPhaseBreaks
+        .split(
+          RegExp(
+            r'\r?\n+|(?:^|\s)(?:step\s*)?\d+\.\s+',
+            caseSensitive: false,
+          ),
+        )
         .map((part) => part.trim())
         .where((part) => part.length > 2)
         .toList();
@@ -1793,7 +1904,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final reason = mention.whyMentioned?.trim() ?? '';
+    final reason = _cleanMentionReason(mention.whyMentioned);
     final posterUrl = mention.posterUrl?.trim() ?? '';
     final metadata = _mentionMetadataLine(mention);
 
@@ -1883,6 +1994,20 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final year = mention.year?.trim() ?? '';
     if (type == 'movie' && year.isNotEmpty) return year;
     return '';
+  }
+
+  String _cleanMentionReason(String? raw) {
+    final reason = raw?.trim() ?? '';
+    if (reason.isEmpty) return '';
+    final lower = reason.toLowerCase();
+    const lowValueReasons = {
+      'recommended by creator',
+      'recommended by the creator',
+      'mentioned by creator',
+      'mentioned by the creator',
+    };
+    if (lowValueReasons.contains(lower)) return '';
+    return reason;
   }
 
   Future<void> _launchMentionSearch(EnrichedMention mention) async {
