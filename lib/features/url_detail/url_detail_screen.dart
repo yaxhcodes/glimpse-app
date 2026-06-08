@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +11,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/category_taxonomy.dart';
+import '../../core/services/recipe_state_service.dart';
 import '../../core/services/summary_rewriter.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/text_cleaner.dart';
@@ -206,31 +206,121 @@ class _ReadStatePill extends StatelessWidget {
   }
 }
 
-class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
-  /// Layouts narrower than this use stacked action buttons (small display / dense phones).
-  static const double _narrowLayoutWidth = 360;
+class _RecipeCookingModeScreen extends StatefulWidget {
+  const _RecipeCookingModeScreen({required this.recipe});
 
+  final EnrichedRecipe recipe;
+
+  @override
+  State<_RecipeCookingModeScreen> createState() =>
+      _RecipeCookingModeScreenState();
+}
+
+class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final steps = widget.recipe.steps;
+    final isFirst = _index == 0;
+    final isLast = _index == steps.length - 1;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.recipe.title.isEmpty ? 'Cooking mode' : widget.recipe.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Step ${_index + 1} of ${steps.length}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: Text(
+                      steps[_index],
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.45,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: isFirst
+                          ? null
+                          : () => setState(() => _index--),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      label: const Text('Previous'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: isLast
+                          ? () => Navigator.pop(context)
+                          : () => setState(() => _index++),
+                      icon: Icon(
+                        isLast ? Icons.check_rounded : Icons.arrow_forward_rounded,
+                      ),
+                      label: Text(isLast ? 'Finish' : 'Next'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   late TextEditingController _notesController;
   final ScrollController _scrollController = ScrollController();
-  final GlobalKey _descriptionSectionKey = GlobalKey();
   final FocusNode _notesFocusNode = FocusNode();
   bool _notesEdited = false;
-  bool _descExpanded = false;
   bool _tagsExpanded = false;
-  bool _showFullUrl = false;
   bool _showExactSavedDate = false;
   String? _localNotesOverride;
   Timer? _notesTimer;
+  RecipeStateService? _recipeStateService;
+  int? _loadedRecipeStateId;
+  bool _recipeStateLoading = false;
+  Set<String> _checkedIngredientKeys = {};
+  List<ShoppingListItem> _shoppingList = const [];
 
   @override
   void didUpdateWidget(covariant UrlDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.urlId != widget.urlId) {
-      _showFullUrl = false;
-      _descExpanded = false;
       _tagsExpanded = false;
       _showExactSavedDate = false;
       _localNotesOverride = null;
+      _loadedRecipeStateId = null;
+      _checkedIngredientKeys = {};
     }
   }
 
@@ -269,34 +359,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _notesTimer?.cancel();
       _autoSaveNotes();
     }
-  }
-
-  Future<void> _toggleDescription() async {
-    final anchorContext = _descriptionSectionKey.currentContext;
-    final beforeTop = _globalTop(anchorContext);
-    final previousOffset =
-        _scrollController.hasClients ? _scrollController.offset : 0.0;
-
-    setState(() => _descExpanded = !_descExpanded);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-
-      final afterTop = _globalTop(_descriptionSectionKey.currentContext);
-      final delta = beforeTop != null && afterTop != null ? afterTop - beforeTop : 0.0;
-      final targetOffset = (previousOffset + delta).clamp(
-        0.0,
-        _scrollController.position.maxScrollExtent,
-      );
-
-      if ((targetOffset - _scrollController.offset).abs() < 1) return;
-
-      _scrollController.animateTo(
-        targetOffset,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-      );
-    });
   }
 
   void _showAddToCollection(SavedUrl url) {
@@ -434,6 +496,263 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     url.tags = url.tags.where((t) => t != tag).toList();
     await isarService.updateUrl(url);
     ref.invalidate(urlDetailProvider(widget.urlId));
+  }
+
+  void _ensureRecipeStateLoaded(int recipeId) {
+    if (_loadedRecipeStateId == recipeId || _recipeStateLoading) return;
+    _recipeStateLoading = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRecipeState(recipeId);
+    });
+  }
+
+  Future<void> _loadRecipeState(int recipeId) async {
+    final service = _recipeStateService ?? await RecipeStateService.create();
+    if (!mounted) return;
+    setState(() {
+      _recipeStateService = service;
+      _loadedRecipeStateId = recipeId;
+      _checkedIngredientKeys = service.checkedIngredientKeys(recipeId);
+      _shoppingList = service.shoppingList();
+      _recipeStateLoading = false;
+    });
+  }
+
+  Future<void> _setIngredientChecked(
+    int recipeId,
+    String key,
+    bool checked,
+  ) async {
+    final service = _recipeStateService ?? await RecipeStateService.create();
+    setState(() {
+      checked
+          ? _checkedIngredientKeys.add(key)
+          : _checkedIngredientKeys.remove(key);
+    });
+    await service.setIngredientChecked(recipeId, key, checked);
+  }
+
+  Future<void> _checkAllIngredients(
+    int recipeId,
+    EnrichedRecipe recipe,
+  ) async {
+    final service = _recipeStateService ?? await RecipeStateService.create();
+    final keys = recipe.ingredients
+        .asMap()
+        .entries
+        .map((entry) => RecipeStateService.ingredientKey(entry.value, entry.key))
+        .toSet();
+    setState(() => _checkedIngredientKeys = keys);
+    await service.setAllIngredientsChecked(recipeId, keys);
+  }
+
+  Future<void> _resetIngredientChecks(int recipeId) async {
+    final service = _recipeStateService ?? await RecipeStateService.create();
+    setState(() => _checkedIngredientKeys = {});
+    await service.resetIngredientChecks(recipeId);
+  }
+
+  Future<void> _addRecipeIngredientsToShoppingList({
+    required int recipeId,
+    required EnrichedRecipe recipe,
+    required bool selectedOnly,
+  }) async {
+    final entries = recipe.ingredients.asMap().entries.where((entry) {
+      if (!selectedOnly) return true;
+      final key = RecipeStateService.ingredientKey(entry.value, entry.key);
+      return _checkedIngredientKeys.contains(key);
+    }).toList();
+    if (entries.isEmpty) {
+      _showRecipeMessage('Check ingredients first, or add all ingredients.');
+      return;
+    }
+
+    final service = _recipeStateService ?? await RecipeStateService.create();
+    final added = await service.addToShoppingList(
+      recipeId: recipeId,
+      recipeTitle: recipe.title.isEmpty ? 'Recipe' : recipe.title,
+      ingredients: entries,
+    );
+    if (!mounted) return;
+    setState(() {
+      _recipeStateService = service;
+      _shoppingList = service.shoppingList();
+    });
+    _showRecipeMessage(
+      added == 0
+          ? 'Those ingredients are already on your shopping list.'
+          : 'Added $added ingredient${added == 1 ? '' : 's'} to shopping list.',
+    );
+  }
+
+  void _showRecipeMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  Future<void> _showShoppingList() async {
+    final service = _recipeStateService ?? await RecipeStateService.create();
+    var items = service.shoppingList();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final theme = Theme.of(ctx);
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(ctx).height * 0.72,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Shopping List',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (items.isNotEmpty)
+                          TextButton(
+                            onPressed: () async {
+                              await service.clearShoppingList();
+                              setSheetState(() => items = const []);
+                            },
+                            child: const Text('Clear'),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: items.isEmpty
+                        ? const Center(
+                            child: Text('Your shopping list is empty.'),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                            itemCount: items.length,
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              return CheckboxListTile(
+                                value: item.isChecked,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                title: Text(
+                                  item.ingredient.displayText,
+                                  style: item.isChecked
+                                      ? const TextStyle(
+                                          decoration:
+                                              TextDecoration.lineThrough,
+                                        )
+                                      : null,
+                                ),
+                                subtitle: Text(item.recipeTitle),
+                                secondary: IconButton(
+                                  tooltip: 'Remove',
+                                  icon: const Icon(Icons.close_rounded),
+                                  onPressed: () async {
+                                    await service.removeShoppingItem(item.id);
+                                    setSheetState(
+                                      () => items = service.shoppingList(),
+                                    );
+                                  },
+                                ),
+                                onChanged: (checked) async {
+                                  await service.setShoppingItemChecked(
+                                    item.id,
+                                    checked ?? false,
+                                  );
+                                  setSheetState(
+                                    () => items = service.shoppingList(),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _recipeStateService = service;
+      _shoppingList = service.shoppingList();
+    });
+  }
+
+  void _openTagSearch(String tag) {
+    final encoded = Uri.encodeQueryComponent(tag);
+    context.push('/search?q=$encoded');
+  }
+
+  Future<void> _showTagMenu(SavedUrl url, String tag) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final colorScheme = theme.colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  tag,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.travel_explore_rounded),
+                  title: const Text('Related saves'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openTagSearch(tag);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.remove_circle_outline_rounded,
+                    color: colorScheme.error,
+                  ),
+                  title: Text(
+                    'Remove tag',
+                    style: TextStyle(color: colorScheme.error),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _removeTag(url, tag);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _addTag(SavedUrl url) async {
@@ -671,13 +990,78 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   icon: const Icon(Icons.more_vert_rounded),
                   tooltip: 'More',
                   onSelected: (value) {
-                    if (value == 'change_category') {
+                    if (value == 'open_original') {
+                      _launchUrl(url.rawUrl);
+                    } else if (value == 'copy_link') {
+                      _copyUrlToClipboard(url.rawUrl);
+                    } else if (value == 'share') {
+                      Share.share(url.rawUrl);
+                    } else if (value == 'add_tag') {
+                      _addTag(url);
+                    } else if (value == 'change_category') {
                       _changeCategory(url);
                     } else if (value == 'delete') {
                       _deleteUrl();
                     }
                   },
                   itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'open_original',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('Open Original'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'copy_link',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.copy_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('Copy Link'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'share',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.share_outlined,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('Share'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'add_tag',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.sell_outlined,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('Add tag'),
+                        ],
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'change_category',
                       child: Row(
@@ -770,7 +1154,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     final showImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
     final categoryLabels = _displayCategories(url);
-    final hasCaption = captionText.isNotEmpty;
     const collapseTagsAt = 5;
     final showAllTags = _tagsExpanded || visibleTags.length <= collapseTagsAt;
     final displayedTags =
@@ -779,20 +1162,22 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final summaryText = TextCleaner.clean(
       url.summary?.trim() ?? '',
     );
-    final showSummary = summaryText.isNotEmpty &&
-        summaryText.toLowerCase() != captionText.trim().toLowerCase();
-    final displayTitle = TitleResolver.resolveStableDisplayTitle(
+    final displayTitle = TitleResolver.resolveDetailTitle(
       url,
       tagFrequency: tagFreq,
     );
     final cleanedSummary = SummaryRewriter.clean(summaryText);
     final cleanedBrief = SummaryRewriter.clean(live?.brief);
-    final summaryDisplayText =
-        cleanedBrief.isNotEmpty
-            ? cleanedBrief
-            : cleanedSummary.isNotEmpty
-                ? cleanedSummary
-                : summaryText;
+    final summaryDisplayText = _summaryForDetail(
+      cleanedBrief.isNotEmpty
+          ? cleanedBrief
+          : cleanedSummary.isNotEmpty
+              ? cleanedSummary
+              : summaryText,
+      caption: captionText,
+    );
+    final showSummary =
+        summaryDisplayText.isNotEmpty && live?.recipe?.hasUsefulContent != true;
     final noteSuggestions = _buildNoteSuggestions(
       url: url,
       live: live,
@@ -819,7 +1204,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── Title ───────────────────────────────────────────────────
+            // ── Hero recognition ────────────────────────────────────────
             Text(
               displayTitle,
               style: theme.textTheme.titleLarge?.copyWith(
@@ -851,20 +1236,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               ),
             ],
 
-            SizedBox(height: metadata.hasSocialRow ? 8 : 10),
-            _buildUrlAddressBlock(url, theme, colorScheme),
-
-            if (hasCaption) ...[
-              const SizedBox(height: 16),
-              _buildDescriptionSection(
-                description: captionText,
-                theme: theme,
-                colorScheme: colorScheme,
-              ),
-            ],
+            const SizedBox(height: 14),
+            _buildOpenButton(url),
 
             if (showSummary) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _buildSummarySection(
                 summary: summaryDisplayText,
                 theme: theme,
@@ -873,6 +1249,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ],
 
             ..._buildEnrichmentSections(
+              url: url,
               live: live,
               theme: theme,
               colorScheme: colorScheme,
@@ -887,13 +1264,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ? hiddenTagCount
                   : 0,
               onShowMore: () => setState(() => _tagsExpanded = true),
-              onDelete: (tag) => _removeTag(url, tag),
-              onAdd: () => _addTag(url),
+              onTap: _openTagSearch,
+              onLongPress: (tag) => _showTagMenu(url, tag),
             ),
-
-            // ── Open / share (copy is on the URL row) ───────────────────
-            const SizedBox(height: 16),
-            _buildOpenShareActions(url),
 
             // ── Notes ───────────────────────────────────────────────────
             const SizedBox(height: 16),
@@ -902,7 +1275,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               children: [
                 Row(
                   children: [
-                    SectionHeader(title: 'Notes', accent: colorScheme.primary),
+                    SectionHeader(
+                      title: 'Your Notes',
+                      accent: colorScheme.primary,
+                    ),
                     const Spacer(),
                     if (_notesEdited)
                       TextButton(
@@ -919,28 +1295,46 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 _buildNotesComposer(
                   theme: theme,
                   colorScheme: colorScheme,
-                  suggestions: noteSuggestions,
                 ),
               ],
             ),
+            if (noteSuggestions.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildSuggestedActionsSection(
+                suggestions: noteSuggestions,
+                theme: theme,
+                colorScheme: colorScheme,
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  String _urlDisplayLine(Uri? uri, String raw) {
-    if (uri == null || uri.host.isEmpty) {
-      return raw.length > 140 ? '${raw.substring(0, 137)}…' : raw;
+  String _summaryForDetail(String raw, {required String caption}) {
+    final cleaned = SummaryRewriter.clean(raw);
+    if (cleaned.isEmpty) return '';
+    if (caption.trim().isNotEmpty &&
+        cleaned.toLowerCase() == caption.trim().toLowerCase()) {
+      return '';
     }
-    final host = uri.host;
-    final path = uri.path;
-    final q = uri.hasQuery ? '?${uri.query}' : '';
-    var s = host;
-    if (path.isNotEmpty && path != '/') s += path;
-    s += q;
-    if (s.length > 140) return '${s.substring(0, 137)}…';
-    return s;
+    return cleaned;
+  }
+
+  Widget _buildOpenButton(SavedUrl url) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FilledButton.icon(
+        onPressed: () => _launchUrl(url.rawUrl),
+        icon: const Icon(Icons.open_in_new_rounded, size: 18),
+        label: const Text('Open'),
+        style: FilledButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        ),
+      ),
+    );
   }
 
   Widget _buildDetailMedia({
@@ -1149,101 +1543,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ).hasMatch(text);
   }
 
-  Widget _buildUrlAddressBlock(
-    SavedUrl url,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    final raw = url.rawUrl.trim();
-    if (raw.isEmpty) return const SizedBox.shrink();
-
-    final uri = Uri.tryParse(raw);
-    final display = _urlDisplayLine(uri, raw);
-    final canToggle = raw != display;
-
-    final subtleIconStyle = IconButton.styleFrom(
-      foregroundColor:
-          colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      minimumSize: const Size(34, 34),
-      padding: const EdgeInsets.all(6),
-    );
-    final copyIconStyle = IconButton.styleFrom(
-      foregroundColor: colorScheme.primary,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      minimumSize: const Size(34, 34),
-      padding: const EdgeInsets.all(6),
-    );
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2, right: 4),
-                child: _showFullUrl
-                    ? SelectableText(
-                        raw,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      )
-                    : GestureDetector(
-                        onTap: () {
-                          if (canToggle) {
-                            setState(() => _showFullUrl = true);
-                          }
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Text(
-                          display,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                            fontSize: 12.5,
-                            height: 1.4,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-              ),
-            ),
-            if (canToggle) ...[
-              IconButton(
-                icon: Icon(
-                  _showFullUrl
-                      ? Icons.expand_less_rounded
-                      : Icons.expand_more_rounded,
-                  size: 20,
-                ),
-                tooltip: _showFullUrl ? 'Show less' : 'Show full URL',
-                style: subtleIconStyle,
-                onPressed: () => setState(() => _showFullUrl = !_showFullUrl),
-              ),
-            ],
-            IconButton(
-              icon: const Icon(Icons.copy_rounded, size: 19),
-              tooltip: 'Copy link',
-              style: copyIconStyle,
-              onPressed: () => _copyUrlToClipboard(raw),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSummarySection({
     required String summary,
     required ThemeData theme,
@@ -1252,7 +1551,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Brief', accent: colorScheme.primary),
+        SectionHeader(title: 'Summary', accent: colorScheme.primary),
         const SizedBox(height: 8),
         Text(
           summary,
@@ -1268,7 +1567,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   Widget _buildNotesComposer({
     required ThemeData theme,
     required ColorScheme colorScheme,
-    required List<String> suggestions,
   }) {
     final glimpseNotes = _parseGlimpseNoteBlocks(_notesController.text);
     return DecoratedBox(
@@ -1306,7 +1604,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   color: colorScheme.onSurface,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Add your thoughts…',
+                  hintText: 'What stood out to you?',
                   hintStyle: TextStyle(color: colorScheme.outline),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 4),
@@ -1315,24 +1613,35 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 onChanged: (_) => _scheduleNotesAutosave(),
               ),
             ),
-            if (suggestions.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: suggestions
-                    .map(
-                      (suggestion) => _NoteSuggestionChip(
-                        label: suggestion,
-                        onTap: () => _applyNoteSuggestion(suggestion),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSuggestedActionsSection({
+    required List<String> suggestions,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title: 'Suggested Actions', accent: colorScheme.primary),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: suggestions
+              .map(
+                (suggestion) => _NoteSuggestionChip(
+                  label: suggestion,
+                  onTap: () => _applyNoteSuggestion(suggestion),
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 
@@ -1426,19 +1735,33 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   List<Widget> _buildEnrichmentSections({
+    required SavedUrl url,
     required TranscriptEnrichmentResult? live,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
     if (live == null) return const [];
     final sections = <Widget>[];
-    final showContentSteps =
-        live.steps.isNotEmpty && !(live.recipe?.hasUsefulContent ?? false);
+    final recipe = live.recipe;
+    if (recipe?.hasUsefulContent ?? false) {
+      _ensureRecipeStateLoaded(url.id);
+      sections.addAll([
+        const SizedBox(height: 18),
+        _buildRecipeSection(
+          url: url,
+          recipe: recipe!,
+          theme: theme,
+          colorScheme: colorScheme,
+        ),
+      ]);
+    }
+
+    final showContentSteps = _shouldShowKeyTakeaways(url, live);
     if (showContentSteps) {
       sections.addAll([
         const SizedBox(height: 18),
         _buildContentStepsSection(
-          steps: live.steps,
+          steps: live.steps.take(5).toList(),
           theme: theme,
           colorScheme: colorScheme,
         ),
@@ -1469,22 +1792,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       ]);
     }
 
-    final recipe = live.recipe;
-    if (recipe?.hasUsefulContent ?? false) {
-      sections.addAll([
-        const SizedBox(height: 18),
-        ContentRecommendationSection<EnrichedRecipe>(
-          title: 'Recipes',
-          accent: _sectionAccent('recipe', colorScheme),
-          items: [recipe!],
-          itemBuilder: (context, item) => _buildRecipeItem(
-            recipe: item,
-            theme: theme,
-            colorScheme: colorScheme,
-          ),
-        ),
-      ]);
-    }
     return sections;
   }
 
@@ -1507,6 +1814,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     'movie',
     'book',
     'product',
+    'app',
     'person',
     'place',
     'other',
@@ -1523,13 +1831,55 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   String _mentionSectionTitle(String type) {
     return switch (type) {
-      'movie' => 'Movie recommendations',
-      'book' => 'Book recommendations',
-      'product' => 'Products',
-      'person' => 'People',
-      'place' => 'Places',
-      _ => 'Mentions',
+      'movie' => 'Mentioned Movies',
+      'book' => 'Mentioned Books',
+      'product' => 'Mentioned Products',
+      'app' => 'Mentioned Apps',
+      'person' => 'Mentioned People',
+      'place' => 'Mentioned Places',
+      _ => 'Mentioned Items',
     };
+  }
+
+  bool _shouldShowKeyTakeaways(SavedUrl url, TranscriptEnrichmentResult live) {
+    if (live.steps.isEmpty || live.recipe?.hasUsefulContent == true) {
+      return false;
+    }
+
+    final mentionTypes = live.mentions
+        .map((mention) => _mentionSectionKey(mention.type))
+        .where((type) => type != 'person' && type != 'other')
+        .toSet();
+    final text = [
+      url.title,
+      url.category,
+      url.summary ?? '',
+      url.description,
+      ...url.tags,
+      live.meaningfulTitle,
+      live.category,
+      live.summary,
+      ...live.tags,
+    ].join(' ').toLowerCase();
+
+    final learningContent = _hasAny(text, const [
+      'tutorial',
+      'how to',
+      'how-to',
+      'guide',
+      'explainer',
+      'lesson',
+      'learn',
+      'framework',
+      'principle',
+      'strategy',
+      'educational',
+      'workflow',
+      'steps',
+    ]);
+
+    if (learningContent) return true;
+    return mentionTypes.isEmpty && live.steps.length >= 3;
   }
 
   Color _sectionAccent(String type, ColorScheme colorScheme) {
@@ -1544,12 +1894,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Steps', accent: colorScheme.primary),
+        SectionHeader(title: 'Key Takeaways', accent: colorScheme.primary),
         const SizedBox(height: 10),
-        for (final entry in steps.asMap().entries)
+        for (final step in steps)
           _buildContentStep(
-            number: entry.key + 1,
-            step: entry.value,
+            step: step,
             theme: theme,
             colorScheme: colorScheme,
           ),
@@ -1558,228 +1907,347 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildContentStep({
-    required int number,
     required EnrichedContentStep step,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
     final description = step.description?.trim() ?? '';
+    final text = description.isEmpty ? step.title : '${step.title}: $description';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecipeSection({
+    required SavedUrl url,
+    required EnrichedRecipe recipe,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final metadata = <String>[
+      if ((recipe.prepTime ?? '').isNotEmpty) recipe.prepTime!,
+      if ((recipe.cookTime ?? '').isNotEmpty) recipe.cookTime!,
+      if ((recipe.totalTime ?? '').isNotEmpty) '${recipe.totalTime} total',
+      if ((recipe.servings ?? '').isNotEmpty) recipe.servings!,
+    ];
+    final summary = recipe.summary?.trim().isNotEmpty == true
+        ? recipe.summary!.trim()
+        : recipe.description?.trim() ?? '';
+    final attribution = [
+      if ((recipe.author ?? '').isNotEmpty) recipe.author!,
+      if ((recipe.source ?? '').isNotEmpty) recipe.source!,
+      if ((recipe.cuisine ?? '').isNotEmpty) recipe.cuisine!,
+      if ((recipe.category ?? '').isNotEmpty) recipe.category!,
+    ].toSet().join(' · ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: SectionHeader(
+                title: 'Recipe',
+                accent: colorScheme.primary,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _showShoppingList,
+              icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+              label: Text(
+                _shoppingList.isEmpty
+                    ? 'Shopping list'
+                    : 'Shopping list (${_shoppingList.length})',
+              ),
+            ),
+          ],
+        ),
+        if (metadata.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: metadata
+                .map(
+                  (label) => _recipeMetaChip(
+                    label: label,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+        if ((recipe.difficulty ?? '').isNotEmpty ||
+            recipe.tags.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if ((recipe.difficulty ?? '').isNotEmpty)
+                _recipeMetaChip(
+                  label: recipe.difficulty!,
+                  icon: Icons.local_fire_department_outlined,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                ),
+              ...recipe.tags.take(5).map(
+                    (tag) => _recipeMetaChip(
+                      label: tag,
+                      colorScheme: colorScheme,
+                      theme: theme,
+                    ),
+                  ),
+            ],
+          ),
+        ],
+        if (summary.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            summary,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+        ],
+        if (attribution.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            attribution,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+        if (recipe.ingredients.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ingredients',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _checkAllIngredients(url.id, recipe),
+                child: const Text('Check all'),
+              ),
+              TextButton(
+                onPressed: () => _resetIngredientChecks(url.id),
+                child: const Text('Reset'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ...recipe.ingredients.asMap().entries.map((entry) {
+            final key = RecipeStateService.ingredientKey(
+              entry.value,
+              entry.key,
+            );
+            final checked = _checkedIngredientKeys.contains(key);
+            return CheckboxListTile(
+              value: checked,
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              title: Text(
+                entry.value.name,
+                style: checked
+                    ? const TextStyle(decoration: TextDecoration.lineThrough)
+                    : null,
+              ),
+              subtitle: [
+                if (entry.value.amountLabel.isNotEmpty)
+                  entry.value.amountLabel,
+                if ((entry.value.notes ?? '').isNotEmpty) entry.value.notes!,
+              ].isEmpty
+                  ? null
+                  : Text(
+                      [
+                        if (entry.value.amountLabel.isNotEmpty)
+                          entry.value.amountLabel,
+                        if ((entry.value.notes ?? '').isNotEmpty)
+                          entry.value.notes!,
+                      ].join(' · '),
+                    ),
+              onChanged: (value) => _setIngredientChecked(
+                url.id,
+                key,
+                value ?? false,
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _addRecipeIngredientsToShoppingList(
+                  recipeId: url.id,
+                  recipe: recipe,
+                  selectedOnly: true,
+                ),
+                icon: const Icon(Icons.playlist_add_rounded),
+                label: const Text('Add selected'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () => _addRecipeIngredientsToShoppingList(
+                  recipeId: url.id,
+                  recipe: recipe,
+                  selectedOnly: false,
+                ),
+                icon: const Icon(Icons.add_shopping_cart_rounded),
+                label: const Text('Add all'),
+              ),
+            ],
+          ),
+        ],
+        if (recipe.steps.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Instructions',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    fullscreenDialog: true,
+                    builder: (_) => _RecipeCookingModeScreen(recipe: recipe),
+                  ),
+                ),
+                icon: const Icon(Icons.soup_kitchen_outlined, size: 18),
+                label: const Text('Cooking mode'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...recipe.steps.asMap().entries.map(
+                (entry) => _buildRecipeInstruction(
+                  number: entry.key + 1,
+                  instruction: entry.value,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                ),
+              ),
+        ],
+        const SizedBox(height: 4),
+        TextButton.icon(
+          onPressed: () => _launchRecipeSearch(recipe),
+          icon: const Icon(Icons.open_in_new_rounded, size: 17),
+          label: const Text('Search this recipe'),
+        ),
+      ],
+    );
+  }
+
+  Widget _recipeMetaChip({
+    required String label,
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+    IconData? icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 15, color: colorScheme.onPrimaryContainer),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecipeInstruction({
+    required int number,
+    required String instruction,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 26,
-            height: 26,
+            width: 28,
+            height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
               color: colorScheme.primaryContainer,
+              shape: BoxShape.circle,
             ),
             child: Text(
               '$number',
               style: theme.textTheme.labelMedium?.copyWith(
                 color: colorScheme.onPrimaryContainer,
                 fontWeight: FontWeight.w800,
-                height: 1,
               ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  step.title,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                    height: 1.28,
-                  ),
-                ),
-                if (description.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    description,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.42,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecipeItem({
-    required EnrichedRecipe recipe,
-    required ThemeData theme,
-    required ColorScheme colorScheme,
-  }) {
-    final image = recipe.image?.trim() ?? '';
-    final metadata = [
-      if ((recipe.cuisine ?? '').isNotEmpty) recipe.cuisine!,
-      if ((recipe.category ?? '').isNotEmpty) recipe.category!,
-      if ((recipe.prepTime ?? '').isNotEmpty) recipe.prepTime!,
-    ];
-
-    return Theme(
-      data: theme.copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
-        shape: const RoundedRectangleBorder(),
-        collapsedShape: const RoundedRectangleBorder(),
-        title: Text(
-          recipe.title.isNotEmpty ? recipe.title : 'Recipe',
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-          ),
-        ),
-        subtitle: metadata.isNotEmpty
-            ? Text(
-                metadata.join(' · '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.35,
-                ),
-              )
-            : null,
-        children: [
-          if (image.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: CachedNetworkImage(
-                  imageUrl: image,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, _, _) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (recipe.ingredients.isNotEmpty) ...[
-            _buildRecipeSubheading('Ingredients', theme, colorScheme),
-            const SizedBox(height: 8),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final useTwoColumns = constraints.maxWidth >= 560;
-                final itemWidth = useTwoColumns
-                    ? (constraints.maxWidth - 8) / 2
-                    : constraints.maxWidth;
-                return Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: recipe.ingredients.take(18).map((ingredient) {
-                    return SizedBox(
-                      width: itemWidth,
-                      child: _buildIngredientRow(
-                        ingredient: ingredient,
-                        theme: theme,
-                        colorScheme: colorScheme,
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-            const SizedBox(height: 14),
-          ],
-          if ((recipe.instructions ?? '').trim().isNotEmpty) ...[
-            _buildRecipeSubheading('Instructions', theme, colorScheme),
-            const SizedBox(height: 8),
-            ..._recipeInstructionSteps(recipe.instructions!)
-                .asMap()
-                .entries
-                .map(
-                  (entry) => _buildInstructionStep(
-                    number: entry.key + 1,
-                    text: entry.value,
-                    theme: theme,
-                    colorScheme: colorScheme,
-                  ),
-                ),
-          ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => _launchRecipeSearch(recipe),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-              ),
-              child: const Text('Search recipe'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIngredientRow({
-    required EnrichedRecipeIngredient ingredient,
-    required ThemeData theme,
-    required ColorScheme colorScheme,
-  }) {
-    final measure = ingredient.measure?.trim() ?? '';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colorScheme.primary,
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              ingredient.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              instruction,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface,
-                height: 1.25,
-                fontWeight: FontWeight.w600,
+                height: 1.5,
               ),
             ),
           ),
-          if (measure.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                measure,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.1,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1819,92 +2287,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return blocks.reversed.take(3).toList();
   }
 
-  Widget _buildInstructionStep({
-    required int number,
-    required String text,
-    required ThemeData theme,
-    required ColorScheme colorScheme,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colorScheme.primaryContainer,
-            ),
-            child: Text(
-              '$number',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w800,
-                height: 1,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface,
-                height: 1.45,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<String> _recipeInstructionSteps(String raw) {
-    final cleaned = raw.trim().replaceAll(RegExp(r'[ \t]+'), ' ');
-    if (cleaned.isEmpty) return const [];
-    final withPhaseBreaks = cleaned.replaceAllMapped(
-      RegExp(r'\s+([A-Z][A-Za-z ]{2,34}:)\s+'),
-      (match) => '\n${match.group(1)} ',
-    );
-    final parts = withPhaseBreaks
-        .split(
-          RegExp(
-            r'\r?\n+|(?:^|\s)(?:step\s*)?\d+\.\s+',
-            caseSensitive: false,
-          ),
-        )
-        .map((part) => part.trim())
-        .where((part) => part.length > 2)
-        .toList();
-    return parts.isEmpty ? [cleaned] : parts.take(12).toList();
-  }
-
-  Widget _buildRecipeSubheading(
-    String label,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        label,
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
   Widget _buildMentionRow({
     required EnrichedMention mention,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final reason = _cleanMentionReason(mention.whyMentioned);
+    final reason = _trimRelevanceDescription(
+      _cleanMentionReason(mention.whyMentioned),
+    );
     final posterUrl = mention.posterUrl?.trim() ?? '';
     final metadata = _mentionMetadataLine(mention);
 
@@ -1943,6 +2333,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     children: [
                       Text(
                         mention.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
@@ -2031,6 +2423,25 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         .join(' ');
     final uri = Uri.https('www.google.com', '/search', {'q': query});
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  String _trimRelevanceDescription(String text) {
+    return TextCleaner.cleanLoose(text);
+  }
+
+  Widget _recipePlaceholder(ColorScheme colorScheme) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.42),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.restaurant_menu_rounded,
+          color: colorScheme.onPrimaryContainer,
+          size: 22,
+        ),
+      ),
+    );
   }
 
   Widget _mentionPlaceholder(
@@ -2199,10 +2610,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           'dairy',
         ])) {
       return const [
-        'try this weekend',
-        'need ingredients',
-        'share with someone',
-        'already tried',
+        'Try This Weekend',
+        'Need Ingredients',
+        'Share With Someone',
+        'Already Tried',
       ];
     }
 
@@ -2217,10 +2628,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           'anime',
         ])) {
       return const [
-        'watch this weekend',
-        'add to watchlist',
-        'share with someone',
-        'already watched',
+        'Watch Later',
+        'Add to Watchlist',
+        'Share With Someone',
+        'Already Watched',
       ];
     }
 
@@ -2234,10 +2645,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           'newsletter',
         ])) {
       return const [
-        'add to reading list',
-        'read later',
-        'summarize later',
-        'already read',
+        'Add to Reading List',
+        'Read Later',
+        'Research This',
+        'Already Read',
       ];
     }
 
@@ -2254,10 +2665,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           'product',
         ])) {
       return const [
-        'try this tool',
-        'compare alternatives',
-        'use in project',
-        'share with team',
+        'Try This Tool',
+        'Compare Alternatives',
+        'Use in Project',
+        'Share With Team',
       ];
     }
 
@@ -2274,10 +2685,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           'destination',
         ])) {
       return const [
-        'plan itinerary',
-        'check best season',
-        'save route',
-        'share with someone',
+        'Plan Itinerary',
+        'Check Best Season',
+        'Save Route',
+        'Share With Someone',
       ];
     }
 
@@ -2291,202 +2702,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       'strategy',
     ])) {
       return const [
-        'practice later',
-        'make checklist',
-        'use in project',
-        'revisit notes',
+        'Practice Later',
+        'Make Checklist',
+        'Use in Project',
+        'Revisit Notes',
       ];
     }
 
     return const [
-      'revisit later',
-      'share with someone',
-      'worth trying',
-      'already checked',
+      'Revisit Later',
+      'Share With Someone',
+      'Worth Trying',
+      'Already Checked',
     ];
   }
 
   bool _hasAny(String text, List<String> needles) {
     return needles.any((needle) => text.contains(needle));
-  }
-
-  Widget _buildOpenShareActions(SavedUrl url) {
-    final narrow =
-        MediaQuery.sizeOf(context).width < _narrowLayoutWidth;
-
-    final compact = ButtonStyle(
-      visualDensity: VisualDensity.compact,
-      padding: WidgetStateProperty.all(
-        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      ),
-    );
-
-    final openBtn = SizedBox(
-      width: narrow ? double.infinity : null,
-      child: FilledButton.tonalIcon(
-        style: compact.copyWith(
-          backgroundColor: WidgetStatePropertyAll(
-            Theme.of(context).colorScheme.primary,
-          ),
-          foregroundColor: WidgetStatePropertyAll(
-            Theme.of(context).colorScheme.onPrimary,
-          ),
-        ),
-        onPressed: () => _launchUrl(url.rawUrl),
-        icon: const Icon(Icons.open_in_new_rounded, size: 18),
-        label: const Text('Open'),
-      ),
-    );
-    final shareBtn = SizedBox(
-      width: narrow ? double.infinity : null,
-      child: OutlinedButton.icon(
-        style: compact.copyWith(
-          backgroundColor: WidgetStatePropertyAll(
-            Theme.of(context).colorScheme.secondaryContainer,
-          ),
-          foregroundColor: WidgetStatePropertyAll(
-            Theme.of(context).colorScheme.onSecondaryContainer,
-          ),
-          side: WidgetStatePropertyAll(
-            BorderSide(color: Theme.of(context).colorScheme.secondaryContainer),
-          ),
-        ),
-        onPressed: () => Share.share(url.rawUrl),
-        icon: const Icon(Icons.share_outlined, size: 18),
-        label: const Text('Share'),
-      ),
-    );
-
-    if (narrow) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          openBtn,
-          const SizedBox(height: 8),
-          shareBtn,
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        Expanded(child: openBtn),
-        const SizedBox(width: 10),
-        Expanded(child: shareBtn),
-      ],
-    );
-  }
-
-  Widget _buildDescriptionSection({
-    required String description,
-    required ThemeData theme,
-    required ColorScheme colorScheme,
-  }) {
-    final textStyle = theme.textTheme.bodyMedium?.copyWith(
-      fontSize: 16,
-      height: 1.55,
-      color: colorScheme.onSurface,
-    );
-
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeInOutCubic,
-      alignment: Alignment.topCenter,
-      child: Column(
-        key: _descriptionSectionKey,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: _toggleDescription,
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SectionHeader(
-                      title: 'Description',
-                      accent: colorScheme.primary,
-                    ),
-                  ),
-                  Icon(
-                    _descExpanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: colorScheme.primary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_descExpanded) ...[
-            const SizedBox(height: 8),
-            Text.rich(
-                TextSpan(
-                  style: textStyle,
-                  children: _linkifiedTextSpans(
-                    description,
-                    textStyle,
-                    colorScheme,
-                  ),
-                ),
-                softWrap: true,
-                overflow: TextOverflow.visible,
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  List<InlineSpan> _linkifiedTextSpans(
-    String text,
-    TextStyle? baseStyle,
-    ColorScheme colorScheme,
-  ) {
-    final spans = <InlineSpan>[];
-    final linkPattern = RegExp(
-      r'(https?:\/\/[^\s]+|www\.[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)',
-      caseSensitive: false,
-    );
-    var index = 0;
-    for (final match in linkPattern.allMatches(text)) {
-      if (match.start > index) {
-        spans.add(TextSpan(text: text.substring(index, match.start)));
-      }
-      final raw = match.group(0) ?? '';
-      final trailing = RegExp(r'[),.;:!?]+$').stringMatch(raw) ?? '';
-      final clean = trailing.isEmpty
-          ? raw
-          : raw.substring(0, raw.length - trailing.length);
-      spans.add(
-        TextSpan(
-          text: clean,
-          style: baseStyle?.copyWith(
-            color: colorScheme.primary,
-            fontWeight: FontWeight.w700,
-            decoration: TextDecoration.underline,
-            decorationColor: colorScheme.primary.withValues(alpha: 0.7),
-          ),
-          recognizer: TapGestureRecognizer()..onTap = () => _launchInlineLink(clean),
-        ),
-      );
-      if (trailing.isNotEmpty) {
-        spans.add(TextSpan(text: trailing));
-      }
-      index = match.end;
-    }
-    if (index < text.length) {
-      spans.add(TextSpan(text: text.substring(index)));
-    }
-    return spans.isEmpty ? [TextSpan(text: text, style: baseStyle)] : spans;
-  }
-
-  Future<void> _launchInlineLink(String raw) async {
-    final value = raw.startsWith('http') ? raw : 'https://$raw';
-    final uri = Uri.tryParse(value);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   String _formatDescription(String description) {
@@ -2581,12 +2813,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return hasHandle && hasDate;
   }
 
-  double? _globalTop(BuildContext? context) {
-    final renderObject = context?.findRenderObject();
-    if (renderObject is! RenderBox) return null;
-    return renderObject.localToGlobal(Offset.zero).dy;
-  }
-
   /// Favicon for the byline: known platform name, else URL host, else globe.
   String? _faviconUrlForSource(SavedUrl url, String displaySourceName) {
     final byName = faviconUrl(displaySourceName);
@@ -2674,3 +2900,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year} • $hour12:$minute $period';
   }
 }
+
+
+

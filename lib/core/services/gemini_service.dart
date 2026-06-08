@@ -7,6 +7,7 @@ import 'ai_proxy_config.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
 import 'tag_noise_filter.dart';
+import 'transcript_enrichment_service.dart';
 
 // ─── Result types ─────────────────────────────────────────────────────────────
 
@@ -23,6 +24,22 @@ class CategorizationResult {
     required this.tags,
     required this.summary,
   });
+}
+
+class RecipeEnhancementResult {
+  const RecipeEnhancementResult({
+    required this.summary,
+    required this.difficulty,
+    required this.tags,
+    this.steps = const [],
+  });
+
+  final String summary;
+  final String difficulty;
+  final List<String> tags;
+  /// AI-regenerated cooking instructions, or empty if the model could not
+  /// produce valid multi-step output.
+  final List<String> steps;
 }
 
 class ChatResponseSection {
@@ -355,6 +372,145 @@ Output valid JSON only. No markdown, no explanation.''';
         summary: '',
       );
     }
+  }
+
+  Future<RecipeEnhancementResult> enhanceRecipe({
+    required EnrichedRecipe recipe,
+    required String url,
+  }) async {
+    final ingredientText = recipe.ingredients
+        .take(30)
+        .map((ingredient) => ingredient.displayText)
+        .join('\n');
+    final rawStepCount = recipe.steps.length;
+    final instructionText = recipe.steps
+        .take(30)
+        .toList()
+        .asMap()
+        .entries
+        .map((entry) => '${entry.key + 1}. ${entry.value}')
+        .join('\n');
+    final content = _untrustedBlock('''
+Recipe title: ${recipe.title}
+Description: ${recipe.description ?? '(not available)'}
+Cuisine: ${recipe.cuisine ?? '(not available)'}
+Category: ${recipe.category ?? '(not available)'}
+Prep time: ${recipe.prepTime ?? '(not available)'}
+Cook time: ${recipe.cookTime ?? '(not available)'}
+Total time: ${recipe.totalTime ?? '(not available)'}
+Servings: ${recipe.servings ?? '(not available)'}
+Ingredients:
+$ingredientText
+Instructions:
+$instructionText
+URL: $url''');
+
+    final needsStepRegeneration = rawStepCount <= 1 ||
+        (rawStepCount <= 3 &&
+            recipe.steps.any((step) => step.length > 300));
+
+    final stepsInstruction = needsStepRegeneration
+        ? '''
+- "steps": a JSON array of cooking instruction strings. Each string is one meaningful cooking action (1–3 sentences max). Split aggressively — generate a new step for each new action, ingredient addition, heat change, waiting period, garnishing, or serving action. Target 4–12 steps for most recipes. Never return a single step containing the entire recipe. If the supplied instructions are a single paragraph or transcript dump, reconstruct them into proper sequential steps. Do not number the steps — the array order provides the sequence.'''
+        : '''
+- "steps": a JSON array of cooking instruction strings. Each string is one meaningful cooking action (1–3 sentences max, 250 characters max). If any existing step exceeds 250 characters or bundles multiple distinct actions, split it. Otherwise preserve the existing steps. Do not number the steps.''';
+
+    final prompt = '''You improve structured recipes for a cooking utility.
+Return a JSON object with exactly these fields:
+- "summary": one concise sentence describing the dish, its key flavors, and time when known
+- "difficulty": exactly "Easy", "Medium", or "Hard"
+- "tags": 3 to 6 short useful recipe tags such as Noodles, Vegetarian, Quick Meals, Asian Inspired, High Protein
+$stepsInstruction
+
+Rules for steps:
+- Each step represents one distinct cooking action a person performs in sequence.
+- Never lump multiple separate actions into one step.
+- Never copy transcript structure — convert spoken language to clean imperative cooking instructions.
+- Fill obvious implied details conservatively (e.g. "cook for 1–2 minutes until fragrant") but never invent ingredients or measurements.
+- A recipe must have at least 3 steps. Reject the output mentally if you produce only 1 step.
+- Do not number the steps in the string values — the array index provides the order.
+
+Use only the supplied recipe data for ingredients, times, and quantities.
+
+$content
+
+Output valid JSON only. No markdown, no explanation.''';
+
+    final text = await _generateText(jsonMode: true, prompt: prompt);
+    try {
+      final data = json.decode(_cleanJson(text ?? '{}')) as Map<String, dynamic>;
+      final difficulty = data['difficulty']?.toString().trim() ?? '';
+      final normalizedDifficulty =
+          const {'Easy', 'Medium', 'Hard'}.contains(difficulty)
+              ? difficulty
+              : _recipeDifficultyFallback(recipe);
+      final rawTags = data['tags'];
+      final tags = rawTags is List
+          ? TagNoiseFilter.filterTags(
+              rawTags.map((item) => item.toString()).toList(),
+            ).take(6).toList()
+          : <String>[];
+      final steps = _parseEnhancedSteps(data['steps'], recipe.steps);
+      return RecipeEnhancementResult(
+        summary: data['summary']?.toString().trim() ?? '',
+        difficulty: normalizedDifficulty,
+        tags: tags,
+        steps: steps,
+      );
+    } catch (e, stack) {
+      developer.log(
+        'Failed to parse recipe enhancement: $e',
+        name: 'GeminiService',
+        stackTrace: stack,
+      );
+      return RecipeEnhancementResult(
+        summary: '',
+        difficulty: _recipeDifficultyFallback(recipe),
+        tags: const [],
+      );
+    }
+  }
+
+  /// Validates and returns AI-improved steps, falling back to the original
+  /// steps if the model output fails quality checks.
+  static List<String> _parseEnhancedSteps(
+    Object? raw,
+    List<String> originalSteps,
+  ) {
+    if (raw is! List || raw.isEmpty) return const [];
+    final parsed = raw
+        .map((item) => item?.toString().trim() ?? '')
+        .where((item) => item.isNotEmpty)
+        .toList();
+    // Quality gate: reject if only one step or if a single step contains
+    // the entire recipe (heuristic: any step over 600 chars in a 1-step result).
+    if (parsed.length <= 1) {
+      developer.log(
+        'Recipe step enhancement rejected: only ${parsed.length} step(s) returned',
+        name: 'GeminiService',
+      );
+      return const [];
+    }
+    // Reject if average step length is absurdly large (transcript dump).
+    final avgLen = parsed.fold<int>(0, (sum, s) => sum + s.length) ~/ parsed.length;
+    if (avgLen > 400) {
+      developer.log(
+        'Recipe step enhancement rejected: average step length $avgLen chars',
+        name: 'GeminiService',
+      );
+      return const [];
+    }
+    return parsed.take(20).toList();
+  }
+
+  String _recipeDifficultyFallback(EnrichedRecipe recipe) {
+    if (recipe.steps.length <= 5 && recipe.ingredients.length <= 10) {
+      return 'Easy';
+    }
+    if (recipe.steps.length >= 12 || recipe.ingredients.length >= 20) {
+      return 'Hard';
+    }
+    return 'Medium';
   }
 
   // ─── RAG Chat ─────────────────────────────────────────────────────────────

@@ -5,7 +5,9 @@ import 'package:any_link_preview/any_link_preview.dart';
 import 'package:dio/dio.dart';
 
 import '../utils/network/url_security_validator.dart';
+import 'recipe_schema_parser.dart';
 import 'text_cleaner.dart';
+import 'transcript_enrichment_service.dart';
 
 /// Metadata extracted from a URL's Open Graph tags.
 class LinkMetadata {
@@ -15,6 +17,7 @@ class LinkMetadata {
   final String domain;
   final String? siteName;
   final String? author;
+  final EnrichedRecipe? recipe;
   /// Tags extracted by platform-specific parsers (e.g. Instagram hashtags).
   final List<String>? extractedTags;
 
@@ -25,6 +28,7 @@ class LinkMetadata {
     required this.domain,
     this.siteName,
     this.author,
+    this.recipe,
     this.extractedTags,
   });
 }
@@ -165,8 +169,27 @@ class LinkPreviewService {
 
       final html = response.data?.toString() ?? '';
       var meta = _parseOgTags(html, domain);
+      final recipe = RecipeSchemaParser.parse(
+        html,
+        pageUrl: normalized,
+        fallbackTitle: meta.title,
+        fallbackImage: meta.imageUrl,
+        fallbackAuthor: meta.author,
+      );
+      if (recipe != null) {
+        meta = LinkMetadata(
+          title: recipe.title.isNotEmpty ? recipe.title : meta.title,
+          description: recipe.description ?? meta.description,
+          imageUrl: recipe.image ?? meta.imageUrl,
+          domain: meta.domain,
+          siteName: meta.siteName,
+          author: recipe.author ?? meta.author,
+          recipe: recipe,
+          extractedTags: meta.extractedTags,
+        );
+      }
       // If title is still generic, fall through
-      if (!_isGenericTitle(meta.title.toLowerCase(), host)) {
+      if (recipe != null || !_isGenericTitle(meta.title.toLowerCase(), host)) {
         if (isInstagram) {
           meta = _cleanInstagramMetadata(meta, domain);
         }
@@ -787,6 +810,7 @@ class LinkPreviewService {
       domain: domain,
       siteName: 'Instagram',
       author: meta.author,
+      recipe: meta.recipe,
       extractedTags: meta.extractedTags,
     );
   }

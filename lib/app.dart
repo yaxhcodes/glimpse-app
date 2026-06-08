@@ -77,7 +77,13 @@ final _router = GoRouter(
         return CategoryScreen(categoryName: name);
       },
     ),
-    GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
+    GoRoute(
+      path: '/search',
+      builder: (context, state) {
+        final query = state.uri.queryParameters['q'];
+        return SearchScreen(initialQuery: query);
+      },
+    ),
     GoRoute(path: '/digest', builder: (context, state) => const DigestScreen()),
     GoRoute(
       path: '/notifications',

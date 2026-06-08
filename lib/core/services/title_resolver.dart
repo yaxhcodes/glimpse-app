@@ -75,6 +75,18 @@ class TitleResolver {
     return formatForCompactCard(link, collapseWhitespace(candidate));
   }
 
+  static String resolveDetailTitle(
+    SavedUrl link, {
+    Map<String, int>? tagFrequency,
+  }) {
+    final enrichedTitle = _titleFromSavedEnrichment(link);
+    final candidate = enrichedTitle != null &&
+            !isLowSignalTitle(enrichedTitle, domain: link.domain)
+        ? enrichedTitle
+        : resolve(link, tagFrequency: tagFrequency);
+    return truncateTitle(collapseWhitespace(candidate), maxLength: 92);
+  }
+
   /// Decides when a richer AI/transcript title should become the stored title.
   ///
   /// Home cards and detail pages both resolve from [SavedUrl.title], so the

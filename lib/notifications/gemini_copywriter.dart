@@ -45,7 +45,7 @@ Your job is to write a single push notification that feels like it was written s
 
 Rules:
 - Title: under 55 characters. Must reference something real and specific from their data.
-- Body: under 100 characters. One sentence. Conversational, not robotic.
+- Body: maximum 12 words. One sentence. Generate curiosity; do not summarize the full save.
 - Never say "you have unread links" or "check your saves" — too generic.
 - Never use exclamation marks.
 - Never use the word "collection" or "library".
@@ -74,7 +74,7 @@ USER_CONTENT_END''';
     if (!AiProxyConfig.enabled ||
         fingerprint.allUrls.length < _richnesMinUrls ||
         fingerprint.topClusters.length < _richnesMinClusters) {
-      return _templateFallback(letter, fingerprint);
+      return _clampCopy(_templateFallback(letter, fingerprint));
     }
 
     // Check persistent copy cache (24h TTL per notification type).
@@ -94,7 +94,7 @@ USER_CONTENT_END''';
       await _writeCachedCopy(type, copy);
       return copy;
     } catch (_) {
-      return _templateFallback(letter, fingerprint);
+      return _clampCopy(_templateFallback(letter, fingerprint));
     }
   }
 
@@ -210,7 +210,7 @@ Write a notification for this user now.
     final tags = TagNoiseFilter.filterTags(l.tags).take(4).join(', ');
     final summ = (l.summary ?? '').trim();
     final summShort =
-        summ.isEmpty ? '' : SummaryTrimmer.trim(summ, maxLength: 120);
+        summ.isEmpty ? '' : SummaryTrimmer.trim(summ, maxLength: 72);
     final days = DateTime.now().difference(l.savedAt).inDays;
     return '- $title | tags: ${tags.isEmpty ? 'none' : tags} | summary: ${summShort.isEmpty ? 'none' : summShort} | saved: $days days ago';
   }
@@ -251,7 +251,7 @@ Write a notification for this user now.
             .replaceAll("'", "''");
         final summ = SummaryTrimmer.trim(
           (link.summary ?? link.description).trim(),
-          maxLength: 120,
+          maxLength: 72,
         ).replaceAll("'", "''");
         return "This specific link has been unread for $days days: "
             "title='$displayTitle', summary='$summ'";
@@ -343,7 +343,19 @@ Write a notification for this user now.
     if (body.length > 100) {
       body = '${body.substring(0, 97)}...';
     }
+    body = _clampBodyWords(body);
     return NotifCopy(title: title, body: body);
+  }
+
+  static String _clampBodyWords(String body) {
+    final words = body
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .split(' ')
+        .where((word) => word.isNotEmpty)
+        .toList();
+    if (words.length <= 12) return body.trim();
+    return '${words.take(12).join(' ')}.';
   }
 
   // ── Fallback templates (no rotation; used when Gemini fails) ───────

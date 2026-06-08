@@ -13,6 +13,7 @@ class TranscriptEnrichmentResult {
     required this.summary,
     required this.category,
     required this.tags,
+    this.contentType = 'generic',
     this.brief,
     this.steps = const [],
     this.mentions = const [],
@@ -30,6 +31,7 @@ class TranscriptEnrichmentResult {
   final String summary;
   final String category;
   final List<String> tags;
+  final String contentType;
   final String? brief;
   final List<EnrichedContentStep> steps;
   final List<EnrichedMention> mentions;
@@ -58,6 +60,7 @@ class TranscriptEnrichmentResult {
       'summary': summary,
       'category': category,
       'tags': tags,
+      'content_type': contentType,
       'brief': brief,
       'steps': steps.map((item) => item.toJson()).toList(),
       'mentions': mentions.map((item) => item.toJson()).toList(),
@@ -83,6 +86,7 @@ class TranscriptEnrichmentResult {
       tags: TagNoiseFilter.filterTags(
         TranscriptEnrichmentService._extractStringList(json['tags']),
       ),
+      contentType: TranscriptEnrichmentService._contentTypeFromJson(json),
       brief: TranscriptEnrichmentService._cleanNullableText(
         json['brief'] ??
             json['short_description'] ??
@@ -122,36 +126,104 @@ class TranscriptEnrichmentResult {
 class EnrichedRecipe {
   const EnrichedRecipe({
     required this.title,
+    this.description,
     this.image,
+    this.author,
+    this.source,
     this.category,
     this.cuisine,
+    this.servings,
     this.ingredients = const [],
-    this.instructions,
+    this.steps = const [],
     this.prepTime,
+    this.cookTime,
+    this.totalTime,
+    this.summary,
+    this.difficulty,
+    this.tags = const [],
   });
 
   final String title;
+  final String? description;
   final String? image;
+  final String? author;
+  final String? source;
   final String? category;
   final String? cuisine;
+  final String? servings;
   final List<EnrichedRecipeIngredient> ingredients;
-  final String? instructions;
+  final List<String> steps;
   final String? prepTime;
+  final String? cookTime;
+  final String? totalTime;
+  final String? summary;
+  final String? difficulty;
+  final List<String> tags;
+
+  String? get instructions => steps.isEmpty ? null : steps.join('\n');
 
   bool get hasUsefulContent =>
       title.trim().isNotEmpty ||
       ingredients.isNotEmpty ||
-      (instructions?.trim().isNotEmpty ?? false);
+      steps.isNotEmpty;
+
+  EnrichedRecipe copyWith({
+    String? title,
+    String? description,
+    String? image,
+    String? author,
+    String? source,
+    String? category,
+    String? cuisine,
+    String? servings,
+    List<EnrichedRecipeIngredient>? ingredients,
+    List<String>? steps,
+    String? prepTime,
+    String? cookTime,
+    String? totalTime,
+    String? summary,
+    String? difficulty,
+    List<String>? tags,
+  }) {
+    return EnrichedRecipe(
+      title: title ?? this.title,
+      description: description ?? this.description,
+      image: image ?? this.image,
+      author: author ?? this.author,
+      source: source ?? this.source,
+      category: category ?? this.category,
+      cuisine: cuisine ?? this.cuisine,
+      servings: servings ?? this.servings,
+      ingredients: ingredients ?? this.ingredients,
+      steps: steps ?? this.steps,
+      prepTime: prepTime ?? this.prepTime,
+      cookTime: cookTime ?? this.cookTime,
+      totalTime: totalTime ?? this.totalTime,
+      summary: summary ?? this.summary,
+      difficulty: difficulty ?? this.difficulty,
+      tags: tags ?? this.tags,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
       'title': title,
+      'description': description,
       'image': image,
+      'author': author,
+      'source': source,
       'category': category,
       'cuisine': cuisine,
+      'servings': servings,
       'ingredients': ingredients.map((item) => item.toJson()).toList(),
+      'steps': steps,
       'instructions': instructions,
       'prep_time': prepTime,
+      'cook_time': cookTime,
+      'total_time': totalTime,
+      'summary': summary,
+      'difficulty': difficulty,
+      'tags': tags,
     };
   }
 
@@ -159,26 +231,135 @@ class EnrichedRecipe {
     if (raw is! Map) return null;
     final json = Map<String, dynamic>.from(raw);
     final ingredients = _parseIngredients(json['ingredients']);
-    final steps = TranscriptEnrichmentService._extractStringList(json['steps']);
-    final instructions = TranscriptEnrichmentService._cleanNullableText(
-      json['instructions'],
-    ) ?? (steps.isNotEmpty ? steps.join('\n') : null);
+    final steps = _parseSteps(json['steps'] ?? json['instructions']);
     final recipe = EnrichedRecipe(
       title: TranscriptEnrichmentService._cleanText(json['title'] ?? json['name']),
+      description: TranscriptEnrichmentService._cleanNullableText(
+        json['description'],
+      ),
       image: TranscriptEnrichmentService._cleanNullableText(
         json['image'] ?? json['thumbnail'] ?? json['thumbnail_url'],
+      ),
+      author: TranscriptEnrichmentService._cleanNullableText(json['author']),
+      source: TranscriptEnrichmentService._cleanNullableText(
+        json['source'] ?? json['publisher'],
       ),
       category: TranscriptEnrichmentService._cleanNullableText(json['category']),
       cuisine: TranscriptEnrichmentService._cleanNullableText(
         json['cuisine'] ?? json['area'],
       ),
+      servings: TranscriptEnrichmentService._cleanNullableText(
+        json['servings'] ?? json['yield'] ?? json['recipe_yield'],
+      ),
       ingredients: ingredients,
-      instructions: instructions,
+      steps: steps,
       prepTime: TranscriptEnrichmentService._cleanNullableText(
         json['prep_time'] ?? json['prepTime'],
       ),
+      cookTime: TranscriptEnrichmentService._cleanNullableText(
+        json['cook_time'] ?? json['cookTime'],
+      ),
+      totalTime: TranscriptEnrichmentService._cleanNullableText(
+        json['total_time'] ?? json['totalTime'],
+      ),
+      summary: TranscriptEnrichmentService._cleanNullableText(
+        json['summary'] ?? json['recipe_summary'],
+      ),
+      difficulty: TranscriptEnrichmentService._cleanNullableText(
+        json['difficulty'],
+      ),
+      tags: TagNoiseFilter.filterTags(
+        TranscriptEnrichmentService._extractStringList(json['tags']),
+      ),
     );
     return recipe.hasUsefulContent ? recipe : null;
+  }
+
+  static List<String> _parseSteps(Object? raw) {
+    if (raw is String) {
+      return _splitInstructionString(raw);
+    }
+    if (raw is! List) return const [];
+    final out = <String>[];
+    for (final item in raw) {
+      if (item is String) {
+        // A single-element list containing a wall of text — split it.
+        final candidates = _splitInstructionString(item);
+        out.addAll(candidates);
+      } else if (item is Map) {
+        final json = Map<String, dynamic>.from(item);
+        final nested = json['itemListElement'] ?? json['steps'];
+        if (nested is List) {
+          out.addAll(_parseSteps(nested));
+          continue;
+        }
+        final text = TranscriptEnrichmentService._cleanText(
+          json['text'] ?? json['description'] ?? json['name'],
+        );
+        // If this single map-step looks like a transcript dump, try splitting.
+        if (text.isNotEmpty) {
+          final candidates = text.length > 250
+              ? _splitInstructionString(text)
+              : [text];
+          out.addAll(candidates);
+        }
+      }
+    }
+    return out.take(40).toList();
+  }
+
+  /// Splits a raw instruction string into individual step strings.
+  ///
+  /// Handles:
+  /// - Explicit numbered steps ("1. Do this. 2. Do that." or "Step 1: ...")
+  /// - Newline-delimited steps
+  /// - Sentence-boundary splitting for single-block transcripts
+  static List<String> _splitInstructionString(String raw) {
+    final normalized = raw
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .trim();
+    if (normalized.isEmpty) return const [];
+
+    // 1. Try numbered-step markers ("1.", "1)", "Step 1:", "Step 1 -").
+    final numberedSplit = normalized
+        .split(RegExp(
+          r'(?:^|\n)\s*(?:step\s*)?\d+[.):\-]\s+',
+          caseSensitive: false,
+          multiLine: true,
+        ))
+        .map(TranscriptEnrichmentService._cleanText)
+        .where((item) => item.isNotEmpty)
+        .toList();
+    if (numberedSplit.length >= 3) return numberedSplit;
+
+    // 2. Try newline splitting.
+    final newlineSplit = normalized
+        .split(RegExp(r'\n+'))
+        .map(TranscriptEnrichmentService._cleanText)
+        .where((item) => item.isNotEmpty)
+        .toList();
+    if (newlineSplit.length >= 3) return newlineSplit;
+
+    // 3. If the whole thing is one or two lines (e.g. a transcript blob),
+    //    split on sentence boundaries that look like new cooking actions.
+    //    We look for ". " followed by a capital letter or a common transition
+    //    word (Then, Next, Add, Cook, Stir, etc.).
+    final sentenceSplit = normalized
+        .split(RegExp(
+          r'\.\s+(?=[A-Z]|Then |Next |Add |Cook |Stir |Combine |Mix |Fold |Pour |Place |Remove |Transfer |Season |Garnish |Serve |Top |Drain |Rinse |Bring |Reduce |Let |Allow |Set |Heat |Melt |Sauté|Saute |Fry |Boil |Bake |Roast |Grill |Simmer |Whisk |Toss |Coat |Taste |Adjust )',
+        ))
+        .map((s) {
+          final cleaned = TranscriptEnrichmentService._cleanText(s);
+          // Re-append the period that was consumed by the split.
+          return cleaned.endsWith('.') ? cleaned : '$cleaned.';
+        })
+        .where((item) => item.length > 10)
+        .toList();
+    if (sentenceSplit.length >= 3) return sentenceSplit;
+
+    // 4. Nothing worked — return as a single step (AI will fix it during enhance).
+    return [normalized];
   }
 
   static List<EnrichedRecipeIngredient> _parseIngredients(Object? raw) {
@@ -196,8 +377,17 @@ class EnrichedRecipe {
               name: TranscriptEnrichmentService._cleanText(
                 json['name'] ?? json['ingredient'] ?? json['title'],
               ),
-              measure: TranscriptEnrichmentService._cleanNullableText(
-                json['measure'] ?? json['measurement'] ?? json['amount'],
+              quantity: TranscriptEnrichmentService._cleanNullableText(
+                json['quantity'] ?? json['amount'],
+              ),
+              unit: TranscriptEnrichmentService._cleanNullableText(
+                json['unit'],
+              ),
+              notes: TranscriptEnrichmentService._cleanNullableText(
+                json['notes'] ?? json['note'],
+              ),
+              legacyMeasure: TranscriptEnrichmentService._cleanNullableText(
+                json['measure'] ?? json['measurement'],
               ),
             );
           }
@@ -213,16 +403,44 @@ class EnrichedRecipe {
 class EnrichedRecipeIngredient {
   const EnrichedRecipeIngredient({
     required this.name,
-    this.measure,
+    this.quantity,
+    this.unit,
+    this.notes,
+    this.legacyMeasure,
   });
 
   final String name;
-  final String? measure;
+  final String? quantity;
+  final String? unit;
+  final String? notes;
+  final String? legacyMeasure;
+
+  String get amountLabel {
+    final structured = [quantity, unit]
+        .whereType<String>()
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .join(' ');
+    if (structured.isNotEmpty) return structured;
+    return legacyMeasure?.trim() ?? '';
+  }
+
+  String get displayText {
+    final parts = <String>[
+      if (amountLabel.isNotEmpty) amountLabel,
+      name,
+      if ((notes ?? '').trim().isNotEmpty) notes!.trim(),
+    ];
+    return parts.join(' · ');
+  }
 
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'measure': measure,
+      'quantity': quantity,
+      'unit': unit,
+      'notes': notes,
+      if ((legacyMeasure ?? '').isNotEmpty) 'measure': legacyMeasure,
     };
   }
 }
@@ -400,6 +618,7 @@ class TranscriptEnrichmentService {
       if (data == null) return null;
 
       final mentions = _extractMentions(data);
+      final recipe = EnrichedRecipe.fromJsonOrNull(data['recipe']);
       final mentionTitles = mentions
           .map((item) => TagNoiseFilter.cleanTag(item.title))
           .where((item) => item.isNotEmpty)
@@ -411,7 +630,7 @@ class TranscriptEnrichmentService {
         tags,
         data,
         hasMovieMentions: mentions.any((item) => item.type == 'movie'),
-        hasRecipe: EnrichedRecipe.fromJsonOrNull(data['recipe']) != null,
+        hasRecipe: recipe != null,
       ).take(8).toList();
 
       final result = TranscriptEnrichmentResult(
@@ -419,6 +638,9 @@ class TranscriptEnrichmentService {
         summary: _cleanText(data['summary']),
         category: _cleanText(data['category']),
         tags: usefulTags,
+        contentType: recipe != null
+            ? 'recipe'
+            : _contentTypeFromJson(data),
         brief: _cleanNullableText(
           data['brief'] ??
               data['short_description'] ??
@@ -426,7 +648,7 @@ class TranscriptEnrichmentService {
         ),
         steps: _extractContentSteps(data),
         mentions: mentions,
-        recipe: EnrichedRecipe.fromJsonOrNull(data['recipe']),
+        recipe: recipe,
         keyPoints: _extractStringList(data['key_points']),
         thumbnailUrl: _cleanText(data['thumbnail_url']).isNotEmpty
             ? _cleanText(data['thumbnail_url'])
@@ -585,6 +807,7 @@ class TranscriptEnrichmentService {
             type != 'book' &&
             type != 'place' &&
             type != 'product' &&
+            type != 'app' &&
             type != 'person') {
           continue;
         }
@@ -607,6 +830,15 @@ class TranscriptEnrichmentService {
   static List<String> _extractStringList(Object? raw) {
     if (raw is! List) return const [];
     return raw.map((item) => _cleanText(item)).where((item) => item.isNotEmpty).toList();
+  }
+
+  static String _contentTypeFromJson(Map<String, dynamic> json) {
+    final explicit = _cleanText(json['content_type'] ?? json['contentType'])
+        .toLowerCase();
+    if (explicit.isNotEmpty) return explicit;
+    return EnrichedRecipe.fromJsonOrNull(json['recipe']) != null
+        ? 'recipe'
+        : 'generic';
   }
 
   static List<String> _ensureUsefulTags(

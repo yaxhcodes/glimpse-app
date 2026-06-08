@@ -6,15 +6,15 @@ class TagGroup extends StatelessWidget {
   const TagGroup({
     super.key,
     required this.tags,
-    required this.onDelete,
-    required this.onAdd,
+    required this.onTap,
+    required this.onLongPress,
     this.hiddenCount = 0,
     this.onShowMore,
   });
 
   final List<String> tags;
-  final void Function(String tag) onDelete;
-  final VoidCallback onAdd;
+  final void Function(String tag) onTap;
+  final void Function(String tag) onLongPress;
   final int hiddenCount;
   final VoidCallback? onShowMore;
 
@@ -35,7 +35,8 @@ class TagGroup extends StatelessWidget {
             ...tags.map(
               (tag) => _TagChip(
                 tag: tag,
-                onDeleted: () => onDelete(tag),
+                onTap: () => onTap(tag),
+                onLongPress: () => onLongPress(tag),
               ),
             ),
             if (hiddenCount > 0)
@@ -50,22 +51,6 @@ class TagGroup extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 onPressed: onShowMore,
               ),
-            ActionChip(
-              avatar: Icon(
-                Icons.add_rounded,
-                size: 16,
-                color: colorScheme.onSecondaryContainer,
-              ),
-              label: const Text('Add tag'),
-              backgroundColor: colorScheme.secondaryContainer,
-              labelStyle: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSecondaryContainer,
-              ),
-              side: BorderSide.none,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-              onPressed: onAdd,
-            ),
           ],
         ),
       ],
@@ -76,29 +61,38 @@ class TagGroup extends StatelessWidget {
 class _TagChip extends StatelessWidget {
   const _TagChip({
     required this.tag,
-    required this.onDeleted,
+    required this.onTap,
+    required this.onLongPress,
   });
 
   final String tag;
-  final VoidCallback onDeleted;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return InputChip(
-      label: Text(tag),
-      backgroundColor: colorScheme.secondaryContainer,
-      labelStyle: theme.textTheme.labelMedium?.copyWith(
-        color: colorScheme.onSecondaryContainer,
-        fontWeight: FontWeight.w500,
+    return Material(
+      color: colorScheme.secondaryContainer.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+          child: Text(
+            tag,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSecondaryContainer,
+              fontWeight: FontWeight.w600,
+              height: 1,
+            ),
+          ),
+        ),
       ),
-      deleteIconColor: colorScheme.onSecondaryContainer,
-      side: BorderSide.none,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      onDeleted: onDeleted,
     );
   }
 }

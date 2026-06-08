@@ -5,6 +5,7 @@ import 'digest_notifications.dart';
 import 'summary_rewriter.dart';
 import 'summary_trimmer.dart';
 import 'title_resolver.dart';
+import 'transcript_enrichment_service.dart';
 
 class UrlSaveNotifications {
   UrlSaveNotifications._();
@@ -77,26 +78,64 @@ class UrlSaveNotifications {
       'linkIds': [url.id],
       'title': title,
       'body': body,
+      'contentType': _savedEnrichment(url)?.contentType ?? 'generic',
       'firedAt': DateTime.now().toIso8601String(),
     };
   }
 
   static String _notificationTitle(SavedUrl url) {
-    final resolved = TitleResolver.resolveStableDisplayTitle(url);
-    return TitleResolver.truncateTitle(resolved, maxLength: 64);
+    final recipe = _savedEnrichment(url)?.recipe;
+    if (recipe != null && recipe.title.trim().isNotEmpty) {
+      return TitleResolver.truncateTitle(recipe.title.trim(), maxLength: 52);
+    }
+    final resolved = TitleResolver.resolveDetailTitle(url);
+    return TitleResolver.truncateTitle(resolved, maxLength: 52);
   }
 
   static String? _notificationBody(SavedUrl url) {
+    final recipe = _savedEnrichment(url)?.recipe;
+    if (recipe != null) {
+      final recipeSummary = SummaryRewriter.clean(
+        recipe.summary ?? recipe.description,
+      );
+      if (recipeSummary.isNotEmpty) {
+        return SummaryTrimmer.trim(recipeSummary, maxLength: 150);
+      }
+    }
+
     final summary = SummaryRewriter.clean(url.summary);
     if (summary.isNotEmpty) {
-      return SummaryTrimmer.trim(summary, maxLength: 150);
+      return _microSummary(summary);
     }
 
     final description = SummaryRewriter.clean(url.description);
     if (description.isNotEmpty) {
-      return SummaryTrimmer.trim(description, maxLength: 150);
+      return _microSummary(description);
     }
 
     return null;
+  }
+
+  static String _microSummary(String text) {
+    final sentence = SummaryTrimmer.trim(text, maxLength: 96)
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    final words = sentence.split(' ').where((word) => word.isNotEmpty).toList();
+    if (words.length <= 12) return sentence;
+    return '${words.take(12).join(' ')}.';
+  }
+
+  static TranscriptEnrichmentResult? _savedEnrichment(SavedUrl url) {
+    final raw = url.enrichmentJson;
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      return TranscriptEnrichmentResult.fromJson(
+        Map<String, dynamic>.from(decoded),
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }

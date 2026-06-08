@@ -164,6 +164,44 @@ class EnrichmentService {
           !url.tags.contains(metadata.siteName!)) {
         url.tags = [...url.tags, metadata.siteName!];
       }
+      final recipe = metadata.recipe;
+      if (recipe != null) {
+        final normalized = CategoryTaxonomy.normalize(
+          category: 'Food & Cooking',
+          tags: [...recipe.tags, 'recipe'],
+        );
+        final existing = _savedEnrichment(url);
+        final recipeTags = TagNoiseFilter.filterTags([
+          ...recipe.tags,
+          'recipe',
+          if ((recipe.cuisine ?? '').isNotEmpty) recipe.cuisine!,
+          if ((recipe.category ?? '').isNotEmpty) recipe.category!,
+        ]);
+        final result = TranscriptEnrichmentResult(
+          meaningfulTitle: recipe.title,
+          summary: recipe.summary ?? recipe.description ?? '',
+          category: normalized.name,
+          tags: recipeTags,
+          contentType: 'recipe',
+          brief: existing?.brief,
+          steps: existing?.steps ?? const [],
+          mentions: existing?.mentions ?? const [],
+          recipe: recipe,
+          keyPoints: existing?.keyPoints ?? const [],
+          thumbnailUrl: recipe.image ?? metadata.imageUrl,
+          creator: recipe.author ?? metadata.author,
+        );
+        url
+          ..category = normalized.name
+          ..categoryEmoji = normalized.emoji
+          ..categories = CategoryResolver.buildCategories(
+            primaryCategory: normalized.name,
+            platformCategory: DomainCategorizer.categorize(url.rawUrl).category,
+          )
+          ..tags = TagNoiseFilter.filterTags([...url.tags, ...recipeTags])
+          ..summary = result.summary.isEmpty ? url.summary : result.summary
+          ..enrichmentJson = jsonEncode(result.toJson());
+      }
 
       await _isarService.updateUrl(url);
       developer.log('enrichMetadata SAVE OK: ${url.rawUrl}', name: 'Enrichment');
@@ -205,11 +243,22 @@ class EnrichmentService {
     developer.log('_enrichAi START: ${url.rawUrl}', name: 'Enrichment');
 
     final platformCat = DomainCategorizer.categorize(url.rawUrl);
+    final savedEnrichment = _savedEnrichment(url);
+    final savedRecipe = savedEnrichment?.recipe;
+    final recipeStepsNeedWork = savedRecipe != null &&
+        (savedRecipe.steps.length <= 1 ||
+            (savedRecipe.steps.length <= 3 &&
+                savedRecipe.steps.any((step) => step.length > 300)));
+    final recipeAlreadyEnhanced = savedRecipe != null &&
+        (savedRecipe.summary?.trim().isNotEmpty ?? false) &&
+        (savedRecipe.difficulty?.trim().isNotEmpty ?? false) &&
+        !recipeStepsNeedWork;
 
     // Skip if already AI-categorized (not just domain fallback)
     if (!force &&
         (url.category != platformCat.category || _hasStableEnrichment(url)) &&
-        url.summary != null) {
+        url.summary != null &&
+        (savedRecipe == null || recipeAlreadyEnhanced)) {
       developer.log('_enrichAi SKIP (already enriched): ${url.rawUrl}',
           name: 'Enrichment');
       return;
@@ -270,6 +319,76 @@ class EnrichmentService {
         '_enrichAi transcript backend RESULT: cat=$category, '
         'tags=${tags.length}, summary=${summary?.length ?? 0} chars',
         name: 'Enrichment',
+      );
+    } else if (savedRecipe != null) {
+      RecipeEnhancementResult? enhancement;
+      if (_geminiService != null && !aiLimitReached) {
+        try {
+          enhancement = await _geminiService.enhanceRecipe(
+            recipe: savedRecipe,
+            url: url.rawUrl,
+          );
+          if (countUsage) {
+            await _usageService.incrementUsage(UsageFeature.aiSave);
+          }
+        } catch (e, st) {
+          developer.log(
+            '_enrichAi recipe enhancement failed for $urlId: $e',
+            name: 'Enrichment',
+            stackTrace: st,
+          );
+        }
+      }
+
+      final enhancedSteps = (enhancement?.steps.isNotEmpty ?? false)
+          ? enhancement!.steps
+          : savedRecipe.steps;
+      final enhancedRecipe = savedRecipe.copyWith(
+        summary: enhancement?.summary.trim().isNotEmpty == true
+            ? enhancement!.summary
+            : savedRecipe.summary ?? savedRecipe.description,
+        difficulty: enhancement?.difficulty.trim().isNotEmpty == true
+            ? enhancement!.difficulty
+            : savedRecipe.difficulty ?? _recipeDifficulty(savedRecipe),
+        tags: TagNoiseFilter.filterTags([
+          ...savedRecipe.tags,
+          ...?enhancement?.tags,
+          'recipe',
+        ]),
+        steps: enhancedSteps,
+      );
+      final normalized = CategoryTaxonomy.normalize(
+        category: 'Food & Cooking',
+        tags: enhancedRecipe.tags,
+      );
+      category = normalized.name;
+      emoji = normalized.emoji;
+      tags = enhancedRecipe.tags;
+      summary = enhancedRecipe.summary?.trim().isNotEmpty == true
+          ? enhancedRecipe.summary
+          : _metadataFallbackSummary(url);
+      enrichedTitle =
+          enhancedRecipe.title.trim().isEmpty ? null : enhancedRecipe.title;
+      enrichedThumbnailUrl = enhancedRecipe.image;
+      enrichmentJson = jsonEncode(
+        TranscriptEnrichmentResult(
+          meaningfulTitle: enrichedTitle ?? savedEnrichment!.meaningfulTitle,
+          summary: summary ?? '',
+          category: category,
+          tags: tags,
+          contentType: 'recipe',
+          brief: summary,
+          steps: savedEnrichment!.steps,
+          mentions: savedEnrichment.mentions,
+          recipe: enhancedRecipe,
+          keyPoints: savedEnrichment.keyPoints,
+          thumbnailUrl: enrichedThumbnailUrl ?? savedEnrichment.thumbnailUrl,
+          creator: enhancedRecipe.author ?? savedEnrichment.creator,
+          caption: savedEnrichment.caption,
+          transcript: savedEnrichment.transcript,
+          likeCount: savedEnrichment.likeCount,
+          commentCount: savedEnrichment.commentCount,
+        ).toJson(),
       );
     } else if (_geminiService != null && !aiLimitReached) {
 
@@ -371,6 +490,30 @@ class EnrichmentService {
       if (!tags.contains(phrase)) tags.add(phrase);
     }
     return tags;
+  }
+
+  TranscriptEnrichmentResult? _savedEnrichment(SavedUrl url) {
+    final raw = url.enrichmentJson;
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      return TranscriptEnrichmentResult.fromJson(
+        Map<String, dynamic>.from(decoded),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _recipeDifficulty(EnrichedRecipe recipe) {
+    if (recipe.steps.length <= 5 && recipe.ingredients.length <= 10) {
+      return 'Easy';
+    }
+    if (recipe.steps.length >= 12 || recipe.ingredients.length >= 20) {
+      return 'Hard';
+    }
+    return 'Medium';
   }
 
   bool _hasStableEnrichment(SavedUrl url) {

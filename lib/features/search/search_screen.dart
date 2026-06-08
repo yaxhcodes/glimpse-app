@@ -28,9 +28,14 @@ enum DateFilter {
 final dateFilterProvider = StateProvider<DateFilter>((ref) => DateFilter.all);
 
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key, this.embedded = false});
+  const SearchScreen({
+    super.key,
+    this.embedded = false,
+    this.initialQuery,
+  });
 
   final bool embedded;
+  final String? initialQuery;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -41,6 +46,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchFocus = FocusNode();
   Timer? _debounce;
   bool _pendingSearch = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialQuery?.trim() ?? '';
+    if (initial.isNotEmpty) {
+      _controller.text = initial;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(searchProvider.notifier).search(initial);
+      });
+    }
+  }
 
   List<SearchResult> _applyDateFilter(
     List<SearchResult> results,
