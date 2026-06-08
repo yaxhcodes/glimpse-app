@@ -97,6 +97,10 @@ class _DigestScreenState extends ConsumerState<DigestScreen> {
                     url: urls[i]!,
                     tagFrequency: tagFreq,
                     onOpen: () => _open(urls[i]!),
+                    siblingIds: urls
+                        .whereType<SavedUrl>()
+                        .map((u) => u.id)
+                        .toList(),
                   ),
                 const SizedBox(height: 12),
               ],
@@ -129,11 +133,13 @@ class _DigestTile extends StatelessWidget {
     required this.url,
     required this.tagFrequency,
     required this.onOpen,
+    required this.siblingIds,
   });
 
   final SavedUrl url;
   final Map<String, int> tagFrequency;
   final VoidCallback onOpen;
+  final List<int> siblingIds;
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +186,10 @@ class _DigestTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 TextButton(
-                  onPressed: () => context.push('/url/${url.id}'),
+                  onPressed: () => context.push(
+                    '/url/${url.id}',
+                    extra: siblingIds,
+                  ),
                   child: const Text('Details'),
                 ),
               ],

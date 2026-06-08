@@ -822,6 +822,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final url = section.urls[index];
+                      final sectionIds =
+                          section.urls.map((u) => u.id).toList();
                       return SwipeableUrlCard(
                         key: ValueKey(url.id),
                         url: url,
@@ -831,7 +833,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             selectionNotifier.startWith(url.id),
                         onSelectionToggle: () =>
                             selectionNotifier.toggle(url.id),
-                        onTap: () => context.push('/url/${url.id}'),
+                        onTap: () => context.push(
+                          '/url/${url.id}',
+                          extra: sectionIds,
+                        ),
                         onViewPinned: () {
                           _scrollController.animateTo(
                             0,

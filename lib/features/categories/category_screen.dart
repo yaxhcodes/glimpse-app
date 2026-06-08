@@ -154,6 +154,7 @@ class CategoryScreen extends ConsumerWidget {
                   SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final url = urls[index];
+                      final allIds = urls.map((u) => u.id).toList();
                       return SwipeableUrlCard(
                         key: ValueKey(url.id),
                         url: url,
@@ -163,7 +164,10 @@ class CategoryScreen extends ConsumerWidget {
                             selectionNotifier.startWith(url.id),
                         onSelectionToggle: () =>
                             selectionNotifier.toggle(url.id),
-                        onTap: () => context.push('/url/${url.id}'),
+                        onTap: () => context.push(
+                          '/url/${url.id}',
+                          extra: allIds,
+                        ),
                         onDelete: (context, ref, url) async {
                           await deleteUrlWithUndo(context, ref, url);
                           ref.invalidate(categoryUrlsProvider(categoryName));

@@ -102,7 +102,13 @@ class RediscoverySection extends ConsumerWidget {
                       await svc.markOpened(links[i].id);
                       ref.invalidate(rediscoveryLinksProvider);
                       if (context.mounted) {
-                        context.push('/url/${links[i].id}');
+                        context.push(
+                          '/url/${links[i].id}',
+                          extra: links
+                              .take(previewCount)
+                              .map((l) => l.id)
+                              .toList(),
+                        );
                       }
                     },
                   ),

@@ -140,7 +140,10 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
           elevation: 0,
           shape: UrlCard.listCardShape(theme, radius: 12),
           child: InkWell(
-            onTap: () => context.push('/url/${u.id}'),
+            onTap: () => context.push(
+              '/url/${u.id}',
+              extra: _urls.map((url) => url.id).toList(),
+            ),
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.all(12),

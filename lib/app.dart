@@ -119,6 +119,14 @@ final _router = GoRouter(
       path: '/url/:id',
       builder: (context, state) {
         final id = int.parse(state.pathParameters['id']!);
+        final siblings = state.extra is List<int> ? state.extra as List<int> : null;
+        if (siblings != null && siblings.length > 1) {
+          final index = siblings.indexOf(id);
+          return UrlDetailPagerScreen(
+            urlIds: siblings,
+            initialIndex: index < 0 ? 0 : index,
+          );
+        }
         return UrlDetailScreen(urlId: id);
       },
     ),

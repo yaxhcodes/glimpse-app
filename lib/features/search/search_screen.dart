@@ -98,12 +98,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
   }
 
-  Future<void> _onOpenResult(SearchResult result) async {
+  Future<void> _onOpenResult(
+    SearchResult result, {
+    List<int> siblingIds = const [],
+  }) async {
     await ref
         .read(isarServiceProvider)
         .updateOpenedAt(result.url.id, DateTime.now());
     if (!mounted) return;
-    context.push('/url/${result.url.id}');
+    context.push(
+      '/url/${result.url.id}',
+      extra: siblingIds.isNotEmpty ? siblingIds : null,
+    );
   }
 
   @override
@@ -423,6 +429,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       itemBuilder: (context, index) {
                                         final result = filtered[index];
                                         final url = result.url;
+                                        final filteredIds = filtered
+                                            .map((r) => r.url.id)
+                                            .toList();
                                         return SwipeableUrlCard(
                                           key: ValueKey(url.id),
                                           url: url,
@@ -445,7 +454,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                                   .search(t);
                                             }
                                           },
-                                          onTap: () => _onOpenResult(result),
+                                          onTap: () => _onOpenResult(
+                                            result,
+                                            siblingIds: filteredIds,
+                                          ),
                                         );
                                       },
                                     ),

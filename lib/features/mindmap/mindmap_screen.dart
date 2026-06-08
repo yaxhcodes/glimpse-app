@@ -987,6 +987,8 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                       );
                     }
                     final url = visibleUrls[index ~/ 2];
+                    final clusterIds =
+                        visibleUrls.map((u) => u.id).toList();
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _ClusterUrlRow(
@@ -997,7 +999,10 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                             selectedSub == null ? subLabelByUrl[url.id] : null,
                         onTap: () {
                           HapticFeedback.lightImpact();
-                          context.push('/url/${url.id}');
+                          context.push(
+                            '/url/${url.id}',
+                            extra: clusterIds,
+                          );
                         },
                       ),
                     );

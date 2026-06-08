@@ -119,6 +119,7 @@ class _CollectionDetailScreenState
                 ),
               );
             }
+            final allIds = urls.map((u) => u.id).toList();
             return ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: urls.length,
@@ -144,7 +145,10 @@ class _CollectionDetailScreenState
                   onChanged: () {
                     ref.invalidate(collectionUrlsProvider(widget.collectionId));
                   },
-                  onTap: () => context.push('/url/${url.id}'),
+                  onTap: () => context.push(
+                    '/url/${url.id}',
+                    extra: allIds,
+                  ),
                 );
               },
             );

@@ -37,6 +37,156 @@ class UrlDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<UrlDetailScreen> createState() => _UrlDetailScreenState();
 }
 
+/// Wraps [UrlDetailScreen] in a horizontal [PageView] so the user can
+/// swipe between posts in the same context list (like Reddit).
+class UrlDetailPagerScreen extends StatefulWidget {
+  /// Ordered list of URL IDs in the current context (e.g. home section, category).
+  final List<int> urlIds;
+
+  /// Index of the URL that was tapped — this page is shown first.
+  final int initialIndex;
+
+  const UrlDetailPagerScreen({
+    super.key,
+    required this.urlIds,
+    required this.initialIndex,
+  });
+
+  @override
+  State<UrlDetailPagerScreen> createState() => _UrlDetailPagerScreenState();
+}
+
+class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
+  late final PageController _pageController;
+
+  // Drag tracking for custom horizontal-swipe detection.
+  double _dragStartX = 0;
+  double _dragDeltaX = 0;
+  double _dragStartScrollOffset = 0; // PageController offset at drag start
+  bool _isDraggingHorizontal = false;
+
+  // Snap threshold: must drag at least this far to flip pages.
+  static const double _snapFraction = 0.3;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onDragStart(DragStartDetails d) {
+    _dragStartX = d.globalPosition.dx;
+    _dragDeltaX = 0;
+    _isDraggingHorizontal = false;
+    // Snapshot the scroll position at the moment the finger lands so every
+    // subsequent update is relative to a stable baseline.
+    _dragStartScrollOffset = _pageController.hasClients
+        ? _pageController.offset
+        : widget.initialIndex * MediaQuery.sizeOf(context).width;
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    _dragDeltaX = d.globalPosition.dx - _dragStartX;
+
+    // Only engage once the gesture is clearly horizontal.
+    if (!_isDraggingHorizontal && _dragDeltaX.abs() > 8) {
+      _isDraggingHorizontal = true;
+    }
+    if (!_isDraggingHorizontal) return;
+
+    // Translate finger offset directly to page position for 1:1 feel.
+    // Clamp so we don't scroll past the first/last page.
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final maxOffset = (widget.urlIds.length - 1) * screenWidth;
+    final target = (_dragStartScrollOffset - _dragDeltaX).clamp(0.0, maxOffset);
+    _pageController.jumpTo(target);
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    if (!_isDraggingHorizontal) return;
+    _isDraggingHorizontal = false;
+
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    // The page the swipe originated from (stable, not drifted).
+    final originPage =
+        (_dragStartScrollOffset / screenWidth).round().clamp(0, widget.urlIds.length - 1);
+    final fraction = _dragDeltaX.abs() / screenWidth;
+    final velocity = d.velocity.pixelsPerSecond.dx.abs();
+
+    // Commit to next/prev if dragged far enough or flicked fast enough.
+    int targetPage = originPage;
+    if (_dragDeltaX < 0 && originPage < widget.urlIds.length - 1) {
+      if (fraction >= _snapFraction || velocity > 600) {
+        targetPage = originPage + 1;
+      }
+    } else if (_dragDeltaX > 0 && originPage > 0) {
+      if (fraction >= _snapFraction || velocity > 600) {
+        targetPage = originPage - 1;
+      }
+    }
+
+    _pageController.animateToPage(
+      targetPage,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onHorizontalDragStart: _onDragStart,
+      onHorizontalDragUpdate: _onDragUpdate,
+      onHorizontalDragEnd: _onDragEnd,
+      // Exclude the gesture from competing with vertical scrolls inside pages.
+      excludeFromSemantics: true,
+      child: PageView.builder(
+        controller: _pageController,
+        // Let our GestureDetector drive paging; disable built-in page physics
+        // so there's no double-handling and no scroll-axis fight.
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: widget.urlIds.length,
+        itemBuilder: (context, index) {
+          return _KeepAlivePage(
+            child: UrlDetailScreen(
+              key: ValueKey(widget.urlIds[index]),
+              urlId: widget.urlIds[index],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Keeps a pager page alive in the widget tree so it isn't rebuilt
+/// every time the user swipes away and back.
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
 class _DetailMetadata {
   const _DetailMetadata({
     this.likesLabel,
@@ -2900,6 +3050,3 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year} • $hour12:$minute $period';
   }
 }
-
-
-
