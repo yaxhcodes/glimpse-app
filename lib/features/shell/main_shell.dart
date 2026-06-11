@@ -71,8 +71,6 @@ class _MainShellState extends ConsumerState<MainShell> {
                   HapticFeedback.lightImpact();
                   context.push('/ask');
                 },
-                backgroundColor: cs.secondaryContainer,
-                foregroundColor: cs.onSecondaryContainer,
                 icon: SvgPicture.asset(
                   'assets/glimpse.svg',
                   width: 20,

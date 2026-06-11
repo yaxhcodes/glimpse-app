@@ -311,8 +311,11 @@ class AppTheme {
         textColor: colorScheme.onError,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: colorScheme.primaryContainer,
-        foregroundColor: colorScheme.onPrimaryContainer,
+        // Calm tonal FAB that matches the nav indicator pill, rather than the
+        // saturated primaryContainer (which gets loud with a vivid dynamic
+        // accent). Keeps every FAB in the app consistent.
+        backgroundColor: colorScheme.secondaryContainer,
+        foregroundColor: colorScheme.onSecondaryContainer,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
