@@ -11,6 +11,8 @@ class ShoppingListItem {
     required this.recipeTitle,
     required this.ingredient,
     this.isChecked = false,
+    this.mergedSources = const [],
+    this.mergedQuantityLabel,
   });
 
   final String id;
@@ -19,13 +21,33 @@ class ShoppingListItem {
   final EnrichedRecipeIngredient ingredient;
   final bool isChecked;
 
-  ShoppingListItem copyWith({bool? isChecked}) {
+  /// Additional recipe sources merged into this item (name + title pairs).
+  final List<_MergedSource> mergedSources;
+
+  /// Combined quantity label when multiple recipes contributed (e.g. "6 cloves").
+  final String? mergedQuantityLabel;
+
+  /// All recipe titles contributing to this ingredient (primary + merged).
+  List<String> get allRecipeTitles => [
+        recipeTitle,
+        ...mergedSources.map((s) => s.recipeTitle),
+      ].toSet().toList();
+
+  bool get isMerged => mergedSources.isNotEmpty;
+
+  ShoppingListItem copyWith({
+    bool? isChecked,
+    List<_MergedSource>? mergedSources,
+    String? mergedQuantityLabel,
+  }) {
     return ShoppingListItem(
       id: id,
       recipeId: recipeId,
       recipeTitle: recipeTitle,
       ingredient: ingredient,
       isChecked: isChecked ?? this.isChecked,
+      mergedSources: mergedSources ?? this.mergedSources,
+      mergedQuantityLabel: mergedQuantityLabel ?? this.mergedQuantityLabel,
     );
   }
 
@@ -35,6 +57,10 @@ class ShoppingListItem {
         'recipe_title': recipeTitle,
         'ingredient': ingredient.toJson(),
         'is_checked': isChecked,
+        if (mergedSources.isNotEmpty)
+          'merged_sources': mergedSources.map((s) => s.toJson()).toList(),
+        if (mergedQuantityLabel != null)
+          'merged_quantity_label': mergedQuantityLabel,
       };
 
   static ShoppingListItem? fromJson(Object? raw) {
@@ -52,12 +78,47 @@ class ShoppingListItem {
     );
     final id = json['id']?.toString().trim() ?? '';
     if (id.isEmpty || ingredient.name.isEmpty) return null;
+    final rawMerged = json['merged_sources'];
+    final mergedSources = rawMerged is List
+        ? rawMerged
+            .map(_MergedSource.fromJson)
+            .whereType<_MergedSource>()
+            .toList()
+        : const <_MergedSource>[];
     return ShoppingListItem(
       id: id,
       recipeId: (json['recipe_id'] as num?)?.toInt() ?? 0,
       recipeTitle: json['recipe_title']?.toString().trim() ?? 'Recipe',
       ingredient: ingredient,
       isChecked: json['is_checked'] == true,
+      mergedSources: mergedSources,
+      mergedQuantityLabel: json['merged_quantity_label']?.toString().trim(),
+    );
+  }
+}
+
+class _MergedSource {
+  const _MergedSource({required this.recipeId, required this.recipeTitle, this.quantityLabel});
+
+  final int recipeId;
+  final String recipeTitle;
+  final String? quantityLabel;
+
+  Map<String, dynamic> toJson() => {
+        'recipe_id': recipeId,
+        'recipe_title': recipeTitle,
+        if (quantityLabel != null) 'quantity_label': quantityLabel,
+      };
+
+  static _MergedSource? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final json = Map<String, dynamic>.from(raw);
+    final title = json['recipe_title']?.toString().trim() ?? '';
+    if (title.isEmpty) return null;
+    return _MergedSource(
+      recipeId: (json['recipe_id'] as num?)?.toInt() ?? 0,
+      recipeTitle: title,
+      quantityLabel: json['quantity_label']?.toString().trim(),
     );
   }
 }
@@ -130,27 +191,97 @@ class RecipeStateService {
     }
   }
 
+  /// Returns a normalized key for deduplication by ingredient name.
+  /// Two ingredients with the same canonical name are considered the same item.
+  static String _canonicalName(String name) {
+    return name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  /// Merges [quantity] labels into a combined total label where possible.
+  /// Falls back to concatenation if numeric addition isn't feasible.
+  static String? _mergeQuantityLabels(String? existing, String? incoming) {
+    if (existing == null || existing.isEmpty) return incoming;
+    if (incoming == null || incoming.isEmpty) return existing;
+    // Try to extract numeric values and unit from both
+    final numRe = RegExp(r'^(\d+(?:[.,]\d+)?)\s*(.*)$');
+    final mA = numRe.firstMatch(existing.trim());
+    final mB = numRe.firstMatch(incoming.trim());
+    if (mA != null && mB != null) {
+      final unitA = mA.group(2)?.trim() ?? '';
+      final unitB = mB.group(2)?.trim() ?? '';
+      if (unitA.toLowerCase() == unitB.toLowerCase()) {
+        final a = double.tryParse(mA.group(1)!.replaceAll(',', '.'));
+        final b = double.tryParse(mB.group(1)!.replaceAll(',', '.'));
+        if (a != null && b != null) {
+          final sum = a + b;
+          final sumStr = sum == sum.truncateToDouble()
+              ? sum.toInt().toString()
+              : sum.toStringAsFixed(1);
+          return unitA.isEmpty ? sumStr : '$sumStr $unitA';
+        }
+      }
+    }
+    return '$existing + $incoming';
+  }
+
   Future<int> addToShoppingList({
     required int recipeId,
     required String recipeTitle,
     required List<MapEntry<int, EnrichedRecipeIngredient>> ingredients,
   }) async {
     final items = shoppingList();
+    // Build a map from canonical ingredient name to its list index for merging.
+    final nameIndex = <String, int>{};
+    for (var i = 0; i < items.length; i++) {
+      nameIndex[_canonicalName(items[i].ingredient.name)] = i;
+    }
     final existingIds = items.map((item) => item.id).toSet();
     var added = 0;
     for (final entry in ingredients) {
       final key = ingredientKey(entry.value, entry.key);
       final id = '${recipeId}_$key';
-      if (!existingIds.add(id)) continue;
-      items.add(
-        ShoppingListItem(
+      final canonical = _canonicalName(entry.value.name);
+
+      if (nameIndex.containsKey(canonical)) {
+        // Ingredient already present — merge into existing entry
+        final idx = nameIndex[canonical]!;
+        final existing = items[idx];
+        // Avoid re-merging the exact same recipe+key combination
+        if (!existingIds.contains(id)) {
+          existingIds.add(id);
+          final incomingQty = entry.value.amountLabel.trim();
+          final mergedQty = _mergeQuantityLabels(
+            existing.mergedQuantityLabel ?? existing.ingredient.amountLabel,
+            incomingQty,
+          );
+          final newSource = _MergedSource(
+            recipeId: recipeId,
+            recipeTitle: recipeTitle,
+            quantityLabel: incomingQty.isEmpty ? null : incomingQty,
+          );
+          items[idx] = existing.copyWith(
+            mergedSources: [...existing.mergedSources, newSource],
+            mergedQuantityLabel: mergedQty,
+          );
+          added++;
+        }
+      } else {
+        // New ingredient
+        if (!existingIds.add(id)) continue;
+        final newItem = ShoppingListItem(
           id: id,
           recipeId: recipeId,
           recipeTitle: recipeTitle,
           ingredient: entry.value,
-        ),
-      );
-      added++;
+        );
+        items.add(newItem);
+        nameIndex[canonical] = items.length - 1;
+        added++;
+      }
     }
     await _writeShoppingList(items);
     return added;

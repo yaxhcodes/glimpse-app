@@ -227,26 +227,36 @@ class _GlimpseSavedNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.42),
+      colorScheme.onSurfaceVariant,
+    );
+    final mutedSurface = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.035),
+      colorScheme.surfaceContainerHighest,
+    );
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.42),
+        color: mutedSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.28),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome_rounded, size: 16, color: colorScheme.primary),
+              Icon(Icons.auto_awesome_rounded, size: 16, color: accent),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
                   'Ask Glimpse',
                   style: theme.textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                     height: 1.1,
                   ),
@@ -256,7 +266,7 @@ class _GlimpseSavedNoteCard extends StatelessWidget {
                 Text(
                   note.asked!,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.66),
+                    color: colorScheme.onSurfaceVariant,
                     height: 1,
                   ),
                 ),
@@ -267,7 +277,7 @@ class _GlimpseSavedNoteCard extends StatelessWidget {
             Text(
               note.question!,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onPrimaryContainer,
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
                 height: 1.35,
               ),
@@ -368,6 +378,31 @@ class _RecipeCookingModeScreen extends StatefulWidget {
 
 class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
   int _index = 0;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    // Keep screen awake while cooking
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int index) {
+    if (index < 0 || index >= widget.recipe.steps.length) return;
+    setState(() => _index = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeInOut,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -376,53 +411,102 @@ class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
     final steps = widget.recipe.steps;
     final isFirst = _index == 0;
     final isLast = _index == steps.length - 1;
+    final progress = steps.isEmpty ? 0.0 : (_index + 1) / steps.length;
+    final cookAccent = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.42),
+      colorScheme.onSurfaceVariant,
+    );
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
+        backgroundColor: colorScheme.surface,
         title: Text(
-          widget.recipe.title.isEmpty ? 'Cooking mode' : widget.recipe.title,
+          widget.recipe.title.isEmpty ? 'Cooking Mode' : widget.recipe.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            backgroundColor: colorScheme.surfaceContainerHigh,
+            color: cookAccent,
+            minHeight: 3,
+          ),
+        ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: Text(
                 'Step ${_index + 1} of ${steps.length}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.primary,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: cookAccent,
                   fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
                 ),
               ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
+            ),
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: steps.length,
+                itemBuilder: (context, i) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                     child: Text(
-                      steps[_index],
+                      steps[i],
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: colorScheme.onSurface,
-                        height: 1.45,
-                        fontWeight: FontWeight.w600,
+                        height: 1.55,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 22,
                       ),
                     ),
-                  ),
+                  );
+                },
+              ),
+            ),
+            // Step dot indicators
+            if (steps.length <= 12)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(steps.length, (i) {
+                    final active = i == _index;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: active ? 20 : 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: active
+                            ? cookAccent
+                            : colorScheme.outlineVariant.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
+                  }),
                 ),
               ),
-              const SizedBox(height: 20),
-              Row(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: isFirst
-                          ? null
-                          : () => setState(() => _index--),
+                      onPressed: isFirst ? null : () => _goTo(_index - 1),
                       icon: const Icon(Icons.arrow_back_rounded),
                       label: const Text('Previous'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -430,17 +514,22 @@ class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
                     child: FilledButton.icon(
                       onPressed: isLast
                           ? () => Navigator.pop(context)
-                          : () => setState(() => _index++),
+                          : () => _goTo(_index + 1),
                       icon: Icon(
-                        isLast ? Icons.check_rounded : Icons.arrow_forward_rounded,
+                        isLast
+                            ? Icons.check_circle_rounded
+                            : Icons.arrow_forward_rounded,
                       ),
-                      label: Text(isLast ? 'Finish' : 'Next'),
+                      label: Text(isLast ? 'Done!' : 'Next'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -796,39 +885,104 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                             itemCount: items.length,
                             itemBuilder: (context, index) {
                               final item = items[index];
-                              return CheckboxListTile(
-                                value: item.isChecked,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(
-                                  item.ingredient.displayText,
-                                  style: item.isChecked
-                                      ? const TextStyle(
-                                          decoration:
-                                              TextDecoration.lineThrough,
-                                        )
-                                      : null,
+                              final colorScheme =
+                                  Theme.of(context).colorScheme;
+                              // Build display: name on top, quantity + sources below
+                              final qtyLabel = item.mergedQuantityLabel
+                                      ?.trim()
+                                      .isNotEmpty ==
+                                  true
+                                  ? item.mergedQuantityLabel!
+                                  : item.ingredient.amountLabel.trim();
+                              final sourceLine =
+                                  item.allRecipeTitles.join(' · ');
+                              return Dismissible(
+                                key: ValueKey(item.id),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  color: colorScheme.errorContainer,
+                                  child: Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: colorScheme.onErrorContainer,
+                                  ),
                                 ),
-                                subtitle: Text(item.recipeTitle),
-                                secondary: IconButton(
-                                  tooltip: 'Remove',
-                                  icon: const Icon(Icons.close_rounded),
-                                  onPressed: () async {
-                                    await service.removeShoppingItem(item.id);
+                                onDismissed: (_) async {
+                                  await service.removeShoppingItem(item.id);
+                                  setSheetState(
+                                    () => items = service.shoppingList(),
+                                  );
+                                },
+                                child: CheckboxListTile(
+                                  value: item.isChecked,
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  title: Text(
+                                    item.ingredient.name,
+                                    style: item.isChecked
+                                        ? TextStyle(
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.4),
+                                          )
+                                        : null,
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (qtyLabel.isNotEmpty)
+                                        Text(
+                                          item.isMerged
+                                              ? 'Total: $qtyLabel'
+                                              : qtyLabel,
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                            color: item.isMerged
+                                                ? _recipeAccent(colorScheme)
+                                                : colorScheme
+                                                    .onSurfaceVariant,
+                                            fontWeight: item.isMerged
+                                                ? FontWeight.w700
+                                                : null,
+                                          ),
+                                        ),
+                                      Text(
+                                        sourceLine,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: colorScheme.onSurfaceVariant
+                                              .withValues(alpha: 0.7),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                  isThreeLine: qtyLabel.isNotEmpty,
+                                  secondary: IconButton(
+                                    tooltip: 'Remove',
+                                    icon: const Icon(Icons.close_rounded),
+                                    onPressed: () async {
+                                      await service
+                                          .removeShoppingItem(item.id);
+                                      setSheetState(
+                                        () => items = service.shoppingList(),
+                                      );
+                                    },
+                                  ),
+                                  onChanged: (checked) async {
+                                    await service.setShoppingItemChecked(
+                                      item.id,
+                                      checked ?? false,
+                                    );
                                     setSheetState(
                                       () => items = service.shoppingList(),
                                     );
                                   },
                                 ),
-                                onChanged: (checked) async {
-                                  await service.setShoppingItemChecked(
-                                    item.id,
-                                    checked ?? false,
-                                  );
-                                  setSheetState(
-                                    () => items = service.shoppingList(),
-                                  );
-                                },
                               );
                             },
                           ),
@@ -1002,7 +1156,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       label: Text(name),
                       side: isCurrentCat
                           ? BorderSide(
-                              color: theme.colorScheme.primary, width: 2)
+                              color: _recipeAccent(theme.colorScheme),
+                              width: 1.5,
+                            )
                           : null,
                       onPressed: () => Navigator.pop(ctx, {
                         'category': name,
@@ -1416,6 +1572,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               onShowMore: () => setState(() => _tagsExpanded = true),
               onTap: _openTagSearch,
               onLongPress: (tag) => _showTagMenu(url, tag),
+              accent: _recipeAccent(colorScheme),
             ),
 
             // ── Notes ───────────────────────────────────────────────────
@@ -1427,7 +1584,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   children: [
                     SectionHeader(
                       title: 'Your Notes',
-                      accent: colorScheme.primary,
+                      accent: _recipeAccent(colorScheme),
                     ),
                     const Spacer(),
                     if (_notesEdited)
@@ -1592,8 +1749,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       colorScheme.surfaceContainerHigh,
     );
     final glow = Color.alphaBlend(
-      accent.withValues(alpha: 0.16),
-      colorScheme.secondaryContainer,
+      accent.withValues(alpha: 0.10),
+      colorScheme.surfaceContainerHighest,
     );
     final label = displaySourceName.trim().isNotEmpty
         ? displaySourceName.trim()
@@ -1701,7 +1858,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Summary', accent: colorScheme.primary),
+        SectionHeader(title: 'Summary', accent: _recipeAccent(colorScheme)),
         const SizedBox(height: 8),
         Text(
           summary,
@@ -1777,7 +1934,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Suggested Actions', accent: colorScheme.primary),
+        SectionHeader(
+          title: 'Suggested Actions',
+          accent: _recipeAccent(colorScheme),
+        ),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -1841,7 +2001,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           child: Text(
             displaySourceName,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.primary,
+              color: _recipeAccent(colorScheme),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -1895,17 +2055,25 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final recipe = live.recipe;
     if (recipe?.hasUsefulContent ?? false) {
       _ensureRecipeStateLoaded(url.id);
+      // Use live.steps as fallback instructions when recipe has no steps.
+      // The transcript backend sometimes puts cooking steps in live.steps
+      // rather than inside the recipe object.
+      final fallbackSteps = recipe!.steps.isEmpty && live.steps.isNotEmpty
+          ? live.steps.map((s) => s.title).where((t) => t.isNotEmpty).toList()
+          : const <String>[];
       sections.addAll([
         const SizedBox(height: 18),
         _buildRecipeSection(
           url: url,
-          recipe: recipe!,
+          recipe: recipe,
+          fallbackSteps: fallbackSteps,
           theme: theme,
           colorScheme: colorScheme,
         ),
       ]);
     }
 
+    // Only show key takeaways when there's no recipe (recipe handles its own steps).
     final showContentSteps = _shouldShowKeyTakeaways(url, live);
     if (showContentSteps) {
       sections.addAll([
@@ -1992,7 +2160,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   bool _shouldShowKeyTakeaways(SavedUrl url, TranscriptEnrichmentResult live) {
-    if (live.steps.isEmpty || live.recipe?.hasUsefulContent == true) {
+    if (live.steps.isEmpty) return false;
+    // Suppress key takeaways when recipe exists AND has its own steps
+    // (live.steps are used as fallback inside the recipe block instead).
+    final recipe = live.recipe;
+    if (recipe?.hasUsefulContent == true && recipe!.steps.isNotEmpty) {
+      return false;
+    }
+    // If recipe exists but has no steps, live.steps are shown as fallback
+    // inside the recipe block — don't double-render them here.
+    if (recipe?.hasUsefulContent == true) {
       return false;
     }
 
@@ -2033,7 +2210,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Color _sectionAccent(String type, ColorScheme colorScheme) {
-    return colorScheme.primary;
+    return _recipeAccent(colorScheme);
   }
 
   Widget _buildContentStepsSection({
@@ -2044,7 +2221,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Key Takeaways', accent: colorScheme.primary),
+        SectionHeader(
+          title: 'Key Takeaways',
+          accent: _recipeAccent(colorScheme),
+        ),
         const SizedBox(height: 10),
         for (final step in steps)
           _buildContentStep(
@@ -2074,7 +2254,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               width: 5,
               height: 5,
               decoration: BoxDecoration(
-                color: colorScheme.primary,
+                color: _recipeAccent(colorScheme),
                 shape: BoxShape.circle,
               ),
             ),
@@ -2099,194 +2279,82 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required EnrichedRecipe recipe,
     required ThemeData theme,
     required ColorScheme colorScheme,
+    List<String> fallbackSteps = const [],
   }) {
-    final metadata = <String>[
-      if ((recipe.prepTime ?? '').isNotEmpty) recipe.prepTime!,
-      if ((recipe.cookTime ?? '').isNotEmpty) recipe.cookTime!,
-      if ((recipe.totalTime ?? '').isNotEmpty) '${recipe.totalTime} total',
-      if ((recipe.servings ?? '').isNotEmpty) recipe.servings!,
-    ];
-    final summary = recipe.summary?.trim().isNotEmpty == true
-        ? recipe.summary!.trim()
-        : recipe.description?.trim() ?? '';
-    final attribution = [
-      if ((recipe.author ?? '').isNotEmpty) recipe.author!,
-      if ((recipe.source ?? '').isNotEmpty) recipe.source!,
-      if ((recipe.cuisine ?? '').isNotEmpty) recipe.cuisine!,
-      if ((recipe.category ?? '').isNotEmpty) recipe.category!,
-    ].toSet().join(' · ');
+    final hook = _recipeHookText(recipe);
+    final nutrition =
+        recipe.nutrition ?? RecipeNutrition.estimateFromRecipe(recipe);
+    final recipeAccent = _recipeAccent(colorScheme);
+    // Use recipe steps if available, otherwise fall back to transcript steps.
+    final displaySteps = recipe.steps.isNotEmpty ? recipe.steps : fallbackSteps;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Section header: "Recipe" label + shopping list shortcut ──────────
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: SectionHeader(
-                title: 'Recipe',
-                accent: colorScheme.primary,
+              child: Text(
+                'Recipe',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
               ),
             ),
             TextButton.icon(
               onPressed: _showShoppingList,
-              icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+              icon: Icon(
+                _shoppingList.isEmpty
+                    ? Icons.shopping_cart_outlined
+                    : Icons.shopping_cart_rounded,
+                size: 17,
+              ),
               label: Text(
                 _shoppingList.isEmpty
-                    ? 'Shopping list'
-                    : 'Shopping list (${_shoppingList.length})',
+                    ? 'Shopping List'
+                    : 'Shopping List (${_shoppingList.length})',
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: recipeAccent,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
             ),
           ],
         ),
-        if (metadata.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: metadata
-                .map(
-                  (label) => _recipeMetaChip(
-                    label: label,
-                    colorScheme: colorScheme,
-                    theme: theme,
-                  ),
-                )
-                .toList(),
+
+        // ── Description hook ─────────────────────────────────────────────
+        if (hook.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _buildRecipeIntro(
+            text: hook,
+            theme: theme,
+            colorScheme: colorScheme,
           ),
         ],
-        if ((recipe.difficulty ?? '').isNotEmpty ||
-            recipe.tags.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if ((recipe.difficulty ?? '').isNotEmpty)
-                _recipeMetaChip(
-                  label: recipe.difficulty!,
-                  icon: Icons.local_fire_department_outlined,
-                  colorScheme: colorScheme,
-                  theme: theme,
-                ),
-              ...recipe.tags.take(5).map(
-                    (tag) => _recipeMetaChip(
-                      label: tag,
-                      colorScheme: colorScheme,
-                      theme: theme,
-                    ),
-                  ),
-            ],
-          ),
-        ],
-        if (summary.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(
-            summary,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-        ],
-        if (attribution.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            attribution,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-        if (recipe.ingredients.isNotEmpty) ...[
+
+        // ── Quick Facts block ────────────────────────────────────────────
+        ..._buildQuickFacts(
+          recipe: recipe,
+          theme: theme,
+          colorScheme: colorScheme,
+        ),
+
+        // ── Nutrition ────────────────────────────────────────────────────
+        if (nutrition?.hasAnyValue == true) ...[
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Ingredients',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () => _checkAllIngredients(url.id, recipe),
-                child: const Text('Check all'),
-              ),
-              TextButton(
-                onPressed: () => _resetIngredientChecks(url.id),
-                child: const Text('Reset'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          ...recipe.ingredients.asMap().entries.map((entry) {
-            final key = RecipeStateService.ingredientKey(
-              entry.value,
-              entry.key,
-            );
-            final checked = _checkedIngredientKeys.contains(key);
-            return CheckboxListTile(
-              value: checked,
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              visualDensity: VisualDensity.compact,
-              title: Text(
-                entry.value.name,
-                style: checked
-                    ? const TextStyle(decoration: TextDecoration.lineThrough)
-                    : null,
-              ),
-              subtitle: [
-                if (entry.value.amountLabel.isNotEmpty)
-                  entry.value.amountLabel,
-                if ((entry.value.notes ?? '').isNotEmpty) entry.value.notes!,
-              ].isEmpty
-                  ? null
-                  : Text(
-                      [
-                        if (entry.value.amountLabel.isNotEmpty)
-                          entry.value.amountLabel,
-                        if ((entry.value.notes ?? '').isNotEmpty)
-                          entry.value.notes!,
-                      ].join(' · '),
-                    ),
-              onChanged: (value) => _setIngredientChecked(
-                url.id,
-                key,
-                value ?? false,
-              ),
-            );
-          }),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => _addRecipeIngredientsToShoppingList(
-                  recipeId: url.id,
-                  recipe: recipe,
-                  selectedOnly: true,
-                ),
-                icon: const Icon(Icons.playlist_add_rounded),
-                label: const Text('Add selected'),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => _addRecipeIngredientsToShoppingList(
-                  recipeId: url.id,
-                  recipe: recipe,
-                  selectedOnly: false,
-                ),
-                icon: const Icon(Icons.add_shopping_cart_rounded),
-                label: const Text('Add all'),
-              ),
-            ],
+          _buildNutritionSection(
+            nutrition: nutrition!,
+            theme: theme,
+            colorScheme: colorScheme,
           ),
         ],
-        if (recipe.steps.isNotEmpty) ...[
+
+        // ── Instructions first ───────────────────────────────────────────
+        if (displaySteps.isNotEmpty) ...[
           const SizedBox(height: 22),
           Row(
             children: [
@@ -2294,7 +2362,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 child: Text(
                   'Instructions',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -2302,16 +2371,27 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     fullscreenDialog: true,
-                    builder: (_) => _RecipeCookingModeScreen(recipe: recipe),
+                    builder: (_) => _RecipeCookingModeScreen(
+                      recipe: recipe.steps.isNotEmpty
+                          ? recipe
+                          : recipe.copyWith(steps: displaySteps),
+                    ),
                   ),
                 ),
-                icon: const Icon(Icons.soup_kitchen_outlined, size: 18),
-                label: const Text('Cooking mode'),
+                icon: const Icon(Icons.soup_kitchen_outlined, size: 17),
+                label: const Text('Cook Mode'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _recipeAccentSurface(colorScheme),
+                  foregroundColor: recipeAccent,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ...recipe.steps.asMap().entries.map(
+          const SizedBox(height: 12),
+          ...displaySteps.asMap().entries.map(
                 (entry) => _buildRecipeInstruction(
                   number: entry.key + 1,
                   instruction: entry.value,
@@ -2320,41 +2400,640 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 ),
               ),
         ],
-        const SizedBox(height: 4),
-        TextButton.icon(
-          onPressed: () => _launchRecipeSearch(recipe),
-          icon: const Icon(Icons.open_in_new_rounded, size: 17),
-          label: const Text('Search this recipe'),
+
+        // ── Ingredients (below instructions) ─────────────────────────────
+        if (recipe.ingredients.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          _buildIngredientsSection(
+            url: url,
+            recipe: recipe,
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
+        ],
+
+        // ── Extraction provenance ─────────────────────────────────────────
+        if (recipe.extractionSources.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _buildExtractionSources(
+            sources: recipe.extractionSources,
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
+        ],
+
+      ],
+    );
+  }
+
+  String _recipeHookText(EnrichedRecipe recipe) {
+    final summary = recipe.summary?.trim().isNotEmpty == true
+        ? recipe.summary!.trim()
+        : recipe.description?.trim() ?? '';
+    if (summary.isNotEmpty) return _trimRecipeHook(summary);
+
+    final title = recipe.title.trim().isNotEmpty
+        ? _cleanRecipeTitle(recipe.title.trim())
+        : 'This recipe';
+    final time = recipe.totalTime?.trim().isNotEmpty == true
+        ? recipe.totalTime!.trim()
+        : recipe.cookTime?.trim().isNotEmpty == true
+            ? recipe.cookTime!.trim()
+            : recipe.prepTime?.trim();
+    final titleLower = title.toLowerCase();
+    final cuisine = (recipe.cuisine ?? '').trim();
+    final category = (recipe.category ?? '').trim();
+    final descriptor =
+        titleLower.contains('mexican') && cuisine.toLowerCase().contains('indian')
+            ? 'Indian-Mexican fusion'
+            : cuisine.isNotEmpty
+                ? cuisine
+                : recipe.tags
+                    .map((item) => item.trim())
+                    .firstWhere(
+                      (item) =>
+                          item.isNotEmpty && item.toLowerCase() != 'recipe',
+                      orElse: () => '',
+                    );
+    final dishKind = titleLower.contains('wrap')
+        ? 'wrap'
+        : category.isNotEmpty
+            ? category.toLowerCase()
+            : 'recipe';
+    final ingredients = recipe.ingredients
+        .map((item) => _ingredientPhrase(item.name))
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .take(4)
+        .toList();
+    final ingredientText = _naturalList(ingredients);
+    if (ingredientText.isNotEmpty) {
+      final lead = [
+        'A quick',
+        if (descriptor.isNotEmpty) descriptor,
+        dishKind,
+      ].join(' ');
+      final timeTail = time == null || time.isEmpty ? '' : ', ready in $time';
+      final sentence = dishKind == 'wrap'
+          ? '$lead filled with $ingredientText, then tucked into a warm wrap$timeTail.'
+          : '$lead made with $ingredientText$timeTail.';
+      return _trimRecipeHook(
+        '$sentence Lightly seasoned, hearty, and easy to put together without feeling heavy.',
+      );
+    }
+    if (recipe.steps.isNotEmpty) {
+      return _trimRecipeHook(
+        '$title is broken into ${recipe.steps.length} clear cooking steps for an easy start-to-finish prep.',
+      );
+    }
+    return title;
+  }
+
+  String _cleanRecipeTitle(String title) {
+    return title
+        .replaceAll(RegExp(r'\s*[•\-–]\s*\d+[-\s]*(?:minute|min)\s*recipe.*$', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+recipe$', caseSensitive: false), '')
+        .trim();
+  }
+
+  String _ingredientPhrase(String value) {
+    return value
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase()
+        .replaceFirst(RegExp(r'^britannia\s+', caseSensitive: false), '')
+        .replaceFirst(
+          RegExp(r'\bthe laughing cow\b', caseSensitive: false),
+          'cheese',
+        )
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  Widget _buildRecipeIntro({
+    required String text,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Text(
+      text,
+      style: theme.textTheme.bodyLarge?.copyWith(
+        color: colorScheme.onSurface,
+        height: 1.55,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+
+  String _naturalList(List<String> items) {
+    if (items.isEmpty) return '';
+    if (items.length == 1) return items.first;
+    if (items.length == 2) return '${items.first} and ${items.last}';
+    return '${items.take(items.length - 1).join(', ')}, and ${items.last}';
+  }
+
+  String _trimRecipeHook(String value) {
+    final cleaned = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (cleaned.length <= 230) return cleaned;
+    final clipped = cleaned.substring(0, 230);
+    final lastBreak = clipped.lastIndexOf(RegExp(r'[,.;]'));
+    if (lastBreak > 120) return '${clipped.substring(0, lastBreak).trim()}.';
+    return '${clipped.trim()}...';
+  }
+
+  Color _recipeAccent(ColorScheme colorScheme) {
+    return Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.42),
+      colorScheme.onSurfaceVariant,
+    );
+  }
+
+  Color _recipeAccentSurface(ColorScheme colorScheme) {
+    return Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.055),
+      colorScheme.surfaceContainerHighest,
+    );
+  }
+
+  List<Widget> _buildQuickFacts({
+    required EnrichedRecipe recipe,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final facts = <_QuickFact>[];
+
+    // Time — prefer total, then cook, then prep
+    final timeLabel = recipe.totalTime?.trim().isNotEmpty == true
+        ? recipe.totalTime!
+        : (recipe.cookTime?.trim().isNotEmpty == true
+            ? recipe.cookTime!
+            : recipe.prepTime?.trim());
+    if (timeLabel != null && timeLabel.isNotEmpty) {
+      facts.add(_QuickFact(label: timeLabel));
+    }
+
+    // Category
+    if ((recipe.category ?? '').trim().isNotEmpty) {
+      facts.add(_QuickFact(label: recipe.category!.trim()));
+    }
+
+    // Cuisine
+    if ((recipe.cuisine ?? '').trim().isNotEmpty) {
+      facts.add(_QuickFact(label: recipe.cuisine!.trim()));
+    }
+
+    // Servings
+    if ((recipe.servings ?? '').trim().isNotEmpty) {
+      facts.add(_QuickFact(label: recipe.servings!.trim()));
+    }
+
+    // Difficulty
+    if ((recipe.difficulty ?? '').trim().isNotEmpty) {
+      facts.add(_QuickFact(label: recipe.difficulty!.trim()));
+    }
+
+    if (facts.isEmpty) return const [];
+
+    return [
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: facts
+            .map(
+              (fact) => _QuickFactChip(
+                fact: fact,
+                theme: theme,
+                colorScheme: colorScheme,
+              ),
+            )
+            .toList(),
+      ),
+    ];
+  }
+
+  Widget _buildNutritionSection({
+    required RecipeNutrition nutrition,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final recipeAccent = _recipeAccent(colorScheme);
+    final metrics = <_NutritionMetric>[];
+    if (nutrition.proteinG != null) {
+      metrics.add(
+        _NutritionMetric(
+          label: 'Protein',
+          value: nutrition.proteinG!,
+          unit: 'g',
+          target: 50,
+          color: recipeAccent,
+        ),
+      );
+    }
+    if (nutrition.carbsG != null) {
+      metrics.add(
+        _NutritionMetric(
+          label: 'Carbs',
+          value: nutrition.carbsG!,
+          unit: 'g',
+          target: 275,
+          color: recipeAccent.withValues(alpha: 0.74),
+        ),
+      );
+    }
+    if (nutrition.fatG != null) {
+      metrics.add(
+        _NutritionMetric(
+          label: 'Fat',
+          value: nutrition.fatG!,
+          unit: 'g',
+          target: 78,
+          color: recipeAccent.withValues(alpha: 0.62),
+        ),
+      );
+    }
+    final fiber = nutrition.fiberG == null
+        ? null
+        : _NutritionMetric(
+            label: 'Fiber',
+            value: nutrition.fiberG!,
+            unit: 'g',
+            target: 28,
+            color: recipeAccent.withValues(alpha: 0.72),
+          );
+    if (nutrition.calories == null && metrics.isEmpty && fiber == null) {
+      return const SizedBox.shrink();
+    }
+
+    final cardColor = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.012),
+      colorScheme.surfaceContainerLow,
+    );
+    final bandColor = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.025),
+      colorScheme.surfaceContainerHighest,
+    );
+    final calories = nutrition.calories?.round();
+    final energyPercent = calories == null ? null : (calories / 2000 * 100).round();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nutrition',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'Per serving',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (nutrition.isEstimated)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.68),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Estimated',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          if (calories != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+              decoration: BoxDecoration(
+                color: bandColor,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: '$calories',
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
+                            ),
+                          ),
+                          TextSpan(
+                            text: '\n kcal',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (energyPercent != null)
+                    Text(
+                      '~$energyPercent% of\ndaily energy',
+                      textAlign: TextAlign.right,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+          if (metrics.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                for (final metric in metrics)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: metric == metrics.last ? 0 : 8,
+                      ),
+                      child: _NutritionMetricTile(
+                        metric: metric,
+                        theme: theme,
+                        colorScheme: colorScheme,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if (fiber != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+              decoration: BoxDecoration(
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    fiber.label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _NutritionBar(
+                      value: fiber.progress,
+                      color: fiber.color,
+                      backgroundColor:
+                          colorScheme.outlineVariant.withValues(alpha: 0.42),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${_formatNutrientG(fiber.value)}${fiber.unit}',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatNutrientG(double v) {
+    return v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+  }
+
+  Widget _buildIngredientsSection({
+    required SavedUrl url,
+    required EnrichedRecipe recipe,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final recipeAccent = _recipeAccent(colorScheme);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Ingredients',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '  (${recipe.ingredients.length})',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _checkAllIngredients(url.id, recipe),
+              style: TextButton.styleFrom(
+                foregroundColor: recipeAccent,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text('All'),
+            ),
+            TextButton(
+              onPressed: () => _resetIngredientChecks(url.id),
+              style: TextButton.styleFrom(
+                foregroundColor: recipeAccent,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text('Reset'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...recipe.ingredients.asMap().entries.map((entry) {
+          final key = RecipeStateService.ingredientKey(
+            entry.value,
+            entry.key,
+          );
+          final checked = _checkedIngredientKeys.contains(key);
+          return _IngredientRow(
+            ingredient: entry.value,
+            isChecked: checked,
+            onToggle: (v) => _setIngredientChecked(url.id, key, v ?? false),
+            theme: theme,
+            colorScheme: colorScheme,
+          );
+        }),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _addRecipeIngredientsToShoppingList(
+                  recipeId: url.id,
+                  recipe: recipe,
+                  selectedOnly: true,
+                ),
+                icon: const Icon(Icons.playlist_add_rounded, size: 18),
+                label: const Text('Add Selected'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: recipeAccent,
+                  side: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: () => _addRecipeIngredientsToShoppingList(
+                  recipeId: url.id,
+                  recipe: recipe,
+                  selectedOnly: false,
+                ),
+                icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                label: const Text('Add All'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _recipeAccentSurface(colorScheme),
+                  foregroundColor: recipeAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _recipeMetaChip({
-    required String label,
-    required ColorScheme colorScheme,
+  Widget _buildExtractionSources({
+    required List<String> sources,
     required ThemeData theme,
-    IconData? icon,
+    required ColorScheme colorScheme,
   }) {
+    final labels = <String, String>{
+      'transcript': 'Video transcript',
+      'on_screen_text': 'On-screen text',
+      'caption': 'Creator caption',
+      'description': 'Page description',
+      'metadata': 'Structured metadata',
+    };
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(999),
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 15, color: colorScheme.onPrimaryContainer),
-            const SizedBox(width: 5),
-          ],
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Icon(
+                Icons.verified_outlined,
+                size: 14,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Extracted from',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: sources.map((src) {
+              final label = labels[src.toLowerCase()] ?? src;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_rounded,
+                    size: 13,
+                    color: _recipeAccent(colorScheme),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -2367,34 +3046,39 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
+    final recipeAccent = _recipeAccent(colorScheme);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 28,
-            height: 28,
+            width: 26,
+            height: 26,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
+              color: _recipeAccentSurface(colorScheme),
               shape: BoxShape.circle,
             ),
             child: Text(
               '$number',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w800,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: recipeAccent,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              instruction,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface,
-                height: 1.5,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                instruction,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  height: 1.55,
+                ),
               ),
             ),
           ),
@@ -2496,7 +3180,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         Text(
                           metadata,
                           style: theme.textTheme.labelMedium?.copyWith(
-                            color: colorScheme.primary,
+                            color: _recipeAccent(colorScheme),
                             fontWeight: FontWeight.w700,
                             height: 1.25,
                           ),
@@ -2567,31 +3251,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> _launchRecipeSearch(EnrichedRecipe recipe) async {
-    final query = [recipe.title, 'recipe']
-        .where((item) => item.trim().isNotEmpty)
-        .join(' ');
-    final uri = Uri.https('www.google.com', '/search', {'q': query});
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
   String _trimRelevanceDescription(String text) {
     return TextCleaner.cleanLoose(text);
-  }
-
-  Widget _recipePlaceholder(ColorScheme colorScheme) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.42),
-      ),
-      child: Center(
-        child: Icon(
-          Icons.restaurant_menu_rounded,
-          color: colorScheme.onPrimaryContainer,
-          size: 22,
-        ),
-      ),
-    );
   }
 
   Widget _mentionPlaceholder(
@@ -2603,14 +3264,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         : mention.title.trim().substring(0, 1).toUpperCase();
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.42),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
       ),
       child: Center(
         child: Text(
           initial,
           style: TextStyle(
-            color: colorScheme.onPrimaryContainer,
-            fontWeight: FontWeight.w800,
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
             fontSize: 22,
           ),
         ),
@@ -2981,15 +3642,29 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ColorScheme colorScheme,
   ) {
     final byName = platformColors[displaySourceName.trim()];
-    if (byName != null) return byName;
+    if (byName != null) {
+      return Color.alphaBlend(
+        byName.withValues(alpha: 0.36),
+        colorScheme.onSurfaceVariant,
+      );
+    }
     final parsed = Uri.tryParse(url.rawUrl.trim());
     final seed = ((parsed?.host.isNotEmpty ?? false)
             ? parsed!.host
             : url.domain.trim())
         .toLowerCase();
-    if (seed.isEmpty) return colorScheme.primary;
+    if (seed.isEmpty) return _recipeAccent(colorScheme);
     final hue = seed.codeUnits.fold<int>(0, (sum, item) => sum + item) % 360;
-    return HSLColor.fromAHSL(1, hue.toDouble(), 0.42, 0.56).toColor();
+    final generated = HSLColor.fromAHSL(
+      1,
+      hue.toDouble(),
+      0.24,
+      colorScheme.brightness == Brightness.dark ? 0.62 : 0.44,
+    ).toColor();
+    return Color.alphaBlend(
+      generated.withValues(alpha: 0.42),
+      colorScheme.onSurfaceVariant,
+    );
   }
 
   Widget _buildSourceLeadingIcon(
@@ -3048,5 +3723,265 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final minute = date.minute.toString().padLeft(2, '0');
     final period = date.hour >= 12 ? 'PM' : 'AM';
     return '${months[date.month - 1]} ${date.day}, ${date.year} • $hour12:$minute $period';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helper data classes for recipe UI
+// ---------------------------------------------------------------------------
+
+class _QuickFact {
+  const _QuickFact({required this.label});
+  final String label;
+}
+
+class _NutritionMetric {
+  const _NutritionMetric({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.target,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final String unit;
+  final double target;
+  final Color color;
+
+  double get progress {
+    if (target <= 0) return 0;
+    return (value / target).clamp(0, 1).toDouble();
+  }
+}
+
+class _NutritionMetricTile extends StatelessWidget {
+  const _NutritionMetricTile({
+    required this.metric,
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  final _NutritionMetric metric;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = metric.value == metric.value.truncateToDouble()
+        ? metric.value.toInt().toString()
+        : metric.value.toStringAsFixed(1);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+              children: [
+                TextSpan(text: value),
+                TextSpan(
+                  text: metric.unit,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            metric.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 9),
+          _NutritionBar(
+            value: metric.progress,
+            color: metric.color,
+            backgroundColor: colorScheme.outlineVariant.withValues(alpha: 0.38),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NutritionBar extends StatelessWidget {
+  const _NutritionBar({
+    required this.value,
+    required this.color,
+    required this.backgroundColor,
+  });
+
+  final double value;
+  final Color color;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth * value.clamp(0, 1);
+        return Stack(
+          children: [
+            Container(
+              height: 3,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              height: 3,
+              width: width,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _QuickFactChip extends StatelessWidget {
+  const _QuickFactChip({
+    required this.fact,
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  final _QuickFact fact;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        fact.label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+          height: 1.15,
+        ),
+      ),
+    );
+  }
+}
+
+/// A single ingredient row with checkbox, name, and quantity sub-label.
+class _IngredientRow extends StatelessWidget {
+  const _IngredientRow({
+    required this.ingredient,
+    required this.isChecked,
+    required this.onToggle,
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  final EnrichedRecipeIngredient ingredient;
+  final bool isChecked;
+  final ValueChanged<bool?> onToggle;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = ingredient.amountLabel.trim();
+    final notes = (ingredient.notes ?? '').trim();
+    final subLabel = [
+      if (amount.isNotEmpty) amount,
+      if (notes.isNotEmpty) notes,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => onToggle(!isChecked),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: isChecked,
+                  onChanged: onToggle,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ingredient.name,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isChecked
+                            ? colorScheme.onSurface.withValues(alpha: 0.38)
+                            : colorScheme.onSurface,
+                        decoration:
+                            isChecked ? TextDecoration.lineThrough : null,
+                        decorationColor:
+                            colorScheme.onSurface.withValues(alpha: 0.38),
+                        height: 1.3,
+                      ),
+                    ),
+                    if (subLabel.isNotEmpty) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        subLabel,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: isChecked
+                              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
+                              : colorScheme.onSurfaceVariant,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

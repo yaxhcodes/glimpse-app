@@ -71,19 +71,21 @@ class _MainShellState extends ConsumerState<MainShell> {
                   HapticFeedback.lightImpact();
                   context.push('/ask');
                 },
+                backgroundColor: cs.secondaryContainer,
+                foregroundColor: cs.onSecondaryContainer,
                 icon: SvgPicture.asset(
                   'assets/glimpse.svg',
                   width: 20,
                   height: 20,
                   colorFilter: ColorFilter.mode(
-                    Theme.of(context).colorScheme.onPrimaryContainer,
+                    cs.onSecondaryContainer,
                     BlendMode.srcIn,
                   ),
                 ),
                 label: Text(
                   'Ask Glimpse',
                   style: tt.labelLarge?.copyWith(
-                    color: cs.onPrimaryContainer,
+                    color: cs.onSecondaryContainer,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

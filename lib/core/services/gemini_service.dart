@@ -32,6 +32,7 @@ class RecipeEnhancementResult {
     required this.difficulty,
     required this.tags,
     this.steps = const [],
+    this.nutrition,
   });
 
   final String summary;
@@ -40,6 +41,8 @@ class RecipeEnhancementResult {
   /// AI-regenerated cooking instructions, or empty if the model could not
   /// produce valid multi-step output.
   final List<String> steps;
+  /// Estimated nutrition data returned by the AI alongside other recipe fields.
+  final RecipeNutrition? nutrition;
 }
 
 class ChatResponseSection {
@@ -421,6 +424,14 @@ Return a JSON object with exactly these fields:
 - "difficulty": exactly "Easy", "Medium", or "Hard"
 - "tags": 3 to 6 short useful recipe tags such as Noodles, Vegetarian, Quick Meals, Asian Inspired, High Protein
 $stepsInstruction
+- "nutrition": an object estimating nutritional values per serving with these sub-fields:
+  - "calories": number (kcal per serving)
+  - "protein_g": number (grams)
+  - "carbs_g": number (grams)
+  - "fat_g": number (grams)
+  - "fiber_g": number (grams)
+  - "confidence": number 0.0-1.0 (how confident the estimate is given available ingredient data)
+  Estimate values using the ingredients and quantities. If exact quantities are missing, infer reasonable values for a typical serving. Always return best-effort estimates — never return null for nutrition.
 
 Rules for steps:
 - Each step represents one distinct cooking action a person performs in sequence.
@@ -451,11 +462,18 @@ Output valid JSON only. No markdown, no explanation.''';
             ).take(6).toList()
           : <String>[];
       final steps = _parseEnhancedSteps(data['steps'], recipe.steps);
+      final nutrition = _parseNutrition(
+        data['nutrition'] ??
+            data['nutrition_per_serving'] ??
+            data['nutritionPerServing'] ??
+            data,
+      );
       return RecipeEnhancementResult(
         summary: data['summary']?.toString().trim() ?? '',
         difficulty: normalizedDifficulty,
         tags: tags,
         steps: steps,
+        nutrition: nutrition,
       );
     } catch (e, stack) {
       developer.log(
@@ -467,6 +485,7 @@ Output valid JSON only. No markdown, no explanation.''';
         summary: '',
         difficulty: _recipeDifficultyFallback(recipe),
         tags: const [],
+        nutrition: null,
       );
     }
   }
@@ -501,6 +520,11 @@ Output valid JSON only. No markdown, no explanation.''';
       return const [];
     }
     return parsed.take(20).toList();
+  }
+
+  /// Parses the nutrition object returned by the AI into a [RecipeNutrition].
+  static RecipeNutrition? _parseNutrition(Object? raw) {
+    return RecipeNutrition.fromJsonOrNull(raw);
   }
 
   String _recipeDifficultyFallback(EnrichedRecipe recipe) {

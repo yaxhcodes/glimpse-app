@@ -54,6 +54,44 @@ class TranscriptEnrichmentResult {
       (recipe?.hasUsefulContent ?? false) ||
       (transcript?.trim().isNotEmpty ?? false);
 
+  TranscriptEnrichmentResult copyWith({
+    String? meaningfulTitle,
+    String? summary,
+    String? category,
+    List<String>? tags,
+    String? contentType,
+    String? brief,
+    List<EnrichedContentStep>? steps,
+    List<EnrichedMention>? mentions,
+    EnrichedRecipe? recipe,
+    List<String>? keyPoints,
+    String? thumbnailUrl,
+    String? creator,
+    String? caption,
+    String? transcript,
+    int? likeCount,
+    int? commentCount,
+  }) {
+    return TranscriptEnrichmentResult(
+      meaningfulTitle: meaningfulTitle ?? this.meaningfulTitle,
+      summary: summary ?? this.summary,
+      category: category ?? this.category,
+      tags: tags ?? this.tags,
+      contentType: contentType ?? this.contentType,
+      brief: brief ?? this.brief,
+      steps: steps ?? this.steps,
+      mentions: mentions ?? this.mentions,
+      recipe: recipe ?? this.recipe,
+      keyPoints: keyPoints ?? this.keyPoints,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      creator: creator ?? this.creator,
+      caption: caption ?? this.caption,
+      transcript: transcript ?? this.transcript,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'meaningful_title': meaningfulTitle,
@@ -123,6 +161,191 @@ class TranscriptEnrichmentResult {
   }
 }
 
+/// Estimated nutrition information for a recipe (per serving).
+class RecipeNutrition {
+  const RecipeNutrition({
+    this.calories,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
+    this.fiberG,
+    this.confidence,
+    this.isEstimated = true,
+    // Future dietary tags
+    this.isVegetarian,
+    this.isVegan,
+    this.isGlutenFree,
+    this.isDairyFree,
+    this.isHighProtein,
+  });
+
+  final double? calories;
+  final double? proteinG;
+  final double? carbsG;
+  final double? fatG;
+  final double? fiberG;
+  final double? confidence;
+  final bool isEstimated;
+
+  // Dietary tags (future-ready)
+  final bool? isVegetarian;
+  final bool? isVegan;
+  final bool? isGlutenFree;
+  final bool? isDairyFree;
+  final bool? isHighProtein;
+
+  bool get hasAnyValue =>
+      calories != null ||
+      proteinG != null ||
+      carbsG != null ||
+      fatG != null ||
+      fiberG != null;
+
+  Map<String, dynamic> toJson() => {
+        'calories': calories,
+        'protein_g': proteinG,
+        'carbs_g': carbsG,
+        'fat_g': fatG,
+        'fiber_g': fiberG,
+        'confidence': confidence,
+        'is_estimated': isEstimated,
+        'is_vegetarian': isVegetarian,
+        'is_vegan': isVegan,
+        'is_gluten_free': isGlutenFree,
+        'is_dairy_free': isDairyFree,
+        'is_high_protein': isHighProtein,
+      };
+
+  static RecipeNutrition? fromJsonOrNull(Object? raw) {
+    if (raw is! Map) return null;
+    final json = Map<String, dynamic>.from(raw);
+    final n = RecipeNutrition(
+      calories: _toDouble(json['calories'] ?? json['calorieContent']),
+      proteinG: _toDouble(
+        json['protein_g'] ?? json['protein'] ?? json['proteinContent'],
+      ),
+      carbsG: _toDouble(
+        json['carbs_g'] ??
+            json['carbs'] ??
+            json['carbohydrates'] ??
+            json['carbohydrateContent'],
+      ),
+      fatG: _toDouble(json['fat_g'] ?? json['fat'] ?? json['fatContent']),
+      fiberG: _toDouble(json['fiber_g'] ?? json['fiber'] ?? json['fiberContent']),
+      confidence: _toDouble(json['confidence']),
+      isEstimated: json['is_estimated'] != false,
+      isVegetarian: json['is_vegetarian'] as bool?,
+      isVegan: json['is_vegan'] as bool?,
+      isGlutenFree: json['is_gluten_free'] as bool?,
+      isDairyFree: json['is_dairy_free'] as bool?,
+      isHighProtein: json['is_high_protein'] as bool?,
+    );
+    return n.hasAnyValue ? n : null;
+  }
+
+  static RecipeNutrition? estimateFromRecipe(EnrichedRecipe recipe) {
+    if (recipe.ingredients.isEmpty) return null;
+
+    var calories = 0.0;
+    var protein = 0.0;
+    var carbs = 0.0;
+    var fat = 0.0;
+    var fiber = 0.0;
+    var matched = 0;
+
+    void add({
+      required double kcal,
+      double p = 0,
+      double c = 0,
+      double f = 0,
+      double fi = 0,
+    }) {
+      calories += kcal;
+      protein += p;
+      carbs += c;
+      fat += f;
+      fiber += fi;
+      matched++;
+    }
+
+    for (final ingredient in recipe.ingredients) {
+      final name = ingredient.displayText.toLowerCase();
+      if (_containsAny(name, const ['paneer', 'cottage cheese'])) {
+        add(kcal: 220, p: 18, c: 6, f: 16);
+      } else if (_containsAny(name, const ['rajma', 'kidney bean'])) {
+        add(kcal: 215, p: 14, c: 40, f: 1, fi: 13);
+      } else if (_containsAny(name, const ['wrap', 'tortilla', 'roti'])) {
+        add(kcal: 160, p: 5, c: 30, f: 4, fi: 3);
+      } else if (_containsAny(name, const ['cheese slice', 'cheese'])) {
+        add(kcal: 55, p: 3, c: 2, f: 4);
+      } else if (_containsAny(name, const ['hung curd', 'curd', 'yogurt'])) {
+        add(kcal: 80, p: 7, c: 5, f: 4);
+      } else if (_containsAny(name, const ['pea', 'peas'])) {
+        add(kcal: 60, p: 4, c: 10, f: 0.5, fi: 4);
+      } else if (_containsAny(name, const ['onion'])) {
+        add(kcal: 45, p: 1, c: 11, fi: 2);
+      } else if (_containsAny(name, const ['tomato'])) {
+        add(kcal: 25, p: 1, c: 5, fi: 1.5);
+      } else if (_containsAny(name, const ['oil', 'butter', 'ghee'])) {
+        add(kcal: 120, f: 14);
+      } else if (_containsAny(name, const ['jalapeno', 'pickle'])) {
+        add(kcal: 10, c: 2, fi: 0.5);
+      } else if (_containsAny(name, const ['seasoning', 'spice', 'masala'])) {
+        add(kcal: 10, c: 2);
+      }
+    }
+
+    if (matched == 0) return null;
+
+    final servings = _servingCount(recipe);
+    return RecipeNutrition(
+      calories: calories / servings,
+      proteinG: protein / servings,
+      carbsG: carbs / servings,
+      fatG: fat / servings,
+      fiberG: fiber / servings,
+      confidence: matched / recipe.ingredients.length,
+      isEstimated: true,
+    );
+  }
+
+  static double? _toDouble(Object? v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    final text = v.toString().trim();
+    final direct = double.tryParse(text);
+    if (direct != null) return direct;
+    final match = RegExp(r'-?\d+(?:[,.]\d+)?').firstMatch(text);
+    if (match == null) return null;
+    return double.tryParse(match.group(0)!.replaceAll(',', '.'));
+  }
+
+  static bool _containsAny(String text, List<String> needles) {
+    return needles.any(text.contains);
+  }
+
+  static double _servingCount(EnrichedRecipe recipe) {
+    final servingText = [
+      recipe.servings,
+      ...recipe.steps,
+    ].whereType<String>().join(' ').toLowerCase();
+    final numeric = RegExp(r'\b(?:serves?|servings?|yield)\s*(\d+)\b')
+        .firstMatch(servingText);
+    final direct = RegExp(r'\b(\d+)\s*(?:servings?|wraps?|bowls?)\b')
+        .firstMatch(servingText);
+    final wordTwo = RegExp(r'\b(?:two|2)\s*(?:servings?|wraps?|bowls?)\b')
+        .firstMatch(servingText);
+    final parsed = int.tryParse(
+      numeric?.group(1) ?? direct?.group(1) ?? '',
+    );
+    if (parsed != null && parsed > 0) return parsed.toDouble();
+    if (wordTwo != null || servingText.contains('divide between two')) {
+      return 2;
+    }
+    return 1;
+  }
+}
+
 class EnrichedRecipe {
   const EnrichedRecipe({
     required this.title,
@@ -141,6 +364,9 @@ class EnrichedRecipe {
     this.summary,
     this.difficulty,
     this.tags = const [],
+    this.nutrition,
+    this.extractionSources = const [],
+    this.nutritionAttempted = false,
   });
 
   final String title;
@@ -159,6 +385,16 @@ class EnrichedRecipe {
   final String? summary;
   final String? difficulty;
   final List<String> tags;
+
+  /// Estimated nutrition data (per serving). May be null if unavailable.
+  final RecipeNutrition? nutrition;
+
+  /// Source signals used during extraction (e.g. 'transcript', 'on_screen_text', 'caption').
+  final List<String> extractionSources;
+
+  /// True after one nutrition-generation pass, even if Gemini returned null.
+  /// Prevents repeated re-enhancement when ingredients are insufficient for estimation.
+  final bool nutritionAttempted;
 
   String? get instructions => steps.isEmpty ? null : steps.join('\n');
 
@@ -184,6 +420,9 @@ class EnrichedRecipe {
     String? summary,
     String? difficulty,
     List<String>? tags,
+    RecipeNutrition? nutrition,
+    List<String>? extractionSources,
+    bool? nutritionAttempted,
   }) {
     return EnrichedRecipe(
       title: title ?? this.title,
@@ -202,6 +441,9 @@ class EnrichedRecipe {
       summary: summary ?? this.summary,
       difficulty: difficulty ?? this.difficulty,
       tags: tags ?? this.tags,
+      nutrition: nutrition ?? this.nutrition,
+      extractionSources: extractionSources ?? this.extractionSources,
+      nutritionAttempted: nutritionAttempted ?? this.nutritionAttempted,
     );
   }
 
@@ -224,6 +466,9 @@ class EnrichedRecipe {
       'summary': summary,
       'difficulty': difficulty,
       'tags': tags,
+      if (nutrition != null) 'nutrition': nutrition!.toJson(),
+      if (extractionSources.isNotEmpty) 'extraction_sources': extractionSources,
+      if (nutritionAttempted) 'nutrition_attempted': true,
     };
   }
 
@@ -271,6 +516,16 @@ class EnrichedRecipe {
       tags: TagNoiseFilter.filterTags(
         TranscriptEnrichmentService._extractStringList(json['tags']),
       ),
+      nutrition: RecipeNutrition.fromJsonOrNull(
+        json['nutrition'] ??
+            json['nutrition_per_serving'] ??
+            json['nutritionPerServing'] ??
+            json,
+      ),
+      extractionSources: TranscriptEnrichmentService._extractStringList(
+        json['extraction_sources'],
+      ),
+      nutritionAttempted: json['nutrition_attempted'] == true,
     );
     return recipe.hasUsefulContent ? recipe : null;
   }

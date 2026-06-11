@@ -10,6 +10,7 @@ import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../features/home/home_provider.dart';
 import 'link_card_thumbnail.dart';
+import 'tag_group.dart' show tagChipColors;
 
 /// Animated skeleton placeholder that matches the UrlCard layout.
 class UrlCardSkeleton extends StatefulWidget {
@@ -173,6 +174,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final tt = theme.textTheme;
+    final tagColors = tagChipColors(cs);
     final tagFreq = ref.watch(tagOccurrenceMapProvider);
 
     final displaySourceName = CategoryResolver.displaySourceName(
@@ -329,7 +331,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: cs.secondaryContainer,
+                                  color: tagColors.background,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -337,7 +339,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w500,
-                                    color: cs.onSecondaryContainer,
+                                    color: tagColors.foreground,
                                     fontFamily: tt.labelSmall?.fontFamily,
                                     letterSpacing: 0.1,
                                   ),
@@ -351,7 +353,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: cs.secondaryContainer,
+                                  color: tagColors.background,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -359,7 +361,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w500,
-                                    color: cs.onSecondaryContainer,
+                                    color: tagColors.foreground,
                                     fontFamily: tt.labelSmall?.fontFamily,
                                   ),
                                 ),

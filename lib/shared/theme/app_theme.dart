@@ -331,8 +331,12 @@ class AppTheme {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
             size: 24,
+            // Selected icon sits inside the secondaryContainer indicator pill,
+            // so it pairs with onSecondaryContainer — calmer and more readable
+            // than the saturated `primary` (which can get loud with a vivid
+            // dynamic accent).
             color: selected
-                ? colorScheme.primary
+                ? colorScheme.onSecondaryContainer
                 : colorScheme.onSurfaceVariant,
           );
         }),
@@ -343,8 +347,10 @@ class AppTheme {
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             height: 1.3,
             letterSpacing: 0,
+            // Neutral selected label (M3 default) — the filled icon + pill carry
+            // the selected state, so the label stays calm instead of accent-loud.
             color: selected
-                ? colorScheme.primary
+                ? colorScheme.onSurface
                 : colorScheme.onSurfaceVariant,
           );
         }),

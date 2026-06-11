@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'platform_icons.dart';
 import 'source_icon_resolver.dart';
+import 'tag_group.dart' show tagChipColors;
 
 bool _isDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
@@ -12,8 +13,7 @@ Color premiumBackground(BuildContext context) {
 }
 
 Color premiumCardSurface(BuildContext context) {
-  final cs = Theme.of(context).colorScheme;
-  return _isDark(context) ? cs.surfaceContainerLow : cs.surfaceContainerLow;
+  return Theme.of(context).colorScheme.surfaceContainerLow;
 }
 
 Color premiumBorderColor(BuildContext context) {
@@ -38,13 +38,14 @@ class MonochromePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final chip = tagChipColors(cs);
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 6 : 8,
         vertical: compact ? 2 : 3,
       ),
       decoration: BoxDecoration(
-        color: cs.secondaryContainer.withValues(alpha: 0.7),
+        color: chip.background,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -52,7 +53,7 @@ class MonochromePill extends StatelessWidget {
         style: (tt.labelSmall ?? const TextStyle()).copyWith(
           fontSize: 10,
           fontWeight: FontWeight.w500,
-          color: cs.onSecondaryContainer,
+          color: chip.foreground,
           letterSpacing: 0.1,
           height: 1.3,
         ),
@@ -371,14 +372,18 @@ class CinematicCard extends StatelessWidget {
                                 vertical: 2.5,
                               ),
                               decoration: BoxDecoration(
-                                color: cs.secondaryContainer.withValues(alpha: 0.55),
+                                color: hasImage
+                                    ? Colors.white.withValues(alpha: 0.18)
+                                    : cs.secondaryContainer,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 reason!,
                                 style: tt.labelSmall?.copyWith(
                                   fontSize: 10,
-                                  color: cs.onSurface.withValues(alpha: 0.60),
+                                  color: hasImage
+                                      ? Colors.white.withValues(alpha: 0.85)
+                                      : cs.onSecondaryContainer,
                                   fontWeight: FontWeight.w500,
                                   letterSpacing: 0.4,
                                 ),

@@ -107,6 +107,7 @@ class RecipeSchemaParser {
       prepTime: _durationLabel(json['prepTime']),
       cookTime: _durationLabel(json['cookTime']),
       totalTime: _durationLabel(json['totalTime']),
+      nutrition: RecipeNutrition.fromJsonOrNull(json['nutrition']),
       tags: TagNoiseFilter.filterTags(_keywords(json['keywords'])),
     );
   }
@@ -148,6 +149,14 @@ class RecipeSchemaParser {
           _durationLabel(_itemPropValues(html, 'cookTime').firstOrNull),
       totalTime:
           _durationLabel(_itemPropValues(html, 'totalTime').firstOrNull),
+      nutrition: RecipeNutrition.fromJsonOrNull({
+        'calories': _itemPropValues(html, 'calories').firstOrNull,
+        'proteinContent': _itemPropValues(html, 'proteinContent').firstOrNull,
+        'carbohydrateContent':
+            _itemPropValues(html, 'carbohydrateContent').firstOrNull,
+        'fatContent': _itemPropValues(html, 'fatContent').firstOrNull,
+        'fiberContent': _itemPropValues(html, 'fiberContent').firstOrNull,
+      }),
     );
   }
 
@@ -310,7 +319,7 @@ class RecipeSchemaParser {
     final parts = <String>[
       if (days > 0) '${days}d',
       if (hours > 0) '${hours}h',
-      if (minutes > 0) '${minutes} min',
+      if (minutes > 0) '$minutes min',
     ];
     return parts.isEmpty ? value : parts.join(' ');
   }

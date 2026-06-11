@@ -245,14 +245,8 @@ class EnrichmentService {
     final platformCat = DomainCategorizer.categorize(url.rawUrl);
     final savedEnrichment = _savedEnrichment(url);
     final savedRecipe = savedEnrichment?.recipe;
-    final recipeStepsNeedWork = savedRecipe != null &&
-        (savedRecipe.steps.length <= 1 ||
-            (savedRecipe.steps.length <= 3 &&
-                savedRecipe.steps.any((step) => step.length > 300)));
-    final recipeAlreadyEnhanced = savedRecipe != null &&
-        (savedRecipe.summary?.trim().isNotEmpty ?? false) &&
-        (savedRecipe.difficulty?.trim().isNotEmpty ?? false) &&
-        !recipeStepsNeedWork;
+    final recipeAlreadyEnhanced =
+        savedRecipe != null && !_recipeNeedsEnhancement(savedRecipe);
 
     // Skip if already AI-categorized (not just domain fallback)
     if (!force &&
@@ -297,21 +291,60 @@ class EnrichmentService {
         : null;
 
     if (transcriptResult != null) {
+      var enrichedTranscriptResult = transcriptResult;
+      final recipeForEnhancement = transcriptResult.recipe ?? savedRecipe;
+      if (recipeForEnhancement != null) {
+        final enhancedRecipe = await _enhanceRecipeIfNeeded(
+          recipeForEnhancement,
+          url: url.rawUrl,
+          aiLimitReached: aiLimitReached,
+          countUsage: false,
+        );
+        final recipeTags = TagNoiseFilter.filterTags([
+          ...transcriptResult.tags,
+          ...enhancedRecipe.tags,
+          'recipe',
+        ]);
+        final recipeSummary = enhancedRecipe.summary?.trim().isNotEmpty == true
+            ? enhancedRecipe.summary!.trim()
+            : enhancedRecipe.description?.trim();
+        enrichedTranscriptResult = transcriptResult.copyWith(
+          meaningfulTitle: transcriptResult.meaningfulTitle.trim().isNotEmpty
+              ? transcriptResult.meaningfulTitle
+              : enhancedRecipe.title,
+          summary: transcriptResult.summary.trim().isNotEmpty
+              ? transcriptResult.summary
+              : recipeSummary ?? '',
+          category: 'Food & Cooking',
+          tags: recipeTags,
+          contentType: 'recipe',
+          recipe: enhancedRecipe,
+          thumbnailUrl: transcriptResult.thumbnailUrl ?? enhancedRecipe.image,
+          creator: transcriptResult.creator ?? enhancedRecipe.author,
+        );
+      }
       final normalized = CategoryTaxonomy.normalize(
-        category: transcriptResult.category,
-        tags: transcriptResult.tags,
+        category: enrichedTranscriptResult.category,
+        tags: enrichedTranscriptResult.tags,
       );
       category = normalized.name;
       emoji = normalized.emoji;
-      tags = transcriptResult.tags;
-      summary = transcriptResult.summary.isNotEmpty
-          ? transcriptResult.summary
+      tags = enrichedTranscriptResult.tags;
+      summary = enrichedTranscriptResult.summary.isNotEmpty
+          ? enrichedTranscriptResult.summary
           : _metadataFallbackSummary(url);
-      enrichedTitle = transcriptResult.meaningfulTitle.isNotEmpty
-          ? transcriptResult.meaningfulTitle
+      enrichedTitle = enrichedTranscriptResult.meaningfulTitle.isNotEmpty
+          ? enrichedTranscriptResult.meaningfulTitle
           : null;
-      enrichedThumbnailUrl = transcriptResult.thumbnailUrl;
-      enrichmentJson = jsonEncode(transcriptResult.toJson());
+      enrichedThumbnailUrl = enrichedTranscriptResult.thumbnailUrl;
+      enrichmentJson = jsonEncode(
+        enrichedTranscriptResult
+            .copyWith(
+              category: category,
+              tags: tags,
+            )
+            .toJson(),
+      );
       if (countUsage) {
         await _usageService.incrementUsage(UsageFeature.aiSave);
       }
@@ -321,41 +354,11 @@ class EnrichmentService {
         name: 'Enrichment',
       );
     } else if (savedRecipe != null) {
-      RecipeEnhancementResult? enhancement;
-      if (_geminiService != null && !aiLimitReached) {
-        try {
-          enhancement = await _geminiService.enhanceRecipe(
-            recipe: savedRecipe,
-            url: url.rawUrl,
-          );
-          if (countUsage) {
-            await _usageService.incrementUsage(UsageFeature.aiSave);
-          }
-        } catch (e, st) {
-          developer.log(
-            '_enrichAi recipe enhancement failed for $urlId: $e',
-            name: 'Enrichment',
-            stackTrace: st,
-          );
-        }
-      }
-
-      final enhancedSteps = (enhancement?.steps.isNotEmpty ?? false)
-          ? enhancement!.steps
-          : savedRecipe.steps;
-      final enhancedRecipe = savedRecipe.copyWith(
-        summary: enhancement?.summary.trim().isNotEmpty == true
-            ? enhancement!.summary
-            : savedRecipe.summary ?? savedRecipe.description,
-        difficulty: enhancement?.difficulty.trim().isNotEmpty == true
-            ? enhancement!.difficulty
-            : savedRecipe.difficulty ?? _recipeDifficulty(savedRecipe),
-        tags: TagNoiseFilter.filterTags([
-          ...savedRecipe.tags,
-          ...?enhancement?.tags,
-          'recipe',
-        ]),
-        steps: enhancedSteps,
+      final enhancedRecipe = await _enhanceRecipeIfNeeded(
+        savedRecipe,
+        url: url.rawUrl,
+        aiLimitReached: aiLimitReached,
+        countUsage: countUsage,
       );
       final normalized = CategoryTaxonomy.normalize(
         category: 'Food & Cooking',
@@ -503,6 +506,92 @@ class EnrichmentService {
       );
     } catch (_) {
       return null;
+    }
+  }
+
+  bool _recipeStepsNeedWork(EnrichedRecipe recipe) {
+    return recipe.steps.length <= 1 ||
+        (recipe.steps.length <= 3 &&
+            recipe.steps.any((step) => step.length > 300));
+  }
+
+  bool _recipeNeedsEnhancement(EnrichedRecipe recipe) {
+    final hasSummary = recipe.summary?.trim().isNotEmpty ?? false;
+    final hasDifficulty = recipe.difficulty?.trim().isNotEmpty ?? false;
+    final needsNutrition =
+        recipe.nutrition == null && !recipe.nutritionAttempted;
+    return !hasSummary ||
+        !hasDifficulty ||
+        _recipeStepsNeedWork(recipe) ||
+        needsNutrition;
+  }
+
+  Future<EnrichedRecipe> _enhanceRecipeIfNeeded(
+    EnrichedRecipe recipe, {
+    required String url,
+    required bool aiLimitReached,
+    required bool countUsage,
+  }) async {
+    if (!_recipeNeedsEnhancement(recipe) ||
+        _geminiService == null ||
+        aiLimitReached) {
+      final estimatedNutrition =
+          recipe.nutrition ?? RecipeNutrition.estimateFromRecipe(recipe);
+      return recipe.copyWith(
+        nutrition: estimatedNutrition,
+        nutritionAttempted:
+            recipe.nutritionAttempted || estimatedNutrition?.hasAnyValue == true,
+      );
+    }
+
+    try {
+      final enhancement = await _geminiService.enhanceRecipe(
+        recipe: recipe,
+        url: url,
+      );
+      if (countUsage) {
+        await _usageService.incrementUsage(UsageFeature.aiSave);
+      }
+
+      final enhancedSteps =
+          enhancement.steps.isNotEmpty ? enhancement.steps : recipe.steps;
+      final enhancedNutrition = enhancement.nutrition ??
+          recipe.nutrition ??
+          RecipeNutrition.estimateFromRecipe(recipe);
+      developer.log(
+        '_enrichAi recipe enhancement result: '
+        'nutrition=${enhancedNutrition?.hasAnyValue == true}, '
+        'steps=${enhancedSteps.length}',
+        name: 'Enrichment',
+      );
+      return recipe.copyWith(
+        summary: enhancement.summary.trim().isNotEmpty
+            ? enhancement.summary
+            : recipe.summary ?? recipe.description,
+        difficulty: enhancement.difficulty.trim().isNotEmpty
+            ? enhancement.difficulty
+            : recipe.difficulty ?? _recipeDifficulty(recipe),
+        tags: TagNoiseFilter.filterTags([
+          ...recipe.tags,
+          ...enhancement.tags,
+          'recipe',
+        ]),
+        steps: enhancedSteps,
+        nutrition: enhancedNutrition,
+        nutritionAttempted: enhancedNutrition?.hasAnyValue == true,
+      );
+    } catch (e, st) {
+      developer.log(
+        '_enrichAi recipe enhancement failed: $e',
+        name: 'Enrichment',
+        stackTrace: st,
+      );
+      final estimatedNutrition =
+          recipe.nutrition ?? RecipeNutrition.estimateFromRecipe(recipe);
+      return recipe.copyWith(
+        nutrition: estimatedNutrition,
+        nutritionAttempted: estimatedNutrition?.hasAnyValue == true,
+      );
     }
   }
 
