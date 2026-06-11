@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Resource keep rules — applied during release builds when
+    isShrinkResources = true is active (see app/build.gradle.kts).
+
+    The Android resource shrinker performs static analysis to find
+    resources referenced from code.  Resources accessed through
+    dynamic string names (e.g. flutter_local_notifications resolves
+    "ic_notification" at runtime via Resources.getIdentifier()) are
+    invisible to that analysis and will be stripped unless explicitly
+    kept here.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_notification" />
