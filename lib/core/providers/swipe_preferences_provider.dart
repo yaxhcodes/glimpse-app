@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _kLeftSwipeActionKey = 'glimpse_left_swipe_action';
@@ -28,6 +29,14 @@ extension SwipeActionTypeInfo on SwipeActionType {
     };
   }
 
+  /// Compact label used in tight surfaces like the swipe reveal.
+  String get shortLabel {
+    return switch (this) {
+      SwipeActionType.toggleRead => 'Read',
+      _ => label,
+    };
+  }
+
   IconData get icon {
     return switch (this) {
       SwipeActionType.delete => Icons.delete_outline_rounded,
@@ -40,14 +49,30 @@ extension SwipeActionTypeInfo on SwipeActionType {
     };
   }
 
+  /// Renders the action glyph. Ask Glimpse uses the brand mark instead of a
+  /// stock icon so it reads as a first-class, premium action everywhere.
+  Widget iconWidget({required Color color, double size = 22}) {
+    if (this == SwipeActionType.askGlimpse) {
+      return SvgPicture.asset(
+        'assets/glimpse.svg',
+        width: size,
+        height: size,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      );
+    }
+    return Icon(icon, size: size, color: color);
+  }
+
+  /// Muted, desaturated accents that read clearly during a swipe without
+  /// fighting the app's calm dark surfaces.
   Color tint(ColorScheme colorScheme) {
     return switch (this) {
-      SwipeActionType.delete => colorScheme.error,
-      SwipeActionType.toggleRead => const Color(0xFF27AE60),
-      SwipeActionType.addToCollection => const Color(0xFF8E6AD8),
-      SwipeActionType.pin => const Color(0xFFE0A526),
-      SwipeActionType.askGlimpse => const Color(0xFF4C8DFF),
-      SwipeActionType.share => colorScheme.primary,
+      SwipeActionType.delete => const Color(0xFFC78A8A),
+      SwipeActionType.toggleRead => const Color(0xFF82A892),
+      SwipeActionType.addToCollection => const Color(0xFF9C90C4),
+      SwipeActionType.pin => const Color(0xFFCBB07E),
+      SwipeActionType.askGlimpse => const Color(0xFF8AA4C8),
+      SwipeActionType.share => const Color(0xFF8FA3B0),
       SwipeActionType.none => colorScheme.outline,
     };
   }

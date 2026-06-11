@@ -282,6 +282,7 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
                 progress: progress,
                 revealFromRight: sign < 0,
                 borderRadius: widget.borderRadius,
+                armed: progress >= _softThreshold,
               ),
             ),
             content,
@@ -298,6 +299,7 @@ class _SwipeRevealSurface extends StatelessWidget {
     required this.progress,
     required this.revealFromRight,
     required this.borderRadius,
+    required this.armed,
   });
 
   final SwipeActionType action;
@@ -305,44 +307,65 @@ class _SwipeRevealSurface extends StatelessWidget {
   final bool revealFromRight;
   final BorderRadius borderRadius;
 
+  /// True once the drag has passed the trigger threshold — the action will
+  /// fire on release. Mirrors Gmail's "let go now" colour commit.
+  final bool armed;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+
+    if (action == SwipeActionType.none || progress <= 0.001) {
+      return const SizedBox.shrink();
+    }
+
     final tint = action.tint(cs);
-    final alpha = action == SwipeActionType.none
-        ? 0.0
-        : (0.04 + progress * 0.05).clamp(0.0, 0.10).toDouble();
-    final fade = ((progress - 0.15) / 0.15).clamp(0.0, 1.0).toDouble();
-    final scaleIn = ((progress - 0.30) / 0.20).clamp(0.0, 1.0).toDouble();
-    final pulse = progress > 0.92 ? 1.06 : 1.0;
+
+    // A restrained wash that deepens slightly as the action arms — just enough
+    // colour to read the intent, never loud.
+    final bgAlpha = (armed ? 0.10 : progress * 0.07).clamp(0.0, 0.10).toDouble();
+
+    // The glyph eases in, sits on a soft neutral disc, and lifts a touch on arm.
+    final reveal = ((progress - 0.08) / 0.26).clamp(0.0, 1.0).toDouble();
+    final chipScale = 0.84 + 0.16 * Curves.easeOut.transform(reveal);
+
+    final chip = Transform.scale(
+      scale: chipScale,
+      child: AnimatedScale(
+        scale: armed ? 1.06 : 1.0,
+        duration: const Duration(milliseconds: 170),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: tint.withValues(alpha: armed ? 0.18 : 0.10),
+          ),
+          child: Center(child: action.iconWidget(color: tint, size: 21)),
+        ),
+      ),
+    );
 
     return ClipRRect(
       borderRadius: borderRadius,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Color.alphaBlend(tint.withValues(alpha: alpha), cs.surface),
+          color: Color.alphaBlend(
+            tint.withValues(alpha: bgAlpha),
+            cs.surface,
+          ),
         ),
         child: Align(
           alignment: revealFromRight
               ? Alignment.centerRight
               : Alignment.centerLeft,
           child: Padding(
-            padding: EdgeInsets.only(
-              left: revealFromRight ? 0 : 28,
-              right: revealFromRight ? 28 : 0,
-            ),
-            child: Opacity(
-              opacity: fade,
-              child: Transform.scale(
-                scale: (0.82 + 0.18 * scaleIn) * pulse,
-                child: Icon(
-                  action.icon,
-                  size: 23,
-                  color: tint.withValues(alpha: 0.82),
-                ),
-              ),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: chip,
           ),
         ),
       ),

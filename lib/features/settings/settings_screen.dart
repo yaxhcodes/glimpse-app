@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -554,17 +555,49 @@ class _SwipeActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      onTap: onTap,
-      leading: Icon(
-        value.icon,
-        size: 22,
-        color: value.tint(colorScheme).withValues(alpha: 0.82),
+    final theme = Theme.of(context);
+    final cs = colorScheme;
+
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Center(
+                child: value.iconWidget(color: cs.onSurfaceVariant, size: 22),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: theme.textTheme.bodyLarge),
+                  const SizedBox(height: 2),
+                  Text(
+                    value.label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ],
+        ),
       ),
-      title: Text(label),
-      subtitle: Text(value.label),
-      trailing: const Icon(Icons.chevron_right),
     );
   }
 }
@@ -582,10 +615,10 @@ class _SwipeActionSheet extends StatelessWidget {
     return SafeArea(
       child: ListView(
         shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
             child: Text(
               'Choose swipe action',
               style: theme.textTheme.titleMedium?.copyWith(
@@ -594,19 +627,66 @@ class _SwipeActionSheet extends StatelessWidget {
             ),
           ),
           for (final action in SwipeActionType.values)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                action.icon,
-                color: action.tint(cs).withValues(alpha: 0.82),
-              ),
-              title: Text(action.label),
-              trailing: action == selected
-                  ? Icon(Icons.check_rounded, color: cs.primary)
-                  : null,
-              onTap: () => Navigator.pop(context, action),
+            _SwipeActionOption(
+              action: action,
+              selected: action == selected,
+              colorScheme: cs,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                Navigator.pop(context, action);
+              },
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _SwipeActionOption extends StatelessWidget {
+  const _SwipeActionOption({
+    required this.action,
+    required this.selected,
+    required this.colorScheme,
+    required this.onTap,
+  });
+
+  final SwipeActionType action;
+  final bool selected;
+  final ColorScheme colorScheme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = colorScheme;
+    final iconColor = selected ? cs.primary : cs.onSurfaceVariant;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Center(
+                child: action.iconWidget(color: iconColor, size: 22),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                action.label,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_rounded, size: 20, color: cs.primary),
+          ],
+        ),
       ),
     );
   }
