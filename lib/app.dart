@@ -16,6 +16,7 @@ import 'core/services/digest_scheduler.dart';
 import 'core/services/notification_router.dart';
 import 'core/services/tag_analyzer.dart';
 import 'core/services/embedding_backfill_service.dart';
+import 'core/services/category_repair_service.dart';
 import 'core/models/saved_url.dart';
 import 'features/ask/ask_empty_suggestions_provider.dart';
 import 'features/home/home_provider.dart';
@@ -244,6 +245,17 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final isar = ref.read(isarServiceProvider);
+
+      // One-time local cleanup of stale auto-inferred categories (e.g. the
+      // bogus "Design" tag on food saves). No network / AI cost.
+      unawaited(() async {
+        final repaired =
+            await CategoryRepairService(isarService: isar).repairIfNeeded();
+        if (repaired <= 0) return;
+        ref.invalidate(urlStreamProvider);
+        ref.invalidate(interestClusterThemesProvider);
+      }());
+
       final embedding = ref.read(embeddingServiceProvider);
       if (embedding == null) return;
       final backfill = EmbeddingBackfillService(

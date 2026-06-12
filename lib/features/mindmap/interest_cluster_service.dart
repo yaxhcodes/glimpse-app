@@ -7,14 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/clustering/embedding_clustering.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/services/category_taxonomy.dart';
 import '../../core/services/gemini_service.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import 'cluster_theme.dart';
 
 /// Persisted cluster snapshot — bump version to invalidate stale caches.
-const kInterestClustersJsonKey = 'glimpse_clusters_v12';
-const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v12';
+const kInterestClustersJsonKey = 'glimpse_clusters_v15';
+const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v15';
 
 /// How many URLs must change before we force a full rebuild.
 const _clusterRebuildThreshold = 5;
@@ -29,11 +30,24 @@ List<Map<String, dynamic>> _rowsForIsolate(List<SavedUrl> urls) {
           'title': u.title,
           'rawUrl': u.rawUrl,
           'category': u.category,
+          'categoryBucket': _broadCategoryBucket(u),
           'tags': u.tags,
           'embedding': u.embedding!,
         },
       )
       .toList();
+}
+
+/// The broad topic category used as a hard clustering boundary, so unrelated
+/// topics (Food & Cooking vs Technology) never share a cluster. Maps any raw /
+/// platform category onto one of the 16 [CategoryTaxonomy] buckets.
+String _broadCategoryBucket(SavedUrl u) {
+  try {
+    return CategoryTaxonomy.normalize(category: u.category, tags: u.tags).name;
+  } catch (_) {
+    final c = u.category.trim();
+    return c.isEmpty ? 'Other' : c;
+  }
 }
 
 /// Extracts embeddings from rows as a flat list-of-lists.
@@ -388,6 +402,145 @@ List<ClusterTheme> _mergeDuplicateThemes(List<ClusterTheme> themes) {
         summary: _heuristicSummaryForUrls(urls, label),
         urls: urls,
         subClusters: subClusters,
+      ),
+    );
+  }
+
+  merged.sort((a, b) => b.urls.length.compareTo(a.urls.length));
+  return List<ClusterTheme>.generate(merged.length, (i) {
+    final theme = merged[i];
+    return ClusterTheme(
+      index: i,
+      label: theme.label,
+      summary: theme.summary,
+      urls: theme.urls,
+      subClusters: theme.subClusters,
+    );
+  });
+}
+
+/// Promotes sub-clusters that are clearly a **different broad topic** than
+/// their parent into their own top-level themes.
+///
+/// Why this is needed: category bucketing keeps unrelated topics apart *when
+/// the per-URL category is correct*. But some saves carry a wrong category
+/// (e.g. Indian-food Reels mis-tagged "Technology"), so they bucket — and
+/// cluster — with Dev Tools, and the taxonomy's food keywords don't cover
+/// "curry/keema/masala" to re-route them. The one reliable signal is that the
+/// k-means sub-clustering isolates them and Gemini names that sub-group with a
+/// real taxonomy category ("Food & Cooking"). That category name, different
+/// from the parent's, is the tell that those saves were mis-grouped.
+List<ClusterTheme> _promoteForeignSubClusters(List<ClusterTheme> themes) {
+  final rebuilt = <ClusterTheme>[];
+
+  for (final theme in themes) {
+    final parentCat = _dominantBroadCategory(theme.urls);
+
+    final promoted = <SubClusterTheme>[];
+    for (final sub in theme.subClusters) {
+      final subCat = CategoryTaxonomy.tryByName(sub.label.trim())?.name;
+      if (subCat != null &&
+          subCat != 'Other' &&
+          subCat != parentCat &&
+          sub.urls.length >= kMinSubClusterSize) {
+        promoted.add(sub);
+      }
+    }
+
+    if (promoted.isEmpty) {
+      rebuilt.add(theme);
+      continue;
+    }
+
+    final promotedIds = {
+      for (final sub in promoted)
+        for (final url in sub.urls) url.id,
+    };
+    final remaining =
+        theme.urls.where((u) => !promotedIds.contains(u.id)).toList();
+
+    // Re-label the parent now that the foreign topic is gone.
+    if (remaining.isNotEmpty) {
+      final label = _heuristicLabelForUrls(remaining, fallback: theme.label);
+      rebuilt.add(
+        ClusterTheme(
+          index: 0,
+          label: label,
+          summary: _heuristicSummaryForUrls(remaining, label),
+          urls: remaining,
+          subClusters: [
+            for (final sub in theme.subClusters)
+              if (!promoted.contains(sub)) sub,
+          ],
+        ),
+      );
+    }
+
+    // Each promoted sub-cluster becomes its own theme, keeping Gemini's label.
+    for (final sub in promoted) {
+      rebuilt.add(
+        ClusterTheme(
+          index: 0,
+          label: sub.label.trim(),
+          summary: _heuristicSummaryForUrls(sub.urls, sub.label.trim()),
+          urls: sub.urls,
+          subClusters: const [],
+        ),
+      );
+    }
+  }
+
+  return _mergeThemesByLabel(rebuilt);
+}
+
+/// Most common broad [CategoryTaxonomy] bucket among a theme's URLs.
+String _dominantBroadCategory(List<SavedUrl> urls) {
+  final counts = <String, int>{};
+  for (final u in urls) {
+    final bucket = _broadCategoryBucket(u);
+    counts[bucket] = (counts[bucket] ?? 0) + 1;
+  }
+  var best = '';
+  var bestCount = -1;
+  counts.forEach((key, value) {
+    if (value > bestCount) {
+      bestCount = value;
+      best = key;
+    }
+  });
+  return best;
+}
+
+/// Merges themes that share a label (e.g. food promoted out of two parents),
+/// preserving the label rather than re-deriving it, then re-indexes by size.
+List<ClusterTheme> _mergeThemesByLabel(List<ClusterTheme> themes) {
+  final byKey = <String, List<ClusterTheme>>{};
+  for (final theme in themes) {
+    byKey.putIfAbsent(theme.label.trim().toLowerCase(), () => []).add(theme);
+  }
+
+  final merged = <ClusterTheme>[];
+  for (final group in byKey.values) {
+    if (group.length == 1) {
+      merged.add(group.first);
+      continue;
+    }
+    final urlsById = <int, SavedUrl>{};
+    final subs = <SubClusterTheme>[];
+    for (final theme in group) {
+      for (final url in theme.urls) {
+        urlsById[url.id] = url;
+      }
+      subs.addAll(theme.subClusters);
+    }
+    final urls = urlsById.values.toList();
+    merged.add(
+      ClusterTheme(
+        index: 0,
+        label: group.first.label,
+        summary: _heuristicSummaryForUrls(urls, group.first.label),
+        urls: urls,
+        subClusters: _mergeSubClusters(subs),
       ),
     );
   }
@@ -955,6 +1108,7 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
   }
 
   themes = _mergeDuplicateThemes(themes);
+  themes = _promoteForeignSubClusters(themes);
 
   await _writeClusterCache(prefs, urls.length, themes);
   developer.log(

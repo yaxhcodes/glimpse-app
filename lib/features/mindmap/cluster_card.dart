@@ -1,5 +1,8 @@
-import 'package:dynamic_color/dynamic_color.dart';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
+import '../../shared/widgets/tag_group.dart' show tagChipColors;
 
 class InterestCluster {
   const InterestCluster({
@@ -23,35 +26,35 @@ class InterestCluster {
 
 enum ClusterCardTier { hero, medium, slim }
 
-enum _InterestKind {
-  treks,
-  designSystems,
-  typography,
-  aiAgents,
-  websiteGrowth,
-  devTools,
-  startup,
-  agriculture,
-  social,
-  longReads,
-  finance,
-  learning,
-  gaming,
-  travel,
-  books,
-  productivity,
-  creative,
-  philosophy,
-  vehicles,
-  general,
+/// Height of a medium cluster tile. Exposed so the masonry layout in
+/// [InterestMapView] can estimate column heights with the exact same value the
+/// card renders at — keeping the staggered Pinterest layout aligned.
+double mediumClusterTileHeight(InterestCluster cluster) {
+  double height;
+  final saves = cluster.saveCount;
+  if (saves >= 24) {
+    height = 206;
+  } else if (saves >= 18) {
+    height = 194;
+  } else if (saves >= 13) {
+    height = 182;
+  } else if (saves >= 9) {
+    height = 170;
+  } else if (saves >= 6) {
+    height = 160;
+  } else {
+    height = 150;
+  }
+  // A second chip row needs a little more room — and adds organic variation.
+  if (cluster.subtopics.length >= 2) height += 8;
+  return height;
 }
 
-class _InterestVisualSpec {
-  const _InterestVisualSpec(this.kind, this.accent, this.icon);
-
-  final _InterestKind kind;
-  final Color accent;
-  final IconData icon;
+/// A quiet tone drawn from the Material palette — gives each card a faint,
+/// cohesive identity without any custom/“flashy” colour.
+Color _toneFor(ColorScheme cs, InterestCluster cluster) {
+  final palette = [cs.primary, cs.secondary, cs.tertiary];
+  return palette[cluster.id.hashCode.abs() % palette.length];
 }
 
 class ClusterCard extends StatelessWidget {
@@ -68,26 +71,38 @@ class ClusterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+
     switch (tier) {
       case ClusterCardTier.hero:
-        return _PatternTile(
+        return _InterestTile(
           cluster: cluster,
           onTap: onTap,
           height: 196,
-          borderRadius: 28,
-          titleStyle: Theme.of(context).textTheme.displaySmall,
+          radius: 24,
+          titleStyle: tt.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
+            height: 1.04,
+          ),
           chipLimit: 3,
-          showEyebrow: true,
+          isHero: true,
         );
       case ClusterCardTier.medium:
-        return _PatternTile(
+        final height = mediumClusterTileHeight(cluster);
+        return _InterestTile(
           cluster: cluster,
           onTap: onTap,
-          height: _mediumTileHeight(cluster),
-          borderRadius: 22,
-          titleStyle: Theme.of(context).textTheme.titleMedium,
+          height: height,
+          radius: 22,
+          titleStyle: tt.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+            fontSize: height >= 182 ? 20 : 18,
+            height: 1.1,
+          ),
           chipLimit: 2,
-          showEyebrow: false,
+          isHero: false,
         );
       case ClusterCardTier.slim:
         return _SlimTile(cluster: cluster, onTap: onTap);
@@ -95,105 +110,90 @@ class ClusterCard extends StatelessWidget {
   }
 }
 
-double _mediumTileHeight(InterestCluster cluster) {
-  if (cluster.saveCount >= 18 || cluster.dominance >= 0.25) return 190;
-  if (cluster.saveCount >= 10 || cluster.dominance >= 0.18) return 176;
-  return 154;
-}
-
-class _PatternTile extends StatelessWidget {
-  const _PatternTile({
+class _InterestTile extends StatelessWidget {
+  const _InterestTile({
     required this.cluster,
     required this.onTap,
     required this.height,
-    required this.borderRadius,
+    required this.radius,
     required this.titleStyle,
     required this.chipLimit,
-    required this.showEyebrow,
+    required this.isHero,
   });
 
   final InterestCluster cluster;
   final VoidCallback onTap;
   final double height;
-  final double borderRadius;
+  final double radius;
   final TextStyle? titleStyle;
   final int chipLimit;
-  final bool showEyebrow;
+  final bool isHero;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final spec = _visualSpec(context, cluster);
-    final accent = spec.accent;
-    final containerColor = _tintedSurface(cs, accent, tierElevation: 2);
-    final onTile = cs.onSurface;
+    final tt = Theme.of(context).textTheme;
+    final tone = _toneFor(cs, cluster);
+    // Full-bleed texture: subtle, but light surfaces need a touch more.
+    final isLight = cs.brightness == Brightness.light;
+    final patternAlpha = isLight ? 0.13 : 0.10;
     final subtopics = cluster.subtopics.take(chipLimit).toList();
+    final titleLines = isHero ? 2 : (height >= 170 ? 2 : 1);
 
     return Semantics(
       button: true,
       label: '${cluster.label}, ${cluster.saveCount} saves',
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(borderRadius),
+        // Plain app surface — same as the Collections grid cards.
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(radius),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          splashColor: Colors.white.withValues(alpha: 0.06),
-          highlightColor: Colors.white.withValues(alpha: 0.04),
+          splashColor: cs.primary.withValues(alpha: 0.07),
+          highlightColor: cs.primary.withValues(alpha: 0.04),
           child: SizedBox(
             height: height,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                ColoredPlaceholder(
-                  color: containerColor,
-                  accent: accent,
-                  kind: spec.kind,
-                  seed: cluster.id.hashCode,
-                ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        cs.surface.withValues(alpha: 0.02),
-                        cs.surface.withValues(alpha: 0.78),
-                      ],
-                      stops: const [0.18, 1],
+                // A subtle full-bleed texture that hints at the topic, fading
+                // out before the text.
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _TexturePainter(
+                      kind: _textureFor(cluster),
+                      tone: tone,
+                      surface: cs.surfaceContainerLow,
+                      alpha: patternAlpha,
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
+                  padding: isHero
+                      ? const EdgeInsets.fromLTRB(18, 16, 18, 17)
+                      : const EdgeInsets.fromLTRB(15, 14, 15, 15),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (showEyebrow)
-                        _TileBadge(
-                          label: 'Dominant interest',
-                          color: onTile,
-                        ),
+                      if (isHero) _DominantBadge(tone: tone),
                       const Spacer(),
                       Text(
                         cluster.label,
-                        maxLines: tierTitleLines(height),
+                        maxLines: titleLines,
                         overflow: TextOverflow.ellipsis,
-                        style: titleStyle?.copyWith(
-                          color: onTile,
-                          fontWeight: FontWeight.w700,
-                          height: 1.12,
-                        ),
+                        style: titleStyle?.copyWith(color: cs.onSurface),
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        showEyebrow
+                        isHero
                             ? '${_saveText(cluster.saveCount)} · your biggest interest'
                             : _saveText(cluster.saveCount),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: onTile.withValues(alpha: 0.68),
-                              fontWeight: FontWeight.w500,
-                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                       if (subtopics.isNotEmpty) ...[
                         const SizedBox(height: 10),
@@ -202,7 +202,7 @@ class _PatternTile extends StatelessWidget {
                           runSpacing: 6,
                           children: [
                             for (final subtopic in subtopics)
-                              _TileChip(label: subtopic, color: onTile),
+                              _TileChip(label: subtopic),
                           ],
                         ),
                       ],
@@ -216,8 +216,6 @@ class _PatternTile extends StatelessWidget {
       ),
     );
   }
-
-  int tierTitleLines(double tileHeight) => tileHeight >= 170 ? 2 : 1;
 }
 
 class _SlimTile extends StatelessWidget {
@@ -229,28 +227,33 @@ class _SlimTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final spec = _visualSpec(context, cluster);
-    final accent = spec.accent;
-    final bg = _tintedSurface(cs, accent, tierElevation: 1);
+    final tt = Theme.of(context).textTheme;
     final subtopicText = cluster.subtopics.take(2).join(' · ');
 
     return Semantics(
       button: true,
       label: '${cluster.label}, ${cluster.saveCount} saves',
       child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(18),
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
+          splashColor: cs.primary.withValues(alpha: 0.07),
+          highlightColor: cs.primary.withValues(alpha: 0.04),
           child: SizedBox(
-            height: 72,
+            height: 68,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  _InterestIcon(spec: spec),
-                  const SizedBox(width: 13),
+                  // Single, monochrome glyph — restrained, not a colour swatch.
+                  Icon(
+                    _iconForCluster(cluster),
+                    size: 22,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -260,11 +263,10 @@ class _SlimTile extends StatelessWidget {
                           cluster.label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                color: cs.onSurface,
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style: tt.titleSmall?.copyWith(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(
@@ -274,8 +276,9 @@ class _SlimTile extends StatelessWidget {
                           ].join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -283,8 +286,8 @@ class _SlimTile extends StatelessWidget {
                   const SizedBox(width: 8),
                   Icon(
                     Icons.chevron_right_rounded,
-                    size: 22,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.58),
+                    size: 20,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ],
               ),
@@ -296,273 +299,241 @@ class _SlimTile extends StatelessWidget {
   }
 }
 
-class ColoredPlaceholder extends StatelessWidget {
-  const ColoredPlaceholder({
-    super.key,
-    required this.color,
-    required this.accent,
-    required this.kind,
-    this.seed = 0,
-  });
+// ─────────────────────────────────────────────────────────────────────────────
+// Texture — a fine, full-bleed pattern that hints at the card's topic. Not a
+// spot illustration (those read as hand-drawn) but a precise repeating texture:
+// contour lines for terrain, a lattice for networks, rising bars for growth…
+// All share one monochrome Material tone and weight; only the geometry differs.
+// A surface gradient fades the lower half so the title/chips stay clean.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  final Color color;
-  final Color accent;
-  final _InterestKind kind;
-  final int seed;
+enum _TextureKind { contour, lattice, grid, bars, ruled, wave, dots }
 
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _InterestPatternPainter(
-        base: color,
-        accent: accent,
-        kind: kind,
-        seed: seed,
-      ),
-      child: const SizedBox.expand(),
-    );
-  }
+/// Match on the **label first**, then subtopics — so a stray subtopic (e.g. a
+/// "Food & Cooking" tag on a Dev Tools card) can't hijack the texture.
+_TextureKind _textureFor(InterestCluster cluster) {
+  return _matchTexture(cluster.label.toLowerCase()) ??
+      _matchTexture(cluster.subtopics.join(' ').toLowerCase()) ??
+      _TextureKind.dots;
 }
 
-class _InterestPatternPainter extends CustomPainter {
-  const _InterestPatternPainter({
-    required this.base,
-    required this.accent,
+_TextureKind? _matchTexture(String l) {
+  if (_hasAny(l, ['trek', 'hike', 'trail', 'mountain', 'valley', 'summit',
+      'climb', 'outdoor', 'camp', 'alpine', 'travel', 'trip', 'destination',
+      'nature', 'farm', 'agri', 'garden', 'eco'])) {
+    return _TextureKind.contour;
+  }
+  if (_hasAny(l, ['agent', 'llm', 'gpt', 'neural', 'machine learning', 'prompt',
+      'automation', 'workflow', 'graph', 'network', 'social', 'community',
+      'people'])) {
+    return _TextureKind.lattice;
+  }
+  if (_hasAny(l, ['dev', 'code', 'coding', 'software', 'oss', 'github', 'sdk',
+      'framework', 'library', 'backend', 'frontend', 'engineering', 'tool',
+      'programming', 'design', 'figma', 'layout', 'component', 'typography',
+      'font', 'productivity', 'document', 'game', 'pixel'])) {
+    return _TextureKind.grid;
+  }
+  if (_hasAny(l, ['seo', 'website', 'growth', 'traffic', 'analytics',
+      'audience', 'conversion', 'marketing', 'startup', 'launch', 'founder',
+      'build', 'venture', 'finance', 'money', 'crypto', 'invest', 'market',
+      'stock', 'revenue', 'sales'])) {
+    return _TextureKind.bars;
+  }
+  if (_hasAny(l, ['book', 'read', 'essay', 'article', 'news', 'blog', 'writing',
+      'paper', 'study', 'journal', 'learn', 'course'])) {
+    return _TextureKind.ruled;
+  }
+  if (_hasAny(l, ['music', 'song', 'playlist', 'audio', 'track', 'album',
+      'sound', 'podcast'])) {
+    return _TextureKind.wave;
+  }
+  return null;
+}
+
+class _TexturePainter extends CustomPainter {
+  const _TexturePainter({
     required this.kind,
-    required this.seed,
+    required this.tone,
+    required this.surface,
+    required this.alpha,
   });
 
-  final Color base;
-  final Color accent;
-  final _InterestKind kind;
-  final int seed;
+  final _TextureKind kind;
+  final Color tone;
+  final Color surface;
+  final double alpha;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final bg = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color.alphaBlend(accent.withValues(alpha: 0.24), base),
-          Color.alphaBlend(Colors.black.withValues(alpha: 0.16), base),
-          Color.alphaBlend(accent.withValues(alpha: 0.30), base),
-        ],
-        stops: const [0, 0.58, 1],
-      ).createShader(rect);
-    canvas.drawRect(rect, bg);
-
-    final softPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = accent.withValues(alpha: 0.12);
-    final linePaint = Paint()
+    final stroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = 1.1
       ..strokeCap = StrokeCap.round
-      ..color = accent.withValues(alpha: 0.22);
+      ..strokeJoin = StrokeJoin.round
+      ..color = tone.withValues(alpha: alpha);
+    final connector = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = tone.withValues(alpha: alpha * 0.55);
+    final dot = Paint()..color = tone.withValues(alpha: alpha);
+    final solid = Paint()..color = tone.withValues(alpha: alpha * 0.9);
 
     switch (kind) {
-      case _InterestKind.treks:
-      case _InterestKind.travel:
-        _paintMountains(canvas, size, softPaint, linePaint);
-      case _InterestKind.designSystems:
-      case _InterestKind.typography:
-      case _InterestKind.creative:
-        _paintGrid(canvas, size, softPaint, linePaint);
-      case _InterestKind.aiAgents:
-      case _InterestKind.devTools:
-      case _InterestKind.websiteGrowth:
-        _paintNodes(canvas, size, softPaint, linePaint);
-      case _InterestKind.agriculture:
-      case _InterestKind.finance:
-        _paintBars(canvas, size, softPaint, linePaint);
-      case _InterestKind.longReads:
-      case _InterestKind.books:
-      case _InterestKind.learning:
-        _paintLines(canvas, size, softPaint, linePaint);
-      case _InterestKind.social:
-      case _InterestKind.startup:
-      case _InterestKind.gaming:
-      case _InterestKind.productivity:
-      case _InterestKind.philosophy:
-      case _InterestKind.vehicles:
-      case _InterestKind.general:
-        _paintOrbit(canvas, size, softPaint, linePaint);
+      case _TextureKind.contour:
+        _contour(canvas, size, stroke);
+      case _TextureKind.lattice:
+        _lattice(canvas, size, connector, dot);
+      case _TextureKind.grid:
+        _grid(canvas, size, connector);
+      case _TextureKind.bars:
+        _bars(canvas, size, solid);
+      case _TextureKind.ruled:
+        _ruled(canvas, size, stroke);
+      case _TextureKind.wave:
+        _wave(canvas, size, solid);
+      case _TextureKind.dots:
+        _dots(canvas, size, dot);
+    }
+
+    // Fade the texture into the surface so the lower half stays clean.
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [surface.withValues(alpha: 0.0), surface],
+          stops: const [0.40, 0.82],
+        ).createShader(Offset.zero & size),
+    );
+  }
+
+  // Topographic contour lines — flowing parallel curves (terrain / nature).
+  void _contour(Canvas canvas, Size size, Paint p) {
+    final w = size.width, h = size.height;
+    for (var i = 0; i < 6; i++) {
+      final yb = h * (0.08 + i * 0.11);
+      final path = Path()..moveTo(0, yb);
+      for (var x = 0.0; x <= w; x += w / 32) {
+        path.lineTo(x, yb + math.sin(x / w * math.pi * 2 + i * 0.8) * h * 0.045);
+      }
+      canvas.drawPath(path, p);
+    }
+  }
+
+  // Node lattice — a dot grid with faint connectors (networks / AI).
+  void _lattice(Canvas canvas, Size size, Paint connector, Paint dot) {
+    const gap = 26.0;
+    final cols = (size.width / gap).ceil();
+    final rows = (size.height / gap).ceil();
+    for (var r = 0; r <= rows; r++) {
+      for (var c = 0; c <= cols; c++) {
+        final p = Offset(c * gap + 6, r * gap + 6);
+        if (c < cols) canvas.drawLine(p, Offset(p.dx + gap, p.dy), connector);
+        if (r < rows) canvas.drawLine(p, Offset(p.dx, p.dy + gap), connector);
+        canvas.drawCircle(p, 1.5, dot);
+      }
+    }
+  }
+
+  // Fine modular grid (code / design / structured topics).
+  void _grid(Canvas canvas, Size size, Paint p) {
+    const gap = 22.0;
+    for (var x = gap; x < size.width; x += gap) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
+    }
+    for (var y = gap; y < size.height; y += gap) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
+    }
+  }
+
+  // Rising bars (growth / finance / startup).
+  void _bars(Canvas canvas, Size size, Paint p) {
+    final w = size.width, h = size.height;
+    const gap = 16.0;
+    final n = (w / gap).floor();
+    final baseline = h * 0.52;
+    for (var i = 0; i < n; i++) {
+      final frac = n <= 1 ? 1.0 : i / (n - 1);
+      final bh = h * (0.08 + 0.30 * frac) * (0.85 + 0.15 * math.sin(i * 0.9));
+      final x = gap * i + gap * 0.5;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x - 2.5, baseline - bh, 5, bh),
+          const Radius.circular(2),
+        ),
+        p,
+      );
+    }
+  }
+
+  // Ruled text lines (reading / writing).
+  void _ruled(Canvas canvas, Size size, Paint p) {
+    const gap = 15.0;
+    for (var y = gap; y < size.height; y += gap) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
+    }
+  }
+
+  // Equalizer bars (music / audio).
+  void _wave(Canvas canvas, Size size, Paint p) {
+    final w = size.width, h = size.height;
+    const gap = 14.0;
+    final n = (w / gap).floor();
+    final mid = h * 0.30;
+    for (var i = 0; i < n; i++) {
+      final bh = h * (0.06 + 0.16 * (0.5 + 0.5 * math.sin(i * 1.1)));
+      final x = gap * i + gap * 0.5;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x - 2, mid - bh, 4, bh * 2),
+          const Radius.circular(2),
+        ),
+        p,
+      );
+    }
+  }
+
+  // Soft dot field (fallback / general).
+  void _dots(Canvas canvas, Size size, Paint p) {
+    for (var y = 14.0; y < size.height; y += 14) {
+      for (var x = 14.0; x < size.width; x += 14) {
+        canvas.drawCircle(Offset(x, y), 1.3, p);
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _InterestPatternPainter oldDelegate) {
-    return oldDelegate.base != base ||
-        oldDelegate.accent != accent ||
-        oldDelegate.kind != kind ||
-        oldDelegate.seed != seed;
-  }
-
-  void _paintMountains(
-    Canvas canvas,
-    Size size,
-    Paint fill,
-    Paint line,
-  ) {
-    final back = Path()
-      ..moveTo(0, size.height * 0.68)
-      ..lineTo(size.width * 0.28, size.height * 0.40)
-      ..lineTo(size.width * 0.48, size.height * 0.58)
-      ..lineTo(size.width * 0.72, size.height * 0.26)
-      ..lineTo(size.width, size.height * 0.50)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(back, fill);
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, size.height * 0.62)
-        ..lineTo(size.width * 0.34, size.height * 0.48)
-        ..lineTo(size.width * 0.58, size.height * 0.62)
-        ..lineTo(size.width, size.height * 0.36),
-      line,
-    );
-  }
-
-  void _paintGrid(Canvas canvas, Size size, Paint fill, Paint line) {
-    final cell = size.shortestSide * 0.18;
-    for (var row = 0; row < 3; row++) {
-      for (var col = 0; col < 5; col++) {
-        final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            size.width * 0.58 + col * cell * 0.75,
-            size.height * 0.15 + row * cell * 0.82,
-            cell * 0.55,
-            cell * 0.55,
-          ),
-          const Radius.circular(4),
-        );
-        canvas.drawRRect(rect, fill);
-      }
-    }
-    canvas.drawLine(
-      Offset(0, size.height * 0.58),
-      Offset(size.width, size.height * 0.44),
-      line,
-    );
-  }
-
-  void _paintNodes(Canvas canvas, Size size, Paint fill, Paint line) {
-    final nodes = [
-      Offset(size.width * 0.14, size.height * 0.24),
-      Offset(size.width * 0.34, size.height * 0.42),
-      Offset(size.width * 0.54, size.height * 0.30),
-      Offset(size.width * 0.76, size.height * 0.56),
-      Offset(size.width * 0.90, size.height * 0.28),
-    ];
-    for (var i = 0; i < nodes.length - 1; i++) {
-      canvas.drawLine(nodes[i], nodes[i + 1], line);
-    }
-    for (final node in nodes) {
-      canvas.drawCircle(node, size.shortestSide * 0.07, fill);
-    }
-  }
-
-  void _paintBars(Canvas canvas, Size size, Paint fill, Paint line) {
-    for (var i = 0; i < 6; i++) {
-      final h = size.height * (0.16 + 0.08 * ((i + seed).abs() % 4));
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            size.width * (0.50 + i * 0.08),
-            size.height * 0.72 - h,
-            size.width * 0.045,
-            h,
-          ),
-          const Radius.circular(4),
-        ),
-        fill,
-      );
-    }
-    canvas.drawLine(
-      Offset(size.width * 0.08, size.height * 0.72),
-      Offset(size.width * 0.92, size.height * 0.34),
-      line,
-    );
-  }
-
-  void _paintLines(Canvas canvas, Size size, Paint fill, Paint line) {
-    for (var i = 0; i < 5; i++) {
-      final y = size.height * (0.18 + i * 0.13);
-      canvas.drawLine(
-        Offset(size.width * 0.52, y),
-        Offset(size.width * (0.86 - i * 0.04), y),
-        line,
-      );
-    }
-    canvas.drawCircle(Offset(size.width * 0.18, size.height * 0.28),
-        size.shortestSide * 0.12, fill);
-  }
-
-  void _paintOrbit(Canvas canvas, Size size, Paint fill, Paint line) {
-    final center = Offset(size.width * 0.76, size.height * 0.34);
-    canvas.drawCircle(center, size.shortestSide * 0.13, fill);
-    canvas.drawArc(
-      Rect.fromCenter(
-        center: center,
-        width: size.shortestSide * 0.55,
-        height: size.shortestSide * 0.32,
-      ),
-      -0.7,
-      4.4,
-      false,
-      line,
-    );
+  bool shouldRepaint(covariant _TexturePainter oldDelegate) {
+    return oldDelegate.kind != kind ||
+        oldDelegate.tone != tone ||
+        oldDelegate.surface != surface ||
+        oldDelegate.alpha != alpha;
   }
 }
 
-class _InterestIcon extends StatelessWidget {
-  const _InterestIcon({required this.spec});
+// ─────────────────────────────────────────────────────────────────────────────
+// Chips & badge — built on the app's canonical chip colours.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  final _InterestVisualSpec spec;
+class _TileChip extends StatelessWidget {
+  const _TileChip({required this.label});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          spec.accent.withValues(alpha: 0.14),
-          cs.surfaceContainerHighest,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: spec.accent.withValues(alpha: 0.20)),
-      ),
-      alignment: Alignment.center,
-      child: Icon(
-        spec.icon,
-        color: spec.accent.harmonizeWith(cs.primary),
-        size: 21,
-      ),
-    );
-  }
-}
-
-class _TileChip extends StatelessWidget {
-  const _TileChip({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final chip = tagChipColors(cs);
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 148),
+      constraints: const BoxConstraints(maxWidth: 152),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.15)),
+          color: chip.background,
+          borderRadius: BorderRadius.circular(100),
         ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
@@ -571,11 +542,11 @@ class _TileChip extends StatelessWidget {
             label,
             maxLines: 1,
             softWrap: false,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color.withValues(alpha: 0.88),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10.5,
-                ),
+            style: tt.labelSmall?.copyWith(
+              color: chip.foreground,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
           ),
         ),
       ),
@@ -583,137 +554,92 @@ class _TileChip extends StatelessWidget {
   }
 }
 
-class _TileBadge extends StatelessWidget {
-  const _TileBadge({required this.label, required this.color});
+class _DominantBadge extends StatelessWidget {
+  const _DominantBadge({required this.tone});
 
-  final String label;
-  final Color color;
+  final Color tone;
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(9, 4, 11, 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(100),
       ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color.withValues(alpha: 0.78),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: tone,
             ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            'Dominant interest',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
       ),
     );
   }
 }
 
-_InterestVisualSpec _visualSpec(BuildContext context, InterestCluster cluster) {
-  final cs = Theme.of(context).colorScheme;
-  final lower = [
-    cluster.label,
-    ...cluster.subtopics,
-  ].join(' ').toLowerCase();
+// ─────────────────────────────────────────────────────────────────────────────
+// Category → icon (used only by the slim rows)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  _InterestVisualSpec spec(
-    _InterestKind kind,
-    int color,
-    IconData icon,
-  ) {
-    return _InterestVisualSpec(
-      kind,
-      Color(color).harmonizeWith(cs.primary),
-      icon,
-    );
-  }
+IconData _iconForCluster(InterestCluster cluster) {
+  final lower = [cluster.label, ...cluster.subtopics].join(' ').toLowerCase();
 
   if (_hasAny(lower, ['trek', 'route', 'mountain', 'himalayan'])) {
-    return spec(_InterestKind.treks, 0xFF2D7FF9, Icons.terrain_rounded);
+    return Icons.terrain_rounded;
   }
-  if (_hasAny(lower, ['typography', 'font'])) {
-    return spec(_InterestKind.typography, 0xFFFF4FA3, Icons.text_fields_rounded);
-  }
+  if (_hasAny(lower, ['typography', 'font'])) return Icons.text_fields_rounded;
   if (_hasAny(lower, ['design system', 'ui tool', 'pattern', 'design'])) {
-    return spec(
-      _InterestKind.designSystems,
-      0xFF8B5CF6,
-      Icons.grid_view_rounded,
-    );
+    return Icons.grid_view_rounded;
   }
   if (_hasAny(lower, ['ai', 'agent', 'llm', 'prompt', 'claude', 'openai'])) {
-    return spec(_InterestKind.aiAgents, 0xFF00B8A9, Icons.account_tree_rounded);
+    return Icons.account_tree_rounded;
   }
   if (_hasAny(lower, ['seo', 'website', 'search console', 'growth'])) {
-    return spec(
-      _InterestKind.websiteGrowth,
-      0xFF1DB954,
-      Icons.trending_up_rounded,
-    );
+    return Icons.trending_up_rounded;
   }
   if (_hasAny(lower, ['github', 'oss', 'code', 'software', 'react', 'next'])) {
-    return spec(_InterestKind.devTools, 0xFFFFC857, Icons.code_rounded);
+    return Icons.code_rounded;
   }
   if (_hasAny(lower, ['startup', 'founder', 'users'])) {
-    return spec(_InterestKind.startup, 0xFFFF8A00, Icons.rocket_launch_rounded);
+    return Icons.rocket_launch_rounded;
   }
-  if (_hasAny(lower, ['farm', 'agri'])) {
-    return spec(_InterestKind.agriculture, 0xFF7CB342, Icons.eco_rounded);
-  }
+  if (_hasAny(lower, ['farm', 'agri'])) return Icons.eco_rounded;
   if (_hasAny(lower, ['social', 'instagram', 'reddit', 'x.com'])) {
-    return spec(_InterestKind.social, 0xFFFF5A5F, Icons.groups_rounded);
+    return Icons.groups_rounded;
   }
-  if (_hasAny(lower, ['book', 'essay', 'read'])) {
-    return spec(_InterestKind.longReads, 0xFFBA8C63, Icons.menu_book_rounded);
-  }
-  if (_hasAny(lower, ['finance', 'market'])) {
-    return spec(_InterestKind.finance, 0xFF00A884, Icons.show_chart_rounded);
-  }
+  if (_hasAny(lower, ['book', 'essay', 'read'])) return Icons.menu_book_rounded;
+  if (_hasAny(lower, ['finance', 'market'])) return Icons.show_chart_rounded;
   if (_hasAny(lower, ['learn', 'course', 'engineering'])) {
-    return spec(_InterestKind.learning, 0xFF4C8BF5, Icons.school_rounded);
+    return Icons.school_rounded;
   }
-  if (_hasAny(lower, ['game'])) {
-    return spec(_InterestKind.gaming, 0xFFB35CFF, Icons.extension_rounded);
-  }
-  if (_hasAny(lower, ['travel', 'destination'])) {
-    return spec(_InterestKind.travel, 0xFF00B8A9, Icons.map_rounded);
-  }
+  if (_hasAny(lower, ['game'])) return Icons.extension_rounded;
+  if (_hasAny(lower, ['travel', 'destination'])) return Icons.map_rounded;
   if (_hasAny(lower, ['philosophy', 'self-improvement', 'development'])) {
-    return spec(_InterestKind.philosophy, 0xFF7E8BFF, Icons.psychology_rounded);
+    return Icons.psychology_rounded;
   }
   if (_hasAny(lower, ['bike', 'motorcycle', 'vehicle'])) {
-    return spec(_InterestKind.vehicles, 0xFFE57373, Icons.two_wheeler_rounded);
+    return Icons.two_wheeler_rounded;
   }
   if (_hasAny(lower, ['document', 'office', 'productivity'])) {
-    return spec(
-      _InterestKind.productivity,
-      0xFF6C8EBF,
-      Icons.description_rounded,
-    );
+    return Icons.description_rounded;
   }
-
-  final raw = cluster.accentColor ?? cs.primary;
-  return _InterestVisualSpec(
-    _InterestKind.general,
-    raw.harmonizeWith(cs.primary),
-    Icons.category_rounded,
-  );
-}
-
-Color _tintedSurface(
-  ColorScheme cs,
-  Color accent, {
-  required double tierElevation,
-}) {
-  final surface = ElevationOverlay.applySurfaceTint(
-    cs.surfaceContainerLow,
-    cs.surfaceTint,
-    tierElevation,
-  );
-  final alpha = cs.brightness == Brightness.dark ? 0.24 : 0.12;
-  return Color.alphaBlend(accent.withValues(alpha: alpha), surface);
+  return Icons.category_rounded;
 }
 
 bool _hasAny(String text, List<String> needles) {

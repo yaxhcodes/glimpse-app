@@ -9,6 +9,7 @@ import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/tag_group.dart' show tagChipColors;
 import '../home/home_provider.dart';
 import 'cluster_card.dart';
 import 'cluster_theme.dart';
@@ -213,7 +214,7 @@ class _MasonryColumn extends StatelessWidget {
   var rightHeight = 0.0;
 
   for (final item in items) {
-    final height = _estimatedMediumHeight(item);
+    final height = mediumClusterTileHeight(item);
     if (leftHeight <= rightHeight) {
       left.add(item);
       leftHeight += height + 10;
@@ -224,12 +225,6 @@ class _MasonryColumn extends StatelessWidget {
   }
 
   return (left, right);
-}
-
-double _estimatedMediumHeight(InterestCluster cluster) {
-  if (cluster.saveCount >= 18 || cluster.dominance >= 0.25) return 190;
-  if (cluster.saveCount >= 10 || cluster.dominance >= 0.18) return 176;
-  return 154;
 }
 
 List<ClusterTheme> _mergeThemesForDisplay(List<ClusterTheme> themes) {
@@ -289,25 +284,26 @@ List<String> _displaySubtopics(ClusterTheme theme, Set<String> topLabels) {
   final parent = theme.label.trim().toLowerCase();
   final seen = <String>{};
   final out = <String>[];
-  for (final sub in theme.subClusters) {
-    final label = sub.label.trim();
-    final key = label.toLowerCase();
-    if (!_isDisplaySafeLabel(label)) continue;
-    if (key == parent) continue;
-    if (topLabels.contains(key)) continue;
-    if (!seen.add(key)) continue;
-    out.add(label);
-    if (out.length >= 4) break;
+
+  void take(Iterable<String> labels) {
+    for (final raw in labels) {
+      final label = raw.trim();
+      final key = label.toLowerCase();
+      if (!_isDisplaySafeLabel(label)) continue;
+      if (key == parent) continue;
+      if (topLabels.contains(key)) continue;
+      if (!seen.add(key)) continue;
+      out.add(label);
+      if (out.length >= 4) break;
+    }
   }
-  for (final label in _curatedFallbackSubtopics(theme)) {
-    final key = label.toLowerCase();
-    if (!_isDisplaySafeLabel(label)) continue;
-    if (key == parent) continue;
-    if (topLabels.contains(key)) continue;
-    if (!seen.add(key)) continue;
-    out.add(label);
-    if (out.length >= 4) break;
-  }
+
+  // Curated + tag-frequency subtopics first: these are aggregate signals, so a
+  // single mis-clustered link (e.g. a stray "Food & Cooking" bookmark grouped
+  // under Dev Tools) can't surface as its own chip. Raw sub-cluster labels —
+  // which amplify such outliers — are only used to fill any remaining slots.
+  take(_curatedFallbackSubtopics(theme));
+  take(theme.subClusters.map((sub) => sub.label));
   return out;
 }
 
@@ -422,13 +418,13 @@ class _SectionEyebrow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.4,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w700,
+              height: 1.18,
             ),
       ),
     );
@@ -442,7 +438,6 @@ class _SubChip extends StatelessWidget {
     required this.label,
     required this.count,
     required this.selected,
-    required this.accent,
     required this.cs,
     required this.tt,
     required this.onTap,
@@ -451,21 +446,18 @@ class _SubChip extends StatelessWidget {
   final String label;
   final int count;
   final bool selected;
-  final Color accent;
   final ColorScheme cs;
   final TextTheme tt;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // Selected → solid accent fill with white text.
-    // Unselected → translucent surface with muted text and a faint border.
-    final bgColor = selected
-        ? accent
-        : cs.surfaceContainerHighest.withValues(alpha: 0.55);
-    final textColor = selected ? Colors.white : cs.onSurfaceVariant;
+    // Selected → calm secondaryContainer pill (the app's selected-state colour).
+    // Unselected → faint surface with a hairline border.
+    final bgColor = selected ? cs.secondaryContainer : cs.surfaceContainerHigh;
+    final textColor = selected ? cs.onSecondaryContainer : cs.onSurfaceVariant;
     final badgeBg = selected
-        ? Colors.white.withValues(alpha: 0.22)
+        ? cs.onSecondaryContainer.withValues(alpha: 0.14)
         : cs.onSurfaceVariant.withValues(alpha: 0.10);
 
     return GestureDetector(
@@ -523,14 +515,12 @@ class _ClusterUrlRow extends StatelessWidget {
   const _ClusterUrlRow({
     required this.url,
     required this.tagFrequency,
-    required this.accentColor,
     required this.onTap,
     this.subLabel,
   });
 
   final SavedUrl url;
   final Map<String, int> tagFrequency;
-  final Color accentColor;
   final VoidCallback onTap;
 
   /// When non-null, shown as a small tag on the row (visible in "All" view
@@ -547,9 +537,9 @@ class _ClusterUrlRow extends StatelessWidget {
     final resolvedTitle = TitleResolver.resolve(url, tagFrequency: tagFrequency);
     final title = _displayTitleForUrl(url, resolvedTitle);
     if (title == null) return const SizedBox.shrink();
+    final chip = tagChipColors(cs);
     final placeholder = _UrlPlaceholder(
       letter: url.domain.isNotEmpty ? url.domain[0].toUpperCase() : '?',
-      accentColor: accentColor,
     );
 
     return Material(
@@ -570,7 +560,7 @@ class _ClusterUrlRow extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: accentColor.withValues(alpha: 0.25),
+                    color: cs.outlineVariant.withValues(alpha: 0.6),
                     width: 1,
                   ),
                 ),
@@ -622,7 +612,7 @@ class _ClusterUrlRow extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: accentColor.withValues(alpha: 0.12),
+                              color: chip.background,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -630,7 +620,7 @@ class _ClusterUrlRow extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: accentColor,
+                                color: chip.foreground,
                                 height: 1.2,
                               ),
                               maxLines: 1,
@@ -658,24 +648,20 @@ class _ClusterUrlRow extends StatelessWidget {
 }
 
 class _UrlPlaceholder extends StatelessWidget {
-  const _UrlPlaceholder({required this.letter, required this.accentColor});
+  const _UrlPlaceholder({required this.letter});
 
   final String letter;
-  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      color: Color.alphaBlend(
-        accentColor.withValues(alpha: 0.18),
-        cs.surfaceContainerHighest,
-      ),
+      color: cs.surfaceContainerHighest,
       child: Center(
         child: Text(
           letter.isNotEmpty ? letter[0].toUpperCase() : '?',
           style: TextStyle(
-            color: accentColor,
+            color: cs.onSurfaceVariant,
             fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
@@ -781,10 +767,14 @@ class MindmapScreen extends ConsumerWidget {
         titleSpacing: 20,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Interest map',
-              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w400),
+              style: tt.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
             ),
             Text(
               subtitle,
@@ -917,7 +907,7 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
               theme.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w400),
+              style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w600),
             ),
             backgroundColor: cs.surface,
             surfaceTintColor: Colors.transparent,
@@ -945,7 +935,6 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                               label: 'All',
                               count: theme.urls.length,
                               selected: _selectedSub == null,
-                              accent: theme.accentColor,
                               cs: cs,
                               tt: tt,
                               onTap: () {
@@ -959,7 +948,6 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                                 label: subClusters[i].label,
                                 count: subClusters[i].urls.length,
                                 selected: _selectedSub == i,
-                                accent: theme.accentColor,
                                 cs: cs,
                                 tt: tt,
                                 onTap: () {
@@ -994,7 +982,6 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                       child: _ClusterUrlRow(
                         url: url,
                         tagFrequency: tagFrequency,
-                        accentColor: theme.accentColor,
                         subLabel:
                             selectedSub == null ? subLabelByUrl[url.id] : null,
                         onTap: () {

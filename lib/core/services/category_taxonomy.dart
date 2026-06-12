@@ -164,7 +164,7 @@ class CategoryTaxonomy {
       if (!inferred.contains(category)) inferred.add(category);
     }
 
-    if (_containsAny(searchable, [
+    if (_containsAnyWord(searchable, [
       'recipe',
       'cook',
       'food',
@@ -180,7 +180,7 @@ class CategoryTaxonomy {
     ])) {
       add('Food & Cooking');
     }
-    if (_containsAny(searchable, [
+    if (_containsAnyWord(searchable, [
       'health',
       'nutrition',
       'fitness',
@@ -192,7 +192,7 @@ class CategoryTaxonomy {
     ])) {
       add('Health');
     }
-    if (_containsAny(searchable, [
+    if (_containsAnyWord(searchable, [
       'react',
       'flutter',
       'dart',
@@ -206,7 +206,7 @@ class CategoryTaxonomy {
     ])) {
       add('Technology');
     }
-    if (_containsAny(searchable, [
+    if (_containsAnyWord(searchable, [
       'design',
       'figma',
       'typography',
@@ -215,7 +215,7 @@ class CategoryTaxonomy {
     ])) {
       add('Design');
     }
-    if (_containsAny(searchable, [
+    if (_containsAnyWord(searchable, [
       'travel',
       'trek',
       'hike',
@@ -224,7 +224,7 @@ class CategoryTaxonomy {
     ])) {
       add('Travel');
     }
-    if (_containsAny(searchable, [
+    if (_containsAnyWord(searchable, [
       'movie',
       'film',
       'cinema',
@@ -236,6 +236,19 @@ class CategoryTaxonomy {
     }
 
     return inferred;
+  }
+
+  /// Word-aware match: the needle must begin at a word boundary (so it matches
+  /// "cook"/"cooking"/"designer" but NOT mid-word — e.g. "ui" inside "quick",
+  /// "code" inside "barcode", "dart" inside "dartboard"). This is what stopped
+  /// food saves from being tagged "Design".
+  static bool _containsAnyWord(String text, List<String> needles) {
+    for (final needle in needles) {
+      if (RegExp('(?<![a-z0-9])${RegExp.escape(needle)}').hasMatch(text)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static CategoryDefinition byName(String name) {

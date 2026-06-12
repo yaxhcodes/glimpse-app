@@ -82,13 +82,21 @@ List<List<int>> _mergeByCentroidCosine(
   return result;
 }
 
-/// Top-level clustering: threshold-based grouping where each cluster is built
-/// from seed [i] and all unassigned [j] with similarity above [threshold].
+/// Top-level clustering.
 ///
-/// [rows] must each include `embedding` as a [List] of numbers (isolate-safe).
-/// Returns lists of indices into [rows], largest clusters first.
+/// Embeddings of short social-media posts (Reels/Shorts with terse titles) are
+/// too generically similar for a cosine threshold to separate topics on its own
+/// — that is why cooking links kept landing inside a Dev Tools cluster. So we
+/// first **hard-partition by broad topic category** (the human-meaningful
+/// `categoryBucket` carried on each row: Technology, Food & Cooking, Education,
+/// …) and only cluster by embedding *within* each bucket. Two different
+/// categories can therefore never share a cluster, while embeddings still split
+/// a busy bucket like Technology into AI Agents / Dev Tools / Website Growth.
+///
+/// [rows] must each include `embedding` (a [List] of numbers) and ideally a
+/// `categoryBucket` string (rows without one fall into an 'Other' bucket).
+/// Isolate-safe. Returns lists of indices into [rows], largest clusters first.
 List<List<int>> clusterUrlIndicesByCosine(List<Map<String, dynamic>> rows) {
-  const threshold = 0.55;
   if (rows.isEmpty) return [];
 
   final embeddings = <List<double>>[];
@@ -101,21 +109,44 @@ List<List<int>> clusterUrlIndicesByCosine(List<Map<String, dynamic>> rows) {
     }
   }
 
+  // Bucket row indices by broad category (preserves ascending order).
+  final buckets = <String, List<int>>{};
+  for (var i = 0; i < rows.length; i++) {
+    if (embeddings[i].isEmpty) continue;
+    final raw = (rows[i]['categoryBucket'] as String?)?.trim();
+    final key = (raw == null || raw.isEmpty) ? 'Other' : raw;
+    buckets.putIfAbsent(key, () => <int>[]).add(i);
+  }
+
+  final result = <List<int>>[];
+  for (final indices in buckets.values) {
+    result.addAll(_clusterWithinBucket(indices, embeddings));
+  }
+  result.sort((a, b) => b.length.compareTo(a.length));
+  return result;
+}
+
+/// Greedy single-seed cosine clustering restricted to [indices] (global indices
+/// into [embeddings], ascending), followed by a centroid merge. Runs inside one
+/// category bucket so it only ever groups same-category items.
+List<List<int>> _clusterWithinBucket(
+  List<int> indices,
+  List<List<double>> embeddings,
+) {
+  const threshold = 0.55;
   final clusters = <List<int>>[];
   final assigned = <int>{};
-  final n = rows.length;
 
-  for (var i = 0; i < n; i++) {
-    if (assigned.contains(i)) continue;
-    if (embeddings[i].isEmpty) continue;
+  for (var a = 0; a < indices.length; a++) {
+    final i = indices[a];
+    if (assigned.contains(i) || embeddings[i].isEmpty) continue;
 
     final cluster = <int>[i];
     assigned.add(i);
-    for (var j = i + 1; j < n; j++) {
-      if (assigned.contains(j)) continue;
-      if (embeddings[j].isEmpty) continue;
-      final sim = cosineSimilarityEmbedding(embeddings[i], embeddings[j]);
-      if (sim > threshold) {
+    for (var b = a + 1; b < indices.length; b++) {
+      final j = indices[b];
+      if (assigned.contains(j) || embeddings[j].isEmpty) continue;
+      if (cosineSimilarityEmbedding(embeddings[i], embeddings[j]) > threshold) {
         cluster.add(j);
         assigned.add(j);
       }

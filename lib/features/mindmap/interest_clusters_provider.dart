@@ -28,10 +28,12 @@ final interestClusterThemesProvider = FutureProvider<List<ClusterTheme>>((
 
   final isar = ref.read(isarServiceProvider);
 
-  // Always obtain a fresh SharedPreferences instance so that cache keys
-  // cleared by clearInterestClusterCache() are visible immediately.
+  // SharedPreferences is a process-wide singleton, so the in-memory state here
+  // already reflects keys removed by clearInterestClusterCache() earlier in this
+  // same refresh. We must NOT call prefs.reload(): that re-reads from disk and
+  // races with the pending remove() write, which can resurrect the cache we
+  // just cleared — making the manual refresh button appear to do nothing.
   final prefs = await SharedPreferences.getInstance();
-  await prefs.reload();
 
   final gemini = ref.read(geminiServiceProvider);
 
