@@ -2149,13 +2149,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   String _mentionSectionTitle(String type) {
     return switch (type) {
-      'movie' => 'Mentioned Movies',
-      'book' => 'Mentioned Books',
-      'product' => 'Mentioned Products',
-      'app' => 'Mentioned Apps',
-      'person' => 'Mentioned People',
-      'place' => 'Mentioned Places',
-      _ => 'Mentioned Items',
+      'movie' => 'Worth watching',
+      'book' => 'Worth reading',
+      'product' => 'Worth a look',
+      'app' => 'Apps to try',
+      'person' => 'People mentioned',
+      'place' => 'Places to visit',
+      _ => 'Also mentioned',
     };
   }
 
@@ -2177,6 +2177,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         .map((mention) => _mentionSectionKey(mention.type))
         .where((type) => type != 'person' && type != 'other')
         .toSet();
+    // When the save has real extracted entities (places/movies/books/products),
+    // those entity cards carry the content — a separate formal "Key Takeaways"
+    // list on top reads like a museum placard and duplicates them. Reserve
+    // takeaways for genuine how-to/insight content with no entities.
+    if (mentionTypes.isNotEmpty) return false;
     final text = [
       url.title,
       url.category,
@@ -2206,7 +2211,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ]);
 
     if (learningContent) return true;
-    return mentionTypes.isEmpty && live.steps.length >= 3;
+    return live.steps.length >= 3;
   }
 
   Color _sectionAccent(String type, ColorScheme colorScheme) {
@@ -3131,6 +3136,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     final posterUrl = mention.posterUrl?.trim() ?? '';
     final metadata = _mentionMetadataLine(mention);
+    // Places have no poster art, so the tall poster slot looks empty/wrong for
+    // them — show a compact location pin tile instead (matches a travel guide).
+    final isPlace = mention.type.toLowerCase() == 'place';
+    final accent = _recipeAccent(colorScheme);
 
     return Material(
       color: Colors.transparent,
@@ -3143,21 +3152,36 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 54,
-                  height: 72,
-                  child: posterUrl.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: posterUrl,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) =>
-                              _mentionPlaceholder(mention, colorScheme),
-                        )
-                      : _mentionPlaceholder(mention, colorScheme),
+              if (isPlace)
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.location_on_outlined,
+                    size: 22,
+                    color: accent,
+                  ),
+                )
+              else
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 54,
+                    height: 72,
+                    child: posterUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: posterUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) =>
+                                _mentionPlaceholder(mention, colorScheme),
+                          )
+                        : _mentionPlaceholder(mention, colorScheme),
+                  ),
                 ),
-              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Padding(
