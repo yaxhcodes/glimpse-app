@@ -5,7 +5,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../home/home_provider.dart';
 
-/// A rediscovery item enriched with emotional context / resurfacing reason.
+/// A rediscovery item enriched with a "why now" reason and relative time.
 class RediscoveryItem {
   final SavedUrl url;
   final String reason;
@@ -18,100 +18,192 @@ class RediscoveryItem {
   });
 }
 
-/// Recently resurfaced links (shown in rediscovery within last 30 days).
-final recentlyResurfacingProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
-  final isar = ref.read(isarServiceProvider);
-  final all = await isar.getAllUrls();
-  final cutoff = DateTime.now().subtract(const Duration(days: 30));
-  final urls = all
-      .where((u) => u.resurfacedAt != null && u.resurfacedAt!.isAfter(cutoff))
-      .toList()
-    ..sort((a, b) => b.resurfacedAt!.compareTo(a.resurfacedAt!));
+/// Headline stats that give the page a sense of purpose.
+typedef RediscoveryStats = ({int total, int unopened});
 
-  return urls.map((u) => RediscoveryItem(
-    url: u,
-    reason: 'Resurfaced',
-    timeAgo: _formatTimeAgo(u.savedAt),
-  )).toList();
-});
-
-/// Oldest unread links saved more than 14 days ago.
-final worthRevisitingProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
-  final isar = ref.read(isarServiceProvider);
-  final all = await isar.getAllUrls();
-  final cutoff = DateTime.now().subtract(const Duration(days: 14));
-  final urls = all
-      .where((u) => u.openedAt == null && u.savedAt.isBefore(cutoff))
-      .toList()
-    ..sort((a, b) => a.savedAt.compareTo(b.savedAt));
-
-  return urls.map((u) {
-    final reason = _resurfacingReason(u, all);
-    return RediscoveryItem(
-      url: u,
-      reason: reason,
-      timeAgo: _formatTimeAgo(u.savedAt),
-    );
-  }).toList();
-});
-
-/// Interest-based rediscovery with a larger limit for the dedicated page.
-final interestBasedRediscoveryProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
+/// Watches the library so every rediscovery surface refreshes on save/delete/
+/// dismiss, then returns all non-dismissed URLs newest-first.
+Future<List<SavedUrl>> _liveUrls(Ref ref) async {
   ref.watch(
     urlStreamProvider.select(
       (async) => async.whenOrNull(data: (urls) => urls.length),
     ),
   );
   final isar = ref.read(isarServiceProvider);
-  final all = await isar.getAllUrls();
-  final service = RediscoveryService(isar);
-  final urls = await service.getRediscoveryLinks(limit: 20);
+  final all = await isar.getAllUrls(); // newest first
+  return all.where((u) => u.rediscoverDismissedAt == null).toList();
+}
 
-  return urls.map((u) {
-    final reason = _resurfacingReason(u, all);
-    return RediscoveryItem(
-      url: u,
-      reason: reason,
-      timeAgo: _formatTimeAgo(u.savedAt),
-    );
-  }).toList();
+final rediscoveryStatsProvider = FutureProvider<RediscoveryStats>((ref) async {
+  final live = await _liveUrls(ref);
+  final unopened = live.where((u) => u.openedAt == null).length;
+  return (total: live.length, unopened: unopened);
 });
 
-String _resurfacingReason(SavedUrl url, List<SavedUrl> all) {
+/// The hero queue: a small, finite, curated set of picks to triage today.
+/// Blends forgotten gems, on-this-day memories and interest matches.
+final todaysPicksProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
+  final live = await _liveUrls(ref);
+  if (live.length < 4) return [];
+
+  final gems = _forgottenGems(live).take(3);
+  final onThisDay = _onThisDay(live).take(2);
+
+  final isar = ref.read(isarServiceProvider);
+  final interest = await RediscoveryService(isar).getRediscoveryLinks(limit: 6);
+
+  final picks = <SavedUrl>[];
+  final seen = <int>{};
+  void add(Iterable<SavedUrl> urls) {
+    for (final u in urls) {
+      if (seen.add(u.id)) picks.add(u);
+    }
+  }
+
+  add(gems);
+  add(onThisDay);
+  add(interest);
+
+  return picks
+      .take(7)
+      .map((u) => RediscoveryItem(
+            url: u,
+            reason: _reasonFor(u, live),
+            timeAgo: _formatTimeAgo(u.savedAt),
+          ))
+      .toList();
+});
+
+/// Saves whose age lands on a memory anniversary (≈1mo / 3mo / 6mo / 1yr ago).
+final onThisDayProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
+  final live = await _liveUrls(ref);
+  return _onThisDay(live)
+      .take(10)
+      .map((u) => RediscoveryItem(
+            url: u,
+            reason: _onThisDayLabel(u) ?? 'A while ago',
+            timeAgo: _formatTimeAgo(u.savedAt),
+          ))
+      .toList();
+});
+
+/// Older saves the user never opened — the real backlog worth clearing.
+final forgottenGemsProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
+  final live = await _liveUrls(ref);
+  return _forgottenGems(live)
+      .take(12)
+      .map((u) => RediscoveryItem(
+            url: u,
+            reason: 'Never opened',
+            timeAgo: _formatTimeAgo(u.savedAt),
+          ))
+      .toList();
+});
+
+/// Interest-based shelf, titled after the topic that ties the picks together.
+typedef InterestShelf = ({String title, List<RediscoveryItem> items});
+
+final interestShelfProvider = FutureProvider<InterestShelf>((ref) async {
+  ref.watch(
+    urlStreamProvider.select(
+      (async) => async.whenOrNull(data: (urls) => urls.length),
+    ),
+  );
+  final isar = ref.read(isarServiceProvider);
+  final live = (await isar.getAllUrls())
+      .where((u) => u.rediscoverDismissedAt == null)
+      .toList();
+  final urls = await RediscoveryService(isar).getRediscoveryLinks(limit: 12);
+
+  final topic = _dominantCategory(urls);
+  final title = topic == null ? 'From your interests' : 'Because you saved $topic';
+
+  final items = urls
+      .map((u) => RediscoveryItem(
+            url: u,
+            reason: _reasonFor(u, live),
+            timeAgo: _formatTimeAgo(u.savedAt),
+          ))
+      .toList();
+  return (title: title, items: items);
+});
+
+// ── Selection helpers ──────────────────────────────────────────────────────
+
+List<SavedUrl> _forgottenGems(List<SavedUrl> live) {
+  final now = DateTime.now();
+  final cutoff = now.subtract(const Duration(days: 30));
+  final resurfaceCutoff = now.subtract(const Duration(days: 14));
+  final gems = live.where((u) {
+    if (u.openedAt != null) return false;
+    if (!u.savedAt.isBefore(cutoff)) return false;
+    final r = u.resurfacedAt;
+    if (r != null && r.isAfter(resurfaceCutoff)) return false;
+    final hasSubstance = (u.thumbnailUrl?.isNotEmpty ?? false) ||
+        (u.enrichmentJson?.isNotEmpty ?? false) ||
+        (u.summary?.isNotEmpty ?? false);
+    return hasSubstance;
+  }).toList()
+    ..sort((a, b) => a.savedAt.compareTo(b.savedAt)); // oldest first
+  return gems;
+}
+
+List<SavedUrl> _onThisDay(List<SavedUrl> live) {
+  final dated = live.where((u) => _onThisDayLabel(u) != null).toList()
+    ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
+  return dated;
+}
+
+String? _onThisDayLabel(SavedUrl u) {
+  final days = DateTime.now().difference(u.savedAt).inDays;
+  bool near(int anchor) => (days - anchor).abs() <= 3;
+  if (near(365)) return 'A year ago today';
+  if (near(180)) return '6 months ago';
+  if (near(90)) return '3 months ago';
+  if (near(30)) return 'A month ago';
+  return null;
+}
+
+String? _dominantCategory(List<SavedUrl> urls) {
+  final counts = <String, int>{};
+  for (final u in urls) {
+    for (final c in u.effectiveCategories) {
+      if (c == 'Other') continue;
+      counts[c] = (counts[c] ?? 0) + 1;
+    }
+  }
+  if (counts.isEmpty) return null;
+  final top = counts.entries.reduce((a, b) => a.value >= b.value ? a : b);
+  return top.value >= 2 ? top.key : null;
+}
+
+String _reasonFor(SavedUrl url, List<SavedUrl> live) {
+  final onThisDay = _onThisDayLabel(url);
+  if (onThisDay != null) return onThisDay;
+  if (url.openedAt == null) return 'Never opened';
+
   final now = DateTime.now();
   final weekAgo = now.subtract(const Duration(days: 7));
-
-  // Check if recent saves share categories/tags
-  final recent = all.where((u) => u.savedAt.isAfter(weekAgo) && u.id != url.id).toList();
+  final recent =
+      live.where((u) => u.savedAt.isAfter(weekAgo) && u.id != url.id).toList();
   if (recent.isNotEmpty) {
-    final recentTags = recent.expand((u) => u.tags).map((t) => t.toLowerCase()).toSet();
-    final recentCats = recent.expand((u) => u.effectiveCategories).map((c) => c.toLowerCase()).toSet();
-
-    final sharedTags = url.tags.where((t) => recentTags.contains(t.toLowerCase())).toList();
-    final sharedCats = url.effectiveCategories.where((c) => recentCats.contains(c.toLowerCase())).toList();
-
-    if (sharedTags.isNotEmpty) {
-      return 'From recent saves';
+    final recentTags =
+        recent.expand((u) => u.tags).map((t) => t.toLowerCase()).toSet();
+    final recentCats = recent
+        .expand((u) => u.effectiveCategories)
+        .map((c) => c.toLowerCase())
+        .toSet();
+    if (url.tags.any((t) => recentTags.contains(t.toLowerCase()))) {
+      return 'Matches your recent saves';
     }
-    if (sharedCats.isNotEmpty) {
+    if (url.effectiveCategories.any((c) => recentCats.contains(c.toLowerCase()))) {
       return 'Based on recent activity';
     }
   }
 
-  // Never opened
-  if (url.openedAt == null) {
-    return 'Unopened';
-  }
-
-  // Time-based context
   final age = now.difference(url.savedAt);
-  if (age.inDays > 90) {
-    return 'From months ago';
-  }
-  if (age.inDays > 30) {
-    return 'From last month';
-  }
-
+  if (age.inDays > 90) return 'From months ago';
+  if (age.inDays > 30) return 'From last month';
   return 'Worth revisiting';
 }
 

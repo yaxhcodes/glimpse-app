@@ -368,7 +368,7 @@ class CinematicCard extends StatelessWidget {
       elevation: 0,
       color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -381,87 +381,75 @@ class CinematicCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  ColoredBox(color: cs.surfaceContainerHighest),
                   if (hasImage)
                     CachedNetworkImage(
                       imageUrl: imageUrl!,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                      placeholder: (_, __) =>
+                          ColoredBox(color: cs.surfaceContainerHighest),
+                      errorWidget: (_, __, ___) => Center(
+                        child: Icon(
+                          Icons.image_outlined,
+                          size: 26,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    )
+                  else
+                    Center(
+                      child: Icon(
+                        Icons.bookmark_outline_rounded,
+                        size: 26,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
                     ),
+                  // Fade the image bottom into the card surface so it merges
+                  // seamlessly into the text section below (white in light
+                  // mode, dark in dark mode — driven by the theme).
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: hasImage
-                            ? [
-                                Colors.black.withValues(alpha: 0.04),
-                                Colors.black.withValues(alpha: 0.20),
-                                Colors.black.withValues(alpha: 0.55),
-                                Colors.black.withValues(alpha: 0.82),
-                                Colors.black.withValues(alpha: 0.94),
-                              ]
-                            : [
-                                cs.surfaceContainerLow,
-                                cs.surfaceContainerLow,
-                              ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (reason != null) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: hasImage
-                                    ? Colors.white.withValues(alpha: 0.18)
-                                    : cs.secondaryContainer,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                reason!,
-                                style: tt.labelSmall?.copyWith(
-                                  fontSize: 10,
-                                  color: hasImage
-                                      ? Colors.white.withValues(alpha: 0.85)
-                                      : cs.onSecondaryContainer,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0.4,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                          ],
-                          Text(
-                            subtitle,
-                            style: tt.labelSmall?.copyWith(
-                              fontSize: 10,
-                              color: hasImage
-                                  ? Colors.white.withValues(alpha: 0.60)
-                                  : cs.onSurfaceVariant,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
+                        stops: const [0.5, 0.82, 1.0],
+                        colors: [
+                          cs.surfaceContainerLow.withValues(alpha: 0.0),
+                          cs.surfaceContainerLow.withValues(alpha: 0.55),
+                          cs.surfaceContainerLow,
                         ],
                       ),
                     ),
                   ),
+                  if (reason != null)
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.secondaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          reason!,
+                          style: tt.labelSmall?.copyWith(
+                            fontSize: 10,
+                            color: cs.onSecondaryContainer,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -470,20 +458,31 @@ class CinematicCard extends StatelessWidget {
                     style: tt.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: cs.onSurface,
-                      height: 1.2,
+                      height: 1.25,
                       letterSpacing: -0.15,
                       fontSize: 14,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: tt.labelSmall?.copyWith(
+                      fontSize: 11,
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (tags.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
                       children: tags
-                          .take(4)
+                          .take(3)
                           .map((t) => MonochromePill(t, compact: true))
                           .toList(),
                     ),

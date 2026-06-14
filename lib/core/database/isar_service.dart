@@ -625,6 +625,19 @@ class IsarService {
     });
   }
 
+  /// Dismiss ([when] non-null) or restore ([when] null) a link from
+  /// Rediscovery. Dismissed links are excluded from all resurfacing.
+  Future<void> updateRediscoverDismissedAt(int urlId, DateTime? when) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(urlId);
+      if (url != null) {
+        url.rediscoverDismissedAt = when;
+        await isar.savedUrls.put(url);
+      }
+    });
+  }
+
   /// Unread links: [openedAt] is null, optional filters for rediscovery/digest.
   Future<List<SavedUrl>> getUnreadLinks({
     DateTime? savedBefore,

@@ -69,6 +69,10 @@ class SavedUrl {
   /// Last time this link was shown in rediscovery (limits repeat surfacing).
   DateTime? resurfacedAt;
 
+  /// When the user dismissed this link from Rediscovery ("not now"). Dismissed
+  /// links are excluded from all rediscovery surfaces. Null = not dismissed.
+  DateTime? rediscoverDismissedAt;
+
   /// Embedding vector for semantic search (1024-dim from Voyage AI).
   /// Null or empty until embedded (new saves or backfill).
   List<double>? embedding;

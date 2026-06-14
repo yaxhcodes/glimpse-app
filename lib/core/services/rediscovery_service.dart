@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import '../database/isar_service.dart';
 import '../models/saved_url.dart';
 
@@ -25,10 +23,12 @@ class RediscoveryService {
     final seeds = all.take(5).toList();
     final seedIds = seeds.map((u) => u.id).toSet();
 
-    // Candidates = everything outside the seed window, not resurfaced recently.
+    // Candidates = everything outside the seed window, not resurfaced recently
+    // and not dismissed from rediscovery by the user.
     final resurfaceCutoff = DateTime.now().subtract(const Duration(days: 14));
     final candidates = all.where((u) {
       if (seedIds.contains(u.id)) return false;
+      if (u.rediscoverDismissedAt != null) return false;
       final r = u.resurfacedAt;
       return r == null || r.isBefore(resurfaceCutoff);
     }).toList();
@@ -102,6 +102,16 @@ class RediscoveryService {
 
   Future<void> markResurfaced(int urlId) async {
     await isarService.updateResurfacedAt(urlId, DateTime.now());
+  }
+
+  /// Hide a link from Rediscovery ("not now").
+  Future<void> markDismissed(int urlId) async {
+    await isarService.updateRediscoverDismissedAt(urlId, DateTime.now());
+  }
+
+  /// Undo a dismissal.
+  Future<void> restoreDismissed(int urlId) async {
+    await isarService.updateRediscoverDismissedAt(urlId, null);
   }
 }
 

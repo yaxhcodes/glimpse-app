@@ -92,38 +92,43 @@ const SavedUrlSchema = CollectionSchema(
       name: r'rawUrl',
       type: IsarType.string,
     ),
-    r'resurfacedAt': PropertySchema(
+    r'rediscoverDismissedAt': PropertySchema(
       id: 15,
+      name: r'rediscoverDismissedAt',
+      type: IsarType.dateTime,
+    ),
+    r'resurfacedAt': PropertySchema(
+      id: 16,
       name: r'resurfacedAt',
       type: IsarType.dateTime,
     ),
     r'savedAt': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -287,13 +292,14 @@ void _savedUrlSerialize(
   writer.writeString(offsets[12], object.processingStatus);
   writer.writeDateTime(offsets[13], object.processingUpdatedAt);
   writer.writeString(offsets[14], object.rawUrl);
-  writer.writeDateTime(offsets[15], object.resurfacedAt);
-  writer.writeDateTime(offsets[16], object.savedAt);
-  writer.writeString(offsets[17], object.summary);
-  writer.writeStringList(offsets[18], object.tags);
-  writer.writeString(offsets[19], object.thumbnailUrl);
-  writer.writeString(offsets[20], object.title);
-  writer.writeString(offsets[21], object.userNotes);
+  writer.writeDateTime(offsets[15], object.rediscoverDismissedAt);
+  writer.writeDateTime(offsets[16], object.resurfacedAt);
+  writer.writeDateTime(offsets[17], object.savedAt);
+  writer.writeString(offsets[18], object.summary);
+  writer.writeStringList(offsets[19], object.tags);
+  writer.writeString(offsets[20], object.thumbnailUrl);
+  writer.writeString(offsets[21], object.title);
+  writer.writeString(offsets[22], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -318,13 +324,14 @@ SavedUrl _savedUrlDeserialize(
   object.processingStatus = reader.readStringOrNull(offsets[12]);
   object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[13]);
   object.rawUrl = reader.readString(offsets[14]);
-  object.resurfacedAt = reader.readDateTimeOrNull(offsets[15]);
-  object.savedAt = reader.readDateTime(offsets[16]);
-  object.summary = reader.readStringOrNull(offsets[17]);
-  object.tags = reader.readStringList(offsets[18]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[19]);
-  object.title = reader.readString(offsets[20]);
-  object.userNotes = reader.readStringOrNull(offsets[21]);
+  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[15]);
+  object.resurfacedAt = reader.readDateTimeOrNull(offsets[16]);
+  object.savedAt = reader.readDateTime(offsets[17]);
+  object.summary = reader.readStringOrNull(offsets[18]);
+  object.tags = reader.readStringList(offsets[19]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[20]);
+  object.title = reader.readString(offsets[21]);
+  object.userNotes = reader.readStringOrNull(offsets[22]);
   return object;
 }
 
@@ -368,16 +375,18 @@ P _savedUrlDeserializeProp<P>(
     case 15:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 16:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 17:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 18:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 19:
       return (reader.readStringOrNull(offset)) as P;
+    case 19:
+      return (reader.readStringList(offset) ?? []) as P;
     case 20:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 21:
+      return (reader.readString(offset)) as P;
+    case 22:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2865,6 +2874,80 @@ extension SavedUrlQueryFilter
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      rediscoverDismissedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'rediscoverDismissedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      rediscoverDismissedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'rediscoverDismissedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      rediscoverDismissedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'rediscoverDismissedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      rediscoverDismissedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'rediscoverDismissedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      rediscoverDismissedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'rediscoverDismissedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      rediscoverDismissedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'rediscoverDismissedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> resurfacedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -3932,6 +4015,19 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByRediscoverDismissedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rediscoverDismissedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy>
+      sortByRediscoverDismissedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rediscoverDismissedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByResurfacedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resurfacedAt', Sort.asc);
@@ -4164,6 +4260,19 @@ extension SavedUrlQuerySortThenBy
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByRediscoverDismissedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rediscoverDismissedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy>
+      thenByRediscoverDismissedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rediscoverDismissedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByResurfacedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resurfacedAt', Sort.asc);
@@ -4342,6 +4451,13 @@ extension SavedUrlQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct>
+      distinctByRediscoverDismissedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'rediscoverDismissedAt');
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByResurfacedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'resurfacedAt');
@@ -4486,6 +4602,13 @@ extension SavedUrlQueryProperty
   QueryBuilder<SavedUrl, String, QQueryOperations> rawUrlProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'rawUrl');
+    });
+  }
+
+  QueryBuilder<SavedUrl, DateTime?, QQueryOperations>
+      rediscoverDismissedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'rediscoverDismissedAt');
     });
   }
 
