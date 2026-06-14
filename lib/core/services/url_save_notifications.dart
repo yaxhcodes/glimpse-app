@@ -28,6 +28,27 @@ class UrlSaveNotifications {
     );
   }
 
+  /// Shown after a shared save when the user is out of free AI saves: the
+  /// bookmark was kept but not AI-enriched. Tapping routes to the subscription
+  /// page (handled by NotificationRouter's `subscription` route).
+  static Future<void> showAiLimitReached() {
+    const title = 'Saved without AI enrichment';
+    const body = "You're out of free AI saves this month. Tap to upgrade.";
+    final payload = jsonEncode({
+      'type': 'url_capture_limit',
+      'route': 'subscription',
+      'title': title,
+      'body': body,
+    });
+
+    return DigestNotifications.show(
+      type: NotifType.resurface,
+      title: title,
+      body: body,
+      payloadJson: payload,
+    );
+  }
+
   static Future<void> showAlreadyCaptured(SavedUrl url) {
     final title = _notificationTitle(url);
     final body = _notificationBody(url) ?? 'Already in your world.';

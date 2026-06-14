@@ -21,7 +21,9 @@ import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../core/constants/app_assets.dart';
+import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/upgrade_gate.dart';
 import '../add_url/add_url_provider.dart';
 import 'home_provider.dart';
 import 'rediscovery_section.dart';
@@ -149,6 +151,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (!mounted) return;
 
+    if (success && addState.aiLimitReached) {
+      showAiLimitSnackBar(context);
+    }
+
     if (success) {
       HapticFeedback.lightImpact();
 
@@ -209,22 +215,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       // Undo snackbar
       if (justSavedId != null) {
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: const Text('Captured'),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 3),
-              action: SnackBarAction(
-                label: 'Undo',
-                onPressed: () async {
-                  final isarService = ref.read(isarServiceProvider);
-                  await isarService.deleteUrl(justSavedId);
-                },
-              ),
+        showAutoDismissSnackBarVia(
+          messenger,
+          SnackBar(
+            content: const Text('Captured'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () async {
+                final isarService = ref.read(isarServiceProvider);
+                await isarService.deleteUrl(justSavedId);
+              },
             ),
-          );
+          ),
+        );
       }
 
       // Show share tip on first successful save

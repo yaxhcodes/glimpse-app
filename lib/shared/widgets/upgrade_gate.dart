@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app.dart' show rootNavigatorKey;
+import 'app_snackbar.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
@@ -109,6 +111,34 @@ Future<bool> checkLimitOrShowGate(
     return true;
   }
   return false;
+}
+
+/// Shows a non-blocking snackbar telling the user their monthly AI-save
+/// allowance is used up (so the save was kept but not AI-enriched), with an
+/// "Upgrade" action that opens the subscription page.
+///
+/// The app uses a single app-level [ScaffoldMessenger], so the snackbar
+/// survives route pops (e.g. the Add-URL screen popping after save). The
+/// action navigates via the root navigator so it works regardless of which
+/// screen is on top when the user taps it.
+void showAiLimitSnackBar(BuildContext context) {
+  showAutoDismissSnackBar(
+    context,
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 6),
+      content: const Text(
+        "You're out of free AI saves this month. It was saved without AI enrichment.",
+      ),
+      action: SnackBarAction(
+        label: 'Upgrade',
+        onPressed: () {
+          final navContext = rootNavigatorKey.currentContext;
+          if (navContext != null) navContext.push('/settings/subscription');
+        },
+      ),
+    ),
+  );
 }
 
 class _UpgradeGateDialog extends ConsumerStatefulWidget {

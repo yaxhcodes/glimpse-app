@@ -23,6 +23,7 @@ class TranscriptEnrichmentResult {
     this.creator,
     this.caption,
     this.transcript,
+    this.ocrText,
     this.likeCount,
     this.commentCount,
   });
@@ -41,6 +42,7 @@ class TranscriptEnrichmentResult {
   final String? creator;
   final String? caption;
   final String? transcript;
+  final String? ocrText;
   final int? likeCount;
   final int? commentCount;
 
@@ -52,7 +54,15 @@ class TranscriptEnrichmentResult {
       steps.isNotEmpty ||
       mentions.isNotEmpty ||
       (recipe?.hasUsefulContent ?? false) ||
-      (transcript?.trim().isNotEmpty ?? false);
+      (transcript?.trim().isNotEmpty ?? false) ||
+      (ocrText?.trim().isNotEmpty ?? false);
+
+  bool get hasReliableMediaEvidence =>
+      _isMeaningfulEvidence(transcript, minChars: 80, minWords: 12) ||
+      _isMeaningfulEvidence(ocrText, minChars: 40, minWords: 6) ||
+      mentions.isNotEmpty ||
+      (recipe?.ingredients.isNotEmpty == true) ||
+      (recipe?.steps.isNotEmpty == true);
 
   TranscriptEnrichmentResult copyWith({
     String? meaningfulTitle,
@@ -69,6 +79,7 @@ class TranscriptEnrichmentResult {
     String? creator,
     String? caption,
     String? transcript,
+    String? ocrText,
     int? likeCount,
     int? commentCount,
   }) {
@@ -87,6 +98,7 @@ class TranscriptEnrichmentResult {
       creator: creator ?? this.creator,
       caption: caption ?? this.caption,
       transcript: transcript ?? this.transcript,
+      ocrText: ocrText ?? this.ocrText,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
     );
@@ -108,6 +120,7 @@ class TranscriptEnrichmentResult {
       'creator': creator,
       'caption': caption,
       'transcript': transcript,
+      'ocr_text': ocrText,
       'like_count': likeCount,
       'comment_count': commentCount,
     };
@@ -133,11 +146,15 @@ class TranscriptEnrichmentResult {
       steps: TranscriptEnrichmentService._extractContentSteps(json),
       mentions: mentions is List
           ? mentions
-              .map((item) => item is Map
-                  ? EnrichedMention.fromJson(Map<String, dynamic>.from(item))
-                  : null)
-              .whereType<EnrichedMention>()
-              .toList()
+                .map(
+                  (item) => item is Map
+                      ? EnrichedMention.fromJson(
+                          Map<String, dynamic>.from(item),
+                        )
+                      : null,
+                )
+                .whereType<EnrichedMention>()
+                .toList()
           : const [],
       recipe: EnrichedRecipe.fromJsonOrNull(json['recipe']),
       keyPoints: TranscriptEnrichmentService._extractStringList(
@@ -151,6 +168,9 @@ class TranscriptEnrichmentResult {
       transcript: TranscriptEnrichmentService._cleanNullableText(
         json['transcript'],
       ),
+      ocrText: TranscriptEnrichmentService._cleanNullableText(
+        json['ocr_text'] ?? json['ocrText'],
+      ),
       likeCount: TranscriptEnrichmentService._extractPositiveInt(
         json['like_count'],
       ),
@@ -159,6 +179,43 @@ class TranscriptEnrichmentResult {
       ),
     );
   }
+
+  static bool _isMeaningfulEvidence(
+    String? raw, {
+    required int minChars,
+    required int minWords,
+  }) {
+    final text = raw?.trim() ?? '';
+    if (text.length < minChars) return false;
+    if (RegExp(
+      r'unable to generate transcript|no transcript available|transcript unavailable|failed to extract|extraction failed|not available|undefined|null',
+      caseSensitive: false,
+    ).hasMatch(text)) {
+      return false;
+    }
+    final words = text
+        .split(RegExp(r'[^a-z0-9]+', caseSensitive: false))
+        .where((word) => word.length >= 2)
+        .length;
+    return words >= minWords;
+  }
+}
+
+class TranscriptEnrichmentException implements Exception {
+  const TranscriptEnrichmentException(
+    this.message, {
+    this.statusCode,
+    this.retryable = true,
+  });
+
+  final String message;
+  final int? statusCode;
+  final bool retryable;
+
+  @override
+  String toString() =>
+      'TranscriptEnrichmentException($message'
+      '${statusCode != null ? ', status=$statusCode' : ''})';
 }
 
 /// Estimated nutrition information for a recipe (per serving).
@@ -202,19 +259,19 @@ class RecipeNutrition {
       fiberG != null;
 
   Map<String, dynamic> toJson() => {
-        'calories': calories,
-        'protein_g': proteinG,
-        'carbs_g': carbsG,
-        'fat_g': fatG,
-        'fiber_g': fiberG,
-        'confidence': confidence,
-        'is_estimated': isEstimated,
-        'is_vegetarian': isVegetarian,
-        'is_vegan': isVegan,
-        'is_gluten_free': isGlutenFree,
-        'is_dairy_free': isDairyFree,
-        'is_high_protein': isHighProtein,
-      };
+    'calories': calories,
+    'protein_g': proteinG,
+    'carbs_g': carbsG,
+    'fat_g': fatG,
+    'fiber_g': fiberG,
+    'confidence': confidence,
+    'is_estimated': isEstimated,
+    'is_vegetarian': isVegetarian,
+    'is_vegan': isVegan,
+    'is_gluten_free': isGlutenFree,
+    'is_dairy_free': isDairyFree,
+    'is_high_protein': isHighProtein,
+  };
 
   static RecipeNutrition? fromJsonOrNull(Object? raw) {
     if (raw is! Map) return null;
@@ -231,7 +288,9 @@ class RecipeNutrition {
             json['carbohydrateContent'],
       ),
       fatG: _toDouble(json['fat_g'] ?? json['fat'] ?? json['fatContent']),
-      fiberG: _toDouble(json['fiber_g'] ?? json['fiber'] ?? json['fiberContent']),
+      fiberG: _toDouble(
+        json['fiber_g'] ?? json['fiber'] ?? json['fiberContent'],
+      ),
       confidence: _toDouble(json['confidence']),
       isEstimated: json['is_estimated'] != false,
       isVegetarian: json['is_vegetarian'] as bool?,
@@ -329,15 +388,16 @@ class RecipeNutrition {
       recipe.servings,
       ...recipe.steps,
     ].whereType<String>().join(' ').toLowerCase();
-    final numeric = RegExp(r'\b(?:serves?|servings?|yield)\s*(\d+)\b')
-        .firstMatch(servingText);
-    final direct = RegExp(r'\b(\d+)\s*(?:servings?|wraps?|bowls?)\b')
-        .firstMatch(servingText);
-    final wordTwo = RegExp(r'\b(?:two|2)\s*(?:servings?|wraps?|bowls?)\b')
-        .firstMatch(servingText);
-    final parsed = int.tryParse(
-      numeric?.group(1) ?? direct?.group(1) ?? '',
-    );
+    final numeric = RegExp(
+      r'\b(?:serves?|servings?|yield)\s*(\d+)\b',
+    ).firstMatch(servingText);
+    final direct = RegExp(
+      r'\b(\d+)\s*(?:servings?|wraps?|bowls?)\b',
+    ).firstMatch(servingText);
+    final wordTwo = RegExp(
+      r'\b(?:two|2)\s*(?:servings?|wraps?|bowls?)\b',
+    ).firstMatch(servingText);
+    final parsed = int.tryParse(numeric?.group(1) ?? direct?.group(1) ?? '');
     if (parsed != null && parsed > 0) return parsed.toDouble();
     if (wordTwo != null || servingText.contains('divide between two')) {
       return 2;
@@ -399,9 +459,7 @@ class EnrichedRecipe {
   String? get instructions => steps.isEmpty ? null : steps.join('\n');
 
   bool get hasUsefulContent =>
-      title.trim().isNotEmpty ||
-      ingredients.isNotEmpty ||
-      steps.isNotEmpty;
+      title.trim().isNotEmpty || ingredients.isNotEmpty || steps.isNotEmpty;
 
   EnrichedRecipe copyWith({
     String? title,
@@ -478,7 +536,9 @@ class EnrichedRecipe {
     final ingredients = _parseIngredients(json['ingredients']);
     final steps = _parseSteps(json['steps'] ?? json['instructions']);
     final recipe = EnrichedRecipe(
-      title: TranscriptEnrichmentService._cleanText(json['title'] ?? json['name']),
+      title: TranscriptEnrichmentService._cleanText(
+        json['title'] ?? json['name'],
+      ),
       description: TranscriptEnrichmentService._cleanNullableText(
         json['description'],
       ),
@@ -489,7 +549,9 @@ class EnrichedRecipe {
       source: TranscriptEnrichmentService._cleanNullableText(
         json['source'] ?? json['publisher'],
       ),
-      category: TranscriptEnrichmentService._cleanNullableText(json['category']),
+      category: TranscriptEnrichmentService._cleanNullableText(
+        json['category'],
+      ),
       cuisine: TranscriptEnrichmentService._cleanNullableText(
         json['cuisine'] ?? json['area'],
       ),
@@ -578,11 +640,13 @@ class EnrichedRecipe {
 
     // 1. Try numbered-step markers ("1.", "1)", "Step 1:", "Step 1 -").
     final numberedSplit = normalized
-        .split(RegExp(
-          r'(?:^|\n)\s*(?:step\s*)?\d+[.):\-]\s+',
-          caseSensitive: false,
-          multiLine: true,
-        ))
+        .split(
+          RegExp(
+            r'(?:^|\n)\s*(?:step\s*)?\d+[.):\-]\s+',
+            caseSensitive: false,
+            multiLine: true,
+          ),
+        )
         .map(TranscriptEnrichmentService._cleanText)
         .where((item) => item.isNotEmpty)
         .toList();
@@ -601,9 +665,11 @@ class EnrichedRecipe {
     //    We look for ". " followed by a capital letter or a common transition
     //    word (Then, Next, Add, Cook, Stir, etc.).
     final sentenceSplit = normalized
-        .split(RegExp(
-          r'\.\s+(?=[A-Z]|Then |Next |Add |Cook |Stir |Combine |Mix |Fold |Pour |Place |Remove |Transfer |Season |Garnish |Serve |Top |Drain |Rinse |Bring |Reduce |Let |Allow |Set |Heat |Melt |Sauté|Saute |Fry |Boil |Bake |Roast |Grill |Simmer |Whisk |Toss |Coat |Taste |Adjust )',
-        ))
+        .split(
+          RegExp(
+            r'\.\s+(?=[A-Z]|Then |Next |Add |Cook |Stir |Combine |Mix |Fold |Pour |Place |Remove |Transfer |Season |Garnish |Serve |Top |Drain |Rinse |Bring |Reduce |Let |Allow |Set |Heat |Melt |Sauté|Saute |Fry |Boil |Bake |Roast |Grill |Simmer |Whisk |Toss |Coat |Taste |Adjust )',
+          ),
+        )
         .map((s) {
           final cleaned = TranscriptEnrichmentService._cleanText(s);
           // Re-append the period that was consumed by the split.
@@ -701,19 +767,13 @@ class EnrichedRecipeIngredient {
 }
 
 class EnrichedContentStep {
-  const EnrichedContentStep({
-    required this.title,
-    this.description,
-  });
+  const EnrichedContentStep({required this.title, this.description});
 
   final String title;
   final String? description;
 
   Map<String, dynamic> toJson() {
-    return {
-      'title': title,
-      'description': description,
-    };
+    return {'title': title, 'description': description};
   }
 
   bool get hasUsefulContent =>
@@ -767,15 +827,16 @@ class TranscriptEnrichmentService {
 
   static const _defaultBaseUrl =
       'https://glimpse-enrichment-backend.glimpse.workers.dev';
-  static const baseUrlOverride =
-      String.fromEnvironment('GLIMPSE_ENRICHMENT_BASE_URL');
+  static const baseUrlOverride = String.fromEnvironment(
+    'GLIMPSE_ENRICHMENT_BASE_URL',
+  );
 
   static String get baseUrl =>
       baseUrlOverride.isEmpty ? _defaultBaseUrl : baseUrlOverride;
 
   final Dio _dio;
   static final Map<String, TranscriptEnrichmentResult> _memoryCache = {};
-  static const _cachePrefix = 'transcript_enrichment_v4_';
+  static const _cachePrefix = 'transcript_enrichment_v5_';
 
   static Dio _defaultDio() {
     return Dio(
@@ -793,11 +854,15 @@ class TranscriptEnrichmentService {
     final uri = Uri.tryParse(rawUrl);
     if (uri == null) return false;
     final host = uri.host.toLowerCase();
-    final normalizedHost =
-        host.startsWith('www.') ? host.substring(4) : host;
+    final normalizedHost = host.startsWith('www.') ? host.substring(4) : host;
+    // Must stay in lockstep with the Worker's isInstagramReelUrl
+    // (services/shared.ts). Any media URL the Worker will send to Apify must
+    // also be treated as "supported" here, otherwise the client routes it to
+    // the generic Gemini fallback and saves caption-only metadata as READY.
     if ((normalizedHost == 'instagram.com' ||
-            normalizedHost.endsWith('.instagram.com')) &&
-        RegExp(r'/(reel|reels|p)/').hasMatch(uri.path)) {
+            normalizedHost.endsWith('.instagram.com') ||
+            normalizedHost == 'instagr.am') &&
+        RegExp(r'/(reel|reels|p|tv|share)/').hasMatch(uri.path)) {
       return true;
     }
     if (normalizedHost == 'tiktok.com' ||
@@ -821,12 +886,17 @@ class TranscriptEnrichmentService {
   ) async {
     final cacheKey = _cacheKeyForUrl(rawUrl);
     final cached = _memoryCache[cacheKey];
-    if (cached != null) return cached;
+    if (_isAcceptableCachedResult(rawUrl, cached)) return cached;
+    if (cached != null) _memoryCache.remove(cacheKey);
     final persisted = await _readPersisted(cacheKey);
     if (persisted != null) {
-      _memoryCache[cacheKey] = persisted;
+      if (_isAcceptableCachedResult(rawUrl, persisted)) {
+        _memoryCache[cacheKey] = persisted;
+        return persisted;
+      }
+      await _removePersisted(cacheKey);
     }
-    return persisted;
+    return null;
   }
 
   Future<TranscriptEnrichmentResult?> enrichUrl({
@@ -835,28 +905,39 @@ class TranscriptEnrichmentService {
     required String description,
     required String? thumbnailUrl,
     required String domain,
+    String? saveId,
+    String? processingId,
+    int attempt = 1,
   }) async {
     if (!supportsUrl(rawUrl)) return null;
     final cacheKey = _cacheKeyForUrl(rawUrl);
     final cached = _memoryCache[cacheKey];
-    if (cached != null) return cached;
+    if (_isAcceptableCachedResult(rawUrl, cached)) return cached;
+    if (cached != null) _memoryCache.remove(cacheKey);
     final persisted = await _readPersisted(cacheKey);
     if (persisted != null) {
-      _memoryCache[cacheKey] = persisted;
-      return persisted;
+      if (_isAcceptableCachedResult(rawUrl, persisted)) {
+        _memoryCache[cacheKey] = persisted;
+        return persisted;
+      }
+      await _removePersisted(cacheKey);
     }
 
     try {
       final endpoint = Uri.parse(baseUrl).resolve('enrich-url').toString();
+      final requestData = <String, dynamic>{
+        'url': rawUrl,
+        'attempt': attempt,
+        'title': title,
+        'description': description,
+        'thumbnailUrl': thumbnailUrl,
+        'domain': domain,
+      };
+      if (saveId != null) requestData['save_id'] = saveId;
+      if (processingId != null) requestData['processing_id'] = processingId;
       final response = await _dio.post<dynamic>(
         endpoint,
-        data: {
-          'url': rawUrl,
-          'title': title,
-          'description': description,
-          'thumbnailUrl': thumbnailUrl,
-          'domain': domain,
-        },
+        data: requestData,
         options: Options(validateStatus: (_) => true),
       );
 
@@ -866,11 +947,19 @@ class TranscriptEnrichmentService {
           'Transcript enrichment HTTP $status: ${response.data}',
           name: 'TranscriptEnrichment',
         );
-        return null;
+        throw TranscriptEnrichmentException(
+          'backend_http_$status',
+          statusCode: status,
+          retryable: _isRetryableStatus(status),
+        );
       }
 
       final data = _asMap(response.data);
-      if (data == null) return null;
+      if (data == null) {
+        throw const TranscriptEnrichmentException(
+          'backend_returned_non_object',
+        );
+      }
 
       final mentions = _extractMentions(data);
       final recipe = EnrichedRecipe.fromJsonOrNull(data['recipe']);
@@ -893,9 +982,7 @@ class TranscriptEnrichmentService {
         summary: _cleanText(data['summary']),
         category: _cleanText(data['category']),
         tags: usefulTags,
-        contentType: recipe != null
-            ? 'recipe'
-            : _contentTypeFromJson(data),
+        contentType: recipe != null ? 'recipe' : _contentTypeFromJson(data),
         brief: _cleanNullableText(
           data['brief'] ??
               data['short_description'] ??
@@ -917,22 +1004,50 @@ class TranscriptEnrichmentService {
         transcript: _cleanText(data['transcript']).isNotEmpty
             ? _cleanText(data['transcript'])
             : null,
+        ocrText: _cleanText(data['ocr_text'] ?? data['ocrText']).isNotEmpty
+            ? _cleanText(data['ocr_text'] ?? data['ocrText'])
+            : null,
         likeCount: _extractPositiveInt(data['like_count']),
         commentCount: _extractPositiveInt(data['comment_count']),
       );
 
-      if (!result.hasUsefulContent) return null;
+      if (!result.hasUsefulContent ||
+          (supportsUrl(rawUrl) && !result.hasReliableMediaEvidence)) {
+        throw const TranscriptEnrichmentException(
+          'backend_returned_low_quality_evidence',
+        );
+      }
       _memoryCache[cacheKey] = result;
       await _writePersisted(cacheKey, result);
       return result;
+    } on TranscriptEnrichmentException {
+      rethrow;
     } catch (e, st) {
       developer.log(
         'Transcript enrichment failed for $rawUrl: $e',
         name: 'TranscriptEnrichment',
         stackTrace: st,
       );
-      return null;
+      throw TranscriptEnrichmentException(e.toString());
     }
+  }
+
+  static bool _isRetryableStatus(int status) {
+    return status == 408 ||
+        status == 409 ||
+        status == 424 ||
+        status == 425 ||
+        status == 429 ||
+        status >= 500;
+  }
+
+  static bool _isAcceptableCachedResult(
+    String rawUrl,
+    TranscriptEnrichmentResult? result,
+  ) {
+    if (result == null || !result.hasUsefulContent) return false;
+    if (supportsUrl(rawUrl) && !result.hasReliableMediaEvidence) return false;
+    return true;
   }
 
   static Map<String, dynamic>? _asMap(dynamic raw) {
@@ -960,10 +1075,7 @@ class TranscriptEnrichmentService {
             final text = _cleanText(item);
             if (text.isEmpty) return null;
             final split = _splitStepTitle(text);
-            return EnrichedContentStep(
-              title: split.$1,
-              description: split.$2,
-            );
+            return EnrichedContentStep(title: split.$1, description: split.$2);
           }
           if (item is Map) {
             final json = Map<String, dynamic>.from(item);
@@ -988,10 +1100,7 @@ class TranscriptEnrichmentService {
                 description: split.$2,
               );
             }
-            return EnrichedContentStep(
-              title: title,
-              description: description,
-            );
+            return EnrichedContentStep(title: title, description: description);
           }
           return null;
         })
@@ -1015,7 +1124,10 @@ class TranscriptEnrichmentService {
   static List<String> _extractTags(Map<String, dynamic> data) {
     final raw = data['tags'];
     if (raw is! List) return const [];
-    return raw.map((item) => _cleanText(item)).where((item) => item.isNotEmpty).toList();
+    return raw
+        .map((item) => _cleanText(item))
+        .where((item) => item.isNotEmpty)
+        .toList();
   }
 
   static List<EnrichedMention> _extractMentions(Map<String, dynamic> data) {
@@ -1049,7 +1161,9 @@ class TranscriptEnrichmentService {
           whyMentioned: _cleanNullableText(
             item['why_mentioned'] ?? item['reason'] ?? item['description'],
           ),
-          posterUrl: _cleanNullableText(item['poster_url'] ?? item['posterUrl']),
+          posterUrl: _cleanNullableText(
+            item['poster_url'] ?? item['posterUrl'],
+          ),
         );
       }
     }
@@ -1074,7 +1188,9 @@ class TranscriptEnrichmentService {
           () => EnrichedMention(
             title: title,
             type: type,
-            whyMentioned: _cleanNullableText(item['why_mentioned'] ?? item['reason']),
+            whyMentioned: _cleanNullableText(
+              item['why_mentioned'] ?? item['reason'],
+            ),
           ),
         );
       }
@@ -1084,12 +1200,16 @@ class TranscriptEnrichmentService {
 
   static List<String> _extractStringList(Object? raw) {
     if (raw is! List) return const [];
-    return raw.map((item) => _cleanText(item)).where((item) => item.isNotEmpty).toList();
+    return raw
+        .map((item) => _cleanText(item))
+        .where((item) => item.isNotEmpty)
+        .toList();
   }
 
   static String _contentTypeFromJson(Map<String, dynamic> json) {
-    final explicit = _cleanText(json['content_type'] ?? json['contentType'])
-        .toLowerCase();
+    final explicit = _cleanText(
+      json['content_type'] ?? json['contentType'],
+    ).toLowerCase();
     if (explicit.isNotEmpty) return explicit;
     return EnrichedRecipe.fromJsonOrNull(json['recipe']) != null
         ? 'recipe'
@@ -1112,17 +1232,22 @@ class TranscriptEnrichmentService {
     ].map(_cleanText).join(' ').toLowerCase();
     void add(String tag) {
       final clean = TagNoiseFilter.cleanTag(tag);
-      if (clean.isNotEmpty && !TagNoiseFilter.isNoiseTag(clean) && !out.contains(clean)) {
+      if (clean.isNotEmpty &&
+          !TagNoiseFilter.isNoiseTag(clean) &&
+          !out.contains(clean)) {
         out.add(clean);
       }
     }
 
-    if (hasMovieMentions || haystack.contains('movie') || haystack.contains('film')) {
+    if (hasMovieMentions ||
+        haystack.contains('movie') ||
+        haystack.contains('film')) {
       add('movie recommendations');
       if (haystack.contains('sci-fi') || haystack.contains('science fiction')) {
         add('sci-fi movies');
       }
-      if (haystack.contains('mind-bending') || haystack.contains('time travel')) {
+      if (haystack.contains('mind-bending') ||
+          haystack.contains('time travel')) {
         add('mind-bending films');
       }
     }
@@ -1167,11 +1292,17 @@ class TranscriptEnrichmentService {
         host.endsWith('.youtube.com') ||
         host == 'youtube-nocookie.com' ||
         host.endsWith('.youtube-nocookie.com')) {
-      final segments = uri.pathSegments.where((item) => item.isNotEmpty).toList();
+      final segments = uri.pathSegments
+          .where((item) => item.isNotEmpty)
+          .toList();
       String? id;
-      if (segments.isNotEmpty && segments.first == 'shorts' && segments.length >= 2) {
+      if (segments.isNotEmpty &&
+          segments.first == 'shorts' &&
+          segments.length >= 2) {
         id = segments[1];
-      } else if (segments.isNotEmpty && segments.first == 'embed' && segments.length >= 2) {
+      } else if (segments.isNotEmpty &&
+          segments.first == 'embed' &&
+          segments.length >= 2) {
         id = segments[1];
       } else {
         id = uri.queryParameters['v'];
@@ -1180,16 +1311,24 @@ class TranscriptEnrichmentService {
         return 'https://www.youtube.com/watch?v=$id';
       }
     }
-    if (host == 'instagram.com' || host.endsWith('.instagram.com') || host == 'instagr.am') {
-      final segments = uri.pathSegments.where((item) => item.isNotEmpty).toList();
+    if (host == 'instagram.com' ||
+        host.endsWith('.instagram.com') ||
+        host == 'instagr.am') {
+      final segments = uri.pathSegments
+          .where((item) => item.isNotEmpty)
+          .toList();
       if (segments.length >= 2 &&
           {'reel', 'reels', 'p', 'tv'}.contains(segments.first.toLowerCase())) {
         return 'https://www.instagram.com/${segments.first}/${segments[1]}/';
       }
     }
     if (host == 'tiktok.com' || host.endsWith('.tiktok.com')) {
-      final segments = uri.pathSegments.where((item) => item.isNotEmpty).toList();
-      final videoIndex = segments.indexWhere((item) => item.toLowerCase() == 'video');
+      final segments = uri.pathSegments
+          .where((item) => item.isNotEmpty)
+          .toList();
+      final videoIndex = segments.indexWhere(
+        (item) => item.toLowerCase() == 'video',
+      );
       if (videoIndex > 0 && videoIndex + 1 < segments.length) {
         return 'https://www.tiktok.com/${segments[videoIndex - 1]}/video/${segments[videoIndex + 1]}';
       }
@@ -1201,7 +1340,9 @@ class TranscriptEnrichmentService {
     return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
   }
 
-  static Future<TranscriptEnrichmentResult?> _readPersisted(String rawUrl) async {
+  static Future<TranscriptEnrichmentResult?> _readPersisted(
+    String rawUrl,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('$_cachePrefix$rawUrl');
@@ -1228,10 +1369,26 @@ class TranscriptEnrichmentService {
   ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('$_cachePrefix$rawUrl', jsonEncode(result.toJson()));
+      await prefs.setString(
+        '$_cachePrefix$rawUrl',
+        jsonEncode(result.toJson()),
+      );
     } catch (e, st) {
       developer.log(
         'Transcript enrichment cache write failed: $e',
+        name: 'TranscriptEnrichment',
+        stackTrace: st,
+      );
+    }
+  }
+
+  static Future<void> _removePersisted(String rawUrl) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_cachePrefix$rawUrl');
+    } catch (e, st) {
+      developer.log(
+        'Transcript enrichment cache remove failed: $e',
         name: 'TranscriptEnrichment',
         stackTrace: st,
       );

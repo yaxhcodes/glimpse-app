@@ -9,6 +9,7 @@ import '../../core/providers/service_providers.dart';
 import '../../features/collections/add_to_collection_sheet.dart';
 import '../../features/collections/collections_provider.dart';
 import '../../features/home/home_provider.dart';
+import 'app_snackbar.dart';
 
 class BulkSelectionTitle extends StatelessWidget {
   const BulkSelectionTitle({super.key, required this.count});
@@ -349,27 +350,26 @@ Future<void> _confirmDelete(
   onDone();
 
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: const Text('Deleted'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () async {
-            for (final url in urls) {
-              await isar.saveUrl(url);
-              if (pins.contains(url.id)) {
-                await ref.read(pinnedUrlsProvider.notifier).pin(url.id);
-              }
+  showAutoDismissSnackBar(
+    context,
+    SnackBar(
+      content: const Text('Deleted'),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 4),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          for (final url in urls) {
+            await isar.saveUrl(url);
+            if (pins.contains(url.id)) {
+              await ref.read(pinnedUrlsProvider.notifier).pin(url.id);
             }
-            ref.invalidate(categoriesProvider);
-            ref.invalidate(collectionsListProvider);
-            ref.invalidate(collectionsSummaryProvider);
-          },
-        ),
+          }
+          ref.invalidate(categoriesProvider);
+          ref.invalidate(collectionsListProvider);
+          ref.invalidate(collectionsSummaryProvider);
+        },
       ),
-    );
+    ),
+  );
 }

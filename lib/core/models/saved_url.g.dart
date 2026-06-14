@@ -62,43 +62,68 @@ const SavedUrlSchema = CollectionSchema(
       name: r'openedAt',
       type: IsarType.dateTime,
     ),
-    r'rawUrl': PropertySchema(
+    r'processingAttempt': PropertySchema(
       id: 9,
+      name: r'processingAttempt',
+      type: IsarType.long,
+    ),
+    r'processingError': PropertySchema(
+      id: 10,
+      name: r'processingError',
+      type: IsarType.string,
+    ),
+    r'processingId': PropertySchema(
+      id: 11,
+      name: r'processingId',
+      type: IsarType.string,
+    ),
+    r'processingStatus': PropertySchema(
+      id: 12,
+      name: r'processingStatus',
+      type: IsarType.string,
+    ),
+    r'processingUpdatedAt': PropertySchema(
+      id: 13,
+      name: r'processingUpdatedAt',
+      type: IsarType.dateTime,
+    ),
+    r'rawUrl': PropertySchema(
+      id: 14,
       name: r'rawUrl',
       type: IsarType.string,
     ),
     r'resurfacedAt': PropertySchema(
-      id: 10,
+      id: 15,
       name: r'resurfacedAt',
       type: IsarType.dateTime,
     ),
     r'savedAt': PropertySchema(
-      id: 11,
+      id: 16,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 12,
+      id: 17,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 13,
+      id: 18,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 14,
+      id: 19,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 15,
+      id: 20,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 16,
+      id: 21,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -193,6 +218,24 @@ int _savedUrlEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.processingError;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.processingId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.processingStatus;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.rawUrl.length * 3;
   {
     final value = object.summary;
@@ -238,14 +281,19 @@ void _savedUrlSerialize(
   writer.writeDoubleList(offsets[6], object.embedding);
   writer.writeString(offsets[7], object.enrichmentJson);
   writer.writeDateTime(offsets[8], object.openedAt);
-  writer.writeString(offsets[9], object.rawUrl);
-  writer.writeDateTime(offsets[10], object.resurfacedAt);
-  writer.writeDateTime(offsets[11], object.savedAt);
-  writer.writeString(offsets[12], object.summary);
-  writer.writeStringList(offsets[13], object.tags);
-  writer.writeString(offsets[14], object.thumbnailUrl);
-  writer.writeString(offsets[15], object.title);
-  writer.writeString(offsets[16], object.userNotes);
+  writer.writeLong(offsets[9], object.processingAttempt);
+  writer.writeString(offsets[10], object.processingError);
+  writer.writeString(offsets[11], object.processingId);
+  writer.writeString(offsets[12], object.processingStatus);
+  writer.writeDateTime(offsets[13], object.processingUpdatedAt);
+  writer.writeString(offsets[14], object.rawUrl);
+  writer.writeDateTime(offsets[15], object.resurfacedAt);
+  writer.writeDateTime(offsets[16], object.savedAt);
+  writer.writeString(offsets[17], object.summary);
+  writer.writeStringList(offsets[18], object.tags);
+  writer.writeString(offsets[19], object.thumbnailUrl);
+  writer.writeString(offsets[20], object.title);
+  writer.writeString(offsets[21], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -264,14 +312,19 @@ SavedUrl _savedUrlDeserialize(
   object.enrichmentJson = reader.readStringOrNull(offsets[7]);
   object.id = id;
   object.openedAt = reader.readDateTimeOrNull(offsets[8]);
-  object.rawUrl = reader.readString(offsets[9]);
-  object.resurfacedAt = reader.readDateTimeOrNull(offsets[10]);
-  object.savedAt = reader.readDateTime(offsets[11]);
-  object.summary = reader.readStringOrNull(offsets[12]);
-  object.tags = reader.readStringList(offsets[13]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[14]);
-  object.title = reader.readString(offsets[15]);
-  object.userNotes = reader.readStringOrNull(offsets[16]);
+  object.processingAttempt = reader.readLongOrNull(offsets[9]);
+  object.processingError = reader.readStringOrNull(offsets[10]);
+  object.processingId = reader.readStringOrNull(offsets[11]);
+  object.processingStatus = reader.readStringOrNull(offsets[12]);
+  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[13]);
+  object.rawUrl = reader.readString(offsets[14]);
+  object.resurfacedAt = reader.readDateTimeOrNull(offsets[15]);
+  object.savedAt = reader.readDateTime(offsets[16]);
+  object.summary = reader.readStringOrNull(offsets[17]);
+  object.tags = reader.readStringList(offsets[18]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[19]);
+  object.title = reader.readString(offsets[20]);
+  object.userNotes = reader.readStringOrNull(offsets[21]);
   return object;
 }
 
@@ -301,20 +354,30 @@ P _savedUrlDeserializeProp<P>(
     case 8:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 10:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 12:
       return (reader.readStringOrNull(offset)) as P;
     case 13:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 14:
-      return (reader.readStringOrNull(offset)) as P;
-    case 15:
       return (reader.readString(offset)) as P;
+    case 15:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 16:
+      return (reader.readDateTime(offset)) as P;
+    case 17:
+      return (reader.readStringOrNull(offset)) as P;
+    case 18:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 19:
+      return (reader.readStringOrNull(offset)) as P;
+    case 20:
+      return (reader.readString(offset)) as P;
+    case 21:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2065,6 +2128,613 @@ extension SavedUrlQueryFilter
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingAttemptIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'processingAttempt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingAttemptIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'processingAttempt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingAttemptEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'processingAttempt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingAttemptGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'processingAttempt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingAttemptLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'processingAttempt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingAttemptBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'processingAttempt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'processingError',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'processingError',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'processingError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'processingError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'processingError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'processingError',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'processingError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'processingError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'processingError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'processingError',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'processingError',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingErrorIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'processingError',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> processingIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'processingId',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'processingId',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> processingIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'processingId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'processingId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> processingIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'processingId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> processingIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'processingId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'processingId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> processingIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'processingId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> processingIdContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'processingId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> processingIdMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'processingId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'processingId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'processingId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'processingStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'processingStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'processingStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'processingStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'processingStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'processingStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'processingStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'processingStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'processingStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'processingStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'processingStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'processingStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingUpdatedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'processingUpdatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingUpdatedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'processingUpdatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingUpdatedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'processingUpdatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingUpdatedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'processingUpdatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingUpdatedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'processingUpdatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      processingUpdatedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'processingUpdatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> rawUrlEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -3189,6 +3859,67 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingAttempt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingAttempt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingAttemptDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingAttempt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingError() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingError', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingErrorDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingError', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByProcessingUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingUpdatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy>
+      sortByProcessingUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingUpdatedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByRawUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawUrl', Sort.asc);
@@ -3360,6 +4091,67 @@ extension SavedUrlQuerySortThenBy
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingAttempt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingAttempt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingAttemptDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingAttempt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingError() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingError', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingErrorDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingError', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByProcessingUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingUpdatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy>
+      thenByProcessingUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'processingUpdatedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByRawUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'rawUrl', Sort.asc);
@@ -3508,6 +4300,41 @@ extension SavedUrlQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByProcessingAttempt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'processingAttempt');
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByProcessingError(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'processingError',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByProcessingId(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'processingId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByProcessingStatus(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'processingStatus',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByProcessingUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'processingUpdatedAt');
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByRawUrl(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -3622,6 +4449,37 @@ extension SavedUrlQueryProperty
   QueryBuilder<SavedUrl, DateTime?, QQueryOperations> openedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'openedAt');
+    });
+  }
+
+  QueryBuilder<SavedUrl, int?, QQueryOperations> processingAttemptProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'processingAttempt');
+    });
+  }
+
+  QueryBuilder<SavedUrl, String?, QQueryOperations> processingErrorProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'processingError');
+    });
+  }
+
+  QueryBuilder<SavedUrl, String?, QQueryOperations> processingIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'processingId');
+    });
+  }
+
+  QueryBuilder<SavedUrl, String?, QQueryOperations> processingStatusProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'processingStatus');
+    });
+  }
+
+  QueryBuilder<SavedUrl, DateTime?, QQueryOperations>
+      processingUpdatedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'processingUpdatedAt');
     });
   }
 

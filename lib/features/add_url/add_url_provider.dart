@@ -1,13 +1,19 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/url_processing_status.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/usage_providers.dart';
+import '../../core/services/entitlement_service.dart';
+import '../../core/services/usage_service.dart';
 import '../../core/services/domain_categorizer.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/enrichment_service.dart';
 import '../../core/services/link_preview_service.dart';
 import '../../core/services/url_save_notifications.dart';
+import '../../core/services/url_processing_observer.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../home/home_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
@@ -26,11 +32,17 @@ class AddUrlState {
   final String url;
   final int? savedUrlId;
 
+  /// True when the save succeeded but the user's monthly AI-save allowance is
+  /// exhausted, so this save will NOT be AI-enriched. The UI surfaces an
+  /// upgrade prompt. Reset to false on every new save attempt.
+  final bool aiLimitReached;
+
   const AddUrlState({
     this.status = AddUrlStatus.idle,
     this.errorMessage,
     this.url = '',
     this.savedUrlId,
+    this.aiLimitReached = false,
   });
 
   AddUrlState copyWith({
@@ -39,12 +51,14 @@ class AddUrlState {
     String? url,
     int? savedUrlId,
     bool clearSavedUrlId = false,
+    bool? aiLimitReached,
   }) {
     return AddUrlState(
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
       url: url ?? this.url,
       savedUrlId: clearSavedUrlId ? null : savedUrlId ?? this.savedUrlId,
+      aiLimitReached: aiLimitReached ?? this.aiLimitReached,
     );
   }
 }
@@ -71,7 +85,22 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
 
     final isarService = _ref.read(isarServiceProvider);
 
+    final startedAt = DateTime.now();
+    final processingId = const Uuid().v4();
+    UrlProcessingObserver.logStage(
+      'SAVE_RECEIVED',
+      processingId: processingId,
+      url: rawUrl,
+      attempt: 0,
+    );
     final normalizedUrl = LinkPreviewService.normalizeUrl(rawUrl);
+    UrlProcessingObserver.logStage(
+      'URL_NORMALIZED',
+      processingId: processingId,
+      url: normalizedUrl,
+      attempt: 0,
+      duration: DateTime.now().difference(startedAt),
+    );
 
     try {
       if (!LinkPreviewService.isValidUrl(normalizedUrl)) {
@@ -109,6 +138,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
 
       final platformCat = DomainCategorizer.categorize(normalizedUrl);
       final domain = _extractDomain(normalizedUrl);
+      final platform = platformCat.category;
 
       final savedUrl = SavedUrl()
         ..rawUrl = normalizedUrl
@@ -129,9 +159,27 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
             null // enrichment will update
         ..userNotes = notes
         ..savedAt = DateTime.now()
+        ..processingStatus = UrlProcessingStatus.pending
+        ..processingId = processingId
+        ..processingAttempt = 0
+        ..processingUpdatedAt = DateTime.now()
+        ..processingError = null
         ..embedding = null; // enrichment will update
 
       await isarService.saveUrl(savedUrl);
+      savedUrl
+        ..processingStatus = UrlProcessingStatus.queued
+        ..processingUpdatedAt = DateTime.now();
+      await isarService.updateUrl(savedUrl);
+      UrlProcessingObserver.logStage(
+        'JOB_CREATED',
+        processingId: processingId,
+        saveId: savedUrl.id.toString(),
+        url: normalizedUrl,
+        platform: platform,
+        attempt: 0,
+        duration: DateTime.now().difference(startedAt),
+      );
 
       developer.log(
         'saveUrl OK: id=${savedUrl.id} url=$normalizedUrl',
@@ -148,14 +196,27 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       _ref.invalidate(askEmptySuggestionsProvider);
       _ref.invalidate(interestClusterThemesProvider);
 
+      // Surface (but never block on) the AI-save allowance: if it's exhausted,
+      // the background enrichment will skip AI work, so tell the UI to prompt
+      // an upgrade. Pro/dev-override users always read false here. The limit
+      // value itself differs between prod and dev builds (see UsageLimits).
+      final aiLimitReached = await _ref
+          .read(usageServiceProvider)
+          .hasReachedLimit(UsageFeature.aiSave, _ref.read(isProUserProvider));
+
       state = state.copyWith(
         status: AddUrlStatus.done,
         savedUrlId: savedUrl.id,
+        aiLimitReached: aiLimitReached,
       );
       _isSaving = false;
 
       // Kick off background enrichment (fire and forget)
-      _enrichInBackground(normalizedUrl, notifyCapture: notifyCapture);
+      _enrichInBackground(
+        normalizedUrl,
+        processingId: processingId,
+        notifyCapture: notifyCapture,
+      );
 
       return true;
     } catch (e) {
@@ -173,6 +234,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
   /// Runs after instant save so the user never waits for it.
   void _enrichInBackground(
     String normalizedUrl, {
+    required String processingId,
     required bool notifyCapture,
   }) {
     final enricher = _ref.read(enrichmentServiceProvider)(
@@ -186,12 +248,18 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     );
 
     // Find the URL's ID we just saved and enrich it
-    _findAndEnrich(normalizedUrl, enricher, notifyCapture: notifyCapture);
+    _findAndEnrich(
+      normalizedUrl,
+      enricher,
+      processingId: processingId,
+      notifyCapture: notifyCapture,
+    );
   }
 
   Future<void> _findAndEnrich(
     String normalizedUrl,
     EnrichmentService enricher, {
+    required String processingId,
     required bool notifyCapture,
   }) async {
     try {
@@ -208,17 +276,32 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         '_findAndEnrich START: id=${url.id} url=$normalizedUrl',
         name: 'AddUrl',
       );
+      UrlProcessingObserver.logStage(
+        'JOB_STARTED',
+        processingId: processingId,
+        saveId: url.id.toString(),
+        url: normalizedUrl,
+        platform: url.category,
+        attempt: url.processingAttempt ?? 0,
+      );
       // First enrich metadata, then AI + embedding
       await enricher.enrichMetadata(url.id);
       await enricher.enrichSingle(url.id);
       if (notifyCapture) {
         final enriched = await isarService.getUrlById(url.id);
-        if (enriched != null) {
+        if (enriched != null &&
+            enriched.processingStatus == UrlProcessingStatus.ready) {
           await UrlSaveNotifications.showCaptureReady(enriched);
         }
       }
       developer.log('_findAndEnrich DONE: $normalizedUrl', name: 'AddUrl');
     } catch (e, st) {
+      UrlProcessingObserver.logStage(
+        'SAVE_FAILED',
+        processingId: processingId,
+        url: normalizedUrl,
+        error: e,
+      );
       developer.log(
         'Background enrichment failed: $e',
         name: 'AddUrl',

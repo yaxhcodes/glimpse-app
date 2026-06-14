@@ -48,7 +48,9 @@ import 'features/sources/sources_screen.dart';
 import 'features/batch_save/batch_preview_screen.dart';
 import 'core/config/app_environment.dart';
 import 'core/services/entitlement_service.dart';
+import 'core/services/url_save_notifications.dart';
 import 'core/utils/url_extractor.dart';
+import 'shared/widgets/app_snackbar.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
 
@@ -356,7 +358,15 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     final success = await notifier.saveUrl(url, notifyCapture: notifyCapture);
     final state = ref.read(addUrlProvider);
     final errorMsg = state.errorMessage;
+    final aiLimitReached = state.aiLimitReached;
     notifier.reset();
+
+    // Out of free AI saves: the bookmark is kept but won't be AI-enriched.
+    // The share flow has no UI to host a snackbar (it pops the app), so the
+    // upgrade prompt is delivered as a tappable notification instead.
+    if (success && aiLimitReached) {
+      await UrlSaveNotifications.showAiLimitReached();
+    }
 
     if (returnAfterSave && (success || state.savedUrlId != null)) {
       await SystemNavigator.pop();
@@ -372,15 +382,14 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         ? 'Capturing what caught your eye.'
         : (errorMsg ?? 'Failed to save URL');
 
-    ScaffoldMessenger.of(ctx)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: success ? 3 : 4),
-        ),
-      );
+    showAutoDismissSnackBar(
+      ctx,
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: success ? 3 : 4),
+      ),
+    );
   }
 
   @override

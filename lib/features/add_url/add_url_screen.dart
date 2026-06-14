@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/link_preview_service.dart';
 import '../../core/utils/url_extractor.dart';
+import '../../shared/widgets/upgrade_gate.dart';
 import 'add_url_provider.dart';
 
 class AddUrlScreen extends ConsumerStatefulWidget {
@@ -131,7 +132,10 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
         .saveUrl(url, notes: notes.isNotEmpty ? notes : null);
 
     if (success && mounted) {
+      final aiLimitReached = ref.read(addUrlProvider).aiLimitReached;
       ref.read(addUrlProvider.notifier).reset();
+      // App-level ScaffoldMessenger → the snackbar survives this pop.
+      if (aiLimitReached) showAiLimitSnackBar(context);
       context.pop();
     }
   }

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/url_processing_status.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
@@ -189,14 +190,18 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
         .toList();
 
-    final isEnriching = _isRecentlyEnriching(widget.savedUrl);
-    final resolvedTitle = isEnriching
+    final isProcessing =
+        widget.savedUrl.isProcessingActive ||
+        _isRecentlyEnriching(widget.savedUrl);
+    final isProcessingFailed =
+        widget.savedUrl.processingStatus == UrlProcessingStatus.failed;
+    final resolvedTitle = isProcessing
         ? _processingTitle(displaySourceName)
         : TitleResolver.resolveStableDisplayTitle(
             widget.savedUrl,
             tagFrequency: tagFreq,
           );
-    final chipData = isEnriching
+    final chipData = (isProcessing || isProcessingFailed)
         ? (visible: <String>[], overflow: 0)
         : TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
 
@@ -368,9 +373,12 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                               ),
                           ],
                         ),
-                      ] else if (isEnriching) ...[
+                      ] else if (isProcessing || isProcessingFailed) ...[
                         const SizedBox(height: 8),
-                        _EnrichmentProgressPill(sourceName: displaySourceName),
+                        _EnrichmentProgressPill(
+                          sourceName: displaySourceName,
+                          failed: isProcessingFailed,
+                        ),
                       ],
                     ],
                   ),
@@ -384,6 +392,17 @@ class _UrlCardState extends ConsumerState<UrlCard> {
   }
 
   bool _isRecentlyEnriching(SavedUrl url) {
+    // A save with a definitive terminal status (READY/FAILED) is never
+    // "enriching". The heuristics below exist only for legacy saves that
+    // predate the processingStatus field; without this guard a non-AI save
+    // (e.g. saved while out of free AI saves) with no summary would show a
+    // spinner for 10 minutes despite being fully done.
+    final status = url.processingStatus;
+    if (status != null &&
+        status.trim().isNotEmpty &&
+        !UrlProcessingStatus.isActive(status)) {
+      return false;
+    }
     if ((url.enrichmentJson ?? '').trim().isNotEmpty) return false;
     if ((url.summary ?? '').trim().isNotEmpty) return false;
     if (DateTime.now().difference(url.savedAt) > const Duration(minutes: 10)) {
@@ -461,36 +480,48 @@ class _UrlCardState extends ConsumerState<UrlCard> {
 }
 
 class _EnrichmentProgressPill extends StatelessWidget {
-  const _EnrichmentProgressPill({required this.sourceName});
+  const _EnrichmentProgressPill({
+    required this.sourceName,
+    required this.failed,
+  });
 
   final String sourceName;
+  final bool failed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final label = sourceName.trim().isEmpty
+    final label = failed
+        ? 'Couldn\'t finish enrichment'
+        : sourceName.trim().isEmpty
         ? 'Enriching save'
         : 'Enriching ${sourceName.trim()} save';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: cs.primaryContainer.withValues(alpha: 0.55),
+        color: (failed ? cs.errorContainer : cs.primaryContainer).withValues(
+          alpha: 0.55,
+        ),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
+        border: Border.all(
+          color: (failed ? cs.error : cs.primary).withValues(alpha: 0.18),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.8,
-              color: cs.primary,
-            ),
-          ),
+          failed
+              ? Icon(Icons.error_outline_rounded, size: 14, color: cs.error)
+              : SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.8,
+                    color: cs.primary,
+                  ),
+                ),
           const SizedBox(width: 7),
           Flexible(
             child: Text(
@@ -498,7 +529,7 @@ class _EnrichmentProgressPill extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.onPrimaryContainer,
+                color: failed ? cs.onErrorContainer : cs.onPrimaryContainer,
                 fontWeight: FontWeight.w700,
                 height: 1,
               ),

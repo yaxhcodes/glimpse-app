@@ -11,6 +11,7 @@ import '../../core/services/title_resolver.dart';
 import '../../features/collections/add_to_collection_sheet.dart';
 import '../../features/collections/collections_provider.dart';
 import '../../features/home/home_provider.dart';
+import 'app_snackbar.dart';
 import 'premium_swipe_card.dart';
 import 'url_card.dart';
 
@@ -162,29 +163,28 @@ class SwipeableUrlCard extends ConsumerWidget {
     onChanged?.call();
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(wasRead ? 'Marked unread' : 'Marked read'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () async {
-              if (wasRead) {
-                await isar.updateOpenedAt(
-                  url.id,
-                  previousOpenedAt ?? DateTime.now(),
-                );
-              } else {
-                await isar.clearOpenedAt(url.id);
-              }
-              onChanged?.call();
-            },
-          ),
+    showAutoDismissSnackBar(
+      context,
+      SnackBar(
+        content: Text(wasRead ? 'Marked unread' : 'Marked read'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            if (wasRead) {
+              await isar.updateOpenedAt(
+                url.id,
+                previousOpenedAt ?? DateTime.now(),
+              );
+            } else {
+              await isar.clearOpenedAt(url.id);
+            }
+            onChanged?.call();
+          },
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -205,27 +205,26 @@ Future<void> deleteUrlWithUndo(
   ref.invalidate(collectionsSummaryProvider);
 
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: const Text('Deleted'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () async {
-            await isarService.saveUrl(url);
-            if (wasPinned) {
-              await ref.read(pinnedUrlsProvider.notifier).pin(url.id);
-            }
-            ref.invalidate(categoriesProvider);
-            ref.invalidate(collectionsListProvider);
-            ref.invalidate(collectionsSummaryProvider);
-          },
-        ),
+  showAutoDismissSnackBar(
+    context,
+    SnackBar(
+      content: const Text('Deleted'),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 4),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await isarService.saveUrl(url);
+          if (wasPinned) {
+            await ref.read(pinnedUrlsProvider.notifier).pin(url.id);
+          }
+          ref.invalidate(categoriesProvider);
+          ref.invalidate(collectionsListProvider);
+          ref.invalidate(collectionsSummaryProvider);
+        },
       ),
-    );
+    ),
+  );
 }
 
 Future<void> removeUrlFromCollectionWithUndo({
@@ -244,27 +243,26 @@ Future<void> removeUrlFromCollectionWithUndo({
   ref.invalidate(collectionUrlsProvider(collectionId));
 
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: const Text('Removed from collection'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () async {
-            await isarService.addUrlToCollection(
-              collectionId: collectionId,
-              urlId: url.id,
-            );
-            ref.invalidate(collectionsListProvider);
-            ref.invalidate(collectionsSummaryProvider);
-            ref.invalidate(collectionUrlsProvider(collectionId));
-          },
-        ),
+  showAutoDismissSnackBar(
+    context,
+    SnackBar(
+      content: const Text('Removed from collection'),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 4),
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () async {
+          await isarService.addUrlToCollection(
+            collectionId: collectionId,
+            urlId: url.id,
+          );
+          ref.invalidate(collectionsListProvider);
+          ref.invalidate(collectionsSummaryProvider);
+          ref.invalidate(collectionUrlsProvider(collectionId));
+        },
       ),
-    );
+    ),
+  );
 }
 
 void _showPinLimitSheet(

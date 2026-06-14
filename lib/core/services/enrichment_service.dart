@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 
 import '../database/isar_service.dart';
 import '../models/saved_url.dart';
+import '../models/url_processing_status.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
 import 'domain_categorizer.dart';
@@ -17,6 +18,7 @@ import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
 import 'title_resolver.dart';
 import 'transcript_enrichment_service.dart';
+import 'url_processing_observer.dart';
 import 'usage_service.dart';
 
 /// Background enrichment for saved URLs.
@@ -25,6 +27,16 @@ import 'usage_service.dart';
 /// bounded concurrency so the UI stays responsive and the save
 /// action completes instantly.
 class EnrichmentService {
+  // Each attempt re-runs the (paid) Apify extraction, so keep this short.
+  // Permanent failures (HTTP 422 — Groq can't read the media, no video, etc.)
+  // already stop after attempt 1 via the non-retryable path; this ladder only
+  // applies to transient failures (HTTP 424, e.g. an Apify timeout), which are
+  // rare on the paid tier. Two attempts caps the worst-case Apify spend.
+  static const _mediaRetryDelays = <Duration>[
+    Duration.zero,
+    Duration(seconds: 15),
+  ];
+
   final IsarService _isarService;
   final GeminiService? _geminiService;
   final EmbeddingService? _embeddingService;
@@ -43,14 +55,14 @@ class EnrichmentService {
     required UsageService usageService,
     required bool isPro,
     void Function()? onEnriched,
-  })  : _isarService = isarService,
-        _geminiService = geminiService,
-        _embeddingService = embeddingService,
-        _linkService = linkService,
-        _transcriptEnrichmentService = transcriptEnrichmentService,
-        _usageService = usageService,
-        _isPro = isPro,
-        _onEnriched = onEnriched {
+  }) : _isarService = isarService,
+       _geminiService = geminiService,
+       _embeddingService = embeddingService,
+       _linkService = linkService,
+       _transcriptEnrichmentService = transcriptEnrichmentService,
+       _usageService = usageService,
+       _isPro = isPro,
+       _onEnriched = onEnriched {
     if (kDebugMode) {
       developer.log(
         'EnrichmentService created: gemini=${_geminiService != null}, '
@@ -69,7 +81,10 @@ class EnrichmentService {
   Future<void> enrichBatch(List<int> urlIds) async {
     if (urlIds.isEmpty) return;
 
-    developer.log('enrichBatch START: ${urlIds.length} URLs', name: 'Enrichment');
+    developer.log(
+      'enrichBatch START: ${urlIds.length} URLs',
+      name: 'Enrichment',
+    );
 
     // Phase 1: AI categorization + summary (concurrency 2)
     final aiSemaphore = _Semaphore(2);
@@ -83,7 +98,9 @@ class EnrichmentService {
     final embSemaphore = _Semaphore(2);
     final embFutures = <Future<void>>[];
     for (final id in urlIds) {
-      embFutures.add(_runWithSemaphore(embSemaphore, () => _enrichEmbedding(id)));
+      embFutures.add(
+        _runWithSemaphore(embSemaphore, () => _enrichEmbedding(id)),
+      );
     }
     await Future.wait(embFutures, eagerError: false);
 
@@ -106,14 +123,56 @@ class EnrichmentService {
       await _enrichAi(urlId, force: forceAi, countUsage: countAiUsage);
       _onEnriched?.call();
     } catch (e, st) {
-      developer.log('enrichSingle AI phase failed for $urlId: $e',
-          name: 'Enrichment', stackTrace: st);
+      developer.log(
+        'enrichSingle AI phase failed for $urlId: $e',
+        name: 'Enrichment',
+        stackTrace: st,
+      );
+    }
+    final afterAi = await _isarService.getUrlById(urlId);
+    if (afterAi != null &&
+        afterAi.processingStatus != UrlProcessingStatus.generatingEmbeddings &&
+        afterAi.processingStatus != UrlProcessingStatus.ready &&
+        TranscriptEnrichmentService.supportsUrl(afterAi.rawUrl)) {
+      developer.log(
+        'enrichSingle SKIP embedding: media save not ready '
+        '(status=${afterAi.processingStatus}) for $urlId',
+        name: 'Enrichment',
+      );
+      _onEnriched?.call();
+      return;
     }
     try {
+      await _markProcessing(
+        urlId,
+        UrlProcessingStatus.generatingEmbeddings,
+        stage: 'EMBEDDING_GENERATION_STARTED',
+      );
       await _enrichEmbedding(urlId, force: forceEmbedding);
+      final afterEmbedding = await _isarService.getUrlById(urlId);
+      final hasEmbedding =
+          afterEmbedding?.embedding != null &&
+          afterEmbedding!.embedding!.isNotEmpty;
+      if (hasEmbedding) {
+        await _markProcessing(
+          urlId,
+          UrlProcessingStatus.ready,
+          stage: 'SAVE_COMPLETED',
+        );
+      } else {
+        await _markProcessing(
+          urlId,
+          UrlProcessingStatus.failed,
+          error: 'embedding_generation_failed',
+          stage: 'SAVE_FAILED',
+        );
+      }
     } catch (e, st) {
-      developer.log('enrichSingle embedding phase failed for $urlId: $e',
-          name: 'Enrichment', stackTrace: st);
+      developer.log(
+        'enrichSingle embedding phase failed for $urlId: $e',
+        name: 'Enrichment',
+        stackTrace: st,
+      );
     }
     _onEnriched?.call();
   }
@@ -122,14 +181,18 @@ class EnrichmentService {
   /// Used when the URL was saved with only a domain fallback.
   Future<void> enrichMetadata(int urlId) async {
     if (_linkService == null) {
-      developer.log('enrichMetadata SKIP: linkService is null for $urlId',
-          name: 'Enrichment');
+      developer.log(
+        'enrichMetadata SKIP: linkService is null for $urlId',
+        name: 'Enrichment',
+      );
       return;
     }
     final url = await _isarService.getUrlById(urlId);
     if (url == null) {
-      developer.log('enrichMetadata SKIP: URL $urlId not found in Isar',
-          name: 'Enrichment');
+      developer.log(
+        'enrichMetadata SKIP: URL $urlId not found in Isar',
+        name: 'Enrichment',
+      );
       return;
     }
 
@@ -137,9 +200,13 @@ class EnrichmentService {
 
     try {
       final metadata = await _linkService.fetchMetadata(url.rawUrl);
-      developer.log('enrichMetadata FETCH OK: "${metadata.title}"', name: 'Enrichment');
+      developer.log(
+        'enrichMetadata FETCH OK: "${metadata.title}"',
+        name: 'Enrichment',
+      );
 
-      final cleanDescription = metadata.description.trim().toLowerCase() ==
+      final cleanDescription =
+          metadata.description.trim().toLowerCase() ==
               metadata.title.trim().toLowerCase()
           ? ''
           : metadata.description;
@@ -204,11 +271,17 @@ class EnrichmentService {
       }
 
       await _isarService.updateUrl(url);
-      developer.log('enrichMetadata SAVE OK: ${url.rawUrl}', name: 'Enrichment');
+      developer.log(
+        'enrichMetadata SAVE OK: ${url.rawUrl}',
+        name: 'Enrichment',
+      );
       _onEnriched?.call();
     } catch (e, st) {
-      developer.log('enrichMetadata FAILED for $urlId: $e',
-          name: 'Enrichment', stackTrace: st);
+      developer.log(
+        'enrichMetadata FAILED for $urlId: $e',
+        name: 'Enrichment',
+        stackTrace: st,
+      );
     }
   }
 
@@ -223,8 +296,11 @@ class EnrichmentService {
     try {
       await _enrichAiInner(urlId, force: force, countUsage: countUsage);
     } catch (e, st) {
-      developer.log('_enrichAi FAILED for $urlId: $e',
-          name: 'Enrichment', stackTrace: st);
+      developer.log(
+        '_enrichAi FAILED for $urlId: $e',
+        name: 'Enrichment',
+        stackTrace: st,
+      );
     }
   }
 
@@ -235,8 +311,10 @@ class EnrichmentService {
   }) async {
     final url = await _isarService.getUrlById(urlId);
     if (url == null) {
-      developer.log('_enrichAi SKIP: URL $urlId not found in Isar',
-          name: 'Enrichment');
+      developer.log(
+        '_enrichAi SKIP: URL $urlId not found in Isar',
+        name: 'Enrichment',
+      );
       return;
     }
 
@@ -253,16 +331,15 @@ class EnrichmentService {
         (url.category != platformCat.category || _hasStableEnrichment(url)) &&
         url.summary != null &&
         (savedRecipe == null || recipeAlreadyEnhanced)) {
-      developer.log('_enrichAi SKIP (already enriched): ${url.rawUrl}',
-          name: 'Enrichment');
+      developer.log(
+        '_enrichAi SKIP (already enriched): ${url.rawUrl}',
+        name: 'Enrichment',
+      );
       return;
     }
 
     final aiLimitReached = countUsage
-        ? await _usageService.hasReachedLimit(
-            UsageFeature.aiSave,
-            _isPro,
-          )
+        ? await _usageService.hasReachedLimit(UsageFeature.aiSave, _isPro)
         : false;
 
     if (aiLimitReached) {
@@ -280,17 +357,39 @@ class EnrichmentService {
     String? enrichedThumbnailUrl;
     String? enrichmentJson;
 
-    final transcriptResult = !aiLimitReached && _transcriptEnrichmentService != null
-        ? await _transcriptEnrichmentService.enrichUrl(
-            rawUrl: url.rawUrl,
-            title: url.title,
-            description: url.description,
-            thumbnailUrl: url.thumbnailUrl,
-            domain: url.domain,
-          )
+    final mediaRequiresEvidence = TranscriptEnrichmentService.supportsUrl(
+      url.rawUrl,
+    );
+    final transcriptResult =
+        !aiLimitReached && _transcriptEnrichmentService != null
+        ? await _enrichTranscriptWithRetries(url)
         : null;
 
+    // Genuine media-extraction failure (NOT a quota issue): stop here — the
+    // retry helper has already marked this FAILED so the user can retry later.
+    // When the user is simply out of free AI saves we deliberately fall
+    // through to the basic, non-AI save path below: the bookmark is kept and
+    // completes immediately (we allow indefinite non-AI saves), just without
+    // transcript/entity enrichment. The UI surfaces an upgrade prompt.
+    if (mediaRequiresEvidence && transcriptResult == null && !aiLimitReached) {
+      developer.log(
+        '_enrichAi STOP: media evidence unavailable for ${url.rawUrl}',
+        name: 'Enrichment',
+      );
+      return;
+    }
+
     if (transcriptResult != null) {
+      await _markProcessing(
+        urlId,
+        UrlProcessingStatus.transcriptReady,
+        stage: 'TRANSCRIPT_VALIDATION_PASSED',
+      );
+      await _markProcessing(
+        urlId,
+        UrlProcessingStatus.enriching,
+        stage: 'GEMINI_PROCESSING_STARTED',
+      );
       var enrichedTranscriptResult = transcriptResult;
       final recipeForEnhancement = transcriptResult.recipe ?? savedRecipe;
       if (recipeForEnhancement != null) {
@@ -339,21 +438,27 @@ class EnrichmentService {
       enrichedThumbnailUrl = enrichedTranscriptResult.thumbnailUrl;
       enrichmentJson = jsonEncode(
         enrichedTranscriptResult
-            .copyWith(
-              category: category,
-              tags: tags,
-            )
+            .copyWith(category: category, tags: tags)
             .toJson(),
       );
       if (countUsage) {
         await _usageService.incrementUsage(UsageFeature.aiSave);
       }
+      await _markProcessing(
+        urlId,
+        UrlProcessingStatus.generatingRecommendations,
+        stage: 'RECOMMENDATION_GENERATION_STARTED',
+        fields: {
+          'mention_count': enrichedTranscriptResult.mentions.length,
+          'has_recipe': enrichedTranscriptResult.recipe != null,
+        },
+      );
       developer.log(
         '_enrichAi transcript backend RESULT: cat=$category, '
         'tags=${tags.length}, summary=${summary?.length ?? 0} chars',
         name: 'Enrichment',
       );
-    } else if (savedRecipe != null) {
+    } else if (savedRecipe != null && !mediaRequiresEvidence) {
       final enhancedRecipe = await _enhanceRecipeIfNeeded(
         savedRecipe,
         url: url.rawUrl,
@@ -370,8 +475,9 @@ class EnrichmentService {
       summary = enhancedRecipe.summary?.trim().isNotEmpty == true
           ? enhancedRecipe.summary
           : _metadataFallbackSummary(url);
-      enrichedTitle =
-          enhancedRecipe.title.trim().isEmpty ? null : enhancedRecipe.title;
+      enrichedTitle = enhancedRecipe.title.trim().isEmpty
+          ? null
+          : enhancedRecipe.title;
       enrichedThumbnailUrl = enhancedRecipe.image;
       enrichmentJson = jsonEncode(
         TranscriptEnrichmentResult(
@@ -393,11 +499,14 @@ class EnrichmentService {
           commentCount: savedEnrichment.commentCount,
         ).toJson(),
       );
-    } else if (_geminiService != null && !aiLimitReached) {
-
+    } else if (_geminiService != null &&
+        !aiLimitReached &&
+        !mediaRequiresEvidence) {
       try {
-        developer.log('_enrichAi CALLING GeminiService.categorize: ${url.rawUrl}',
-            name: 'Enrichment');
+        developer.log(
+          '_enrichAi CALLING GeminiService.categorize: ${url.rawUrl}',
+          name: 'Enrichment',
+        );
         final result = await _geminiService.categorize(
           title: url.title,
           description: url.description,
@@ -419,8 +528,11 @@ class EnrichmentService {
           await _usageService.incrementUsage(UsageFeature.aiSave);
         }
       } catch (e, st) {
-        developer.log('_enrichAi Gemini FAILED for $urlId: $e',
-            name: 'Enrichment', stackTrace: st);
+        developer.log(
+          '_enrichAi Gemini FAILED for $urlId: $e',
+          name: 'Enrichment',
+          stackTrace: st,
+        );
         category = platformCat.category;
         emoji = platformCat.emoji;
         tags = _metadataFallbackTags(url, platformCat.tags);
@@ -428,7 +540,10 @@ class EnrichmentService {
       }
     } else {
       if (_geminiService == null) {
-        developer.log('_enrichAi SKIP: GeminiService is null', name: 'Enrichment');
+        developer.log(
+          '_enrichAi SKIP: GeminiService is null',
+          name: 'Enrichment',
+        );
       }
       category = platformCat.category;
       emoji = platformCat.emoji;
@@ -448,8 +563,10 @@ class EnrichmentService {
     // Reload url in case it was modified concurrently
     final freshUrl = await _isarService.getUrlById(urlId);
     if (freshUrl == null) {
-      developer.log('_enrichAi SKIP: URL $urlId disappeared before save',
-          name: 'Enrichment');
+      developer.log(
+        '_enrichAi SKIP: URL $urlId disappeared before save',
+        name: 'Enrichment',
+      );
       return;
     }
 
@@ -457,16 +574,21 @@ class EnrichmentService {
     freshUrl.categoryEmoji = emoji;
     final inferredCategories = CategoryTaxonomy.inferAdditionalCategories(
       tags: enrichedTags,
-      text: '${enrichedTitle ?? freshUrl.title} ${summary ?? ''} ${freshUrl.description}',
+      text:
+          '${enrichedTitle ?? freshUrl.title} ${summary ?? ''} ${freshUrl.description}',
     );
     freshUrl.categories = CategoryResolver.buildCategories(
       primaryCategory: category,
       platformCategory: platformCat.category,
-      additionalCategories:
-          inferredCategories.where((item) => item != category).toList(),
+      additionalCategories: inferredCategories
+          .where((item) => item != category)
+          .toList(),
     );
     if (enrichedTitle != null &&
-        !TitleResolver.isLowSignalTitle(enrichedTitle, domain: freshUrl.domain) &&
+        !TitleResolver.isLowSignalTitle(
+          enrichedTitle,
+          domain: freshUrl.domain,
+        ) &&
         freshUrl.title != enrichedTitle) {
       freshUrl.title = enrichedTitle;
     }
@@ -478,9 +600,131 @@ class EnrichmentService {
     if (enrichmentJson != null && enrichmentJson.isNotEmpty) {
       freshUrl.enrichmentJson = enrichmentJson;
     }
+    freshUrl.processingError = null;
 
     await _isarService.updateUrl(freshUrl);
-    developer.log('_enrichAi SAVE OK: ${freshUrl.rawUrl} → $category', name: 'Enrichment');
+    await _markProcessing(
+      freshUrl.id,
+      UrlProcessingStatus.generatingEmbeddings,
+      stage: 'RECOMMENDATION_COMPLETED',
+      fields: {
+        'tag_count': enrichedTags.length,
+        'has_recipe': enrichmentJson?.contains('"recipe"') == true,
+      },
+    );
+    developer.log(
+      '_enrichAi SAVE OK: ${freshUrl.rawUrl} → $category',
+      name: 'Enrichment',
+    );
+  }
+
+  Future<TranscriptEnrichmentResult?> _enrichTranscriptWithRetries(
+    SavedUrl url,
+  ) async {
+    final processingId = url.processingId ?? 'url-${url.id}';
+    TranscriptEnrichmentException? lastError;
+
+    for (var index = 0; index < _mediaRetryDelays.length; index += 1) {
+      final attempt = index + 1;
+      final delay = _mediaRetryDelays[index];
+      if (delay > Duration.zero) {
+        await _markProcessing(
+          url.id,
+          UrlProcessingStatus.retrying,
+          attempt: attempt,
+          error: lastError?.message,
+          stage: 'RETRY_SCHEDULED',
+          fields: {'delay_ms': delay.inMilliseconds},
+        );
+        await Future.delayed(delay);
+        await _markProcessing(
+          url.id,
+          UrlProcessingStatus.retrying,
+          attempt: attempt,
+          stage: 'RETRY_STARTED',
+        );
+      }
+
+      await _markProcessing(
+        url.id,
+        UrlProcessingStatus.extracting,
+        attempt: attempt,
+        error: null,
+        stage: 'TRANSCRIPT_EXTRACTION_STARTED',
+      );
+
+      try {
+        final result = await _transcriptEnrichmentService!.enrichUrl(
+          rawUrl: url.rawUrl,
+          title: url.title,
+          description: url.description,
+          thumbnailUrl: url.thumbnailUrl,
+          domain: url.domain,
+          saveId: url.id.toString(),
+          processingId: processingId,
+          attempt: attempt,
+        );
+        if (result != null && result.hasReliableMediaEvidence) {
+          await _markProcessing(
+            url.id,
+            UrlProcessingStatus.transcriptReady,
+            attempt: attempt,
+            error: null,
+            stage: 'TRANSCRIPT_EXTRACTED',
+            fields: {
+              'transcript_length': result.transcript?.length ?? 0,
+              'ocr_length': result.ocrText?.length ?? 0,
+              'mention_count': result.mentions.length,
+            },
+          );
+          return result;
+        }
+        lastError = const TranscriptEnrichmentException(
+          'low_quality_transcript_result',
+        );
+      } on TranscriptEnrichmentException catch (e) {
+        lastError = e;
+        if (!e.retryable) break;
+      }
+    }
+
+    await _markProcessing(
+      url.id,
+      UrlProcessingStatus.failed,
+      attempt: _mediaRetryDelays.length,
+      error: lastError?.message ?? 'transcript_extraction_failed',
+      stage: 'TRANSCRIPT_VALIDATION_FAILED',
+    );
+    return null;
+  }
+
+  Future<void> _markProcessing(
+    int urlId,
+    String status, {
+    int? attempt,
+    String? error,
+    required String stage,
+    Map<String, Object?> fields = const {},
+  }) async {
+    final url = await _isarService.getUrlById(urlId);
+    if (url == null) return;
+    url
+      ..processingStatus = status
+      ..processingAttempt = attempt ?? url.processingAttempt
+      ..processingError = error
+      ..processingUpdatedAt = DateTime.now();
+    await _isarService.updateUrl(url);
+    UrlProcessingObserver.logStage(
+      stage,
+      processingId: url.processingId ?? 'url-$urlId',
+      saveId: url.id.toString(),
+      url: url.rawUrl,
+      platform: url.category,
+      attempt: url.processingAttempt,
+      error: error,
+      fields: {'status': status, ...fields},
+    );
+    _onEnriched?.call();
   }
 
   List<String> _metadataFallbackTags(SavedUrl url, List<String> baseTags) {
@@ -540,7 +784,8 @@ class EnrichmentService {
       return recipe.copyWith(
         nutrition: estimatedNutrition,
         nutritionAttempted:
-            recipe.nutritionAttempted || estimatedNutrition?.hasAnyValue == true,
+            recipe.nutritionAttempted ||
+            estimatedNutrition?.hasAnyValue == true,
       );
     }
 
@@ -553,9 +798,11 @@ class EnrichmentService {
         await _usageService.incrementUsage(UsageFeature.aiSave);
       }
 
-      final enhancedSteps =
-          enhancement.steps.isNotEmpty ? enhancement.steps : recipe.steps;
-      final enhancedNutrition = enhancement.nutrition ??
+      final enhancedSteps = enhancement.steps.isNotEmpty
+          ? enhancement.steps
+          : recipe.steps;
+      final enhancedNutrition =
+          enhancement.nutrition ??
           recipe.nutrition ??
           RecipeNutrition.estimateFromRecipe(recipe);
       developer.log(
@@ -616,9 +863,28 @@ class EnrichmentService {
 
   Iterable<String> _candidatePhrases(String text) sync* {
     const stop = {
-      'the', 'and', 'for', 'with', 'from', 'into', 'this', 'that', 'his',
-      'her', 'their', 'your', 'you', 'are', 'was', 'were', 'video', 'youtube',
-      'http', 'https', 'www', 'com',
+      'the',
+      'and',
+      'for',
+      'with',
+      'from',
+      'into',
+      'this',
+      'that',
+      'his',
+      'her',
+      'their',
+      'your',
+      'you',
+      'are',
+      'was',
+      'were',
+      'video',
+      'youtube',
+      'http',
+      'https',
+      'www',
+      'com',
     };
     final words = text
         .split(RegExp(r'[^a-z0-9]+'))
@@ -672,29 +938,38 @@ class EnrichmentService {
     try {
       await _enrichEmbeddingInner(urlId, force: force);
     } catch (e, st) {
-      developer.log('_enrichEmbedding FAILED for $urlId: $e',
-          name: 'Enrichment', stackTrace: st);
+      developer.log(
+        '_enrichEmbedding FAILED for $urlId: $e',
+        name: 'Enrichment',
+        stackTrace: st,
+      );
     }
   }
 
   Future<void> _enrichEmbeddingInner(int urlId, {bool force = false}) async {
     if (_embeddingService == null) {
-      developer.log('_enrichEmbedding SKIP: EmbeddingService is null for $urlId',
-          name: 'Enrichment');
+      developer.log(
+        '_enrichEmbedding SKIP: EmbeddingService is null for $urlId',
+        name: 'Enrichment',
+      );
       return;
     }
 
     final url = await _isarService.getUrlById(urlId);
     if (url == null) {
-      developer.log('_enrichEmbedding SKIP: URL $urlId not found in Isar',
-          name: 'Enrichment');
+      developer.log(
+        '_enrichEmbedding SKIP: URL $urlId not found in Isar',
+        name: 'Enrichment',
+      );
       return;
     }
 
     // Skip if already embedded
     if (!force && url.embedding != null && url.embedding!.isNotEmpty) {
-      developer.log('_enrichEmbedding SKIP (already embedded): ${url.rawUrl}',
-          name: 'Enrichment');
+      developer.log(
+        '_enrichEmbedding SKIP (already embedded): ${url.rawUrl}',
+        name: 'Enrichment',
+      );
       return;
     }
 
@@ -708,34 +983,48 @@ class EnrichmentService {
         category: url.category,
         summary: url.summary,
       );
-      developer.log('_enrichEmbedding CALLING EmbeddingService for ${url.rawUrl}',
-          name: 'Enrichment');
+      developer.log(
+        '_enrichEmbedding CALLING EmbeddingService for ${url.rawUrl}',
+        name: 'Enrichment',
+      );
       final vec = await _embeddingService.generateEmbedding(textToEmbed);
       if (vec.isEmpty) {
-        developer.log('_enrichEmbedding EMPTY vector returned for ${url.rawUrl}',
-            name: 'Enrichment');
+        developer.log(
+          '_enrichEmbedding EMPTY vector returned for ${url.rawUrl}',
+          name: 'Enrichment',
+        );
         return;
       }
 
       // Reload in case AI enrichment modified it concurrently
       final freshUrl = await _isarService.getUrlById(urlId);
       if (freshUrl == null) {
-        developer.log('_enrichEmbedding SKIP: URL $urlId disappeared before save',
-            name: 'Enrichment');
+        developer.log(
+          '_enrichEmbedding SKIP: URL $urlId disappeared before save',
+          name: 'Enrichment',
+        );
         return;
       }
 
       freshUrl.embedding = vec;
       await _isarService.updateUrl(freshUrl);
-      developer.log('_enrichEmbedding SAVE OK: ${freshUrl.rawUrl} (${vec.length} dims)',
-          name: 'Enrichment');
+      developer.log(
+        '_enrichEmbedding SAVE OK: ${freshUrl.rawUrl} (${vec.length} dims)',
+        name: 'Enrichment',
+      );
     } on EmbeddingException catch (e, st) {
-      developer.log('_enrichEmbedding EmbeddingException for $urlId: $e',
-          name: 'Enrichment', stackTrace: st);
+      developer.log(
+        '_enrichEmbedding EmbeddingException for $urlId: $e',
+        name: 'Enrichment',
+        stackTrace: st,
+      );
     }
   }
 
-  Future<T> _runWithSemaphore<T>(_Semaphore sem, Future<T> Function() task) async {
+  Future<T> _runWithSemaphore<T>(
+    _Semaphore sem,
+    Future<T> Function() task,
+  ) async {
     await sem.acquire();
     try {
       return await task();

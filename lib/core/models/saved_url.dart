@@ -1,5 +1,7 @@
 import 'package:isar/isar.dart';
 
+import 'url_processing_status.dart';
+
 part 'saved_url.g.dart';
 
 @collection
@@ -40,6 +42,25 @@ class SavedUrl {
   /// creator, stats, and captions so Details can remain stable after app restarts.
   String? enrichmentJson;
 
+  /// Durable lifecycle state for the URL ingestion/enrichment pipeline.
+  ///
+  /// Older rows may have this null; new saves move through
+  /// PENDING -> QUEUED -> EXTRACTING -> ENRICHING -> GENERATING_EMBEDDINGS
+  /// -> READY, or RETRYING/FAILED when recovery is still in progress/exhausted.
+  String? processingStatus;
+
+  /// Correlates local save state with backend structured logs.
+  String? processingId;
+
+  /// Number of extraction/enrichment attempts made for this save.
+  int? processingAttempt;
+
+  /// Last lifecycle state transition time.
+  DateTime? processingUpdatedAt;
+
+  /// Last non-sensitive processing error code/reason.
+  String? processingError;
+
   late DateTime savedAt;
 
   /// When the user first opened the link from the app (null = never opened).
@@ -73,4 +94,14 @@ class SavedUrl {
     }
     return values;
   }
+
+  @ignore
+  bool get isProcessingActive => UrlProcessingStatus.isActive(processingStatus);
+
+  @ignore
+  bool get isProcessingReady =>
+      processingStatus == UrlProcessingStatus.ready ||
+      ((processingStatus == null || processingStatus!.trim().isEmpty) &&
+          ((enrichmentJson ?? '').trim().isNotEmpty ||
+              (summary ?? '').trim().isNotEmpty));
 }
