@@ -86,4 +86,9 @@ dependencies {
     // us list / create / overwrite files inside a tree URI without
     // touching the lower-level DocumentsContract APIs directly.
     implementation("androidx.documentfile:documentfile:1.0.1")
+
+    // Block Store: reinstall-surviving storage for the stable install id, used
+    // to keep the server-side AI quota from being reset by reinstalling. Backed
+    // by the device's existing Google account — no in-app login required.
+    implementation("com.google.android.gms:play-services-auth-blockstore:16.4.0")
 }
