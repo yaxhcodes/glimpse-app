@@ -9,6 +9,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/widgets/usage_badge.dart';
@@ -158,10 +159,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: premiumBackground(context),
         appBar: AppBar(
-          toolbarHeight: 72,
-          titleSpacing: 0,
+          toolbarHeight: selectionState.isActive
+              ? null
+              : (widget.embedded ? 0 : kToolbarHeight),
           automaticallyImplyLeading: !widget.embedded,
           scrolledUnderElevation: 0,
           leading: selectionState.isActive
@@ -173,76 +175,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               : null,
           title: selectionState.isActive
               ? BulkSelectionTitle(count: selectedUrls.length)
-              : Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _searchFocus,
-                      autofocus: true,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        height: 1.35,
-                      ),
-                      cursorHeight: 22,
-                      decoration: InputDecoration(
-                        hintText: 'Search your library…',
-                        hintStyle: theme.textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.75,
-                          ),
-                          fontWeight: FontWeight.w200,
-                          height: 1.35,
-                        ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        isDense: false,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 4,
-                        ),
-                        prefixIcon: Padding(
-                          padding: const EdgeInsets.only(left: 6, right: 2),
-                          child: Icon(
-                            Icons.search_rounded,
-                            size: 26,
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.85,
-                            ),
-                          ),
-                        ),
-                        prefixIconConstraints: const BoxConstraints(
-                          minWidth: 48,
-                          minHeight: 48,
-                        ),
-                        suffixIcon: query.isNotEmpty
-                            ? IconButton(
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                tooltip: 'Clear',
-                                onPressed: () {
-                                  _controller.clear();
-                                  ref.read(searchProvider.notifier).clear();
-                                  setState(() {});
-                                },
-                              )
-                            : null,
-                      ),
-                      onChanged: (value) {
-                        setState(() {});
-                        _onQueryChanged(value);
-                      },
-                    ),
-                  ),
-                ),
+              : null,
           actions: selectionState.isActive
               ? [
                   BulkSelectionActionButtons(
@@ -257,6 +190,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (!selectionState.isActive)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: PremiumSearchBar(
+                  controller: _controller,
+                  focusNode: _searchFocus,
+                  autofocus: true,
+                  hint: 'Search your library…',
+                  onChanged: (value) {
+                    setState(() {});
+                    _onQueryChanged(value);
+                  },
+                  onClear: query.isNotEmpty
+                      ? () {
+                          _controller.clear();
+                          ref.read(searchProvider.notifier).clear();
+                          setState(() {});
+                        }
+                      : null,
+                ),
+              ),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
@@ -286,32 +240,42 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: queryTrim.isEmpty
                   ? Center(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        padding: const EdgeInsets.fromLTRB(40, 0, 40, 48),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.travel_explore_rounded,
-                              size: 56,
-                              color: colorScheme.primary.withValues(
-                                alpha: 0.65,
+                            Container(
+                              width: 84,
+                              height: 84,
+                              decoration: BoxDecoration(
+                                color: colorScheme.secondaryContainer
+                                    .withValues(alpha: 0.45),
+                                borderRadius: BorderRadius.circular(26),
+                              ),
+                              child: Icon(
+                                Icons.travel_explore_rounded,
+                                size: 38,
+                                color: colorScheme.onSecondaryContainer
+                                    .withValues(alpha: 0.85),
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 22),
                             Text(
                               'Find anything you saved',
                               style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             Text(
-                              'Search titles, tags, notes, and summaries. '
-                              'Use the time filters to narrow results.',
+                              'Search across titles, tags, notes, and '
+                              'summaries — then filter by time.',
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                height: 1.4,
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.8),
+                                height: 1.45,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -567,24 +531,23 @@ class _DateFilterPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? colorScheme.secondaryContainer : Colors.transparent,
-      shape: StadiumBorder(
-        side: selected
-            ? BorderSide.none
-            : BorderSide(color: colorScheme.outline.withValues(alpha: 0.6)),
-      ),
+      color: selected
+          ? colorScheme.secondaryContainer
+          : colorScheme.surfaceContainerHigh,
+      shape: const StadiumBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           child: Text(
             label,
             style: textTheme.labelLarge?.copyWith(
               color: selected
                   ? colorScheme.onSecondaryContainer
                   : colorScheme.onSurfaceVariant,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              letterSpacing: -0.1,
             ),
           ),
         ),

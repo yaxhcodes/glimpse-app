@@ -132,12 +132,18 @@ class PremiumSearchBar extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final VoidCallback? onClear;
+  final FocusNode? focusNode;
+  final bool autofocus;
+  final ValueChanged<String>? onChanged;
 
   const PremiumSearchBar({
     super.key,
     required this.controller,
     this.hint = 'Search...',
     this.onClear,
+    this.focusNode,
+    this.autofocus = false,
+    this.onChanged,
   });
 
   @override
@@ -151,6 +157,10 @@ class PremiumSearchBar extends StatelessWidget {
       ),
       child: TextField(
         controller: controller,
+        focusNode: focusNode,
+        autofocus: autofocus,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
         style: tt.bodyMedium?.copyWith(color: cs.onSurface),
         decoration: InputDecoration(
           hintText: hint,
