@@ -1,10 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/ai_quota_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/usage_service.dart';
 
 /// Provider for the [UsageService] singleton.
-final usageServiceProvider = Provider<UsageService>((ref) => UsageService());
+///
+/// Wired with [AiQuotaService] so costly features (AI saves) are gated by the
+/// worker's server-side monthly quota, which survives reinstall.
+final usageServiceProvider = Provider<UsageService>(
+  (ref) => UsageService(aiQuota: AiQuotaService.instance),
+);
 
 /// Bumped after every increment so [usageProvider] / [remainingUsageProvider]
 /// / [limitReachedProvider] rebuild reactively.
