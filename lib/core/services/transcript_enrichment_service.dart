@@ -1167,6 +1167,30 @@ class TranscriptEnrichmentService {
         );
       }
     }
+    final places = data['places'];
+    if (places is List) {
+      for (final item in places) {
+        if (item is! Map) continue;
+        final title = _cleanText(item['name'] ?? item['title']);
+        if (title.isEmpty) continue;
+        final locale = [
+          _cleanText(item['city']),
+          _cleanText(item['country']),
+        ].where((part) => part.isNotEmpty).join(', ');
+        byKey.putIfAbsent(
+          _mentionKey(title),
+          () => EnrichedMention(
+            title: title,
+            type: 'place',
+            whyMentioned:
+                _cleanNullableText(
+                  item['why_mentioned'] ?? item['reason'] ?? item['description'],
+                ) ??
+                (locale.isEmpty ? null : locale),
+          ),
+        );
+      }
+    }
     final entities = data['entities'];
     if (entities is List) {
       for (final item in entities) {
