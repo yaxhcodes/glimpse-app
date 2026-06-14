@@ -17,6 +17,10 @@ class RediscoverySection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(rediscoveryLinksProvider);
     return async.when(
+      // Keep the current cards on screen while the set is recomputed after a
+      // save/delete, instead of collapsing the whole section and reflowing the
+      // page. The new set swaps in place once it's ready.
+      skipLoadingOnReload: true,
       data: (links) {
         if (links.isEmpty) return const SizedBox.shrink();
         final cs = Theme.of(context).colorScheme;
