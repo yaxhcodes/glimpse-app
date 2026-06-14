@@ -8,6 +8,24 @@ import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import 'sources_provider.dart';
 
+/// Lets the user narrow the source list to where saves actually came from —
+/// apps/platforms (Instagram, X, …) vs. topic clusters.
+enum _SourceFilter {
+  all('All', Icons.all_inclusive_rounded),
+  apps('Apps', Icons.apps_rounded),
+  topics('Topics', Icons.sell_outlined);
+
+  const _SourceFilter(this.label, this.icon);
+  final String label;
+  final IconData icon;
+
+  String get listTitle => switch (this) {
+    _SourceFilter.all => 'All sources',
+    _SourceFilter.apps => 'Apps',
+    _SourceFilter.topics => 'Topics',
+  };
+}
+
 class SourcesScreen extends ConsumerStatefulWidget {
   const SourcesScreen({super.key});
 
@@ -18,6 +36,7 @@ class SourcesScreen extends ConsumerStatefulWidget {
 class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   final _searchController = TextEditingController();
   String _query = '';
+  _SourceFilter _filter = _SourceFilter.all;
 
   @override
   void initState() {
@@ -36,25 +55,41 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final clustersAsync = ref.watch(filteredClustersProvider(_query));
 
     return Scaffold(
       backgroundColor: premiumBackground(context),
       body: clustersAsync.when(
         data: (clusters) {
-          final mostUsed = List<SourceCluster>.from(clusters)
-            ..sort((a, b) => b.count.compareTo(a.count));
-          final recentlyActive = List<SourceCluster>.from(clusters)
-            ..sort((a, b) {
-              final aTime = a.lastSavedAt;
-              final bTime = b.lastSavedAt;
-              if (aTime == null && bTime == null) return 0;
-              if (aTime == null) return 1;
-              if (bTime == null) return -1;
-              return bTime.compareTo(aTime);
-            });
-          final allClusters = List<SourceCluster>.from(clusters)
-            ..sort((a, b) => a.name.compareTo(b.name));
+          final searching = _query.trim().isNotEmpty;
+          bool isApp(SourceCluster c) => platformColors.containsKey(c.name);
+
+          final filtered = switch (_filter) {
+            _SourceFilter.all => clusters,
+            _SourceFilter.apps => clusters.where(isApp).toList(),
+            _SourceFilter.topics =>
+              clusters.where((c) => !isApp(c)).toList(),
+          };
+          final alphabetical = List<SourceCluster>.from(filtered)
+            ..sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            );
+          // Top sources highlights topic clusters, not the app/platform a
+          // link came from (Instagram, X, …), so filter known platforms out.
+          final topSources =
+              (clusters
+                    .where((c) => !isApp(c))
+                    .toList()
+                ..sort((a, b) => b.count.compareTo(a.count)))
+                  .take(8)
+                  .toList();
+          // The rail is a curated "top topics" view; hide it when the list is
+          // already being narrowed by search or an explicit filter.
+          final showRail = !searching &&
+              _filter == _SourceFilter.all &&
+              topSources.isNotEmpty;
+          final listTitle = searching ? 'Results' : _filter.listTitle;
 
           return CustomScrollView(
             slivers: [
@@ -69,10 +104,61 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                     letterSpacing: -0.3,
                   ),
                 ),
+                actions: [
+                  PopupMenuButton<_SourceFilter>(
+                    tooltip: 'Filter sources',
+                    icon: Icon(
+                      Icons.tune_rounded,
+                      color: _filter == _SourceFilter.all
+                          ? cs.onSurfaceVariant
+                          : cs.primary,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    onSelected: (f) => setState(() => _filter = f),
+                    itemBuilder: (context) => _SourceFilter.values.map((f) {
+                      final active = _filter == f;
+                      return PopupMenuItem<_SourceFilter>(
+                        value: f,
+                        child: Row(
+                          children: [
+                            Icon(
+                              f.icon,
+                              size: 18,
+                              color: active
+                                  ? cs.primary
+                                  : cs.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              f.label,
+                              style: tt.bodyMedium?.copyWith(
+                                fontWeight: active
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: active ? cs.primary : cs.onSurface,
+                              ),
+                            ),
+                            if (active) ...[
+                              const Spacer(),
+                              Icon(
+                                Icons.check_rounded,
+                                size: 18,
+                                color: cs.primary,
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(width: 4),
+                ],
               ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: PremiumSearchBar(
                     controller: _searchController,
                     hint: 'Search your knowledge clusters...',
@@ -85,60 +171,48 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   ),
                 ),
               ),
-              if (clusters.isEmpty && _query.isNotEmpty)
+              if (alphabetical.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: _EmptySearch(query: _query),
+                  child: searching
+                      ? _EmptySearch(query: _query)
+                      : _EmptyFilter(filter: _filter),
                 )
               else ...[
-                if (mostUsed.isNotEmpty) ...[
-                  _SectionHeader(title: 'Most Used', count: mostUsed.length),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _KnowledgeClusterCard(cluster: mostUsed[index]),
-                        ),
-                        childCount: mostUsed.length,
+                if (showRail) ...[
+                  const _SectionHeader(title: 'Top sources'),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 134,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: topSources.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemBuilder: (context, index) =>
+                            _TopSourceCard(cluster: topSources[index]),
                       ),
                     ),
                   ),
                 ],
-                if (recentlyActive.isNotEmpty) ...[
-                  _SectionHeader(
-                    title: 'Recently Active',
-                    count: recentlyActive.length,
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _KnowledgeClusterCard(cluster: recentlyActive[index]),
+                _SectionHeader(
+                  title: listTitle,
+                  count: alphabetical.length,
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _KnowledgeClusterCard(
+                          cluster: alphabetical[index],
                         ),
-                        childCount: recentlyActive.length,
                       ),
+                      childCount: alphabetical.length,
                     ),
                   ),
-                ],
-                if (allClusters.isNotEmpty) ...[
-                  _SectionHeader(title: 'All Sources', count: allClusters.length),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _KnowledgeClusterCard(cluster: allClusters[index]),
-                        ),
-                        childCount: allClusters.length,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
                 const SliverToBoxAdapter(child: SizedBox(height: 48)),
               ],
             ],
@@ -177,9 +251,9 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final int count;
+  final int? count;
 
-  const _SectionHeader({required this.title, required this.count});
+  const _SectionHeader({required this.title, this.count});
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +277,44 @@ class _EmptySearch extends StatelessWidget {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyFilter extends StatelessWidget {
+  final _SourceFilter filter;
+
+  const _EmptyFilter({required this.filter});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final message = switch (filter) {
+      _SourceFilter.apps => 'No saves from apps yet',
+      _SourceFilter.topics => 'No topic sources yet',
+      _SourceFilter.all => 'No sources yet',
+    };
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              filter.icon,
+              size: 36,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
@@ -320,7 +432,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                 MemoryStrip(
                   imageUrls: cluster.memoryStripUrls,
                   height: 44,
-                  overlap: 16,
+                  totalCount: cluster.count,
                 ),
               ],
               if (cluster.mostlyAbout.isNotEmpty) ...[
@@ -379,6 +491,84 @@ class _KnowledgeClusterCard extends StatelessWidget {
     if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
     if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
     return '${(diff.inDays / 365).floor()}y ago';
+  }
+}
+
+class _TopSourceCard extends StatelessWidget {
+  final SourceCluster cluster;
+
+  const _TopSourceCard({required this.cluster});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final iconSpec = resolveSourceIcon(cluster.name);
+    final fav = faviconUrl(cluster.name);
+    final brandColor = platformColors[cluster.name];
+
+    return SizedBox(
+      width: 152,
+      child: Card(
+        elevation: 0,
+        color: cs.surfaceContainerLow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push(
+            '/category/${Uri.encodeComponent(cluster.name)}',
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ClusterIcon(
+                  faviconUrl: fav,
+                  fallbackIcon: iconSpec.icon ?? Icons.folder_outlined,
+                  brandColor: brandColor,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  cluster.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                    letterSpacing: -0.15,
+                    height: 1.2,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${cluster.count} saves',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 11,
+                  ),
+                ),
+                if (cluster.savesThisWeek > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '+${cluster.savesThisWeek} this week',
+                    style: tt.labelSmall?.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

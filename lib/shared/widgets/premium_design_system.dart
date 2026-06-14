@@ -207,7 +207,7 @@ class SectionTitle extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
       child: Row(
         children: [
           Text(
@@ -244,13 +244,21 @@ class SectionTitle extends StatelessWidget {
 class MemoryStrip extends StatelessWidget {
   final List<String> imageUrls;
   final double height;
-  final double overlap;
+
+  /// Max number of thumbnails to render before collapsing the rest into a
+  /// "+N" tile.
+  final int maxVisible;
+
+  /// Total items represented by the strip (e.g. saves in the source). Used to
+  /// compute the "+N" overflow count; falls back to [imageUrls] length.
+  final int? totalCount;
 
   const MemoryStrip({
     super.key,
     required this.imageUrls,
     this.height = 48,
-    this.overlap = 16,
+    this.maxVisible = 4,
+    this.totalCount,
   });
 
   @override
@@ -258,41 +266,75 @@ class MemoryStrip extends StatelessWidget {
     if (imageUrls.isEmpty) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final visible = imageUrls.take(maxVisible).toList();
+    final remaining = (totalCount ?? imageUrls.length) - visible.length;
 
     return SizedBox(
       height: height,
-      child: Stack(
-        children: imageUrls.asMap().entries.map((entry) {
-          final index = entry.key;
-          final url = entry.value;
-          return Positioned(
-            left: index * (height - overlap),
-            child: Container(
+      child: Row(
+        children: [
+          for (var i = 0; i < visible.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            _MemoryTile(url: visible[i], size: height),
+          ],
+          if (remaining > 0) ...[
+            const SizedBox(width: 6),
+            Container(
               width: height,
               height: height,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: _isDark(context) ? 0.25 : 0.08),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Container(
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                  ),
+              child: Text(
+                '+$remaining',
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
                 ),
               ),
             ),
-          );
-        }).toList(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MemoryTile extends StatelessWidget {
+  final String url;
+  final double size;
+
+  const _MemoryTile({required this.url, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: _isDark(context) ? 0.25 : 0.08),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          errorWidget: (_, __, ___) => Container(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+          ),
+        ),
       ),
     );
   }
