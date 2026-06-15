@@ -157,7 +157,10 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
           SliverAppBar.large(
             backgroundColor: colorScheme.surface,
             foregroundColor: colorScheme.onSurfaceVariant,
-            title: const Text('Capture something worth returning to'),
+            title: Text(
+              'Capture something worth returning to',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
           ),
           SliverFillRemaining(
             hasScrollBody: false,

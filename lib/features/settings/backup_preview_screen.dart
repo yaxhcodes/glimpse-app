@@ -73,7 +73,10 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
-            title: const Text('Backup Preview'),
+            title: Text(
+              'Backup Preview',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),

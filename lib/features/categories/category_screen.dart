@@ -77,13 +77,23 @@ class CategoryScreen extends ConsumerWidget {
         body: urlsAsync.when(
           loading: () => CustomScrollView(
             slivers: [
-              SliverAppBar.large(title: Text(categoryName)),
+              SliverAppBar.large(
+                title: Text(
+                  categoryName,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+              ),
               const SliverFillRemaining(child: LoadingIndicator()),
             ],
           ),
           error: (err, stack) => CustomScrollView(
             slivers: [
-              SliverAppBar.large(title: Text(categoryName)),
+              SliverAppBar.large(
+                title: Text(
+                  categoryName,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+              ),
               SliverFillRemaining(child: Center(child: Text('Error: $err'))),
             ],
           ),
@@ -100,7 +110,10 @@ class CategoryScreen extends ConsumerWidget {
                 SliverAppBar.large(
                   title: selectionState.isActive
                       ? BulkSelectionTitle(count: selectedUrls.length)
-                      : Text(categoryName),
+                      : Text(
+                          categoryName,
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
                   leading: selectionState.isActive
                       ? IconButton(
                           icon: const Icon(Icons.arrow_back_rounded),

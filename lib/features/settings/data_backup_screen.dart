@@ -104,7 +104,10 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
-            title: const Text('Data & backup'),
+            title: Text(
+              'Data & backup',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),

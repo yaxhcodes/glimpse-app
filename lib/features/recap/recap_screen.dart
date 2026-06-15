@@ -30,7 +30,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
-            title: const Text('Weekly Recap'),
+            title: Text(
+              'Weekly Recap',
+              style: theme.textTheme.headlineMedium,
+            ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
