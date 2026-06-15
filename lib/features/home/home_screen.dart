@@ -1246,7 +1246,7 @@ class _CaptureButton extends StatelessWidget {
           width: 40,
           height: 40,
           child: Icon(
-            Icons.bookmark_add_rounded,
+            Icons.arrow_forward_rounded,
             size: 20,
             color: enabled
                 ? cs.onPrimary
@@ -1373,12 +1373,6 @@ class _InlineSaveInput extends StatelessWidget {
             ? colorScheme.errorContainer.withValues(alpha: 0.6)
             : colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: pulse
-              ? colorScheme.outline
-              : (isError ? colorScheme.error : colorScheme.outlineVariant),
-          width: isError ? 1.5 : 1,
-        ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
