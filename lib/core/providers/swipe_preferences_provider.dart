@@ -41,7 +41,7 @@ extension SwipeActionTypeInfo on SwipeActionType {
     return switch (this) {
       SwipeActionType.delete => Icons.delete_outline_rounded,
       SwipeActionType.toggleRead => Icons.mark_email_read_outlined,
-      SwipeActionType.addToCollection => Icons.collections_bookmark_outlined,
+      SwipeActionType.addToCollection => Icons.create_new_folder_outlined,
       SwipeActionType.pin => Icons.push_pin_outlined,
       SwipeActionType.askGlimpse => Icons.auto_awesome_rounded,
       SwipeActionType.share => Icons.share_outlined,

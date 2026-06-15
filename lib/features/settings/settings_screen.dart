@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_environment.dart';
@@ -20,6 +22,7 @@ import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/usage_service.dart';
+import 'settings_components.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -90,340 +93,152 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final displayNameAsync = ref.watch(userDisplayNameProvider);
+    final isPro = ref.watch(isProUserProvider);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: cs.surface,
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            foregroundColor: Theme.of(context).colorScheme.onSurface,
-            title: const Text('Settings'),
+            backgroundColor: cs.surface,
+            foregroundColor: cs.onSurface,
+            title: Text(
+              'Settings',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ─── Preferences ─────────────────────────
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: 'Preferences'),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Look & Feel'),
-                        subtitle: const Text('Theme and accent color'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push('/settings/look-and-feel'),
+                const SettingsGroupLabel('Preferences'),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.palette_outlined,
+                      iconColor: SettingsAccents.violet,
+                      title: 'Look & Feel',
+                      subtitle: 'Theme and accent color',
+                      onTap: () => context.push('/settings/look-and-feel'),
+                    ),
+                    SettingsTile(
+                      icon: Icons.badge_outlined,
+                      iconColor: SettingsAccents.blue,
+                      title: 'Your name',
+                      subtitle: displayNameAsync.when(
+                        data: (n) => n == null || n.isEmpty ? 'Optional' : n,
+                        loading: () => '…',
+                        error: (_, _) => 'Optional',
                       ),
-                      const Divider(height: 1),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Your name'),
-                        subtitle: Text(
-                          displayNameAsync.when(
-                            data: (n) =>
-                                n == null || n.isEmpty ? 'Optional' : n,
-                            loading: () => '…',
-                            error: (_, _) => 'Optional',
-                          ),
+                      onTap: _editDisplayName,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // ─── Swipe actions ───────────────────────
+                const SettingsGroupLabel('Swipe actions'),
+                const _SwipeActionsGroup(),
+                const SizedBox(height: 24),
+
+                // ─── Subscription ────────────────────────
+                const SettingsGroupLabel('Subscription'),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      leading: SvgPicture.asset(
+                        'assets/glimpse.svg',
+                        width: 22,
+                        height: 22,
+                        colorFilter: const ColorFilter.mode(
+                          SettingsAccents.gold,
+                          BlendMode.srcIn,
                         ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: _editDisplayName,
                       ),
-                      const Divider(height: 1),
-                      const SizedBox(height: 16),
-                      const _SwipeActionsSettings(),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // ─── AI ──────────────────────────────────
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: 'AI'),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Subscription'),
-                        subtitle: const Text('Manage your plan'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push('/settings/subscription'),
+                      iconColor: SettingsAccents.gold,
+                      title: 'Glimpse AI',
+                      subtitle: 'Manage your plan',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SettingsBadge(
+                            label: isPro ? 'Pro' : 'Free',
+                            emphasized: isPro,
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 24,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                      onTap: () => context.push('/settings/subscription'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                // ─── Digest ──────────────────────────────
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: 'Digest'),
-                      const SizedBox(height: 16),
-                      const _DigestToggle(),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
+                // ─── Notifications ───────────────────────
+                const SettingsGroupLabel('Notifications'),
+                const SettingsGroup(children: [_DigestToggle()]),
+                const SizedBox(height: 24),
 
                 // ─── Data ────────────────────────────────
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: 'Data'),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Data & Backup'),
-                        subtitle: const Text(
-                          'Protect and restore your saved knowledge',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push('/settings/data-backup'),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Clear All Data',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Permanently delete all saved links',
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        onTap: _clearData,
-                      ),
-                    ],
-                  ),
+                const SettingsGroupLabel('Data'),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.cloud_outlined,
+                      iconColor: SettingsAccents.green,
+                      title: 'Data & Backup',
+                      subtitle: 'Protect and restore your saved knowledge',
+                      onTap: () => context.push('/settings/data-backup'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.delete_outline_rounded,
+                      iconColor: cs.error,
+                      destructive: true,
+                      title: 'Clear All Data',
+                      subtitle: 'Permanently delete all saved links',
+                      trailing: const SizedBox.shrink(),
+                      onTap: _clearData,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
 
                 // ─── About ───────────────────────────────
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: 'About'),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('About Glimpse'),
-                        subtitle: const Text('Version & info'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push('/settings/about'),
-                      ),
-                    ],
-                  ),
+                const SettingsGroupLabel('About'),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.info_outline_rounded,
+                      iconColor: SettingsAccents.indigo,
+                      title: 'About Glimpse',
+                      subtitle: 'Version, legal & help',
+                      trailing: const _VersionTrailing(),
+                      onTap: () => context.push('/settings/about'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
                 // ─── Developer ───────────────────────────
                 if (AppEnvironment.isDevContext) ...[
-                  _SettingsCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SectionHeader(text: 'Developer'),
-                        const SizedBox(height: 24),
-
-                        // ── Digest Testing ──
-                        _SubsectionHeader(text: 'Digest Testing'),
-                        const SizedBox(height: 12),
-                        const _DigestTestingContent(),
-                        const SizedBox(height: 24),
-
-                        // ── System Tools ──
-                        _SubsectionHeader(text: 'System Tools'),
-                        const SizedBox(height: 12),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Force Pro'),
-                          subtitle: const Text('Local dev override'),
-                          value:
-                              ref.watch(devProOverrideProvider).valueOrNull ??
-                              false,
-                          onChanged: ref.watch(devProOverrideProvider).isLoading
-                              ? null
-                              : (v) {
-                                  ref
-                                      .read(devProOverrideProvider.notifier)
-                                      .setDevProOverride(v);
-                                },
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Reset usage counters'),
-                          subtitle: const Text('Clear monthly AI counters'),
-                          trailing: const Icon(Icons.restart_alt),
-                          onTap: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            await ref.read(usageServiceProvider).resetAll();
-                            ref.read(usageRevisionProvider.notifier).state++;
-                            if (mounted) {
-                              messenger
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Usage counters reset'),
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                            }
-                          },
-                        ),
-                        const _UsageDebugContent(),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Force Empty Library'),
-                          subtitle: const Text('Simulate empty library'),
-                          value: ref.watch(forceEmptyLibraryProvider),
-                          onChanged: (v) {
-                            ref.read(forceEmptyLibraryProvider.notifier).set(v);
-                          },
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Simulate First Save'),
-                          subtitle: const Text('Test first-save animation'),
-                          value: ref.watch(simulateFirstSaveProvider),
-                          onChanged: (v) {
-                            ref.read(simulateFirstSaveProvider.notifier).set(v);
-                            if (!v) {
-                              ref
-                                      .read(
-                                        hasSimulatedFirstSaveInSessionProvider
-                                            .notifier,
-                                      )
-                                      .state =
-                                  false;
-                            }
-                          },
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Reset Onboarding'),
-                          subtitle: const Text(
-                            'Show onboarding on next launch',
-                          ),
-                          trailing: const Icon(Icons.replay),
-                          onTap: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            await ref
-                                .read(hasSeenOnboardingProvider.notifier)
-                                .reset();
-                            // Refresh the in-session state of the first-run
-                            // guidance too, so they reappear without needing a
-                            // full app restart.
-                            await ref
-                                .read(hasSeenGuideCardProvider.notifier)
-                                .set(false);
-                            await ref
-                                .read(hasSeenRediscoverTipProvider.notifier)
-                                .set(false);
-                            ref
-                                    .read(
-                                      hasSimulatedFirstSaveInSessionProvider
-                                          .notifier,
-                                    )
-                                    .state =
-                                false;
-                            if (mounted) {
-                              messenger
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Onboarding reset'),
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                            }
-                          },
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Reset First Save Celebration'),
-                          subtitle: const Text(
-                            'Re-enable first-save celebration',
-                          ),
-                          trailing: const Icon(Icons.celebration_outlined),
-                          onTap: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            await ref
-                                .read(
-                                  hasShownFirstSaveCelebrationProvider.notifier,
-                                )
-                                .reset();
-                            if (mounted) {
-                              messenger
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'First save celebration reset',
-                                    ),
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                            }
-                          },
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Reset First Save Simulation'),
-                          subtitle: const Text('Reset simulation session'),
-                          trailing: const Icon(Icons.replay),
-                          onTap: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            ref
-                                    .read(
-                                      hasSimulatedFirstSaveInSessionProvider
-                                          .notifier,
-                                    )
-                                    .state =
-                                false;
-                            if (mounted) {
-                              messenger
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'First save simulation reset',
-                                    ),
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                  const SettingsGroupLabel('Developer'),
+                  const _DeveloperSection(),
                   const SizedBox(height: 16),
                 ],
               ]),
@@ -431,6 +246,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Compact version label shown as the About row's trailing widget.
+class _VersionTrailing extends StatelessWidget {
+  const _VersionTrailing();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FutureBuilder<PackageInfo>(
+          future: PackageInfo.fromPlatform(),
+          builder: (context, snapshot) {
+            final v = snapshot.data?.version;
+            if (v == null) return const SizedBox.shrink();
+            return Text(
+              'v$v',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 8),
+        Icon(
+          Icons.chevron_right_rounded,
+          size: 24,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+        ),
+      ],
     );
   }
 }
@@ -488,23 +339,24 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
   }
 }
 
-class _SwipeActionsSettings extends ConsumerWidget {
-  const _SwipeActionsSettings();
+/// The two swipe-action rows, grouped and styled like the rest of the page.
+class _SwipeActionsGroup extends ConsumerWidget {
+  const _SwipeActionsGroup();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final prefs = ref.watch(swipePreferencesProvider);
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SettingsGroup(
       children: [
-        _SubsectionHeader(text: 'Swipe actions'),
-        const SizedBox(height: 12),
-        _SwipeActionRow(
-          label: 'Left swipe',
-          value: prefs.leftSwipeAction,
+        SettingsTile(
+          leading: prefs.leftSwipeAction.iconWidget(
+            color: SettingsAccents.rose,
+            size: 22,
+          ),
+          iconColor: SettingsAccents.rose,
+          title: 'Left swipe',
+          subtitle: prefs.leftSwipeAction.label,
           onTap: () async {
             final action = await _pickSwipeAction(
               context,
@@ -514,12 +366,15 @@ class _SwipeActionsSettings extends ConsumerWidget {
               await ref.read(swipePreferencesProvider.notifier).setLeft(action);
             }
           },
-          colorScheme: cs,
         ),
-        const Divider(height: 1),
-        _SwipeActionRow(
-          label: 'Right swipe',
-          value: prefs.rightSwipeAction,
+        SettingsTile(
+          leading: prefs.rightSwipeAction.iconWidget(
+            color: SettingsAccents.teal,
+            size: 22,
+          ),
+          iconColor: SettingsAccents.teal,
+          title: 'Right swipe',
+          subtitle: prefs.rightSwipeAction.label,
           onTap: () async {
             final action = await _pickSwipeAction(
               context,
@@ -531,7 +386,6 @@ class _SwipeActionsSettings extends ConsumerWidget {
                   .setRight(action);
             }
           },
-          colorScheme: cs,
         ),
       ],
     );
@@ -545,68 +399,6 @@ class _SwipeActionsSettings extends ConsumerWidget {
       context: context,
       showDragHandle: true,
       builder: (context) => _SwipeActionSheet(selected: selected),
-    );
-  }
-}
-
-class _SwipeActionRow extends StatelessWidget {
-  const _SwipeActionRow({
-    required this.label,
-    required this.value,
-    required this.onTap,
-    required this.colorScheme,
-  });
-
-  final String label;
-  final SwipeActionType value;
-  final VoidCallback onTap;
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = colorScheme;
-
-    return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 24,
-              child: Center(
-                child: value.iconWidget(color: cs.onSurfaceVariant, size: 22),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: theme.textTheme.bodyLarge),
-                  const SizedBox(height: 2),
-                  Text(
-                    value.label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 22,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -702,65 +494,7 @@ class _SwipeActionOption extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared layout widgets
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-        color: cs.primary,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.2,
-      ),
-    );
-  }
-}
-
-class _SubsectionHeader extends StatelessWidget {
-  const _SubsectionHeader({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-        color: cs.onSurfaceVariant,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Digest toggle (user-facing)
+// Notifications toggle (user-facing)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DigestToggle extends ConsumerStatefulWidget {
@@ -795,23 +529,218 @@ class _DigestToggleState extends ConsumerState<_DigestToggle> {
     await DigestScheduler.reschedule();
   }
 
+  Future<void> _set(bool v) async {
+    setState(() => _enabled = v);
+    await _persist();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!_loaded) {
-      return const SizedBox(
-        height: 48,
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      title: const Text('Smart notifications'),
-      subtitle: const Text('Behavior-based alerts'),
-      value: _enabled,
-      onChanged: (v) async {
-        setState(() => _enabled = v);
-        await _persist();
-      },
+    return SettingsTile(
+      icon: Icons.notifications_active_outlined,
+      iconColor: SettingsAccents.amber,
+      title: 'Smart notifications',
+      subtitle: 'Behavior-based alerts',
+      onTap: _loaded ? () => _set(!_enabled) : null,
+      trailing: Switch(
+        value: _enabled,
+        thumbIcon: settingsSwitchThumbIcon(),
+        onChanged: _loaded ? _set : null,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Developer section (dev context only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DeveloperSection extends ConsumerWidget {
+  const _DeveloperSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(kSettingsGroupRadius),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Digest Testing ──
+            _SubsectionHeader(text: 'Digest Testing'),
+            const SizedBox(height: 12),
+            const _DigestTestingContent(),
+            const SizedBox(height: 24),
+
+            // ── System Tools ──
+            _SubsectionHeader(text: 'System Tools'),
+            const SizedBox(height: 4),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Force Pro'),
+              subtitle: const Text('Local dev override'),
+              thumbIcon: settingsSwitchThumbIcon(),
+              value: ref.watch(devProOverrideProvider).valueOrNull ?? false,
+              onChanged: ref.watch(devProOverrideProvider).isLoading
+                  ? null
+                  : (v) {
+                      ref
+                          .read(devProOverrideProvider.notifier)
+                          .setDevProOverride(v);
+                    },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Reset usage counters'),
+              subtitle: const Text('Clear monthly AI counters'),
+              trailing: const Icon(Icons.restart_alt),
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                await ref.read(usageServiceProvider).resetAll();
+                ref.read(usageRevisionProvider.notifier).state++;
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('Usage counters reset'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+              },
+            ),
+            const _UsageDebugContent(),
+            const Divider(height: 1),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Force Empty Library'),
+              subtitle: const Text('Simulate empty library'),
+              thumbIcon: settingsSwitchThumbIcon(),
+              value: ref.watch(forceEmptyLibraryProvider),
+              onChanged: (v) {
+                ref.read(forceEmptyLibraryProvider.notifier).set(v);
+              },
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Simulate First Save'),
+              subtitle: const Text('Test first-save animation'),
+              thumbIcon: settingsSwitchThumbIcon(),
+              value: ref.watch(simulateFirstSaveProvider),
+              onChanged: (v) {
+                ref.read(simulateFirstSaveProvider.notifier).set(v);
+                if (!v) {
+                  ref
+                          .read(
+                            hasSimulatedFirstSaveInSessionProvider.notifier,
+                          )
+                          .state =
+                      false;
+                }
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Reset Onboarding'),
+              subtitle: const Text('Show onboarding on next launch'),
+              trailing: const Icon(Icons.replay),
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                await ref.read(hasSeenOnboardingProvider.notifier).reset();
+                // Refresh the in-session state of the first-run guidance too,
+                // so they reappear without needing a full app restart.
+                await ref.read(hasSeenGuideCardProvider.notifier).set(false);
+                await ref
+                    .read(hasSeenRediscoverTipProvider.notifier)
+                    .set(false);
+                ref
+                        .read(hasSimulatedFirstSaveInSessionProvider.notifier)
+                        .state =
+                    false;
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('Onboarding reset'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Reset First Save Celebration'),
+              subtitle: const Text('Re-enable first-save celebration'),
+              trailing: const Icon(Icons.celebration_outlined),
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                await ref
+                    .read(hasShownFirstSaveCelebrationProvider.notifier)
+                    .reset();
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('First save celebration reset'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Reset First Save Simulation'),
+              subtitle: const Text('Reset simulation session'),
+              trailing: const Icon(Icons.replay),
+              onTap: () {
+                final messenger = ScaffoldMessenger.of(context);
+                ref
+                        .read(hasSimulatedFirstSaveInSessionProvider.notifier)
+                        .state =
+                    false;
+                messenger
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('First save simulation reset'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubsectionHeader extends StatelessWidget {
+  const _SubsectionHeader({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        color: cs.onSurfaceVariant,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }
@@ -943,7 +872,7 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
             labelText: 'Notification type',
             isDense: true,
             filled: true,
-            fillColor: cs.surfaceContainerHigh,
+            fillColor: cs.surfaceContainerHighest,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_provider.dart';
+import 'settings_components.dart';
 
 class LookAndFeelScreen extends ConsumerWidget {
   const LookAndFeelScreen({super.key});
@@ -21,97 +22,113 @@ class LookAndFeelScreen extends ConsumerWidget {
         slivers: [
           SliverAppBar.large(
             backgroundColor: cs.surface,
-            foregroundColor: cs.onSurfaceVariant,
-            title: const Text('Look & feel'),
+            foregroundColor: cs.onSurface,
+            title: Text(
+              'Look & feel',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _ThemePreviewStrip(colorScheme: cs),
-                const SizedBox(height: 20),
-                _SettingsCard(
+                const SizedBox(height: 24),
+
+                // ─── Brightness ──────────────────────────
+                const SettingsGroupLabel('Brightness'),
+                _Panel(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _SectionLabel(text: 'Brightness', colorScheme: cs),
-                      const SizedBox(height: 4),
                       Text(
                         'Choose when to use light or dark colors.',
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
-                          height: 1.35,
+                          height: 1.3,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      ...ThemeMode.values.map(
-                        (mode) => RadioListTile<ThemeMode>(
-                          value: mode,
-                          groupValue: themeMode,
-                          activeColor: cs.primary,
-                          onChanged: (v) {
-                            if (v != null) {
-                              ref.read(themeModeProvider.notifier).set(v);
-                            }
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<ThemeMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: ThemeMode.system,
+                              icon: Icon(Icons.brightness_auto_rounded),
+                              label: Text('System'),
+                            ),
+                            ButtonSegment(
+                              value: ThemeMode.light,
+                              icon: Icon(Icons.light_mode_rounded),
+                              label: Text('Light'),
+                            ),
+                            ButtonSegment(
+                              value: ThemeMode.dark,
+                              icon: Icon(Icons.dark_mode_rounded),
+                              label: Text('Dark'),
+                            ),
+                          ],
+                          selected: {themeMode},
+                          showSelectedIcon: false,
+                          onSelectionChanged: (s) {
+                            ref.read(themeModeProvider.notifier).set(s.first);
                           },
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(_themeModeTitle(mode)),
-                          secondary: Icon(
-                            _themeModeIcon(mode),
-                            size: 22,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      Divider(height: 28, color: cs.outlineVariant.withValues(alpha: 0.5)),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          Icons.contrast_rounded,
-                          color: lightOnly
-                              ? cs.onSurfaceVariant.withValues(alpha: 0.45)
-                              : cs.primary,
-                        ),
-                        title: const Text('AMOLED black'),
-                        subtitle: Text(
-                          lightOnly
-                              ? 'Available when not using light theme.'
-                              : 'Pure black backgrounds on OLED screens — saves power.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            height: 1.35,
-                          ),
-                        ),
-                        trailing: Switch.adaptive(
-                          value: amoledSurfaces,
-                          onChanged: lightOnly
-                              ? null
-                              : (v) => ref
-                                  .read(amoledSurfacesProvider.notifier)
-                                  .set(v),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                _SettingsCard(
+                const SizedBox(height: 12),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.contrast_rounded,
+                      iconColor: lightOnly
+                          ? cs.onSurfaceVariant
+                          : SettingsAccents.indigo,
+                      title: 'AMOLED black',
+                      subtitle: lightOnly
+                          ? 'Available when not using light theme.'
+                          : 'Pure black backgrounds on OLED — saves power.',
+                      onTap: lightOnly
+                          ? null
+                          : () => ref
+                              .read(amoledSurfacesProvider.notifier)
+                              .set(!amoledSurfaces),
+                      trailing: Switch(
+                        value: amoledSurfaces,
+                        thumbIcon: settingsSwitchThumbIcon(),
+                        onChanged: lightOnly
+                            ? null
+                            : (v) => ref
+                                .read(amoledSurfacesProvider.notifier)
+                                .set(v),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // ─── Accent color ────────────────────────
+                const SettingsGroupLabel('Accent color'),
+                _Panel(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _SectionLabel(text: 'Accent color', colorScheme: cs),
-                      const SizedBox(height: 4),
                       Text(
-                        'Dynamic uses your wallpaper palette on supported devices.',
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        'Dynamic uses your wallpaper palette on supported '
+                        'devices.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
-                          height: 1.35,
+                          height: 1.3,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
                       SizedBox(
-                        height: 64,
+                        height: 68,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.only(right: 8),
@@ -147,38 +164,26 @@ class LookAndFeelScreen extends ConsumerWidget {
       ),
     );
   }
-
-  static String _themeModeTitle(ThemeMode mode) {
-    return switch (mode) {
-      ThemeMode.system => 'System default',
-      ThemeMode.light => 'Light',
-      ThemeMode.dark => 'Dark',
-    };
-  }
-
-  static IconData _themeModeIcon(ThemeMode mode) {
-    return switch (mode) {
-      ThemeMode.system => Icons.brightness_auto_rounded,
-      ThemeMode.light => Icons.light_mode_rounded,
-      ThemeMode.dark => Icons.dark_mode_rounded,
-    };
-  }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.text, required this.colorScheme});
+/// Rounded tonal panel matching [SettingsGroup]'s shape but for free-form
+/// content (descriptions, segmented buttons, swatch rows).
+class _Panel extends StatelessWidget {
+  const _Panel({required this.child});
 
-  final String text;
-  final ColorScheme colorScheme;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: colorScheme.primary,
-            fontWeight: FontWeight.w600,
-          ),
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(kSettingsGroupRadius),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: child,
+      ),
     );
   }
 }
@@ -192,7 +197,7 @@ class _ThemePreviewStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final radius = BorderRadius.circular(20);
+    final radius = BorderRadius.circular(kSettingsGroupRadius);
 
     return Material(
       color: colorScheme.primaryContainer,
@@ -233,8 +238,9 @@ class _ThemePreviewStrip extends StatelessWidget {
                     Text(
                       'Accent and surfaces update from your choices below.',
                       style: tt.bodySmall?.copyWith(
-                        color:
-                            colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                        color: colorScheme.onPrimaryContainer.withValues(
+                          alpha: 0.7,
+                        ),
                         height: 1.35,
                       ),
                       maxLines: 3,
@@ -251,26 +257,20 @@ class _ThemePreviewStrip extends StatelessWidget {
   }
 }
 
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.child});
+/// Cache of seed → derived [ColorScheme] so the multi-tone swatches don't
+/// recompute `fromSeed` on every rebuild.
+final Map<(Color, Brightness), ColorScheme> _swatchSchemeCache = {};
 
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-        child: child,
-      ),
-    );
-  }
+ColorScheme _swatchScheme(Color seed, Brightness brightness) {
+  return _swatchSchemeCache[(seed, brightness)] ??= ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: brightness,
+  );
 }
 
+/// Android 16 "Basic colors" style swatch: a perfectly round circle split
+/// into four tonal sectors derived from the seed (a bold tone + softer
+/// complements), with a ringed, checked selected state.
 class _AccentSwatch extends StatelessWidget {
   const _AccentSwatch({
     required this.accent,
@@ -282,61 +282,108 @@ class _AccentSwatch extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// Four tones laid into crisp quadrants via a hard-stop sweep gradient —
+  /// a true circle with no clip seams.
+  static Gradient _quadrantGradient(List<Color> tones) {
+    return SweepGradient(
+      colors: [
+        tones[0], tones[0],
+        tones[1], tones[1],
+        tones[2], tones[2],
+        tones[3], tones[3],
+      ],
+      stops: const [
+        0.0, 0.25,
+        0.25, 0.5,
+        0.5, 0.75,
+        0.75, 1.0,
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDynamic = accent == AppAccentColor.dynamic;
-    final displayColor = accent.seedColor ?? cs.primary;
+
+    final Gradient gradient;
+    if (isDynamic) {
+      // Live wallpaper-derived sweep.
+      gradient = SweepGradient(
+        colors: [
+          cs.primary,
+          cs.secondary,
+          cs.tertiary,
+          cs.primaryContainer,
+          cs.secondaryContainer,
+          cs.tertiaryContainer,
+          cs.error,
+          cs.primary,
+        ],
+      );
+    } else {
+      final s = _swatchScheme(accent.seedColor!, theme.brightness);
+      gradient = _quadrantGradient([
+        s.primary,
+        s.tertiary,
+        s.secondary,
+        s.primaryContainer,
+      ]);
+    }
 
     return Tooltip(
       message: accent.label,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(32),
+        customBorder: const CircleBorder(),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 56,
-          height: 56,
+          duration: const Duration(milliseconds: 180),
+          width: 58,
+          height: 58,
+          // Outer ring (with a gap) appears only when selected.
+          padding: EdgeInsets.all(selected ? 4 : 0),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isDynamic ? null : displayColor,
-            gradient: isDynamic
-                ? SweepGradient(
-                    colors: [
-                      cs.primary,
-                      cs.secondary,
-                      cs.tertiary,
-                      cs.primaryContainer,
-                      cs.secondaryContainer,
-                      cs.tertiaryContainer,
-                      cs.error,
-                      cs.primary,
-                    ],
+            border: selected
+                ? Border.all(color: cs.primary, width: 2.5)
+                : null,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: gradient,
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.6),
+                width: 1,
+              ),
+            ),
+            child: isDynamic && !selected
+                ? const Center(
+                    child: Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  )
+                : selected
+                ? Center(
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: cs.surface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 18,
+                        color: cs.primary,
+                      ),
+                    ),
                   )
                 : null,
-            border: Border.all(
-              color: selected ? cs.onSurface : cs.outlineVariant,
-              width: selected ? 3 : 1,
-            ),
           ),
-          child: selected
-              ? Icon(
-                  Icons.check_rounded,
-                  color: isDynamic
-                      ? cs.onPrimary
-                      : (displayColor.computeLuminance() > 0.45
-                          ? cs.scrim
-                          : cs.onPrimary),
-                  size: 26,
-                )
-              : isDynamic
-                  ? Icon(
-                      Icons.auto_awesome_rounded,
-                      color: cs.onPrimary,
-                      size: 22,
-                    )
-                  : null,
         ),
       ),
     );

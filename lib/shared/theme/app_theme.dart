@@ -28,18 +28,19 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 /// Predefined accent color palettes inspired by Pixel / Seal.
 enum AppAccentColor {
   dynamic('Dynamic', Icons.auto_awesome, null), // uses wallpaper
-  purple('Purple', Icons.circle, Color(0xFF6750A4)),
-  blue('Blue', Icons.circle, Color(0xFF1565C0)),
-  teal('Teal', Icons.circle, Color(0xFF00796B)),
-  green('Green', Icons.circle, Color(0xFF2E7D32)),
-  lime('Lime', Icons.circle, Color(0xFF9E9D24)),
-  yellow('Yellow', Icons.circle, Color(0xFFF9A825)),
-  orange('Orange', Icons.circle, Color(0xFFEF6C00)),
-  red('Red', Icons.circle, Color(0xFFC62828)),
-  pink('Pink', Icons.circle, Color(0xFFAD1457)),
+  // Seeds aligned to the Google / Material You palette Pixel renders.
+  purple('Purple', Icons.circle, Color(0xFF6750A4)), // M3 default
+  blue('Blue', Icons.circle, Color(0xFF0B57D0)), // Google Blue
+  teal('Teal', Icons.circle, Color(0xFF006A6A)), // M3 teal
+  green('Green', Icons.circle, Color(0xFF146C2E)), // Google Green
+  lime('Lime', Icons.circle, Color(0xFF7CB342)),
+  yellow('Yellow', Icons.circle, Color(0xFFF9AB00)), // Google Yellow
+  orange('Orange', Icons.circle, Color(0xFFE8710A)),
+  red('Red', Icons.circle, Color(0xFFD93025)), // Google Red
+  pink('Pink', Icons.circle, Color(0xFFB4255E)),
   sakura('Sakura', Icons.circle, Color(0xFFF48FB1)),
-  indigo('Indigo', Icons.circle, Color(0xFF283593)),
-  slate('Slate', Icons.circle, Color(0xFF546E7A));
+  indigo('Indigo', Icons.circle, Color(0xFF3F51B5)),
+  slate('Slate', Icons.circle, Color(0xFF5B7083));
 
   final String label;
   final IconData icon;

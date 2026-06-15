@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_assets.dart';
+import 'settings_components.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -12,7 +13,7 @@ class AboutScreen extends StatelessWidget {
     return 'Version ${info.version} (Build ${info.buildNumber})';
   }
 
-  Future<void> _openUrl(BuildContext context, String url) async {
+  Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -29,21 +30,34 @@ class AboutScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
-            title: const Text('About'),
+            backgroundColor: cs.surface,
+            foregroundColor: cs.onSurface,
+            title: Text(
+              'About',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                const SizedBox(height: 24),
-
-                // ── Header ──
+                // ── Brand hero ──
+                const SizedBox(height: 16),
                 Center(
-                  child: Image.asset(
-                    AppAssets.logo,
-                    width: 72,
-                    height: 72,
-                    fit: BoxFit.cover,
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Image.asset(AppAssets.logo, fit: BoxFit.contain),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -79,42 +93,48 @@ class AboutScreen extends StatelessWidget {
                     },
                   ),
                 ),
-
                 const SizedBox(height: 32),
 
                 // ── Legal ──
-                _SectionHeader(text: 'Legal'),
-                const SizedBox(height: 8),
-                _LinkTile(
-                  label: 'Terms of Service',
-                  onTap: () => _openUrl(
-                    context,
-                    'https://glimpse-app-gray.vercel.app/terms',
-                  ),
+                const SettingsGroupLabel('Legal'),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.description_outlined,
+                      iconColor: SettingsAccents.indigo,
+                      title: 'Terms of Service',
+                      trailing: const _OpenLinkIcon(),
+                      onTap: () => _openUrl(
+                        'https://glimpse-app-gray.vercel.app/terms',
+                      ),
+                    ),
+                    SettingsTile(
+                      icon: Icons.privacy_tip_outlined,
+                      iconColor: SettingsAccents.green,
+                      title: 'Privacy Policy',
+                      trailing: const _OpenLinkIcon(),
+                      onTap: () => _openUrl(
+                        'https://glimpse-app-gray.vercel.app/privacy',
+                      ),
+                    ),
+                  ],
                 ),
-                const Divider(height: 1),
-                _LinkTile(
-                  label: 'Privacy Policy',
-                  onTap: () => _openUrl(
-                    context,
-                    'https://glimpse-app-gray.vercel.app/privacy',
-                  ),
-                ),
-
                 const SizedBox(height: 24),
 
                 // ── Help ──
-                _SectionHeader(text: 'Help'),
-                const SizedBox(height: 8),
-                _LinkTile(
-                  label: 'FAQ',
-                  onTap: () => _openUrl(
-                    context,
-                    'https://glimpse-app-gray.vercel.app/faq',
-                  ),
+                const SettingsGroupLabel('Help'),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.help_outline_rounded,
+                      iconColor: SettingsAccents.blue,
+                      title: 'FAQ',
+                      trailing: const _OpenLinkIcon(),
+                      onTap: () =>
+                          _openUrl('https://glimpse-app-gray.vercel.app/faq'),
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 32),
               ]),
             ),
           ),
@@ -124,41 +144,16 @@ class AboutScreen extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.text});
-  final String text;
+class _OpenLinkIcon extends StatelessWidget {
+  const _OpenLinkIcon();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: cs.primary,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-          ),
-    );
-  }
-}
-
-class _LinkTile extends StatelessWidget {
-  const _LinkTile({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(label),
-      trailing: Icon(
-        Icons.arrow_forward_ios_rounded,
-        size: 16,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-      onTap: onTap,
+    return Icon(
+      Icons.open_in_new_rounded,
+      size: 20,
+      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
     );
   }
 }
