@@ -10,7 +10,9 @@ import 'digest_callback.dart';
 import 'core/services/backup_scheduler.dart';
 import 'core/config/app_environment.dart';
 import 'core/database/isar_service.dart';
+import 'core/providers/dev_simulation_providers.dart';
 import 'core/providers/service_providers.dart';
+import 'features/onboarding/onboarding_bootstrap.dart';
 import 'core/services/ai/app_attestation_service.dart';
 import 'core/services/ai_proxy_config.dart';
 import 'core/services/subscription_service.dart';
@@ -23,6 +25,12 @@ void main() async {
   // Pre-initialise Isar so the DB is ready before the first frame.
   final isarService = IsarService();
   await isarService.ensureInitialized();
+
+  // Resolve the onboarding decision before the first frame so the root screen
+  // renders correctly without a flash. New installs (empty library) see
+  // onboarding; existing installs are left untouched.
+  final hasSeenOnboarding =
+      await OnboardingBootstrap.resolveHasSeenOnboarding(isarService);
 
   // App attestation protects the no-login AI proxy without putting any
   // shared secret in the Flutter client.
@@ -51,6 +59,9 @@ void main() async {
     ProviderScope(
       overrides: [
         isarServiceProvider.overrideWithValue(isarService),
+        hasSeenOnboardingProvider.overrideWith(
+          (ref) => HasSeenOnboardingNotifier(initial: hasSeenOnboarding),
+        ),
       ],
       child: const GlimpseApp(),
     ),

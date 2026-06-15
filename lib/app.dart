@@ -8,7 +8,10 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'core/providers/backup_provider.dart';
+import 'core/providers/dev_simulation_providers.dart';
 import 'core/providers/service_providers.dart';
+import 'features/onboarding/onboarding_screen.dart';
+import 'features/home/guide_detail_screen.dart';
 import 'core/services/backup/backup_intent_service.dart';
 import 'core/services/backup/backup_models.dart';
 import 'core/services/digest_notifications.dart';
@@ -65,7 +68,7 @@ final _router = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
-    GoRoute(path: '/', builder: (context, state) => const MainShell()),
+    GoRoute(path: '/', builder: (context, state) => const _RootGate()),
     GoRoute(
       path: '/add',
       builder: (context, state) {
@@ -190,6 +193,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/sources',
       builder: (context, state) => const SourcesScreen(),
+    ),
+    GoRoute(
+      path: '/guide',
+      builder: (context, state) => const GuideDetailScreen(),
     ),
     GoRoute(
       path: '/batch-save',
@@ -531,5 +538,18 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         );
       },
     );
+  }
+}
+
+/// Root screen selector: shows guided onboarding for new users, otherwise the
+/// main app. Watches [hasSeenOnboardingProvider] so completing onboarding swaps
+/// straight to [MainShell].
+class _RootGate extends ConsumerWidget {
+  const _RootGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
+    return hasSeenOnboarding ? const MainShell() : const OnboardingScreen();
   }
 }

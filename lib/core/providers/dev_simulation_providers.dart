@@ -33,8 +33,11 @@ final hasSeenOnboardingProvider = StateNotifierProvider<HasSeenOnboardingNotifie
 );
 
 class HasSeenOnboardingNotifier extends StateNotifier<bool> {
-  HasSeenOnboardingNotifier() : super(true) {
-    _load();
+  /// When [initial] is provided (resolved synchronously at startup by the
+  /// onboarding bootstrap) it seeds the state directly and skips the async
+  /// load, avoiding a one-frame flash of the wrong root screen.
+  HasSeenOnboardingNotifier({bool? initial}) : super(initial ?? true) {
+    if (initial == null) _load();
   }
 
   Future<void> _load() async {
@@ -70,6 +73,52 @@ class HasSeenShareTipNotifier extends StateNotifier<bool> {
 
   Future<void> set(bool value) async {
     await DevSimulationService.setHasSeenShareTip(value);
+    state = value;
+  }
+}
+
+/// Whether the user has dismissed the post-onboarding guide card.
+/// Initial state `true` (hidden) until the stored value loads, so users who
+/// already dismissed it never see a flash.
+final hasSeenGuideCardProvider =
+    StateNotifierProvider<HasSeenGuideCardNotifier, bool>(
+  (ref) => HasSeenGuideCardNotifier(),
+);
+
+class HasSeenGuideCardNotifier extends StateNotifier<bool> {
+  HasSeenGuideCardNotifier() : super(true) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final value = await DevSimulationService.getHasSeenGuideCard();
+    if (mounted) state = value;
+  }
+
+  Future<void> set(bool value) async {
+    await DevSimulationService.setHasSeenGuideCard(value);
+    state = value;
+  }
+}
+
+/// Whether the user has seen the one-time Rediscover explainer tip.
+final hasSeenRediscoverTipProvider =
+    StateNotifierProvider<HasSeenRediscoverTipNotifier, bool>(
+  (ref) => HasSeenRediscoverTipNotifier(),
+);
+
+class HasSeenRediscoverTipNotifier extends StateNotifier<bool> {
+  HasSeenRediscoverTipNotifier() : super(true) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final value = await DevSimulationService.getHasSeenRediscoverTip();
+    if (mounted) state = value;
+  }
+
+  Future<void> set(bool value) async {
+    await DevSimulationService.setHasSeenRediscoverTip(value);
     state = value;
   }
 }

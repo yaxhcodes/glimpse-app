@@ -332,6 +332,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             await ref
                                 .read(hasSeenOnboardingProvider.notifier)
                                 .reset();
+                            // Refresh the in-session state of the first-run
+                            // guidance too, so they reappear without needing a
+                            // full app restart.
+                            await ref
+                                .read(hasSeenGuideCardProvider.notifier)
+                                .set(false);
+                            await ref
+                                .read(hasSeenRediscoverTipProvider.notifier)
+                                .set(false);
                             ref
                                     .read(
                                       hasSimulatedFirstSaveInSessionProvider

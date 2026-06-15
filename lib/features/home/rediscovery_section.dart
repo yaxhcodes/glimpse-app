@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/title_resolver.dart';
@@ -26,6 +27,7 @@ class RediscoverySection extends ConsumerWidget {
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
         final tagFreq = ref.watch(tagOccurrenceMapProvider);
+        final seenTip = ref.watch(hasSeenRediscoverTipProvider);
         final size = MediaQuery.sizeOf(context);
         final isTablet = size.width > 600;
 
@@ -40,6 +42,12 @@ class RediscoverySection extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (!seenTip)
+                _RediscoverTip(
+                  onDismiss: () => ref
+                      .read(hasSeenRediscoverTipProvider.notifier)
+                      .set(true),
+                ),
               // Tappable header row with chevron
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
@@ -124,6 +132,49 @@ class RediscoverySection extends ConsumerWidget {
       },
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+/// One-time explainer shown the first time the Rediscover row appears.
+class _RediscoverTip extends StatelessWidget {
+  const _RediscoverTip({required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, size: 18, color: cs.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'New: Rediscover brings back saves worth a second look — tap any to dive back in.',
+              style: tt.bodySmall?.copyWith(color: cs.onSurface, height: 1.3),
+            ),
+          ),
+          const SizedBox(width: 6),
+          InkWell(
+            onTap: onDismiss,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.all(3),
+              child: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

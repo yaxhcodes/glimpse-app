@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/category_order_provider.dart';
 import '../../core/providers/dev_simulation_providers.dart';
+import '../../core/services/demo_seed_service.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/utils/url_extractor.dart';
 import '../../shared/widgets/url_card.dart';
@@ -27,6 +29,7 @@ import '../../shared/widgets/upgrade_gate.dart';
 import '../add_url/add_url_provider.dart';
 import 'home_provider.dart';
 import 'rediscovery_section.dart';
+import 'guide_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -49,9 +52,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   _InputUiState _inputUiState = _InputUiState.idle;
   String? _inputErrorText;
   Timer? _resetTimer;
+  Timer? _introFadeTimer;
 
   // First-save celebration state
   bool _isCelebratingFirstSave = false;
+  // During the first-save celebration, fades the empty-state chrome away after
+  // the magic plays so the saved card is what's left before the home settles.
+  bool _dismissingIntro = false;
 
   @override
   void initState() {
@@ -178,6 +185,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         setState(() {
           _inputUiState = _InputUiState.success;
         });
+        HapticFeedback.mediumImpact();
 
         if (!simulateFirstSave) {
           await ref
@@ -185,12 +193,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               .set(true);
         }
 
-        // Let the user see the saved card settle, then return to the real Home.
+        // Once the magic has played, melt the empty-state chrome away so the
+        // saved card is what's left on screen.
+        _introFadeTimer?.cancel();
+        _introFadeTimer = Timer(const Duration(milliseconds: 1300), () {
+          if (mounted) setState(() => _dismissingIntro = true);
+        });
+
+        // Then settle into the populated home (card now at the top).
         _resetTimer?.cancel();
-        _resetTimer = Timer(const Duration(milliseconds: 1400), () {
+        _resetTimer = Timer(const Duration(milliseconds: 2200), () {
           if (mounted) {
             setState(() {
               _isCelebratingFirstSave = false;
+              _dismissingIntro = false;
               _inputUiState = _InputUiState.idle;
               _inputValid = false;
             });
@@ -289,6 +305,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _introFadeTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _urlInputController.removeListener(_onInputChanged);
@@ -330,7 +347,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       });
     });
 
-    // Auto-complete onboarding when the user adds their first link.
+    // Auto-complete onboarding when the user adds their first link, and clear
+    // the onboarding demo seed once a real save arrives.
     ref.listen(displayedUrlsProvider, (prev, next) {
       final prevCount = prev?.valueOrNull?.length ?? 0;
       final nextCount = next.valueOrNull?.length ?? 0;
@@ -338,6 +356,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (prevCount == 0 && nextCount > 0 && !onboardingDone) {
         ref.read(hasSeenOnboardingProvider.notifier).set(true);
       }
+      _maybeClearDemoSeed(next.valueOrNull ?? const []);
     });
 
     return Scaffold(
@@ -385,29 +404,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           final isEmptyOrCelebrating =
               ((urls.isEmpty && !isAddingUrl) || _isCelebratingFirstSave);
 
-          if (isEmptyOrCelebrating) {
-            return _buildEmptyState(
-              context,
-              urls,
-              theme,
-              colorScheme,
-              textTheme,
-            );
-          }
+          final child = isEmptyOrCelebrating
+              ? _buildEmptyState(
+                  context,
+                  urls,
+                  theme,
+                  colorScheme,
+                  textTheme,
+                )
+              : _buildContentState(
+                  context,
+                  urls,
+                  orderedCategories,
+                  theme,
+                  simulateFirstSave: simulateFirstSave,
+                  forceEmptyLibrary: forceEmptyLibrary,
+                  actualUrls: actualUrls,
+                  isAddingUrl: isAddingUrl,
+                );
 
-          return _buildContentState(
-            context,
-            urls,
-            orderedCategories,
-            theme,
-            simulateFirstSave: simulateFirstSave,
-            forceEmptyLibrary: forceEmptyLibrary,
-            actualUrls: actualUrls,
-            isAddingUrl: isAddingUrl,
+          // Cross-fade the empty→home swap so the first save flows into the
+          // populated feed instead of hard-cutting.
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 450),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            // Tight, full-size constraints so neither layout reflows (which
+            // caused the input to overflow) mid cross-fade.
+            child: SizedBox.expand(
+              key: ValueKey(isEmptyOrCelebrating ? 'empty' : 'content'),
+              child: child,
+            ),
           );
         },
       ),
     );
+  }
+
+  bool _clearingDemoSeed = false;
+
+  /// Removes the onboarding demo seed the first time a real (non-demo) save
+  /// appears, so it never lingers once the library has genuine content.
+  Future<void> _maybeClearDemoSeed(List<SavedUrl> urls) async {
+    if (_clearingDemoSeed) return;
+    final demoId = await DemoSeedService.demoId();
+    if (demoId == null) return;
+    final hasRealSave = urls.any((url) => url.id != demoId);
+    if (!hasRealSave) return;
+    _clearingDemoSeed = true;
+    await DemoSeedService(ref.read(isarServiceProvider)).clear();
   }
 
   Widget _buildEmptyState(
@@ -442,7 +487,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         // Content
         Expanded(
-          child: Center(
+          child: Align(
+            alignment: const Alignment(0, -0.18),
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ConstrainedBox(
@@ -451,83 +497,113 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _LandingIdentity(),
-                    const SizedBox(height: 16),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: _isCelebratingFirstSave && urls.isNotEmpty
-                          ? Text(
-                              key: const ValueKey('headline_success'),
-                              'Captured in Glimpse',
-                              style: textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                              ),
-                              textAlign: TextAlign.center,
-                            )
-                          : Text(
-                              key: const ValueKey('headline_empty'),
-                              'Capture something worth returning to',
-                              style: textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                    ),
-                    const SizedBox(height: 16),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Text(
-                        _isCelebratingFirstSave && urls.isNotEmpty
-                            ? 'Your first captured item is ready below.'
-                            : 'Glimpse organizes it, so you don\'t have to.',
-                        key: ValueKey(
-                          _isCelebratingFirstSave && urls.isNotEmpty
-                              ? 'sub_success'
-                              : 'sub_empty',
-                        ),
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.45,
-                        ),
-                        textAlign: TextAlign.center,
+                    AnimatedOpacity(
+                      opacity: _dismissingIntro ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOut,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                                const _LandingIdentity(),
+                                const SizedBox(height: 16),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 200),
+                                  child: _isCelebratingFirstSave &&
+                                          urls.isNotEmpty
+                                      ? Text(
+                                          key: const ValueKey(
+                                              'headline_success'),
+                                          'Captured in Glimpse',
+                                          style: textTheme.headlineSmall
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.2,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        )
+                                      : Text(
+                                          key: const ValueKey('headline_empty'),
+                                          'Capture something worth returning to',
+                                          style: textTheme.headlineSmall
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.2,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                ),
+                                const SizedBox(height: 16),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 200),
+                                  child: _isCelebratingFirstSave &&
+                                          urls.isNotEmpty
+                                      ? Text(
+                                          'Your first captured item is ready below.',
+                                          key: const ValueKey('sub_success'),
+                                          style: textTheme.bodyMedium?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                            height: 1.45,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        )
+                                      : Text(
+                                          'Share from any app — Glimpse sorts it for you.',
+                                          key: const ValueKey('sub_empty'),
+                                          style: textTheme.bodyMedium?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                            height: 1.45,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                ),
+                                const SizedBox(height: 24),
+                                _InlineSaveInput(
+                                  controller: _urlInputController,
+                                  focusNode: _urlInputFocus,
+                                  uiState: _inputUiState,
+                                  errorText: _inputErrorText,
+                                  isFirstSaveCelebration:
+                                      _isCelebratingFirstSave,
+                                  onSubmitted: (_) => _saveFromInput(),
+                                  canCapture: _inputValid,
+                                  onCapture: _saveFromInput,
+                                ),
+                                if (_clipboardUrl != null &&
+                                    _inputUiState == _InputUiState.idle) ...[
+                                  const SizedBox(height: 8),
+                                  _ClipboardSuggestion(
+                                    url: _clipboardUrl!,
+                                    onTap: () {
+                                      _urlInputController.text = _clipboardUrl!;
+                                      _onInputChanged();
+                                      setState(() => _clipboardUrl = null);
+                                    },
+                                    onDismiss: () {
+                                      setState(() => _clipboardUrl = null);
+                                    },
+                                  ),
+                                ],
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    _InlineSaveInput(
-                      controller: _urlInputController,
-                      focusNode: _urlInputFocus,
-                      uiState: _inputUiState,
-                      errorText: _inputErrorText,
-                      isFirstSaveCelebration: _isCelebratingFirstSave,
-                      onSubmitted: (_) => _saveFromInput(),
-                    ),
-                    if (_clipboardUrl != null &&
-                        _inputUiState == _InputUiState.idle) ...[
-                      const SizedBox(height: 8),
-                      _ClipboardSuggestion(
-                        url: _clipboardUrl!,
-                        onTap: () {
-                          _urlInputController.text = _clipboardUrl!;
-                          _onInputChanged();
-                          setState(() => _clipboardUrl = null);
-                        },
-                        onDismiss: () {
-                          setState(() => _clipboardUrl = null);
-                        },
-                      ),
-                    ],
                     const SizedBox(height: 16),
                     if (_isCelebratingFirstSave && urls.isNotEmpty)
                       _FirstSaveCelebrationCard(
                         url: urls.first,
-                        showGlow: false,
                         onTap: () => context.push('/url/${urls.first.id}'),
                       )
                     else
-                      _SaveButton(
-                        onPressed: _inputValid ? _saveFromInput : null,
+                      Center(
+                        child: TextButton(
+                          onPressed: () => context.push('/guide'),
+                          child: Text(
+                            'How Glimpse works',
+                            style: textTheme.labelLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -596,6 +672,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (weekUrls.isNotEmpty) _Section('This Week', weekUrls),
       if (earlierUrls.isNotEmpty) _Section('Earlier', earlierUrls),
     ];
+
+    // Post-onboarding guide card: shows on a populated home until the user
+    // dismisses it (a persistent how-to, robust to the demo card being
+    // deleted). Hidden under the dev empty/simulate overrides.
+    final showGuideCard = !ref.watch(hasSeenGuideCardProvider) &&
+        !simulateFirstSave &&
+        !forceEmptyLibrary &&
+        actualUrls.isNotEmpty;
 
     final isEmpty = urls.isEmpty;
     final selectedUrls = urls
@@ -697,6 +781,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ],
                 ),
+                if (showGuideCard)
+                  const SliverToBoxAdapter(child: GuideCard()),
                 if (!simulateFirstSave &&
                     !forceEmptyLibrary &&
                     actualUrls.isNotEmpty)
@@ -1075,39 +1161,99 @@ class _Section {
   const _Section(this.label, this.urls);
 }
 
-class _LandingIdentity extends StatelessWidget {
+class _LandingIdentity extends StatefulWidget {
   const _LandingIdentity();
 
   @override
+  State<_LandingIdentity> createState() => _LandingIdentityState();
+}
+
+class _LandingIdentityState extends State<_LandingIdentity>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(seconds: 3))
+        ..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
-      child: Image.asset(
-        AppAssets.logo,
-        width: 68,
-        height: 68,
-        fit: BoxFit.cover,
+      child: SizedBox(
+        width: 220,
+        height: 200,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Soft glow so the hero reads as a composed focal point rather
+            // than floating in empty space.
+            Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    cs.primary.withValues(alpha: 0.16),
+                    cs.primary.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedBuilder(
+              animation: _c,
+              builder: (context, child) {
+                final dy = (Curves.easeInOut.transform(_c.value) * 6) - 3;
+                return Transform.translate(offset: Offset(0, dy), child: child);
+              },
+              child: Image.asset(
+                AppAssets.homeHero,
+                width: 156,
+                height: 156,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SaveButton extends StatelessWidget {
-  final VoidCallback? onPressed;
+/// Small circular capture action embedded at the end of the save input —
+/// muted when there's nothing to capture, primary when the link is valid.
+class _CaptureButton extends StatelessWidget {
+  const _CaptureButton({required this.enabled, required this.onTap});
 
-  const _SaveButton({required this.onPressed});
+  final bool enabled;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return FilledButton(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        disabledBackgroundColor: colorScheme.onSurface.withValues(alpha: 0.08),
-        disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.35),
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: enabled ? cs.primary : cs.surfaceContainerHighest,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(
+            Icons.bookmark_add_rounded,
+            size: 20,
+            color: enabled
+                ? cs.onPrimary
+                : cs.onSurfaceVariant.withValues(alpha: 0.45),
+          ),
+        ),
       ),
-      child: const Text('Capture'),
     );
   }
 }
@@ -1196,6 +1342,8 @@ class _InlineSaveInput extends StatelessWidget {
   final String? errorText;
   final bool isFirstSaveCelebration;
   final ValueChanged<String>? onSubmitted;
+  final bool canCapture;
+  final VoidCallback? onCapture;
 
   const _InlineSaveInput({
     required this.controller,
@@ -1204,6 +1352,8 @@ class _InlineSaveInput extends StatelessWidget {
     this.errorText,
     this.isFirstSaveCelebration = false,
     this.onSubmitted,
+    this.canCapture = false,
+    this.onCapture,
   });
 
   @override
@@ -1277,26 +1427,72 @@ class _InlineSaveInput extends StatelessWidget {
     }
   }
 
+  /// Extracts a clean host (e.g. `open.spotify.com`) from partial input, or
+  /// null when there isn't a recognisable domain yet.
+  static String? _hostFromText(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return null;
+    final candidate =
+        trimmed.contains('://') ? trimmed : 'https://$trimmed';
+    final host = Uri.tryParse(candidate)?.host ?? '';
+    if (host.isEmpty || !host.contains('.')) return null;
+    return host.startsWith('www.') ? host.substring(4) : host;
+  }
+
   Widget _buildIdleState(ColorScheme colorScheme) {
-    return TextField(
+    return Padding(
       key: const ValueKey('input_idle'),
-      controller: controller,
-      focusNode: focusNode,
-      keyboardType: TextInputType.url,
-      textInputAction: TextInputAction.done,
-      autocorrect: false,
-      enableSuggestions: false,
-      onSubmitted: onSubmitted,
-      cursorColor: colorScheme.primary,
-      cursorWidth: 1.5,
-      cursorRadius: const Radius.circular(1),
-      decoration: const InputDecoration(
-        hintText: 'Paste a link...',
-        border: InputBorder.none,
-        enabledBorder: InputBorder.none,
-        focusedBorder: InputBorder.none,
-        filled: false,
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+      child: Row(
+        children: [
+          // Leading icon reflects the source of the pasted link (e.g. Spotify,
+          // YouTube). Updates live as the field changes.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              final host = _hostFromText(value.text);
+              if (host == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: CachedNetworkImage(
+                    imageUrl:
+                        'https://www.google.com/s2/favicons?domain=$host&sz=64',
+                    width: 22,
+                    height: 22,
+                    fit: BoxFit.contain,
+                    placeholder: (_, _) => Icon(Icons.public,
+                        size: 18, color: colorScheme.onSurfaceVariant),
+                    errorWidget: (_, _, _) => Icon(Icons.public,
+                        size: 18, color: colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              );
+            },
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.done,
+              autocorrect: false,
+              enableSuggestions: false,
+              onSubmitted: onSubmitted,
+              cursorColor: colorScheme.primary,
+              cursorWidth: 1.5,
+              cursorRadius: const Radius.circular(1),
+              decoration: const InputDecoration(
+                hintText: 'Paste a link…',
+                border: InputBorder.none,
+                isCollapsed: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _CaptureButton(enabled: canCapture, onTap: onCapture),
+        ],
       ),
     );
   }
@@ -1470,12 +1666,10 @@ class _PulseContainerState extends State<_PulseContainer>
 /// The first saved link card with subtle fade, slide, and scale reveal.
 class _FirstSaveCelebrationCard extends StatefulWidget {
   final SavedUrl url;
-  final bool showGlow;
   final VoidCallback onTap;
 
   const _FirstSaveCelebrationCard({
     required this.url,
-    required this.showGlow,
     required this.onTap,
   });
 
@@ -1486,34 +1680,32 @@ class _FirstSaveCelebrationCard extends StatefulWidget {
 
 class _FirstSaveCelebrationCardState extends State<_FirstSaveCelebrationCard>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scale;
-  late Animation<double> _opacity;
-  late Animation<double> _slide;
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  late final Animation<double> _scale = Tween<double>(begin: 0.88, end: 1.0)
+      .animate(CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.0, 0.55, curve: Curves.easeOutBack),
+  ));
+
+  late final Animation<double> _opacity = Tween<double>(begin: 0.0, end: 1.0)
+      .animate(CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
+  ));
+
+  late final Animation<double> _slide = Tween<double>(begin: 14.0, end: 0.0)
+      .animate(CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+  ));
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-
-    _scale = Tween<double>(
-      begin: 0.95,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-
-    _opacity = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-    _slide = Tween<double>(
-      begin: 12.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-
     _controller.forward();
   }
 
@@ -1526,41 +1718,95 @@ class _FirstSaveCelebrationCardState extends State<_FirstSaveCelebrationCard>
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).accessibleNavigation;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    Widget card = UrlCard(savedUrl: widget.url, onTap: widget.onTap);
-
-    if (widget.showGlow && !reduceMotion) {
-      card = AnimatedContainer(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.35),
-              blurRadius: 18,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: card,
-      );
-    }
-
+    final cs = Theme.of(context).colorScheme;
+    final card = UrlCard(savedUrl: widget.url, onTap: widget.onTap);
     if (reduceMotion) return card;
 
-    return FadeTransition(
-      opacity: _opacity,
-      child: AnimatedBuilder(
-        animation: _slide,
-        builder: (context, child) {
-          return Transform.translate(
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value;
+        // Glow flashes in then fades, like the save sparking to life.
+        final glow = 0.5 * (1 - Curves.easeOut.transform(t));
+        return Opacity(
+          opacity: _opacity.value,
+          child: Transform.translate(
             offset: Offset(0, _slide.value),
-            child: ScaleTransition(scale: _scale, child: child),
-          );
-        },
-        child: card,
-      ),
+            child: Transform.scale(
+              scale: _scale.value,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.primary.withValues(alpha: glow),
+                          blurRadius: 26,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: child,
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _SparkleBurstPainter(
+                          progress: t,
+                          color: cs.primary,
+                          accent: cs.tertiary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      child: card,
     );
   }
+}
+
+/// A one-shot burst of sparks radiating outward as the first save lands.
+class _SparkleBurstPainter extends CustomPainter {
+  _SparkleBurstPainter({
+    required this.progress,
+    required this.color,
+    required this.accent,
+  });
+
+  final double progress;
+  final Color color;
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress >= 1) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final eased = Curves.easeOut.transform(progress);
+    final fade = (1 - progress).clamp(0.0, 1.0);
+    const count = 16;
+    final maxDist = size.width * 0.42;
+    for (var i = 0; i < count; i++) {
+      final angle = (i / count) * 2 * math.pi + (i.isEven ? 0.0 : 0.22);
+      final dist = size.shortestSide * 0.12 + maxDist * eased;
+      // Flatten vertically to suit the wide, short card.
+      final pos = center +
+          Offset(math.cos(angle) * dist, math.sin(angle) * dist * 0.5);
+      final radius = (i % 3 == 0 ? 3.2 : 2.0) * (0.5 + 0.5 * fade);
+      final paint = Paint()
+        ..color = (i.isEven ? color : accent).withValues(alpha: 0.85 * fade);
+      canvas.drawCircle(pos, radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparkleBurstPainter old) =>
+      old.progress != progress;
 }

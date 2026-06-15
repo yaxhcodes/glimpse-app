@@ -10,6 +10,8 @@ class DevSimulationService {
   static const String _hasSeenShareTipKey = 'has_seen_share_tip';
   static const String _hasShownFirstSaveCelebrationKey =
       'has_shown_first_save_celebration';
+  static const String _hasSeenGuideCardKey = 'has_seen_guide_card';
+  static const String _hasSeenRediscoverTipKey = 'has_seen_rediscover_tip';
   static const String _simulateFirstSaveKey = 'dev_simulate_first_save';
 
   /// Whether the library should appear empty (dev-only).
@@ -44,9 +46,45 @@ class DevSimulationService {
     );
   }
 
-  /// Resets onboarding so the next app launch shows it again.
+  /// Raw stored onboarding flag, or `null` when it has never been written
+  /// (i.e. a fresh install). Used by the onboarding bootstrap to distinguish
+  /// new users from existing installs without overriding the safe default.
+  static Future<bool?> getHasSeenOnboardingRaw() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_hasSeenOnboardingKey);
+  }
+
+  /// Resets onboarding (and the first-run guidance that follows it) so the next
+  /// app launch replays the whole first-time experience.
   static Future<void> resetOnboarding() async {
     await setHasSeenOnboarding(false);
+    await setHasSeenGuideCard(false);
+    await setHasSeenRediscoverTip(false);
+    await setHasShownFirstSaveCelebration(false);
+  }
+
+  /// Whether the user has dismissed the post-onboarding "how Glimpse works"
+  /// guide card. Defaults to `false` so new users see it.
+  static Future<bool> getHasSeenGuideCard() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_hasSeenGuideCardKey) ?? false;
+  }
+
+  static Future<void> setHasSeenGuideCard(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hasSeenGuideCardKey, value);
+  }
+
+  /// Whether the user has seen the one-time Rediscover explainer tip.
+  /// Defaults to `false` so it shows the first time Rediscover appears.
+  static Future<bool> getHasSeenRediscoverTip() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_hasSeenRediscoverTipKey) ?? false;
+  }
+
+  static Future<void> setHasSeenRediscoverTip(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hasSeenRediscoverTipKey, value);
   }
 
   /// Whether the user has seen the share-tip snackbar.
