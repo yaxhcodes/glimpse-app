@@ -11,6 +11,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/category_taxonomy.dart';
+import '../../core/services/intent_classifier.dart';
 import '../../core/services/recipe_state_service.dart';
 import '../../core/services/summary_rewriter.dart';
 import '../../core/services/tag_noise_filter.dart';
@@ -358,19 +359,33 @@ class _NoteSuggestionChip extends StatelessWidget {
   const _NoteSuggestionChip({
     required this.label,
     required this.onTap,
+    this.selected = false,
+    this.intent = false,
   });
 
   final String label;
   final VoidCallback onTap;
 
+  /// Whether this chip sets an on-device intent ("Watch Later", "Already Read")
+  /// rather than just appending note text.
+  final bool intent;
+
+  /// Whether the intent this chip represents is currently set on the save.
+  final bool selected;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final chipColor = Color.alphaBlend(
-      colorScheme.primary.withValues(alpha: 0.08),
-      colorScheme.surfaceContainerHighest,
-    );
+    final chipColor = selected
+        ? colorScheme.primary
+        : Color.alphaBlend(
+            colorScheme.primary
+                .withValues(alpha: intent ? 0.14 : 0.08),
+            colorScheme.surfaceContainerHighest,
+          );
+    final fgColor =
+        selected ? colorScheme.onPrimary : colorScheme.onSurface;
     return Material(
       color: chipColor,
       shape: const StadiumBorder(),
@@ -379,13 +394,22 @@ class _NoteSuggestionChip extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-          child: Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-              height: 1,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                Icon(Icons.check_rounded, size: 15, color: fgColor),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: fgColor,
+                  fontWeight: FontWeight.w600,
+                  height: 1,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -598,6 +622,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _tagsExpanded = false;
   bool _showExactSavedDate = false;
   String? _localNotesOverride;
+  // Reflects the intent chip the user just tapped, before the provider refetches
+  // (avoids reloading the whole detail body just to flip a chip's set-state).
+  // Sentinel '' means "explicitly cleared".
+  String? _localIntentActionOverride;
   Timer? _notesTimer;
   RecipeStateService? _recipeStateService;
   int? _loadedRecipeStateId;
@@ -612,6 +640,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _tagsExpanded = false;
       _showExactSavedDate = false;
       _localNotesOverride = null;
+      _localIntentActionOverride = null;
       _loadedRecipeStateId = null;
       _checkedIngredientKeys = {};
     }
@@ -756,7 +785,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
-  void _applyNoteSuggestion(String suggestion) {
+  /// Append a suggestion label to the notes as plain text (dedup by line).
+  void _appendNoteLine(String suggestion, {bool focus = true}) {
     final current = _notesController.text.trim();
     final next = current.isEmpty
         ? suggestion
@@ -774,7 +804,67 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     _localNotesOverride = next;
     _scheduleNotesAutosave();
-    _notesFocusNode.requestFocus();
+    if (focus) _notesFocusNode.requestFocus();
+  }
+
+  /// The intent currently set on this save, accounting for the optimistic
+  /// override from a chip the user just tapped this session.
+  String? _effectiveIntentAction(SavedUrl url) {
+    if (_localIntentActionOverride == null) return url.intentAction;
+    return _localIntentActionOverride!.isEmpty ? null : _localIntentActionOverride;
+  }
+
+  /// Route a suggested-action chip tap. "Queue"/"Done" chips set a real,
+  /// on-device intent signal that Rediscovery and notifications read; every
+  /// other chip keeps the original behaviour of appending text to the notes.
+  Future<void> _handleSuggestionTap(String suggestion, SavedUrl url) async {
+    final classified = IntentClassifier.classify(suggestion);
+    if (classified.kind == IntentKind.note) {
+      _appendNoteLine(suggestion);
+      return;
+    }
+
+    final isar = ref.read(isarServiceProvider);
+    final alreadySet = _effectiveIntentAction(url) == classified.action;
+
+    if (alreadySet) {
+      // Toggle the intent back off (leaves any note text in place).
+      await isar.clearIntent(widget.urlId);
+      if (!mounted) return;
+      setState(() => _localIntentActionOverride = '');
+      _showSnack('Cleared');
+      return;
+    }
+
+    final status = classified.kind == IntentKind.done ? 'done' : 'queued';
+    await isar.updateIntent(
+      widget.urlId,
+      status: status,
+      action: classified.action,
+      revisitAfter: classified.revisitAfter,
+    );
+    if (!mounted) return;
+    setState(() => _localIntentActionOverride = classified.action);
+    // Record the user's decision in their notes too, without stealing focus.
+    _appendNoteLine(suggestion, focus: false);
+    _showSnack(
+      classified.kind == IntentKind.done
+          ? 'Marked as done — moved to Done'
+          : 'Saved — we\'ll bring this back for you',
+    );
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 
   Future<void> _deleteUrl() async {
@@ -1679,6 +1769,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 ),
                 if (noteSuggestions.isNotEmpty)
                   _buildNoteQuickAdd(
+                    url: url,
                     suggestions: noteSuggestions,
                     theme: theme,
                     colorScheme: colorScheme,
@@ -2037,10 +2128,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   /// composer) rather than as a separate "Suggested Actions" block — a light
   /// inline label keeps them feeling like part of note-taking.
   Widget _buildNoteQuickAdd({
+    required SavedUrl url,
     required List<String> suggestions,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
+    final activeAction = _effectiveIntentAction(url);
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: Column(
@@ -2069,14 +2162,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: suggestions
-                .map(
-                  (suggestion) => _NoteSuggestionChip(
-                    label: suggestion,
-                    onTap: () => _applyNoteSuggestion(suggestion),
-                  ),
-                )
-                .toList(),
+            children: suggestions.map((suggestion) {
+              final classified = IntentClassifier.classify(suggestion);
+              final isIntent = classified.kind != IntentKind.note;
+              final selected =
+                  isIntent && activeAction == classified.action;
+              return _NoteSuggestionChip(
+                label: suggestion,
+                selected: selected,
+                intent: isIntent,
+                onTap: () => _handleSuggestionTap(suggestion, url),
+              );
+            }).toList(),
           ),
         ],
       ),

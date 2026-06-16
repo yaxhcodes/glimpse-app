@@ -44,6 +44,12 @@ class NotificationTypeStyle {
           icon: Icons.history_rounded,
           labelColorWeight: 0.7,
         );
+      case 'revisit':
+        return NotificationTypeStyle(
+          accent: cs.primaryContainer,
+          icon: Icons.bookmark_added_rounded,
+          labelColorWeight: 1,
+        );
       case 'streak':
         return NotificationTypeStyle(
           accent: Color.alphaBlend(

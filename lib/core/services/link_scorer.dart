@@ -11,6 +11,8 @@ class LinkScorer {
   };
 
   static int score(SavedUrl link) {
+    // Finished saves are never featured in notifications.
+    if (link.isDone) return 0;
     var s = 0;
     if ((link.summary ?? '').isNotEmpty) s += 3;
     if (link.tags.length >= 3) s += 2;

@@ -17,7 +17,9 @@ import 'user_fingerprint.dart';
 class NotificationScheduler {
   NotificationScheduler._();
 
-  static const _typeOrder = ['B', 'A', 'C', 'E', 'D', 'F'];
+  // 'G' (revisit-due) leads: it's the highest-signal type because the user
+  // explicitly asked to come back to those saves.
+  static const _typeOrder = ['G', 'B', 'A', 'C', 'E', 'D', 'F'];
 
   /// Labels for settings / diagnostics (user-facing).
   static const _typeLabels = {
@@ -27,6 +29,7 @@ class NotificationScheduler {
     'D': 'Activity',
     'E': 'Worth Revisiting',
     'F': 'Weekly Digest',
+    'G': 'Revisit Reminder',
   };
 
   static String labelFor(String type) => _typeLabels[type] ?? type;
@@ -152,6 +155,8 @@ class NotificationScheduler {
   /// All link IDs that the notification content is based on (fetch by ID only in UI).
   static List<int> collectLinkIds(String type, UserFingerprint fp) {
     switch (type) {
+      case 'G':
+        return fp.queuedDueLinks.map((u) => u.id).take(20).toList();
       case 'A':
         return TagAnalyzer.unreadGeoLinks(fp.allUrls)
             .map((u) => u.id)
@@ -163,6 +168,7 @@ class NotificationScheduler {
         final weekAgo = DateTime.now().subtract(const Duration(days: 7));
         return fp.allUrls
             .where((u) =>
+                !u.isDone &&
                 u.savedAt.isAfter(weekAgo) &&
                 u.tags.any((t) => t.toLowerCase().trim() == tag))
             .map((u) => u.id)
@@ -192,7 +198,7 @@ class NotificationScheduler {
       case 'F':
         final weekAgo = DateTime.now().subtract(const Duration(days: 7));
         final weekSaves = fp.allUrls
-            .where((u) => u.savedAt.isAfter(weekAgo))
+            .where((u) => u.savedAt.isAfter(weekAgo) && !u.isDone)
             .toList()
           ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
         return weekSaves.take(15).map((u) => u.id).toList();
@@ -245,6 +251,8 @@ class NotificationScheduler {
         return NotifType.resurface;
       case 'F':
         return NotifType.digest;
+      case 'G':
+        return NotifType.revisitDue;
       default:
         return NotifType.digest;
     }
@@ -264,6 +272,8 @@ class NotificationScheduler {
         return 'resurface';
       case 'F':
         return 'digest';
+      case 'G':
+        return 'revisit';
       default:
         return 'digest';
     }

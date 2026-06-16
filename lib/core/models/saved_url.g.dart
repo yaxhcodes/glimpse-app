@@ -57,78 +57,98 @@ const SavedUrlSchema = CollectionSchema(
       name: r'enrichmentJson',
       type: IsarType.string,
     ),
-    r'openedAt': PropertySchema(
+    r'intentAction': PropertySchema(
       id: 8,
+      name: r'intentAction',
+      type: IsarType.string,
+    ),
+    r'intentSetAt': PropertySchema(
+      id: 9,
+      name: r'intentSetAt',
+      type: IsarType.dateTime,
+    ),
+    r'intentStatus': PropertySchema(
+      id: 10,
+      name: r'intentStatus',
+      type: IsarType.string,
+    ),
+    r'openedAt': PropertySchema(
+      id: 11,
       name: r'openedAt',
       type: IsarType.dateTime,
     ),
     r'processingAttempt': PropertySchema(
-      id: 9,
+      id: 12,
       name: r'processingAttempt',
       type: IsarType.long,
     ),
     r'processingError': PropertySchema(
-      id: 10,
+      id: 13,
       name: r'processingError',
       type: IsarType.string,
     ),
     r'processingId': PropertySchema(
-      id: 11,
+      id: 14,
       name: r'processingId',
       type: IsarType.string,
     ),
     r'processingStatus': PropertySchema(
-      id: 12,
+      id: 15,
       name: r'processingStatus',
       type: IsarType.string,
     ),
     r'processingUpdatedAt': PropertySchema(
-      id: 13,
+      id: 16,
       name: r'processingUpdatedAt',
       type: IsarType.dateTime,
     ),
     r'rawUrl': PropertySchema(
-      id: 14,
+      id: 17,
       name: r'rawUrl',
       type: IsarType.string,
     ),
     r'rediscoverDismissedAt': PropertySchema(
-      id: 15,
+      id: 18,
       name: r'rediscoverDismissedAt',
       type: IsarType.dateTime,
     ),
     r'resurfacedAt': PropertySchema(
-      id: 16,
+      id: 19,
       name: r'resurfacedAt',
       type: IsarType.dateTime,
     ),
+    r'revisitAfter': PropertySchema(
+      id: 20,
+      name: r'revisitAfter',
+      type: IsarType.dateTime,
+    ),
     r'savedAt': PropertySchema(
-      id: 17,
+      id: 21,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 18,
+      id: 22,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 19,
+      id: 23,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 20,
+      id: 24,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 21,
+      id: 25,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 22,
+      id: 26,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -177,6 +197,19 @@ const SavedUrlSchema = CollectionSchema(
           caseSensitive: true,
         )
       ],
+    ),
+    r'intentStatus': IndexSchema(
+      id: 6885063935731572498,
+      name: r'intentStatus',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'intentStatus',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
     )
   },
   links: {},
@@ -219,6 +252,18 @@ int _savedUrlEstimateSize(
   }
   {
     final value = object.enrichmentJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.intentAction;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.intentStatus;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -285,21 +330,25 @@ void _savedUrlSerialize(
   writer.writeStringList(offsets[5], object.effectiveCategories);
   writer.writeDoubleList(offsets[6], object.embedding);
   writer.writeString(offsets[7], object.enrichmentJson);
-  writer.writeDateTime(offsets[8], object.openedAt);
-  writer.writeLong(offsets[9], object.processingAttempt);
-  writer.writeString(offsets[10], object.processingError);
-  writer.writeString(offsets[11], object.processingId);
-  writer.writeString(offsets[12], object.processingStatus);
-  writer.writeDateTime(offsets[13], object.processingUpdatedAt);
-  writer.writeString(offsets[14], object.rawUrl);
-  writer.writeDateTime(offsets[15], object.rediscoverDismissedAt);
-  writer.writeDateTime(offsets[16], object.resurfacedAt);
-  writer.writeDateTime(offsets[17], object.savedAt);
-  writer.writeString(offsets[18], object.summary);
-  writer.writeStringList(offsets[19], object.tags);
-  writer.writeString(offsets[20], object.thumbnailUrl);
-  writer.writeString(offsets[21], object.title);
-  writer.writeString(offsets[22], object.userNotes);
+  writer.writeString(offsets[8], object.intentAction);
+  writer.writeDateTime(offsets[9], object.intentSetAt);
+  writer.writeString(offsets[10], object.intentStatus);
+  writer.writeDateTime(offsets[11], object.openedAt);
+  writer.writeLong(offsets[12], object.processingAttempt);
+  writer.writeString(offsets[13], object.processingError);
+  writer.writeString(offsets[14], object.processingId);
+  writer.writeString(offsets[15], object.processingStatus);
+  writer.writeDateTime(offsets[16], object.processingUpdatedAt);
+  writer.writeString(offsets[17], object.rawUrl);
+  writer.writeDateTime(offsets[18], object.rediscoverDismissedAt);
+  writer.writeDateTime(offsets[19], object.resurfacedAt);
+  writer.writeDateTime(offsets[20], object.revisitAfter);
+  writer.writeDateTime(offsets[21], object.savedAt);
+  writer.writeString(offsets[22], object.summary);
+  writer.writeStringList(offsets[23], object.tags);
+  writer.writeString(offsets[24], object.thumbnailUrl);
+  writer.writeString(offsets[25], object.title);
+  writer.writeString(offsets[26], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -317,21 +366,25 @@ SavedUrl _savedUrlDeserialize(
   object.embedding = reader.readDoubleList(offsets[6]);
   object.enrichmentJson = reader.readStringOrNull(offsets[7]);
   object.id = id;
-  object.openedAt = reader.readDateTimeOrNull(offsets[8]);
-  object.processingAttempt = reader.readLongOrNull(offsets[9]);
-  object.processingError = reader.readStringOrNull(offsets[10]);
-  object.processingId = reader.readStringOrNull(offsets[11]);
-  object.processingStatus = reader.readStringOrNull(offsets[12]);
-  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[13]);
-  object.rawUrl = reader.readString(offsets[14]);
-  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[15]);
-  object.resurfacedAt = reader.readDateTimeOrNull(offsets[16]);
-  object.savedAt = reader.readDateTime(offsets[17]);
-  object.summary = reader.readStringOrNull(offsets[18]);
-  object.tags = reader.readStringList(offsets[19]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[20]);
-  object.title = reader.readString(offsets[21]);
-  object.userNotes = reader.readStringOrNull(offsets[22]);
+  object.intentAction = reader.readStringOrNull(offsets[8]);
+  object.intentSetAt = reader.readDateTimeOrNull(offsets[9]);
+  object.intentStatus = reader.readStringOrNull(offsets[10]);
+  object.openedAt = reader.readDateTimeOrNull(offsets[11]);
+  object.processingAttempt = reader.readLongOrNull(offsets[12]);
+  object.processingError = reader.readStringOrNull(offsets[13]);
+  object.processingId = reader.readStringOrNull(offsets[14]);
+  object.processingStatus = reader.readStringOrNull(offsets[15]);
+  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[16]);
+  object.rawUrl = reader.readString(offsets[17]);
+  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[18]);
+  object.resurfacedAt = reader.readDateTimeOrNull(offsets[19]);
+  object.revisitAfter = reader.readDateTimeOrNull(offsets[20]);
+  object.savedAt = reader.readDateTime(offsets[21]);
+  object.summary = reader.readStringOrNull(offsets[22]);
+  object.tags = reader.readStringList(offsets[23]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[24]);
+  object.title = reader.readString(offsets[25]);
+  object.userNotes = reader.readStringOrNull(offsets[26]);
   return object;
 }
 
@@ -359,34 +412,42 @@ P _savedUrlDeserializeProp<P>(
     case 7:
       return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 9:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 13:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 14:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 15:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 16:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 17:
-      return (reader.readDateTime(offset)) as P;
-    case 18:
-      return (reader.readStringOrNull(offset)) as P;
-    case 19:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 20:
-      return (reader.readStringOrNull(offset)) as P;
-    case 21:
       return (reader.readString(offset)) as P;
+    case 18:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 19:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 20:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 21:
+      return (reader.readDateTime(offset)) as P;
     case 22:
+      return (reader.readStringOrNull(offset)) as P;
+    case 23:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 24:
+      return (reader.readStringOrNull(offset)) as P;
+    case 25:
+      return (reader.readString(offset)) as P;
+    case 26:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -707,6 +768,71 @@ extension SavedUrlQueryWhere on QueryBuilder<SavedUrl, SavedUrl, QWhereClause> {
               indexName: r'category',
               lower: [],
               upper: [category],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> intentStatusIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'intentStatus',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> intentStatusIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'intentStatus',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> intentStatusEqualTo(
+      String? intentStatus) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'intentStatus',
+        value: [intentStatus],
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> intentStatusNotEqualTo(
+      String? intentStatus) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'intentStatus',
+              lower: [],
+              upper: [intentStatus],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'intentStatus',
+              lower: [intentStatus],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'intentStatus',
+              lower: [intentStatus],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'intentStatus',
+              lower: [],
+              upper: [intentStatus],
               includeUpper: false,
             ));
       }
@@ -2068,6 +2194,379 @@ extension SavedUrlQueryFilter
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentActionIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'intentAction',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentActionIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'intentAction',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentActionEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'intentAction',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentActionGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'intentAction',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentActionLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'intentAction',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentActionBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'intentAction',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentActionStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'intentAction',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentActionEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'intentAction',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentActionContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'intentAction',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentActionMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'intentAction',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentActionIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'intentAction',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentActionIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'intentAction',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentSetAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'intentSetAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentSetAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'intentSetAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentSetAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'intentSetAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentSetAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'intentSetAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentSetAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'intentSetAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentSetAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'intentSetAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentStatusIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'intentStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentStatusIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'intentStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentStatusEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'intentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentStatusGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'intentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentStatusLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'intentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentStatusBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'intentStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'intentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'intentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentStatusContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'intentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> intentStatusMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'intentStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'intentStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      intentStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'intentStatus',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> openedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -3019,6 +3518,77 @@ extension SavedUrlQueryFilter
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> revisitAfterIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'revisitAfter',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      revisitAfterIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'revisitAfter',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> revisitAfterEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'revisitAfter',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      revisitAfterGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'revisitAfter',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> revisitAfterLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'revisitAfter',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> revisitAfterBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'revisitAfter',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> savedAtEqualTo(
       DateTime value) {
     return QueryBuilder.apply(this, (query) {
@@ -3930,6 +4500,42 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByIntentAction() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentAction', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByIntentActionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentAction', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByIntentSetAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentSetAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByIntentSetAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentSetAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByIntentStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByIntentStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentStatus', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByOpenedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openedAt', Sort.asc);
@@ -4037,6 +4643,18 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByResurfacedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resurfacedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByRevisitAfter() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'revisitAfter', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByRevisitAfterDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'revisitAfter', Sort.desc);
     });
   }
 
@@ -4175,6 +4793,42 @@ extension SavedUrlQuerySortThenBy
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByIntentAction() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentAction', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByIntentActionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentAction', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByIntentSetAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentSetAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByIntentSetAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentSetAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByIntentStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByIntentStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'intentStatus', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByOpenedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'openedAt', Sort.asc);
@@ -4282,6 +4936,18 @@ extension SavedUrlQuerySortThenBy
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByResurfacedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resurfacedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByRevisitAfter() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'revisitAfter', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByRevisitAfterDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'revisitAfter', Sort.desc);
     });
   }
 
@@ -4403,6 +5069,26 @@ extension SavedUrlQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByIntentAction(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'intentAction', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByIntentSetAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'intentSetAt');
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByIntentStatus(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'intentStatus', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByOpenedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'openedAt');
@@ -4461,6 +5147,12 @@ extension SavedUrlQueryWhereDistinct
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByResurfacedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'resurfacedAt');
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByRevisitAfter() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'revisitAfter');
     });
   }
 
@@ -4562,6 +5254,24 @@ extension SavedUrlQueryProperty
     });
   }
 
+  QueryBuilder<SavedUrl, String?, QQueryOperations> intentActionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'intentAction');
+    });
+  }
+
+  QueryBuilder<SavedUrl, DateTime?, QQueryOperations> intentSetAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'intentSetAt');
+    });
+  }
+
+  QueryBuilder<SavedUrl, String?, QQueryOperations> intentStatusProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'intentStatus');
+    });
+  }
+
   QueryBuilder<SavedUrl, DateTime?, QQueryOperations> openedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'openedAt');
@@ -4615,6 +5325,12 @@ extension SavedUrlQueryProperty
   QueryBuilder<SavedUrl, DateTime?, QQueryOperations> resurfacedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'resurfacedAt');
+    });
+  }
+
+  QueryBuilder<SavedUrl, DateTime?, QQueryOperations> revisitAfterProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'revisitAfter');
     });
   }
 

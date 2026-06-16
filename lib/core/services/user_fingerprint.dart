@@ -22,6 +22,13 @@ class UserFingerprint {
   final int totalUnread;
   final List<SavedUrl> allUrls;
 
+  /// Saves the user explicitly bookmarked to return to and whose [revisitAfter]
+  /// moment has arrived — the trigger for the revisit-due notification.
+  final List<SavedUrl> queuedDueLinks;
+
+  /// Total saves currently queued for revisit (due or not).
+  final int queuedCount;
+
   const UserFingerprint({
     required this.saveVelocity,
     required this.dominantCluster,
@@ -39,6 +46,8 @@ class UserFingerprint {
     required this.totalSavedThisWeek,
     required this.totalUnread,
     required this.allUrls,
+    required this.queuedDueLinks,
+    required this.queuedCount,
   });
 
   static Future<UserFingerprint> compute(IsarService isar) async {
@@ -101,12 +110,18 @@ class UserFingerprint {
       }
     }
 
+    // ── Queued-for-revisit (explicit intent from Details chips) ──
+    final queued = allUrls.where((u) => u.isQueued).toList();
+    final queuedDueLinks = queued.where((u) => u.isRevisitDue).toList()
+      ..sort((a, b) => (a.revisitAfter ?? a.savedAt)
+          .compareTo(b.revisitAfter ?? b.savedAt));
+
     // ── Saving streak days ──
     final savingStreakDays = await isar.getSavingStreakDays();
 
     // ── Oldest unread (non-social shortlink) ──
     final unreadSorted = allUrls
-        .where((u) => u.openedAt == null)
+        .where((u) => u.openedAt == null && !u.isDone)
         .toList()
       ..sort((a, b) => a.savedAt.compareTo(b.savedAt));
     final oldestUnread = unreadSorted.isNotEmpty ? unreadSorted.first : null;
@@ -156,6 +171,8 @@ class UserFingerprint {
       totalSavedThisWeek: thisWeekSaves,
       totalUnread: unreadSorted.length,
       allUrls: allUrls,
+      queuedDueLinks: queuedDueLinks,
+      queuedCount: queued.length,
     );
   }
 
@@ -176,6 +193,8 @@ class UserFingerprint {
         totalSavedThisWeek: 0,
         totalUnread: 0,
         allUrls: urls,
+        queuedDueLinks: const [],
+        queuedCount: 0,
       );
 
   /// Count of unread geo-tagged links.

@@ -147,6 +147,8 @@ USER_CONTENT_END''';
         return 'E';
       case NotifType.digest:
         return 'F';
+      case NotifType.revisitDue:
+        return 'G';
     }
   }
 
@@ -217,6 +219,16 @@ Write a notification for this user now.
 
   static String _reasonForType(String letter, UserFingerprint fp) {
     switch (letter) {
+      case 'G':
+        final link = fp.queuedDueLinks.isNotEmpty ? fp.queuedDueLinks.first : null;
+        if (link == null) return 'User bookmarked a save to revisit.';
+        final counts = _tagCounts(fp.allUrls);
+        final displayTitle =
+            TitleResolver.resolve(link, tagFrequency: counts).replaceAll("'", "''");
+        final action =
+            (link.intentAction ?? 'revisit later').replaceAll('_', ' ');
+        return "User explicitly chose to '$action' this save and the moment "
+            "they picked has arrived: title='$displayTitle'.";
       case 'A':
         final spread = fp.geographySpread.join(', ');
         return 'User has saves tagged with these countries: $spread. '
@@ -362,6 +374,24 @@ Write a notification for this user now.
 
   static NotifCopy _templateFallback(String letter, UserFingerprint fp) {
     switch (letter) {
+      case 'G':
+        final link = fp.queuedDueLinks.isNotEmpty ? fp.queuedDueLinks.first : null;
+        final counts = _tagCounts(fp.allUrls);
+        final t = link != null
+            ? TitleResolver.resolve(link, tagFrequency: counts)
+            : 'that save';
+        final action = link?.intentAction ?? '';
+        final verb = action.contains('watch')
+            ? 'watch'
+            : action.contains('read')
+                ? 'read'
+                : action.contains('try')
+                    ? 'try'
+                    : 'revisit';
+        return NotifCopy(
+          title: 'Time to $verb: ${_short(t, 40)}',
+          body: 'You set this one aside for later. Later is now.',
+        );
       case 'A':
         final g = fp.geographySpread.isNotEmpty
             ? fp.geographySpread.first

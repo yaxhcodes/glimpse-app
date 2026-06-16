@@ -132,6 +132,7 @@ String? historyTypeFromNotificationMap(Map<String, dynamic> map) {
     'collector',
     'streak',
     'resurface',
+    'revisit',
   };
   if (t != null && known.contains(t)) return t;
   return null;
@@ -152,6 +153,8 @@ String? historyTypeFromPayloadLetter(String? letter) {
       return 'resurface';
     case 'F':
       return 'digest';
+    case 'G':
+      return 'revisit';
     default:
       return null;
   }

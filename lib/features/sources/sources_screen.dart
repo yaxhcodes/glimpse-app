@@ -105,6 +105,11 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   ),
                 ),
                 actions: [
+                  IconButton(
+                    tooltip: 'Done',
+                    icon: const Icon(Icons.check_circle_outline_rounded),
+                    onPressed: () => context.push('/archive'),
+                  ),
                   PopupMenuButton<_SourceFilter>(
                     tooltip: 'Filter sources',
                     icon: Icon(

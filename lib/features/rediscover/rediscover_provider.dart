@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
+import '../../core/services/revisit_scorer.dart';
 import '../home/home_provider.dart';
 
 /// A rediscovery item enriched with a "why now" reason and relative time.
@@ -31,8 +32,32 @@ Future<List<SavedUrl>> _liveUrls(Ref ref) async {
   );
   final isar = ref.read(isarServiceProvider);
   final all = await isar.getAllUrls(); // newest first
-  return all.where((u) => u.rediscoverDismissedAt == null).toList();
+  // Exclude dismissed and "done" (archived) saves from every rediscovery surface.
+  return all
+      .where((u) => u.rediscoverDismissedAt == null && !u.isDone)
+      .toList();
 }
+
+/// The headline shelf: saves the user explicitly bookmarked to return to
+/// ("Watch Later", "Try This Weekend", …) whose moment has arrived.
+final revisitQueueProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
+  final live = await _liveUrls(ref);
+  final due = live.where((u) => u.isRevisitDue).toList()
+    // Soonest-promised first (oldest revisitAfter / fallback to savedAt).
+    ..sort((a, b) {
+      final ra = a.revisitAfter ?? a.savedAt;
+      final rb = b.revisitAfter ?? b.savedAt;
+      return ra.compareTo(rb);
+    });
+  return due
+      .take(12)
+      .map((u) => RediscoveryItem(
+            url: u,
+            reason: RevisitScorer.score(u, seeds: const []).reason,
+            timeAgo: _formatTimeAgo(u.savedAt),
+          ))
+      .toList();
+});
 
 final rediscoveryStatsProvider = FutureProvider<RediscoveryStats>((ref) async {
   final live = await _liveUrls(ref);
@@ -46,6 +71,10 @@ final todaysPicksProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
   final live = await _liveUrls(ref);
   if (live.length < 4) return [];
 
+  // Items the user explicitly bookmarked to return to, now due — these lead.
+  final due = live.where((u) => u.isRevisitDue).toList()
+    ..sort((a, b) => (a.revisitAfter ?? a.savedAt)
+        .compareTo(b.revisitAfter ?? b.savedAt));
   final gems = _forgottenGems(live).take(3);
   final onThisDay = _onThisDay(live).take(2);
 
@@ -60,6 +89,7 @@ final todaysPicksProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
     }
   }
 
+  add(due.take(3));
   add(gems);
   add(onThisDay);
   add(interest);
@@ -178,6 +208,7 @@ String? _dominantCategory(List<SavedUrl> urls) {
 }
 
 String _reasonFor(SavedUrl url, List<SavedUrl> live) {
+  if (url.isRevisitDue) return RevisitScorer.score(url, seeds: const []).reason;
   final onThisDay = _onThisDayLabel(url);
   if (onThisDay != null) return onThisDay;
   if (url.openedAt == null) return 'Never opened';

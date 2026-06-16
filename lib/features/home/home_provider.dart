@@ -64,7 +64,10 @@ final displayedUrlsProvider = Provider<AsyncValue<List<SavedUrl>>>((ref) {
 
   if (forceEmpty) return const AsyncValue.data([]);
 
-  return urlsAsync;
+  // Exclude "done" (archived) saves from the main library list.
+  return urlsAsync.whenData(
+    (urls) => urls.where((u) => !u.isDone).toList(),
+  );
 });
 
 /// Categories displayed in the UI. Respects the dev-only "Force Empty Library" flag.

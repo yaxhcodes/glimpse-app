@@ -124,8 +124,9 @@ class IsarService {
   Future<List<SavedUrl>> getUrlsByCategory(String category) async {
     final isar = await _db;
     final allUrls = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
+    // "Done" saves are archived — excluded from the main library views.
     return allUrls
-      .where((url) => url.effectiveCategories.contains(category))
+      .where((url) => !url.isDone && url.effectiveCategories.contains(category))
       .toList();
   }
 
@@ -136,6 +137,7 @@ class IsarService {
 
     final Map<String, Map<String, dynamic>> categoryMap = {};
     for (final url in allUrls) {
+      if (url.isDone) continue; // archived saves don't count toward categories
       for (final category in url.effectiveCategories) {
         if (categoryMap.containsKey(category)) {
           categoryMap[category]!['count'] =
@@ -636,6 +638,56 @@ class IsarService {
         await isar.savedUrls.put(url);
       }
     });
+  }
+
+  /// Set the on-device intent for a save (from a suggested-action chip).
+  ///
+  /// [status] is 'queued' or 'done'. For 'done' we also stamp [openedAt] when
+  /// it was never opened, so completed items count as consumed everywhere that
+  /// keys off [openedAt].
+  Future<void> updateIntent(
+    int urlId, {
+    required String status,
+    String? action,
+    DateTime? revisitAfter,
+  }) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(urlId);
+      if (url == null) return;
+      url.intentStatus = status;
+      url.intentAction = action;
+      url.intentSetAt = DateTime.now();
+      url.revisitAfter = status == 'queued' ? revisitAfter : null;
+      if (status == 'done' && url.openedAt == null) {
+        url.openedAt = DateTime.now();
+      }
+      await isar.savedUrls.put(url);
+    });
+  }
+
+  /// Clear any intent (toggle a chip back off).
+  Future<void> clearIntent(int urlId) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(urlId);
+      if (url == null) return;
+      url.intentStatus = null;
+      url.intentAction = null;
+      url.intentSetAt = null;
+      url.revisitAfter = null;
+      await isar.savedUrls.put(url);
+    });
+  }
+
+  /// Archived ("done") links, newest-first — backs the Done/Archive view.
+  Future<List<SavedUrl>> getArchivedUrls() async {
+    final isar = await _db;
+    return isar.savedUrls
+        .filter()
+        .intentStatusEqualTo('done')
+        .sortBySavedAtDesc()
+        .findAll();
   }
 
   /// Unread links: [openedAt] is null, optional filters for rediscovery/digest.

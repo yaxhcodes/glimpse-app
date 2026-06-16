@@ -16,6 +16,8 @@ class NotificationTemplates {
   /// Whether this type would produce a notification (no side effects, no index rotation).
   static bool isEligible(String type, UserFingerprint fp) {
     switch (type) {
+      case 'G':
+        return fp.queuedDueLinks.isNotEmpty;
       case 'A':
         return fp.geographySpread.length >= 3 && fp.unreadGeoCount >= 5;
       case 'B':

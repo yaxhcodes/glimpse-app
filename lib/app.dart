@@ -47,6 +47,7 @@ import 'features/mindmap/mindmap_screen.dart';
 import 'features/recap/recap_screen.dart';
 import 'features/synthesis/synthesis_screen.dart';
 import 'features/rediscover/rediscover_screen.dart';
+import 'features/sources/archive_screen.dart';
 import 'features/sources/sources_screen.dart';
 import 'features/batch_save/batch_preview_screen.dart';
 import 'core/config/app_environment.dart';
@@ -91,6 +92,10 @@ final _router = GoRouter(
       },
     ),
     GoRoute(path: '/digest', builder: (context, state) => const DigestScreen()),
+    GoRoute(
+      path: '/archive',
+      builder: (context, state) => const ArchiveScreen(),
+    ),
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationsScreen(),

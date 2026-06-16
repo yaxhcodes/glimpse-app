@@ -2,6 +2,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../home/home_provider.dart';
+
+/// "Done" (archived) saves — the saves a user marked finished from Details.
+/// Hidden from every other library surface; this backs the Archive view.
+final archivedUrlsProvider = FutureProvider<List<SavedUrl>>((ref) async {
+  // Refresh whenever the library changes (a save archived/restored).
+  ref.watch(
+    urlStreamProvider.select(
+      (async) => async.whenOrNull(data: (urls) => urls.length),
+    ),
+  );
+  final isar = ref.read(isarServiceProvider);
+  return isar.getArchivedUrls();
+});
 
 /// Enriched source data for the dedicated sources page.
 class SourceCluster {
@@ -32,7 +46,8 @@ class SourceCluster {
 /// Fetches all URLs and builds enriched knowledge-cluster metadata.
 final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
   final isar = ref.read(isarServiceProvider);
-  final all = await isar.getAllUrls();
+  // Exclude "done" (archived) saves from the Sources library view.
+  final all = (await isar.getAllUrls()).where((u) => !u.isDone).toList();
 
   final weekAgo = DateTime.now().subtract(const Duration(days: 7));
 

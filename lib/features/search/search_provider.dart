@@ -65,6 +65,7 @@ class Search extends _$Search {
         ref.read(searchModeProvider.notifier).state = SearchMode.keyword;
         state = AsyncValue.data(
           scored
+              .where((e) => !e.key.isDone)
               .map((e) => SearchResult(url: e.key, score: e.value))
               .toList(),
         );
@@ -103,6 +104,7 @@ class Search extends _$Search {
                   SearchMode.semantic;
               state = AsyncValue.data(
                 scored
+                    .where((e) => !e.key.isDone)
                     .map((e) => SearchResult(url: e.key, score: e.value))
                     .toList(),
               );

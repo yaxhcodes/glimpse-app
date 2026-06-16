@@ -15,6 +15,8 @@ class NotificationHubLabels {
         return 'Activity';
       case 'resurface':
         return 'Worth Revisiting';
+      case 'revisit':
+        return 'Revisit Reminder';
       case 'digest':
         return 'Weekly Digest';
       default:

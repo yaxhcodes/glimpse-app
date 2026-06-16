@@ -776,6 +776,7 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
     'D': 'Saving Streak',
     'E': 'Resurface Link',
     'F': 'Weekly Digest',
+    'G': 'Revisit Due',
   };
 
   @override

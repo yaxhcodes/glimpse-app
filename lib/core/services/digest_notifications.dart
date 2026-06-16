@@ -12,7 +12,12 @@ enum NotifType {
   collector,
   streak,
   resurface,
-  digest;
+  digest,
+
+  /// A save the user explicitly bookmarked to return to ("Watch Later", "Try
+  /// This Weekend", …) whose chosen moment has now arrived. Highest-signal,
+  /// least-spammy type — the user asked for it.
+  revisitDue;
 }
 
 const _groupKey = 'glimpse_notifications';

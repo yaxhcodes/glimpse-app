@@ -28,6 +28,7 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
       RediscoveryService(ref.read(isarServiceProvider));
 
   void _invalidateShelves() {
+    ref.invalidate(revisitQueueProvider);
     ref.invalidate(onThisDayProvider);
     ref.invalidate(forgottenGemsProvider);
     ref.invalidate(interestShelfProvider);
@@ -38,6 +39,10 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
     HapticFeedback.lightImpact();
     await _svc.markResurfaced(url.id);
     await _svc.markOpened(url.id);
+    // They came back to a bookmarked item — the queued intent is fulfilled.
+    if (url.isQueued) {
+      await ref.read(isarServiceProvider).clearIntent(url.id);
+    }
     if (fromHero) setState(() => _handled.add(url.id));
     _invalidateShelves();
     if (mounted) context.push('/url/${url.id}');
@@ -114,6 +119,13 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
               loading: () => const _HeroSkeleton(),
               error: (_, __) => const SizedBox.shrink(),
             ),
+          ),
+          _Shelf(
+            title: 'Ready to revisit',
+            provider: revisitQueueProvider,
+            tagFrequency: tagFreq,
+            onOpen: (u) => _open(u),
+            onDismiss: (u) => _dismiss(u),
           ),
           _Shelf(
             title: 'On this day',
