@@ -187,6 +187,61 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
   }
 }
 
+/// Fullscreen, pinch-to-zoom viewer for the saved thumbnail. Tapping the
+/// backdrop or the close button dismisses it; the image flies via [Hero].
+class _ImageViewerScreen extends StatelessWidget {
+  const _ImageViewerScreen({
+    required this.imageUrl,
+    required this.heroTag,
+  });
+
+  final String imageUrl;
+  final String heroTag;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Center(
+                  child: Hero(
+                    tag: heroTag,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            right: 8,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.42),
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                tooltip: 'Close',
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailMetadata {
   const _DetailMetadata({
     this.likesLabel,
@@ -312,24 +367,23 @@ class _NoteSuggestionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final chipColor = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.08),
+      colorScheme.surfaceContainerHighest,
+    );
     return Material(
-      color: Colors.transparent,
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.78),
-          width: 0.8,
-        ),
-      ),
+      color: chipColor,
+      shape: const StadiumBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
           child: Text(
             label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
               height: 1,
             ),
           ),
@@ -634,6 +688,26 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     } catch (_) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  void _openImageViewer(SavedUrl url) {
+    final imageUrl = url.thumbnailUrl;
+    if (imageUrl == null || imageUrl.isEmpty) {
+      _launchUrl(url.rawUrl);
+      return;
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (_, _, _) => _ImageViewerScreen(
+          imageUrl: imageUrl,
+          heroTag: 'detail-image-${url.id}',
+        ),
+        transitionsBuilder: (_, animation, _, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   Future<void> _saveNotes() async {
@@ -1543,7 +1617,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ],
 
             const SizedBox(height: 14),
-            _buildOpenButton(url),
+            _buildOpenButton(url, displaySourceName),
 
             if (showSummary) ...[
               const SizedBox(height: 20),
@@ -1603,16 +1677,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   theme: theme,
                   colorScheme: colorScheme,
                 ),
+                if (noteSuggestions.isNotEmpty)
+                  _buildNoteQuickAdd(
+                    suggestions: noteSuggestions,
+                    theme: theme,
+                    colorScheme: colorScheme,
+                  ),
               ],
             ),
-            if (noteSuggestions.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildSuggestedActionsSection(
-                suggestions: noteSuggestions,
-                theme: theme,
-                colorScheme: colorScheme,
-              ),
-            ],
           ],
         ),
       ),
@@ -1629,19 +1701,31 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return cleaned;
   }
 
-  Widget _buildOpenButton(SavedUrl url) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: FilledButton.icon(
+  Widget _buildOpenButton(SavedUrl url, String displaySourceName) {
+    final accent = _recipeAccent(Theme.of(context).colorScheme);
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
         onPressed: () => _launchUrl(url.rawUrl),
         icon: const Icon(Icons.open_in_new_rounded, size: 18),
-        label: const Text('Open'),
-        style: FilledButton.styleFrom(
-          visualDensity: VisualDensity.compact,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        label: Text(_openButtonLabel(displaySourceName)),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: accent,
+          side: BorderSide(color: accent.withValues(alpha: 0.55)),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
     );
+  }
+
+  /// "Open in Instagram" when we know the source, else a neutral fallback.
+  String _openButtonLabel(String displaySourceName) {
+    final name = displaySourceName.trim();
+    if (name.isEmpty || name.toLowerCase() == 'web') return 'Open original';
+    return 'Open in $name';
   }
 
   Widget _buildDetailMedia({
@@ -1657,21 +1741,28 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _launchUrl(url.rawUrl),
+        // With an image, tap opens a fullscreen zoom viewer (look closer);
+        // the placeholder has nothing to zoom, so it opens the original.
+        onTap: showImage
+            ? () => _openImageViewer(url)
+            : () => _launchUrl(url.rawUrl),
         child: AspectRatio(
           aspectRatio: 16 / 9,
           child: Stack(
             fit: StackFit.expand,
             children: [
               if (showImage)
-                CachedNetworkImage(
-                  imageUrl: url.thumbnailUrl!,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, _, _) => _buildMediaPlaceholder(
-                    url: url,
-                    displaySourceName: displaySourceName,
-                    colorScheme: colorScheme,
-                    theme: theme,
+                Hero(
+                  tag: 'detail-image-${url.id}',
+                  child: CachedNetworkImage(
+                    imageUrl: url.thumbnailUrl!,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => _buildMediaPlaceholder(
+                      url: url,
+                      displaySourceName: displaySourceName,
+                      colorScheme: colorScheme,
+                      theme: theme,
+                    ),
                   ),
                 )
               else
@@ -1695,6 +1786,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                 ),
               ),
+              if (showImage)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.42),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Icon(
+                      Icons.open_in_full_rounded,
+                      size: 15,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               if (categoryLabels.isNotEmpty)
                 Positioned(
                   left: 12,
@@ -1876,82 +1984,102 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ColorScheme colorScheme,
   }) {
     final glimpseNotes = _parseGlimpseNoteBlocks(_notesController.text);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (glimpseNotes.isNotEmpty) ...[
-              ...glimpseNotes.map(
-                (note) => _GlimpseSavedNoteCard(
-                  note: note,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Divider(color: colorScheme.outlineVariant),
-              const SizedBox(height: 6),
-            ],
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 160),
-              child: TextField(
-                controller: _notesController,
-                focusNode: _notesFocusNode,
-                minLines: 2,
-                maxLines: 8,
-                keyboardType: TextInputType.multiline,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  height: 1.5,
-                  color: colorScheme.onSurface,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'What stood out to you?',
-                  hintStyle: TextStyle(color: colorScheme.outline),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                  border: InputBorder.none,
-                ),
-                onChanged: (_) => _scheduleNotesAutosave(),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (glimpseNotes.isNotEmpty) ...[
+          ...glimpseNotes.map(
+            (note) => _GlimpseSavedNoteCard(
+              note: note,
+              theme: theme,
+              colorScheme: colorScheme,
             ),
-          ],
+          ),
+          const SizedBox(height: 6),
+        ],
+        Container(
+          constraints: const BoxConstraints(maxHeight: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: TextField(
+            controller: _notesController,
+            focusNode: _notesFocusNode,
+            minLines: 2,
+            maxLines: 8,
+            keyboardType: TextInputType.multiline,
+            cursorColor: _recipeAccent(colorScheme),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.5,
+              color: colorScheme.onSurface,
+            ),
+            // Soft rounded surface provides the shape; keep the field itself
+            // borderless so the themed outline pill doesn't reappear.
+            decoration: InputDecoration(
+              hintText: 'What stood out to you?',
+              hintStyle: TextStyle(color: colorScheme.outline),
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+            ),
+            onChanged: (_) => _scheduleNotesAutosave(),
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildSuggestedActionsSection({
+  /// Quick-add chips that live *inside* the Your Notes section (under the
+  /// composer) rather than as a separate "Suggested Actions" block — a light
+  /// inline label keeps them feeling like part of note-taking.
+  Widget _buildNoteQuickAdd({
     required List<String> suggestions,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(
-          title: 'Suggested Actions',
-          accent: _recipeAccent(colorScheme),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: suggestions
-              .map(
-                (suggestion) => _NoteSuggestionChip(
-                  label: suggestion,
-                  onTap: () => _applyNoteSuggestion(suggestion),
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.add_rounded,
+                size: 15,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Quick add',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                  height: 1,
                 ),
-              )
-              .toList(),
-        ),
-      ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: suggestions
+                .map(
+                  (suggestion) => _NoteSuggestionChip(
+                    label: suggestion,
+                    onTap: () => _applyNoteSuggestion(suggestion),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
     );
   }
 

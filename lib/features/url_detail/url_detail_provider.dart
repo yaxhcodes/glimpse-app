@@ -3,8 +3,13 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 
 /// Provider for a single URL detail by ID.
+///
+/// `autoDispose` so the detail screen re-reads from disk every time it's
+/// reopened. Without it the family cache holds a stale [SavedUrl] instance —
+/// note edits are written to Isar but the cached object keeps the old
+/// `userNotes`, so reopening the page shows the note as "gone" until restart.
 final urlDetailProvider =
-    FutureProvider.family<SavedUrl?, int>((ref, id) async {
+    FutureProvider.autoDispose.family<SavedUrl?, int>((ref, id) async {
   final isarService = ref.watch(isarServiceProvider);
   return isarService.getUrlById(id);
 });
