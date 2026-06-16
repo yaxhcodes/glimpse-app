@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../database/isar_service.dart';
+import 'notif_bandit.dart';
 
 /// Action-button ids used on actionable notifications (resurface / revisit).
 /// "Open" is the default body tap — it has no button id.
@@ -34,7 +36,16 @@ class NotificationActionHandler {
       return false;
     }
 
-    final ids = _linkIdsFromPayload(response.payload);
+    final map = _decodePayload(response.payload);
+    final ids = _linkIdsFromMap(map);
+
+    // Acting on a notification (Done / Later) is engagement — reward the bandit
+    // for this type just like an open.
+    final letter = map?['type'] as String?;
+    if (letter != null && letter.length == 1) {
+      unawaited(NotifBandit.recordOpen(letter));
+    }
+
     if (ids.isEmpty) return true; // consumed, but nothing to act on
 
     // Background isolates need the binding before touching isar_flutter_libs.
@@ -59,15 +70,19 @@ class NotificationActionHandler {
     return true;
   }
 
-  static List<int> _linkIdsFromPayload(String? payload) {
-    if (payload == null || payload.isEmpty) return const [];
+  static Map<String, dynamic>? _decodePayload(String? payload) {
+    if (payload == null || payload.isEmpty) return null;
     try {
-      final map = jsonDecode(payload) as Map<String, dynamic>;
-      final raw = (map['linkIds'] ?? map['ids']) as List<dynamic>?;
-      if (raw == null) return const [];
-      return raw.map((e) => (e as num).toInt()).toList();
+      return jsonDecode(payload) as Map<String, dynamic>;
     } catch (_) {
-      return const [];
+      return null;
     }
+  }
+
+  static List<int> _linkIdsFromMap(Map<String, dynamic>? map) {
+    if (map == null) return const [];
+    final raw = (map['linkIds'] ?? map['ids']) as List<dynamic>?;
+    if (raw == null) return const [];
+    return raw.map((e) => (e as num).toInt()).toList();
   }
 }

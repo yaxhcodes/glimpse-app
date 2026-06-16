@@ -6,6 +6,7 @@ import '../database/isar_service.dart';
 import '../models/saved_url.dart';
 import 'digest_notifications.dart';
 import 'digest_prefs.dart';
+import 'notif_bandit.dart';
 import 'notification_templates.dart';
 import 'summary_trimmer.dart';
 import 'tag_analyzer.dart';
@@ -57,15 +58,22 @@ class NotificationScheduler {
       within: const Duration(days: 3),
     );
 
+    // Eligible, non-cooldown candidates for today.
+    final candidates = <String>[];
     for (final type in _typeOrder) {
       if (type == 'F' && DateTime.now().weekday != DateTime.sunday) continue;
       if (!NotificationTemplates.isEligible(type, fp)) continue;
-
       final sig = _signature(type, fp);
       if (sig != null && recentSigs.contains(sig)) continue; // fired recently
+      candidates.add(type);
+    }
 
-      final result = await _tryType(isar, type, fp, sig: sig);
+    final ordered = await _rankCandidates(candidates);
+
+    for (final type in ordered) {
+      final result = await _tryType(isar, type, fp, sig: _signature(type, fp));
       if (result != null) {
+        await NotifBandit.recordSend(type);
         await DigestPrefs.recordFired();
         await DigestPrefs.setLastFiredType(type);
         await DigestPrefs.setLastFired(type);
@@ -76,6 +84,20 @@ class NotificationScheduler {
     // Everything eligible was on cooldown (or nothing eligible) — stay silent
     // today rather than repeat. Better a quiet day than the same nudge again.
     return 'skipped: no fresh topic';
+  }
+
+  /// Order today's candidates. The revisit-due type (G) always leads — the user
+  /// explicitly asked to come back to those saves, so it isn't a guess to learn
+  /// about. The rest are ranked by the on-device [NotifBandit], which adapts to
+  /// which types this user actually opens.
+  static Future<List<String>> _rankCandidates(List<String> candidates) async {
+    if (candidates.length <= 1) return candidates;
+    final rest = candidates.where((t) => t != 'G').toList();
+    final ranked = await NotifBandit.rank(rest);
+    return [
+      if (candidates.contains('G')) 'G',
+      ...ranked,
+    ];
   }
 
   /// Stable per-topic key used to suppress repeats. Two notifications with the

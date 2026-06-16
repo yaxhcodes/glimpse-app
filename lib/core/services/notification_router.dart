@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'digest_prefs.dart';
+import 'notif_bandit.dart';
 
 /// Parses notification JSON payloads and navigates to the detail screen or fallback.
 class NotificationRouter {
@@ -27,6 +29,27 @@ class NotificationRouter {
 
     step();
   }
+
+  /// Resolve the scheduler letter (A–G) the bandit keys on, from either a
+  /// fresh payload (`type` is the letter) or a hub history entry (`type` is the
+  /// snake_case history type).
+  static String? _rewardLetter(Map<String, dynamic> map) {
+    final t = map['type'] as String?;
+    if (t == null || t.isEmpty) return null;
+    if (t.length == 1 && _letters.contains(t)) return t;
+    return _historyTypeToLetter[t];
+  }
+
+  static const _letters = {'A', 'B', 'C', 'D', 'E', 'F', 'G'};
+  static const _historyTypeToLetter = {
+    'geo': 'A',
+    'new_interest': 'B',
+    'collector': 'C',
+    'streak': 'D',
+    'resurface': 'E',
+    'digest': 'F',
+    'revisit': 'G',
+  };
 
   static List<int> _parseLinkIds(Map<String, dynamic> map) {
     final fromNew = map['linkIds'] as List<dynamic>?;
@@ -78,6 +101,10 @@ class NotificationRouter {
   static void _navigateWithMap(BuildContext context, Map<String, dynamic> map) {
     final ids = _parseLinkIds(map);
     final title = map['title'] as String? ?? 'Notification';
+
+    // Reward signal for the on-device bandit: this type got opened.
+    final letter = _rewardLetter(map);
+    if (letter != null) unawaited(NotifBandit.recordOpen(letter));
     if (map['route'] == 'subscription') {
       context.push('/settings/subscription');
       return;

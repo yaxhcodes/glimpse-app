@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/services/digest_prefs.dart';
 import 'package:glimpse/core/services/intent_classifier.dart';
+import 'package:glimpse/core/services/notif_bandit.dart';
 import 'package:glimpse/core/services/notification_action_handler.dart';
 import 'package:glimpse/core/services/revisit_scorer.dart';
 import 'package:glimpse/core/services/tag_analyzer.dart';
@@ -201,6 +203,54 @@ void main() {
       expect(recent, contains('A:india'));
       expect(recent, isNot(contains('E:42'))); // 5 days old → outside window
       expect(recent.length, 1);
+    });
+  });
+
+  group('NotifBandit', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('learns to favor the type the user actually opens', () async {
+      // 'B' is opened every time; 'D' is sent often and never opened.
+      for (var i = 0; i < 12; i++) {
+        await NotifBandit.recordSend('B');
+        await NotifBandit.recordOpen('B');
+        await NotifBandit.recordSend('D');
+      }
+
+      // Over many Thompson draws, 'B' should win the ranking the large majority
+      // of the time (exploit), while 'D' still occasionally appears (explore).
+      final rng = Random(42);
+      var bFirst = 0;
+      const trials = 200;
+      for (var i = 0; i < trials; i++) {
+        final ranked = await NotifBandit.rank(['B', 'D'], rng: rng);
+        if (ranked.first == 'B') bFirst++;
+      }
+      expect(bFirst, greaterThan(trials * 0.8));
+    });
+
+    test('an untried arm still gets explored over a mediocre one', () async {
+      // 'C' has a middling record; 'A' has never been tried.
+      for (var i = 0; i < 10; i++) {
+        await NotifBandit.recordSend('C');
+        if (i.isEven) await NotifBandit.recordOpen('C');
+      }
+      final rng = Random(7);
+      var aFirst = 0;
+      for (var i = 0; i < 200; i++) {
+        final ranked = await NotifBandit.rank(['A', 'C'], rng: rng);
+        if (ranked.first == 'A') aFirst++;
+      }
+      // The untried arm wins a healthy share of the time (optimistic prior).
+      expect(aFirst, greaterThan(20));
+    });
+
+    test('openRates reflects recorded outcomes', () async {
+      await NotifBandit.recordSend('B');
+      await NotifBandit.recordOpen('B');
+      await NotifBandit.recordSend('B');
+      final rates = await NotifBandit.openRates();
+      expect(rates['B'], closeTo(0.5, 0.001));
     });
   });
 }
