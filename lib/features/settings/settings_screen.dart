@@ -17,6 +17,7 @@ import '../mindmap/interest_clusters_provider.dart';
 import '../../core/services/digest_background.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/services/digest_scheduler.dart';
+import '../../core/services/notif_bandit.dart';
 import '../../core/services/notification_scheduler.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/usage_providers.dart';
@@ -768,6 +769,7 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
   int? _peakHour;
   bool _firedToday = false;
   String? _lastRun;
+  Map<String, double> _openRates = const {};
 
   static const _testTypes = {
     'A': 'Geography Collector',
@@ -791,8 +793,10 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
     final lastTs = await DigestPrefs.lastFiredTimestamp();
     final peak = await TagAnalyzer.peakOpenHour();
     final canFire = await DigestPrefs.canFireToday();
+    final openRates = await NotifBandit.openRates();
     if (!mounted) return;
     setState(() {
+      _openRates = openRates;
       _lastRun = lastRun;
       _lastFiredType = lastType != null
           ? NotificationScheduler.labelFor(lastType)
@@ -974,7 +978,79 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
           ),
+
+        // What the on-device bandit has learned (open rate per type).
+        if (_openRates.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Text(
+            'What Glimpse has learned',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            'How often you open each type. Higher = surfaced more often.',
+            style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
+          ),
+          const SizedBox(height: 10),
+          ...(_openRates.entries.toList()
+                ..sort((a, b) => b.value.compareTo(a.value)))
+              .map((e) => _BanditRateRow(
+                    label: _testTypes[e.key] ?? e.key,
+                    rate: e.value,
+                  )),
+        ],
       ],
+    );
+  }
+}
+
+/// One row of the bandit diagnostics: type label + open-rate bar.
+class _BanditRateRow extends StatelessWidget {
+  const _BanditRateRow({required this.label, required this.rate});
+  final String label;
+  final double rate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurface),
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: rate.clamp(0.0, 1.0),
+                minHeight: 6,
+                backgroundColor: cs.surfaceContainerHighest,
+                color: cs.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${(rate * 100).round()}%',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

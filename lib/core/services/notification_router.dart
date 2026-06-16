@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'digest_prefs.dart';
 import 'notif_bandit.dart';
+import 'tag_analyzer.dart';
 
 /// Parses notification JSON payloads and navigates to the detail screen or fallback.
 class NotificationRouter {
@@ -105,6 +106,9 @@ class NotificationRouter {
     // Reward signal for the on-device bandit: this type got opened.
     final letter = _rewardLetter(map);
     if (letter != null) unawaited(NotifBandit.recordOpen(letter));
+    // Opening a notification is also an "active now" signal — feed the peak-hour
+    // histogram so future notifications are timed to when the user engages.
+    unawaited(TagAnalyzer.recordAppOpen());
     if (map['route'] == 'subscription') {
       context.push('/settings/subscription');
       return;
