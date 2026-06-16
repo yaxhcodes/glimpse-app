@@ -137,13 +137,29 @@ class TagAnalyzer {
   static List<SavedUrl> unreadGeoLinks(List<SavedUrl> urls) {
     final out = <SavedUrl>[];
     for (final u in urls) {
-      if (u.openedAt != null) continue;
+      if (u.openedAt != null || u.isDone) continue;
       for (final tag in u.tags) {
         final lower = tag.toLowerCase().trim();
         if (geoKeywords.any((kw) => lower.contains(kw))) {
           out.add(u);
           break;
         }
+      }
+    }
+    return out;
+  }
+
+  /// Unread links tagged with one specific place [geo] (a [geoKeywords] entry).
+  /// Used to keep a geography notification's headline and its linked saves in
+  /// sync — "your Kerala saves" must only contain Kerala saves.
+  static List<SavedUrl> unreadLinksForGeo(List<SavedUrl> urls, String geo) {
+    final needle = geo.toLowerCase().trim();
+    if (needle.isEmpty) return const [];
+    final out = <SavedUrl>[];
+    for (final u in urls) {
+      if (u.openedAt != null || u.isDone) continue;
+      if (u.tags.any((t) => t.toLowerCase().contains(needle))) {
+        out.add(u);
       }
     }
     return out;

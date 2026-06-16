@@ -17,9 +17,10 @@ import 'user_fingerprint.dart';
 class NotificationScheduler {
   NotificationScheduler._();
 
-  // 'G' (revisit-due) leads: it's the highest-signal type because the user
-  // explicitly asked to come back to those saves.
-  static const _typeOrder = ['G', 'B', 'A', 'C', 'E', 'D', 'F'];
+  // Ordered most-personal first: G (you asked to revisit), E (a specific
+  // forgotten save), A (one place's saves), then the broader pattern nudges.
+  // D (saving-streak, the guilt-y "you don't read" one) comes last.
+  static const _typeOrder = ['G', 'E', 'A', 'B', 'C', 'D', 'F'];
 
   /// Labels for settings / diagnostics (user-facing).
   static const _typeLabels = {
@@ -50,10 +51,20 @@ class NotificationScheduler {
 
     final fp = await UserFingerprint.compute(isar);
 
+    // Anti-repetition: don't re-send the same topic (e.g. the same place, the
+    // same link) within this window, so notifications stop feeling like reruns.
+    final recentSigs = await DigestPrefs.recentSignatures(
+      within: const Duration(days: 3),
+    );
+
     for (final type in _typeOrder) {
       if (type == 'F' && DateTime.now().weekday != DateTime.sunday) continue;
+      if (!NotificationTemplates.isEligible(type, fp)) continue;
 
-      final result = await _tryType(isar, type, fp);
+      final sig = _signature(type, fp);
+      if (sig != null && recentSigs.contains(sig)) continue; // fired recently
+
+      final result = await _tryType(isar, type, fp, sig: sig);
       if (result != null) {
         await DigestPrefs.recordFired();
         await DigestPrefs.setLastFiredType(type);
@@ -62,7 +73,35 @@ class NotificationScheduler {
       }
     }
 
-    return 'skipped: no conditions met';
+    // Everything eligible was on cooldown (or nothing eligible) — stay silent
+    // today rather than repeat. Better a quiet day than the same nudge again.
+    return 'skipped: no fresh topic';
+  }
+
+  /// Stable per-topic key used to suppress repeats. Two notifications with the
+  /// same signature are "the same notification" for cooldown purposes.
+  static String? _signature(String type, UserFingerprint fp) {
+    switch (type) {
+      case 'A':
+        return fp.featuredGeo == null ? null : 'A:${fp.featuredGeo}';
+      case 'B':
+        final tag = _bestNewInterestTag(fp);
+        return tag == null ? null : 'B:$tag';
+      case 'C':
+        return fp.topClusters.isEmpty ? null : 'C:${fp.topClusters.first.name}';
+      case 'D':
+        return 'D:streak';
+      case 'E':
+        return fp.topUnreadLink == null ? null : 'E:${fp.topUnreadLink!.id}';
+      case 'F':
+        return 'F:weekly';
+      case 'G':
+        return fp.queuedDueLinks.isEmpty
+            ? null
+            : 'G:${fp.queuedDueLinks.first.id}';
+      default:
+        return null;
+    }
   }
 
   static Future<String> runSingle(IsarService isar, String type) async {
@@ -86,8 +125,9 @@ class NotificationScheduler {
   static Future<String?> _tryType(
     IsarService isar,
     String type,
-    UserFingerprint fp,
-  ) async {
+    UserFingerprint fp, {
+    String? sig,
+  }) async {
     final copy = await _generateCopy(type, fp);
     if (copy == null) return null;
 
@@ -123,6 +163,9 @@ class NotificationScheduler {
       title: copy.title,
       body: copy.body,
       payloadJson: payloadJson,
+      // Single-link notifications (revisit-due, resurface) get quick Done/Later
+      // action buttons; multi-link ones have no single target to act on.
+      withActions: linkIds.length == 1,
     );
 
     final summaries = [copy.body];
@@ -147,6 +190,7 @@ class NotificationScheduler {
       type: historyType,
       notifId: notifId,
       body: copy.body,
+      sig: sig,
     );
 
     return '$historyType: ${copy.title}';
@@ -158,7 +202,10 @@ class NotificationScheduler {
       case 'G':
         return fp.queuedDueLinks.map((u) => u.id).take(20).toList();
       case 'A':
-        return TagAnalyzer.unreadGeoLinks(fp.allUrls)
+        // Only the featured place's saves — never a mixed bag of countries.
+        final geo = fp.featuredGeo;
+        if (geo == null) return [];
+        return TagAnalyzer.unreadLinksForGeo(fp.allUrls, geo)
             .map((u) => u.id)
             .take(80)
             .toList();

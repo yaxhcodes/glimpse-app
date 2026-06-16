@@ -67,6 +67,7 @@ class DigestPrefs {
     String type = 'digest',
     String? notifId,
     String? body,
+    String? sig,
   }) async {
     final p = await SharedPreferences.getInstance();
     final history = await loadHistory();
@@ -80,9 +81,28 @@ class DigestPrefs {
       'read': false,
       if (notifId != null) 'notifId': notifId,
       if (body != null) 'body': body,
+      if (sig != null) 'sig': sig,
     });
     if (history.length > 50) history.removeRange(50, history.length);
     await p.setString(_historyKey, jsonEncode(history));
+  }
+
+  /// Topic signatures (e.g. `A:india`, `G:42`) fired [within] the given window.
+  /// Used to suppress re-sending the same notification topic day after day.
+  static Future<Set<String>> recentSignatures({
+    Duration within = const Duration(days: 3),
+  }) async {
+    final history = await loadHistory();
+    final cutoff = DateTime.now().subtract(within);
+    final out = <String>{};
+    for (final e in history) {
+      final sig = e['sig'];
+      if (sig is! String || sig.isEmpty) continue;
+      final date = DateTime.tryParse(e['date']?.toString() ?? '');
+      if (date == null || date.isBefore(cutoff)) continue;
+      out.add(sig);
+    }
+    return out;
   }
 
   static Future<List<Map<String, dynamic>>> loadHistory() async {

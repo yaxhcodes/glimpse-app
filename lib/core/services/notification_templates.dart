@@ -19,7 +19,8 @@ class NotificationTemplates {
       case 'G':
         return fp.queuedDueLinks.isNotEmpty;
       case 'A':
-        return fp.geographySpread.length >= 3 && fp.unreadGeoCount >= 5;
+        // Need a clearly-featured place with real unread depth to revisit.
+        return fp.featuredGeo != null && fp.featuredGeoUnreadCount >= 3;
       case 'B':
         if (fp.newTagsThisWeek.isEmpty) return false;
         for (final tag in fp.newTagsThisWeek) {
@@ -90,37 +91,29 @@ class NotificationTemplates {
   // ─── Type A: Geography collector ───────────────────────────────────
 
   static Future<NotifCopy?> geographyCollector(UserFingerprint fp) async {
-    if (fp.geographySpread.length < 3) return null;
-    if (fp.unreadGeoCount < 5) return null;
+    final rawGeo = fp.featuredGeo;
+    if (rawGeo == null || fp.featuredGeoUnreadCount < 3) return null;
 
-    final n = fp.geographySpread.length;
-    final topGeo = _titleCase(fp.geographySpread.first);
-    final topCount = fp.geoSaveCounts[fp.geographySpread.first] ?? 0;
-    final unreadGeo = fp.unreadGeoCount;
-    final geo1 = _titleCase(fp.geographySpread[0]);
-    final geo2 = _titleCase(fp.geographySpread.length > 1 ? fp.geographySpread[1] : fp.geographySpread[0]);
-    final geo3 = _titleCase(fp.geographySpread.length > 2 ? fp.geographySpread[2] : geo2);
+    // Every line is about ONE place and ONLY that place's unread saves.
+    final geo = _titleCase(rawGeo);
+    final unread = fp.featuredGeoUnreadCount;
 
     final templates = <NotifCopy>[
       NotifCopy(
-        title: 'Trails from $n countries. $topGeo is leading.',
-        body: "You've saved $topCount links there and haven't opened one.",
+        title: 'Your $geo list is waiting',
+        body: "$unread saves about $geo you haven't opened yet.",
       ),
       NotifCopy(
-        title: '$geo1, $geo2, $geo3 — all in your unread list.',
-        body: 'Building a bucket list or just collecting?',
+        title: '$unread unread $geo saves',
+        body: 'You were clearly planning something. Pick one back up?',
       ),
       NotifCopy(
-        title: 'Your most saved destination: $topGeo',
-        body: '$topCount links saved. $unreadGeo still unread.',
+        title: "$geo keeps pulling you in",
+        body: '$unread saved spots there, still unopened.',
       ),
       NotifCopy(
-        title: '$n countries in your saves this week.',
-        body: 'Where are you actually going first?',
-      ),
-      NotifCopy(
-        title: "You've been saving from $geo1 to $geo2.",
-        body: '$unreadGeo unread links across all of them.',
+        title: 'Still curious about $geo?',
+        body: '$unread of your saves are sitting there unread.',
       ),
     ];
 

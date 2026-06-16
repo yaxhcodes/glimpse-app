@@ -230,9 +230,10 @@ Write a notification for this user now.
         return "User explicitly chose to '$action' this save and the moment "
             "they picked has arrived: title='$displayTitle'.";
       case 'A':
-        final spread = fp.geographySpread.join(', ');
-        return 'User has saves tagged with these countries: $spread. '
-            '${fp.unreadGeoCount} unread across them.';
+        final geo = fp.featuredGeo ?? 'a place';
+        return 'Write ONLY about $geo — do not mention any other country or '
+            'place. The user has ${fp.featuredGeoUnreadCount} unread saves '
+            'tagged with $geo. Nudge them to revisit their $geo saves.';
       case 'B':
         final tag = _bestNewInterestTag(fp);
         final count = tag != null ? fp.savesWithNewTag(tag) : 0;
@@ -393,13 +394,11 @@ Write a notification for this user now.
           body: 'You set this one aside for later. Later is now.',
         );
       case 'A':
-        final g = fp.geographySpread.isNotEmpty
-            ? fp.geographySpread.first
-            : 'a few places';
-        final u = fp.unreadGeoCount;
+        final g = fp.featuredGeo ?? 'a place';
+        final u = fp.featuredGeoUnreadCount;
         return NotifCopy(
-          title: '${_tc(g)} keeps showing up in your unread pile',
-          body: '$u saves with place tags still waiting; worth a skim.',
+          title: 'Your ${_tc(g)} list is waiting',
+          body: '$u saves about ${_tc(g)} you have not opened yet.',
         );
       case 'B':
         final tag = _bestNewInterestTag(fp) ?? 'something new';

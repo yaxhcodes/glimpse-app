@@ -1,7 +1,14 @@
+import 'dart:convert';
+
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
+import 'package:glimpse/core/services/digest_prefs.dart';
 import 'package:glimpse/core/services/intent_classifier.dart';
+import 'package:glimpse/core/services/notification_action_handler.dart';
 import 'package:glimpse/core/services/revisit_scorer.dart';
+import 'package:glimpse/core/services/tag_analyzer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 SavedUrl _url({
   int id = 1,
@@ -125,6 +132,75 @@ void main() {
     test('onThisDayLabel detects a one-year anniversary', () {
       final yearOld = _url(savedAt: now.subtract(const Duration(days: 365)));
       expect(RevisitScorer.onThisDayLabel(yearOld, now: now), 'A year ago today');
+    });
+  });
+
+  group('NotificationActionHandler.handleIfAction', () {
+    NotificationResponse resp({String? actionId, String? payload}) =>
+        NotificationResponse(
+          notificationResponseType:
+              NotificationResponseType.selectedNotificationAction,
+          actionId: actionId,
+          payload: payload,
+        );
+
+    test('a plain body tap (no actionId) is not consumed', () async {
+      final consumed = await NotificationActionHandler.handleIfAction(
+        resp(payload: '{"linkIds":[1]}'),
+      );
+      expect(consumed, isFalse);
+    });
+
+    test('an unknown actionId is not consumed', () async {
+      final consumed = await NotificationActionHandler.handleIfAction(
+        resp(actionId: 'something_else', payload: '{"linkIds":[1]}'),
+      );
+      expect(consumed, isFalse);
+    });
+
+    test('a known action with no link ids is consumed but is a no-op', () async {
+      // Empty payload returns before any database access, so no Isar needed.
+      final consumed = await NotificationActionHandler.handleIfAction(
+        resp(actionId: NotificationActions.markDone, payload: null),
+      );
+      expect(consumed, isTrue);
+    });
+  });
+
+  group('Geography notification accuracy', () {
+    test('unreadLinksForGeo returns only the featured place, unread & not done',
+        () {
+      final urls = [
+        _url(id: 1, tags: ['india', 'trek']),
+        _url(id: 2, tags: ['new zealand']),
+        _url(id: 3, tags: ['india'], openedAt: DateTime.now()), // read
+        _url(id: 4, tags: ['india'], intentStatus: 'done'), // archived
+        _url(id: 5, tags: ['india', 'food']),
+      ];
+      final india = TagAnalyzer.unreadLinksForGeo(urls, 'india');
+      expect(india.map((u) => u.id).toSet(), {1, 5});
+    });
+  });
+
+  group('Notification anti-repeat (recentSignatures)', () {
+    test('returns recent signatures and drops ones outside the window',
+        () async {
+      final now = DateTime.now();
+      SharedPreferences.setMockInitialValues({
+        'digest_history': jsonEncode([
+          {'date': now.toIso8601String(), 'sig': 'A:india'},
+          {
+            'date': now.subtract(const Duration(days: 5)).toIso8601String(),
+            'sig': 'E:42',
+          },
+          {'date': now.toIso8601String(), 'topic': 'no sig here'},
+        ]),
+      });
+      final recent =
+          await DigestPrefs.recentSignatures(within: const Duration(days: 3));
+      expect(recent, contains('A:india'));
+      expect(recent, isNot(contains('E:42'))); // 5 days old → outside window
+      expect(recent.length, 1);
     });
   });
 }

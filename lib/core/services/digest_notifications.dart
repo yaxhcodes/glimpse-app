@@ -3,6 +3,14 @@ import 'dart:math' show Random;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'digest_prefs.dart';
+import 'notification_action_handler.dart';
+
+/// Background-isolate entry point for action-button taps when the app is
+/// terminated. Must be top-level and vm:entry-point so the plugin can find it.
+@pragma('vm:entry-point')
+void notificationBackgroundResponse(NotificationResponse response) {
+  NotificationActionHandler.handleIfAction(response);
+}
 
 /// Notification types used for copy generation and routing.
 /// All types share a single Android notification channel for proper grouping.
@@ -43,9 +51,13 @@ class DigestNotifications {
     const android = AndroidInitializationSettings('ic_notification');
     await _plugin.initialize(
       InitializationSettings(android: android),
-      onDidReceiveNotificationResponse: (details) {
+      onDidReceiveNotificationResponse: (details) async {
+        // Action buttons (Done / Later) mutate intent without routing; a plain
+        // body tap falls through to open the app.
+        if (await NotificationActionHandler.handleIfAction(details)) return;
         onOpenNotification(details.payload);
       },
+      onDidReceiveBackgroundNotificationResponse: notificationBackgroundResponse,
     );
 
     await _plugin
@@ -68,7 +80,10 @@ class DigestNotifications {
 
   static Future<void> initForBackground() async {
     const android = AndroidInitializationSettings('ic_notification');
-    await _plugin.initialize(const InitializationSettings(android: android));
+    await _plugin.initialize(
+      const InitializationSettings(android: android),
+      onDidReceiveBackgroundNotificationResponse: notificationBackgroundResponse,
+    );
     await _ensureChannel();
   }
 
@@ -104,6 +119,7 @@ class DigestNotifications {
     required String title,
     required String body,
     required String payloadJson,
+    bool withActions = false,
   }) async {
     final notifId = _uniqueNotifId();
 
@@ -116,6 +132,24 @@ class DigestNotifications {
       groupKey: _groupKey,
       styleInformation: BigTextStyleInformation(body),
       icon: 'ic_notification',
+      // Quick triage on single-link notifications: archive or push out the
+      // revisit without opening the app. The plain body tap still opens it.
+      actions: withActions
+          ? const [
+              AndroidNotificationAction(
+                NotificationActions.markDone,
+                'Done',
+                showsUserInterface: false,
+                cancelNotification: true,
+              ),
+              AndroidNotificationAction(
+                NotificationActions.snooze,
+                'Later',
+                showsUserInterface: false,
+                cancelNotification: true,
+              ),
+            ]
+          : null,
     );
 
     await _plugin.show(

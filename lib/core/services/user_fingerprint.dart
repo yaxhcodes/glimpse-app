@@ -9,6 +9,11 @@ class UserFingerprint {
   final List<TagCluster> topClusters;
   final List<String> geographySpread;
   final Map<String, int> geoSaveCounts;
+
+  /// The single place to feature in a geography notification — the one with the
+  /// most UNREAD saves, so the headline and the linked saves always match.
+  final String? featuredGeo;
+  final int featuredGeoUnreadCount;
   final List<String> newTagsThisWeek;
   final double readingRatio;
   final int unreadStreak;
@@ -35,6 +40,8 @@ class UserFingerprint {
     required this.topClusters,
     required this.geographySpread,
     required this.geoSaveCounts,
+    required this.featuredGeo,
+    required this.featuredGeoUnreadCount,
     required this.newTagsThisWeek,
     required this.readingRatio,
     required this.unreadStreak,
@@ -79,6 +86,18 @@ class UserFingerprint {
     final geoSaveCounts = TagAnalyzer.detectGeography(allUrls);
     final geographySpread = geoSaveCounts.keys.toList()
       ..sort((a, b) => (geoSaveCounts[b] ?? 0).compareTo(geoSaveCounts[a] ?? 0));
+
+    // Feature the place with the most UNREAD saves so a geography notification's
+    // headline and its linked saves never disagree.
+    String? featuredGeo;
+    var featuredGeoUnreadCount = 0;
+    for (final geo in geographySpread) {
+      final n = TagAnalyzer.unreadLinksForGeo(allUrls, geo).length;
+      if (n > featuredGeoUnreadCount) {
+        featuredGeoUnreadCount = n;
+        featuredGeo = geo;
+      }
+    }
 
     // ── New tags this week ──
     final newTagsThisWeek = TagAnalyzer.findNewTags(allUrls);
@@ -160,6 +179,8 @@ class UserFingerprint {
       topClusters: topClusters,
       geographySpread: geographySpread,
       geoSaveCounts: geoSaveCounts,
+      featuredGeo: featuredGeo,
+      featuredGeoUnreadCount: featuredGeoUnreadCount,
       newTagsThisWeek: newTagsThisWeek,
       readingRatio: readingRatio,
       unreadStreak: unreadStreak,
@@ -182,6 +203,8 @@ class UserFingerprint {
         topClusters: [],
         geographySpread: [],
         geoSaveCounts: {},
+        featuredGeo: null,
+        featuredGeoUnreadCount: 0,
         newTagsThisWeek: [],
         readingRatio: 0,
         unreadStreak: 0,
