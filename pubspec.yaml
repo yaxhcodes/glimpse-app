@@ -149,6 +149,9 @@ flutter:
     - assets/glimpse.svg
     - assets/home.png
     - assets/splash_icon.png
+    - assets/search.png
+    - assets/mindmap.png
+    - assets/empty_collection.png
     - assets/brands/
   # To add assets to your application, add an assets section, like this:
   # assets:

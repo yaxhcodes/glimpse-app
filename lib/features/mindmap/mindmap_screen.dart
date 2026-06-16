@@ -698,20 +698,13 @@ class _MindmapEmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: cs.surfaceContainerHighest,
-              ),
-              child: Icon(
-                Icons.hub_outlined,
-                size: 34,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
+            Image.asset(
+              'assets/mindmap.png',
+              width: 128,
+              height: 128,
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Text(
               'Your interest map is empty',
               style: tt.titleSmall?.copyWith(

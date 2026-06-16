@@ -244,22 +244,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              width: 84,
-                              height: 84,
-                              decoration: BoxDecoration(
-                                color: colorScheme.secondaryContainer
-                                    .withValues(alpha: 0.45),
-                                borderRadius: BorderRadius.circular(26),
-                              ),
-                              child: Icon(
-                                Icons.travel_explore_rounded,
-                                size: 38,
-                                color: colorScheme.onSecondaryContainer
-                                    .withValues(alpha: 0.85),
-                              ),
+                            Image.asset(
+                              'assets/search.png',
+                              width: 132,
+                              height: 132,
+                              fit: BoxFit.contain,
                             ),
-                            const SizedBox(height: 22),
+                            const SizedBox(height: 18),
                             Text(
                               'Find anything you saved',
                               style: theme.textTheme.titleMedium?.copyWith(

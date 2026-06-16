@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'collection_card.dart';
-import 'collection_visual.dart';
 import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
 
@@ -227,12 +226,13 @@ class _CollectionsEmptyState extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CollectionVisual(
-                style: CollectionVisualStyle.knowledge,
-                size: 64,
-                iconSize: 28,
+              Image.asset(
+                'assets/empty_collection.png',
+                width: 132,
+                height: 132,
+                fit: BoxFit.contain,
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               Text(
                 'Create your first collection',
                 style: textTheme.titleMedium?.copyWith(
