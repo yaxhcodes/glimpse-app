@@ -7,6 +7,19 @@ class UserFingerprint {
   final double saveVelocity;
   final String dominantCluster;
   final List<TagCluster> topClusters;
+
+  /// The "deep collector" group worth nudging: a topical pile with enough
+  /// unread to revisit. Prefers a tag cluster, but falls back to a category so
+  /// a large library always has one even when tags don't cluster cleanly.
+  final String? deepDiveName;
+  final int deepDiveUnread;
+  final int deepDiveOldestDays;
+
+  /// How to collect the deep-dive group's links: by [deepDiveCategory] (when
+  /// category-based) or by matching [deepDiveTags] (when cluster-based).
+  final String? deepDiveCategory;
+  final Set<String> deepDiveTags;
+
   final List<String> geographySpread;
   final Map<String, int> geoSaveCounts;
 
@@ -38,6 +51,11 @@ class UserFingerprint {
     required this.saveVelocity,
     required this.dominantCluster,
     required this.topClusters,
+    required this.deepDiveName,
+    required this.deepDiveUnread,
+    required this.deepDiveOldestDays,
+    required this.deepDiveCategory,
+    required this.deepDiveTags,
     required this.geographySpread,
     required this.geoSaveCounts,
     required this.featuredGeo,
@@ -81,6 +99,14 @@ class UserFingerprint {
     final clusters = TagAnalyzer.computeClusters(allUrls);
     final topClusters = clusters.take(3).toList();
     final dominantCluster = clusters.isNotEmpty ? clusters.first.name : 'General';
+
+    // ── Deep-dive group (the "deep collector" nudge) ──
+    final deepDive = selectDeepDive(allUrls, topClusters, now);
+    final deepDiveName = deepDive.name;
+    final deepDiveCategory = deepDive.category;
+    final deepDiveTags = deepDive.tags;
+    final deepDiveUnread = deepDive.unread;
+    final deepDiveOldestDays = deepDive.oldestDays;
 
     // ── Geography ──
     final geoSaveCounts = TagAnalyzer.detectGeography(allUrls);
@@ -177,6 +203,11 @@ class UserFingerprint {
       saveVelocity: saveVelocity,
       dominantCluster: dominantCluster,
       topClusters: topClusters,
+      deepDiveName: deepDiveName,
+      deepDiveUnread: deepDiveUnread,
+      deepDiveOldestDays: deepDiveOldestDays,
+      deepDiveCategory: deepDiveCategory,
+      deepDiveTags: deepDiveTags,
       geographySpread: geographySpread,
       geoSaveCounts: geoSaveCounts,
       featuredGeo: featuredGeo,
@@ -197,10 +228,86 @@ class UserFingerprint {
     );
   }
 
+  /// Selects the "deep collector" pile worth nudging. Prefers a tag cluster
+  /// with real unread depth; otherwise falls back to the category with the most
+  /// unread, so a large library always has a pile to revisit even when its tags
+  /// don't cluster. Pure — unit-testable without a database.
+  static ({
+    String? name,
+    int unread,
+    int oldestDays,
+    String? category,
+    Set<String> tags,
+  }) selectDeepDive(
+    List<SavedUrl> allUrls,
+    List<TagCluster> topClusters,
+    DateTime now,
+  ) {
+    String? name;
+    String? category;
+    var tags = <String>{};
+    var unread = 0;
+
+    final bestCluster = topClusters.isNotEmpty ? topClusters.first : null;
+    if (bestCluster != null && bestCluster.unreadCount >= 6) {
+      name = bestCluster.name;
+      tags = bestCluster.tags;
+      unread = bestCluster.unreadCount;
+    } else {
+      final catUnread = <String, int>{};
+      for (final u in allUrls) {
+        if (u.openedAt != null || u.isDone) continue;
+        final cat = u.effectiveCategories.first;
+        if (cat == 'Other') continue;
+        catUnread[cat] = (catUnread[cat] ?? 0) + 1;
+      }
+      String? bestCat;
+      var bestN = 0;
+      for (final e in catUnread.entries) {
+        if (e.value > bestN) {
+          bestN = e.value;
+          bestCat = e.key;
+        }
+      }
+      if (bestCat != null) {
+        name = bestCat;
+        category = bestCat;
+        unread = bestN;
+      }
+    }
+
+    var oldestDays = 0;
+    if (name != null) {
+      DateTime? oldest;
+      for (final u in allUrls) {
+        if (u.openedAt != null || u.isDone) continue;
+        final inGroup = category != null
+            ? u.effectiveCategories.first == category
+            : u.tags.any((t) => tags.contains(t.toLowerCase().trim()));
+        if (!inGroup) continue;
+        if (oldest == null || u.savedAt.isBefore(oldest)) oldest = u.savedAt;
+      }
+      if (oldest != null) oldestDays = now.difference(oldest).inDays;
+    }
+
+    return (
+      name: name,
+      unread: unread,
+      oldestDays: oldestDays,
+      category: category,
+      tags: tags,
+    );
+  }
+
   static UserFingerprint _empty(List<SavedUrl> urls) => UserFingerprint(
         saveVelocity: 0,
         dominantCluster: 'General',
         topClusters: [],
+        deepDiveName: null,
+        deepDiveUnread: 0,
+        deepDiveOldestDays: 0,
+        deepDiveCategory: null,
+        deepDiveTags: const {},
         geographySpread: [],
         geoSaveCounts: {},
         featuredGeo: null,

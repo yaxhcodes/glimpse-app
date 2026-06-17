@@ -110,7 +110,7 @@ class NotificationScheduler {
         final tag = _bestNewInterestTag(fp);
         return tag == null ? null : 'B:$tag';
       case 'C':
-        return fp.topClusters.isEmpty ? null : 'C:${fp.topClusters.first.name}';
+        return fp.deepDiveName == null ? null : 'C:${fp.deepDiveName}';
       case 'D':
         return 'D:streak';
       case 'E':
@@ -123,6 +123,53 @@ class NotificationScheduler {
             : 'G:${fp.queuedDueLinks.first.id}';
       default:
         return null;
+    }
+  }
+
+  /// Per-type readiness snapshot for the diagnostics panel: is each type
+  /// eligible right now, is it on topic-cooldown, and a one-line reason. Makes
+  /// it obvious why only some of the 7 types ever fire.
+  static Future<List<NotifDiag>> diagnostics(IsarService isar) async {
+    final fp = await UserFingerprint.compute(isar);
+    final recent = await DigestPrefs.recentSignatures();
+    return _typeOrder.map((t) {
+      final eligible = NotificationTemplates.isEligible(t, fp);
+      final sig = _signature(t, fp);
+      final onCooldown = sig != null && recent.contains(sig);
+      return NotifDiag(
+        type: t,
+        label: labelFor(t),
+        eligible: eligible,
+        onCooldown: onCooldown,
+        detail: _eligibilityDetail(t, fp),
+      );
+    }).toList();
+  }
+
+  /// Short human reason describing the gating metric for [type].
+  static String _eligibilityDetail(String type, UserFingerprint fp) {
+    switch (type) {
+      case 'A':
+        final geo = fp.featuredGeo;
+        return geo == null
+            ? 'no place tags yet'
+            : '$geo · ${fp.featuredGeoUnreadCount} unread (need 3)';
+      case 'B':
+        return 'new tags this week: ${fp.newTagsThisWeek.length} (need 1 with 2+ saves)';
+      case 'C':
+        return fp.deepDiveName == null
+            ? 'no deep pile yet'
+            : '${fp.deepDiveName} · ${fp.deepDiveUnread} unread (need 6)';
+      case 'D':
+        return 'saving streak ${fp.savingStreakDays}d, unread streak ${fp.unreadStreak}d (need 3+3)';
+      case 'E':
+        return 'oldest unread ${fp.oldestUnreadDays}d (need 10)';
+      case 'F':
+        return '${fp.totalSavedThisWeek} saves this week (need 5, Sundays)';
+      case 'G':
+        return 'queued & due: ${fp.queuedDueLinks.length}';
+      default:
+        return '';
     }
   }
 
@@ -243,12 +290,17 @@ class NotificationScheduler {
             .map((u) => u.id)
             .toList();
       case 'C':
-        final cluster = fp.topClusters.isNotEmpty ? fp.topClusters.first : null;
-        if (cluster == null) return [];
+        // The deep-dive pile: category-based or tag-cluster-based.
+        if (fp.deepDiveName == null) return [];
         return fp.allUrls
-            .where((u) =>
-                u.openedAt == null &&
-                u.tags.any((t) => cluster.tags.contains(t.toLowerCase().trim())))
+            .where((u) {
+              if (u.openedAt != null || u.isDone) return false;
+              if (fp.deepDiveCategory != null) {
+                return u.effectiveCategories.first == fp.deepDiveCategory;
+              }
+              return u.tags
+                  .any((t) => fp.deepDiveTags.contains(t.toLowerCase().trim()));
+            })
             .map((u) => u.id)
             .take(40)
             .toList();
@@ -367,4 +419,21 @@ class NotificationScheduler {
     }
     return TitleResolver.resolve(link, tagFrequency: counts);
   }
+}
+
+/// Per-type readiness for the notification diagnostics panel.
+class NotifDiag {
+  const NotifDiag({
+    required this.type,
+    required this.label,
+    required this.eligible,
+    required this.onCooldown,
+    required this.detail,
+  });
+
+  final String type;
+  final String label;
+  final bool eligible;
+  final bool onCooldown;
+  final String detail;
 }

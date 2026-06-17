@@ -28,14 +28,10 @@ class NotificationTemplates {
         }
         return false;
       case 'C':
-        if (fp.topClusters.isEmpty) return false;
-        final cluster = fp.topClusters.first;
-        if (cluster.unreadCount < 6) return false;
-        final catLink = fp.topUnreadByCategory[cluster.name];
-        final oldestDays = catLink != null
-            ? DateTime.now().difference(catLink.savedAt).inDays
-            : 0;
-        return oldestDays >= 3;
+        // Deep-dive pile (tag cluster or category fallback) with real depth.
+        return fp.deepDiveName != null &&
+            fp.deepDiveUnread >= 6 &&
+            fp.deepDiveOldestDays >= 3;
       case 'D':
         return fp.savingStreakDays >= 3 && fp.unreadStreak >= 3;
       case 'E':
@@ -166,18 +162,14 @@ class NotificationTemplates {
   // ─── Type C: Deep collector nudge ──────────────────────────────────
 
   static Future<NotifCopy?> deepCollector(UserFingerprint fp) async {
-    if (fp.topClusters.isEmpty) return null;
-    final cluster = fp.topClusters.first;
-    if (cluster.unreadCount < 6) return null;
+    final rawName = fp.deepDiveName;
+    if (rawName == null || fp.deepDiveUnread < 6 || fp.deepDiveOldestDays < 3) {
+      return null;
+    }
 
-    final catLink = fp.topUnreadByCategory[cluster.name];
-    final oldestDays = catLink != null
-        ? DateTime.now().difference(catLink.savedAt).inDays
-        : 0;
-    if (oldestDays < 3) return null;
-
-    final name = _titleCase(cluster.name);
-    final count = cluster.unreadCount;
+    final name = _titleCase(rawName);
+    final count = fp.deepDiveUnread;
+    final oldestDays = fp.deepDiveOldestDays;
 
     final templates = <NotifCopy>[
       NotifCopy(

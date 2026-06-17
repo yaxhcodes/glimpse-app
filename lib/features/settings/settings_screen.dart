@@ -770,6 +770,7 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
   bool _firedToday = false;
   String? _lastRun;
   Map<String, double> _openRates = const {};
+  List<NotifDiag> _diagnostics = const [];
 
   static const _testTypes = {
     'A': 'Geography Collector',
@@ -794,9 +795,12 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
     final peak = await TagAnalyzer.peakOpenHour();
     final canFire = await DigestPrefs.canFireToday();
     final openRates = await NotifBandit.openRates();
+    final diagnostics =
+        await NotificationScheduler.diagnostics(ref.read(isarServiceProvider));
     if (!mounted) return;
     setState(() {
       _openRates = openRates;
+      _diagnostics = diagnostics;
       _lastRun = lastRun;
       _lastFiredType = lastType != null
           ? NotificationScheduler.labelFor(lastType)
@@ -1002,7 +1006,80 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
                     rate: e.value,
                   )),
         ],
+
+        // Per-type readiness: which of the 7 types can fire right now, and why.
+        if (_diagnostics.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Text(
+            'Notification readiness',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            'Why some types fire and others stay quiet, on your data right now.',
+            style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
+          ),
+          const SizedBox(height: 10),
+          ..._diagnostics.map((d) => _DiagRow(diag: d)),
+        ],
       ],
+    );
+  }
+}
+
+/// One row of the readiness panel: type + status pill + reason.
+class _DiagRow extends StatelessWidget {
+  const _DiagRow({required this.diag});
+  final NotifDiag diag;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final (label, color) = diag.eligible
+        ? diag.onCooldown
+            ? ('Cooling', cs.tertiary)
+            : ('Ready', cs.primary)
+        : ('Waiting', cs.outline);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 56,
+            margin: const EdgeInsets.only(top: 1),
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${diag.type} — ${diag.label}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  diag.detail,
+                  style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

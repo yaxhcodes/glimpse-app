@@ -10,6 +10,7 @@ import 'package:glimpse/core/services/notif_bandit.dart';
 import 'package:glimpse/core/services/notification_action_handler.dart';
 import 'package:glimpse/core/services/revisit_scorer.dart';
 import 'package:glimpse/core/services/tag_analyzer.dart';
+import 'package:glimpse/core/services/user_fingerprint.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 SavedUrl _url({
@@ -181,6 +182,56 @@ void main() {
       ];
       final india = TagAnalyzer.unreadLinksForGeo(urls, 'india');
       expect(india.map((u) => u.id).toSet(), {1, 5});
+    });
+  });
+
+  group('Deep collector (selectDeepDive)', () {
+    final now = DateTime(2026, 6, 16);
+
+    test('falls back to the category with the most unread when tags do not '
+        'cluster', () {
+      // 7 unread "Travel" saves with unique, non-co-occurring tags → no tag
+      // cluster forms, so it must fall back to the category.
+      final urls = [
+        for (var i = 0; i < 7; i++)
+          _url(
+            id: i + 1,
+            categories: ['Travel'],
+            tags: ['unique$i'],
+            savedAt: now.subtract(Duration(days: 10 + i)),
+          ),
+        _url(id: 99, categories: ['Food'], tags: ['x']),
+      ];
+      final clusters = TagAnalyzer.computeClusters(urls);
+      final dive = UserFingerprint.selectDeepDive(urls, clusters, now);
+      expect(dive.name, 'Travel');
+      expect(dive.category, 'Travel');
+      expect(dive.unread, 7);
+      expect(dive.oldestDays, greaterThanOrEqualTo(10));
+    });
+
+    test('prefers a real tag cluster over the category fallback', () {
+      // 6 saves all sharing the co-occurring tags hiking+gear → a cluster forms.
+      final urls = [
+        for (var i = 0; i < 6; i++)
+          _url(id: i + 1, categories: ['Other'], tags: ['hiking', 'gear']),
+      ];
+      final clusters = TagAnalyzer.computeClusters(urls);
+      final dive = UserFingerprint.selectDeepDive(urls, clusters, now);
+      expect(dive.category, isNull); // cluster-based, not category-based
+      expect(dive.tags, containsAll(['hiking', 'gear']));
+      expect(dive.unread, greaterThanOrEqualTo(6));
+    });
+
+    test('excludes read and done saves from the pile', () {
+      final urls = [
+        for (var i = 0; i < 4; i++) _url(id: i + 1, categories: ['Travel']),
+        _url(id: 50, categories: ['Travel'], openedAt: now), // read
+        _url(id: 51, categories: ['Travel'], intentStatus: 'done'), // archived
+      ];
+      final dive = UserFingerprint.selectDeepDive(urls, const [], now);
+      expect(dive.name, 'Travel');
+      expect(dive.unread, 4);
     });
   });
 

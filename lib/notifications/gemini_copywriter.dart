@@ -240,16 +240,13 @@ Write a notification for this user now.
         final display = tag ?? 'unknown';
         return "User saved $count links about '$display' this week for the first time ever.";
       case 'C':
-        final cluster = fp.topClusters.isNotEmpty ? fp.topClusters.first : null;
-        if (cluster == null) {
-          return 'User has a deep unread topic cluster.';
+        final name = fp.deepDiveName;
+        if (name == null) {
+          return 'User has a deep unread topic pile.';
         }
-        final catLink = fp.topUnreadByCategory[cluster.name];
-        final days = catLink != null
-            ? DateTime.now().difference(catLink.savedAt).inDays
-            : 0;
-        return 'User has ${cluster.unreadCount} unread saves in '
-            "'${cluster.name}', oldest is $days days old, read 0 of them.";
+        return 'User has ${fp.deepDiveUnread} unread saves about '
+            "'$name', the oldest ${fp.deepDiveOldestDays} days old. Nudge them "
+            'to dig back into their $name pile.';
       case 'D':
         return 'User saved links for ${fp.savingStreakDays} consecutive days '
             'but has not read anything for ${fp.unreadStreak} days.';
@@ -408,13 +405,11 @@ Write a notification for this user now.
           body: '$n saves this week in a topic you had not touched before.',
         );
       case 'C':
-        final c =
-            fp.topClusters.isNotEmpty ? fp.topClusters.first.name : 'one topic';
-        final n =
-            fp.topClusters.isNotEmpty ? fp.topClusters.first.unreadCount : 0;
+        final c = fp.deepDiveName ?? 'one topic';
+        final n = fp.deepDiveUnread;
         return NotifCopy(
           title: '${_tc(c)} is stacking up unread',
-          body: '$n links deep; the oldest has been waiting a while.',
+          body: '$n saves deep; the oldest has been waiting a while.',
         );
       case 'D':
         return NotifCopy(
