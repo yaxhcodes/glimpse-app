@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'expressive_loading_indicator.dart';
+
 /// A centered loading indicator with optional message.
 class LoadingIndicator extends StatelessWidget {
   final String? message;
@@ -13,22 +15,15 @@ class LoadingIndicator extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 36,
-            height: 36,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: colorScheme.primary,
-            ),
-          ),
+          ExpressiveLoadingIndicator(size: 40, color: colorScheme.primary),
           if (message != null) ...[
             const SizedBox(height: 20),
             Text(
               message!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

@@ -10,6 +10,7 @@ import '../../core/services/category_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../features/home/home_provider.dart';
+import 'expressive_tap_scale.dart';
 import 'link_card_thumbnail.dart';
 import 'tag_group.dart' show tagChipColors;
 
@@ -221,169 +222,172 @@ class _UrlCardState extends ConsumerState<UrlCard> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      child: Material(
-        color: widget.isSelected
-            ? selectedFill
-            : UrlCard.listCardFillColor(theme),
-        elevation: widget.isSelected ? 2 : 0,
-        shadowColor: widget.isSelected
-            ? cs.shadow.withValues(alpha: 0.18)
-            : Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        shape: cardShape,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            if (widget.selectionMode) {
-              widget.onSelectionTap?.call();
-            } else {
-              widget.onTap?.call();
-            }
-          },
-          onLongPress: () {
-            HapticFeedback.mediumImpact();
-            if (widget.onLongPress != null) {
-              widget.onLongPress?.call();
-            } else if (!widget.selectionMode) {
-              _showActions(context);
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                widget.selectionMode
-                    ? _SelectionThumbnailControl(
-                        selected: widget.isSelected,
-                        size: 64,
-                        onTap: widget.onSelectionTap,
-                      )
-                    : LinkCardThumbnail.build(
-                        url: widget.savedUrl,
-                        isRead: isRead,
-                        context: context,
-                        size: 64,
-                        borderRadius: 10,
-                      ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: AnimatedOpacity(
-                              opacity: (isRead && isLight) ? 0.45 : 1.0,
-                              duration: const Duration(milliseconds: 300),
-                              child: Text(
-                                resolvedTitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: (tt.titleSmall ?? const TextStyle())
-                                    .copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.25,
-                                      fontSize:
-                                          (tt.titleSmall?.fontSize ?? 14) + 0.5,
-                                      color: cs.onSurface,
-                                    ),
-                              ),
-                            ),
-                          ),
-                          if (widget.isPinned) ...[
-                            const SizedBox(width: 8),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 1),
-                              child: Icon(
-                                Icons.push_pin_rounded,
-                                size: 13,
-                                color: cs.primary.withValues(alpha: 0.68),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 0,
-                        runSpacing: 2,
-                        children: [
-                          Text(displaySourceName, style: metaStyle),
-                          Text(' · ', style: metaStyle),
-                          Text(
-                            UrlCard.timeAgoSaved(widget.savedUrl.savedAt),
-                            style: metaStyle,
-                          ),
-                          Text(' · ', style: metaStyle),
-                          Text(isRead ? 'Read' : 'Unread', style: metaStyle),
-                        ],
-                      ),
-                      if (chipData.visible.isNotEmpty ||
-                          chipData.overflow > 0) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 3,
+      child: ExpressiveTapScale(
+        child: Material(
+          color: widget.isSelected
+              ? selectedFill
+              : UrlCard.listCardFillColor(theme),
+          elevation: widget.isSelected ? 2 : 0,
+          shadowColor: widget.isSelected
+              ? cs.shadow.withValues(alpha: 0.18)
+              : Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          shape: cardShape,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              if (widget.selectionMode) {
+                widget.onSelectionTap?.call();
+              } else {
+                widget.onTap?.call();
+              }
+            },
+            onLongPress: () {
+              HapticFeedback.mediumImpact();
+              if (widget.onLongPress != null) {
+                widget.onLongPress?.call();
+              } else if (!widget.selectionMode) {
+                _showActions(context);
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  widget.selectionMode
+                      ? _SelectionThumbnailControl(
+                          selected: widget.isSelected,
+                          size: 64,
+                          onTap: widget.onSelectionTap,
+                        )
+                      : LinkCardThumbnail.build(
+                          url: widget.savedUrl,
+                          isRead: isRead,
+                          context: context,
+                          size: 64,
+                          borderRadius: 10,
+                        ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ...chipData.visible.map((tag) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: tagColors.background,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                            Expanded(
+                              child: AnimatedOpacity(
+                                opacity: (isRead && isLight) ? 0.45 : 1.0,
+                                duration: const Duration(milliseconds: 300),
                                 child: Text(
-                                  tag,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                    color: tagColors.foreground,
-                                    fontFamily: tt.labelSmall?.fontFamily,
-                                    letterSpacing: 0.1,
-                                  ),
-                                ),
-                              );
-                            }),
-                            if (chipData.overflow > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: tagColors.background,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '+${chipData.overflow}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                    color: tagColors.foreground,
-                                    fontFamily: tt.labelSmall?.fontFamily,
-                                  ),
+                                  resolvedTitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: (tt.titleSmall ?? const TextStyle())
+                                      .copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.25,
+                                        fontSize:
+                                            (tt.titleSmall?.fontSize ?? 14) +
+                                            0.5,
+                                        color: cs.onSurface,
+                                      ),
                                 ),
                               ),
+                            ),
+                            if (widget.isPinned) ...[
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 1),
+                                child: Icon(
+                                  Icons.push_pin_rounded,
+                                  size: 13,
+                                  color: cs.primary.withValues(alpha: 0.68),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
-                      ] else if (isProcessing || isProcessingFailed) ...[
-                        const SizedBox(height: 8),
-                        _EnrichmentProgressPill(
-                          sourceName: displaySourceName,
-                          failed: isProcessingFailed,
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 0,
+                          runSpacing: 2,
+                          children: [
+                            Text(displaySourceName, style: metaStyle),
+                            Text(' · ', style: metaStyle),
+                            Text(
+                              UrlCard.timeAgoSaved(widget.savedUrl.savedAt),
+                              style: metaStyle,
+                            ),
+                            Text(' · ', style: metaStyle),
+                            Text(isRead ? 'Read' : 'Unread', style: metaStyle),
+                          ],
                         ),
+                        if (chipData.visible.isNotEmpty ||
+                            chipData.overflow > 0) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 3,
+                            children: [
+                              ...chipData.visible.map((tag) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: tagColors.background,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    tag,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: tagColors.foreground,
+                                      fontFamily: tt.labelSmall?.fontFamily,
+                                      letterSpacing: 0.1,
+                                    ),
+                                  ),
+                                );
+                              }),
+                              if (chipData.overflow > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: tagColors.background,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '+${chipData.overflow}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: tagColors.foreground,
+                                      fontFamily: tt.labelSmall?.fontFamily,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ] else if (isProcessing || isProcessingFailed) ...[
+                          const SizedBox(height: 8),
+                          _EnrichmentProgressPill(
+                            sourceName: displaySourceName,
+                            failed: isProcessingFailed,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

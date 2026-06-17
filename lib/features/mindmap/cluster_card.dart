@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../shared/widgets/expressive_tap_scale.dart';
 import '../../shared/widgets/tag_group.dart' show tagChipColors;
 
 class InterestCluster {
@@ -73,9 +74,10 @@ class ClusterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
 
+    final Widget tile;
     switch (tier) {
       case ClusterCardTier.hero:
-        return _InterestTile(
+        tile = _InterestTile(
           cluster: cluster,
           onTap: onTap,
           height: 196,
@@ -90,7 +92,7 @@ class ClusterCard extends StatelessWidget {
         );
       case ClusterCardTier.medium:
         final height = mediumClusterTileHeight(cluster);
-        return _InterestTile(
+        tile = _InterestTile(
           cluster: cluster,
           onTap: onTap,
           height: height,
@@ -105,8 +107,9 @@ class ClusterCard extends StatelessWidget {
           isHero: false,
         );
       case ClusterCardTier.slim:
-        return _SlimTile(cluster: cluster, onTap: onTap);
+        tile = _SlimTile(cluster: cluster, onTap: onTap);
     }
+    return ExpressiveTapScale(child: tile);
   }
 }
 
@@ -318,34 +321,124 @@ _TextureKind _textureFor(InterestCluster cluster) {
 }
 
 _TextureKind? _matchTexture(String l) {
-  if (_hasAny(l, ['trek', 'hike', 'trail', 'mountain', 'valley', 'summit',
-      'climb', 'outdoor', 'camp', 'alpine', 'travel', 'trip', 'destination',
-      'nature', 'farm', 'agri', 'garden', 'eco'])) {
+  if (_hasAny(l, [
+    'trek',
+    'hike',
+    'trail',
+    'mountain',
+    'valley',
+    'summit',
+    'climb',
+    'outdoor',
+    'camp',
+    'alpine',
+    'travel',
+    'trip',
+    'destination',
+    'nature',
+    'farm',
+    'agri',
+    'garden',
+    'eco',
+  ])) {
     return _TextureKind.contour;
   }
-  if (_hasAny(l, ['agent', 'llm', 'gpt', 'neural', 'machine learning', 'prompt',
-      'automation', 'workflow', 'graph', 'network', 'social', 'community',
-      'people'])) {
+  if (_hasAny(l, [
+    'agent',
+    'llm',
+    'gpt',
+    'neural',
+    'machine learning',
+    'prompt',
+    'automation',
+    'workflow',
+    'graph',
+    'network',
+    'social',
+    'community',
+    'people',
+  ])) {
     return _TextureKind.lattice;
   }
-  if (_hasAny(l, ['dev', 'code', 'coding', 'software', 'oss', 'github', 'sdk',
-      'framework', 'library', 'backend', 'frontend', 'engineering', 'tool',
-      'programming', 'design', 'figma', 'layout', 'component', 'typography',
-      'font', 'productivity', 'document', 'game', 'pixel'])) {
+  if (_hasAny(l, [
+    'dev',
+    'code',
+    'coding',
+    'software',
+    'oss',
+    'github',
+    'sdk',
+    'framework',
+    'library',
+    'backend',
+    'frontend',
+    'engineering',
+    'tool',
+    'programming',
+    'design',
+    'figma',
+    'layout',
+    'component',
+    'typography',
+    'font',
+    'productivity',
+    'document',
+    'game',
+    'pixel',
+  ])) {
     return _TextureKind.grid;
   }
-  if (_hasAny(l, ['seo', 'website', 'growth', 'traffic', 'analytics',
-      'audience', 'conversion', 'marketing', 'startup', 'launch', 'founder',
-      'build', 'venture', 'finance', 'money', 'crypto', 'invest', 'market',
-      'stock', 'revenue', 'sales'])) {
+  if (_hasAny(l, [
+    'seo',
+    'website',
+    'growth',
+    'traffic',
+    'analytics',
+    'audience',
+    'conversion',
+    'marketing',
+    'startup',
+    'launch',
+    'founder',
+    'build',
+    'venture',
+    'finance',
+    'money',
+    'crypto',
+    'invest',
+    'market',
+    'stock',
+    'revenue',
+    'sales',
+  ])) {
     return _TextureKind.bars;
   }
-  if (_hasAny(l, ['book', 'read', 'essay', 'article', 'news', 'blog', 'writing',
-      'paper', 'study', 'journal', 'learn', 'course'])) {
+  if (_hasAny(l, [
+    'book',
+    'read',
+    'essay',
+    'article',
+    'news',
+    'blog',
+    'writing',
+    'paper',
+    'study',
+    'journal',
+    'learn',
+    'course',
+  ])) {
     return _TextureKind.ruled;
   }
-  if (_hasAny(l, ['music', 'song', 'playlist', 'audio', 'track', 'album',
-      'sound', 'podcast'])) {
+  if (_hasAny(l, [
+    'music',
+    'song',
+    'playlist',
+    'audio',
+    'track',
+    'album',
+    'sound',
+    'podcast',
+  ])) {
     return _TextureKind.wave;
   }
   return null;
@@ -416,7 +509,10 @@ class _TexturePainter extends CustomPainter {
       final yb = h * (0.08 + i * 0.11);
       final path = Path()..moveTo(0, yb);
       for (var x = 0.0; x <= w; x += w / 32) {
-        path.lineTo(x, yb + math.sin(x / w * math.pi * 2 + i * 0.8) * h * 0.045);
+        path.lineTo(
+          x,
+          yb + math.sin(x / w * math.pi * 2 + i * 0.8) * h * 0.045,
+        );
       }
       canvas.drawPath(path, p);
     }
@@ -574,18 +670,15 @@ class _DominantBadge extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: tone,
-            ),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: tone),
           ),
           const SizedBox(width: 7),
           Text(
             'Dominant interest',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: cs.onSurface.withValues(alpha: 0.9),
-                  fontWeight: FontWeight.w600,
-                ),
+              color: cs.onSurface.withValues(alpha: 0.9),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

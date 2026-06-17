@@ -11,6 +11,7 @@ import '../collections/collections_screen.dart';
 import '../mindmap/mindmap_screen.dart';
 import '../search/search_provider.dart';
 import '../search/search_screen.dart';
+import '../../shared/widgets/expressive_fab.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -66,7 +67,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         backgroundColor: cs.surface,
         body: IndexedStack(index: _currentIndex, children: _screens),
         floatingActionButton: _currentIndex == 0 && hasLinks
-            ? FloatingActionButton.extended(
+            ? ExpressiveExtendedFab(
                 onPressed: () {
                   HapticFeedback.lightImpact();
                   context.push('/ask');
@@ -87,7 +88,6 @@ class _MainShellState extends ConsumerState<MainShell> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                elevation: 2,
               )
             : null,
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

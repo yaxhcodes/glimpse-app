@@ -10,11 +10,11 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.stylus,
-        PointerDeviceKind.trackpad,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.trackpad,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,59 +106,104 @@ class AppTheme {
     return TextTheme(
       // ── Space Grotesk — Display / Branding ─────────────────────────────
       displayLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 57, fontWeight: FontWeight.w700, height: 1.12, letterSpacing: -0.25,
+        fontSize: 57,
+        fontWeight: FontWeight.w700,
+        height: 1.12,
+        letterSpacing: -0.25,
       ),
       displayMedium: GoogleFonts.spaceGrotesk(
-        fontSize: 45, fontWeight: FontWeight.w700, height: 1.16, letterSpacing: 0,
+        fontSize: 45,
+        fontWeight: FontWeight.w700,
+        height: 1.16,
+        letterSpacing: 0,
       ),
       displaySmall: GoogleFonts.spaceGrotesk(
-        fontSize: 36, fontWeight: FontWeight.w700, height: 1.2, letterSpacing: 0,
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        height: 1.2,
+        letterSpacing: 0,
       ),
       headlineLarge: GoogleFonts.spaceGrotesk(
-        fontSize: 32, fontWeight: FontWeight.w700, height: 1.2, letterSpacing: 0.32,
+        fontSize: 32,
+        fontWeight: FontWeight.w700,
+        height: 1.2,
+        letterSpacing: 0.32,
       ),
       headlineMedium: GoogleFonts.spaceGrotesk(
-        fontSize: 28, fontWeight: FontWeight.w700, height: 1.2, letterSpacing: 0.28,
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        height: 1.2,
+        letterSpacing: 0.28,
       ),
       headlineSmall: GoogleFonts.spaceGrotesk(
-        fontSize: 24, fontWeight: FontWeight.w600, height: 1.2, letterSpacing: 0.24,
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        letterSpacing: 0.24,
       ),
 
       // ── Inter — Titles ──────────────────────────────────────────────────
       titleLarge: GoogleFonts.inter(
-        fontSize: 20, fontWeight: FontWeight.w600, height: 1.2, letterSpacing: 0,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        letterSpacing: 0,
       ),
       titleMedium: GoogleFonts.inter(
-        fontSize: 18, fontWeight: FontWeight.w600, height: 1.2, letterSpacing: 0,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        letterSpacing: 0,
       ),
       titleSmall: GoogleFonts.inter(
-        fontSize: 16, fontWeight: FontWeight.w600, height: 1.2, letterSpacing: 0,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+        letterSpacing: 0,
       ),
 
       // ── Inter — Body ────────────────────────────────────────────────────
       bodyLarge: GoogleFonts.inter(
-        fontSize: 16, fontWeight: FontWeight.w400, height: 1.4, letterSpacing: 0,
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        height: 1.4,
+        letterSpacing: 0,
       ),
       bodyMedium: GoogleFonts.inter(
-        fontSize: 14, fontWeight: FontWeight.w400, height: 1.4, letterSpacing: 0,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 1.4,
+        letterSpacing: 0,
       ),
       bodySmall: GoogleFonts.inter(
         // metadata: source names, timestamps
-        fontSize: 13, fontWeight: FontWeight.w500, height: 1.3, letterSpacing: 0,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        height: 1.3,
+        letterSpacing: 0,
       ),
 
       // ── Inter / Fira Code — Labels ──────────────────────────────────────
       labelLarge: GoogleFonts.inter(
         // buttons, navigation items
-        fontSize: 14, fontWeight: FontWeight.w500, height: 1.3, letterSpacing: 0,
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        height: 1.3,
+        letterSpacing: 0,
       ),
       labelMedium: GoogleFonts.firaCode(
         // tag chips, technical labels
-        fontSize: 13, fontWeight: FontWeight.w500, height: 1.3, letterSpacing: 0.26,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        height: 1.3,
+        letterSpacing: 0.26,
       ),
       labelSmall: GoogleFonts.firaCode(
         // small source chips, overlays
-        fontSize: 12, fontWeight: FontWeight.w500, height: 1.3, letterSpacing: 0.24,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        height: 1.3,
+        letterSpacing: 0.24,
       ),
     );
   }
@@ -215,22 +260,16 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         surfaceTintColor: colorScheme.surfaceTint.withValues(alpha: 0.35),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
       ),
       dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         elevation: 3,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         elevation: 4,
       ),
       bottomSheetTheme: BottomSheetThemeData(
@@ -251,9 +290,7 @@ class AppTheme {
         subtitleTextStyle: textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       dividerTheme: DividerThemeData(
         color: colorScheme.outlineVariant,
@@ -274,8 +311,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
       chipTheme: ChipThemeData(
         shape: const StadiumBorder(),
@@ -317,9 +356,7 @@ class AppTheme {
         // accent). Keeps every FAB in the app consistent.
         backgroundColor: colorScheme.secondaryContainer,
         foregroundColor: colorScheme.onSecondaryContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 2,
         highlightElevation: 4,
       ),
@@ -359,9 +396,15 @@ class AppTheme {
           );
         }),
       ),
+      // Android 17 / Material 3 Expressive leans on the system predictive-back
+      // animation. PredictiveBackPageTransitionsBuilder renders the OS-driven
+      // back gesture preview on Android 14+ (and falls back to a zoom transition
+      // on older releases or non-gesture navigation). Safe here because every
+      // back-intercepting screen uses PopScope (not the deprecated
+      // WillPopScope), and the manifest opts in via enableOnBackInvokedCallback.
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
         },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/widgets/expressive_tap_scale.dart';
 import 'collection_card.dart';
 import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
@@ -98,21 +99,25 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                             gridDelegate:
                                 const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 224,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.96,
-                            ),
+                                  maxCrossAxisExtent: 224,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.96,
+                                ),
                             itemCount: collections.length,
-                            itemBuilder: (context, i) =>
-                                CollectionCard(summary: collections[i]),
+                            itemBuilder: (context, i) => ExpressiveTapScale(
+                              child: CollectionCard(summary: collections[i]),
+                            ),
                           )
                         : ListView.builder(
                             key: const ValueKey('collections-list'),
                             padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
                             itemCount: collections.length,
-                            itemBuilder: (context, i) =>
-                                CollectionListCard(summary: collections[i]),
+                            itemBuilder: (context, i) => ExpressiveTapScale(
+                              child: CollectionListCard(
+                                summary: collections[i],
+                              ),
+                            ),
                           ),
                   ),
                 ),
@@ -143,10 +148,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
 }
 
 class _LayoutToggle extends StatelessWidget {
-  const _LayoutToggle({
-    required this.value,
-    required this.onChanged,
-  });
+  const _LayoutToggle({required this.value, required this.onChanged});
 
   final _CollectionsLayout value;
   final ValueChanged<_CollectionsLayout> onChanged;

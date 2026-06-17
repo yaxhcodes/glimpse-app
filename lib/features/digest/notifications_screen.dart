@@ -10,6 +10,7 @@ import '../../shared/widgets/notifications/curated_notification_media.dart';
 import '../../shared/widgets/notifications/notification_type_style.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
 import '../../shared/widgets/premium_swipe_card.dart';
+import '../../shared/widgets/expressive_tap_scale.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -385,155 +386,161 @@ class CuratedNotificationListTile extends StatelessWidget {
 
     final secondaryMuted = theme.brightness == Brightness.light ? 0.88 : 0.84;
 
-    return AnimatedContainer(
-      duration: kStateAnim,
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: isRead
-            ? const []
-            : [
-                BoxShadow(
-                  color: cs.shadow.withValues(alpha: 0.1),
-                  blurRadius: 9,
-                  offset: const Offset(0, 2),
-                  spreadRadius: -1,
-                ),
-              ],
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
+    return ExpressiveTapScale(
+      child: AnimatedContainer(
+        duration: kStateAnim,
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: cardColor,
           borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: paddingOuter,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                hero,
-                const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: AnimatedDefaultTextStyle(
-                        duration: kStateAnim,
-                        curve: Curves.easeOutCubic,
-                        style:
-                            (theme.textTheme.titleMedium ?? const TextStyle())
-                                .copyWith(
-                                  fontWeight: titleWeight,
-                                  height: 1.22,
-                                  color: cs.onSurface,
-                                  fontSize:
-                                      (theme.textTheme.titleMedium?.fontSize ??
-                                      16),
-                                ),
-                        child: Text(
-                          topic,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (contextLine.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  AnimatedOpacity(
-                    duration: kStateAnim,
-                    curve: Curves.easeOut,
-                    opacity: isRead ? secondaryMuted : 1.0,
-                    child: Text(
-                      contextLine,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant.withValues(
-                          alpha: isRead ? 0.78 : 1,
-                        ),
-                        height: 1.4,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
+          boxShadow: isRead
+              ? const []
+              : [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.1),
+                    blurRadius: 9,
+                    offset: const Offset(0, 2),
+                    spreadRadius: -1,
                   ),
                 ],
-                if (bundleHint != null) ...[
-                  const SizedBox(height: 4),
-                  AnimatedOpacity(
-                    duration: kStateAnim,
-                    curve: Curves.easeOut,
-                    opacity: isRead ? 0.82 : 1.0,
-                    child: Text(
-                      bundleHint,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        height: 1.3,
-                        fontSize:
-                            (theme.textTheme.bodySmall?.fontSize ?? 12) + 0.75,
-                        fontWeight: FontWeight.w500,
-                        fontStyle: FontStyle.italic,
-                        letterSpacing: 0.15,
-                      ),
-                    ),
-                  ),
-                ],
-                if (stripUrls.isNotEmpty) ...[
-                  SizedBox(
-                    height: bundleHint != null
-                        ? 8
-                        : (contextLine.isNotEmpty ? 10 : 11),
-                  ),
-                  Row(
-                    children: [
-                      for (var i = 0; i < stripUrls.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 6),
-                        CuratedNotificationThumbStripItem(
-                          url: stripUrls[i],
-                          size: 50,
-                          squareRadius: 9,
-                          emphasized: true,
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: cs.outlineVariant.withValues(alpha: 0.32),
-                  ),
-                  const SizedBox(height: 11),
-                ] else ...[
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: paddingOuter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  hero,
                   const SizedBox(height: 16),
-                ],
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _TypeBadge(label: channelLabel),
-                    const Spacer(),
-                    if (formatted.isNotEmpty)
-                      AnimatedOpacity(
-                        duration: kStateAnim,
-                        curve: Curves.easeOut,
-                        opacity: isRead ? 0.78 : 0.92,
-                        child: Text(
-                          formatted,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.12,
-                            color: cs.outline,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AnimatedDefaultTextStyle(
+                          duration: kStateAnim,
+                          curve: Curves.easeOutCubic,
+                          style:
+                              (theme.textTheme.titleMedium ?? const TextStyle())
+                                  .copyWith(
+                                    fontWeight: titleWeight,
+                                    height: 1.22,
+                                    color: cs.onSurface,
+                                    fontSize:
+                                        (theme
+                                            .textTheme
+                                            .titleMedium
+                                            ?.fontSize ??
+                                        16),
+                                  ),
+                          child: Text(
+                            topic,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                  if (contextLine.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    AnimatedOpacity(
+                      duration: kStateAnim,
+                      curve: Curves.easeOut,
+                      opacity: isRead ? secondaryMuted : 1.0,
+                      child: Text(
+                        contextLine,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant.withValues(
+                            alpha: isRead ? 0.78 : 1,
+                          ),
+                          height: 1.4,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
                   ],
-                ),
-              ],
+                  if (bundleHint != null) ...[
+                    const SizedBox(height: 4),
+                    AnimatedOpacity(
+                      duration: kStateAnim,
+                      curve: Curves.easeOut,
+                      opacity: isRead ? 0.82 : 1.0,
+                      child: Text(
+                        bundleHint,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          height: 1.3,
+                          fontSize:
+                              (theme.textTheme.bodySmall?.fontSize ?? 12) +
+                              0.75,
+                          fontWeight: FontWeight.w500,
+                          fontStyle: FontStyle.italic,
+                          letterSpacing: 0.15,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (stripUrls.isNotEmpty) ...[
+                    SizedBox(
+                      height: bundleHint != null
+                          ? 8
+                          : (contextLine.isNotEmpty ? 10 : 11),
+                    ),
+                    Row(
+                      children: [
+                        for (var i = 0; i < stripUrls.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 6),
+                          CuratedNotificationThumbStripItem(
+                            url: stripUrls[i],
+                            size: 50,
+                            squareRadius: 9,
+                            emphasized: true,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: cs.outlineVariant.withValues(alpha: 0.32),
+                    ),
+                    const SizedBox(height: 11),
+                  ] else ...[
+                    const SizedBox(height: 16),
+                  ],
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _TypeBadge(label: channelLabel),
+                      const Spacer(),
+                      if (formatted.isNotEmpty)
+                        AnimatedOpacity(
+                          duration: kStateAnim,
+                          curve: Curves.easeOut,
+                          opacity: isRead ? 0.78 : 0.92,
+                          child: Text(
+                            formatted,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.12,
+                              color: cs.outline,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
