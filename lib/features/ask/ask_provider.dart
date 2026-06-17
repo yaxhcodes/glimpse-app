@@ -109,9 +109,20 @@ class AskState {
 bool _isGreeting(String message) {
   final normalized = message.trim().toLowerCase();
   const greetings = {
-    'hi', 'hey', 'hello', 'hii', 'hiii', 'yo', 'sup',
-    "what's up", 'whats up', 'good morning', 'good evening',
-    'good afternoon', 'howdy', 'greetings',
+    'hi',
+    'hey',
+    'hello',
+    'hii',
+    'hiii',
+    'yo',
+    'sup',
+    "what's up",
+    'whats up',
+    'good morning',
+    'good evening',
+    'good afternoon',
+    'howdy',
+    'greetings',
   };
   return greetings.contains(normalized);
 }
@@ -222,8 +233,8 @@ class AskNotifier extends StateNotifier<AskState> {
         _addBotMessage(
           AppEnvironment.allowsLocalProOverride
               ? 'AI is not configured in this build. '
-                  'Set AI_PROXY_BASE_URL to the Cloudflare Worker proxy; '
-                  '“Force Pro” only unlocks in-app gates, not API access.'
+                    'Set AI_PROXY_BASE_URL to the Cloudflare Worker proxy; '
+                    '“Force Pro” only unlocks in-app gates, not API access.'
               : 'AI is not configured for this build. Please update the app.',
         );
         return;
@@ -246,16 +257,16 @@ class AskNotifier extends StateNotifier<AskState> {
       if (preloadedSources != null && preloadedSources.isNotEmpty) {
         final isPlan = question.toLowerCase().contains('plan');
         final text = isPlan
-            ? await gemini.plan(urls: preloadedSources, originalQuestion: originalQuestion ?? question)
+            ? await gemini.plan(
+                urls: preloadedSources,
+                originalQuestion: originalQuestion ?? question,
+              )
             : await gemini.synthesize(urls: preloadedSources);
 
         await usageService.incrementUsage(UsageFeature.ask);
         _ref.read(usageRevisionProvider.notifier).state++;
 
-        _addBotMessage(
-          text,
-          label: isPlan ? '📋 Plan' : null,
-        );
+        _addBotMessage(text, label: isPlan ? '📋 Plan' : null);
         return;
       }
 
@@ -267,8 +278,7 @@ class AskNotifier extends StateNotifier<AskState> {
       var semanticScored = <MapEntry<SavedUrl, double>>[];
       if (embeddings != null) {
         try {
-          final queryEmbedding =
-              await embeddings.generateEmbedding(question);
+          final queryEmbedding = await embeddings.generateEmbedding(question);
           if (queryEmbedding.isNotEmpty) {
             semanticScored = await isarService.semanticSearchScored(
               queryEmbedding,
@@ -297,30 +307,35 @@ class AskNotifier extends StateNotifier<AskState> {
       // Build conversation history from previous messages, cap at 6 exchanges.
       final history = state.messages
           .where((m) => m.text.trim().isNotEmpty)
-          .map((m) => {
-                'role': m.isUser ? 'User' : 'Glimpse',
-                'content': m.text,
-              })
+          .map(
+            (m) => {'role': m.isUser ? 'User' : 'Glimpse', 'content': m.text},
+          )
           .toList();
-      final recentHistory =
-          history.length > 12 ? history.sublist(history.length - 12) : history;
+      final recentHistory = history.length > 12
+          ? history.sublist(history.length - 12)
+          : history;
 
       final answer = await gemini.chat(
         question: question,
         contextUrls: contextUrls,
         conversationHistory: recentHistory,
+        contextMode: ChatContextMode.retrieved,
       );
 
       final sections = answer.sections
-          .map((section) => ChatMessageSection(
-                heading: section.heading,
-                summary: section.summary,
-                source: contextUrls[section.sourceIndex - 1],
-              ))
+          .map(
+            (section) => ChatMessageSection(
+              heading: section.heading,
+              summary: section.summary,
+              source: contextUrls[section.sourceIndex - 1],
+            ),
+          )
           .toList();
 
       final actionSources = answer.sections
-          .where((s) => s.sourceIndex > 0 && s.sourceIndex <= contextUrls.length)
+          .where(
+            (s) => s.sourceIndex > 0 && s.sourceIndex <= contextUrls.length,
+          )
           .map((s) => contextUrls[s.sourceIndex - 1])
           .toList();
 
@@ -363,8 +378,10 @@ class AskNotifier extends StateNotifier<AskState> {
     if (response.sections.isEmpty) return ChatAction.none;
 
     final q = userQuestion.toLowerCase();
-    if (q.contains('plan') || q.contains('build') ||
-        q.contains('project') || q.contains('weekend')) {
+    if (q.contains('plan') ||
+        q.contains('build') ||
+        q.contains('project') ||
+        q.contains('weekend')) {
       return ChatAction.buildPlan;
     }
 
@@ -384,26 +401,27 @@ class AskNotifier extends StateNotifier<AskState> {
   }) async {
     final history = state.messages
         .where((m) => m.text.trim().isNotEmpty)
-        .map((m) => {
-              'role': m.isUser ? 'User' : 'Glimpse',
-              'content': m.text,
-            })
+        .map((m) => {'role': m.isUser ? 'User' : 'Glimpse', 'content': m.text})
         .toList();
-    final recentHistory =
-        history.length > 12 ? history.sublist(history.length - 12) : history;
+    final recentHistory = history.length > 12
+        ? history.sublist(history.length - 12)
+        : history;
 
     final answer = await gemini.chat(
       question: question,
       contextUrls: contextUrls,
       conversationHistory: recentHistory,
+      contextMode: ChatContextMode.focusedSave,
     );
 
     final sections = answer.sections
-        .map((section) => ChatMessageSection(
-              heading: section.heading,
-              summary: section.summary,
-              source: contextUrls[section.sourceIndex - 1],
-            ))
+        .map(
+          (section) => ChatMessageSection(
+            heading: section.heading,
+            summary: section.summary,
+            source: contextUrls[section.sourceIndex - 1],
+          ),
+        )
         .toList();
     final sources = answer.sections
         .where((s) => s.sourceIndex > 0 && s.sourceIndex <= contextUrls.length)
