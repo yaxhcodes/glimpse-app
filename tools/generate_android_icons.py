@@ -12,8 +12,8 @@ Outputs (relative to project root):
 The script does not modify the source pixels other than:
     - cropping the launcher PNG to its non-transparent bounding box
     - resizing (high-quality LANCZOS) to target densities
-No background removal, no recoloring, no padding tricks beyond the
-72 percent inset documented in the spec.
+No background removal or recoloring. Launcher artwork is scaled with enough
+transparent margin to sit naturally beside other Android adaptive icons.
 """
 
 from __future__ import annotations
@@ -42,20 +42,24 @@ MONO_SVG = ASSETS_DIR / "mono.svg"
 
 LAUNCHER_BG_HEX = "#F5F4F0"
 
-# Adaptive icon foreground inset: character occupies 72% of the canvas.
-FOREGROUND_SCALE = 0.72
+# Launcher artwork scale. The source mascot is tall with a top ring and lower
+# tail, so a 72% max-dimension scale reads oversized in Android launchers.
+LAUNCHER_ARTWORK_SCALE = 0.60
 
 # Android density buckets for launcher icons (mipmap-*).
-# Per Android adaptive icon spec the foreground/background layers are 108dp,
-# but Flutter projects historically ship the legacy 48dp launcher size in
-# mipmap-* and let the system rescale. The user explicitly asked for
-# 48/72/96/144/192 px, so we match that.
+# Legacy launcher bitmap size is 48dp. Adaptive foreground/background layers
+# are 108dp and must not share the smaller legacy dimensions.
 LAUNCHER_DENSITIES = {
     "mdpi": 48,
     "hdpi": 72,
     "xhdpi": 96,
     "xxhdpi": 144,
     "xxxhdpi": 192,
+}
+
+ADAPTIVE_LAYER_DENSITIES = {
+    density: int(round(size * 108 / 48))
+    for density, size in LAUNCHER_DENSITIES.items()
 }
 
 NOTIFICATION_DENSITIES = {
@@ -135,21 +139,38 @@ def generate_launcher_icons(glimpse: Image.Image) -> None:
     print("\n[1/5] Generating mipmap launcher icons...")
     for density, size in LAUNCHER_DENSITIES.items():
         mipmap_dir = OUT_RES / f"mipmap-{density}"
+        adaptive_size = ADAPTIVE_LAYER_DENSITIES[density]
 
-        foreground = fit_centered(glimpse, size, FOREGROUND_SCALE)
+        foreground = fit_centered(
+            glimpse,
+            adaptive_size,
+            LAUNCHER_ARTWORK_SCALE,
+        )
         background = make_solid_background(size, LAUNCHER_BG_HEX)
-        composed = composite(foreground, background)
+        legacy_foreground = fit_centered(
+            glimpse,
+            size,
+            LAUNCHER_ARTWORK_SCALE,
+        )
+        composed = composite(legacy_foreground, background)
 
         write_png(foreground, mipmap_dir / "ic_launcher_foreground.png")
         write_png(background, mipmap_dir / "ic_launcher_background.png")
         write_png(composed, mipmap_dir / "ic_launcher.png")
         write_png(composed, mipmap_dir / "ic_launcher_round.png")
-        print(f"  mipmap-{density:<8} {size:>3}px -> 4 files")
+        print(
+            f"  mipmap-{density:<8} legacy {size:>3}px, "
+            f"adaptive {adaptive_size:>3}px -> 4 files"
+        )
 
 
 def generate_play_store_icon(glimpse: Image.Image) -> None:
     print("\n[2/5] Generating Play Store 512x512 icon...")
-    foreground = fit_centered(glimpse, PLAY_STORE_SIZE, FOREGROUND_SCALE)
+    foreground = fit_centered(
+        glimpse,
+        PLAY_STORE_SIZE,
+        LAUNCHER_ARTWORK_SCALE,
+    )
     background = make_solid_background(PLAY_STORE_SIZE, LAUNCHER_BG_HEX)
     composed = composite(foreground, background)
     out_path = OUT_RES.parent / "play_store_icon_512x512.png"
@@ -230,8 +251,6 @@ def generate_xml_resources() -> None:
 def main() -> None:
     print(f"Project root : {PROJECT_ROOT}")
     print(f"Output res/  : {OUT_RES.relative_to(PROJECT_ROOT)}")
-    if OUT_RES.exists():
-        shutil.rmtree(OUT_RES)
     OUT_RES.mkdir(parents=True, exist_ok=True)
 
     glimpse = load_cropped_glimpse()
