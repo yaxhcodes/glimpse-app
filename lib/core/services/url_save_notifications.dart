@@ -87,6 +87,24 @@ class UrlSaveNotifications {
     );
   }
 
+  static Future<void> showCaptureFailed(SavedUrl url) {
+    const title = "Couldn't finish enrichment";
+    const body = 'Tap to retry this save.';
+    final payload = _urlPayload(
+      type: 'url_capture_failed',
+      url: url,
+      title: title,
+      body: body,
+    );
+
+    return DigestNotifications.show(
+      type: NotifType.resurface,
+      title: title,
+      body: body,
+      payloadJson: jsonEncode(payload),
+    );
+  }
+
   static Map<String, dynamic> _urlPayload({
     required String type,
     required SavedUrl url,

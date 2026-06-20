@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/url_processing_status.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/category_taxonomy.dart';
@@ -621,6 +622,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _notesEdited = false;
   bool _tagsExpanded = false;
   bool _showExactSavedDate = false;
+  bool _retryingEnrichment = false;
   String? _localNotesOverride;
   // Reflects the intent chip the user just tapped, before the provider refetches
   // (avoids reloading the whole detail body just to flip a chip's set-state).
@@ -865,6 +867,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
+  }
+
+  Future<void> _retryEnrichment() async {
+    if (_retryingEnrichment) return;
+    setState(() => _retryingEnrichment = true);
+    final success = await ref
+        .read(urlDetailNotifierProvider.notifier)
+        .retryEnrichment(widget.urlId);
+    if (!mounted) return;
+    setState(() => _retryingEnrichment = false);
+    ref.invalidate(urlDetailProvider(widget.urlId));
+    _showSnack(success ? 'Retrying enrichment' : 'Could not retry enrichment');
   }
 
   Future<void> _deleteUrl() async {
@@ -1696,6 +1710,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               theme: theme,
             ),
 
+            if (url.processingStatus == UrlProcessingStatus.failed) ...[
+              const SizedBox(height: 12),
+              _buildEnrichmentFailedPanel(theme, colorScheme),
+            ],
+
             if (metadata.hasSocialRow) ...[
               const SizedBox(height: 10),
               _buildSocialMetricsRow(
@@ -1808,6 +1827,48 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             borderRadius: BorderRadius.circular(14),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEnrichmentFailedPanel(ThemeData theme, ColorScheme colorScheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline_rounded, color: colorScheme.error, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Couldn't finish enrichment",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onErrorContainer,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _retryingEnrichment ? null : _retryEnrichment,
+            icon: _retryingEnrichment
+                ? SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.error,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }

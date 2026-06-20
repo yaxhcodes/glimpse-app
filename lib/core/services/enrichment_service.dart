@@ -86,23 +86,14 @@ class EnrichmentService {
       name: 'Enrichment',
     );
 
-    // Phase 1: AI categorization + summary (concurrency 2)
-    final aiSemaphore = _Semaphore(2);
-    final aiFutures = <Future<void>>[];
+    // Run each save through the same guarded state machine used by single
+    // saves, so a failed AI phase cannot be followed by a raw READY save.
+    final saveSemaphore = _Semaphore(2);
+    final futures = <Future<void>>[];
     for (final id in urlIds) {
-      aiFutures.add(_runWithSemaphore(aiSemaphore, () => _enrichAi(id)));
+      futures.add(_runWithSemaphore(saveSemaphore, () => enrichSingle(id)));
     }
-    await Future.wait(aiFutures, eagerError: false);
-
-    // Phase 2: Embeddings (concurrency 2)
-    final embSemaphore = _Semaphore(2);
-    final embFutures = <Future<void>>[];
-    for (final id in urlIds) {
-      embFutures.add(
-        _runWithSemaphore(embSemaphore, () => _enrichEmbedding(id)),
-      );
-    }
-    await Future.wait(embFutures, eagerError: false);
+    await Future.wait(futures, eagerError: false);
 
     developer.log('enrichBatch COMPLETE', name: 'Enrichment');
 
@@ -130,6 +121,14 @@ class EnrichmentService {
       );
     }
     final afterAi = await _isarService.getUrlById(urlId);
+    if (afterAi?.processingStatus == UrlProcessingStatus.failed) {
+      developer.log(
+        'enrichSingle STOP: AI phase left save failed for $urlId',
+        name: 'Enrichment',
+      );
+      _onEnriched?.call();
+      return;
+    }
     if (afterAi != null &&
         afterAi.processingStatus != UrlProcessingStatus.generatingEmbeddings &&
         afterAi.processingStatus != UrlProcessingStatus.ready &&
@@ -146,24 +145,32 @@ class EnrichmentService {
       await _markProcessing(
         urlId,
         UrlProcessingStatus.generatingEmbeddings,
+        error: afterAi?.processingError == 'ai_limit_reached'
+            ? 'ai_limit_reached'
+            : null,
         stage: 'EMBEDDING_GENERATION_STARTED',
       );
       await _enrichEmbedding(urlId, force: forceEmbedding);
       final afterEmbedding = await _isarService.getUrlById(urlId);
-      final hasEmbedding =
-          afterEmbedding?.embedding != null &&
-          afterEmbedding!.embedding!.isNotEmpty;
-      if (hasEmbedding) {
+      final hasPresentableEnrichment =
+          afterEmbedding != null && _hasPresentableEnrichment(afterEmbedding);
+      final hasAiEnrichment =
+          afterEmbedding != null && _hasAiEnrichment(afterEmbedding);
+      final allowedNonAiFallback =
+          afterEmbedding?.processingError == 'ai_limit_reached' &&
+          hasPresentableEnrichment;
+      if (hasAiEnrichment || allowedNonAiFallback) {
         await _markProcessing(
           urlId,
           UrlProcessingStatus.ready,
+          error: allowedNonAiFallback ? 'ai_limit_reached' : null,
           stage: 'SAVE_COMPLETED',
         );
       } else {
         await _markProcessing(
           urlId,
           UrlProcessingStatus.failed,
-          error: 'embedding_generation_failed',
+          error: 'ai_enrichment_missing',
           stage: 'SAVE_FAILED',
         );
       }
@@ -326,10 +333,10 @@ class EnrichmentService {
     final recipeAlreadyEnhanced =
         savedRecipe != null && !_recipeNeedsEnhancement(savedRecipe);
 
-    // Skip if already AI-categorized (not just domain fallback)
+    // Skip only when a real AI envelope exists. Metadata title/description can
+    // look stable while still being a raw bookmark.
     if (!force &&
-        (url.category != platformCat.category || _hasStableEnrichment(url)) &&
-        url.summary != null &&
+        _hasAiEnrichment(url) &&
         (savedRecipe == null || recipeAlreadyEnhanced)) {
       developer.log(
         '_enrichAi SKIP (already enriched): ${url.rawUrl}',
@@ -362,7 +369,7 @@ class EnrichmentService {
     );
     final transcriptResult =
         !aiLimitReached && _transcriptEnrichmentService != null
-        ? await _enrichTranscriptWithRetries(url)
+        ? await _enrichTranscriptWithRetries(url, forceRefresh: force)
         : null;
 
     // Genuine media-extraction failure (NOT a quota issue): stop here — the
@@ -521,9 +528,16 @@ class EnrichmentService {
         category = result.category;
         emoji = result.emoji;
         tags = result.tags;
-        summary = result.summary.isNotEmpty
-            ? result.summary
-            : _metadataFallbackSummary(url);
+        summary = result.summary.trim();
+        if (!_isValidAiSummary(summary) || tags.isEmpty) {
+          await _markProcessing(
+            urlId,
+            UrlProcessingStatus.failed,
+            error: 'gemini_returned_low_quality_result',
+            stage: 'SAVE_FAILED',
+          );
+          return;
+        }
         if (countUsage) {
           await _usageService.incrementUsage(UsageFeature.aiSave);
         }
@@ -533,17 +547,30 @@ class EnrichmentService {
           name: 'Enrichment',
           stackTrace: st,
         );
-        category = platformCat.category;
-        emoji = platformCat.emoji;
-        tags = _metadataFallbackTags(url, platformCat.tags);
-        summary = _metadataFallbackSummary(url);
+        await _markProcessing(
+          urlId,
+          UrlProcessingStatus.failed,
+          error: 'gemini_enrichment_failed',
+          stage: 'SAVE_FAILED',
+        );
+        return;
       }
     } else {
-      if (_geminiService == null) {
+      if (_geminiService == null && !aiLimitReached && !mediaRequiresEvidence) {
         developer.log(
-          '_enrichAi SKIP: GeminiService is null',
+          '_enrichAi FAILED: GeminiService is null for eligible save',
           name: 'Enrichment',
         );
+        await _markProcessing(
+          urlId,
+          UrlProcessingStatus.failed,
+          error: 'gemini_unavailable',
+          stage: 'SAVE_FAILED',
+        );
+        return;
+      }
+      if (_geminiService == null) {
+        developer.log('_enrichAi SKIP: GeminiService is null', name: 'Enrichment');
       }
       category = platformCat.category;
       emoji = platformCat.emoji;
@@ -597,6 +624,26 @@ class EnrichmentService {
     }
     freshUrl.tags = enrichedTags;
     freshUrl.summary = summary;
+    if (enrichmentJson == null &&
+        !aiLimitReached &&
+        !mediaRequiresEvidence &&
+        summary?.trim().isNotEmpty == true) {
+      enrichmentJson = jsonEncode(
+        TranscriptEnrichmentResult(
+          meaningfulTitle: TitleResolver.isLowSignalTitle(
+            freshUrl.title,
+            domain: freshUrl.domain,
+          )
+              ? ''
+              : freshUrl.title,
+          summary: summary!,
+          category: category,
+          tags: enrichedTags,
+          contentType: 'generic',
+          thumbnailUrl: freshUrl.thumbnailUrl,
+        ).toJson(),
+      );
+    }
     if (enrichmentJson != null && enrichmentJson.isNotEmpty) {
       freshUrl.enrichmentJson = enrichmentJson;
     }
@@ -606,6 +653,7 @@ class EnrichmentService {
     await _markProcessing(
       freshUrl.id,
       UrlProcessingStatus.generatingEmbeddings,
+      error: aiLimitReached ? 'ai_limit_reached' : null,
       stage: 'RECOMMENDATION_COMPLETED',
       fields: {
         'tag_count': enrichedTags.length,
@@ -619,8 +667,9 @@ class EnrichmentService {
   }
 
   Future<TranscriptEnrichmentResult?> _enrichTranscriptWithRetries(
-    SavedUrl url,
-  ) async {
+    SavedUrl url, {
+    required bool forceRefresh,
+  }) async {
     final processingId = url.processingId ?? 'url-${url.id}';
     TranscriptEnrichmentException? lastError;
 
@@ -663,6 +712,7 @@ class EnrichmentService {
           saveId: url.id.toString(),
           processingId: processingId,
           attempt: attempt,
+          forceRefresh: forceRefresh || attempt > 1,
         );
         if (result != null && result.hasReliableMediaEvidence) {
           await _markProcessing(
@@ -852,13 +902,33 @@ class EnrichmentService {
     return 'Medium';
   }
 
-  bool _hasStableEnrichment(SavedUrl url) {
-    final title = url.title.trim();
+  bool _hasPresentableEnrichment(SavedUrl url) {
+    if ((url.enrichmentJson ?? '').trim().isNotEmpty) return true;
     final summary = url.summary?.trim() ?? '';
-    if (summary.length < 24) return false;
-    if (TitleResolver.isLowSignalTitle(title, domain: url.domain)) return false;
-    if (title.toLowerCase() == url.domain.toLowerCase()) return false;
-    return true;
+    if (summary.length >= 24) return true;
+    return false;
+  }
+
+  bool _hasAiEnrichment(SavedUrl url) {
+    final result = _savedEnrichment(url);
+    if (result == null) return false;
+    if (result.recipe?.hasUsefulContent == true) return true;
+    if (result.mentions.isNotEmpty || result.steps.isNotEmpty) return true;
+    if (result.keyPoints.isNotEmpty) return true;
+    return _isValidAiSummary(result.summary) && result.tags.isNotEmpty;
+  }
+
+  bool _isValidAiSummary(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.length < 40) return false;
+    if (RegExp(
+      r'^saved item titled|^saved\s+\w+\s+from|add notes or refresh metadata',
+      caseSensitive: false,
+    ).hasMatch(text)) {
+      return false;
+    }
+    return text.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length >=
+        8;
   }
 
   Iterable<String> _candidatePhrases(String text) sync* {

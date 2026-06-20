@@ -292,6 +292,9 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         if (enriched != null &&
             enriched.processingStatus == UrlProcessingStatus.ready) {
           await UrlSaveNotifications.showCaptureReady(enriched);
+        } else if (enriched != null &&
+            enriched.processingStatus == UrlProcessingStatus.failed) {
+          await UrlSaveNotifications.showCaptureFailed(enriched);
         }
       }
       developer.log('_findAndEnrich DONE: $normalizedUrl', name: 'AddUrl');

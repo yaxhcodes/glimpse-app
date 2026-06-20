@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/url_processing_status.dart';
 import '../../core/providers/service_providers.dart';
 
 /// Provider for a single URL detail by ID.
@@ -44,6 +45,41 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
       }
       url.userNotes = notes;
       await isarService.updateUrl(url);
+      state = const AsyncData(null);
+      return true;
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
+      return false;
+    }
+  }
+
+  Future<bool> retryEnrichment(int id) async {
+    state = const AsyncLoading();
+    try {
+      final isarService = _ref.read(isarServiceProvider);
+      final url = await isarService.getUrlById(id);
+      if (url == null) {
+        state = AsyncError('URL not found', StackTrace.current);
+        return false;
+      }
+
+      final hasSavedAiPayload =
+          (url.enrichmentJson ?? '').trim().isNotEmpty ||
+          (url.summary ?? '').trim().isNotEmpty;
+      url
+        ..processingStatus = UrlProcessingStatus.queued
+        ..processingError = null
+        ..processingUpdatedAt = DateTime.now();
+      await isarService.updateUrl(url);
+
+      final enricher = _ref.read(enrichmentServiceProvider)();
+      await enricher.enrichMetadata(id);
+      await enricher.enrichSingle(
+        id,
+        forceAi: true,
+        forceEmbedding: true,
+        countAiUsage: !hasSavedAiPayload,
+      );
       state = const AsyncData(null);
       return true;
     } catch (e, stack) {

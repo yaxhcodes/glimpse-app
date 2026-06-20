@@ -10,6 +10,7 @@ import '../../core/services/category_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../features/home/home_provider.dart';
+import '../../features/url_detail/url_detail_provider.dart';
 import 'expressive_tap_scale.dart';
 import 'link_card_thumbnail.dart';
 import 'tag_group.dart' show tagChipColors;
@@ -171,6 +172,8 @@ class UrlCard extends ConsumerStatefulWidget {
 }
 
 class _UrlCardState extends ConsumerState<UrlCard> {
+  bool _retryingEnrichment = false;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -381,6 +384,10 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                           _EnrichmentProgressPill(
                             sourceName: displaySourceName,
                             failed: isProcessingFailed,
+                            retrying: _retryingEnrichment,
+                            onRetry: isProcessingFailed
+                                ? () => _retryEnrichment(context)
+                                : null,
                           ),
                         ],
                       ],
@@ -429,6 +436,27 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     if (source.toLowerCase() == 'youtube') return 'Reading YouTube video';
     if (source.toLowerCase() == 'tiktok') return 'Reading TikTok video';
     return 'Reading $source';
+  }
+
+  Future<void> _retryEnrichment(BuildContext context) async {
+    if (_retryingEnrichment) return;
+    setState(() => _retryingEnrichment = true);
+    final success = await ref
+        .read(urlDetailNotifierProvider.notifier)
+        .retryEnrichment(widget.savedUrl.id);
+    if (!mounted) return;
+    setState(() => _retryingEnrichment = false);
+    ref.invalidate(urlStreamProvider);
+    ref.invalidate(categoriesProvider);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Retrying enrichment' : 'Could not retry'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 
   void _showActions(BuildContext context) {
@@ -487,10 +515,14 @@ class _EnrichmentProgressPill extends StatelessWidget {
   const _EnrichmentProgressPill({
     required this.sourceName,
     required this.failed,
+    required this.retrying,
+    this.onRetry,
   });
 
   final String sourceName;
   final bool failed;
+  final bool retrying;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -539,6 +571,30 @@ class _EnrichmentProgressPill extends StatelessWidget {
               ),
             ),
           ),
+          if (failed && onRetry != null) ...[
+            const SizedBox(width: 4),
+            TextButton.icon(
+              onPressed: retrying ? null : onRetry,
+              icon: retrying
+                  ? SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: cs.error,
+                      ),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 14),
+              label: const Text('Retry'),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: cs.error,
+              ),
+            ),
+          ],
         ],
       ),
     );

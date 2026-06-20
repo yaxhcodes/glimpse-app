@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../core/models/url_processing_status.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/domain_categorizer.dart';
@@ -248,6 +249,11 @@ class BatchSaveNotifier extends StateNotifier<BatchSaveState> {
           )
           ..tags = tags
           ..summary = null
+          ..processingStatus = UrlProcessingStatus.queued
+          ..processingId = '${state.sessionId}-${savedIds.length + 1}'
+          ..processingAttempt = 0
+          ..processingUpdatedAt = DateTime.now()
+          ..processingError = null
           ..savedAt = DateTime.now()
           ..embedding = null
           ..saveSessionId = state.sessionId;

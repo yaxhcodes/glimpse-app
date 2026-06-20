@@ -59,10 +59,36 @@ class TranscriptEnrichmentResult {
 
   bool get hasReliableMediaEvidence =>
       _isMeaningfulEvidence(transcript, minChars: 80, minWords: 12) ||
+      (caption?.trim().isNotEmpty ?? false) ||
       _isMeaningfulEvidence(ocrText, minChars: 40, minWords: 6) ||
+      (creator?.trim().isNotEmpty == true && thumbnailUrl?.trim().isNotEmpty == true) ||
       mentions.isNotEmpty ||
       (recipe?.ingredients.isNotEmpty == true) ||
       (recipe?.steps.isNotEmpty == true);
+
+  bool get hasStructuredEnrichment {
+    if (mentions.isNotEmpty ||
+        steps.isNotEmpty ||
+        keyPoints.isNotEmpty ||
+        (recipe?.hasUsefulContent ?? false)) {
+      return true;
+    }
+    final cleanedSummary = summary.trim();
+    if (!_isMeaningfulEvidence(cleanedSummary, minChars: 40, minWords: 8)) {
+      return false;
+    }
+    final rawEvidence = [
+      caption,
+      transcript,
+      ocrText,
+    ].whereType<String>().map((item) => item.trim()).where((item) {
+      return item.isNotEmpty;
+    });
+    for (final evidence in rawEvidence) {
+      if (_sameLooseText(cleanedSummary, evidence)) return false;
+    }
+    return tags.isNotEmpty;
+  }
 
   TranscriptEnrichmentResult copyWith({
     String? meaningfulTitle,
@@ -198,6 +224,21 @@ class TranscriptEnrichmentResult {
         .where((word) => word.length >= 2)
         .length;
     return words >= minWords;
+  }
+
+  static bool _sameLooseText(String a, String b) {
+    String normalize(String value) => value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    final left = normalize(a);
+    final right = normalize(b);
+    if (left.isEmpty || right.isEmpty) return false;
+    return left == right ||
+        (right.length > 80 && left.length > 80 && right.startsWith(left)) ||
+        (left.length > 80 && right.length > 80 && left.startsWith(right));
   }
 }
 
@@ -842,7 +883,7 @@ class TranscriptEnrichmentService {
     return Dio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 90),
+        receiveTimeout: const Duration(seconds: 180),
         sendTimeout: const Duration(seconds: 10),
         headers: const {'Content-Type': 'application/json'},
         responseType: ResponseType.json,
@@ -908,14 +949,21 @@ class TranscriptEnrichmentService {
     String? saveId,
     String? processingId,
     int attempt = 1,
+    bool forceRefresh = false,
   }) async {
     if (!supportsUrl(rawUrl)) return null;
     final cacheKey = _cacheKeyForUrl(rawUrl);
+    if (forceRefresh) {
+      _memoryCache.remove(cacheKey);
+      await _removePersisted(cacheKey);
+    }
     final cached = _memoryCache[cacheKey];
-    if (_isAcceptableCachedResult(rawUrl, cached)) return cached;
+    if (!forceRefresh && _isAcceptableCachedResult(rawUrl, cached)) {
+      return cached;
+    }
     if (cached != null) _memoryCache.remove(cacheKey);
     final persisted = await _readPersisted(cacheKey);
-    if (persisted != null) {
+    if (!forceRefresh && persisted != null) {
       if (_isAcceptableCachedResult(rawUrl, persisted)) {
         _memoryCache[cacheKey] = persisted;
         return persisted;
@@ -928,11 +976,16 @@ class TranscriptEnrichmentService {
       final requestData = <String, dynamic>{
         'url': rawUrl,
         'attempt': attempt,
+        'ignore_failed_cache': true,
         'title': title,
         'description': description,
         'thumbnailUrl': thumbnailUrl,
         'domain': domain,
       };
+      if (forceRefresh) {
+        requestData['force_refresh'] = true;
+        requestData['no_cache'] = true;
+      }
       if (saveId != null) requestData['save_id'] = saveId;
       if (processingId != null) requestData['processing_id'] = processingId;
       final response = await _dio.post<dynamic>(
@@ -1012,7 +1065,9 @@ class TranscriptEnrichmentService {
       );
 
       if (!result.hasUsefulContent ||
-          (supportsUrl(rawUrl) && !result.hasReliableMediaEvidence)) {
+          (supportsUrl(rawUrl) &&
+              (!result.hasReliableMediaEvidence ||
+                  !result.hasStructuredEnrichment))) {
         throw const TranscriptEnrichmentException(
           'backend_returned_low_quality_evidence',
         );
@@ -1046,7 +1101,10 @@ class TranscriptEnrichmentService {
     TranscriptEnrichmentResult? result,
   ) {
     if (result == null || !result.hasUsefulContent) return false;
-    if (supportsUrl(rawUrl) && !result.hasReliableMediaEvidence) return false;
+    if (supportsUrl(rawUrl) &&
+        (!result.hasReliableMediaEvidence || !result.hasStructuredEnrichment)) {
+      return false;
+    }
     return true;
   }
 
