@@ -14,6 +14,11 @@ The script does not modify the source pixels other than:
     - resizing (high-quality LANCZOS) to target densities
 No background removal or recoloring. Launcher artwork is scaled with enough
 transparent margin to sit naturally beside other Android adaptive icons.
+The themed launcher icon uses the same artwork placement as the adaptive
+foreground, but converts the primary blue artwork pixels into a white alpha
+mask for Android 13+ Material You launcher tinting. The white eye and darker
+blue interior linework are cut out so the themed icon keeps the app mark's
+eye and inner outline detail.
 """
 
 from __future__ import annotations
@@ -136,7 +141,7 @@ def write_png(img: Image.Image, path: Path) -> None:
 
 
 def generate_launcher_icons(glimpse: Image.Image) -> None:
-    print("\n[1/5] Generating mipmap launcher icons...")
+    print("\n[1/6] Generating mipmap launcher icons...")
     for density, size in LAUNCHER_DENSITIES.items():
         mipmap_dir = OUT_RES / f"mipmap-{density}"
         adaptive_size = ADAPTIVE_LAYER_DENSITIES[density]
@@ -164,8 +169,55 @@ def generate_launcher_icons(glimpse: Image.Image) -> None:
         )
 
 
+def is_eye_cutout_pixel(red: int, green: int, blue: int) -> bool:
+    return min(red, green, blue) >= 220 and max(red, green, blue) - min(
+        red, green, blue
+    ) <= 36
+
+
+def is_inner_outline_cutout_pixel(red: int, green: int, blue: int) -> bool:
+    return red <= 58 and green <= 105 and blue >= 180
+
+
+def load_cropped_themed_launcher_mask(glimpse: Image.Image) -> Image.Image:
+    mask_alpha = Image.new("L", glimpse.size, 0)
+    src = glimpse.load()
+    dest = mask_alpha.load()
+    for y in range(glimpse.height):
+        for x in range(glimpse.width):
+            red, green, blue, alpha = src[x, y]
+            if (
+                alpha > 0
+                and not is_eye_cutout_pixel(red, green, blue)
+                and not is_inner_outline_cutout_pixel(red, green, blue)
+            ):
+                dest[x, y] = alpha
+
+    mask = Image.new("RGBA", glimpse.size, (255, 255, 255, 0))
+    mask.putalpha(mask_alpha)
+    bbox = mask.getbbox()
+    if bbox is None:
+        raise RuntimeError("glimpse.png themed icon mask appears to be empty")
+    cropped = mask.crop(bbox)
+    print(
+        f"  themed mask: source {glimpse.size}, cropped to bbox {bbox} -> "
+        f"{cropped.size}"
+    )
+    return cropped
+
+
+def generate_themed_launcher_icons(themed_mask: Image.Image) -> None:
+    print("\n[2/6] Generating Material You themed launcher masks...")
+    for density, size in ADAPTIVE_LAYER_DENSITIES.items():
+        drawable_dir = OUT_RES / f"drawable-{density}"
+        themed = fit_centered(themed_mask, size, LAUNCHER_ARTWORK_SCALE)
+        themed.putalpha(themed.getchannel("A"))
+        write_png(themed, drawable_dir / "ic_launcher_monochrome.png")
+        print(f"  drawable-{density:<8} {size:>3}px -> ic_launcher_monochrome.png")
+
+
 def generate_play_store_icon(glimpse: Image.Image) -> None:
-    print("\n[2/5] Generating Play Store 512x512 icon...")
+    print("\n[3/6] Generating Play Store 512x512 icon...")
     foreground = fit_centered(
         glimpse,
         PLAY_STORE_SIZE,
@@ -181,7 +233,7 @@ def generate_play_store_icon(glimpse: Image.Image) -> None:
 def generate_splash_source(glimpse: Image.Image) -> None:
     """Render the splash source PNG for flutter_native_splash. Padded so the
     character fits comfortably inside Android 12's circular safe zone."""
-    print("\n[3/5] Generating splash source for flutter_native_splash...")
+    print("\n[4/6] Generating splash source for flutter_native_splash...")
     splash = fit_centered(glimpse, SPLASH_CANVAS, SPLASH_SCALE)
     write_png(splash, SPLASH_OUT)
     print(
@@ -192,7 +244,7 @@ def generate_splash_source(glimpse: Image.Image) -> None:
 
 
 def generate_notification_icons() -> None:
-    print("\n[4/5] Generating drawable notification icons...")
+    print("\n[5/6] Generating drawable notification icons...")
     svg_bytes = MONO_SVG.read_bytes()
     for density, size in NOTIFICATION_DENSITIES.items():
         drawable_dir = OUT_RES / f"drawable-{density}"
@@ -219,6 +271,7 @@ ADAPTIVE_ICON_XML = """<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
 </adaptive-icon>
 """
 
@@ -230,7 +283,7 @@ LAUNCHER_BG_XML = """<?xml version="1.0" encoding="utf-8"?>
 
 
 def generate_xml_resources() -> None:
-    print("\n[5/5] Generating XML resources...")
+    print("\n[6/6] Generating XML resources...")
     anydpi = OUT_RES / "mipmap-anydpi-v26"
     anydpi.mkdir(parents=True, exist_ok=True)
     (anydpi / "ic_launcher.xml").write_text(ADAPTIVE_ICON_XML, encoding="utf-8")
@@ -254,7 +307,9 @@ def main() -> None:
     OUT_RES.mkdir(parents=True, exist_ok=True)
 
     glimpse = load_cropped_glimpse()
+    themed_mask = load_cropped_themed_launcher_mask(glimpse)
     generate_launcher_icons(glimpse)
+    generate_themed_launcher_icons(themed_mask)
     generate_play_store_icon(glimpse)
     generate_splash_source(glimpse)
     generate_notification_icons()
