@@ -15,6 +15,15 @@ class AppScrollBehavior extends MaterialScrollBehavior {
     PointerDeviceKind.stylus,
     PointerDeviceKind.trackpad,
   };
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
