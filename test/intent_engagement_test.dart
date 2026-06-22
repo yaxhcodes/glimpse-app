@@ -223,6 +223,58 @@ void main() {
       expect(dive.unread, greaterThanOrEqualTo(6));
     });
 
+    test('ignores social platform tags when forming notification clusters', () {
+      final urls = [
+        for (var i = 0; i < 7; i++)
+          _url(
+            id: i + 1,
+            categories: ['Instagram'],
+            tags: ['social', 'instagram'],
+            savedAt: now.subtract(Duration(days: 8 + i)),
+          ),
+        for (var i = 0; i < 6; i++)
+          _url(
+            id: 20 + i,
+            categories: ['Education'],
+            tags: ['education', 'philosophy'],
+          ),
+      ];
+      final clusters = TagAnalyzer.computeClusters(urls);
+      expect(clusters.map((c) => c.name), isNot(contains('social')));
+
+      final dive = UserFingerprint.selectDeepDive(urls, clusters, now);
+      expect(dive.name, isNot('social'));
+      expect(dive.name, isNot('Instagram'));
+      expect(dive.tags, containsAll(['education', 'philosophy']));
+    });
+
+    test('does not use social platforms as deep-dive category fallback', () {
+      final urls = [
+        for (var i = 0; i < 8; i++)
+          _url(
+            id: i + 1,
+            categories: ['Instagram'],
+            tags: ['social'],
+            savedAt: now.subtract(Duration(days: 10 + i)),
+          ),
+        for (var i = 0; i < 6; i++)
+          _url(
+            id: 20 + i,
+            categories: ['Travel'],
+            tags: ['unique$i'],
+            savedAt: now.subtract(Duration(days: 10 + i)),
+          ),
+      ];
+      final dive = UserFingerprint.selectDeepDive(
+        urls,
+        TagAnalyzer.computeClusters(urls),
+        now,
+      );
+
+      expect(dive.name, 'Travel');
+      expect(dive.category, 'Travel');
+    });
+
     test('excludes read and done saves from the pile', () {
       final urls = [
         for (var i = 0; i < 4; i++) _url(id: i + 1, categories: ['Travel']),

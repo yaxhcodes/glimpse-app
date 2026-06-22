@@ -5,8 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/saved_url.dart';
+import '../../core/providers/service_providers.dart';
 import '../../core/services/link_preview_service.dart';
+import '../../core/services/summary_trimmer.dart';
+import '../../core/services/title_resolver.dart';
 import '../../core/utils/url_extractor.dart';
+import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import 'add_url_provider.dart';
 
@@ -355,16 +360,9 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                     if (state.status == AddUrlStatus.error &&
                         state.errorMessage != null) ...[
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          state.errorMessage!,
-                          style: TextStyle(color: colorScheme.onErrorContainer),
-                        ),
+                      _DuplicateSaveNotice(
+                        message: state.errorMessage!,
+                        savedUrlId: state.savedUrlId,
                       ),
                     ],
 
@@ -391,6 +389,167 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DuplicateSaveNotice extends ConsumerWidget {
+  const _DuplicateSaveNotice({
+    required this.message,
+    required this.savedUrlId,
+  });
+
+  final String message;
+  final int? savedUrlId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final id = savedUrlId;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            message,
+            style: TextStyle(
+              color: colorScheme.onErrorContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (id != null) ...[
+            const SizedBox(height: 12),
+            FutureBuilder<SavedUrl?>(
+              future: ref.read(isarServiceProvider).getUrlById(id),
+              builder: (context, snapshot) {
+                final url = snapshot.data;
+                if (url == null) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return _DuplicatePreviewShell(
+                      child: Text(
+                        'Finding the saved version...',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }
+                return _DuplicateUrlPreview(url: url);
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DuplicateUrlPreview extends StatelessWidget {
+  const _DuplicateUrlPreview({required this.url});
+
+  final SavedUrl url;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final title = TitleResolver.resolve(url);
+    final detail = _previewDetail(url);
+
+    return _DuplicatePreviewShell(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => context.push('/url/${url.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LinkCardThumbnail.build(
+                url: url,
+                isRead: url.openedAt != null,
+                context: context,
+                size: 54,
+                borderRadius: 9,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (detail.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        detail,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      'Open saved item',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _previewDetail(SavedUrl url) {
+    final summary = url.summary?.trim();
+    if (summary != null && summary.isNotEmpty) {
+      return SummaryTrimmer.trim(summary, maxLength: 96);
+    }
+    final description = url.description.trim();
+    if (description.isNotEmpty) {
+      return SummaryTrimmer.trim(description, maxLength: 96);
+    }
+    return url.domain;
+  }
+}
+
+class _DuplicatePreviewShell extends StatelessWidget {
+  const _DuplicatePreviewShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surface,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     );
   }
 }

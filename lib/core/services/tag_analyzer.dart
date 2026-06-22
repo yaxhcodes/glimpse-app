@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/saved_url.dart';
+import 'tag_noise_filter.dart';
 
 class TagCluster {
   final String name;
@@ -40,7 +41,7 @@ class TagAnalyzer {
     final tagUrls = <String, List<SavedUrl>>{};
 
     for (final u in urls) {
-      final tags = u.tags.map((t) => t.toLowerCase().trim()).where((t) => t.isNotEmpty).toSet();
+      final tags = TagNoiseFilter.filterTags(u.tags).toSet();
       for (final t in tags) {
         tagFreq[t] = (tagFreq[t] ?? 0) + 1;
         (tagUrls[t] ??= []).add(u);
@@ -175,7 +176,7 @@ class TagAnalyzer {
     final newTags = <String>{};
 
     for (final u in urls) {
-      final tags = u.tags.map((t) => t.toLowerCase().trim()).where((t) => t.isNotEmpty);
+      final tags = TagNoiseFilter.filterTags(u.tags);
       if (u.savedAt.isBefore(weekStart)) {
         oldTags.addAll(tags);
       } else {
@@ -190,7 +191,7 @@ class TagAnalyzer {
   static int countSavesWithTag(List<SavedUrl> urls, String tag) {
     final lower = tag.toLowerCase();
     return urls.where((u) =>
-      u.tags.any((t) => t.toLowerCase().trim() == lower) &&
+      TagNoiseFilter.filterTags(u.tags).contains(lower) &&
       u.savedAt.isAfter(DateTime.now().subtract(const Duration(days: 7)))
     ).length;
   }

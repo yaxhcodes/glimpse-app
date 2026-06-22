@@ -12,6 +12,7 @@ import '../../core/services/domain_categorizer.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/enrichment_service.dart';
 import '../../core/services/link_preview_service.dart';
+import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/url_save_notifications.dart';
 import '../../core/services/url_processing_observer.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
@@ -154,7 +155,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           primaryCategory: platformCat.category,
           platformCategory: platformCat.category,
         )
-        ..tags = platformCat.tags
+        ..tags = TagNoiseFilter.filterTags(platformCat.tags)
         ..summary =
             null // enrichment will update
         ..userNotes = notes

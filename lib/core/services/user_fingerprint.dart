@@ -47,6 +47,17 @@ class UserFingerprint {
   /// Total saves currently queued for revisit (due or not).
   final int queuedCount;
 
+  static const _nonTopicalDeepDiveCategories = {
+    'Instagram',
+    'X',
+    'TikTok',
+    'Facebook',
+    'Threads',
+    'Snapchat',
+    'Pinterest',
+    'Reddit',
+  };
+
   const UserFingerprint({
     required this.saveVelocity,
     required this.dominantCluster,
@@ -259,6 +270,7 @@ class UserFingerprint {
         if (u.openedAt != null || u.isDone) continue;
         final cat = u.effectiveCategories.first;
         if (cat == 'Other') continue;
+        if (_nonTopicalDeepDiveCategories.contains(cat)) continue;
         catUnread[cat] = (catUnread[cat] ?? 0) + 1;
       }
       String? bestCat;

@@ -37,13 +37,16 @@ class RevisitScorer {
     if (candidate.isDone || candidate.rediscoverDismissedAt != null) {
       return const RevisitScore(RevisitScore.excludedThreshold, '');
     }
+    final revisitDue =
+        candidate.isQueued &&
+        (candidate.revisitAfter == null || !candidate.revisitAfter!.isAfter(clock));
     // Queued-but-not-yet-due: hold it back until the user's chosen moment.
-    if (candidate.isQueued && !candidate.isRevisitDue) {
+    if (candidate.isQueued && !revisitDue) {
       return const RevisitScore(RevisitScore.excludedThreshold, '');
     }
 
     // ── Explicit intent: the strongest possible signal ───────────────────
-    if (candidate.isQueued && candidate.isRevisitDue) {
+    if (revisitDue) {
       // Float queued-due items to the very top, freshest first among them.
       final recency = -clock.difference(candidate.savedAt).inMinutes / 1e6;
       return RevisitScore(1000 + recency, _queuedReason(candidate));

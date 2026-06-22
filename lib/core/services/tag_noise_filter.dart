@@ -16,6 +16,7 @@ class TagNoiseFilter {
     'linkedin',
     'pinterest',
     'snapchat',
+    'social',
     'web',
     'article',
     'post',
