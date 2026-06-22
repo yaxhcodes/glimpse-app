@@ -12,7 +12,7 @@ import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/upgrade_gate.dart';
-import '../../shared/widgets/usage_badge.dart';
+import '../collections/collections_provider.dart';
 import 'search_provider.dart';
 
 /// Date filter options.
@@ -26,7 +26,99 @@ enum DateFilter {
   const DateFilter(this.label);
 }
 
-final dateFilterProvider = StateProvider<DateFilter>((ref) => DateFilter.all);
+enum SearchStatusFilter {
+  all('All'),
+  unread('Unread'),
+  read('Read');
+
+  final String label;
+  const SearchStatusFilter(this.label);
+}
+
+enum SearchNotesFilter {
+  all('All'),
+  withNotes('Has notes'),
+  withoutNotes('No notes');
+
+  final String label;
+  const SearchNotesFilter(this.label);
+}
+
+enum SearchCollectionFilterMode {
+  all('All'),
+  inCollection('In a collection'),
+  notInCollection('Not in a collection'),
+  specific('Specific collection');
+
+  final String label;
+  const SearchCollectionFilterMode(this.label);
+}
+
+enum SearchSortMode {
+  relevance('Relevance'),
+  newest('Newest saved'),
+  oldest('Oldest saved'),
+  recentlyOpened('Recently opened');
+
+  final String label;
+  const SearchSortMode(this.label);
+}
+
+class _SearchFilters {
+  const _SearchFilters({
+    this.date = DateFilter.all,
+    this.status = SearchStatusFilter.all,
+    this.notes = SearchNotesFilter.all,
+    this.collectionMode = SearchCollectionFilterMode.all,
+    this.collectionId,
+    this.sort = SearchSortMode.relevance,
+  });
+
+  final DateFilter date;
+  final SearchStatusFilter status;
+  final SearchNotesFilter notes;
+  final SearchCollectionFilterMode collectionMode;
+  final int? collectionId;
+  final SearchSortMode sort;
+
+  bool get isDefault =>
+      date == DateFilter.all &&
+      status == SearchStatusFilter.all &&
+      notes == SearchNotesFilter.all &&
+      collectionMode == SearchCollectionFilterMode.all &&
+      sort == SearchSortMode.relevance;
+
+  int get activeCount {
+    var count = 0;
+    if (date != DateFilter.all) count++;
+    if (status != SearchStatusFilter.all) count++;
+    if (notes != SearchNotesFilter.all) count++;
+    if (collectionMode != SearchCollectionFilterMode.all) count++;
+    if (sort != SearchSortMode.relevance) count++;
+    return count;
+  }
+
+  _SearchFilters copyWith({
+    DateFilter? date,
+    SearchStatusFilter? status,
+    SearchNotesFilter? notes,
+    SearchCollectionFilterMode? collectionMode,
+    int? collectionId,
+    bool clearCollectionId = false,
+    SearchSortMode? sort,
+  }) {
+    return _SearchFilters(
+      date: date ?? this.date,
+      status: status ?? this.status,
+      notes: notes ?? this.notes,
+      collectionMode: collectionMode ?? this.collectionMode,
+      collectionId: clearCollectionId
+          ? null
+          : collectionId ?? this.collectionId,
+      sort: sort ?? this.sort,
+    );
+  }
+}
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key, this.embedded = false, this.initialQuery});
@@ -43,6 +135,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchFocus = FocusNode();
   Timer? _debounce;
   bool _pendingSearch = false;
+  _SearchFilters _filters = const _SearchFilters();
 
   @override
   void initState() {
@@ -57,26 +150,89 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
-  List<SearchResult> _applyDateFilter(
+  List<SearchResult> _applyFilters(
     List<SearchResult> results,
-    DateFilter filter,
+    _SearchFilters filters,
+    List<CollectionSummary> collections,
   ) {
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
-    switch (filter) {
-      case DateFilter.all:
-        return results;
-      case DateFilter.today:
-        return results
-            .where((r) => r.url.savedAt.isAfter(startOfToday))
-            .toList();
-      case DateFilter.thisWeek:
-        final weekAgo = startOfToday.subtract(const Duration(days: 7));
-        return results.where((r) => r.url.savedAt.isAfter(weekAgo)).toList();
-      case DateFilter.thisMonth:
-        final monthAgo = DateTime(now.year, now.month - 1, now.day);
-        return results.where((r) => r.url.savedAt.isAfter(monthAgo)).toList();
+    final collectionIdsByUrl = <int, Set<int>>{};
+    for (final summary in collections) {
+      for (final urlId in summary.collection.urlIds) {
+        collectionIdsByUrl
+            .putIfAbsent(urlId, () => <int>{})
+            .add(summary.collection.id);
+      }
     }
+    var filtered = results.where((result) {
+      final url = result.url;
+      switch (filters.date) {
+        case DateFilter.all:
+          break;
+        case DateFilter.today:
+          if (!url.savedAt.isAfter(startOfToday)) return false;
+        case DateFilter.thisWeek:
+          final weekAgo = startOfToday.subtract(const Duration(days: 7));
+          if (!url.savedAt.isAfter(weekAgo)) return false;
+        case DateFilter.thisMonth:
+          final monthAgo = DateTime(now.year, now.month - 1, now.day);
+          if (!url.savedAt.isAfter(monthAgo)) return false;
+      }
+
+      switch (filters.status) {
+        case SearchStatusFilter.all:
+          break;
+        case SearchStatusFilter.unread:
+          if (url.openedAt != null) return false;
+        case SearchStatusFilter.read:
+          if (url.openedAt == null) return false;
+      }
+
+      final hasNotes = (url.userNotes ?? '').trim().isNotEmpty;
+      switch (filters.notes) {
+        case SearchNotesFilter.all:
+          break;
+        case SearchNotesFilter.withNotes:
+          if (!hasNotes) return false;
+        case SearchNotesFilter.withoutNotes:
+          if (hasNotes) return false;
+      }
+
+      final urlCollectionIds = collectionIdsByUrl[url.id] ?? const <int>{};
+      switch (filters.collectionMode) {
+        case SearchCollectionFilterMode.all:
+          break;
+        case SearchCollectionFilterMode.inCollection:
+          if (urlCollectionIds.isEmpty) return false;
+        case SearchCollectionFilterMode.notInCollection:
+          if (urlCollectionIds.isNotEmpty) return false;
+        case SearchCollectionFilterMode.specific:
+          final id = filters.collectionId;
+          if (id == null || !urlCollectionIds.contains(id)) return false;
+      }
+
+      return true;
+    }).toList();
+
+    switch (filters.sort) {
+      case SearchSortMode.relevance:
+        return filtered;
+      case SearchSortMode.newest:
+        filtered.sort((a, b) => b.url.savedAt.compareTo(a.url.savedAt));
+      case SearchSortMode.oldest:
+        filtered.sort((a, b) => a.url.savedAt.compareTo(b.url.savedAt));
+      case SearchSortMode.recentlyOpened:
+        filtered.sort((a, b) {
+          final aOpened = a.url.openedAt;
+          final bOpened = b.url.openedAt;
+          if (aOpened == null && bOpened == null) return 0;
+          if (aOpened == null) return 1;
+          if (bOpened == null) return -1;
+          return bOpened.compareTo(aOpened);
+        });
+    }
+    return filtered;
   }
 
   void _onQueryChanged(String query) {
@@ -109,6 +265,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
+  Future<void> _showFilters({
+    required List<CollectionSummary> collections,
+  }) async {
+    final next = await showModalBottomSheet<_SearchFilters>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) =>
+          _SearchFilterSheet(filters: _filters, collections: collections),
+    );
+    if (next != null && mounted) {
+      setState(() => _filters = next);
+    }
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -129,15 +301,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     final resultsAsync = ref.watch(searchProvider);
     final query = _controller.text;
-    final dateFilter = ref.watch(dateFilterProvider);
     final queryTrim = query.trim();
     final mode = ref.watch(searchModeProvider);
+    final collections =
+        ref.watch(collectionsSummaryProvider).valueOrNull ??
+        const <CollectionSummary>[];
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     const selectionScope = 'search';
     final visibleResults = resultsAsync.valueOrNull == null
         ? const <SearchResult>[]
-        : _applyDateFilter(resultsAsync.valueOrNull!, dateFilter);
+        : _applyFilters(resultsAsync.valueOrNull!, _filters, collections);
     final visibleUrls = visibleResults.map((result) => result.url).toList();
     final selectionState = ref.watch(bulkSelectionProvider(selectionScope));
     final selectionNotifier = ref.read(
@@ -189,51 +363,36 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             if (!selectionState.isActive)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: PremiumSearchBar(
-                  controller: _controller,
-                  focusNode: _searchFocus,
-                  autofocus: true,
-                  hint: 'Search your library…',
-                  onChanged: (value) {
-                    setState(() {});
-                    _onQueryChanged(value);
-                  },
-                  onClear: query.isNotEmpty
-                      ? () {
-                          _controller.clear();
-                          ref.read(searchProvider.notifier).clear();
-                          setState(() {});
-                        }
-                      : null,
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    ...DateFilter.values.map((f) {
-                      final selected = dateFilter == f;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _DateFilterPill(
-                          label: f.label,
-                          selected: selected,
-                          onTap: () =>
-                              ref.read(dateFilterProvider.notifier).state = f,
-                          colorScheme: colorScheme,
-                          textTheme: theme.textTheme,
-                        ),
-                      );
-                    }),
-                    const SizedBox(width: 8),
-                    const UsageBadge(feature: UsageFeature.search),
+                    Expanded(
+                      child: PremiumSearchBar(
+                        controller: _controller,
+                        focusNode: _searchFocus,
+                        autofocus: true,
+                        hint: 'Search your library…',
+                        onChanged: (value) {
+                          setState(() {});
+                          _onQueryChanged(value);
+                        },
+                        onClear: query.isNotEmpty
+                            ? () {
+                                _controller.clear();
+                                ref.read(searchProvider.notifier).clear();
+                                setState(() {});
+                              }
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    _FilterIconButton(
+                      active: !_filters.isDefault,
+                      onTap: () => _showFilters(collections: collections),
+                    ),
                   ],
                 ),
               ),
-            ),
             Expanded(
               child: queryTrim.isEmpty
                   ? Center(
@@ -260,7 +419,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             const SizedBox(height: 8),
                             Text(
                               'Search across titles, tags, notes, and '
-                              'summaries — then filter by time.',
+                              'summaries — then narrow the view.',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: colorScheme.onSurfaceVariant.withValues(
                                   alpha: 0.8,
@@ -277,7 +436,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ? const LoadingIndicator(message: 'Searching your library…')
                   : resultsAsync.when(
                       data: (results) {
-                        final filtered = _applyDateFilter(results, dateFilter);
+                        final filtered = _applyFilters(
+                          results,
+                          _filters,
+                          collections,
+                        );
                         if (selectionState.enabled &&
                             selectedUrls.length != selectionState.count) {
                           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -503,45 +666,275 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
-class _DateFilterPill extends StatelessWidget {
-  const _DateFilterPill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.colorScheme,
-    required this.textTheme,
-  });
+class _FilterIconButton extends StatelessWidget {
+  const _FilterIconButton({required this.active, required this.onTap});
 
-  final String label;
-  final bool selected;
+  final bool active;
   final VoidCallback onTap;
-  final ColorScheme colorScheme;
-  final TextTheme textTheme;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? colorScheme.secondaryContainer
-          : colorScheme.surfaceContainerHigh,
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          child: Text(
-            label,
-            style: textTheme.labelLarge?.copyWith(
-              color: selected
-                  ? colorScheme.onSecondaryContainer
-                  : colorScheme.onSurfaceVariant,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              letterSpacing: -0.1,
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Tooltip(
+      message: active ? 'Filters active' : 'Filters',
+      child: SizedBox(
+        width: 54,
+        height: 54,
+        child: Material(
+          color: active
+              ? colorScheme.secondaryContainer
+              : colorScheme.surfaceContainerHigh,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.tune_rounded,
+                  size: 22,
+                  color: active
+                      ? colorScheme.onSecondaryContainer
+                      : colorScheme.onSurfaceVariant,
+                ),
+                if (active)
+                  Positioned(
+                    top: 13,
+                    right: 13,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const SizedBox(width: 7, height: 7),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SearchFilterSheet extends StatefulWidget {
+  const _SearchFilterSheet({required this.filters, required this.collections});
+
+  final _SearchFilters filters;
+  final List<CollectionSummary> collections;
+
+  @override
+  State<_SearchFilterSheet> createState() => _SearchFilterSheetState();
+}
+
+class _SearchFilterSheetState extends State<_SearchFilterSheet> {
+  late _SearchFilters _draft = widget.filters;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 20),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Filters',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () =>
+                      setState(() => _draft = const _SearchFilters()),
+                  child: const Text('Reset'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _FilterSection(
+              title: 'Time',
+              child: _ChoiceWrap<DateFilter>(
+                values: DateFilter.values,
+                selected: _draft.date,
+                labelFor: (value) => value.label,
+                onSelected: (value) =>
+                    setState(() => _draft = _draft.copyWith(date: value)),
+              ),
+            ),
+            _FilterSection(
+              title: 'Status',
+              child: _ChoiceWrap<SearchStatusFilter>(
+                values: SearchStatusFilter.values,
+                selected: _draft.status,
+                labelFor: (value) => value.label,
+                onSelected: (value) =>
+                    setState(() => _draft = _draft.copyWith(status: value)),
+              ),
+            ),
+            _FilterSection(
+              title: 'Notes',
+              child: _ChoiceWrap<SearchNotesFilter>(
+                values: SearchNotesFilter.values,
+                selected: _draft.notes,
+                labelFor: (value) => value.label,
+                onSelected: (value) =>
+                    setState(() => _draft = _draft.copyWith(notes: value)),
+              ),
+            ),
+            _FilterSection(
+              title: 'Collections',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ChoiceWrap<SearchCollectionFilterMode>(
+                    values: widget.collections.isEmpty
+                        ? SearchCollectionFilterMode.values
+                              .where(
+                                (value) =>
+                                    value !=
+                                    SearchCollectionFilterMode.specific,
+                              )
+                              .toList()
+                        : SearchCollectionFilterMode.values,
+                    selected: _draft.collectionMode,
+                    labelFor: (value) => value.label,
+                    onSelected: (value) {
+                      final firstId = widget.collections.isEmpty
+                          ? null
+                          : widget.collections.first.collection.id;
+                      setState(
+                        () => _draft = _draft.copyWith(
+                          collectionMode: value,
+                          collectionId:
+                              value == SearchCollectionFilterMode.specific
+                              ? _draft.collectionId ?? firstId
+                              : null,
+                          clearCollectionId:
+                              value != SearchCollectionFilterMode.specific,
+                        ),
+                      );
+                    },
+                  ),
+                  if (_draft.collectionMode ==
+                          SearchCollectionFilterMode.specific &&
+                      widget.collections.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      initialValue:
+                          _draft.collectionId ??
+                          widget.collections.first.collection.id,
+                      decoration: const InputDecoration(
+                        labelText: 'Collection',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        for (final summary in widget.collections)
+                          DropdownMenuItem(
+                            value: summary.collection.id,
+                            child: Text(summary.collection.name),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(
+                          () => _draft = _draft.copyWith(collectionId: value),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            _FilterSection(
+              title: 'Sort',
+              child: _ChoiceWrap<SearchSortMode>(
+                values: SearchSortMode.values,
+                selected: _draft.sort,
+                labelFor: (value) => value.label,
+                onSelected: (value) =>
+                    setState(() => _draft = _draft.copyWith(sort: value)),
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context, _draft),
+                child: const Text('Apply filters'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterSection extends StatelessWidget {
+  const _FilterSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ChoiceWrap<T> extends StatelessWidget {
+  const _ChoiceWrap({
+    required this.values,
+    required this.selected,
+    required this.labelFor,
+    required this.onSelected,
+  });
+
+  final List<T> values;
+  final T selected;
+  final String Function(T value) labelFor;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final value in values)
+          ChoiceChip(
+            label: Text(labelFor(value)),
+            selected: value == selected,
+            onSelected: (_) => onSelected(value),
+          ),
+      ],
     );
   }
 }
