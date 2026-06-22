@@ -33,7 +33,26 @@ class _MainShellState extends ConsumerState<MainShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final request = ref.read(searchShellQueryRequestProvider);
+      if (!mounted || request == null) return;
+      setState(() => _currentIndex = _searchTabIndex);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    ref.listen<SearchShellQueryRequest?>(searchShellQueryRequestProvider, (
+      previous,
+      next,
+    ) {
+      if (next == null) return;
+      if (_currentIndex == _searchTabIndex) return;
+      setState(() => _currentIndex = _searchTabIndex);
+    });
+
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final urlsAsync = ref.watch(displayedUrlsProvider);

@@ -24,15 +24,25 @@ final searchModeProvider = StateProvider<SearchMode>(
 /// embedded [SearchScreen] can focus the field and show the keyboard again.
 final searchShellRefocusProvider = StateProvider<int>((ref) => 0);
 
+class SearchShellQueryRequest {
+  const SearchShellQueryRequest({required this.query, required this.revision});
+
+  final String query;
+  final int revision;
+}
+
+/// Request from another screen to switch the main shell to Search and run a
+/// query in the embedded search tab.
+final searchShellQueryRequestProvider = StateProvider<SearchShellQueryRequest?>(
+  (ref) => null,
+);
+
 /// One search hit with optional relevance score (semantic) or 0 (keyword).
 class SearchResult {
   final SavedUrl url;
   final double score;
 
-  const SearchResult({
-    required this.url,
-    required this.score,
-  });
+  const SearchResult({required this.url, required this.score});
 }
 
 @riverpod
@@ -53,7 +63,8 @@ class Search extends _$Search {
       // would serve a stale RC cache for up to 5 min after purchase.
       final tier = await ref.read(subscriptionTierProvider.future);
       final devO = await ref.read(devProOverrideProvider.future);
-      final canSemantic = embeddings != null &&
+      final canSemantic =
+          embeddings != null &&
           EntitlementService.isFeatureUnlocked(
             PremiumFeature.semanticSearch,
             revenueCatTier: tier,
@@ -100,8 +111,7 @@ class Search extends _$Search {
             );
             if (id != _requestId) return;
             if (scored.isNotEmpty) {
-              ref.read(searchModeProvider.notifier).state =
-                  SearchMode.semantic;
+              ref.read(searchModeProvider.notifier).state = SearchMode.semantic;
               state = AsyncValue.data(
                 scored
                     .where((e) => !e.key.isDone)

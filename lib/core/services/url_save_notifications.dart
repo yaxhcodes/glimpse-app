@@ -16,6 +16,7 @@ class UrlSaveNotifications {
   static Future<void> showCaptureStarted() {
     final payload = jsonEncode({
       'type': 'url_capture_started',
+      'route': 'home',
       'title': _captureTitle,
       'body': _captureBody,
     });
@@ -156,9 +157,10 @@ class UrlSaveNotifications {
   }
 
   static String _microSummary(String text) {
-    final sentence = SummaryTrimmer.trim(text, maxLength: 96)
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final sentence = SummaryTrimmer.trim(
+      text,
+      maxLength: 96,
+    ).replaceAll(RegExp(r'\s+'), ' ').trim();
     final words = sentence.split(' ').where((word) => word.isNotEmpty).toList();
     if (words.length <= 12) return sentence;
     return '${words.take(12).join(' ')}.';

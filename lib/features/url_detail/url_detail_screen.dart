@@ -29,6 +29,7 @@ import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/tag_group.dart';
 import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
+import '../search/search_provider.dart';
 import 'url_detail_provider.dart';
 
 class UrlDetailScreen extends ConsumerStatefulWidget {
@@ -1168,8 +1169,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   void _openTagSearch(String tag) {
-    final encoded = Uri.encodeQueryComponent(tag);
-    context.push('/search?q=$encoded');
+    ref
+        .read(searchShellQueryRequestProvider.notifier)
+        .state = SearchShellQueryRequest(
+      query: tag,
+      revision: DateTime.now().microsecondsSinceEpoch,
+    );
+    context.go('/');
   }
 
   Future<void> _showTagMenu(SavedUrl url, String tag) async {

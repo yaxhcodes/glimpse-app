@@ -67,14 +67,14 @@ class NotificationRouter {
   /// Open from tray tap, action button, or cold start. [rawPayload] is the plugin payload string.
   static void openFromPayload(BuildContext context, String? rawPayload) {
     if (rawPayload == null || rawPayload.isEmpty) {
-      context.go('/notifications');
+      _openNotificationsHub(context);
       return;
     }
     try {
       final map = jsonDecode(rawPayload) as Map<String, dynamic>;
       _navigateWithMap(context, map);
     } catch (_) {
-      context.go('/notifications');
+      _openNotificationsHub(context);
     }
   }
 
@@ -93,7 +93,7 @@ class NotificationRouter {
       map = historyEntry;
     }
     if (map == null) {
-      context.go('/notifications');
+      _openNotificationsHub(context);
       return;
     }
     _navigateWithMap(context, map);
@@ -109,6 +109,10 @@ class NotificationRouter {
     // Opening a notification is also an "active now" signal — feed the peak-hour
     // histogram so future notifications are timed to when the user engages.
     unawaited(TagAnalyzer.recordAppOpen());
+    if (map['route'] == 'home') {
+      context.go('/');
+      return;
+    }
     if (map['route'] == 'subscription') {
       context.push('/settings/subscription');
       return;
@@ -118,7 +122,7 @@ class NotificationRouter {
       return;
     }
     if (ids.isEmpty) {
-      context.go('/notifications');
+      _openNotificationsHub(context);
       return;
     }
     context.push(
@@ -130,6 +134,11 @@ class NotificationRouter {
         historyType: historyTypeFromNotificationMap(map),
       ),
     );
+  }
+
+  static void _openNotificationsHub(BuildContext context) {
+    context.go('/');
+    context.push('/notifications');
   }
 }
 

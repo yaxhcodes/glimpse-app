@@ -147,7 +147,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         if (!mounted) return;
         ref.read(searchProvider.notifier).search(initial);
       });
+    } else if (widget.embedded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final request = ref.read(searchShellQueryRequestProvider);
+        if (!mounted || request == null) return;
+        _runQuery(request.query);
+        _clearConsumedShellQueryRequest(request);
+      });
     }
+  }
+
+  void _runQuery(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+    _debounce?.cancel();
+    _controller.text = trimmed;
+    _controller.selection = TextSelection.collapsed(offset: trimmed.length);
+    setState(() => _pendingSearch = false);
+    ref.read(searchProvider.notifier).search(trimmed);
+  }
+
+  void _clearConsumedShellQueryRequest(SearchShellQueryRequest request) {
+    final current = ref.read(searchShellQueryRequestProvider);
+    if (current?.revision != request.revision) return;
+    ref.read(searchShellQueryRequestProvider.notifier).state = null;
   }
 
   List<SearchResult> _applyFilters(
@@ -295,6 +318,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       if (!widget.embedded) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        _searchFocus.requestFocus();
+      });
+    });
+    ref.listen<SearchShellQueryRequest?>(searchShellQueryRequestProvider, (
+      previous,
+      next,
+    ) {
+      if (!widget.embedded || next == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _runQuery(next.query);
+        _clearConsumedShellQueryRequest(next);
         _searchFocus.requestFocus();
       });
     });
