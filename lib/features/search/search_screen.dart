@@ -29,11 +29,7 @@ enum DateFilter {
 final dateFilterProvider = StateProvider<DateFilter>((ref) => DateFilter.all);
 
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({
-    super.key,
-    this.embedded = false,
-    this.initialQuery,
-  });
+  const SearchScreen({super.key, this.embedded = false, this.initialQuery});
 
   final bool embedded;
   final String? initialQuery;
@@ -211,29 +207,31 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       : null,
                 ),
               ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ...DateFilter.values.map((f) {
-                    final selected = dateFilter == f;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _DateFilterPill(
-                        label: f.label,
-                        selected: selected,
-                        onTap: () =>
-                            ref.read(dateFilterProvider.notifier).state = f,
-                        colorScheme: colorScheme,
-                        textTheme: theme.textTheme,
-                      ),
-                    );
-                  }),
-                  const SizedBox(width: 8),
-                  const UsageBadge(feature: UsageFeature.search),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ...DateFilter.values.map((f) {
+                      final selected = dateFilter == f;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _DateFilterPill(
+                          label: f.label,
+                          selected: selected,
+                          onTap: () =>
+                              ref.read(dateFilterProvider.notifier).state = f,
+                          colorScheme: colorScheme,
+                          textTheme: theme.textTheme,
+                        ),
+                      );
+                    }),
+                    const SizedBox(width: 8),
+                    const UsageBadge(feature: UsageFeature.search),
+                  ],
+                ),
               ),
             ),
             Expanded(
@@ -264,8 +262,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               'Search across titles, tags, notes, and '
                               'summaries — then filter by time.',
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.8),
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.8,
+                                ),
                                 height: 1.45,
                               ),
                               textAlign: TextAlign.center,

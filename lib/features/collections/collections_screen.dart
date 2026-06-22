@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/widgets/expressive_tap_scale.dart';
 import 'collection_card.dart';
@@ -8,6 +9,8 @@ import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
 
 enum _CollectionsLayout { grid, list }
+
+const _collectionsLayoutPrefsKey = 'glimpse_collections_layout';
 
 class CollectionsScreen extends ConsumerStatefulWidget {
   const CollectionsScreen({super.key, this.embedded = false});
@@ -20,6 +23,32 @@ class CollectionsScreen extends ConsumerStatefulWidget {
 
 class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
   _CollectionsLayout _layout = _CollectionsLayout.grid;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLayout();
+  }
+
+  Future<void> _loadLayout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_collectionsLayoutPrefsKey);
+    final layout = switch (stored) {
+      'list' => _CollectionsLayout.list,
+      'grid' => _CollectionsLayout.grid,
+      _ => null,
+    };
+    if (layout != null && mounted) {
+      setState(() => _layout = layout);
+    }
+  }
+
+  Future<void> _setLayout(_CollectionsLayout layout) async {
+    if (_layout == layout) return;
+    setState(() => _layout = layout);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_collectionsLayoutPrefsKey, layout.name);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,10 +86,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           if (hasCollections)
             Padding(
               padding: const EdgeInsets.only(right: 16),
-              child: _LayoutToggle(
-                value: _layout,
-                onChanged: (value) => setState(() => _layout = value),
-              ),
+              child: _LayoutToggle(value: _layout, onChanged: _setLayout),
             ),
         ],
       ),

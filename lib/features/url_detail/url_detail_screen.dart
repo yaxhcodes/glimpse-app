@@ -19,7 +19,8 @@ import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/text_cleaner.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/services/transcript_enrichment_service.dart';
-import '../../shared/widgets/category_chip.dart' show faviconUrl, platformColors;
+import '../../shared/widgets/category_chip.dart'
+    show faviconUrl, platformColors;
 import '../../shared/widgets/content_recommendation_section.dart';
 import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/loading_indicator.dart';
@@ -116,8 +117,10 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
 
     final screenWidth = MediaQuery.sizeOf(context).width;
     // The page the swipe originated from (stable, not drifted).
-    final originPage =
-        (_dragStartScrollOffset / screenWidth).round().clamp(0, widget.urlIds.length - 1);
+    final originPage = (_dragStartScrollOffset / screenWidth).round().clamp(
+      0,
+      widget.urlIds.length - 1,
+    );
     final fraction = _dragDeltaX.abs() / screenWidth;
     final velocity = d.velocity.pixelsPerSecond.dx.abs();
 
@@ -192,10 +195,7 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
 /// Fullscreen, pinch-to-zoom viewer for the saved thumbnail. Tapping the
 /// backdrop or the close button dismisses it; the image flies via [Hero].
 class _ImageViewerScreen extends StatelessWidget {
-  const _ImageViewerScreen({
-    required this.imageUrl,
-    required this.heroTag,
-  });
+  const _ImageViewerScreen({required this.imageUrl, required this.heroTag});
 
   final String imageUrl;
   final String heroTag;
@@ -260,11 +260,7 @@ class _DetailMetadata {
 }
 
 class _GlimpseSavedNote {
-  const _GlimpseSavedNote({
-    required this.answer,
-    this.asked,
-    this.question,
-  });
+  const _GlimpseSavedNote({required this.answer, this.asked, this.question});
 
   final String answer;
   final String? asked;
@@ -381,12 +377,10 @@ class _NoteSuggestionChip extends StatelessWidget {
     final chipColor = selected
         ? colorScheme.primary
         : Color.alphaBlend(
-            colorScheme.primary
-                .withValues(alpha: intent ? 0.14 : 0.08),
+            colorScheme.primary.withValues(alpha: intent ? 0.14 : 0.08),
             colorScheme.surfaceContainerHighest,
           );
-    final fgColor =
-        selected ? colorScheme.onPrimary : colorScheme.onSurface;
+    final fgColor = selected ? colorScheme.onPrimary : colorScheme.onSurface;
     return Material(
       color: chipColor,
       shape: const StadiumBorder(),
@@ -620,7 +614,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _notesFocusNode = FocusNode();
   bool _notesEdited = false;
-  bool _tagsExpanded = false;
   bool _showExactSavedDate = false;
   bool _retryingEnrichment = false;
   String? _localNotesOverride;
@@ -639,7 +632,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   void didUpdateWidget(covariant UrlDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.urlId != widget.urlId) {
-      _tagsExpanded = false;
       _showExactSavedDate = false;
       _localNotesOverride = null;
       _localIntentActionOverride = null;
@@ -781,10 +773,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       setState(() => _notesEdited = true);
     }
     _notesTimer?.cancel();
-    _notesTimer = Timer(
-      const Duration(milliseconds: 1500),
-      _autoSaveNotes,
-    );
+    _notesTimer = Timer(const Duration(milliseconds: 1500), _autoSaveNotes);
   }
 
   /// Append a suggestion label to the notes as plain text (dedup by line).
@@ -793,12 +782,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final next = current.isEmpty
         ? suggestion
         : current
-                .toLowerCase()
-                .split('\n')
-                .map((line) => line.trim())
-                .contains(suggestion.toLowerCase())
-            ? current
-            : '$current\n$suggestion';
+              .toLowerCase()
+              .split('\n')
+              .map((line) => line.trim())
+              .contains(suggestion.toLowerCase())
+        ? current
+        : '$current\n$suggestion';
 
     _notesController.value = TextEditingValue(
       text: next,
@@ -813,7 +802,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   /// override from a chip the user just tapped this session.
   String? _effectiveIntentAction(SavedUrl url) {
     if (_localIntentActionOverride == null) return url.intentAction;
-    return _localIntentActionOverride!.isEmpty ? null : _localIntentActionOverride;
+    return _localIntentActionOverride!.isEmpty
+        ? null
+        : _localIntentActionOverride;
   }
 
   /// Route a suggested-action chip tap. "Queue"/"Done" chips set a real,
@@ -889,11 +880,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         content: const Text('This action cannot be undone.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -949,15 +942,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     await service.setIngredientChecked(recipeId, key, checked);
   }
 
-  Future<void> _checkAllIngredients(
-    int recipeId,
-    EnrichedRecipe recipe,
-  ) async {
+  Future<void> _checkAllIngredients(int recipeId, EnrichedRecipe recipe) async {
     final service = _recipeStateService ?? await RecipeStateService.create();
     final keys = recipe.ingredients
         .asMap()
         .entries
-        .map((entry) => RecipeStateService.ingredientKey(entry.value, entry.key))
+        .map(
+          (entry) => RecipeStateService.ingredientKey(entry.value, entry.key),
+        )
         .toSet();
     setState(() => _checkedIngredientKeys = keys);
     await service.setAllIngredientsChecked(recipeId, keys);
@@ -1007,10 +999,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
   }
 
@@ -1063,17 +1052,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                             itemCount: items.length,
                             itemBuilder: (context, index) {
                               final item = items[index];
-                              final colorScheme =
-                                  Theme.of(context).colorScheme;
+                              final colorScheme = Theme.of(context).colorScheme;
                               // Build display: name on top, quantity + sources below
-                              final qtyLabel = item.mergedQuantityLabel
-                                      ?.trim()
-                                      .isNotEmpty ==
-                                  true
+                              final qtyLabel =
+                                  item.mergedQuantityLabel?.trim().isNotEmpty ==
+                                      true
                                   ? item.mergedQuantityLabel!
                                   : item.ingredient.amountLabel.trim();
-                              final sourceLine =
-                                  item.allRecipeTitles.join(' · ');
+                              final sourceLine = item.allRecipeTitles.join(
+                                ' · ',
+                              );
                               return Dismissible(
                                 key: ValueKey(item.id),
                                 direction: DismissDirection.endToStart,
@@ -1118,22 +1106,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                                               : qtyLabel,
                                           style: theme.textTheme.labelSmall
                                               ?.copyWith(
-                                            color: item.isMerged
-                                                ? _recipeAccent(colorScheme)
-                                                : colorScheme
-                                                    .onSurfaceVariant,
-                                            fontWeight: item.isMerged
-                                                ? FontWeight.w700
-                                                : null,
-                                          ),
+                                                color: item.isMerged
+                                                    ? _recipeAccent(colorScheme)
+                                                    : colorScheme
+                                                          .onSurfaceVariant,
+                                                fontWeight: item.isMerged
+                                                    ? FontWeight.w700
+                                                    : null,
+                                              ),
                                         ),
                                       Text(
                                         sourceLine,
                                         style: theme.textTheme.labelSmall
                                             ?.copyWith(
-                                          color: colorScheme.onSurfaceVariant
-                                              .withValues(alpha: 0.7),
-                                        ),
+                                              color: colorScheme
+                                                  .onSurfaceVariant
+                                                  .withValues(alpha: 0.7),
+                                            ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -1144,8 +1133,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                                     tooltip: 'Remove',
                                     icon: const Icon(Icons.close_rounded),
                                     onPressed: () async {
-                                      await service
-                                          .removeShoppingItem(item.id);
+                                      await service.removeShoppingItem(item.id);
                                       setSheetState(
                                         () => items = service.shoppingList(),
                                       );
@@ -1277,8 +1265,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
     // Get existing categories to show as suggestions
     final categories = await isarService.getCategories();
-    final existingNames =
-        categories.map((c) => c['category'] as String).toList();
+    final existingNames = categories
+        .map((c) => c['category'] as String)
+        .toList();
 
     if (!mounted) return;
 
@@ -1294,17 +1283,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       builder: (ctx) {
         return Padding(
           padding: EdgeInsets.fromLTRB(
-              24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 16),
+            24,
+            20,
+            24,
+            MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Change Category',
-                  style: theme.textTheme.titleLarge),
+              Text('Change Category', style: theme.textTheme.titleLarge),
               const SizedBox(height: 4),
-              Text('Pick an existing one or create your own',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant)),
+              Text(
+                'Pick an existing one or create your own',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: 16),
 
               // Existing categories
@@ -1314,7 +1309,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   runSpacing: 8,
                   children: existingNames.map((name) {
                     final cat = categories.firstWhere(
-                        (c) => c['category'] == name);
+                      (c) => c['category'] == name,
+                    );
                     final emoji = cat['emoji'] as String;
                     final isCurrentCat = name == url.category;
                     final fav = faviconUrl(name);
@@ -1326,8 +1322,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                                 imageUrl: fav,
                                 width: 18,
                                 height: 18,
-                                errorWidget: (_, _, _) =>
-                                    Text(emoji),
+                                errorWidget: (_, _, _) => Text(emoji),
                               ),
                             )
                           : Text(emoji),
@@ -1348,14 +1343,21 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                    Expanded(
+                      child: Divider(color: theme.colorScheme.outlineVariant),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('or create new',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant)),
+                      child: Text(
+                        'or create new',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                    Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                    Expanded(
+                      child: Divider(color: theme.colorScheme.outlineVariant),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -1399,10 +1401,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   final emoji = emojiController.text.trim().isEmpty
                       ? '📁'
                       : emojiController.text.trim();
-                  Navigator.pop(ctx, {
-                    'category': name,
-                    'emoji': emoji,
-                  });
+                  Navigator.pop(ctx, {'category': name, 'emoji': emoji});
                 },
                 child: const Text('Create & Apply'),
               ),
@@ -1586,10 +1585,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             const SliverFillRemaining(child: LoadingIndicator())
           else if (urlAsync.hasError)
             SliverFillRemaining(
-                child: Center(child: Text('Error: ${urlAsync.error}')))
+              child: Center(child: Text('Error: ${urlAsync.error}')),
+            )
           else if (url == null)
             const SliverFillRemaining(
-                child: Center(child: Text('URL not found')))
+              child: Center(child: Text('URL not found')),
+            )
           else
             _buildBody(url, theme, colorScheme, tagFreq),
         ],
@@ -1620,8 +1621,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       rawUrl: url.rawUrl,
       fallbackDomain: url.domain,
     );
-    final normalizedCategories =
-        url.effectiveCategories.map((item) => item.toLowerCase()).toSet();
+    final normalizedCategories = url.effectiveCategories
+        .map((item) => item.toLowerCase())
+        .toSet();
     final mentionTitles = (live?.mentions ?? const <EnrichedMention>[])
         .map((item) => TagNoiseFilter.cleanTag(item.title))
         .where((item) => item.isNotEmpty)
@@ -1638,14 +1640,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     final showImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
     final categoryLabels = _displayCategories(url);
-    const collapseTagsAt = 5;
-    final showAllTags = _tagsExpanded || visibleTags.length <= collapseTagsAt;
-    final displayedTags =
-        showAllTags ? visibleTags : visibleTags.take(collapseTagsAt).toList();
-    final hiddenTagCount = visibleTags.length - collapseTagsAt;
-    final summaryText = TextCleaner.clean(
-      url.summary?.trim() ?? '',
-    );
+    final summaryText = TextCleaner.clean(url.summary?.trim() ?? '');
     final displayTitle = TitleResolver.resolveDetailTitle(
       url,
       tagFrequency: tagFreq,
@@ -1656,8 +1651,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       cleanedBrief.isNotEmpty
           ? cleanedBrief
           : cleanedSummary.isNotEmpty
-              ? cleanedSummary
-              : summaryText,
+          ? cleanedSummary
+          : summaryText,
       caption: captionText,
     );
     final showSummary =
@@ -1748,11 +1743,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             // ── Tags ────────────────────────────────────────────────────
             const SizedBox(height: 16),
             TagGroup(
-              tags: displayedTags,
-              hiddenCount: !showAllTags && hiddenTagCount > 0
-                  ? hiddenTagCount
-                  : 0,
-              onShowMore: () => setState(() => _tagsExpanded = true),
+              tags: visibleTags,
               onTap: _openTagSearch,
               onLongPress: (tag) => _showTagMenu(url, tag),
               accent: _recipeAccent(colorScheme),
@@ -1782,10 +1773,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildNotesComposer(
-                  theme: theme,
-                  colorScheme: colorScheme,
-                ),
+                _buildNotesComposer(theme: theme, colorScheme: colorScheme),
                 if (noteSuggestions.isNotEmpty)
                   _buildNoteQuickAdd(
                     url: url,
@@ -2021,10 +2009,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            glow,
-            base,
-          ],
+          colors: [glow, base],
         ),
       ),
       child: Center(
@@ -2226,8 +2211,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             children: suggestions.map((suggestion) {
               final classified = IntentClassifier.classify(suggestion);
               final isIntent = classified.kind != IntentKind.note;
-              final selected =
-                  isIntent && activeAction == classified.action;
+              final selected = isIntent && activeAction == classified.action;
               return _NoteSuggestionChip(
                 label: suggestion,
                 selected: selected,
@@ -2298,10 +2282,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Text(
             '•',
-            style: TextStyle(
-              color: colorScheme.outline,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: colorScheme.outline, fontSize: 12),
           ),
         ),
         Flexible(
@@ -2518,11 +2499,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         ),
         const SizedBox(height: 10),
         for (final step in steps)
-          _buildContentStep(
-            step: step,
-            theme: theme,
-            colorScheme: colorScheme,
-          ),
+          _buildContentStep(step: step, theme: theme, colorScheme: colorScheme),
       ],
     );
   }
@@ -2533,7 +2510,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ColorScheme colorScheme,
   }) {
     final description = step.description?.trim() ?? '';
-    final text = description.isEmpty ? step.title : '${step.title}: $description';
+    final text = description.isEmpty
+        ? step.title
+        : '${step.title}: $description';
     return Padding(
       padding: const EdgeInsets.only(bottom: 9),
       child: Row(
@@ -2620,11 +2599,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         // ── Description hook ─────────────────────────────────────────────
         if (hook.isNotEmpty) ...[
           const SizedBox(height: 14),
-          _buildRecipeIntro(
-            text: hook,
-            theme: theme,
-            colorScheme: colorScheme,
-          ),
+          _buildRecipeIntro(text: hook, theme: theme, colorScheme: colorScheme),
         ],
 
         // ── Quick Facts block ────────────────────────────────────────────
@@ -2675,21 +2650,27 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   backgroundColor: _recipeAccentSurface(colorScheme),
                   foregroundColor: recipeAccent,
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           ...displaySteps.asMap().entries.map(
-                (entry) => _buildRecipeInstruction(
-                  number: entry.key + 1,
-                  instruction: entry.value,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                ),
-              ),
+            (entry) => _buildRecipeInstruction(
+              number: entry.key + 1,
+              instruction: entry.value,
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
+          ),
         ],
 
         // ── Ingredients (below instructions) ─────────────────────────────
@@ -2712,7 +2693,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             colorScheme: colorScheme,
           ),
         ],
-
       ],
     );
   }
@@ -2729,28 +2709,28 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final time = recipe.totalTime?.trim().isNotEmpty == true
         ? recipe.totalTime!.trim()
         : recipe.cookTime?.trim().isNotEmpty == true
-            ? recipe.cookTime!.trim()
-            : recipe.prepTime?.trim();
+        ? recipe.cookTime!.trim()
+        : recipe.prepTime?.trim();
     final titleLower = title.toLowerCase();
     final cuisine = (recipe.cuisine ?? '').trim();
     final category = (recipe.category ?? '').trim();
     final descriptor =
-        titleLower.contains('mexican') && cuisine.toLowerCase().contains('indian')
-            ? 'Indian-Mexican fusion'
-            : cuisine.isNotEmpty
-                ? cuisine
-                : recipe.tags
-                    .map((item) => item.trim())
-                    .firstWhere(
-                      (item) =>
-                          item.isNotEmpty && item.toLowerCase() != 'recipe',
-                      orElse: () => '',
-                    );
+        titleLower.contains('mexican') &&
+            cuisine.toLowerCase().contains('indian')
+        ? 'Indian-Mexican fusion'
+        : cuisine.isNotEmpty
+        ? cuisine
+        : recipe.tags
+              .map((item) => item.trim())
+              .firstWhere(
+                (item) => item.isNotEmpty && item.toLowerCase() != 'recipe',
+                orElse: () => '',
+              );
     final dishKind = titleLower.contains('wrap')
         ? 'wrap'
         : category.isNotEmpty
-            ? category.toLowerCase()
-            : 'recipe';
+        ? category.toLowerCase()
+        : 'recipe';
     final ingredients = recipe.ingredients
         .map((item) => _ingredientPhrase(item.name))
         .where((item) => item.isNotEmpty)
@@ -2782,7 +2762,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   String _cleanRecipeTitle(String title) {
     return title
-        .replaceAll(RegExp(r'\s*[•\-–]\s*\d+[-\s]*(?:minute|min)\s*recipe.*$', caseSensitive: false), '')
+        .replaceAll(
+          RegExp(
+            r'\s*[•\-–]\s*\d+[-\s]*(?:minute|min)\s*recipe.*$',
+            caseSensitive: false,
+          ),
+          '',
+        )
         .replaceAll(RegExp(r'\s+recipe$', caseSensitive: false), '')
         .trim();
   }
@@ -2857,8 +2843,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final timeLabel = recipe.totalTime?.trim().isNotEmpty == true
         ? recipe.totalTime!
         : (recipe.cookTime?.trim().isNotEmpty == true
-            ? recipe.cookTime!
-            : recipe.prepTime?.trim());
+              ? recipe.cookTime!
+              : recipe.prepTime?.trim());
     if (timeLabel != null && timeLabel.isNotEmpty) {
       facts.add(_QuickFact(label: timeLabel));
     }
@@ -2965,7 +2951,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       colorScheme.surfaceContainerHighest,
     );
     final calories = nutrition.calories?.round();
-    final energyPercent = calories == null ? null : (calories / 2000 * 100).round();
+    final energyPercent = calories == null
+        ? null
+        : (calories / 2000 * 100).round();
 
     return Container(
       decoration: BoxDecoration(
@@ -3007,8 +2995,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.68),
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.68,
+                    ),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
@@ -3102,8 +3091,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             Container(
               padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
               decoration: BoxDecoration(
-                color:
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.45,
+                ),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -3120,8 +3110,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     child: _NutritionBar(
                       value: fiber.progress,
                       color: fiber.color,
-                      backgroundColor:
-                          colorScheme.outlineVariant.withValues(alpha: 0.42),
+                      backgroundColor: colorScheme.outlineVariant.withValues(
+                        alpha: 0.42,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -3142,7 +3133,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   String _formatNutrientG(double v) {
-    return v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+    return v == v.truncateToDouble()
+        ? v.toInt().toString()
+        : v.toStringAsFixed(1);
   }
 
   Widget _buildIngredientsSection({
@@ -3201,10 +3194,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         ),
         const SizedBox(height: 8),
         ...recipe.ingredients.asMap().entries.map((entry) {
-          final key = RecipeStateService.ingredientKey(
-            entry.value,
-            entry.key,
-          );
+          final key = RecipeStateService.ingredientKey(entry.value, entry.key);
           final checked = _checkedIngredientKeys.contains(key);
           return _IngredientRow(
             ingredient: entry.value,
@@ -3402,11 +3392,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       final answer = body.join('\n').trim();
       if ((question ?? '').isEmpty && answer.isEmpty) continue;
       blocks.add(
-        _GlimpseSavedNote(
-          asked: asked,
-          question: question,
-          answer: answer,
-        ),
+        _GlimpseSavedNote(asked: asked, question: question, answer: answer),
       );
     }
     return blocks.reversed.take(3).toList();
@@ -3554,9 +3540,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       'product' => 'product',
       _ => '',
     };
-    final query = [mention.title, suffix]
-        .where((item) => item.isNotEmpty)
-        .join(' ');
+    final query = [
+      mention.title,
+      suffix,
+    ].where((item) => item.isNotEmpty).join(' ');
     final uri = Uri.https('www.google.com', '/search', {'q': query});
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
@@ -3565,10 +3552,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return TextCleaner.cleanLoose(text);
   }
 
-  Widget _mentionPlaceholder(
-    EnrichedMention mention,
-    ColorScheme colorScheme,
-  ) {
+  Widget _mentionPlaceholder(EnrichedMention mention, ColorScheme colorScheme) {
     final initial = mention.title.trim().isEmpty
         ? 'M'
         : mention.title.trim().substring(0, 1).toUpperCase();
@@ -3612,21 +3596,21 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final fromDescription = matchFirst(r'-\s*@?([A-Za-z0-9._]+)\s+on\s+');
     final parsedUsername = _supportsProfileUsername(rawUrl)
         ? _cleanUsername(creator) ??
-            _cleanUsername(fromDescription) ??
-            _usernameFromUrl(rawUrl)
+              _cleanUsername(fromDescription) ??
+              _usernameFromUrl(rawUrl)
         : null;
 
     return _DetailMetadata(
       likesLabel: likeCount != null
           ? _compactCountLabel(likeCount.toString())
           : likes == null
-              ? null
-              : _compactCountLabel(likes),
+          ? null
+          : _compactCountLabel(likes),
       commentsLabel: commentCount != null
           ? _compactCountLabel(commentCount.toString())
           : comments == null
-              ? null
-              : _compactCountLabel(comments),
+          ? null
+          : _compactCountLabel(comments),
       creatorUsername: parsedUsername,
     );
   }
@@ -3843,10 +3827,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   String _formatDescription(String description) {
-    var text = TextCleaner.clean(description)
-        .replaceAll('\r\n', '\n')
-        .replaceAll('\r', '\n')
-        .trim();
+    var text = TextCleaner.clean(
+      description,
+    ).replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
 
     if (text.isEmpty) return '';
 
@@ -3959,10 +3942,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       );
     }
     final parsed = Uri.tryParse(url.rawUrl.trim());
-    final seed = ((parsed?.host.isNotEmpty ?? false)
-            ? parsed!.host
-            : url.domain.trim())
-        .toLowerCase();
+    final seed =
+        ((parsed?.host.isNotEmpty ?? false) ? parsed!.host : url.domain.trim())
+            .toLowerCase();
     if (seed.isEmpty) return _recipeAccent(colorScheme);
     final hue = seed.codeUnits.fold<int>(0, (sum, item) => sum + item) % 360;
     final generated = HSLColor.fromAHSL(
@@ -3992,11 +3974,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           width: 14,
           height: 14,
           fit: BoxFit.cover,
-          errorWidget: (_, _, _) => Icon(
-            Icons.public_outlined,
-            size: 14,
-            color: variant,
-          ),
+          errorWidget: (_, _, _) =>
+              Icon(Icons.public_outlined, size: 14, color: variant),
         ),
       );
     }
@@ -4266,10 +4245,12 @@ class _IngredientRow extends StatelessWidget {
                         color: isChecked
                             ? colorScheme.onSurface.withValues(alpha: 0.38)
                             : colorScheme.onSurface,
-                        decoration:
-                            isChecked ? TextDecoration.lineThrough : null,
-                        decorationColor:
-                            colorScheme.onSurface.withValues(alpha: 0.38),
+                        decoration: isChecked
+                            ? TextDecoration.lineThrough
+                            : null,
+                        decorationColor: colorScheme.onSurface.withValues(
+                          alpha: 0.38,
+                        ),
                         height: 1.3,
                       ),
                     ),
@@ -4279,7 +4260,9 @@ class _IngredientRow extends StatelessWidget {
                         subLabel,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: isChecked
-                              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
+                              ? colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.4,
+                                )
                               : colorScheme.onSurfaceVariant,
                           height: 1.3,
                         ),
