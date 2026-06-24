@@ -17,12 +17,14 @@ class CategorizationResult {
   final String emoji;
   final List<String> tags;
   final String summary;
+  final MemoryIntentMetadata? memoryIntent;
 
   const CategorizationResult({
     required this.category,
     required this.emoji,
     required this.tags,
     required this.summary,
+    this.memoryIntent,
   });
 }
 
@@ -323,6 +325,22 @@ URL: $url''');
 - "emoji": use the matching emoji for that category from the allowed list below
 - "tags": an array of 3–5 lowercase descriptive keywords for the specific topic
 - "summary": 2–3 sentences explaining what this page is about in plain language
+- "memory_intent": an object describing why someone likely saved this, with:
+  - "primary_intent": exactly one of learn, visit, cook, build, buy, try, watch_later, read_later, reference, career_move, health_change, inspiration, share
+  - "secondary_intents": array of 0–3 additional intents from the same list
+  - "intent_confidence": number from 0 to 1
+  - "life_area": one of travel, food, career, technology, business, education, health, home, finance, entertainment, inspiration, reference, other
+  - "why_saved_hypothesis": one concise sentence phrased as a hypothesis, not a fact
+  - "actionability": one of low, medium, high
+  - "time_horizon": one of now, soon, someday, reference
+  - "effort_level": one of low, medium, high
+  - "cost_level": one of free, low, medium, high, unknown
+  - "difficulty": one of easy, medium, hard, unknown
+  - "skill_level": one of beginner, intermediate, advanced, unknown
+  - "location": specific place if clearly present, otherwise empty string
+  - "time_required": visible or implied time requirement if clearly present, otherwise empty string
+  - "freshness_sensitivity": one of evergreen, time_sensitive, unknown
+  - "evergreen_score": number from 0 to 1
 
 Allowed categories:
 ${CategoryTaxonomy.promptOptions()}
@@ -366,6 +384,9 @@ Output valid JSON only. No markdown, no explanation.''';
         emoji: normalized.emoji,
         tags: tags,
         summary: (data['summary'] as String? ?? '').trim(),
+        memoryIntent: MemoryIntentMetadata.fromJsonOrNull(
+          data['memory_intent'] ?? data,
+        ),
       );
     } catch (e, stack) {
       developer.log(

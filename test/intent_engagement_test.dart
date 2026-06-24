@@ -50,21 +50,28 @@ void main() {
     final now = DateTime(2026, 6, 16, 10); // a Tuesday
 
     test('done labels map to done kind', () {
-      for (final label in ['Already Watched', 'Already Read', 'Already Checked']) {
+      for (final label in [
+        'Already Watched',
+        'Already Read',
+        'Already Checked',
+      ]) {
         final c = IntentClassifier.classify(label, now: now);
         expect(c.kind, IntentKind.done, reason: label);
         expect(c.revisitAfter, isNull);
       }
     });
 
-    test('queue labels map to queue kind with a revisitAfter in the future', () {
-      for (final label in ['Watch Later', 'Read Later', 'Try This Weekend']) {
-        final c = IntentClassifier.classify(label, now: now);
-        expect(c.kind, IntentKind.queue, reason: label);
-        expect(c.revisitAfter, isNotNull, reason: label);
-        expect(c.revisitAfter!.isAfter(now), isTrue, reason: label);
-      }
-    });
+    test(
+      'queue labels map to queue kind with a revisitAfter in the future',
+      () {
+        for (final label in ['Watch Later', 'Read Later', 'Try This Weekend']) {
+          final c = IntentClassifier.classify(label, now: now);
+          expect(c.kind, IntentKind.queue, reason: label);
+          expect(c.revisitAfter, isNotNull, reason: label);
+          expect(c.revisitAfter!.isAfter(now), isTrue, reason: label);
+        }
+      },
+    );
 
     test('Try This Weekend lands on a Saturday', () {
       final c = IntentClassifier.classify('Try This Weekend', now: now);
@@ -72,8 +79,16 @@ void main() {
     });
 
     test('non-intent labels map to note kind', () {
-      for (final label in ['Share With Someone', 'Make Checklist', 'Research This']) {
-        expect(IntentClassifier.classify(label).kind, IntentKind.note, reason: label);
+      for (final label in [
+        'Share With Someone',
+        'Make Checklist',
+        'Research This',
+      ]) {
+        expect(
+          IntentClassifier.classify(label).kind,
+          IntentKind.note,
+          reason: label,
+        );
       }
     });
 
@@ -88,7 +103,11 @@ void main() {
 
     test('done and dismissed items are excluded', () {
       expect(
-        RevisitScorer.score(_url(intentStatus: 'done'), seeds: const [], now: now).isExcluded,
+        RevisitScorer.score(
+          _url(intentStatus: 'done'),
+          seeds: const [],
+          now: now,
+        ).isExcluded,
         isTrue,
       );
       expect(
@@ -101,24 +120,30 @@ void main() {
       );
     });
 
-    test('queued-but-not-due is held back; queued-and-due floats to the top', () {
-      final notDue = _url(
-        intentStatus: 'queued',
-        intentAction: 'watch_later',
-        revisitAfter: now.add(const Duration(days: 2)),
-      );
-      expect(RevisitScorer.score(notDue, seeds: const [], now: now).isExcluded, isTrue);
+    test(
+      'queued-but-not-due is held back; queued-and-due floats to the top',
+      () {
+        final notDue = _url(
+          intentStatus: 'queued',
+          intentAction: 'watch_later',
+          revisitAfter: now.add(const Duration(days: 2)),
+        );
+        expect(
+          RevisitScorer.score(notDue, seeds: const [], now: now).isExcluded,
+          isTrue,
+        );
 
-      final due = _url(
-        intentStatus: 'queued',
-        intentAction: 'watch_later',
-        revisitAfter: now.subtract(const Duration(hours: 1)),
-      );
-      final scored = RevisitScorer.score(due, seeds: const [], now: now);
-      expect(scored.isExcluded, isFalse);
-      expect(scored.score, greaterThan(900));
-      expect(scored.reason, 'Time to watch this');
-    });
+        final due = _url(
+          intentStatus: 'queued',
+          intentAction: 'watch_later',
+          revisitAfter: now.subtract(const Duration(hours: 1)),
+        );
+        final scored = RevisitScorer.score(due, seeds: const [], now: now);
+        expect(scored.isExcluded, isFalse);
+        expect(scored.score, greaterThan(900));
+        expect(scored.reason, 'Time to watch this');
+      },
+    );
 
     test('never-opened older saves outscore recently resurfaced ones', () {
       final fresh = _url(id: 1, openedAt: null);
@@ -128,13 +153,20 @@ void main() {
         resurfacedAt: now.subtract(const Duration(days: 1)),
       );
       final a = RevisitScorer.score(fresh, seeds: const [], now: now).score;
-      final b = RevisitScorer.score(justResurfaced, seeds: const [], now: now).score;
+      final b = RevisitScorer.score(
+        justResurfaced,
+        seeds: const [],
+        now: now,
+      ).score;
       expect(a, greaterThan(b));
     });
 
     test('onThisDayLabel detects a one-year anniversary', () {
       final yearOld = _url(savedAt: now.subtract(const Duration(days: 365)));
-      expect(RevisitScorer.onThisDayLabel(yearOld, now: now), 'A year ago today');
+      expect(
+        RevisitScorer.onThisDayLabel(yearOld, now: now),
+        'A year ago today',
+      );
     });
   });
 
@@ -161,28 +193,49 @@ void main() {
       expect(consumed, isFalse);
     });
 
-    test('a known action with no link ids is consumed but is a no-op', () async {
-      // Empty payload returns before any database access, so no Isar needed.
-      final consumed = await NotificationActionHandler.handleIfAction(
-        resp(actionId: NotificationActions.markDone, payload: null),
-      );
-      expect(consumed, isTrue);
-    });
+    test(
+      'a known action with no link ids is consumed but is a no-op',
+      () async {
+        // Empty payload returns before any database access, so no Isar needed.
+        final consumed = await NotificationActionHandler.handleIfAction(
+          resp(actionId: NotificationActions.markDone, payload: null),
+        );
+        expect(consumed, isTrue);
+      },
+    );
   });
 
   group('Geography notification accuracy', () {
-    test('unreadLinksForGeo returns only the featured place, unread & not done',
-        () {
-      final urls = [
-        _url(id: 1, tags: ['india', 'trek']),
-        _url(id: 2, tags: ['new zealand']),
-        _url(id: 3, tags: ['india'], openedAt: DateTime.now()), // read
-        _url(id: 4, tags: ['india'], intentStatus: 'done'), // archived
-        _url(id: 5, tags: ['india', 'food']),
-      ];
-      final india = TagAnalyzer.unreadLinksForGeo(urls, 'india');
-      expect(india.map((u) => u.id).toSet(), {1, 5});
-    });
+    test(
+      'unreadLinksForGeo returns only the featured place, unread & not done',
+      () {
+        final urls = [
+          _url(id: 1, tags: ['india', 'trek']),
+          _url(id: 2, tags: ['new zealand']),
+          _url(id: 3, tags: ['india'], openedAt: DateTime.now()), // read
+          _url(id: 4, tags: ['india'], intentStatus: 'done'), // archived
+          _url(id: 5, tags: ['india', 'food']),
+        ];
+        final india = TagAnalyzer.unreadLinksForGeo(urls, 'india');
+        expect(india.map((u) => u.id).toSet(), {1, 5});
+      },
+    );
+
+    test(
+      'country-level tags stay searchable but are not notification topics',
+      () {
+        expect(TagAnalyzer.notificationTopicTags(['india', 'trek']), ['trek']);
+
+        final urls = [
+          _url(id: 1, tags: ['india', 'trek'], savedAt: DateTime.now()),
+          _url(id: 2, tags: ['india', 'food'], savedAt: DateTime.now()),
+          _url(id: 3, tags: ['india', 'startup'], savedAt: DateTime.now()),
+        ];
+
+        expect(TagAnalyzer.detectGeography(urls), isEmpty);
+        expect(TagAnalyzer.findNewTags(urls), isNot(contains('india')));
+      },
+    );
   });
 
   group('Deep collector (selectDeepDive)', () {
@@ -248,6 +301,41 @@ void main() {
       expect(dive.tags, containsAll(['education', 'philosophy']));
     });
 
+    test('ignores broad country tags when forming notification clusters', () {
+      final urls = [
+        for (var i = 0; i < 4; i++)
+          _url(
+            id: i + 1,
+            categories: ['Travel'],
+            tags: ['india', 'food'],
+            savedAt: now.subtract(Duration(days: 8 + i)),
+          ),
+        for (var i = 0; i < 4; i++)
+          _url(
+            id: 10 + i,
+            categories: ['Travel'],
+            tags: ['india', 'trek'],
+            savedAt: now.subtract(Duration(days: 8 + i)),
+          ),
+        for (var i = 0; i < 6; i++)
+          _url(
+            id: 20 + i,
+            categories: ['Education'],
+            tags: ['wildlife conservation', 'field research'],
+          ),
+      ];
+
+      final clusters = TagAnalyzer.computeClusters(urls);
+      expect(clusters.map((c) => c.name), isNot(contains('india')));
+
+      final dive = UserFingerprint.selectDeepDive(urls, clusters, now);
+      expect(dive.name, isNot('india'));
+      expect(
+        dive.tags,
+        containsAll(['wildlife conservation', 'field research']),
+      );
+    });
+
     test('does not use social platforms as deep-dive category fallback', () {
       final urls = [
         for (var i = 0; i < 8; i++)
@@ -288,25 +376,28 @@ void main() {
   });
 
   group('Notification anti-repeat (recentSignatures)', () {
-    test('returns recent signatures and drops ones outside the window',
-        () async {
-      final now = DateTime.now();
-      SharedPreferences.setMockInitialValues({
-        'digest_history': jsonEncode([
-          {'date': now.toIso8601String(), 'sig': 'A:india'},
-          {
-            'date': now.subtract(const Duration(days: 5)).toIso8601String(),
-            'sig': 'E:42',
-          },
-          {'date': now.toIso8601String(), 'topic': 'no sig here'},
-        ]),
-      });
-      final recent =
-          await DigestPrefs.recentSignatures(within: const Duration(days: 3));
-      expect(recent, contains('A:india'));
-      expect(recent, isNot(contains('E:42'))); // 5 days old → outside window
-      expect(recent.length, 1);
-    });
+    test(
+      'returns recent signatures and drops ones outside the window',
+      () async {
+        final now = DateTime.now();
+        SharedPreferences.setMockInitialValues({
+          'digest_history': jsonEncode([
+            {'date': now.toIso8601String(), 'sig': 'A:india'},
+            {
+              'date': now.subtract(const Duration(days: 5)).toIso8601String(),
+              'sig': 'E:42',
+            },
+            {'date': now.toIso8601String(), 'topic': 'no sig here'},
+          ]),
+        });
+        final recent = await DigestPrefs.recentSignatures(
+          within: const Duration(days: 3),
+        );
+        expect(recent, contains('A:india'));
+        expect(recent, isNot(contains('E:42'))); // 5 days old → outside window
+        expect(recent.length, 1);
+      },
+    );
   });
 
   group('NotifBandit', () {

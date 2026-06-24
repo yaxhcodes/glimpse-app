@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
+
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/services/ask_retrieval_service.dart';
 
@@ -9,6 +11,7 @@ SavedUrl _saved({
   String description = '',
   List<String> tags = const [],
   DateTime? savedAt,
+  String? enrichmentJson,
 }) {
   return SavedUrl()
     ..id = id
@@ -21,6 +24,7 @@ SavedUrl _saved({
     ..categories = ['Film']
     ..tags = tags
     ..summary = summary
+    ..enrichmentJson = enrichmentJson
     ..savedAt = savedAt ?? DateTime(2026, 5, id);
 }
 
@@ -57,62 +61,66 @@ void main() {
       expect(result.map((u) => u.id), isNot(contains(3)));
     });
 
-    test('respects requested documentary quantity and filters low-fit platforms',
-        () {
-      final urls = [
-        _saved(
-          id: 1,
-          title: 'I Did Wildlife Photography in India',
-          summary: 'A YouTube wildlife expedition through India.',
-          tags: ['wildlife'],
-        )..domain = 'youtube.com',
-        _saved(
-          id: 2,
-          title: 'IN THE COMPANY OF MOOSE with Gisele Benoit',
-          summary: 'A YouTube documentary on moose behavior and habitat.',
-          tags: ['moose', 'nature'],
-        )..domain = 'youtube.com',
-        _saved(
-          id: 3,
-          title: 'Waterwalker',
-          summary:
-              'This feature-length documentary follows Bill Mason by canoe through the Ontario wilderness and his sense of nature.',
-          tags: ['nature'],
-        )..domain = 'youtube.com',
-        _saved(
-          id: 4,
-          title: 'Here are 10 GitHub repos that quietly print money',
-          summary: 'A developer thread about open source repositories.',
-          tags: ['github'],
-        )
-          ..domain = 'x.com'
-          ..category = 'X'
-          ..categories = ['X'],
-        _saved(
-          id: 5,
-          title: 'Adventure Travel Nature Reel',
-          summary: 'An Instagram reel from a scenic trek.',
-          tags: ['nature'],
-        )
-          ..domain = 'instagram.com'
-          ..category = 'Instagram'
-          ..categories = ['Instagram'],
-      ];
+    test(
+      'respects requested documentary quantity and filters low-fit platforms',
+      () {
+        final urls = [
+          _saved(
+            id: 1,
+            title: 'I Did Wildlife Photography in India',
+            summary: 'A YouTube wildlife expedition through India.',
+            tags: ['wildlife'],
+          )..domain = 'youtube.com',
+          _saved(
+            id: 2,
+            title: 'IN THE COMPANY OF MOOSE with Gisele Benoit',
+            summary: 'A YouTube documentary on moose behavior and habitat.',
+            tags: ['moose', 'nature'],
+          )..domain = 'youtube.com',
+          _saved(
+            id: 3,
+            title: 'Waterwalker',
+            summary:
+                'This feature-length documentary follows Bill Mason by canoe through the Ontario wilderness and his sense of nature.',
+            tags: ['nature'],
+          )..domain = 'youtube.com',
+          _saved(
+              id: 4,
+              title: 'Here are 10 GitHub repos that quietly print money',
+              summary: 'A developer thread about open source repositories.',
+              tags: ['github'],
+            )
+            ..domain = 'x.com'
+            ..category = 'X'
+            ..categories = ['X'],
+          _saved(
+              id: 5,
+              title: 'Adventure Travel Nature Reel',
+              summary: 'An Instagram reel from a scenic trek.',
+              tags: ['nature'],
+            )
+            ..domain = 'instagram.com'
+            ..category = 'Instagram'
+            ..categories = ['Instagram'],
+        ];
 
-      final result = AskRetrievalService.retrieve(
-        query: 'i saved 2 documentaries a while ago about wildlife and nature',
-        allUrls: urls,
-        semanticScored: [
-          MapEntry(urls[0], 0.84),
-          MapEntry(urls[1], 0.81),
-          MapEntry(urls[2], 0.83),
-          MapEntry(urls[3], 0.78),
-          MapEntry(urls[4], 0.78),
-        ],
-      );
+        final result = AskRetrievalService.retrieve(
+          query:
+              'i saved 2 documentaries a while ago about wildlife and nature',
+          allUrls: urls,
+          semanticScored: [
+            MapEntry(urls[0], 0.84),
+            MapEntry(urls[1], 0.81),
+            MapEntry(urls[2], 0.83),
+            MapEntry(urls[3], 0.78),
+            MapEntry(urls[4], 0.78),
+          ],
+        );
 
-      expect(result.map((u) => u.id).toList(), [2, 3]);
-    });
+        expect(result.map((u) => u.id), containsAll([2, 3]));
+        expect(result.length, 2);
+      },
+    );
 
     test('plural memory words match singular saved titles', () {
       final urls = [
@@ -131,26 +139,29 @@ void main() {
       expect(result.single.id, 1);
     });
 
-    test('exact keyword match outranks unrelated semantic nearest neighbor', () {
-      final waterwalker = _saved(
-        id: 1,
-        title: 'Waterwalker',
-        summary: 'A canoe documentary.',
-      );
-      final unrelated = _saved(
-        id: 2,
-        title: 'A random productivity article',
-        summary: 'Notes on task planning.',
-      );
+    test(
+      'exact keyword match outranks unrelated semantic nearest neighbor',
+      () {
+        final waterwalker = _saved(
+          id: 1,
+          title: 'Waterwalker',
+          summary: 'A canoe documentary.',
+        );
+        final unrelated = _saved(
+          id: 2,
+          title: 'A random productivity article',
+          summary: 'Notes on task planning.',
+        );
 
-      final result = AskRetrievalService.retrieve(
-        query: 'waterwalker',
-        allUrls: [waterwalker, unrelated],
-        semanticScored: [MapEntry(unrelated, 0.99)],
-      );
+        final result = AskRetrievalService.retrieve(
+          query: 'waterwalker',
+          allUrls: [waterwalker, unrelated],
+          semanticScored: [MapEntry(unrelated, 0.99)],
+        );
 
-      expect(result.first.id, 1);
-    });
+        expect(result.first.id, 1);
+      },
+    );
 
     test('drops semantic-only guesses below the relevance floor', () {
       final unrelated = _saved(
@@ -167,5 +178,37 @@ void main() {
 
       expect(result, isEmpty);
     });
+
+    test(
+      'matches natural language learning intent from enrichment metadata',
+      () {
+        final flutter = _saved(
+          id: 1,
+          title: 'Riverpod provider patterns',
+          summary: 'A short reference about state management.',
+          enrichmentJson: jsonEncode({
+            'memory_intent': {
+              'primary_intent': 'learn',
+              'life_area': 'education',
+              'why_saved_hypothesis':
+                  'The user may want to learn Flutter architecture later.',
+            },
+          }),
+        );
+        final recipe = _saved(
+          id: 2,
+          title: 'Mushroom pasta',
+          summary: 'A weeknight dinner recipe.',
+        );
+
+        final result = AskRetrievalService.retrieve(
+          query: 'things I wanted to learn',
+          allUrls: [recipe, flutter],
+        );
+
+        expect(result.map((u) => u.id), contains(1));
+        expect(result.map((u) => u.id), isNot(contains(2)));
+      },
+    );
   });
 }

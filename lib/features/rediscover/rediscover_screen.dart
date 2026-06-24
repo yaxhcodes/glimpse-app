@@ -31,6 +31,7 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
     ref.invalidate(revisitQueueProvider);
     ref.invalidate(onThisDayProvider);
     ref.invalidate(forgottenGemsProvider);
+    ref.invalidate(goalShelfProvider);
     ref.invalidate(interestShelfProvider);
     ref.invalidate(rediscoveryStatsProvider);
   }
@@ -101,8 +102,9 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
             child: picksAsync.when(
               skipLoadingOnReload: true,
               data: (picks) {
-                final remaining =
-                    picks.where((p) => !_handled.contains(p.url.id)).toList();
+                final remaining = picks
+                    .where((p) => !_handled.contains(p.url.id))
+                    .toList();
                 if (picks.isEmpty) return const SizedBox.shrink();
                 if (remaining.isEmpty) return const _CaughtUp();
                 final item = remaining.first;
@@ -117,12 +119,17 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
                 );
               },
               loading: () => const _HeroSkeleton(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
             ),
           ),
           _Shelf(
             title: 'Ready to revisit',
             provider: revisitQueueProvider,
+            tagFrequency: tagFreq,
+            onOpen: (u) => _open(u),
+            onDismiss: (u) => _dismiss(u),
+          ),
+          _GoalShelf(
             tagFrequency: tagFreq,
             onOpen: (u) => _open(u),
             onDismiss: (u) => _dismiss(u),
@@ -233,13 +240,14 @@ class _HeroDeckState extends State<_HeroDeck>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-    )..addListener(() {
-        final a = _anim;
-        if (a != null && mounted) setState(() => _drag = a.value);
-      });
+    _ctrl =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 260),
+        )..addListener(() {
+          final a = _anim;
+          if (a != null && mounted) setState(() => _drag = a.value);
+        });
   }
 
   @override
@@ -249,9 +257,10 @@ class _HeroDeckState extends State<_HeroDeck>
   }
 
   void _animateTo(Offset target, {VoidCallback? onDone}) {
-    _anim = Tween<Offset>(begin: _drag, end: target).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
-    );
+    _anim = Tween<Offset>(
+      begin: _drag,
+      end: target,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _animating = true;
     _ctrl
       ..reset()
@@ -336,10 +345,11 @@ class _HeroDeckState extends State<_HeroDeck>
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(20),
-                                color: (swipingRight
-                                        ? const Color(0xFF34C759)
-                                        : const Color(0xFFFF3B30))
-                                    .withValues(alpha: mag * 0.22),
+                                color:
+                                    (swipingRight
+                                            ? const Color(0xFF34C759)
+                                            : const Color(0xFFFF3B30))
+                                        .withValues(alpha: mag * 0.22),
                               ),
                             ),
                           ),
@@ -388,143 +398,143 @@ class _HeroPick extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 196,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ColoredBox(color: cs.surfaceContainerHighest),
-                    if (hasImage)
-                      CachedNetworkImage(
-                        imageUrl: url.thumbnailUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) =>
-                            ColoredBox(color: cs.surfaceContainerHighest),
-                        errorWidget: (_, __, ___) => Center(
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 30,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                          ),
-                        ),
-                      )
-                    else
-                      Center(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 196,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(color: cs.surfaceContainerHighest),
+                  if (hasImage)
+                    CachedNetworkImage(
+                      imageUrl: url.thumbnailUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) =>
+                          ColoredBox(color: cs.surfaceContainerHighest),
+                      errorWidget: (_, _, _) => Center(
                         child: Icon(
-                          Icons.bookmark_outline_rounded,
+                          Icons.image_outlined,
                           size: 30,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                         ),
                       ),
-                    // Fade the image into the card surface so it merges into
-                    // the text section below (theme-driven: white / dark).
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: const [0.45, 0.8, 1.0],
-                          colors: [
-                            cs.surfaceContainerLow.withValues(alpha: 0.0),
-                            cs.surfaceContainerLow.withValues(alpha: 0.55),
-                            cs.surfaceContainerLow,
-                          ],
-                        ),
+                    )
+                  else
+                    Center(
+                      child: Icon(
+                        Icons.bookmark_outline_rounded,
+                        size: 30,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
                     ),
-                    if (remaining > 1)
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 4,
+                  // Fade the image into the card surface so it merges into
+                  // the text section below (theme-driven: white / dark).
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.45, 0.8, 1.0],
+                        colors: [
+                          cs.surfaceContainerLow.withValues(alpha: 0.0),
+                          cs.surfaceContainerLow.withValues(alpha: 0.55),
+                          cs.surfaceContainerLow,
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (remaining > 1)
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.secondaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '$remaining left',
+                          style: tt.labelSmall?.copyWith(
+                            color: cs.onSecondaryContainer,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
                           ),
-                          decoration: BoxDecoration(
-                            color: cs.secondaryContainer,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '$remaining left',
-                            style: tt.labelSmall?.copyWith(
-                              color: cs.onSecondaryContainer,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _ReasonChip(item.reason),
-                    const SizedBox(height: 8),
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                        letterSpacing: -0.2,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '$source · ${item.timeAgo}',
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onDismiss,
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                        label: const Text('Not now'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: cs.onSurfaceVariant,
-                          side: BorderSide(color: cs.outlineVariant),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: onOpen,
-                        icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                        label: const Text('Open'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ReasonChip(item.reason),
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      letterSpacing: -0.2,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '$source · ${item.timeAgo}',
+                    style: tt.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onDismiss,
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      label: const Text('Not now'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: cs.onSurfaceVariant,
+                        side: BorderSide(color: cs.outlineVariant),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: onOpen,
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                      label: const Text('Open'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -645,11 +655,43 @@ class _Shelf extends ConsumerWidget {
     // valueOrNull retains the previous list while the provider reloads after a
     // dismiss, so the rail swaps in place instead of blanking out.
     final items = ref.watch(provider).valueOrNull ?? const <RediscoveryItem>[];
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
     return SliverToBoxAdapter(
       child: _ShelfBody(
         title: title,
         items: items,
+        tagFrequency: tagFrequency,
+        onOpen: onOpen,
+        onDismiss: onDismiss,
+      ),
+    );
+  }
+}
+
+class _GoalShelf extends ConsumerWidget {
+  final Map<String, int> tagFrequency;
+  final void Function(SavedUrl) onOpen;
+  final void Function(SavedUrl) onDismiss;
+
+  const _GoalShelf({
+    required this.tagFrequency,
+    required this.onOpen,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(goalShelfProvider);
+    final shelf = async.valueOrNull;
+    if (shelf == null || shelf.items.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    return SliverToBoxAdapter(
+      child: _ShelfBody(
+        title: shelf.title,
+        items: shelf.items,
         tagFrequency: tagFrequency,
         onOpen: onOpen,
         onDismiss: onDismiss,
@@ -716,7 +758,7 @@ class _ShelfBody extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
             itemBuilder: (context, i) {
               final item = items[i];
               return SizedBox(

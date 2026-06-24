@@ -4,6 +4,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/revisit_scorer.dart';
+import '../goals/memory_goals_provider.dart';
 import '../home/home_provider.dart';
 
 /// A rediscovery item enriched with a "why now" reason and relative time.
@@ -51,11 +52,13 @@ final revisitQueueProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
     });
   return due
       .take(12)
-      .map((u) => RediscoveryItem(
-            url: u,
-            reason: RevisitScorer.score(u, seeds: const []).reason,
-            timeAgo: _formatTimeAgo(u.savedAt),
-          ))
+      .map(
+        (u) => RediscoveryItem(
+          url: u,
+          reason: RevisitScorer.score(u, seeds: const []).reason,
+          timeAgo: _formatTimeAgo(u.savedAt),
+        ),
+      )
       .toList();
 });
 
@@ -73,8 +76,10 @@ final todaysPicksProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
 
   // Items the user explicitly bookmarked to return to, now due — these lead.
   final due = live.where((u) => u.isRevisitDue).toList()
-    ..sort((a, b) => (a.revisitAfter ?? a.savedAt)
-        .compareTo(b.revisitAfter ?? b.savedAt));
+    ..sort(
+      (a, b) =>
+          (a.revisitAfter ?? a.savedAt).compareTo(b.revisitAfter ?? b.savedAt),
+    );
   final gems = _forgottenGems(live).take(3);
   final onThisDay = _onThisDay(live).take(2);
 
@@ -96,11 +101,13 @@ final todaysPicksProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
 
   return picks
       .take(7)
-      .map((u) => RediscoveryItem(
-            url: u,
-            reason: _reasonFor(u, live),
-            timeAgo: _formatTimeAgo(u.savedAt),
-          ))
+      .map(
+        (u) => RediscoveryItem(
+          url: u,
+          reason: _reasonFor(u, live),
+          timeAgo: _formatTimeAgo(u.savedAt),
+        ),
+      )
       .toList();
 });
 
@@ -109,29 +116,72 @@ final onThisDayProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
   final live = await _liveUrls(ref);
   return _onThisDay(live)
       .take(10)
-      .map((u) => RediscoveryItem(
-            url: u,
-            reason: _onThisDayLabel(u) ?? 'A while ago',
-            timeAgo: _formatTimeAgo(u.savedAt),
-          ))
+      .map(
+        (u) => RediscoveryItem(
+          url: u,
+          reason: _onThisDayLabel(u) ?? 'A while ago',
+          timeAgo: _formatTimeAgo(u.savedAt),
+        ),
+      )
       .toList();
 });
 
 /// Older saves the user never opened — the real backlog worth clearing.
-final forgottenGemsProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
+final forgottenGemsProvider = FutureProvider<List<RediscoveryItem>>((
+  ref,
+) async {
   final live = await _liveUrls(ref);
   return _forgottenGems(live)
       .take(12)
-      .map((u) => RediscoveryItem(
-            url: u,
-            reason: 'Never opened',
-            timeAgo: _formatTimeAgo(u.savedAt),
-          ))
+      .map(
+        (u) => RediscoveryItem(
+          url: u,
+          reason: 'Never opened',
+          timeAgo: _formatTimeAgo(u.savedAt),
+        ),
+      )
       .toList();
 });
 
 /// Interest-based shelf, titled after the topic that ties the picks together.
 typedef InterestShelf = ({String title, List<RediscoveryItem> items});
+typedef GoalShelf = ({String title, List<RediscoveryItem> items});
+
+final goalShelfProvider = FutureProvider<GoalShelf?>((ref) async {
+  final live = await _liveUrls(ref);
+  if (live.length < 3) return null;
+
+  final goals = await ref.watch(memoryGoalsProvider.future);
+  if (goals.isEmpty) return null;
+
+  final liveIds = {for (final url in live) url.id};
+  final ranked =
+      goals.where((goal) {
+        return goal.urls.any((url) => liveIds.contains(url.id));
+      }).toList()..sort((a, b) {
+        final statusRank = _goalStatusRank(
+          b.status,
+        ).compareTo(_goalStatusRank(a.status));
+        if (statusRank != 0) return statusRank;
+        return b.strength.compareTo(a.strength);
+      });
+
+  if (ranked.isEmpty) return null;
+  final goal = ranked.first;
+  final items = goal.urls
+      .where((url) => liveIds.contains(url.id))
+      .take(10)
+      .map(
+        (url) => RediscoveryItem(
+          url: url,
+          reason: _goalReason(goal.status),
+          timeAgo: _formatTimeAgo(url.savedAt),
+        ),
+      )
+      .toList();
+  if (items.isEmpty) return null;
+  return (title: goal.name, items: items);
+});
 
 final interestShelfProvider = FutureProvider<InterestShelf>((ref) async {
   ref.watch(
@@ -146,14 +196,18 @@ final interestShelfProvider = FutureProvider<InterestShelf>((ref) async {
   final urls = await RediscoveryService(isar).getRediscoveryLinks(limit: 12);
 
   final topic = _dominantCategory(urls);
-  final title = topic == null ? 'From your interests' : 'Because you saved $topic';
+  final title = topic == null
+      ? 'From your interests'
+      : 'Because you saved $topic';
 
   final items = urls
-      .map((u) => RediscoveryItem(
-            url: u,
-            reason: _reasonFor(u, live),
-            timeAgo: _formatTimeAgo(u.savedAt),
-          ))
+      .map(
+        (u) => RediscoveryItem(
+          url: u,
+          reason: _reasonFor(u, live),
+          timeAgo: _formatTimeAgo(u.savedAt),
+        ),
+      )
       .toList();
   return (title: title, items: items);
 });
@@ -169,12 +223,12 @@ List<SavedUrl> _forgottenGems(List<SavedUrl> live) {
     if (!u.savedAt.isBefore(cutoff)) return false;
     final r = u.resurfacedAt;
     if (r != null && r.isAfter(resurfaceCutoff)) return false;
-    final hasSubstance = (u.thumbnailUrl?.isNotEmpty ?? false) ||
+    final hasSubstance =
+        (u.thumbnailUrl?.isNotEmpty ?? false) ||
         (u.enrichmentJson?.isNotEmpty ?? false) ||
         (u.summary?.isNotEmpty ?? false);
     return hasSubstance;
-  }).toList()
-    ..sort((a, b) => a.savedAt.compareTo(b.savedAt)); // oldest first
+  }).toList()..sort((a, b) => a.savedAt.compareTo(b.savedAt)); // oldest first
   return gems;
 }
 
@@ -207,6 +261,26 @@ String? _dominantCategory(List<SavedUrl> urls) {
   return top.value >= 2 ? top.key : null;
 }
 
+int _goalStatusRank(String status) {
+  return switch (status) {
+    'dormant' => 4,
+    'cooling' => 3,
+    'queued' => 2,
+    'active' => 1,
+    _ => 0,
+  };
+}
+
+String _goalReason(String status) {
+  return switch (status) {
+    'dormant' => 'Dormant goal',
+    'cooling' => 'Cooling goal',
+    'queued' => 'Saved goal',
+    'active' => 'Growing goal',
+    _ => 'Memory goal',
+  };
+}
+
 String _reasonFor(SavedUrl url, List<SavedUrl> live) {
   if (url.isRevisitDue) return RevisitScorer.score(url, seeds: const []).reason;
   final onThisDay = _onThisDayLabel(url);
@@ -215,11 +289,14 @@ String _reasonFor(SavedUrl url, List<SavedUrl> live) {
 
   final now = DateTime.now();
   final weekAgo = now.subtract(const Duration(days: 7));
-  final recent =
-      live.where((u) => u.savedAt.isAfter(weekAgo) && u.id != url.id).toList();
+  final recent = live
+      .where((u) => u.savedAt.isAfter(weekAgo) && u.id != url.id)
+      .toList();
   if (recent.isNotEmpty) {
-    final recentTags =
-        recent.expand((u) => u.tags).map((t) => t.toLowerCase()).toSet();
+    final recentTags = recent
+        .expand((u) => u.tags)
+        .map((t) => t.toLowerCase())
+        .toSet();
     final recentCats = recent
         .expand((u) => u.effectiveCategories)
         .map((c) => c.toLowerCase())
@@ -227,7 +304,9 @@ String _reasonFor(SavedUrl url, List<SavedUrl> live) {
     if (url.tags.any((t) => recentTags.contains(t.toLowerCase()))) {
       return 'Matches your recent saves';
     }
-    if (url.effectiveCategories.any((c) => recentCats.contains(c.toLowerCase()))) {
+    if (url.effectiveCategories.any(
+      (c) => recentCats.contains(c.toLowerCase()),
+    )) {
       return 'Based on recent activity';
     }
   }

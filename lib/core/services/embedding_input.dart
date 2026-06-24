@@ -62,8 +62,7 @@ const _hostOnlyCategoriesLower = <String>{
 
 /// Strip platform boilerplate tags so one host does not dominate the vector.
 List<String> _tagsForEmbedding(List<String> tags) {
-  final trimmed =
-      tags.map((t) => t.trim()).where((s) => s.isNotEmpty).toList();
+  final trimmed = tags.map((t) => t.trim()).where((s) => s.isNotEmpty).toList();
   if (trimmed.isEmpty) return trimmed;
 
   final lower = trimmed.map((t) => t.toLowerCase()).toList();
@@ -123,11 +122,12 @@ String buildBookmarkEmbeddingInput({
   required List<String> tags,
   required String category,
   String? summary,
+  String? memoryIntentText,
 }) {
   final catTrim = category.trim();
   final catLower = catTrim.toLowerCase();
-  final includeCategory = catTrim.isNotEmpty &&
-      !_hostOnlyCategoriesLower.contains(catLower);
+  final includeCategory =
+      catTrim.isNotEmpty && !_hostOnlyCategoriesLower.contains(catLower);
 
   final filteredTags = _tagsForEmbedding(tags);
 
@@ -135,6 +135,8 @@ String buildBookmarkEmbeddingInput({
     title.trim(),
     if (summary != null && summary.trim().isNotEmpty) summary.trim(),
     if (description.trim().isNotEmpty) description.trim(),
+    if (memoryIntentText != null && memoryIntentText.trim().isNotEmpty)
+      memoryIntentText.trim(),
     if (filteredTags.isNotEmpty) filteredTags.join(' '),
     if (includeCategory) catTrim,
   ].where((s) => s.isNotEmpty).toList();

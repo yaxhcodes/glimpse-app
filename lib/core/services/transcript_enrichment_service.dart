@@ -26,6 +26,7 @@ class TranscriptEnrichmentResult {
     this.ocrText,
     this.likeCount,
     this.commentCount,
+    this.memoryIntent,
   });
 
   final String meaningfulTitle;
@@ -45,6 +46,7 @@ class TranscriptEnrichmentResult {
   final String? ocrText;
   final int? likeCount;
   final int? commentCount;
+  final MemoryIntentMetadata? memoryIntent;
 
   bool get hasUsefulContent =>
       meaningfulTitle.trim().isNotEmpty ||
@@ -61,7 +63,8 @@ class TranscriptEnrichmentResult {
       _isMeaningfulEvidence(transcript, minChars: 80, minWords: 12) ||
       (caption?.trim().isNotEmpty ?? false) ||
       _isMeaningfulEvidence(ocrText, minChars: 40, minWords: 6) ||
-      (creator?.trim().isNotEmpty == true && thumbnailUrl?.trim().isNotEmpty == true) ||
+      (creator?.trim().isNotEmpty == true &&
+          thumbnailUrl?.trim().isNotEmpty == true) ||
       mentions.isNotEmpty ||
       (recipe?.ingredients.isNotEmpty == true) ||
       (recipe?.steps.isNotEmpty == true);
@@ -77,13 +80,12 @@ class TranscriptEnrichmentResult {
     if (!_isMeaningfulEvidence(cleanedSummary, minChars: 40, minWords: 8)) {
       return false;
     }
-    final rawEvidence = [
-      caption,
-      transcript,
-      ocrText,
-    ].whereType<String>().map((item) => item.trim()).where((item) {
-      return item.isNotEmpty;
-    });
+    final rawEvidence = [caption, transcript, ocrText]
+        .whereType<String>()
+        .map((item) => item.trim())
+        .where((item) {
+          return item.isNotEmpty;
+        });
     for (final evidence in rawEvidence) {
       if (_sameLooseText(cleanedSummary, evidence)) return false;
     }
@@ -108,6 +110,7 @@ class TranscriptEnrichmentResult {
     String? ocrText,
     int? likeCount,
     int? commentCount,
+    MemoryIntentMetadata? memoryIntent,
   }) {
     return TranscriptEnrichmentResult(
       meaningfulTitle: meaningfulTitle ?? this.meaningfulTitle,
@@ -127,6 +130,7 @@ class TranscriptEnrichmentResult {
       ocrText: ocrText ?? this.ocrText,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
+      memoryIntent: memoryIntent ?? this.memoryIntent,
     );
   }
 
@@ -149,6 +153,7 @@ class TranscriptEnrichmentResult {
       'ocr_text': ocrText,
       'like_count': likeCount,
       'comment_count': commentCount,
+      'memory_intent': memoryIntent?.toJson(),
     };
   }
 
@@ -202,6 +207,9 @@ class TranscriptEnrichmentResult {
       ),
       commentCount: TranscriptEnrichmentService._extractPositiveInt(
         json['comment_count'],
+      ),
+      memoryIntent: MemoryIntentMetadata.fromJsonOrNull(
+        json['memory_intent'] ?? json,
       ),
     );
   }
@@ -257,6 +265,134 @@ class TranscriptEnrichmentException implements Exception {
   String toString() =>
       'TranscriptEnrichmentException($message'
       '${statusCode != null ? ', status=$statusCode' : ''})';
+}
+
+class MemoryIntentMetadata {
+  const MemoryIntentMetadata({
+    required this.primaryIntent,
+    this.secondaryIntents = const [],
+    this.intentConfidence,
+    this.lifeArea,
+    this.whySavedHypothesis,
+    this.actionability,
+    this.timeHorizon,
+    this.effortLevel,
+    this.costLevel,
+    this.difficulty,
+    this.skillLevel,
+    this.location,
+    this.timeRequired,
+    this.freshnessSensitivity,
+    this.evergreenScore,
+  });
+
+  final String primaryIntent;
+  final List<String> secondaryIntents;
+  final double? intentConfidence;
+  final String? lifeArea;
+  final String? whySavedHypothesis;
+  final String? actionability;
+  final String? timeHorizon;
+  final String? effortLevel;
+  final String? costLevel;
+  final String? difficulty;
+  final String? skillLevel;
+  final String? location;
+  final String? timeRequired;
+  final String? freshnessSensitivity;
+  final double? evergreenScore;
+
+  bool get hasUsefulContent =>
+      primaryIntent.trim().isNotEmpty ||
+      secondaryIntents.isNotEmpty ||
+      (lifeArea?.trim().isNotEmpty ?? false) ||
+      (whySavedHypothesis?.trim().isNotEmpty ?? false);
+
+  Map<String, dynamic> toJson() {
+    return {
+      'primary_intent': primaryIntent,
+      'secondary_intents': secondaryIntents,
+      'intent_confidence': intentConfidence,
+      'life_area': lifeArea,
+      'why_saved_hypothesis': whySavedHypothesis,
+      'actionability': actionability,
+      'time_horizon': timeHorizon,
+      'effort_level': effortLevel,
+      'cost_level': costLevel,
+      'difficulty': difficulty,
+      'skill_level': skillLevel,
+      'location': location,
+      'time_required': timeRequired,
+      'freshness_sensitivity': freshnessSensitivity,
+      'evergreen_score': evergreenScore,
+    };
+  }
+
+  static MemoryIntentMetadata? fromJsonOrNull(Object? raw) {
+    if (raw is! Map) return null;
+    final json = Map<String, dynamic>.from(raw);
+    final primaryIntent = TranscriptEnrichmentService._cleanText(
+      json['primary_intent'] ?? json['primaryIntent'] ?? json['intent'],
+    ).toLowerCase();
+    final secondaryIntents = TranscriptEnrichmentService._extractStringList(
+      json['secondary_intents'] ?? json['secondaryIntents'],
+    ).map((item) => item.toLowerCase()).toList();
+    final metadata = MemoryIntentMetadata(
+      primaryIntent: primaryIntent,
+      secondaryIntents: secondaryIntents,
+      intentConfidence: _normalizedDouble(
+        json['intent_confidence'] ?? json['intentConfidence'],
+      ),
+      lifeArea: TranscriptEnrichmentService._cleanNullableText(
+        json['life_area'] ?? json['lifeArea'],
+      ),
+      whySavedHypothesis: TranscriptEnrichmentService._cleanNullableText(
+        json['why_saved_hypothesis'] ??
+            json['whySavedHypothesis'] ??
+            json['why_saved'],
+      ),
+      actionability: TranscriptEnrichmentService._cleanNullableText(
+        json['actionability'],
+      ),
+      timeHorizon: TranscriptEnrichmentService._cleanNullableText(
+        json['time_horizon'] ?? json['timeHorizon'],
+      ),
+      effortLevel: TranscriptEnrichmentService._cleanNullableText(
+        json['effort_level'] ?? json['effortLevel'],
+      ),
+      costLevel: TranscriptEnrichmentService._cleanNullableText(
+        json['cost_level'] ?? json['costLevel'],
+      ),
+      difficulty: TranscriptEnrichmentService._cleanNullableText(
+        json['difficulty'],
+      ),
+      skillLevel: TranscriptEnrichmentService._cleanNullableText(
+        json['skill_level'] ?? json['skillLevel'],
+      ),
+      location: TranscriptEnrichmentService._cleanNullableText(
+        json['location'],
+      ),
+      timeRequired: TranscriptEnrichmentService._cleanNullableText(
+        json['time_required'] ?? json['timeRequired'],
+      ),
+      freshnessSensitivity: TranscriptEnrichmentService._cleanNullableText(
+        json['freshness_sensitivity'] ?? json['freshnessSensitivity'],
+      ),
+      evergreenScore: _normalizedDouble(
+        json['evergreen_score'] ?? json['evergreenScore'],
+      ),
+    );
+    return metadata.hasUsefulContent ? metadata : null;
+  }
+
+  static double? _normalizedDouble(Object? raw) {
+    if (raw == null) return null;
+    final value = raw is num
+        ? raw.toDouble()
+        : double.tryParse(raw.toString().trim());
+    if (value == null || value.isNaN) return null;
+    return value.clamp(0, 1).toDouble();
+  }
 }
 
 /// Estimated nutrition information for a recipe (per serving).
@@ -1062,6 +1198,9 @@ class TranscriptEnrichmentService {
             : null,
         likeCount: _extractPositiveInt(data['like_count']),
         commentCount: _extractPositiveInt(data['comment_count']),
+        memoryIntent: MemoryIntentMetadata.fromJsonOrNull(
+          data['memory_intent'] ?? data,
+        ),
       );
 
       if (!result.hasUsefulContent ||
@@ -1242,7 +1381,9 @@ class TranscriptEnrichmentService {
             type: 'place',
             whyMentioned:
                 _cleanNullableText(
-                  item['why_mentioned'] ?? item['reason'] ?? item['description'],
+                  item['why_mentioned'] ??
+                      item['reason'] ??
+                      item['description'],
                 ) ??
                 (locale.isEmpty ? null : locale),
           ),

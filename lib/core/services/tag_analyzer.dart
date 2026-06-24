@@ -23,15 +23,106 @@ class TagAnalyzer {
   TagAnalyzer._();
 
   static const geoKeywords = [
-    'india', 'new zealand', 'switzerland', 'kyrgyzstan', 'nepal',
-    'iceland', 'japan', 'italy', 'peru', 'norway', 'canada',
-    'scotland', 'morocco', 'georgia', 'vietnam', 'indonesia',
-    'thailand', 'mexico', 'colombia', 'argentina', 'chile',
-    'turkey', 'greece', 'spain', 'portugal', 'france', 'germany',
-    'austria', 'australia', 'kenya', 'tanzania', 'south africa',
-    'egypt', 'brazil', 'costa rica', 'patagonia', 'ladakh',
-    'himalayas', 'alps', 'andes', 'dolomites', 'sahara',
+    'india',
+    'new zealand',
+    'switzerland',
+    'kyrgyzstan',
+    'nepal',
+    'iceland',
+    'japan',
+    'italy',
+    'peru',
+    'norway',
+    'canada',
+    'scotland',
+    'morocco',
+    'georgia',
+    'vietnam',
+    'indonesia',
+    'thailand',
+    'mexico',
+    'colombia',
+    'argentina',
+    'chile',
+    'turkey',
+    'greece',
+    'spain',
+    'portugal',
+    'france',
+    'germany',
+    'austria',
+    'australia',
+    'kenya',
+    'tanzania',
+    'south africa',
+    'egypt',
+    'brazil',
+    'costa rica',
+    'patagonia',
+    'ladakh',
+    'himalayas',
+    'alps',
+    'andes',
+    'dolomites',
+    'sahara',
   ];
+
+  static const _countryLevelGeoTags = {
+    'india',
+    'new zealand',
+    'switzerland',
+    'kyrgyzstan',
+    'nepal',
+    'iceland',
+    'japan',
+    'italy',
+    'peru',
+    'norway',
+    'canada',
+    'scotland',
+    'morocco',
+    'georgia',
+    'vietnam',
+    'indonesia',
+    'thailand',
+    'mexico',
+    'colombia',
+    'argentina',
+    'chile',
+    'turkey',
+    'greece',
+    'spain',
+    'portugal',
+    'france',
+    'germany',
+    'austria',
+    'australia',
+    'kenya',
+    'tanzania',
+    'south africa',
+    'egypt',
+    'brazil',
+    'costa rica',
+  };
+
+  /// Tags safe to use as notification topics.
+  ///
+  /// This intentionally differs from save/search tags. Broad country-level tags
+  /// such as "india" are useful for search, but too wide for notifications:
+  /// unrelated reels can share the same country tag and produce bad copy like
+  /// "Your India list is waiting".
+  static List<String> notificationTopicTags(List<String> tags) {
+    return TagNoiseFilter.filterTags(
+      tags,
+    ).where((tag) => !isBroadNotificationTopic(tag)).toList();
+  }
+
+  static bool isBroadNotificationTopic(String tag) {
+    final clean = TagNoiseFilter.cleanTag(tag);
+    if (clean.isEmpty) return true;
+    if (_countryLevelGeoTags.contains(clean)) return true;
+    return false;
+  }
 
   /// Groups of tags that co-occur across 3+ saves.
   static List<TagCluster> computeClusters(List<SavedUrl> urls) {
@@ -41,7 +132,7 @@ class TagAnalyzer {
     final tagUrls = <String, List<SavedUrl>>{};
 
     for (final u in urls) {
-      final tags = TagNoiseFilter.filterTags(u.tags).toSet();
+      final tags = notificationTopicTags(u.tags).toSet();
       for (final t in tags) {
         tagFreq[t] = (tagFreq[t] ?? 0) + 1;
         (tagUrls[t] ??= []).add(u);
@@ -104,12 +195,14 @@ class TagAnalyzer {
       }
 
       if (bestTag != null) {
-        clusters.add(TagCluster(
-          name: bestTag,
-          tags: component,
-          saveCount: clusterUrls.length,
-          unreadCount: unread,
-        ));
+        clusters.add(
+          TagCluster(
+            name: bestTag,
+            tags: component,
+            saveCount: clusterUrls.length,
+            unreadCount: unread,
+          ),
+        );
       }
     }
 
@@ -124,6 +217,7 @@ class TagAnalyzer {
       for (final tag in u.tags) {
         final lower = tag.toLowerCase().trim();
         for (final kw in geoKeywords) {
+          if (_countryLevelGeoTags.contains(kw)) continue;
           if (lower.contains(kw)) {
             geo[kw] = (geo[kw] ?? 0) + 1;
             break;
@@ -176,7 +270,7 @@ class TagAnalyzer {
     final newTags = <String>{};
 
     for (final u in urls) {
-      final tags = TagNoiseFilter.filterTags(u.tags);
+      final tags = notificationTopicTags(u.tags);
       if (u.savedAt.isBefore(weekStart)) {
         oldTags.addAll(tags);
       } else {
@@ -190,10 +284,15 @@ class TagAnalyzer {
   /// Count of saves carrying a specific tag (case-insensitive).
   static int countSavesWithTag(List<SavedUrl> urls, String tag) {
     final lower = tag.toLowerCase();
-    return urls.where((u) =>
-      TagNoiseFilter.filterTags(u.tags).contains(lower) &&
-      u.savedAt.isAfter(DateTime.now().subtract(const Duration(days: 7)))
-    ).length;
+    return urls
+        .where(
+          (u) =>
+              notificationTopicTags(u.tags).contains(lower) &&
+              u.savedAt.isAfter(
+                DateTime.now().subtract(const Duration(days: 7)),
+              ),
+        )
+        .length;
   }
 
   /// Dominant topic = cluster with highest unread count.
@@ -221,9 +320,10 @@ class TagAnalyzer {
     final histogram = await _loadHistogram(p);
     final hour = DateTime.now().hour;
     histogram[hour] = (histogram[hour] ?? 0) + 1;
-    await p.setString(_histogramKey, jsonEncode(
-      histogram.map((k, v) => MapEntry(k.toString(), v)),
-    ));
+    await p.setString(
+      _histogramKey,
+      jsonEncode(histogram.map((k, v) => MapEntry(k.toString(), v))),
+    );
   }
 
   static Future<int> peakOpenHour() async {

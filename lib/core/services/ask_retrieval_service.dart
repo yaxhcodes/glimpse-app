@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../models/saved_url.dart';
+import 'memory_intent_resolver.dart';
 
 /// Hybrid retrieval tuned for Ask Glimpse.
 ///
@@ -12,21 +13,135 @@ class AskRetrievalService {
   static const double semanticMinScore = 0.52;
 
   static const _stopwords = <String>{
-    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-    'of', 'as', 'by', 'with', 'from', 'is', 'are', 'was', 'were', 'be',
-    'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-    'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can',
-    'this', 'that', 'these', 'those', 'i', 'me', 'my', 'we', 'our', 'you',
-    'your', 'it', 'its', 'what', 'which', 'who', 'where', 'when', 'why',
-    'how', 'if', 'than', 'so', 'not', 'no', 'any', 'some', 'about', 'into',
-    'through', 'during', 'before', 'after', 'above', 'below', 'between',
-    'under', 'again', 'then', 'once', 'here', 'there', 'all', 'both',
-    'each', 'few', 'more', 'most', 'other', 'such', 'only', 'same', 'just',
-    'also', 'very', 'own', 'ask', 'glimpse', 'please', 'pls', 'find',
-    'show', 'tell', 'give', 'get', 'look', 'looking', 'remember',
-    'remembering', 'vague', 'thing', 'things', 'stuff', 'save', 'saved',
-    'saving', 'link', 'links', 'bookmark', 'bookmarks', 'url', 'urls',
-    'while', 'ago', 'back', 'earlier', 'recent', 'recently',
+    'a',
+    'an',
+    'the',
+    'and',
+    'or',
+    'but',
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'of',
+    'as',
+    'by',
+    'with',
+    'from',
+    'is',
+    'are',
+    'was',
+    'were',
+    'be',
+    'been',
+    'being',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'will',
+    'would',
+    'could',
+    'should',
+    'may',
+    'might',
+    'must',
+    'shall',
+    'can',
+    'this',
+    'that',
+    'these',
+    'those',
+    'i',
+    'me',
+    'my',
+    'we',
+    'our',
+    'you',
+    'your',
+    'it',
+    'its',
+    'what',
+    'which',
+    'who',
+    'where',
+    'when',
+    'why',
+    'how',
+    'if',
+    'than',
+    'so',
+    'not',
+    'no',
+    'any',
+    'some',
+    'about',
+    'into',
+    'through',
+    'during',
+    'before',
+    'after',
+    'above',
+    'below',
+    'between',
+    'under',
+    'again',
+    'then',
+    'once',
+    'here',
+    'there',
+    'all',
+    'both',
+    'each',
+    'few',
+    'more',
+    'most',
+    'other',
+    'such',
+    'only',
+    'same',
+    'just',
+    'also',
+    'very',
+    'own',
+    'ask',
+    'glimpse',
+    'please',
+    'pls',
+    'find',
+    'show',
+    'tell',
+    'give',
+    'get',
+    'look',
+    'looking',
+    'remember',
+    'remembering',
+    'vague',
+    'thing',
+    'things',
+    'stuff',
+    'save',
+    'saved',
+    'saving',
+    'link',
+    'links',
+    'bookmark',
+    'bookmarks',
+    'url',
+    'urls',
+    'want',
+    'wanted',
+    'wants',
+    'while',
+    'ago',
+    'back',
+    'earlier',
+    'recent',
+    'recently',
   };
 
   static final _tokenSplit = RegExp(r'''[\s\-_/.,;:!?()\[\]{}"'`]+''');
@@ -153,7 +268,10 @@ class AskRetrievalService {
     return scored.take(limit).toList();
   }
 
-  static List<String> _queryTerms(String query, {required _AskQueryIntent intent}) {
+  static List<String> _queryTerms(
+    String query, {
+    required _AskQueryIntent intent,
+  }) {
     final seen = <String>{};
     final terms = <String>[];
     for (final raw in query.toLowerCase().split(_tokenSplit)) {
@@ -231,6 +349,7 @@ class AskRetrievalService {
       url.title,
       url.description,
       url.summary ?? '',
+      MemoryIntentResolver.searchableText(url),
       ...url.tags,
     ].join(' ').toLowerCase();
   }
@@ -290,10 +409,7 @@ class AskRetrievalService {
 }
 
 class _AskQueryIntent {
-  const _AskQueryIntent({
-    this.contentType,
-    this.quantity,
-  });
+  const _AskQueryIntent({this.contentType, this.quantity});
 
   final String? contentType;
   final int? quantity;
@@ -307,11 +423,7 @@ class _AskQueryIntent {
   }
 
   static String? _parseContentType(String lower) {
-    if (_containsAny(lower, const [
-      'documentary',
-      'documentaries',
-      'docu',
-    ])) {
+    if (_containsAny(lower, const ['documentary', 'documentaries', 'docu'])) {
       return 'documentary';
     }
     if (_containsAny(lower, const [
@@ -379,41 +491,37 @@ class _AskQueryIntent {
     if (type == null) return false;
     return switch (type) {
       'documentary' => const {
-          'documentary',
-          'documentaries',
-          'docu',
-          'film',
-          'films',
-          'video',
-          'videos',
-        }.contains(term),
+        'documentary',
+        'documentaries',
+        'docu',
+        'film',
+        'films',
+        'video',
+        'videos',
+      }.contains(term),
       'article' => const {
-          'article',
-          'articles',
-          'essay',
-          'essays',
-          'blog',
-          'blogs',
-          'post',
-          'posts',
-          'read',
-        }.contains(term),
+        'article',
+        'articles',
+        'essay',
+        'essays',
+        'blog',
+        'blogs',
+        'post',
+        'posts',
+        'read',
+      }.contains(term),
       'repo' => const {
-          'repo',
-          'repos',
-          'repository',
-          'repositories',
-          'github',
-          'code',
-          'library',
-          'package',
-        }.contains(term),
+        'repo',
+        'repos',
+        'repository',
+        'repositories',
+        'github',
+        'code',
+        'library',
+        'package',
+      }.contains(term),
       'recipe' => const {'recipe', 'recipes'}.contains(term),
-      'inspiration' => const {
-          'inspiration',
-          'inspo',
-          'ideas',
-        }.contains(term),
+      'inspiration' => const {'inspiration', 'inspo', 'ideas'}.contains(term),
       _ => false,
     };
   }
@@ -453,26 +561,30 @@ class _AskQueryIntent {
         needles.any((needle) => source.contains(needle));
 
     return switch (contentType) {
-      'documentary' => hasAny(['youtube', 'youtu.be', 'vimeo'])
-          ? 1.0
-          : hasAny(['github', 'gitlab', 'x.com', 'twitter', 'instagram'])
-              ? 0.0
-              : 0.45,
-      'article' => hasAny(['youtube', 'youtu.be', 'instagram', 'tiktok'])
-          ? 0.15
-          : hasAny(['substack', 'medium', 'dev.to', 'blog'])
-              ? 1.0
-              : 0.65,
-      'repo' => hasAny(['github', 'gitlab', 'npm', 'pub.dev', 'crates.io'])
-          ? 1.0
-          : hasAny(['youtube', 'youtu.be', 'instagram', 'x.com', 'twitter'])
-              ? 0.15
-              : 0.45,
-      'inspiration' => hasAny(['instagram', 'x.com', 'twitter', 'pinterest'])
-          ? 1.0
-          : hasAny(['github', 'gitlab'])
-              ? 0.1
-              : 0.55,
+      'documentary' =>
+        hasAny(['youtube', 'youtu.be', 'vimeo'])
+            ? 1.0
+            : hasAny(['github', 'gitlab', 'x.com', 'twitter', 'instagram'])
+            ? 0.0
+            : 0.45,
+      'article' =>
+        hasAny(['youtube', 'youtu.be', 'instagram', 'tiktok'])
+            ? 0.15
+            : hasAny(['substack', 'medium', 'dev.to', 'blog'])
+            ? 1.0
+            : 0.65,
+      'repo' =>
+        hasAny(['github', 'gitlab', 'npm', 'pub.dev', 'crates.io'])
+            ? 1.0
+            : hasAny(['youtube', 'youtu.be', 'instagram', 'x.com', 'twitter'])
+            ? 0.15
+            : 0.45,
+      'inspiration' =>
+        hasAny(['instagram', 'x.com', 'twitter', 'pinterest'])
+            ? 1.0
+            : hasAny(['github', 'gitlab'])
+            ? 0.1
+            : 0.55,
       _ => 0.55,
     };
   }
@@ -484,30 +596,31 @@ class _AskQueryIntent {
       url.title,
       url.description,
       url.summary ?? '',
+      MemoryIntentResolver.searchableText(url),
       ...url.tags,
     ].join(' ').toLowerCase();
     return switch (type) {
       'documentary' => _containsAny(text, const [
-          'documentary',
-          'documentaries',
-          'film',
-          'full episode',
-          'feature length',
-        ]),
+        'documentary',
+        'documentaries',
+        'film',
+        'full episode',
+        'feature length',
+      ]),
       'article' => _containsAny(text, const [
-          'article',
-          'essay',
-          'blog post',
-          'guide',
-        ]),
+        'article',
+        'essay',
+        'blog post',
+        'guide',
+      ]),
       'repo' => _containsAny(text, const [
-          'repository',
-          'repo',
-          'github',
-          'open source',
-          'package',
-          'library',
-        ]),
+        'repository',
+        'repo',
+        'github',
+        'open source',
+        'package',
+        'library',
+      ]),
       'recipe' => _containsAny(text, const ['recipe', 'ingredients']),
       'inspiration' => _containsAny(text, const ['inspiration', 'ideas']),
       _ => false,
@@ -519,6 +632,7 @@ class _AskQueryIntent {
       url.title,
       url.description,
       url.summary ?? '',
+      MemoryIntentResolver.searchableText(url),
       ...url.tags,
     ].join(' ').toLowerCase();
     return _containsAny(text, const [
@@ -538,11 +652,7 @@ class _AskQueryIntent {
 }
 
 class _HybridHit {
-  _HybridHit({
-    required this.url,
-    this.keyword = 0,
-    this.semantic = 0,
-  });
+  _HybridHit({required this.url, this.keyword = 0, this.semantic = 0});
 
   final SavedUrl url;
   double keyword;
@@ -552,9 +662,9 @@ class _HybridHit {
     final semanticNormalized = semantic <= 0
         ? 0.0
         : ((semantic - AskRetrievalService.semanticMinScore) /
-                (1 - AskRetrievalService.semanticMinScore))
-            .clamp(0.0, 1.0)
-            .toDouble();
+                  (1 - AskRetrievalService.semanticMinScore))
+              .clamp(0.0, 1.0)
+              .toDouble();
     return keyword > 0
         ? (keyword * 0.82) + (semanticNormalized * 0.18)
         : semanticNormalized * 0.72;

@@ -10,6 +10,7 @@ import '../services/link_preview_service.dart';
 import '../models/user_collection.dart';
 import '../services/category_resolver.dart';
 import '../services/session_tracking_service.dart';
+import '../services/memory_intent_resolver.dart';
 
 /// Service handling all local database operations via Isar.
 class IsarService {
@@ -23,10 +24,10 @@ class IsarService {
     final existing = Isar.getInstance();
     if (existing != null && existing.isOpen) return existing;
     final dir = await getApplicationDocumentsDirectory();
-    return Isar.open(
-      [SavedUrlSchema, UserCollectionSchema],
-      directory: dir.path,
-    );
+    return Isar.open([
+      SavedUrlSchema,
+      UserCollectionSchema,
+    ], directory: dir.path);
   }
 
   /// Await the database so it's ready before the first frame.
@@ -126,8 +127,10 @@ class IsarService {
     final allUrls = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
     // "Done" saves are archived — excluded from the main library views.
     return allUrls
-      .where((url) => !url.isDone && url.effectiveCategories.contains(category))
-      .toList();
+        .where(
+          (url) => !url.isDone && url.effectiveCategories.contains(category),
+        )
+        .toList();
   }
 
   /// Returns a list of unique categories with their emoji and count.
@@ -147,7 +150,9 @@ class IsarService {
             'category': category,
             'emoji': CategoryResolver.emojiForCategory(
               category,
-              fallbackEmoji: category == url.category ? url.categoryEmoji : null,
+              fallbackEmoji: category == url.category
+                  ? url.categoryEmoji
+                  : null,
             ),
             'count': 1,
           };
@@ -166,22 +171,118 @@ class IsarService {
   /// Same as [keywordSearch] but with relevance scores in ~0–1 for ranking UI.
   Future<List<MapEntry<SavedUrl, double>>> keywordSearchWithScores(
     String query,
-  ) =>
-      _rankedKeywordSearch(query, naturalLanguage: false);
+  ) => _rankedKeywordSearch(query, naturalLanguage: false);
 
   static const _nlStopwords = <String>{
-    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-    'of', 'as', 'by', 'with', 'from', 'is', 'are', 'was', 'were', 'be',
-    'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-    'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can',
-    'this', 'that', 'these', 'those', 'i', 'me', 'my', 'we', 'our', 'you',
-    'your', 'it', 'its', 'what', 'which', 'who', 'whom', 'whose', 'where',
-    'when', 'why', 'how', 'if', 'than', 'so', 'not', 'no', 'any', 'some',
-    'about', 'into', 'through', 'during', 'before', 'after', 'above',
-    'below', 'between', 'under', 'again', 'further', 'then', 'once', 'here',
-    'there', 'all', 'both', 'each', 'few', 'more', 'most', 'other', 'such',
-    'only', 'own', 'same', 'just', 'also', 'very', 'save', 'saved', 'saving',
-    'link', 'links', 'bookmark', 'bookmarks', 'url', 'urls',
+    'a',
+    'an',
+    'the',
+    'and',
+    'or',
+    'but',
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'of',
+    'as',
+    'by',
+    'with',
+    'from',
+    'is',
+    'are',
+    'was',
+    'were',
+    'be',
+    'been',
+    'being',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'will',
+    'would',
+    'could',
+    'should',
+    'may',
+    'might',
+    'must',
+    'shall',
+    'can',
+    'this',
+    'that',
+    'these',
+    'those',
+    'i',
+    'me',
+    'my',
+    'we',
+    'our',
+    'you',
+    'your',
+    'it',
+    'its',
+    'what',
+    'which',
+    'who',
+    'whom',
+    'whose',
+    'where',
+    'when',
+    'why',
+    'how',
+    'if',
+    'than',
+    'so',
+    'not',
+    'no',
+    'any',
+    'some',
+    'about',
+    'into',
+    'through',
+    'during',
+    'before',
+    'after',
+    'above',
+    'below',
+    'between',
+    'under',
+    'again',
+    'further',
+    'then',
+    'once',
+    'here',
+    'there',
+    'all',
+    'both',
+    'each',
+    'few',
+    'more',
+    'most',
+    'other',
+    'such',
+    'only',
+    'own',
+    'same',
+    'just',
+    'also',
+    'very',
+    'save',
+    'saved',
+    'saving',
+    'want',
+    'wanted',
+    'wants',
+    'link',
+    'links',
+    'bookmark',
+    'bookmarks',
+    'url',
+    'urls',
   };
 
   static final _tokenSplit = RegExp(r'[\s\-_/.,;:!?()\[\]{}]+');
@@ -225,6 +326,7 @@ class IsarService {
       url.title,
       url.description,
       url.summary ?? '',
+      MemoryIntentResolver.searchableText(url),
       ...url.tags,
     ].join(' ').toLowerCase();
   }
@@ -260,9 +362,21 @@ class IsarService {
     double wordContribution(String word) {
       final boundaryPrimary = _wordBoundaryMatch(primary, word);
       final boundarySecondary = _wordBoundaryMatch(secondary, word);
-      final fuzzyP = _maxFuzzyForWord(word, primary, requireSameFirstChar: true);
-      final fuzzyS = _maxFuzzyForWord(word, secondary, requireSameFirstChar: true);
-      final fuzzyC = _maxFuzzyForWord(word, combined, requireSameFirstChar: true);
+      final fuzzyP = _maxFuzzyForWord(
+        word,
+        primary,
+        requireSameFirstChar: true,
+      );
+      final fuzzyS = _maxFuzzyForWord(
+        word,
+        secondary,
+        requireSameFirstChar: true,
+      );
+      final fuzzyC = _maxFuzzyForWord(
+        word,
+        combined,
+        requireSameFirstChar: true,
+      );
 
       if (naturalLanguage) {
         if (boundaryPrimary) return 1.0;
@@ -370,8 +484,10 @@ class IsarService {
     final words = _queryWordsForMode(query, naturalLanguage);
     if (words.isEmpty) return [];
 
-    final candidateIds =
-        await _candidateUrlIds(query.toLowerCase().trim(), words);
+    final candidateIds = await _candidateUrlIds(
+      query.toLowerCase().trim(),
+      words,
+    );
     var urls = await _loadUrlsForSearch(isar, candidateIds);
 
     if (urls.isEmpty && candidateIds.isNotEmpty) {
@@ -425,6 +541,8 @@ class IsarService {
         .domainContains(lowerQuery, caseSensitive: false)
         .or()
         .userNotesContains(lowerQuery, caseSensitive: false)
+        .or()
+        .enrichmentJsonContains(lowerQuery, caseSensitive: false)
         .sortBySavedAtDesc()
         .findAll();
   }
@@ -432,13 +550,18 @@ class IsarService {
   /// Check if a URL already exists in the database.
   Future<SavedUrl?> findByRawUrl(String rawUrl) async {
     final isar = await _db;
-    final exact = await isar.savedUrls.filter().rawUrlEqualTo(rawUrl).findFirst();
+    final exact = await isar.savedUrls
+        .filter()
+        .rawUrlEqualTo(rawUrl)
+        .findFirst();
     if (exact != null) return exact;
 
     final canonical = LinkPreviewService.canonicalizeUrl(rawUrl);
     if (canonical != rawUrl) {
-      final canonicalExact =
-          await isar.savedUrls.filter().rawUrlEqualTo(canonical).findFirst();
+      final canonicalExact = await isar.savedUrls
+          .filter()
+          .rawUrlEqualTo(canonical)
+          .findFirst();
       if (canonicalExact != null) return canonicalExact;
     }
 
@@ -576,10 +699,11 @@ class IsarService {
     return denom == 0 ? 0.0 : dot / denom;
   }
 
-
   /// Returns URLs saved between [start] and [end] (inclusive), newest first.
   Future<List<SavedUrl>> getUrlsInDateRange(
-      DateTime start, DateTime end) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final isar = await _db;
     return isar.savedUrls
         .filter()
@@ -764,9 +888,13 @@ class IsarService {
     final daysWithSaves = <int>{};
     final now = DateTime.now();
     for (final u in all) {
-      daysWithSaves.add(DateTime(u.savedAt.year, u.savedAt.month, u.savedAt.day)
-          .difference(DateTime(now.year, now.month, now.day))
-          .inDays);
+      daysWithSaves.add(
+        DateTime(
+          u.savedAt.year,
+          u.savedAt.month,
+          u.savedAt.day,
+        ).difference(DateTime(now.year, now.month, now.day)).inDays,
+      );
     }
 
     var streak = 0;
@@ -1038,7 +1166,9 @@ class IsarService {
         url.categories = remaining;
         if (url.category == category) {
           url.category = remaining.first;
-          url.categoryEmoji = CategoryResolver.emojiForCategory(remaining.first);
+          url.categoryEmoji = CategoryResolver.emojiForCategory(
+            remaining.first,
+          );
         }
         await isar.savedUrls.put(url);
       }
@@ -1058,10 +1188,9 @@ class IsarService {
 
   Stream<List<SavedUrl>> watchAllUrls() async* {
     final isar = await _db;
-    yield* isar.savedUrls
-        .where()
-        .sortBySavedAtDesc()
-        .watch(fireImmediately: true);
+    yield* isar.savedUrls.where().sortBySavedAtDesc().watch(
+      fireImmediately: true,
+    );
   }
 }
 
@@ -1131,4 +1260,3 @@ int _countAboveThresholdIsolate(_CosineCountPayload p) {
   }
   return count;
 }
-

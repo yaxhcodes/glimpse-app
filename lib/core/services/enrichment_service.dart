@@ -14,6 +14,7 @@ import 'embedding_input.dart';
 import 'embedding_service.dart';
 import 'gemini_service.dart';
 import 'link_preview_service.dart';
+import 'memory_intent_resolver.dart';
 import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
 import 'title_resolver.dart';
@@ -264,6 +265,7 @@ class EnrichmentService {
           keyPoints: existing?.keyPoints ?? const [],
           thumbnailUrl: recipe.image ?? metadata.imageUrl,
           creator: recipe.author ?? metadata.author,
+          memoryIntent: existing?.memoryIntent,
         );
         url
           ..category = normalized.name
@@ -363,6 +365,7 @@ class EnrichmentService {
     String? enrichedTitle;
     String? enrichedThumbnailUrl;
     String? enrichmentJson;
+    MemoryIntentMetadata? memoryIntent;
 
     final mediaRequiresEvidence = TranscriptEnrichmentService.supportsUrl(
       url.rawUrl,
@@ -436,6 +439,7 @@ class EnrichmentService {
       category = normalized.name;
       emoji = normalized.emoji;
       tags = enrichedTranscriptResult.tags;
+      memoryIntent = enrichedTranscriptResult.memoryIntent;
       summary = enrichedTranscriptResult.summary.isNotEmpty
           ? enrichedTranscriptResult.summary
           : _metadataFallbackSummary(url);
@@ -504,6 +508,7 @@ class EnrichmentService {
           transcript: savedEnrichment.transcript,
           likeCount: savedEnrichment.likeCount,
           commentCount: savedEnrichment.commentCount,
+          memoryIntent: savedEnrichment.memoryIntent,
         ).toJson(),
       );
     } else if (_geminiService != null &&
@@ -528,6 +533,7 @@ class EnrichmentService {
         category = result.category;
         emoji = result.emoji;
         tags = result.tags;
+        memoryIntent = result.memoryIntent;
         summary = result.summary.trim();
         if (!_isValidAiSummary(summary) || tags.isEmpty) {
           await _markProcessing(
@@ -570,7 +576,10 @@ class EnrichmentService {
         return;
       }
       if (_geminiService == null) {
-        developer.log('_enrichAi SKIP: GeminiService is null', name: 'Enrichment');
+        developer.log(
+          '_enrichAi SKIP: GeminiService is null',
+          name: 'Enrichment',
+        );
       }
       category = platformCat.category;
       emoji = platformCat.emoji;
@@ -630,10 +639,11 @@ class EnrichmentService {
         summary?.trim().isNotEmpty == true) {
       enrichmentJson = jsonEncode(
         TranscriptEnrichmentResult(
-          meaningfulTitle: TitleResolver.isLowSignalTitle(
-            freshUrl.title,
-            domain: freshUrl.domain,
-          )
+          meaningfulTitle:
+              TitleResolver.isLowSignalTitle(
+                freshUrl.title,
+                domain: freshUrl.domain,
+              )
               ? ''
               : freshUrl.title,
           summary: summary!,
@@ -641,6 +651,7 @@ class EnrichmentService {
           tags: enrichedTags,
           contentType: 'generic',
           thumbnailUrl: freshUrl.thumbnailUrl,
+          memoryIntent: memoryIntent,
         ).toJson(),
       );
     }
@@ -1052,6 +1063,7 @@ class EnrichmentService {
         tags: url.tags,
         category: url.category,
         summary: url.summary,
+        memoryIntentText: MemoryIntentResolver.searchableText(url),
       );
       developer.log(
         '_enrichEmbedding CALLING EmbeddingService for ${url.rawUrl}',

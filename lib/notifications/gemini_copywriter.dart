@@ -7,7 +7,7 @@ import '../core/services/ai_proxy_client.dart';
 import '../core/services/ai_proxy_config.dart';
 import '../core/services/digest_notifications.dart';
 import '../core/services/summary_trimmer.dart';
-import '../core/services/tag_noise_filter.dart';
+import '../core/services/tag_analyzer.dart';
 import '../core/services/title_resolver.dart';
 import '../core/services/user_fingerprint.dart';
 
@@ -209,10 +209,11 @@ Write a notification for this user now.
 
   static String _linkLine(SavedUrl l, Map<String, int> tagCounts) {
     final title = TitleResolver.resolve(l, tagFrequency: tagCounts);
-    final tags = TagNoiseFilter.filterTags(l.tags).take(4).join(', ');
+    final tags = TagAnalyzer.notificationTopicTags(l.tags).take(4).join(', ');
     final summ = (l.summary ?? '').trim();
-    final summShort =
-        summ.isEmpty ? '' : SummaryTrimmer.trim(summ, maxLength: 72);
+    final summShort = summ.isEmpty
+        ? ''
+        : SummaryTrimmer.trim(summ, maxLength: 72);
     final days = DateTime.now().difference(l.savedAt).inDays;
     return '- $title | tags: ${tags.isEmpty ? 'none' : tags} | summary: ${summShort.isEmpty ? 'none' : summShort} | saved: $days days ago';
   }
@@ -220,13 +221,19 @@ Write a notification for this user now.
   static String _reasonForType(String letter, UserFingerprint fp) {
     switch (letter) {
       case 'G':
-        final link = fp.queuedDueLinks.isNotEmpty ? fp.queuedDueLinks.first : null;
+        final link = fp.queuedDueLinks.isNotEmpty
+            ? fp.queuedDueLinks.first
+            : null;
         if (link == null) return 'User bookmarked a save to revisit.';
         final counts = _tagCounts(fp.allUrls);
-        final displayTitle =
-            TitleResolver.resolve(link, tagFrequency: counts).replaceAll("'", "''");
-        final action =
-            (link.intentAction ?? 'revisit later').replaceAll('_', ' ');
+        final displayTitle = TitleResolver.resolve(
+          link,
+          tagFrequency: counts,
+        ).replaceAll("'", "''");
+        final action = (link.intentAction ?? 'revisit later').replaceAll(
+          '_',
+          ' ',
+        );
         return "User explicitly chose to '$action' this save and the moment "
             "they picked has arrived: title='$displayTitle'.";
       case 'A':
@@ -257,8 +264,10 @@ Write a notification for this user now.
         }
         final days = DateTime.now().difference(link.savedAt).inDays;
         final counts = _tagCounts(fp.allUrls);
-        final displayTitle = TitleResolver.resolve(link, tagFrequency: counts)
-            .replaceAll("'", "''");
+        final displayTitle = TitleResolver.resolve(
+          link,
+          tagFrequency: counts,
+        ).replaceAll("'", "''");
         final summ = SummaryTrimmer.trim(
           (link.summary ?? link.description).trim(),
           maxLength: 72,
@@ -295,7 +304,7 @@ Write a notification for this user now.
     return fp.allUrls
         .where((u) => u.savedAt.isAfter(weekAgo))
         .expand((u) => u.tags)
-        .map((t) => t.toLowerCase().trim())
+        .expand((tag) => TagAnalyzer.notificationTopicTags([tag]))
         .toSet()
         .length;
   }
@@ -318,10 +327,7 @@ Write a notification for this user now.
             ],
           },
         ],
-        'generationConfig': {
-          'temperature': 0.95,
-          'maxOutputTokens': 256,
-        },
+        'generationConfig': {'temperature': 0.95, 'maxOutputTokens': 256},
       },
       timeout: const Duration(seconds: 15),
     );
@@ -373,7 +379,9 @@ Write a notification for this user now.
   static NotifCopy _templateFallback(String letter, UserFingerprint fp) {
     switch (letter) {
       case 'G':
-        final link = fp.queuedDueLinks.isNotEmpty ? fp.queuedDueLinks.first : null;
+        final link = fp.queuedDueLinks.isNotEmpty
+            ? fp.queuedDueLinks.first
+            : null;
         final counts = _tagCounts(fp.allUrls);
         final t = link != null
             ? TitleResolver.resolve(link, tagFrequency: counts)
@@ -382,10 +390,10 @@ Write a notification for this user now.
         final verb = action.contains('watch')
             ? 'watch'
             : action.contains('read')
-                ? 'read'
-                : action.contains('try')
-                    ? 'try'
-                    : 'revisit';
+            ? 'read'
+            : action.contains('try')
+            ? 'try'
+            : 'revisit';
         return NotifCopy(
           title: 'Time to $verb: ${_short(t, 40)}',
           body: 'You set this one aside for later. Later is now.',

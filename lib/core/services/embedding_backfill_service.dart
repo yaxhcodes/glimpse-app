@@ -4,14 +4,15 @@ import '../database/isar_service.dart';
 import '../models/saved_url.dart';
 import 'embedding_input.dart';
 import 'embedding_service.dart';
+import 'memory_intent_resolver.dart';
 
 /// Fills missing Voyage embeddings for URLs saved before embedding existed.
 class EmbeddingBackfillService {
   EmbeddingBackfillService({
     required IsarService isarService,
     required EmbeddingService embeddingService,
-  })  : _isar = isarService,
-        _voyage = embeddingService;
+  }) : _isar = isarService,
+       _voyage = embeddingService;
 
   final IsarService _isar;
   final EmbeddingService _voyage;
@@ -76,6 +77,7 @@ class EmbeddingBackfillService {
       tags: url.tags,
       category: url.category,
       summary: url.summary,
+      memoryIntentText: MemoryIntentResolver.searchableText(url),
     );
   }
 }
