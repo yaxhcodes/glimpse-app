@@ -132,15 +132,33 @@ class SavedUrl {
   /// strongest signal to resurface it now.
   @ignore
   bool get isRevisitDue =>
-      isQueued && (revisitAfter == null || !revisitAfter!.isAfter(DateTime.now()));
+      isQueued &&
+      (revisitAfter == null || !revisitAfter!.isAfter(DateTime.now()));
 
   @ignore
-  bool get isProcessingActive => UrlProcessingStatus.isActive(processingStatus);
+  bool get hasPresentableEnrichment =>
+      (enrichmentJson ?? '').trim().isNotEmpty ||
+      (summary ?? '').trim().isNotEmpty;
+
+  @ignore
+  bool get hasTimedOutProcessing {
+    final updatedAt = processingUpdatedAt;
+    if (updatedAt == null) return false;
+    return DateTime.now().difference(updatedAt) > const Duration(minutes: 15);
+  }
+
+  @ignore
+  bool get isProcessingActive =>
+      UrlProcessingStatus.isActive(processingStatus) &&
+      !hasPresentableEnrichment &&
+      !hasTimedOutProcessing;
+
+  @ignore
+  bool get isProcessingFailed =>
+      processingStatus == UrlProcessingStatus.failed &&
+      !hasPresentableEnrichment;
 
   @ignore
   bool get isProcessingReady =>
-      processingStatus == UrlProcessingStatus.ready ||
-      ((processingStatus == null || processingStatus!.trim().isEmpty) &&
-          ((enrichmentJson ?? '').trim().isNotEmpty ||
-              (summary ?? '').trim().isNotEmpty));
+      processingStatus == UrlProcessingStatus.ready || hasPresentableEnrichment;
 }

@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
-import '../../core/models/url_processing_status.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/category_taxonomy.dart';
@@ -1795,7 +1794,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               theme: theme,
             ),
 
-            if (url.processingStatus == UrlProcessingStatus.failed) ...[
+            if (url.isProcessingFailed) ...[
               const SizedBox(height: 12),
               _buildEnrichmentFailedPanel(theme, colorScheme),
             ],

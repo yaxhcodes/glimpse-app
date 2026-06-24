@@ -310,6 +310,11 @@ class EnrichmentService {
         name: 'Enrichment',
         stackTrace: st,
       );
+      await _markFailedIfStillActiveWithoutEnrichment(
+        urlId,
+        error: 'ai_enrichment_failed_unexpected',
+        stage: 'SAVE_FAILED',
+      );
     }
   }
 
@@ -794,6 +799,23 @@ class EnrichmentService {
       fields: {'status': status, ...fields},
     );
     _onEnriched?.call();
+  }
+
+  Future<void> _markFailedIfStillActiveWithoutEnrichment(
+    int urlId, {
+    required String error,
+    required String stage,
+  }) async {
+    final url = await _isarService.getUrlById(urlId);
+    if (url == null) return;
+    if (!UrlProcessingStatus.isActive(url.processingStatus)) return;
+    if (url.hasPresentableEnrichment) return;
+    await _markProcessing(
+      urlId,
+      UrlProcessingStatus.failed,
+      error: error,
+      stage: stage,
+    );
   }
 
   List<String> _metadataFallbackTags(SavedUrl url, List<String> baseTags) {

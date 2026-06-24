@@ -197,8 +197,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final isProcessing =
         widget.savedUrl.isProcessingActive ||
         _isRecentlyEnriching(widget.savedUrl);
-    final isProcessingFailed =
-        widget.savedUrl.processingStatus == UrlProcessingStatus.failed;
+    final isProcessingFailed = widget.savedUrl.isProcessingFailed;
     final resolvedTitle = isProcessing
         ? _processingTitle(displaySourceName)
         : TitleResolver.resolveStableDisplayTitle(
@@ -386,7 +385,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             failed: isProcessingFailed,
                             retrying: _retryingEnrichment,
                             onRetry: isProcessingFailed
-                                ? () => _retryEnrichment(context)
+                                ? () => _retryEnrichment()
                                 : null,
                           ),
                         ],
@@ -438,7 +437,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     return 'Reading $source';
   }
 
-  Future<void> _retryEnrichment(BuildContext context) async {
+  Future<void> _retryEnrichment() async {
     if (_retryingEnrichment) return;
     setState(() => _retryingEnrichment = true);
     final success = await ref
