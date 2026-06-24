@@ -9,20 +9,61 @@ class CategoryDefinition {
 class CategoryTaxonomy {
   static const categories = <CategoryDefinition>[
     CategoryDefinition('Technology', '💻'),
+    CategoryDefinition('AI & ML', '🤖'),
+    CategoryDefinition('Software Development', '🧑‍💻'),
+    CategoryDefinition('Gadgets & Hardware', '📱'),
+    CategoryDefinition('Apps & Tools', '🧰'),
+    CategoryDefinition('Cybersecurity', '🔐'),
+    CategoryDefinition('Data & Analytics', '📊'),
     CategoryDefinition('Business', '💼'),
+    CategoryDefinition('Startups', '🚀'),
+    CategoryDefinition('Marketing & Growth', '📣'),
+    CategoryDefinition('Creator Economy', '🎙️'),
     CategoryDefinition('Finance', '💰'),
+    CategoryDefinition('Personal Finance', '🏦'),
+    CategoryDefinition('Investing', '📈'),
+    CategoryDefinition('Crypto', '₿'),
     CategoryDefinition('Science', '🔬'),
+    CategoryDefinition('Space & Astronomy', '🪐'),
+    CategoryDefinition('Biology & Medicine', '🧬'),
     CategoryDefinition('Health', '❤️'),
+    CategoryDefinition('Fitness', '💪'),
+    CategoryDefinition('Nutrition', '🥗'),
+    CategoryDefinition('Mental Health', '🧠'),
     CategoryDefinition('Education', '📘'),
+    CategoryDefinition('Language Learning', '🗣️'),
+    CategoryDefinition('Math', '➗'),
     CategoryDefinition('News', '📰'),
+    CategoryDefinition('World Affairs', '🌐'),
+    CategoryDefinition('Law & Policy', '⚖️'),
     CategoryDefinition('Design', '🎨'),
+    CategoryDefinition('Art & Illustration', '🖌️'),
+    CategoryDefinition('Photography', '📷'),
+    CategoryDefinition('Architecture', '🏛️'),
+    CategoryDefinition('History & Culture', '🏺'),
+    CategoryDefinition('Spirituality & Philosophy', '🕯️'),
+    CategoryDefinition('Relationships', '🤝'),
+    CategoryDefinition('Career', '🧭'),
+    CategoryDefinition('Productivity', '✅'),
+    CategoryDefinition('Nature & Environment', '🌱'),
+    CategoryDefinition('Parenting & Family', '👨‍👩‍👧'),
     CategoryDefinition('Home & Garden', '🌿'),
+    CategoryDefinition('DIY & Making', '🛠️'),
     CategoryDefinition('Food & Cooking', '🍳'),
+    CategoryDefinition('Restaurants & Cafes', '🍽️'),
     CategoryDefinition('Travel', '🌍'),
+    CategoryDefinition('Outdoors & Adventure', '🥾'),
     CategoryDefinition('Entertainment', '🎬'),
+    CategoryDefinition('Movies & TV', '📺'),
+    CategoryDefinition('Music', '🎧'),
+    CategoryDefinition('Gaming', '🎮'),
     CategoryDefinition('Lifestyle', '✨'),
+    CategoryDefinition('Fashion & Beauty', '👗'),
     CategoryDefinition('Shopping', '🛒'),
+    CategoryDefinition('Vehicles', '🚗'),
     CategoryDefinition('Reference', '📚'),
+    CategoryDefinition('Books & Literature', '📖'),
+    CategoryDefinition('Documentation', '📄'),
     CategoryDefinition('Other', '🔖'),
   ];
 
@@ -44,81 +85,543 @@ class CategoryTaxonomy {
     }
 
     final synonymMap = <String, String>{
-      'programming': 'Technology',
-      'software': 'Technology',
-      'developer': 'Technology',
-      'coding': 'Technology',
-      'startup': 'Business',
-      'marketing': 'Business',
-      'investing': 'Finance',
-      'crypto': 'Finance',
+      'programming': 'Software Development',
+      'software': 'Software Development',
+      'developer': 'Software Development',
+      'coding': 'Software Development',
+      'app': 'Apps & Tools',
+      'tool': 'Apps & Tools',
+      'gadget': 'Gadgets & Hardware',
+      'hardware': 'Gadgets & Hardware',
+      'cybersecurity': 'Cybersecurity',
+      'security': 'Cybersecurity',
+      'data': 'Data & Analytics',
+      'analytics': 'Data & Analytics',
+      'startup': 'Startups',
+      'marketing': 'Marketing & Growth',
+      'creator economy': 'Creator Economy',
+      'investing': 'Investing',
+      'investment': 'Investing',
+      'crypto': 'Crypto',
       'economics': 'Finance',
+      'budgeting': 'Personal Finance',
       'research': 'Science',
-      'ai': 'Technology',
-      'machine learning': 'Technology',
-      'medicine': 'Health',
-      'fitness': 'Health',
+      'ai': 'AI & ML',
+      'artificial intelligence': 'AI & ML',
+      'machine learning': 'AI & ML',
+      'llm': 'AI & ML',
+      'space': 'Space & Astronomy',
+      'astronomy': 'Space & Astronomy',
+      'biology': 'Biology & Medicine',
+      'medicine': 'Biology & Medicine',
+      'fitness': 'Fitness',
+      'nutrition': 'Nutrition',
+      'mental health': 'Mental Health',
+      'psychology': 'Mental Health',
       'learning': 'Education',
       'course': 'Education',
       'tutorial': 'Education',
-      'politics': 'News',
-      'world news': 'News',
+      'language learning': 'Language Learning',
+      'math': 'Math',
+      'politics': 'Law & Policy',
+      'world news': 'World Affairs',
+      'history': 'History & Culture',
+      'culture': 'History & Culture',
+      'heritage': 'History & Culture',
+      'mythology': 'History & Culture',
+      'architecture': 'Architecture',
+      'temple': 'Architecture',
+      'spirituality': 'Spirituality & Philosophy',
+      'spiritual': 'Spirituality & Philosophy',
+      'philosophy': 'Spirituality & Philosophy',
+      'religion': 'Spirituality & Philosophy',
+      'bhagavad gita': 'Spirituality & Philosophy',
+      'gita': 'Spirituality & Philosophy',
+      'mahabharata': 'Spirituality & Philosophy',
+      'career': 'Career',
+      'job': 'Career',
+      'productivity': 'Productivity',
+      'relationship': 'Relationships',
+      'dating': 'Relationships',
+      'parenting': 'Parenting & Family',
+      'family': 'Parenting & Family',
+      'climate': 'Nature & Environment',
+      'environment': 'Nature & Environment',
+      'nature': 'Nature & Environment',
       'ux': 'Design',
       'ui': 'Design',
+      'art': 'Art & Illustration',
+      'illustration': 'Art & Illustration',
+      'photography': 'Photography',
       'gardening': 'Home & Garden',
       'home': 'Home & Garden',
+      'diy': 'DIY & Making',
+      'making': 'DIY & Making',
       'food': 'Food & Cooking',
       'cooking': 'Food & Cooking',
-      'recipe': 'Food & Cooking',
-      'nutrition': 'Health',
-      'movies': 'Entertainment',
-      'music': 'Entertainment',
-      'gaming': 'Entertainment',
-      'books': 'Reference',
-      'documentation': 'Reference',
-      'productivity': 'Lifestyle',
+      'restaurant': 'Restaurants & Cafes',
+      'cafe': 'Restaurants & Cafes',
+      'hiking': 'Outdoors & Adventure',
+      'trekking': 'Outdoors & Adventure',
+      'movies': 'Movies & TV',
+      'tv': 'Movies & TV',
+      'music': 'Music',
+      'gaming': 'Gaming',
+      'books': 'Books & Literature',
+      'literature': 'Books & Literature',
+      'documentation': 'Documentation',
       'self improvement': 'Lifestyle',
-      'fashion': 'Lifestyle',
+      'fashion': 'Fashion & Beauty',
+      'beauty': 'Fashion & Beauty',
       'ecommerce': 'Shopping',
       'shopping': 'Shopping',
+      'cars': 'Vehicles',
+      'vehicles': 'Vehicles',
     };
 
     if (synonymMap.containsKey(normalizedInput)) {
       return byName(synonymMap[normalizedInput]!);
     }
 
-    final searchable = [normalizedInput, ...tags.map((tag) => tag.toLowerCase())]
-        .join(' ');
+    final searchable = [
+      normalizedInput,
+      ...tags.map((tag) => tag.toLowerCase()),
+    ].join(' ');
 
-    if (_containsAny(searchable, ['react', 'flutter', 'dart', 'javascript', 'webdev', 'software', 'code'])) {
-      return byName('Technology');
+    if (_containsAny(searchable, [
+      'ai',
+      'artificial intelligence',
+      'machine learning',
+      'llm',
+      'genai',
+      'agentic',
+    ])) {
+      return byName('AI & ML');
     }
-    if (_containsAny(searchable, ['invest', 'stock', 'crypto', 'bank', 'money'])) {
-      return byName('Finance');
+    if (_containsAny(searchable, [
+      'react',
+      'flutter',
+      'dart',
+      'javascript',
+      'typescript',
+      'webdev',
+      'software',
+      'code',
+      'api',
+      'backend',
+      'frontend',
+    ])) {
+      return byName('Software Development');
     }
-    if (_containsAny(searchable, ['garden', 'plants', 'balcony', 'compost', 'tomato'])) {
+    if (_containsAny(searchable, [
+      'gadget',
+      'phone',
+      'laptop',
+      'camera',
+      'headphones',
+      'hardware',
+      'device',
+      'android',
+      'iphone',
+    ])) {
+      return byName('Gadgets & Hardware');
+    }
+    if (_containsAny(searchable, [
+      'app',
+      'tool',
+      'extension',
+      'plugin',
+      'workflow app',
+      'saas tool',
+    ])) {
+      return byName('Apps & Tools');
+    }
+    if (_containsAny(searchable, [
+      'cybersecurity',
+      'security',
+      'privacy',
+      'breach',
+      'malware',
+      'phishing',
+      'vulnerability',
+    ])) {
+      return byName('Cybersecurity');
+    }
+    if (_containsAny(searchable, [
+      'data',
+      'analytics',
+      'dashboard',
+      'sql',
+      'database',
+      'visualization',
+      'metrics',
+    ])) {
+      return byName('Data & Analytics');
+    }
+    if (_containsAny(searchable, [
+      'budget',
+      'saving money',
+      'personal finance',
+      'bank',
+      'credit card',
+      'tax',
+    ])) {
+      return byName('Personal Finance');
+    }
+    if (_containsAny(searchable, [
+      'invest',
+      'stock',
+      'portfolio',
+      'market',
+      'etf',
+    ])) {
+      return byName('Investing');
+    }
+    if (_containsAny(searchable, [
+      'crypto',
+      'bitcoin',
+      'ethereum',
+      'web3',
+      'defi',
+    ])) {
+      return byName('Crypto');
+    }
+    if (_containsAny(searchable, [
+      'garden',
+      'plants',
+      'balcony',
+      'compost',
+      'tomato',
+    ])) {
       return byName('Home & Garden');
     }
     if (_containsAny(searchable, [
-      'recipe',
-      'kitchen',
-      'cook',
-      'bake',
-      'meal',
-      'food',
-      'food hacks',
-      'vegan',
-      'vegetarian',
-      'dairy',
-      'paneer',
-      'protein',
-      'plant-based',
-      'smoothie',
-      'dessert',
+      'architecture',
+      'architectural',
+      'temple',
+      'monument',
+      'heritage site',
+      'ancient indian architecture',
+      'structure',
     ])) {
+      return byName('Architecture');
+    }
+    if (_containsAny(searchable, [
+      'history',
+      'ancient',
+      'culture',
+      'cultural',
+      'heritage',
+      'civilization',
+      'mythology',
+      'mahabharata',
+      'ramayana',
+    ])) {
+      return byName('History & Culture');
+    }
+    if (_containsAny(searchable, [
+      'spiritual',
+      'spirituality',
+      'philosophy',
+      'bhagavad gita',
+      'gita',
+      'krishna',
+      'arjuna',
+      'dharma',
+      'vedic',
+      'hindu',
+      'buddhist',
+      'meditation',
+      'wisdom',
+    ])) {
+      return byName('Spirituality & Philosophy');
+    }
+    if (_containsAny(searchable, [
+      'relationship',
+      'dating',
+      'marriage',
+      'friendship',
+      'communication',
+    ])) {
+      return byName('Relationships');
+    }
+    if (_containsAny(searchable, [
+      'career',
+      'job',
+      'interview',
+      'resume',
+      'workplace',
+      'promotion',
+    ])) {
+      return byName('Career');
+    }
+    if (_containsAny(searchable, [
+      'productivity',
+      'habit',
+      'workflow',
+      'focus',
+      'time management',
+    ])) {
+      return byName('Productivity');
+    }
+    if (_containsAny(searchable, [
+      'climate',
+      'environment',
+      'wildlife',
+      'nature',
+      'sustainability',
+    ])) {
+      return byName('Nature & Environment');
+    }
+    if (_containsAny(searchable, [
+      'parenting',
+      'family',
+      'kids',
+      'children',
+      'childcare',
+    ])) {
+      return byName('Parenting & Family');
+    }
+    if (_containsAny(searchable, [
+      'startup',
+      'founder',
+      'fundraising',
+      'venture capital',
+      'pitch deck',
+    ])) {
+      return byName('Startups');
+    }
+    if (_containsAny(searchable, [
+      'marketing',
+      'growth',
+      'seo',
+      'copywriting',
+      'brand strategy',
+      'sales funnel',
+    ])) {
+      return byName('Marketing & Growth');
+    }
+    if (_containsAny(searchable, [
+      'creator',
+      'youtube growth',
+      'newsletter',
+      'audience',
+      'monetization',
+    ])) {
+      return byName('Creator Economy');
+    }
+    if (_containsAny(searchable, [
+      'space',
+      'astronomy',
+      'nasa',
+      'planet',
+      'galaxy',
+      'telescope',
+    ])) {
+      return byName('Space & Astronomy');
+    }
+    if (_containsAny(searchable, [
+      'biology',
+      'medicine',
+      'medical',
+      'disease',
+      'genetics',
+      'neuroscience',
+    ])) {
+      return byName('Biology & Medicine');
+    }
+    if (_containsAny(searchable, [
+      'fitness',
+      'workout',
+      'strength',
+      'running',
+      'exercise',
+      'mobility',
+    ])) {
+      return byName('Fitness');
+    }
+    if (_containsAny(searchable, [
+      'nutrition',
+      'diet',
+      'protein',
+      'calorie',
+      'vitamin',
+      'supplement',
+    ])) {
+      return byName('Nutrition');
+    }
+    if (_containsAny(searchable, [
+      'mental health',
+      'psychology',
+      'therapy',
+      'anxiety',
+      'stress',
+      'mindfulness',
+    ])) {
+      return byName('Mental Health');
+    }
+    if (_containsAny(searchable, [
+      'language',
+      'english',
+      'spanish',
+      'japanese',
+      'vocabulary',
+      'grammar',
+    ])) {
+      return byName('Language Learning');
+    }
+    if (_containsAny(searchable, [
+      'math',
+      'algebra',
+      'calculus',
+      'geometry',
+      'statistics',
+    ])) {
+      return byName('Math');
+    }
+    if (_containsAny(searchable, [
+      'world affairs',
+      'geopolitics',
+      'international relations',
+      'foreign policy',
+    ])) {
+      return byName('World Affairs');
+    }
+    if (_containsAny(searchable, [
+      'law',
+      'policy',
+      'legal',
+      'regulation',
+      'government',
+    ])) {
+      return byName('Law & Policy');
+    }
+    if (_containsAny(searchable, [
+      'art',
+      'illustration',
+      'drawing',
+      'painting',
+      'artist',
+    ])) {
+      return byName('Art & Illustration');
+    }
+    if (_containsAny(searchable, [
+      'photo',
+      'photography',
+      'camera',
+      'lightroom',
+      'portrait',
+    ])) {
+      return byName('Photography');
+    }
+    if (_containsAny(searchable, [
+      'diy',
+      'make',
+      'maker',
+      'woodworking',
+      'repair',
+      'craft',
+    ])) {
+      return byName('DIY & Making');
+    }
+    if (_containsAny(searchable, [
+      'restaurant',
+      'cafe',
+      'coffee shop',
+      'places to eat',
+      'dining',
+    ])) {
+      return byName('Restaurants & Cafes');
+    }
+    if (_containsAny(searchable, [
+      'hike',
+      'hiking',
+      'trek',
+      'camping',
+      'trail',
+      'outdoors',
+    ])) {
+      return byName('Outdoors & Adventure');
+    }
+    if (_containsAny(searchable, [
+      'movie',
+      'film',
+      'cinema',
+      'tv show',
+      'series',
+      'anime',
+    ])) {
+      return byName('Movies & TV');
+    }
+    if (_containsAny(searchable, [
+      'music',
+      'song',
+      'album',
+      'playlist',
+      'artist',
+      'concert',
+    ])) {
+      return byName('Music');
+    }
+    if (_containsAny(searchable, [
+      'gaming',
+      'game',
+      'videogame',
+      'steam',
+      'playstation',
+      'xbox',
+    ])) {
+      return byName('Gaming');
+    }
+    if (_containsAny(searchable, [
+      'fashion',
+      'style',
+      'outfit',
+      'skincare',
+      'beauty',
+      'makeup',
+    ])) {
+      return byName('Fashion & Beauty');
+    }
+    if (_containsAny(searchable, [
+      'car',
+      'bike',
+      'vehicle',
+      'ev',
+      'motorcycle',
+      'automotive',
+    ])) {
+      return byName('Vehicles');
+    }
+    if (_containsAny(searchable, [
+      'book',
+      'novel',
+      'author',
+      'literature',
+      'poetry',
+    ])) {
+      return byName('Books & Literature');
+    }
+    if (_containsAny(searchable, [
+      'documentation',
+      'docs',
+      'manual',
+      'reference guide',
+      'api reference',
+    ])) {
+      return byName('Documentation');
+    }
+    if (_hasFoodCookingSignal(searchable)) {
       return byName('Food & Cooking');
     }
-    if (_containsAny(searchable, ['design', 'figma', 'brand', 'typography', 'ux', 'ui'])) {
+    if (_containsAny(searchable, [
+      'design',
+      'figma',
+      'brand',
+      'typography',
+      'ux',
+      'ui',
+    ])) {
       return byName('Design');
     }
     if (_containsAny(searchable, [
@@ -135,7 +638,13 @@ class CategoryTaxonomy {
     ])) {
       return byName('Health');
     }
-    if (_containsAny(searchable, ['learn', 'study', 'course', 'lesson', 'tutorial'])) {
+    if (_containsAny(searchable, [
+      'learn',
+      'study',
+      'course',
+      'lesson',
+      'tutorial',
+    ])) {
       return byName('Education');
     }
     if (_containsAny(searchable, ['news', 'election', 'policy', 'breaking'])) {
@@ -164,26 +673,11 @@ class CategoryTaxonomy {
       if (!inferred.contains(category)) inferred.add(category);
     }
 
-    if (_containsAnyWord(searchable, [
-      'recipe',
-      'cook',
-      'food',
-      'meal',
-      'vegan',
-      'vegetarian',
-      'dairy',
-      'paneer',
-      'protein',
-      'plant-based',
-      'smoothie',
-      'dessert',
-    ])) {
+    if (_hasFoodCookingSignal(searchable)) {
       add('Food & Cooking');
     }
     if (_containsAnyWord(searchable, [
       'health',
-      'nutrition',
-      'fitness',
       'protein',
       'plant-based',
       'vegan',
@@ -193,18 +687,64 @@ class CategoryTaxonomy {
       add('Health');
     }
     if (_containsAnyWord(searchable, [
+      'ai',
+      'artificial intelligence',
+      'machine learning',
+      'llm',
+      'genai',
+      'agent',
+    ])) {
+      add('AI & ML');
+    }
+    if (_containsAnyWord(searchable, [
       'react',
       'flutter',
       'dart',
       'javascript',
       'software',
       'code',
-      'artificial intelligence',
-      'machine learning',
-      'llm',
-      'agent',
     ])) {
-      add('Technology');
+      add('Software Development');
+    }
+    if (_containsAnyWord(searchable, [
+      'gadget',
+      'hardware',
+      'phone',
+      'laptop',
+      'camera',
+      'headphones',
+      'device',
+    ])) {
+      add('Gadgets & Hardware');
+    }
+    if (_containsAnyWord(searchable, [
+      'app',
+      'tool',
+      'extension',
+      'plugin',
+      'automation',
+    ])) {
+      add('Apps & Tools');
+    }
+    if (_containsAnyWord(searchable, [
+      'cybersecurity',
+      'security',
+      'privacy',
+      'malware',
+      'phishing',
+      'vulnerability',
+    ])) {
+      add('Cybersecurity');
+    }
+    if (_containsAnyWord(searchable, [
+      'data',
+      'analytics',
+      'dashboard',
+      'sql',
+      'database',
+      'visualization',
+    ])) {
+      add('Data & Analytics');
     }
     if (_containsAnyWord(searchable, [
       'design',
@@ -216,6 +756,254 @@ class CategoryTaxonomy {
       add('Design');
     }
     if (_containsAnyWord(searchable, [
+      'architecture',
+      'architectural',
+      'temple',
+      'monument',
+      'heritage site',
+      'historic structure',
+    ])) {
+      add('Architecture');
+    }
+    if (_containsAnyWord(searchable, [
+      'history',
+      'ancient',
+      'culture',
+      'cultural heritage',
+      'civilization',
+      'mythology',
+      'mahabharata',
+      'ramayana',
+    ])) {
+      add('History & Culture');
+    }
+    if (_containsAnyWord(searchable, [
+      'spiritual',
+      'spirituality',
+      'philosophy',
+      'bhagavad gita',
+      'gita',
+      'krishna',
+      'arjuna',
+      'dharma',
+      'vedic',
+      'meditation',
+    ])) {
+      add('Spirituality & Philosophy');
+    }
+    if (_containsAnyWord(searchable, [
+      'relationship',
+      'dating',
+      'marriage',
+      'friendship',
+      'communication',
+    ])) {
+      add('Relationships');
+    }
+    if (_containsAnyWord(searchable, [
+      'career',
+      'job',
+      'interview',
+      'resume',
+      'workplace',
+      'promotion',
+    ])) {
+      add('Career');
+    }
+    if (_containsAnyWord(searchable, [
+      'productivity',
+      'habit',
+      'workflow',
+      'focus',
+      'time management',
+    ])) {
+      add('Productivity');
+    }
+    if (_containsAnyWord(searchable, [
+      'climate',
+      'environment',
+      'wildlife',
+      'nature',
+      'sustainability',
+    ])) {
+      add('Nature & Environment');
+    }
+    if (_containsAnyWord(searchable, [
+      'parenting',
+      'family',
+      'kids',
+      'children',
+      'childcare',
+    ])) {
+      add('Parenting & Family');
+    }
+    if (_containsAnyWord(searchable, [
+      'startup',
+      'founder',
+      'fundraising',
+      'venture capital',
+      'pitch deck',
+    ])) {
+      add('Startups');
+    }
+    if (_containsAnyWord(searchable, [
+      'marketing',
+      'growth',
+      'seo',
+      'copywriting',
+      'sales',
+    ])) {
+      add('Marketing & Growth');
+    }
+    if (_containsAnyWord(searchable, [
+      'creator',
+      'audience',
+      'monetization',
+      'newsletter',
+      'youtube growth',
+    ])) {
+      add('Creator Economy');
+    }
+    if (_containsAnyWord(searchable, [
+      'budget',
+      'personal finance',
+      'credit card',
+      'tax',
+      'saving money',
+    ])) {
+      add('Personal Finance');
+    }
+    if (_containsAnyWord(searchable, [
+      'invest',
+      'stock',
+      'portfolio',
+      'market',
+      'etf',
+    ])) {
+      add('Investing');
+    }
+    if (_containsAnyWord(searchable, [
+      'crypto',
+      'bitcoin',
+      'ethereum',
+      'web3',
+      'defi',
+    ])) {
+      add('Crypto');
+    }
+    if (_containsAnyWord(searchable, [
+      'space',
+      'astronomy',
+      'nasa',
+      'planet',
+      'galaxy',
+    ])) {
+      add('Space & Astronomy');
+    }
+    if (_containsAnyWord(searchable, [
+      'biology',
+      'medicine',
+      'medical',
+      'genetics',
+      'neuroscience',
+    ])) {
+      add('Biology & Medicine');
+    }
+    if (_containsAnyWord(searchable, [
+      'fitness',
+      'workout',
+      'strength',
+      'running',
+      'exercise',
+    ])) {
+      add('Fitness');
+    }
+    if (_containsAnyWord(searchable, [
+      'nutrition',
+      'diet',
+      'protein',
+      'calorie',
+      'vitamin',
+    ])) {
+      add('Nutrition');
+    }
+    if (_containsAnyWord(searchable, [
+      'mental health',
+      'psychology',
+      'therapy',
+      'anxiety',
+      'mindfulness',
+    ])) {
+      add('Mental Health');
+    }
+    if (_containsAnyWord(searchable, [
+      'language learning',
+      'vocabulary',
+      'grammar',
+      'english',
+      'japanese',
+    ])) {
+      add('Language Learning');
+    }
+    if (_containsAnyWord(searchable, [
+      'math',
+      'algebra',
+      'calculus',
+      'statistics',
+    ])) {
+      add('Math');
+    }
+    if (_containsAnyWord(searchable, [
+      'world affairs',
+      'geopolitics',
+      'international relations',
+      'foreign policy',
+    ])) {
+      add('World Affairs');
+    }
+    if (_containsAnyWord(searchable, [
+      'law',
+      'policy',
+      'legal',
+      'regulation',
+      'government',
+    ])) {
+      add('Law & Policy');
+    }
+    if (_containsAnyWord(searchable, [
+      'art',
+      'illustration',
+      'drawing',
+      'painting',
+    ])) {
+      add('Art & Illustration');
+    }
+    if (_containsAnyWord(searchable, [
+      'photo',
+      'photography',
+      'camera',
+      'portrait',
+    ])) {
+      add('Photography');
+    }
+    if (_containsAnyWord(searchable, [
+      'diy',
+      'maker',
+      'woodworking',
+      'repair',
+      'craft',
+    ])) {
+      add('DIY & Making');
+    }
+    if (_containsAnyWord(searchable, [
+      'restaurant',
+      'cafe',
+      'coffee shop',
+      'dining',
+    ])) {
+      add('Restaurants & Cafes');
+    }
+    if (_containsAnyWord(searchable, [
       'travel',
       'trek',
       'hike',
@@ -225,31 +1013,612 @@ class CategoryTaxonomy {
       add('Travel');
     }
     if (_containsAnyWord(searchable, [
+      'hike',
+      'hiking',
+      'trek',
+      'camping',
+      'trail',
+      'outdoors',
+    ])) {
+      add('Outdoors & Adventure');
+    }
+    if (_containsAnyWord(searchable, [
       'movie',
       'film',
       'cinema',
-      'music',
-      'gaming',
+      'tv show',
+      'series',
       'anime',
     ])) {
-      add('Entertainment');
+      add('Movies & TV');
+    }
+    if (_containsAnyWord(searchable, ['music', 'song', 'album', 'playlist'])) {
+      add('Music');
+    }
+    if (_containsAnyWord(searchable, [
+      'gaming',
+      'game',
+      'videogame',
+      'steam',
+    ])) {
+      add('Gaming');
+    }
+    if (_containsAnyWord(searchable, [
+      'fashion',
+      'style',
+      'outfit',
+      'skincare',
+      'beauty',
+    ])) {
+      add('Fashion & Beauty');
+    }
+    if (_containsAnyWord(searchable, [
+      'car',
+      'bike',
+      'vehicle',
+      'ev',
+      'motorcycle',
+    ])) {
+      add('Vehicles');
+    }
+    if (_containsAnyWord(searchable, [
+      'book',
+      'novel',
+      'author',
+      'literature',
+      'poetry',
+    ])) {
+      add('Books & Literature');
+    }
+    if (_containsAnyWord(searchable, [
+      'documentation',
+      'docs',
+      'manual',
+      'api reference',
+    ])) {
+      add('Documentation');
     }
 
     return inferred;
   }
 
-  /// Word-aware match: the needle must begin at a word boundary (so it matches
-  /// "cook"/"cooking"/"designer" but NOT mid-word — e.g. "ui" inside "quick",
-  /// "code" inside "barcode", "dart" inside "dartboard"). This is what stopped
-  /// food saves from being tagged "Design".
+  static List<String> curateSourceCategories({
+    required List<String> categories,
+    required List<String> tags,
+    required String text,
+    String? primaryCategory,
+    int maxSources = 3,
+  }) {
+    final ordered = <String>[];
+    final searchableText = text.toLowerCase();
+    final searchableTags = tags.join(' ').toLowerCase();
+
+    void add(String category) {
+      final trimmed = category.trim();
+      if (trimmed.isEmpty || trimmed == 'Web' || trimmed == 'Other') return;
+      if (tryByName(trimmed) == null) return;
+      if (!ordered.contains(trimmed)) ordered.add(trimmed);
+    }
+
+    final primary = primaryCategory?.trim();
+    if (primary != null && primary.isNotEmpty) {
+      add(primary);
+    }
+
+    for (final category in categories) {
+      final trimmed = category.trim();
+      if (trimmed.isEmpty || trimmed == primary) continue;
+      if (_hasSourceEvidence(
+        trimmed,
+        text: searchableText,
+        tags: searchableTags,
+      )) {
+        add(trimmed);
+      }
+      if (ordered.length >= maxSources) break;
+    }
+
+    if (ordered.isEmpty) {
+      final inferred = inferAdditionalCategories(tags: tags, text: text);
+      for (final category in inferred) {
+        add(category);
+        if (ordered.length >= maxSources) break;
+      }
+    }
+
+    return ordered.isEmpty ? ['Other'] : ordered.take(maxSources).toList();
+  }
+
+  static List<String> sourceHierarchyLabels({
+    required List<String> categories,
+    required List<String> tags,
+    required String text,
+    String? primaryCategory,
+    int maxSources = 3,
+  }) {
+    final curated = curateSourceCategories(
+      categories: categories,
+      tags: tags,
+      text: text,
+      primaryCategory: primaryCategory,
+      maxSources: maxSources,
+    );
+    final leaf = curated.firstWhere(
+      (category) => category != 'Other',
+      orElse: () => '',
+    );
+    if (leaf.isEmpty) return ['Other'];
+
+    final labels = <String>[];
+    void add(String value) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty || labels.contains(trimmed)) return;
+      labels.add(trimmed);
+    }
+
+    for (final label in _sourceLineageFor(
+      leaf,
+      categories: curated,
+      text: text,
+    )) {
+      add(label);
+      if (labels.length >= maxSources) return labels;
+    }
+
+    for (final category in curated.skip(1)) {
+      if (labels.length >= maxSources) break;
+      if (_isSiblingOrParentNoise(labels, category)) continue;
+      add(category);
+    }
+
+    final niche = _strongNicheTag(
+      tags: tags,
+      text: text,
+      selectedLabels: labels,
+    );
+    if (niche != null && labels.length < maxSources) {
+      add(niche);
+    }
+
+    return labels.isEmpty ? ['Other'] : labels;
+  }
+
+  static List<String> _sourceLineage(String category) {
+    return switch (category) {
+      'AI & ML' ||
+      'Software Development' ||
+      'Gadgets & Hardware' ||
+      'Apps & Tools' ||
+      'Cybersecurity' ||
+      'Data & Analytics' => ['Technology', category],
+      'Startups' ||
+      'Marketing & Growth' ||
+      'Creator Economy' => ['Business', category],
+      'Personal Finance' || 'Investing' || 'Crypto' => ['Finance', category],
+      'Space & Astronomy' || 'Biology & Medicine' => ['Science', category],
+      'Fitness' || 'Nutrition' || 'Mental Health' => ['Health', category],
+      'Language Learning' || 'Math' => ['Education', category],
+      'World Affairs' || 'Law & Policy' => ['News', category],
+      'Art & Illustration' || 'Photography' => ['Design', category],
+      'DIY & Making' || 'Restaurants & Cafes' => ['Lifestyle', category],
+      'Outdoors & Adventure' => ['Travel', category],
+      'Movies & TV' || 'Gaming' => ['Entertainment', category],
+      'Fashion & Beauty' || 'Vehicles' => ['Lifestyle', category],
+      'Books & Literature' || 'Documentation' => ['Reference', category],
+      _ => [category],
+    };
+  }
+
+  static List<String> _sourceLineageFor(
+    String category, {
+    required List<String> categories,
+    required String text,
+  }) {
+    final evidence = text.toLowerCase();
+    final hasHistorySignal =
+        categories.contains('History & Culture') ||
+        _containsAnyWord(evidence, const [
+          'history',
+          'ancient',
+          'culture',
+          'cultural',
+          'heritage',
+          'civilization',
+          'temple',
+          'monument',
+        ]);
+    if (category == 'Architecture' && hasHistorySignal) {
+      return ['History & Culture', 'Architecture'];
+    }
+    if (category == 'History & Culture' &&
+        _containsAnyWord(evidence, const [
+          'architecture',
+          'architectural',
+          'temple',
+          'monument',
+          'built heritage',
+        ])) {
+      return ['History & Culture', 'Architecture'];
+    }
+    return _sourceLineage(category);
+  }
+
+  static bool _isSiblingOrParentNoise(List<String> selected, String category) {
+    final lineage = _sourceLineage(category);
+    return lineage.any(selected.contains);
+  }
+
+  static String? _strongNicheTag({
+    required List<String> tags,
+    required String text,
+    required List<String> selectedLabels,
+  }) {
+    final selected = selectedLabels.map((item) => item.toLowerCase()).toSet();
+    final evidence = '$text ${tags.join(' ')}'.toLowerCase();
+    final candidates = <String>[];
+    for (final tag in tags) {
+      final cleaned = _cleanNicheTag(tag);
+      if (cleaned == null || selected.contains(cleaned.toLowerCase())) {
+        continue;
+      }
+      if (_containsAnyWord(evidence, [cleaned.toLowerCase()])) {
+        candidates.add(cleaned);
+      }
+    }
+    candidates.sort((a, b) => a.length.compareTo(b.length));
+    return candidates.isEmpty ? null : candidates.first;
+  }
+
+  static String? _cleanNicheTag(String tag) {
+    final cleaned = tag.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    if (cleaned.length < 3 || cleaned.length > 28) return null;
+    if (_nicheTagStoplist.contains(cleaned)) return null;
+    if (tryByName(_titleCase(cleaned)) != null) return null;
+    if (!RegExp(r'^[a-z0-9][a-z0-9 &+\-]*$').hasMatch(cleaned)) return null;
+    return _titleCase(cleaned);
+  }
+
+  static String _titleCase(String value) {
+    return value
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) {
+          if (part.length <= 3 && RegExp(r'^[a-z0-9]+$').hasMatch(part)) {
+            return part.toUpperCase();
+          }
+          return '${part[0].toUpperCase()}${part.substring(1)}';
+        })
+        .join(' ');
+  }
+
+  /// Word-aware match: the needle must be a whole word/phrase. This keeps short
+  /// needles like "car" from matching "career", while still allowing explicit
+  /// variants such as "cook" and "cooking" to be listed separately.
   static bool _containsAnyWord(String text, List<String> needles) {
     for (final needle in needles) {
-      if (RegExp('(?<![a-z0-9])${RegExp.escape(needle)}').hasMatch(text)) {
+      final escaped = RegExp.escape(needle).replaceAll(r'\ ', r'\s+');
+      if (RegExp('(?<![a-z0-9])$escaped(?![a-z0-9])').hasMatch(text)) {
         return true;
       }
     }
     return false;
   }
+
+  static bool _hasSourceEvidence(
+    String category, {
+    required String text,
+    required String tags,
+  }) {
+    final evidence = '$text $tags';
+    switch (category) {
+      case 'Food & Cooking':
+        return _hasFoodCookingSignal(evidence);
+      case 'Vehicles':
+        return _containsAnyWord(evidence, const [
+          'car',
+          'cars',
+          'bike',
+          'bikes',
+          'vehicle',
+          'vehicles',
+          'ev',
+          'motorcycle',
+          'motorcycles',
+          'automotive',
+        ]);
+      case 'Marketing & Growth':
+        return _containsAnyWord(evidence, const [
+          'marketing',
+          'seo',
+          'copywriting',
+          'sales funnel',
+          'brand strategy',
+          'customer acquisition',
+          'growth marketing',
+        ]);
+      case 'Parenting & Family':
+        return _containsAnyWord(evidence, const [
+          'parenting',
+          'parenthood',
+          'parents',
+          'family dynamics',
+          'childcare',
+          'kids',
+          'children',
+        ]);
+      case 'Reference':
+        return _containsAnyWord(evidence, const [
+          'reference',
+          'guide',
+          'manual',
+          'documentation',
+          'docs',
+        ]);
+      case 'Technology':
+        return _containsAnyWord(evidence, const [
+          'technology',
+          'software',
+          'developer',
+          'programming',
+          'code',
+          'coding',
+          'api',
+          'ai',
+          'llm',
+        ]);
+      case 'Entertainment':
+        return _containsAnyWord(evidence, const [
+          'entertainment',
+          'movie',
+          'movies',
+          'film',
+          'series',
+          'anime',
+          'show',
+          'watch',
+        ]);
+      case 'Lifestyle':
+        return _containsAnyWord(evidence, const [
+          'lifestyle',
+          'self improvement',
+          'personal growth',
+          'habits',
+        ]);
+      default:
+        return _categoryEvidenceNeedles(
+          category,
+        ).any((needle) => _containsAnyWord(evidence, [needle]));
+    }
+  }
+
+  static List<String> _categoryEvidenceNeedles(String category) {
+    return switch (category) {
+      'AI & ML' => const [
+        'ai',
+        'artificial intelligence',
+        'machine learning',
+        'llm',
+        'genai',
+      ],
+      'Software Development' => const [
+        'react',
+        'flutter',
+        'dart',
+        'javascript',
+        'typescript',
+        'software',
+        'code',
+        'api',
+      ],
+      'Gadgets & Hardware' => const [
+        'gadget',
+        'hardware',
+        'phone',
+        'laptop',
+        'camera',
+        'headphones',
+        'device',
+      ],
+      'Apps & Tools' => const ['app', 'tool', 'extension', 'plugin'],
+      'Cybersecurity' => const [
+        'cybersecurity',
+        'privacy',
+        'malware',
+        'phishing',
+        'vulnerability',
+      ],
+      'Data & Analytics' => const [
+        'data',
+        'analytics',
+        'dashboard',
+        'sql',
+        'database',
+        'visualization',
+      ],
+      'Architecture' => const [
+        'architecture',
+        'architectural',
+        'temple',
+        'monument',
+        'heritage site',
+      ],
+      'History & Culture' => const [
+        'history',
+        'ancient',
+        'culture',
+        'cultural heritage',
+        'civilization',
+        'mythology',
+      ],
+      'Spirituality & Philosophy' => const [
+        'spirituality',
+        'philosophy',
+        'bhagavad gita',
+        'gita',
+        'krishna',
+        'arjuna',
+        'dharma',
+        'meditation',
+      ],
+      'Movies & TV' => const [
+        'movie',
+        'movies',
+        'film',
+        'cinema',
+        'tv show',
+        'series',
+        'anime',
+      ],
+      'Books & Literature' => const [
+        'book',
+        'books',
+        'novel',
+        'author',
+        'literature',
+        'poetry',
+        'reading',
+      ],
+      'Travel' => const ['travel', 'trip', 'destination', 'itinerary'],
+      'Outdoors & Adventure' => const [
+        'hike',
+        'hiking',
+        'trek',
+        'camping',
+        'trail',
+        'outdoors',
+      ],
+      'Education' => const ['learn', 'study', 'course', 'lesson', 'tutorial'],
+      'Health' => const ['health', 'sleep', 'medicine', 'healthy'],
+      'Fitness' => const ['fitness', 'workout', 'strength', 'running'],
+      'Nutrition' => const ['nutrition', 'diet', 'calorie', 'vitamin'],
+      'Mental Health' => const ['mental health', 'therapy', 'anxiety'],
+      'Career' => const ['career', 'job', 'interview', 'resume', 'workplace'],
+      'Productivity' => const ['productivity', 'habit', 'workflow', 'focus'],
+      'Relationships' => const [
+        'relationship',
+        'dating',
+        'marriage',
+        'friendship',
+      ],
+      'Startups' => const ['startup', 'founder', 'fundraising'],
+      'Creator Economy' => const ['creator', 'audience', 'monetization'],
+      'Personal Finance' => const ['budget', 'credit card', 'tax'],
+      'Investing' => const ['investing', 'stock', 'portfolio', 'etf'],
+      'Crypto' => const ['crypto', 'bitcoin', 'ethereum', 'web3'],
+      'Music' => const ['music', 'song', 'album', 'playlist'],
+      'Gaming' => const ['gaming', 'game', 'videogame'],
+      'Fashion & Beauty' => const ['fashion', 'style', 'outfit', 'skincare'],
+      'Documentation' => const ['documentation', 'docs', 'manual'],
+      _ => const [],
+    };
+  }
+
+  static bool _hasFoodCookingSignal(String text) {
+    final searchable = text.toLowerCase();
+    final foodWithoutRecipe = searchable.replaceAll(
+      RegExp(r'\brecipes?\b'),
+      ' ',
+    );
+    if (_containsAnyWord(foodWithoutRecipe, _strongFoodCookingNeedles)) {
+      return true;
+    }
+    if (!RegExp(r'(?<![a-z0-9])recipes?\b').hasMatch(searchable)) {
+      return false;
+    }
+    if (_hasMetaphoricalRecipeUse(searchable)) {
+      return false;
+    }
+    return _containsAnyWord(searchable, _recipeContextNeedles) ||
+        RegExp(
+          r'\b(?:ingredients?|servings?|prep|dish|meal)\b.{0,60}\brecipes?\b|\brecipes?\b.{0,60}\b(?:ingredients?|servings?|prep|dish|meal|for\s+(?:breakfast|lunch|dinner))\b',
+        ).hasMatch(searchable);
+  }
+
+  static bool _hasMetaphoricalRecipeUse(String text) {
+    return RegExp(
+          r'\brecipes?\s+(?:for|to)\s+(?:success|failure|happiness|life|business|growth|winning|wealth|productivity)\b',
+        ).hasMatch(text) ||
+        RegExp(
+          r'\b(?:success|failure|happiness|life|business|growth|winning|wealth|productivity)\b.{0,48}\brecipes?\b',
+        ).hasMatch(text) ||
+        RegExp(
+          r'\b(?:doesn['
+          '’]?t|does not|do not|don['
+          '’]?t|never|no)\b.{0,48}\brecipes?\b',
+        ).hasMatch(text);
+  }
+
+  static const _strongFoodCookingNeedles = <String>[
+    'kitchen',
+    'cook',
+    'cooking',
+    'bake',
+    'baking',
+    'meal prep',
+    'mealprep',
+    'food',
+    'food hack',
+    'ingredient',
+    'ingredients',
+    'dessert',
+    'smoothie',
+    'paneer',
+    'pasta',
+    'ramen',
+    'chicken',
+    'sauce',
+    'curry',
+    'rice',
+    'noodles',
+    'breakfast',
+    'lunch',
+    'dinner',
+    'snack',
+    'coffee',
+    'dish',
+    'cuisine',
+  ];
+
+  static const _recipeContextNeedles = <String>[
+    'kitchen',
+    'cook',
+    'cooking',
+    'bake',
+    'baking',
+    'ingredient',
+    'ingredients',
+    'serving',
+    'servings',
+    'dish',
+    'meal',
+    'dessert',
+    'breakfast',
+    'lunch',
+    'dinner',
+    'snack',
+  ];
+
+  static const _nicheTagStoplist = <String>{
+    'instagram',
+    'youtube',
+    'video',
+    'reel',
+    'post',
+    'thread',
+    'article',
+    'content',
+    'recommendation',
+    'recommendations',
+    'tips',
+    'guide',
+    'learn',
+    'watch',
+    'read',
+    'saved',
+    'social',
+    'web',
+    'other',
+  };
 
   static CategoryDefinition byName(String name) {
     return categories.firstWhere(

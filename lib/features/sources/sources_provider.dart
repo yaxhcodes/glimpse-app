@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/category_taxonomy.dart';
 import '../home/home_provider.dart';
 
 /// "Done" (archived) saves — the saves a user marked finished from Details.
@@ -41,6 +42,7 @@ class SourceCluster {
 
   bool get isActiveThisWeek => savesThisWeek > 0;
   bool get isGrowing => savesThisWeek >= 3;
+  bool get isEmpty => count == 0;
 }
 
 /// Fetches all URLs and builds enriched knowledge-cluster metadata.
@@ -53,9 +55,20 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
 
   final Map<String, List<SavedUrl>> urlsBySource = {};
   for (final url in all) {
-    for (final source in url.effectiveCategories) {
+    final sources = CategoryTaxonomy.curateSourceCategories(
+      categories: url.effectiveCategories,
+      primaryCategory: url.category,
+      tags: url.tags,
+      text: '${url.title} ${url.summary ?? ''} ${url.description}',
+    );
+    for (final source in sources) {
       (urlsBySource[source] ??= []).add(url);
     }
+  }
+
+  for (final category in CategoryTaxonomy.categories) {
+    if (category.name == 'Other') continue;
+    urlsBySource.putIfAbsent(category.name, () => <SavedUrl>[]);
   }
 
   return urlsBySource.entries.map((e) {
@@ -84,7 +97,9 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
     final savesThisWeek = urls.where((u) => u.savedAt.isAfter(weekAgo)).length;
 
     // Last saved
-    final lastSaved = urls.map((u) => u.savedAt).reduce((a, b) => a.isAfter(b) ? a : b);
+    final lastSaved = urls.isEmpty
+        ? null
+        : urls.map((u) => u.savedAt).reduce((a, b) => a.isAfter(b) ? a : b);
 
     // Most resurfaced
     final resurfaced = urls.where((u) => u.resurfacedAt != null).toList();

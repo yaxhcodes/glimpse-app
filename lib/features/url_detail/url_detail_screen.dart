@@ -2073,36 +2073,37 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                 if (categoryLabels.isNotEmpty)
                   Positioned(
-                    left: 12,
-                    bottom: 12,
-                    right: 12,
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: categoryLabels.take(3).map((label) {
-                        return Container(
+                    left: 10,
+                    bottom: 10,
+                    right: 10,
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.58),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 9,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surface.withValues(alpha: 0.92),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: colorScheme.outlineVariant,
-                              width: 1,
-                            ),
+                            vertical: 5,
                           ),
                           child: Text(
-                            label,
+                            categoryLabels.take(3).join('  /  '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                              color: Colors.white.withValues(alpha: 0.92),
                               fontWeight: FontWeight.w600,
-                              height: 1.1,
+                              height: 1.15,
+                              letterSpacing: 0,
                             ),
                           ),
-                        );
-                      }).toList(),
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -2214,35 +2215,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   List<String> _displayCategories(SavedUrl url) {
-    final content = <String>[];
-    for (final category in url.effectiveCategories) {
-      final trimmed = category.trim();
-      if (trimmed.isEmpty || trimmed == 'Web') continue;
-      if (trimmed == 'Other') continue;
-      if (CategoryTaxonomy.tryByName(trimmed) == null) continue;
-      if (trimmed == 'Technology' && !_hasTechnologySignal(url)) continue;
-      if (!content.contains(trimmed)) content.add(trimmed);
-    }
-    for (final category in CategoryTaxonomy.inferAdditionalCategories(
+    return CategoryTaxonomy.sourceHierarchyLabels(
+      categories: url.effectiveCategories,
+      primaryCategory: url.category,
       tags: url.tags,
       text: '${url.title} ${url.summary ?? ''} ${url.description}',
-    )) {
-      if (!content.contains(category)) content.add(category);
-    }
-    return content.isEmpty ? ['Other'] : content;
-  }
-
-  bool _hasTechnologySignal(SavedUrl url) {
-    final text = [
-      url.title,
-      url.summary ?? '',
-      url.description,
-      url.tags.join(' '),
-      url.rawUrl,
-    ].join(' ').toLowerCase();
-    return RegExp(
-      r'\b(ai|llm|ml|code|coding|software|developer|github|gitlab|programming|react|flutter|dart|javascript|typescript|api|model|agent|agentic)\b',
-    ).hasMatch(text);
+    );
   }
 
   Widget _buildSummarySection({

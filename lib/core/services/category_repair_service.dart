@@ -18,11 +18,11 @@ import 'category_taxonomy.dart';
 /// network / AI calls**. Future saves are already correct via the inference fix.
 class CategoryRepairService {
   CategoryRepairService({required IsarService isarService})
-      : _isar = isarService;
+    : _isar = isarService;
 
   final IsarService _isar;
 
-  static const _doneKey = 'glimpse_category_repair_v1_done';
+  static const _doneKey = 'glimpse_category_repair_v2_done';
 
   /// Topic categories that [CategoryTaxonomy.inferAdditionalCategories] can
   /// auto-add. Only these are eligible for pruning, so manually-set categories
@@ -34,6 +34,47 @@ class CategoryRepairService {
     'Design',
     'Travel',
     'Entertainment',
+    'AI & ML',
+    'Software Development',
+    'Gadgets & Hardware',
+    'Apps & Tools',
+    'Cybersecurity',
+    'Data & Analytics',
+    'Startups',
+    'Marketing & Growth',
+    'Creator Economy',
+    'Personal Finance',
+    'Investing',
+    'Crypto',
+    'Space & Astronomy',
+    'Biology & Medicine',
+    'Fitness',
+    'Nutrition',
+    'Mental Health',
+    'Language Learning',
+    'Math',
+    'World Affairs',
+    'Law & Policy',
+    'Art & Illustration',
+    'Photography',
+    'Architecture',
+    'History & Culture',
+    'Spirituality & Philosophy',
+    'Relationships',
+    'Career',
+    'Productivity',
+    'Nature & Environment',
+    'Parenting & Family',
+    'DIY & Making',
+    'Restaurants & Cafes',
+    'Outdoors & Adventure',
+    'Movies & TV',
+    'Gaming',
+    'Fashion & Beauty',
+    'Vehicles',
+    'Books & Literature',
+    'Documentation',
+    'Reference',
   };
 
   /// Returns how many saves had a stale category pruned (0 if already done).
@@ -64,7 +105,9 @@ class CategoryRepairService {
   /// Returns the cleaned category list, or `null` if nothing changed.
   List<String>? _prunedCategories(SavedUrl url) {
     final text = [url.title, url.summary ?? '', url.description].join(' ');
-    final stillInferred = CategoryTaxonomy.inferAdditionalCategories(
+    final stillValid = CategoryTaxonomy.curateSourceCategories(
+      categories: url.categories,
+      primaryCategory: url.category,
       tags: url.tags,
       text: text,
     ).toSet();
@@ -72,10 +115,10 @@ class CategoryRepairService {
     final kept = <String>[];
     var removed = false;
     for (final category in url.categories) {
-      final isAutoInferable = _inferableTopics.contains(category) &&
-          category != url.category;
-      if (isAutoInferable && !stillInferred.contains(category)) {
-        removed = true; // a stale auto-inferred topic (e.g. bogus "Design")
+      final isAutoInferable =
+          _inferableTopics.contains(category) && category != url.category;
+      if (isAutoInferable && !stillValid.contains(category)) {
+        removed = true; // stale auto-inferred topic (e.g. bogus "Vehicles")
         continue;
       }
       kept.add(category);

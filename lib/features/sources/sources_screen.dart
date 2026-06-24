@@ -73,13 +73,16 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
           };
           final alphabetical = List<SourceCluster>.from(filtered)
             ..sort(
-              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              (a, b) {
+                if (a.isEmpty != b.isEmpty) return a.isEmpty ? 1 : -1;
+                return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+              },
             );
           // Top sources highlights topic clusters, not the app/platform a
           // link came from (Instagram, X, …), so filter known platforms out.
           final topSources =
               (clusters
-                    .where((c) => !isApp(c))
+                    .where((c) => !isApp(c) && !c.isEmpty)
                     .toList()
                 ..sort((a, b) => b.count.compareTo(a.count)))
                   .take(8)
@@ -193,7 +196,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: topSources.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(width: 10),
                         itemBuilder: (context, index) =>
                             _TopSourceCard(cluster: topSources[index]),
                       ),
@@ -236,7 +240,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             ),
           ],
         ),
-        error: (_, __) => CustomScrollView(
+        error: (error, stackTrace) => CustomScrollView(
           slivers: [
             SliverAppBar(
               pinned: true,
@@ -338,20 +342,30 @@ class _KnowledgeClusterCard extends StatelessWidget {
     final iconSpec = resolveSourceIcon(cluster.name);
     final fav = faviconUrl(cluster.name);
     final brandColor = platformColors[cluster.name];
+    final isEmpty = cluster.isEmpty;
 
     return Card(
       elevation: 0,
-      color: cs.surfaceContainerLow,
+      color: isEmpty
+          ? cs.surfaceContainerLowest.withValues(alpha: 0.72)
+          : cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isEmpty
+              ? cs.outlineVariant.withValues(alpha: 0.18)
+              : Colors.transparent,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push(
-          '/category/${Uri.encodeComponent(cluster.name)}',
-        ),
+        onTap: isEmpty
+            ? null
+            : () => context.push(
+                '/category/${Uri.encodeComponent(cluster.name)}',
+              ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(isEmpty ? 12 : 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -372,7 +386,9 @@ class _KnowledgeClusterCard extends StatelessWidget {
                           cluster.name,
                           style: tt.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: cs.onSurface,
+                            color: isEmpty
+                                ? cs.onSurfaceVariant
+                                : cs.onSurface,
                             letterSpacing: -0.15,
                             height: 1.2,
                             fontSize: 14,
@@ -382,9 +398,11 @@ class _KnowledgeClusterCard extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              '${cluster.count} saves',
+                              isEmpty ? 'No saves yet' : '${cluster.count} saves',
                               style: tt.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: isEmpty ? 0.62 : 1,
+                                ),
                                 fontWeight: FontWeight.w500,
                                 fontSize: 11,
                               ),
@@ -425,11 +443,12 @@ class _KnowledgeClusterCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                  ),
+                  if (!isEmpty)
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                    ),
                 ],
               ),
               if (cluster.memoryStripUrls.isNotEmpty) ...[
@@ -612,7 +631,11 @@ class _ClusterIcon extends StatelessWidget {
                   imageUrl: faviconUrl!,
                   width: 20,
                   height: 20,
-                  errorWidget: (_, __, ___) => Icon(fallbackIcon, size: 18, color: iconColor),
+                  errorWidget: (context, error, stackTrace) => Icon(
+                    fallbackIcon,
+                    size: 18,
+                    color: iconColor,
+                  ),
                 ),
               )
             : Icon(fallbackIcon, size: 18, color: iconColor),

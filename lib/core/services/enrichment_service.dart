@@ -613,10 +613,17 @@ class EnrichmentService {
       text:
           '${enrichedTitle ?? freshUrl.title} ${summary ?? ''} ${freshUrl.description}',
     );
+    final curatedCategories = CategoryTaxonomy.curateSourceCategories(
+      categories: [category, ...inferredCategories],
+      primaryCategory: category,
+      tags: enrichedTags,
+      text:
+          '${enrichedTitle ?? freshUrl.title} ${summary ?? ''} ${freshUrl.description}',
+    );
     freshUrl.categories = CategoryResolver.buildCategories(
       primaryCategory: category,
       platformCategory: platformCat.category,
-      additionalCategories: inferredCategories
+      additionalCategories: curatedCategories
           .where((item) => item != category)
           .toList(),
     );

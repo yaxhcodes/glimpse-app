@@ -349,9 +349,11 @@ Important rules:
 - Use only the title, description, and URL provided below. Do not infer unseen video/article content from the title alone.
 - If the description is unavailable or too thin, make the summary conservative: say it is a saved item with the provided title and summarize only what the title/platform safely imply.
 - Never invent specifics such as people, locations, stunts, tools, claims, or plot details unless they appear in the title or description.
-- Keep categories broad and stable.
-- Put the specific topic in tags, not the category.
-- Examples: React, Flutter, AI agents → category "Technology"; gardening, composting → "Home & Garden"; investing, budgeting → "Finance".
+- Choose the most specific stable source bucket that fits. Broad buckets like "Technology", "Science", "Finance", "Entertainment", "Lifestyle", and "Reference" are fallbacks only when no niche option fits.
+- Put named entities in tags, but do not hide clear domains inside broad buckets. AI saves are not generic Technology; gadgets are not generic Technology; novels are not generic Reference.
+- Examples: AI agents, LLMs, machine learning → "AI & ML"; React, Flutter, APIs → "Software Development"; phones, laptops, cameras, wearables → "Gadgets & Hardware"; budgeting and credit cards → "Personal Finance"; stocks and ETFs → "Investing"; Bhagavad Gita, dharma, spiritual wisdom → "Spirituality & Philosophy"; ancient temples, monuments, built heritage → "Architecture" plus relevant tags; mythology or cultural heritage → "History & Culture".
+- Avoid weak word-collision categories. Do not choose "Vehicles" because of words like "career" or a background object; do not choose "Marketing & Growth" because of generic personal growth; do not choose "Parenting & Family" because one recommendation mentions family unless the save itself is about parenting/family.
+- Do not classify metaphorical words like "recipe" or "formula" as "Food & Cooking" unless actual food, cooking, dish, ingredient, restaurant, or meal evidence is present. Example: "success doesn't have a recipe" is not Food & Cooking.
 - Summary style (critical): Never start the summary with "This Instagram reel", "This post", "This video", "This article", or "This content". Start directly with what the content is about. Good: "A free NASA data source offering real-time environmental monitoring…" Bad: "This Instagram reel highlights a free NASA data source…"
 
 $content
