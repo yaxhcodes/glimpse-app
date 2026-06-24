@@ -735,6 +735,7 @@ class EnrichmentService {
             fields: {
               'transcript_length': result.transcript?.length ?? 0,
               'ocr_length': result.ocrText?.length ?? 0,
+              'image_count': result.imageUrls.length,
               'mention_count': result.mentions.length,
             },
           );

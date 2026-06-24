@@ -26,6 +26,9 @@ class TranscriptEnrichmentResult {
     this.ocrText,
     this.likeCount,
     this.commentCount,
+    this.imageUrls = const [],
+    this.firstComment,
+    this.latestComments = const [],
     this.memoryIntent,
   });
 
@@ -46,6 +49,9 @@ class TranscriptEnrichmentResult {
   final String? ocrText;
   final int? likeCount;
   final int? commentCount;
+  final List<String> imageUrls;
+  final String? firstComment;
+  final List<String> latestComments;
   final MemoryIntentMetadata? memoryIntent;
 
   bool get hasUsefulContent =>
@@ -65,6 +71,8 @@ class TranscriptEnrichmentResult {
       _isMeaningfulEvidence(ocrText, minChars: 40, minWords: 6) ||
       (creator?.trim().isNotEmpty == true &&
           thumbnailUrl?.trim().isNotEmpty == true) ||
+      imageUrls.isNotEmpty ||
+      (firstComment?.trim().isNotEmpty ?? false) ||
       mentions.isNotEmpty ||
       (recipe?.ingredients.isNotEmpty == true) ||
       (recipe?.steps.isNotEmpty == true);
@@ -110,6 +118,9 @@ class TranscriptEnrichmentResult {
     String? ocrText,
     int? likeCount,
     int? commentCount,
+    List<String>? imageUrls,
+    String? firstComment,
+    List<String>? latestComments,
     MemoryIntentMetadata? memoryIntent,
   }) {
     return TranscriptEnrichmentResult(
@@ -130,6 +141,9 @@ class TranscriptEnrichmentResult {
       ocrText: ocrText ?? this.ocrText,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
+      imageUrls: imageUrls ?? this.imageUrls,
+      firstComment: firstComment ?? this.firstComment,
+      latestComments: latestComments ?? this.latestComments,
       memoryIntent: memoryIntent ?? this.memoryIntent,
     );
   }
@@ -153,6 +167,9 @@ class TranscriptEnrichmentResult {
       'ocr_text': ocrText,
       'like_count': likeCount,
       'comment_count': commentCount,
+      'image_urls': imageUrls,
+      'first_comment': firstComment,
+      'latest_comments': latestComments,
       'memory_intent': memoryIntent?.toJson(),
     };
   }
@@ -207,6 +224,15 @@ class TranscriptEnrichmentResult {
       ),
       commentCount: TranscriptEnrichmentService._extractPositiveInt(
         json['comment_count'],
+      ),
+      imageUrls: TranscriptEnrichmentService._extractStringList(
+        json['image_urls'] ?? json['imageUrls'] ?? json['images'],
+      ),
+      firstComment: TranscriptEnrichmentService._cleanNullableText(
+        json['first_comment'] ?? json['firstComment'],
+      ),
+      latestComments: TranscriptEnrichmentService._extractStringList(
+        json['latest_comments'] ?? json['latestComments'],
       ),
       memoryIntent: MemoryIntentMetadata.fromJsonOrNull(
         json['memory_intent'] ?? json,
@@ -1198,6 +1224,16 @@ class TranscriptEnrichmentService {
             : null,
         likeCount: _extractPositiveInt(data['like_count']),
         commentCount: _extractPositiveInt(data['comment_count']),
+        imageUrls: _extractStringList(
+          data['image_urls'] ?? data['imageUrls'] ?? data['images'],
+        ),
+        firstComment:
+            _cleanText(data['first_comment'] ?? data['firstComment']).isNotEmpty
+            ? _cleanText(data['first_comment'] ?? data['firstComment'])
+            : null,
+        latestComments: _extractStringList(
+          data['latest_comments'] ?? data['latestComments'],
+        ),
         memoryIntent: MemoryIntentMetadata.fromJsonOrNull(
           data['memory_intent'] ?? data,
         ),

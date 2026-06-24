@@ -744,6 +744,22 @@ ${_untrustedBlock(question)}''';
 
     final focused = mode == ChatContextMode.focusedSave;
     add('Creator caption', enrichment.caption, maxChars: focused ? 1200 : 360);
+    if (enrichment.latestComments.isNotEmpty ||
+        (enrichment.firstComment?.trim().isNotEmpty ?? false)) {
+      final comments = <String>[
+        if (enrichment.firstComment?.trim().isNotEmpty ?? false)
+          enrichment.firstComment!.trim(),
+        ...enrichment.latestComments,
+      ].map(_cleanContextText).where((item) => item.isNotEmpty).toSet();
+      add(
+        'Comment context',
+        comments.take(focused ? 6 : 3).join(' | '),
+        maxChars: focused ? 900 : 360,
+      );
+    }
+    if (enrichment.imageUrls.isNotEmpty) {
+      lines.add('Saved image count: ${enrichment.imageUrls.length}');
+    }
     add('On-screen text', enrichment.ocrText, maxChars: focused ? 1200 : 360);
     if (focused) {
       add('Transcript excerpt', enrichment.transcript, maxChars: 1800);

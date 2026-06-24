@@ -34,8 +34,13 @@ import 'url_detail_provider.dart';
 
 class UrlDetailScreen extends ConsumerStatefulWidget {
   final int urlId;
+  final ValueChanged<bool>? onMediaPointerActiveChanged;
 
-  const UrlDetailScreen({super.key, required this.urlId});
+  const UrlDetailScreen({
+    super.key,
+    required this.urlId,
+    this.onMediaPointerActiveChanged,
+  });
 
   @override
   ConsumerState<UrlDetailScreen> createState() => _UrlDetailScreenState();
@@ -68,6 +73,7 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   double _dragDeltaX = 0;
   double _dragStartScrollOffset = 0; // PageController offset at drag start
   bool _isDraggingHorizontal = false;
+  bool _mediaPointerActive = false;
 
   // Snap threshold: must drag at least this far to flip pages.
   static const double _snapFraction = 0.3;
@@ -85,6 +91,7 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   }
 
   void _onDragStart(DragStartDetails d) {
+    if (_mediaPointerActive) return;
     _dragStartX = d.globalPosition.dx;
     _dragDeltaX = 0;
     _isDraggingHorizontal = false;
@@ -96,6 +103,7 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   }
 
   void _onDragUpdate(DragUpdateDetails d) {
+    if (_mediaPointerActive) return;
     _dragDeltaX = d.globalPosition.dx - _dragStartX;
 
     // Only engage once the gesture is clearly horizontal.
@@ -113,6 +121,10 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   }
 
   void _onDragEnd(DragEndDetails d) {
+    if (_mediaPointerActive) {
+      _isDraggingHorizontal = false;
+      return;
+    }
     if (!_isDraggingHorizontal) return;
     _isDraggingHorizontal = false;
 
@@ -147,9 +159,9 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onHorizontalDragStart: _onDragStart,
-      onHorizontalDragUpdate: _onDragUpdate,
-      onHorizontalDragEnd: _onDragEnd,
+      onHorizontalDragStart: _mediaPointerActive ? null : _onDragStart,
+      onHorizontalDragUpdate: _mediaPointerActive ? null : _onDragUpdate,
+      onHorizontalDragEnd: _mediaPointerActive ? null : _onDragEnd,
       // Exclude the gesture from competing with vertical scrolls inside pages.
       excludeFromSemantics: true,
       child: PageView.builder(
@@ -163,6 +175,10 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
             child: UrlDetailScreen(
               key: ValueKey(widget.urlIds[index]),
               urlId: widget.urlIds[index],
+              onMediaPointerActiveChanged: (active) {
+                if (_mediaPointerActive == active) return;
+                setState(() => _mediaPointerActive = active);
+              },
             ),
           );
         },
@@ -193,13 +209,40 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
   }
 }
 
-/// Fullscreen, pinch-to-zoom viewer for the saved thumbnail. Tapping the
-/// backdrop or the close button dismisses it; the image flies via [Hero].
-class _ImageViewerScreen extends StatelessWidget {
-  const _ImageViewerScreen({required this.imageUrl, required this.heroTag});
+/// Fullscreen, pinch-to-zoom gallery for saved media. The detail page itself
+/// owns horizontal post-to-post swipes, so gallery swipes live here where they
+/// do not compete with the outer pager.
+class _ImageViewerScreen extends StatefulWidget {
+  const _ImageViewerScreen({
+    required this.imageUrls,
+    required this.initialIndex,
+    required this.heroTagPrefix,
+  });
 
-  final String imageUrl;
-  final String heroTag;
+  final List<String> imageUrls;
+  final int initialIndex;
+  final String heroTagPrefix;
+
+  @override
+  State<_ImageViewerScreen> createState() => _ImageViewerScreenState();
+}
+
+class _ImageViewerScreenState extends State<_ImageViewerScreen> {
+  late final PageController _pageController;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex.clamp(0, widget.imageUrls.length - 1).toInt();
+    _pageController = PageController(initialPage: _index);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,23 +251,54 @@ class _ImageViewerScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).maybePop(),
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 5,
-                child: Center(
-                  child: Hero(
-                    tag: heroTag,
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.contain,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: widget.imageUrls.length,
+              onPageChanged: (index) => setState(() => _index = index),
+              itemBuilder: (context, index) {
+                final imageUrl = widget.imageUrls[index];
+                return InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 5,
+                  child: Center(
+                    child: Hero(
+                      tag: '${widget.heroTagPrefix}-$index',
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 18,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.48),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_index + 1}/${widget.imageUrls.length}',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
                     ),
                   ),
                 ),
               ),
             ),
-          ),
           Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
             right: 8,
@@ -613,10 +687,12 @@ class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
 class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   late TextEditingController _notesController;
   final ScrollController _scrollController = ScrollController();
+  final PageController _mediaPageController = PageController();
   final FocusNode _notesFocusNode = FocusNode();
   bool _notesEdited = false;
   bool _showExactSavedDate = false;
   bool _retryingEnrichment = false;
+  int _mediaPageIndex = 0;
   String? _localNotesOverride;
   // Reflects the intent chip the user just tapped, before the provider refetches
   // (avoids reloading the whole detail body just to flip a chip's set-state).
@@ -638,6 +714,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _localIntentActionOverride = null;
       _loadedRecipeStateId = null;
       _checkedIngredientKeys = {};
+      _mediaPageIndex = 0;
+      if (_mediaPageController.hasClients) {
+        _mediaPageController.jumpToPage(0);
+      }
     }
   }
 
@@ -667,6 +747,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     _notesFocusNode.removeListener(_handleNotesFocusChange);
     _notesFocusNode.dispose();
     _notesController.dispose();
+    _mediaPageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -714,19 +795,20 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     }
   }
 
-  void _openImageViewer(SavedUrl url) {
-    final imageUrl = url.thumbnailUrl;
-    if (imageUrl == null || imageUrl.isEmpty) {
-      _launchUrl(url.rawUrl);
-      return;
-    }
+  void _openImageGallery({
+    required List<String> imageUrls,
+    required int initialIndex,
+    required int urlId,
+  }) {
+    if (imageUrls.isEmpty) return;
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
         barrierColor: Colors.black,
         pageBuilder: (_, _, _) => _ImageViewerScreen(
-          imageUrl: imageUrl,
-          heroTag: 'detail-image-${url.id}',
+          imageUrls: imageUrls,
+          initialIndex: initialIndex,
+          heroTagPrefix: 'detail-image-$urlId-slide',
         ),
         transitionsBuilder: (_, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
@@ -1644,7 +1726,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       TagNoiseFilter.filterTags(rawTagPool),
       tagFreq,
     );
-    final showImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
+    final carouselImages = _detailMediaImages(url, live);
+    final showImage = carouselImages.isNotEmpty;
     final categoryLabels = _displayCategories(url);
     final summaryText = TextCleaner.clean(url.summary?.trim() ?? '');
     final displayTitle = TitleResolver.resolveDetailTitle(
@@ -1682,6 +1765,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             _buildDetailMedia(
               url: url,
               showImage: showImage,
+              imageUrls: carouselImages,
               categoryLabels: categoryLabels,
               displaySourceName: displaySourceName,
               theme: theme,
@@ -1877,117 +1961,177 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   Widget _buildDetailMedia({
     required SavedUrl url,
     required bool showImage,
+    required List<String> imageUrls,
     required List<String> categoryLabels,
     required String displaySourceName,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
+    final currentIndex =
+        (imageUrls.isEmpty ? 0 : _mediaPageIndex.clamp(0, imageUrls.length - 1))
+            .toInt();
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        // With an image, tap opens a fullscreen zoom viewer (look closer);
-        // the placeholder has nothing to zoom, so it opens the original.
-        onTap: showImage
-            ? () => _openImageViewer(url)
-            : () => _launchUrl(url.rawUrl),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (showImage)
-                Hero(
-                  tag: 'detail-image-${url.id}',
-                  child: CachedNetworkImage(
-                    imageUrl: url.thumbnailUrl!,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => _buildMediaPlaceholder(
-                      url: url,
-                      displaySourceName: displaySourceName,
-                      colorScheme: colorScheme,
-                      theme: theme,
-                    ),
-                  ),
+      child: Listener(
+        onPointerDown: (_) => widget.onMediaPointerActiveChanged?.call(true),
+        onPointerUp: (_) => widget.onMediaPointerActiveChanged?.call(false),
+        onPointerCancel: (_) => widget.onMediaPointerActiveChanged?.call(false),
+        child: InkWell(
+          onTap: showImage
+              ? () => _openImageGallery(
+                  imageUrls: imageUrls,
+                  initialIndex: currentIndex,
+                  urlId: url.id,
                 )
-              else
-                _buildMediaPlaceholder(
-                  url: url,
-                  displaySourceName: displaySourceName,
-                  colorScheme: colorScheme,
-                  theme: theme,
-                ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.26),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              if (showImage)
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.42),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Icon(
-                      Icons.open_in_full_rounded,
-                      size: 15,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              if (categoryLabels.isNotEmpty)
-                Positioned(
-                  left: 12,
-                  bottom: 12,
-                  right: 12,
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: categoryLabels.take(3).map((label) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: colorScheme.outlineVariant,
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          label,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                            height: 1.1,
+              : () => _launchUrl(url.rawUrl),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (showImage)
+                  PageView.builder(
+                    controller: _mediaPageController,
+                    physics: imageUrls.length > 1
+                        ? const BouncingScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
+                    itemCount: imageUrls.length,
+                    onPageChanged: (index) {
+                      setState(() => _mediaPageIndex = index);
+                    },
+                    itemBuilder: (context, index) {
+                      final imageUrl = imageUrls[index];
+                      return Hero(
+                        tag: 'detail-image-${url.id}-slide-$index',
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, _, _) => _buildMediaPlaceholder(
+                            url: url,
+                            displaySourceName: displaySourceName,
+                            colorScheme: colorScheme,
+                            theme: theme,
                           ),
                         ),
                       );
-                    }).toList(),
+                    },
+                  )
+                else
+                  _buildMediaPlaceholder(
+                    url: url,
+                    displaySourceName: displaySourceName,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                  ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.26),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-            ],
+                if (showImage && imageUrls.length > 1)
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.76),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          child: Text(
+                            '${currentIndex + 1}/${imageUrls.length}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (categoryLabels.isNotEmpty)
+                  Positioned(
+                    left: 12,
+                    bottom: 12,
+                    right: 12,
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: categoryLabels.take(3).map((label) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface.withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant,
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            label,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                              height: 1.1,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  List<String> _detailMediaImages(
+    SavedUrl url,
+    TranscriptEnrichmentResult? live,
+  ) {
+    final seen = <String>{};
+    final out = <String>[];
+    void add(String? value) {
+      final imageUrl = value?.trim() ?? '';
+      if (imageUrl.isEmpty || !imageUrl.startsWith(RegExp(r'https?://'))) {
+        return;
+      }
+      if (seen.add(imageUrl)) out.add(imageUrl);
+    }
+
+    add(url.thumbnailUrl);
+    for (final imageUrl in live?.imageUrls ?? const <String>[]) {
+      add(imageUrl);
+    }
+    return out.take(12).toList();
   }
 
   Widget _buildMediaPlaceholder({
