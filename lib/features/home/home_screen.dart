@@ -22,6 +22,8 @@ import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
+import '../../shared/widgets/platform_icons.dart';
+import '../../shared/widgets/source_icon_resolver.dart';
 import '../../core/constants/app_assets.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
@@ -405,13 +407,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ((urls.isEmpty && !isAddingUrl) || _isCelebratingFirstSave);
 
           final child = isEmptyOrCelebrating
-              ? _buildEmptyState(
-                  context,
-                  urls,
-                  theme,
-                  colorScheme,
-                  textTheme,
-                )
+              ? _buildEmptyState(context, urls, theme, colorScheme, textTheme)
               : _buildContentState(
                   context,
                   urls,
@@ -504,85 +500,79 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                                const _LandingIdentity(),
-                                const SizedBox(height: 16),
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 200),
-                                  child: _isCelebratingFirstSave &&
-                                          urls.isNotEmpty
-                                      ? Text(
-                                          key: const ValueKey(
-                                              'headline_success'),
-                                          'Captured in Glimpse',
-                                          style: textTheme.headlineSmall
-                                              ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            height: 1.2,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        )
-                                      : Text(
-                                          key: const ValueKey('headline_empty'),
-                                          'Capture something worth returning to',
-                                          style: textTheme.headlineSmall
-                                              ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            height: 1.2,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                ),
-                                const SizedBox(height: 16),
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 200),
-                                  child: _isCelebratingFirstSave &&
-                                          urls.isNotEmpty
-                                      ? Text(
-                                          'Your first captured item is ready below.',
-                                          key: const ValueKey('sub_success'),
-                                          style: textTheme.bodyMedium?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                            height: 1.45,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        )
-                                      : Text(
-                                          'Share from any app — Glimpse sorts it for you.',
-                                          key: const ValueKey('sub_empty'),
-                                          style: textTheme.bodyMedium?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                            height: 1.45,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                ),
-                                const SizedBox(height: 24),
-                                _InlineSaveInput(
-                                  controller: _urlInputController,
-                                  focusNode: _urlInputFocus,
-                                  uiState: _inputUiState,
-                                  errorText: _inputErrorText,
-                                  isFirstSaveCelebration:
-                                      _isCelebratingFirstSave,
-                                  onSubmitted: (_) => _saveFromInput(),
-                                  canCapture: _inputValid,
-                                  onCapture: _saveFromInput,
-                                ),
-                                if (_clipboardUrl != null &&
-                                    _inputUiState == _InputUiState.idle) ...[
-                                  const SizedBox(height: 8),
-                                  _ClipboardSuggestion(
-                                    url: _clipboardUrl!,
-                                    onTap: () {
-                                      _urlInputController.text = _clipboardUrl!;
-                                      _onInputChanged();
-                                      setState(() => _clipboardUrl = null);
-                                    },
-                                    onDismiss: () {
-                                      setState(() => _clipboardUrl = null);
-                                    },
+                          const _LandingIdentity(),
+                          const SizedBox(height: 16),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: _isCelebratingFirstSave && urls.isNotEmpty
+                                ? Text(
+                                    key: const ValueKey('headline_success'),
+                                    'Captured in Glimpse',
+                                    style: textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.2,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  )
+                                : Text(
+                                    key: const ValueKey('headline_empty'),
+                                    'Capture something worth returning to',
+                                    style: textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.2,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
-                                ],
+                          ),
+                          const SizedBox(height: 16),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: _isCelebratingFirstSave && urls.isNotEmpty
+                                ? Text(
+                                    'Your first captured item is ready below.',
+                                    key: const ValueKey('sub_success'),
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      height: 1.45,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  )
+                                : Text(
+                                    'Share from any app — Glimpse sorts it for you.',
+                                    key: const ValueKey('sub_empty'),
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      height: 1.45,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                          ),
+                          const SizedBox(height: 24),
+                          _InlineSaveInput(
+                            controller: _urlInputController,
+                            focusNode: _urlInputFocus,
+                            uiState: _inputUiState,
+                            errorText: _inputErrorText,
+                            isFirstSaveCelebration: _isCelebratingFirstSave,
+                            onSubmitted: (_) => _saveFromInput(),
+                            canCapture: _inputValid,
+                            onCapture: _saveFromInput,
+                          ),
+                          if (_clipboardUrl != null &&
+                              _inputUiState == _InputUiState.idle) ...[
+                            const SizedBox(height: 8),
+                            _ClipboardSuggestion(
+                              url: _clipboardUrl!,
+                              onTap: () {
+                                _urlInputController.text = _clipboardUrl!;
+                                _onInputChanged();
+                                setState(() => _clipboardUrl = null);
+                              },
+                              onDismiss: () {
+                                setState(() => _clipboardUrl = null);
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -676,7 +666,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Post-onboarding guide card: shows on a populated home until the user
     // dismisses it (a persistent how-to, robust to the demo card being
     // deleted). Hidden under the dev empty/simulate overrides.
-    final showGuideCard = !ref.watch(hasSeenGuideCardProvider) &&
+    final showGuideCard =
+        !ref.watch(hasSeenGuideCardProvider) &&
         !simulateFirstSave &&
         !forceEmptyLibrary &&
         actualUrls.isNotEmpty;
@@ -781,8 +772,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ],
                 ),
-                if (showGuideCard)
-                  const SliverToBoxAdapter(child: GuideCard()),
+                if (showGuideCard) const SliverToBoxAdapter(child: GuideCard()),
                 if (!simulateFirstSave &&
                     !forceEmptyLibrary &&
                     actualUrls.isNotEmpty)
@@ -840,33 +830,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             itemBuilder: (context, index) {
                               final cat = orderedCategories[index];
                               final name = cat['category'] as String;
-                              final emoji = cat['emoji'] as String;
                               final fav = faviconUrl(name);
+                              final iconSpec = resolveSourceIcon(name);
                               return GestureDetector(
                                 onLongPress: () => _showReorderSheet(context),
                                 child: FilterChip(
                                   showCheckmark: false,
-                                  avatar: fav != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            3,
-                                          ),
-                                          child: CachedNetworkImage(
-                                            imageUrl: fav,
-                                            width: 14,
-                                            height: 14,
-                                            errorWidget: (_, _, _) => Text(
-                                              emoji,
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                      : Text(
-                                          emoji,
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
+                                  avatar: _SourceChipAvatar(
+                                    faviconUrl: fav,
+                                    iconSpec: iconSpec,
+                                    size: 14,
+                                  ),
                                   label: Text(name),
                                   color: WidgetStatePropertyAll(
                                     theme.colorScheme.surfaceContainerLow,
@@ -913,8 +887,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final url = section.urls[index];
-                      final sectionIds =
-                          section.urls.map((u) => u.id).toList();
+                      final sectionIds = section.urls.map((u) => u.id).toList();
                       return SwipeableUrlCard(
                         key: ValueKey(url.id),
                         url: url,
@@ -924,10 +897,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             selectionNotifier.startWith(url.id),
                         onSelectionToggle: () =>
                             selectionNotifier.toggle(url.id),
-                        onTap: () => context.push(
-                          '/url/${url.id}',
-                          extra: sectionIds,
-                        ),
+                        onTap: () =>
+                            context.push('/url/${url.id}', extra: sectionIds),
                         onViewPinned: () {
                           _scrollController.animateTo(
                             0,
@@ -1009,6 +980,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       useSafeArea: true,
       showDragHandle: true,
       builder: (_) => const _CategoryReorderSheet(),
+    );
+  }
+}
+
+class _SourceChipAvatar extends StatelessWidget {
+  const _SourceChipAvatar({
+    required this.faviconUrl,
+    required this.iconSpec,
+    required this.size,
+  });
+
+  final String? faviconUrl;
+  final SourceIconSpec iconSpec;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    final fallback = iconSpec.isGlyph
+        ? PlatformIcon(
+            platform: iconSpec.glyphPlatform!,
+            size: size,
+            color: color,
+          )
+        : Icon(iconSpec.icon, size: size, color: color);
+
+    if (faviconUrl == null) return fallback;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size <= 16 ? 3 : 5),
+      child: CachedNetworkImage(
+        imageUrl: faviconUrl!,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        errorWidget: (_, _, _) => fallback,
+      ),
     );
   }
 }
@@ -1102,28 +1110,16 @@ class _CategoryReorderSheetState extends ConsumerState<_CategoryReorderSheet> {
                       itemBuilder: (ctx, index) {
                         final cat = orderedCats[index];
                         final name = cat['category'] as String;
-                        final emoji = cat['emoji'] as String;
                         final count = cat['count'] as int;
                         final fav = faviconUrl(name);
+                        final iconSpec = resolveSourceIcon(name);
                         return ListTile(
                           key: ValueKey(name),
-                          leading: fav != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: CachedNetworkImage(
-                                    imageUrl: fav,
-                                    width: 28,
-                                    height: 28,
-                                    errorWidget: (_, _, _) => Text(
-                                      emoji,
-                                      style: const TextStyle(fontSize: 22),
-                                    ),
-                                  ),
-                                )
-                              : Text(
-                                  emoji,
-                                  style: const TextStyle(fontSize: 22),
-                                ),
+                          leading: _SourceChipAvatar(
+                            faviconUrl: fav,
+                            iconSpec: iconSpec,
+                            size: 28,
+                          ),
                           title: Text(name),
                           subtitle: Text(
                             '$count ${count == 1 ? 'link' : 'links'}',
@@ -1170,9 +1166,10 @@ class _LandingIdentity extends StatefulWidget {
 
 class _LandingIdentityState extends State<_LandingIdentity>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(seconds: 3))
-        ..repeat(reverse: true);
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 3),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -1426,8 +1423,7 @@ class _InlineSaveInput extends StatelessWidget {
   static String? _hostFromText(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
-    final candidate =
-        trimmed.contains('://') ? trimmed : 'https://$trimmed';
+    final candidate = trimmed.contains('://') ? trimmed : 'https://$trimmed';
     final host = Uri.tryParse(candidate)?.host ?? '';
     if (host.isEmpty || !host.contains('.')) return null;
     return host.startsWith('www.') ? host.substring(4) : host;
@@ -1456,10 +1452,16 @@ class _InlineSaveInput extends StatelessWidget {
                     width: 22,
                     height: 22,
                     fit: BoxFit.contain,
-                    placeholder: (_, _) => Icon(Icons.public,
-                        size: 18, color: colorScheme.onSurfaceVariant),
-                    errorWidget: (_, _, _) => Icon(Icons.public,
-                        size: 18, color: colorScheme.onSurfaceVariant),
+                    placeholder: (_, _) => Icon(
+                      Icons.public,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    errorWidget: (_, _, _) => Icon(
+                      Icons.public,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               );
@@ -1662,10 +1664,7 @@ class _FirstSaveCelebrationCard extends StatefulWidget {
   final SavedUrl url;
   final VoidCallback onTap;
 
-  const _FirstSaveCelebrationCard({
-    required this.url,
-    required this.onTap,
-  });
+  const _FirstSaveCelebrationCard({required this.url, required this.onTap});
 
   @override
   State<_FirstSaveCelebrationCard> createState() =>
@@ -1680,22 +1679,28 @@ class _FirstSaveCelebrationCardState extends State<_FirstSaveCelebrationCard>
   );
 
   late final Animation<double> _scale = Tween<double>(begin: 0.88, end: 1.0)
-      .animate(CurvedAnimation(
-    parent: _controller,
-    curve: const Interval(0.0, 0.55, curve: Curves.easeOutBack),
-  ));
+      .animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.0, 0.55, curve: Curves.easeOutBack),
+        ),
+      );
 
   late final Animation<double> _opacity = Tween<double>(begin: 0.0, end: 1.0)
-      .animate(CurvedAnimation(
-    parent: _controller,
-    curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
-  ));
+      .animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
+        ),
+      );
 
   late final Animation<double> _slide = Tween<double>(begin: 14.0, end: 0.0)
-      .animate(CurvedAnimation(
-    parent: _controller,
-    curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
-  ));
+      .animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+        ),
+      );
 
   @override
   void initState() {
@@ -1791,8 +1796,8 @@ class _SparkleBurstPainter extends CustomPainter {
       final angle = (i / count) * 2 * math.pi + (i.isEven ? 0.0 : 0.22);
       final dist = size.shortestSide * 0.12 + maxDist * eased;
       // Flatten vertically to suit the wide, short card.
-      final pos = center +
-          Offset(math.cos(angle) * dist, math.sin(angle) * dist * 0.5);
+      final pos =
+          center + Offset(math.cos(angle) * dist, math.sin(angle) * dist * 0.5);
       final radius = (i % 3 == 0 ? 3.2 : 2.0) * (0.5 + 0.5 * fade);
       final paint = Paint()
         ..color = (i.isEven ? color : accent).withValues(alpha: 0.85 * fade);
