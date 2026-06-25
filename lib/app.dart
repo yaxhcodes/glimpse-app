@@ -48,6 +48,7 @@ import 'features/recap/recap_screen.dart';
 import 'features/synthesis/synthesis_screen.dart';
 import 'features/rediscover/rediscover_screen.dart';
 import 'features/sources/archive_screen.dart';
+import 'features/sources/source_detail_screen.dart';
 import 'features/sources/sources_screen.dart';
 import 'features/batch_save/batch_preview_screen.dart';
 import 'core/config/app_environment.dart';
@@ -130,7 +131,9 @@ final _router = GoRouter(
       path: '/url/:id',
       builder: (context, state) {
         final id = int.parse(state.pathParameters['id']!);
-        final siblings = state.extra is List<int> ? state.extra as List<int> : null;
+        final siblings = state.extra is List<int>
+            ? state.extra as List<int>
+            : null;
         if (siblings != null && siblings.length > 1) {
           final index = siblings.indexOf(id);
           return UrlDetailPagerScreen(
@@ -200,6 +203,13 @@ final _router = GoRouter(
       builder: (context, state) => const SourcesScreen(),
     ),
     GoRoute(
+      path: '/sources/:name',
+      builder: (context, state) {
+        final name = Uri.decodeComponent(state.pathParameters['name'] ?? '');
+        return SourceDetailScreen(sourceName: name);
+      },
+    ),
+    GoRoute(
       path: '/guide',
       builder: (context, state) => const GuideDetailScreen(),
     ),
@@ -263,8 +273,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       // One-time local cleanup of stale auto-inferred categories (e.g. the
       // bogus "Design" tag on food saves). No network / AI cost.
       unawaited(() async {
-        final repaired =
-            await CategoryRepairService(isarService: isar).repairIfNeeded();
+        final repaired = await CategoryRepairService(
+          isarService: isar,
+        ).repairIfNeeded();
         if (repaired <= 0) return;
         ref.invalidate(urlStreamProvider);
         ref.invalidate(interestClusterThemesProvider);

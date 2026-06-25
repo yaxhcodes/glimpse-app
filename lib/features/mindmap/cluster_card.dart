@@ -190,7 +190,7 @@ class _InterestTile extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         isHero
-                            ? '${_saveText(cluster.saveCount)} · your biggest interest'
+                            ? '${_saveText(cluster.saveCount)} · strongest pattern'
                             : _saveText(cluster.saveCount),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

@@ -91,7 +91,7 @@ class InterestMapView extends StatelessWidget {
               ),
               if (medium.isNotEmpty) ...[
                 const SizedBox(height: 24),
-                _SectionEyebrow('Active interests'),
+                _SectionEyebrow('Patterns Glimpse found'),
               ],
             ]),
           ),
@@ -720,7 +720,7 @@ class _MindmapEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Save at least 3 links and the map will auto-generate clusters of your interests.',
+              'Save at least 3 links and Glimpse will connect recurring themes across them.',
               textAlign: TextAlign.center,
               style: tt.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -753,9 +753,9 @@ class MindmapScreen extends ConsumerWidget {
           0,
           (sum, cluster) => sum + cluster.saveCount,
         );
-        return '${clusters.length} themes · $saveCount saves';
+        return '${clusters.length} patterns · $saveCount saves';
       },
-      orElse: () => 'Mapping your saves',
+      orElse: () => 'Finding patterns across your saves',
     );
 
     return Scaffold(
@@ -799,8 +799,7 @@ class MindmapScreen extends ConsumerWidget {
         ],
       ),
       body: themesAsync.when(
-        loading: () =>
-            const LoadingIndicator(message: 'Mapping your interests...'),
+        loading: () => const LoadingIndicator(message: 'Finding patterns...'),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(28),

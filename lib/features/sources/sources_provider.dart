@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/category_taxonomy.dart';
 import '../../core/services/source_membership.dart';
 import '../home/home_provider.dart';
 
@@ -29,6 +28,7 @@ class SourceCluster {
   final DateTime? lastSavedAt;
   final DateTime? mostResurfacedAt;
   final String? topDomain;
+  final String? faviconUrl;
 
   const SourceCluster({
     required this.name,
@@ -39,6 +39,7 @@ class SourceCluster {
     this.lastSavedAt,
     this.mostResurfacedAt,
     this.topDomain,
+    this.faviconUrl,
   });
 
   bool get isActiveThisWeek => savesThisWeek > 0;
@@ -56,15 +57,9 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
 
   final Map<String, List<SavedUrl>> urlsBySource = {};
   for (final url in all) {
-    final sources = SourceMembership.categoriesFor(url);
-    for (final source in sources) {
-      (urlsBySource[source] ??= []).add(url);
-    }
-  }
-
-  for (final category in CategoryTaxonomy.categories) {
-    if (category.name == 'Other') continue;
-    urlsBySource.putIfAbsent(category.name, () => <SavedUrl>[]);
+    final source = SourceMembership.originFor(url);
+    if (source.trim().isEmpty) continue;
+    (urlsBySource[source] ??= []).add(url);
   }
 
   return urlsBySource.entries.map((e) {
@@ -88,6 +83,9 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
     final sortedDomains = domainCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final topDomain = sortedDomains.isNotEmpty ? sortedDomains.first.key : null;
+    final faviconUrl = topDomain == null || topDomain.trim().isEmpty
+        ? null
+        : 'https://www.google.com/s2/favicons?domain=${Uri.encodeComponent(topDomain)}&sz=128';
 
     // Recent saves
     final savesThisWeek = urls.where((u) => u.savedAt.isAfter(weekAgo)).length;
@@ -122,8 +120,29 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
       lastSavedAt: lastSaved,
       mostResurfacedAt: mostResurfaced,
       topDomain: topDomain,
+      faviconUrl: faviconUrl,
     );
   }).toList();
+});
+
+final sourceUrlsProvider = FutureProvider.family<List<SavedUrl>, String>((
+  ref,
+  source,
+) async {
+  ref.watch(
+    urlStreamProvider.select(
+      (async) => async.whenOrNull(data: (urls) => urls.length),
+    ),
+  );
+
+  final isar = ref.read(isarServiceProvider);
+  final all = await isar.getAllUrls();
+  return all
+      .where(
+        (url) => !url.isDone && SourceMembership.containsOrigin(url, source),
+      )
+      .toList()
+    ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
 });
 
 /// Filtered clusters based on search query.

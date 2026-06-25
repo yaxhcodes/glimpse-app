@@ -13,7 +13,6 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/providers/category_order_provider.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/services/demo_seed_service.dart';
 import '../../core/services/digest_prefs.dart';
@@ -29,6 +28,7 @@ import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../add_url/add_url_provider.dart';
+import '../sources/sources_provider.dart';
 import 'home_provider.dart';
 import 'rediscovery_section.dart';
 import 'guide_card.dart';
@@ -320,7 +320,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final urlsAsync = ref.watch(displayedUrlsProvider);
-    final orderedCategories = ref.watch(orderedCategoriesProvider);
+    final sourceClusterValues =
+        ref.watch(sourceClustersProvider).valueOrNull ??
+        const <SourceCluster>[];
+    final sourceClusters = [...sourceClusterValues]
+      ..sort((a, b) => b.count.compareTo(a.count));
     final addUrlStatus = ref.watch(addUrlProvider.select((s) => s.status));
     final isAddingUrl =
         addUrlStatus != AddUrlStatus.idle &&
@@ -339,14 +343,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.listen(homeScrollToTopSignalProvider, (previous, next) {
       if (previous == null || next == previous) return;
       _scrollToTop();
-    });
-
-    // Keep category order in sync with the DB
-    ref.listen(categoriesProvider, (_, next) {
-      next.whenData((cats) {
-        final names = cats.map((c) => c['category'] as String).toList();
-        ref.read(categoryOrderProvider.notifier).sync(names);
-      });
     });
 
     // Auto-complete onboarding when the user adds their first link, and clear
@@ -411,7 +407,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               : _buildContentState(
                   context,
                   urls,
-                  orderedCategories,
+                  sourceClusters,
                   theme,
                   simulateFirstSave: simulateFirstSave,
                   forceEmptyLibrary: forceEmptyLibrary,
@@ -608,7 +604,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildContentState(
     BuildContext context,
     List<SavedUrl> urls,
-    List<Map<String, dynamic>> orderedCategories,
+    List<SourceCluster> sourceClusters,
     ThemeData theme, {
     required bool simulateFirstSave,
     required bool forceEmptyLibrary,
@@ -777,7 +773,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     !forceEmptyLibrary &&
                     actualUrls.isNotEmpty)
                   const SliverToBoxAdapter(child: RediscoverySection()),
-                if (orderedCategories.isNotEmpty)
+                if (sourceClusters.isNotEmpty)
                   SliverToBoxAdapter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -824,42 +820,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             scrollDirection: Axis.horizontal,
                             clipBehavior: Clip.none,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: orderedCategories.length.clamp(0, 10),
+                            itemCount: sourceClusters.length.clamp(0, 10),
                             separatorBuilder: (_, _) =>
                                 const SizedBox(width: 6),
                             itemBuilder: (context, index) {
-                              final cat = orderedCategories[index];
-                              final name = cat['category'] as String;
-                              final fav = faviconUrl(name);
+                              final source = sourceClusters[index];
+                              final name = source.name;
+                              final fav = faviconUrl(name) ?? source.faviconUrl;
                               final iconSpec = resolveSourceIcon(name);
-                              return GestureDetector(
-                                onLongPress: () => _showReorderSheet(context),
-                                child: FilterChip(
-                                  showCheckmark: false,
-                                  avatar: _SourceChipAvatar(
-                                    faviconUrl: fav,
-                                    iconSpec: iconSpec,
-                                    size: 14,
-                                  ),
-                                  label: Text(name),
-                                  color: WidgetStatePropertyAll(
+                              return FilterChip(
+                                showCheckmark: false,
+                                avatar: _SourceChipAvatar(
+                                  label: name,
+                                  faviconUrl: fav,
+                                  iconSpec: iconSpec,
+                                  size: 14,
+                                ),
+                                label: Text(name),
+                                color: WidgetStatePropertyAll(
+                                  theme.colorScheme.surfaceContainerLow,
+                                ),
+                                labelStyle: theme.textTheme.labelSmall
+                                    ?.copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.1,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                backgroundColor:
                                     theme.colorScheme.surfaceContainerLow,
-                                  ),
-                                  labelStyle: theme.textTheme.labelSmall
-                                      ?.copyWith(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: 0.1,
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                  backgroundColor:
-                                      theme.colorScheme.surfaceContainerLow,
-                                  side: BorderSide.none,
-                                  selected: false,
-                                  onSelected: (_) => context.push(
-                                    '/category/${Uri.encodeComponent(name)}',
-                                  ),
+                                side: BorderSide.none,
+                                selected: false,
+                                onSelected: (_) => context.push(
+                                  '/sources/${Uri.encodeComponent(name)}',
                                 ),
                               );
                             },
@@ -972,25 +965,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: title,
     );
   }
-
-  void _showReorderSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => const _CategoryReorderSheet(),
-    );
-  }
 }
 
 class _SourceChipAvatar extends StatelessWidget {
   const _SourceChipAvatar({
+    required this.label,
     required this.faviconUrl,
     required this.iconSpec,
     required this.size,
   });
 
+  final String label;
   final String? faviconUrl;
   final SourceIconSpec iconSpec;
   final double size;
@@ -998,7 +983,9 @@ class _SourceChipAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.onSurfaceVariant;
-    final fallback = iconSpec.isGlyph
+    final fallback = faviconUrl != null && !iconSpec.isGlyph
+        ? _DomainInitialAvatar(label: label, size: size)
+        : iconSpec.isGlyph
         ? PlatformIcon(
             platform: iconSpec.glyphPlatform!,
             size: size,
@@ -1021,132 +1008,33 @@ class _SourceChipAvatar extends StatelessWidget {
   }
 }
 
-class _CategoryReorderSheet extends ConsumerStatefulWidget {
-  const _CategoryReorderSheet();
+class _DomainInitialAvatar extends StatelessWidget {
+  const _DomainInitialAvatar({required this.label, required this.size});
 
-  @override
-  ConsumerState<_CategoryReorderSheet> createState() =>
-      _CategoryReorderSheetState();
-}
-
-class _CategoryReorderSheetState extends ConsumerState<_CategoryReorderSheet> {
-  Future<void> _deleteCategory(String name, int count) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Delete "$name"?'),
-        content: Text(
-          'This will permanently delete all $count ${count == 1 ? 'URL' : 'URLs'} in this category.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-              foregroundColor: Theme.of(ctx).colorScheme.onError,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    final isarService = ref.read(isarServiceProvider);
-    await isarService.deleteUrlsByCategory(name);
-    ref.read(categoryOrderProvider.notifier).remove(name);
-    ref.invalidate(categoriesProvider);
-  }
+  final String label;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final orderedCats = ref.watch(orderedCategoriesProvider);
-    final theme = Theme.of(context);
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.4,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (ctx, scrollController) {
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
-              child: Row(
-                children: [
-                  Text('Edit Categories', style: theme.textTheme.titleLarge),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Done'),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                'Hold the handle to reorder · Tap 🗑️ to delete',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            Expanded(
-              child: orderedCats.isEmpty
-                  ? const Center(child: Text('No categories yet'))
-                  : ReorderableListView.builder(
-                      scrollController: scrollController,
-                      itemCount: orderedCats.length,
-                      onReorder: (oldIndex, newIndex) {
-                        ref
-                            .read(categoryOrderProvider.notifier)
-                            .reorder(oldIndex, newIndex);
-                      },
-                      itemBuilder: (ctx, index) {
-                        final cat = orderedCats[index];
-                        final name = cat['category'] as String;
-                        final count = cat['count'] as int;
-                        final fav = faviconUrl(name);
-                        final iconSpec = resolveSourceIcon(name);
-                        return ListTile(
-                          key: ValueKey(name),
-                          leading: _SourceChipAvatar(
-                            faviconUrl: fav,
-                            iconSpec: iconSpec,
-                            size: 28,
-                          ),
-                          title: Text(name),
-                          subtitle: Text(
-                            '$count ${count == 1 ? 'link' : 'links'}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  Icons.delete_outline,
-                                  color: theme.colorScheme.error,
-                                ),
-                                onPressed: () => _deleteCategory(name, count),
-                              ),
-                              ReorderableDragStartListener(
-                                index: index,
-                                child: const Icon(Icons.drag_handle),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        );
-      },
+    final cs = Theme.of(context).colorScheme;
+    final initial = label.trim().isEmpty ? '?' : label.trim()[0].toUpperCase();
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(size <= 16 ? 3 : 5),
+      ),
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: cs.onSecondaryContainer,
+          fontSize: size * 0.58,
+          fontWeight: FontWeight.w800,
+          height: 1,
+        ),
+      ),
     );
   }
 }

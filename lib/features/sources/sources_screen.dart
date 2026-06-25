@@ -3,17 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../shared/widgets/category_chip.dart' show faviconUrl, platformColors;
+import '../../shared/widgets/category_chip.dart'
+    show faviconUrl, platformColors;
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import 'sources_provider.dart';
 
-/// Lets the user narrow the source list to where saves actually came from —
-/// apps/platforms (Instagram, X, …) vs. topic clusters.
+/// Lets the user narrow the source list to where saves actually came from.
 enum _SourceFilter {
   all('All', Icons.all_inclusive_rounded),
   apps('Apps', Icons.apps_rounded),
-  topics('Topics', Icons.sell_outlined);
+  websites('Websites', Icons.language_rounded);
 
   const _SourceFilter(this.label, this.icon);
   final String label;
@@ -22,7 +22,7 @@ enum _SourceFilter {
   String get listTitle => switch (this) {
     _SourceFilter.all => 'All sources',
     _SourceFilter.apps => 'Apps',
-    _SourceFilter.topics => 'Topics',
+    _SourceFilter.websites => 'Websites',
   };
 }
 
@@ -68,28 +68,20 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
           final filtered = switch (_filter) {
             _SourceFilter.all => clusters,
             _SourceFilter.apps => clusters.where(isApp).toList(),
-            _SourceFilter.topics =>
-              clusters.where((c) => !isApp(c)).toList(),
+            _SourceFilter.websites => clusters.where((c) => !isApp(c)).toList(),
           };
           final alphabetical = List<SourceCluster>.from(filtered)
-            ..sort(
-              (a, b) {
-                if (a.isEmpty != b.isEmpty) return a.isEmpty ? 1 : -1;
-                return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-              },
-            );
-          // Top sources highlights topic clusters, not the app/platform a
-          // link came from (Instagram, X, …), so filter known platforms out.
+            ..sort((a, b) {
+              if (a.isEmpty != b.isEmpty) return a.isEmpty ? 1 : -1;
+              return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+            });
           final topSources =
-              (clusters
-                    .where((c) => !isApp(c) && !c.isEmpty)
-                    .toList()
-                ..sort((a, b) => b.count.compareTo(a.count)))
+              (clusters.where((c) => !c.isEmpty).toList()
+                    ..sort((a, b) => b.count.compareTo(a.count)))
                   .take(8)
                   .toList();
-          // The rail is a curated "top topics" view; hide it when the list is
-          // already being narrowed by search or an explicit filter.
-          final showRail = !searching &&
+          final showRail =
+              !searching &&
               _filter == _SourceFilter.all &&
               topSources.isNotEmpty;
           final listTitle = searching ? 'Results' : _filter.listTitle;
@@ -134,9 +126,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                             Icon(
                               f.icon,
                               size: 18,
-                              color: active
-                                  ? cs.primary
-                                  : cs.onSurfaceVariant,
+                              color: active ? cs.primary : cs.onSurfaceVariant,
                             ),
                             const SizedBox(width: 12),
                             Text(
@@ -169,7 +159,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: PremiumSearchBar(
                     controller: _searchController,
-                    hint: 'Search your knowledge clusters...',
+                    hint: 'Search apps, sites, and domains...',
                     onClear: _query.isNotEmpty
                         ? () {
                             _searchController.clear();
@@ -204,10 +194,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                     ),
                   ),
                 ],
-                _SectionHeader(
-                  title: listTitle,
-                  count: alphabetical.length,
-                ),
+                _SectionHeader(title: listTitle, count: alphabetical.length),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverList(
@@ -215,7 +202,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                       (context, index) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: _KnowledgeClusterCard(
-                          cluster: alphabetical[index],
+                          source: alphabetical[index],
                         ),
                       ),
                       childCount: alphabetical.length,
@@ -281,7 +268,7 @@ class _EmptySearch extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Text(
-          'No knowledge clusters match "$query"',
+          'No sources match "$query"',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -303,7 +290,7 @@ class _EmptyFilter extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final message = switch (filter) {
       _SourceFilter.apps => 'No saves from apps yet',
-      _SourceFilter.topics => 'No topic sources yet',
+      _SourceFilter.websites => 'No website saves yet',
       _SourceFilter.all => 'No sources yet',
     };
     return Center(
@@ -331,18 +318,18 @@ class _EmptyFilter extends StatelessWidget {
 }
 
 class _KnowledgeClusterCard extends StatelessWidget {
-  final SourceCluster cluster;
+  final SourceCluster source;
 
-  const _KnowledgeClusterCard({required this.cluster});
+  const _KnowledgeClusterCard({required this.source});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final iconSpec = resolveSourceIcon(cluster.name);
-    final fav = faviconUrl(cluster.name);
-    final brandColor = platformColors[cluster.name];
-    final isEmpty = cluster.isEmpty;
+    final iconSpec = resolveSourceIcon(source.name);
+    final fav = faviconUrl(source.name) ?? source.faviconUrl;
+    final brandColor = platformColors[source.name];
+    final isEmpty = source.isEmpty;
 
     return Card(
       elevation: 0,
@@ -361,9 +348,8 @@ class _KnowledgeClusterCard extends StatelessWidget {
       child: InkWell(
         onTap: isEmpty
             ? null
-            : () => context.push(
-                '/category/${Uri.encodeComponent(cluster.name)}',
-              ),
+            : () =>
+                  context.push('/sources/${Uri.encodeComponent(source.name)}'),
         child: Padding(
           padding: EdgeInsets.all(isEmpty ? 12 : 14),
           child: Column(
@@ -373,6 +359,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _ClusterIcon(
+                    label: source.name,
                     faviconUrl: fav,
                     fallbackIcon: iconSpec.icon ?? Icons.folder_outlined,
                     brandColor: brandColor,
@@ -383,12 +370,10 @@ class _KnowledgeClusterCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          cluster.name,
+                          source.name,
                           style: tt.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: isEmpty
-                                ? cs.onSurfaceVariant
-                                : cs.onSurface,
+                            color: isEmpty ? cs.onSurfaceVariant : cs.onSurface,
                             letterSpacing: -0.15,
                             height: 1.2,
                             fontSize: 14,
@@ -398,7 +383,9 @@ class _KnowledgeClusterCard extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              isEmpty ? 'No saves yet' : '${cluster.count} saves',
+                              isEmpty
+                                  ? 'No saves yet'
+                                  : '${source.count} saves',
                               style: tt.labelSmall?.copyWith(
                                 color: cs.onSurfaceVariant.withValues(
                                   alpha: isEmpty ? 0.62 : 1,
@@ -407,7 +394,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                                 fontSize: 11,
                               ),
                             ),
-                            if (cluster.savesThisWeek > 0) ...[
+                            if (source.savesThisWeek > 0) ...[
                               const SizedBox(width: 6),
                               Container(
                                 width: 3,
@@ -419,7 +406,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                '+${cluster.savesThisWeek} this week',
+                                '+${source.savesThisWeek} this week',
                                 style: tt.labelSmall?.copyWith(
                                   color: cs.primary,
                                   fontWeight: FontWeight.w500,
@@ -427,7 +414,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                                 ),
                               ),
                             ],
-                            if (cluster.isGrowing) ...[
+                            if (source.isGrowing) ...[
                               const SizedBox(width: 6),
                               Text(
                                 '· Growing',
@@ -451,32 +438,32 @@ class _KnowledgeClusterCard extends StatelessWidget {
                     ),
                 ],
               ),
-              if (cluster.memoryStripUrls.isNotEmpty) ...[
+              if (source.memoryStripUrls.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 MemoryStrip(
-                  imageUrls: cluster.memoryStripUrls,
+                  imageUrls: source.memoryStripUrls,
                   height: 44,
-                  totalCount: cluster.count,
+                  totalCount: source.count,
                 ),
               ],
-              if (cluster.mostlyAbout.isNotEmpty) ...[
+              if (source.mostlyAbout.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 4,
                   runSpacing: 4,
-                  children: cluster.mostlyAbout
+                  children: source.mostlyAbout
                       .map((tag) => MonochromePill(tag, compact: true))
                       .toList(),
                 ),
               ],
-              if (cluster.topDomain != null || cluster.lastSavedAt != null) ...[
+              if (source.topDomain != null || source.lastSavedAt != null) ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    if (cluster.topDomain != null)
+                    if (source.topDomain != null)
                       Expanded(
                         child: Text(
-                          cluster.topDomain!,
+                          source.topDomain!,
                           style: tt.labelSmall?.copyWith(
                             color: cs.onSurfaceVariant.withValues(alpha: 0.55),
                             fontWeight: FontWeight.w400,
@@ -486,9 +473,9 @@ class _KnowledgeClusterCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    if (cluster.lastSavedAt != null)
+                    if (source.lastSavedAt != null)
                       Text(
-                        'Last saved ${_timeAgo(cluster.lastSavedAt!)}',
+                        'Last saved ${_timeAgo(source.lastSavedAt!)}',
                         style: tt.labelSmall?.copyWith(
                           color: cs.onSurfaceVariant.withValues(alpha: 0.55),
                           fontWeight: FontWeight.w400,
@@ -528,7 +515,7 @@ class _TopSourceCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final iconSpec = resolveSourceIcon(cluster.name);
-    final fav = faviconUrl(cluster.name);
+    final fav = faviconUrl(cluster.name) ?? cluster.faviconUrl;
     final brandColor = platformColors[cluster.name];
 
     return SizedBox(
@@ -536,20 +523,18 @@ class _TopSourceCard extends StatelessWidget {
       child: Card(
         elevation: 0,
         color: cs.surfaceContainerLow,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => context.push(
-            '/category/${Uri.encodeComponent(cluster.name)}',
-          ),
+          onTap: () =>
+              context.push('/sources/${Uri.encodeComponent(cluster.name)}'),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ClusterIcon(
+                  label: cluster.name,
                   faviconUrl: fav,
                   fallbackIcon: iconSpec.icon ?? Icons.folder_outlined,
                   brandColor: brandColor,
@@ -597,11 +582,13 @@ class _TopSourceCard extends StatelessWidget {
 }
 
 class _ClusterIcon extends StatelessWidget {
+  final String label;
   final String? faviconUrl;
   final IconData fallbackIcon;
   final Color? brandColor;
 
   const _ClusterIcon({
+    required this.label,
     required this.faviconUrl,
     required this.fallbackIcon,
     this.brandColor,
@@ -615,6 +602,9 @@ class _ClusterIcon extends StatelessWidget {
         ? brandColor!.withValues(alpha: isDark ? 0.18 : 0.12)
         : cs.secondaryContainer.withValues(alpha: 0.5);
     final iconColor = brandColor ?? cs.onSurfaceVariant;
+    final fallback = faviconUrl != null && brandColor == null
+        ? _DomainInitialIcon(label: label)
+        : Icon(fallbackIcon, size: 18, color: iconColor);
 
     return Container(
       width: 38,
@@ -631,14 +621,31 @@ class _ClusterIcon extends StatelessWidget {
                   imageUrl: faviconUrl!,
                   width: 20,
                   height: 20,
-                  errorWidget: (context, error, stackTrace) => Icon(
-                    fallbackIcon,
-                    size: 18,
-                    color: iconColor,
-                  ),
+                  errorWidget: (context, error, stackTrace) => fallback,
                 ),
               )
-            : Icon(fallbackIcon, size: 18, color: iconColor),
+            : fallback,
+      ),
+    );
+  }
+}
+
+class _DomainInitialIcon extends StatelessWidget {
+  const _DomainInitialIcon({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final initial = label.trim().isEmpty ? '?' : label.trim()[0].toUpperCase();
+    return Text(
+      initial,
+      style: TextStyle(
+        color: cs.onSecondaryContainer,
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+        height: 1,
       ),
     );
   }

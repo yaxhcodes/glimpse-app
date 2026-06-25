@@ -140,7 +140,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             NavigationDestination(
               icon: Icon(Icons.account_tree_outlined),
               selectedIcon: Icon(Icons.account_tree_rounded),
-              label: 'Mind Map',
+              label: 'Interests',
             ),
             NavigationDestination(
               icon: Icon(Icons.search_outlined),

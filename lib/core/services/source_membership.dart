@@ -1,9 +1,23 @@
 import '../models/saved_url.dart';
+import 'category_resolver.dart';
 import 'category_taxonomy.dart';
 import 'domain_categorizer.dart';
 
 /// Shared membership rules for the Sources library and source/category results.
 class SourceMembership {
+  static String originFor(SavedUrl url) {
+    return CategoryResolver.displaySourceName(
+      rawUrl: url.rawUrl,
+      fallbackDomain: url.domain,
+    );
+  }
+
+  static bool containsOrigin(SavedUrl url, String source) {
+    final target = source.trim().toLowerCase();
+    if (target.isEmpty) return false;
+    return originFor(url).toLowerCase() == target;
+  }
+
   static List<String> categoriesFor(SavedUrl url) {
     final sources = <String>[];
 
