@@ -11,6 +11,7 @@ import '../models/user_collection.dart';
 import '../services/category_resolver.dart';
 import '../services/session_tracking_service.dart';
 import '../services/memory_intent_resolver.dart';
+import '../services/source_membership.dart';
 
 /// Service handling all local database operations via Isar.
 class IsarService {
@@ -127,9 +128,7 @@ class IsarService {
     final allUrls = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
     // "Done" saves are archived — excluded from the main library views.
     return allUrls
-        .where(
-          (url) => !url.isDone && url.effectiveCategories.contains(category),
-        )
+        .where((url) => !url.isDone && SourceMembership.contains(url, category))
         .toList();
   }
 

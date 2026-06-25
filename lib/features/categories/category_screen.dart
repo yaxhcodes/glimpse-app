@@ -98,6 +98,11 @@ class CategoryScreen extends ConsumerWidget {
             ],
           ),
           data: (urls) {
+            final canDeleteStoredCategory =
+                urls.isNotEmpty &&
+                urls.every(
+                  (url) => url.effectiveCategories.contains(categoryName),
+                );
             if (selectionState.enabled &&
                 selectedUrls.length != selectionState.count) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -136,16 +141,17 @@ class CategoryScreen extends ConsumerWidget {
                           ),
                         ]
                       : [
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            tooltip: 'Delete category',
-                            onPressed: () => _deleteCategory(
-                              context,
-                              ref,
-                              categoryName,
-                              urls.length,
+                          if (canDeleteStoredCategory)
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              tooltip: 'Delete category',
+                              onPressed: () => _deleteCategory(
+                                context,
+                                ref,
+                                categoryName,
+                                urls.length,
+                              ),
                             ),
-                          ),
                         ],
                 ),
                 if (urls.isEmpty)
@@ -177,10 +183,8 @@ class CategoryScreen extends ConsumerWidget {
                             selectionNotifier.startWith(url.id),
                         onSelectionToggle: () =>
                             selectionNotifier.toggle(url.id),
-                        onTap: () => context.push(
-                          '/url/${url.id}',
-                          extra: allIds,
-                        ),
+                        onTap: () =>
+                            context.push('/url/${url.id}', extra: allIds),
                         onDelete: (context, ref, url) async {
                           await deleteUrlWithUndo(context, ref, url);
                           ref.invalidate(categoryUrlsProvider(categoryName));

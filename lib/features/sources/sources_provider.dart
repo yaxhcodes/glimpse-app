@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_taxonomy.dart';
+import '../../core/services/source_membership.dart';
 import '../home/home_provider.dart';
 
 /// "Done" (archived) saves — the saves a user marked finished from Details.
@@ -55,12 +56,7 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
 
   final Map<String, List<SavedUrl>> urlsBySource = {};
   for (final url in all) {
-    final sources = CategoryTaxonomy.curateSourceCategories(
-      categories: url.effectiveCategories,
-      primaryCategory: url.category,
-      tags: url.tags,
-      text: '${url.title} ${url.summary ?? ''} ${url.description}',
-    );
+    final sources = SourceMembership.categoriesFor(url);
     for (final source in sources) {
       (urlsBySource[source] ??= []).add(url);
     }
@@ -105,7 +101,9 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
     final resurfaced = urls.where((u) => u.resurfacedAt != null).toList();
     DateTime? mostResurfaced;
     if (resurfaced.isNotEmpty) {
-      mostResurfaced = resurfaced.map((u) => u.resurfacedAt!).reduce((a, b) => a.isAfter(b) ? a : b);
+      mostResurfaced = resurfaced
+          .map((u) => u.resurfacedAt!)
+          .reduce((a, b) => a.isAfter(b) ? a : b);
     }
 
     // Memory strip: up to 5 recent thumbnails
@@ -129,15 +127,16 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
 });
 
 /// Filtered clusters based on search query.
-final filteredClustersProvider = Provider.family<AsyncValue<List<SourceCluster>>, String>((ref, query) {
-  final async = ref.watch(sourceClustersProvider);
-  final q = query.trim().toLowerCase();
-  if (q.isEmpty) return async;
-  return async.when(
-    data: (list) => AsyncValue.data(
-      list.where((s) => s.name.toLowerCase().contains(q)).toList(),
-    ),
-    loading: () => const AsyncValue.loading(),
-    error: (e, st) => AsyncValue.error(e, st),
-  );
-});
+final filteredClustersProvider =
+    Provider.family<AsyncValue<List<SourceCluster>>, String>((ref, query) {
+      final async = ref.watch(sourceClustersProvider);
+      final q = query.trim().toLowerCase();
+      if (q.isEmpty) return async;
+      return async.when(
+        data: (list) => AsyncValue.data(
+          list.where((s) => s.name.toLowerCase().contains(q)).toList(),
+        ),
+        loading: () => const AsyncValue.loading(),
+        error: (e, st) => AsyncValue.error(e, st),
+      );
+    });
