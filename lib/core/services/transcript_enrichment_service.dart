@@ -17,6 +17,7 @@ class TranscriptEnrichmentResult {
     this.brief,
     this.steps = const [],
     this.mentions = const [],
+    this.notableItems = const [],
     this.recipe,
     this.keyPoints = const [],
     this.thumbnailUrl,
@@ -40,6 +41,7 @@ class TranscriptEnrichmentResult {
   final String? brief;
   final List<EnrichedContentStep> steps;
   final List<EnrichedMention> mentions;
+  final List<EnrichedNotableItem> notableItems;
   final EnrichedRecipe? recipe;
   final List<String> keyPoints;
   final String? thumbnailUrl;
@@ -61,6 +63,7 @@ class TranscriptEnrichmentResult {
       tags.isNotEmpty ||
       steps.isNotEmpty ||
       mentions.isNotEmpty ||
+      notableItems.isNotEmpty ||
       (recipe?.hasUsefulContent ?? false) ||
       (transcript?.trim().isNotEmpty ?? false) ||
       (ocrText?.trim().isNotEmpty ?? false);
@@ -80,6 +83,7 @@ class TranscriptEnrichmentResult {
   bool get hasStructuredEnrichment {
     if (mentions.isNotEmpty ||
         steps.isNotEmpty ||
+        notableItems.isNotEmpty ||
         keyPoints.isNotEmpty ||
         (recipe?.hasUsefulContent ?? false)) {
       return true;
@@ -109,6 +113,7 @@ class TranscriptEnrichmentResult {
     String? brief,
     List<EnrichedContentStep>? steps,
     List<EnrichedMention>? mentions,
+    List<EnrichedNotableItem>? notableItems,
     EnrichedRecipe? recipe,
     List<String>? keyPoints,
     String? thumbnailUrl,
@@ -132,6 +137,7 @@ class TranscriptEnrichmentResult {
       brief: brief ?? this.brief,
       steps: steps ?? this.steps,
       mentions: mentions ?? this.mentions,
+      notableItems: notableItems ?? this.notableItems,
       recipe: recipe ?? this.recipe,
       keyPoints: keyPoints ?? this.keyPoints,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
@@ -158,6 +164,7 @@ class TranscriptEnrichmentResult {
       'brief': brief,
       'steps': steps.map((item) => item.toJson()).toList(),
       'mentions': mentions.map((item) => item.toJson()).toList(),
+      'notable_items': notableItems.map((item) => item.toJson()).toList(),
       'recipe': recipe?.toJson(),
       'key_points': keyPoints,
       'thumbnail_url': thumbnailUrl,
@@ -204,6 +211,7 @@ class TranscriptEnrichmentResult {
                 .whereType<EnrichedMention>()
                 .toList()
           : const [],
+      notableItems: TranscriptEnrichmentService._extractNotableItems(json),
       recipe: EnrichedRecipe.fromJsonOrNull(json['recipe']),
       keyPoints: TranscriptEnrichmentService._extractStringList(
         json['key_points'],
@@ -1025,6 +1033,54 @@ class EnrichedMention {
   }
 }
 
+class EnrichedNotableItem {
+  const EnrichedNotableItem({
+    required this.text,
+    required this.type,
+    this.label,
+    this.attribution,
+    this.whyImportant,
+  });
+
+  final String text;
+  final String type;
+  final String? label;
+  final String? attribution;
+  final String? whyImportant;
+
+  bool get hasUsefulContent => text.trim().isNotEmpty;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'text': text,
+      'type': type,
+      'label': label,
+      'attribution': attribution,
+      'why_important': whyImportant,
+    };
+  }
+
+  static EnrichedNotableItem fromJson(Map<String, dynamic> json) {
+    return EnrichedNotableItem(
+      text: TranscriptEnrichmentService._cleanText(
+        json['text'] ?? json['quote'] ?? json['name'] ?? json['title'],
+      ),
+      type: TranscriptEnrichmentService._cleanText(json['type']).isEmpty
+          ? 'reference'
+          : TranscriptEnrichmentService._cleanText(json['type']).toLowerCase(),
+      label: TranscriptEnrichmentService._cleanNullableText(
+        json['label'] ?? json['title'] ?? json['name'],
+      ),
+      attribution: TranscriptEnrichmentService._cleanNullableText(
+        json['attribution'] ?? json['speaker'] ?? json['source'],
+      ),
+      whyImportant: TranscriptEnrichmentService._cleanNullableText(
+        json['why_important'] ?? json['whyImportant'] ?? json['why'],
+      ),
+    );
+  }
+}
+
 class TranscriptEnrichmentService {
   TranscriptEnrichmentService({Dio? dio}) : _dio = dio ?? _defaultDio();
 
@@ -1207,6 +1263,7 @@ class TranscriptEnrichmentService {
         mentions: mentions,
         recipe: recipe,
         keyPoints: _extractStringList(data['key_points']),
+        notableItems: _extractNotableItems(data),
         thumbnailUrl: _cleanText(data['thumbnail_url']).isNotEmpty
             ? _cleanText(data['thumbnail_url'])
             : null,
@@ -1298,6 +1355,42 @@ class TranscriptEnrichmentService {
 
     final keyPoints = data['key_points'];
     return _parseContentSteps(keyPoints);
+  }
+
+  static List<EnrichedNotableItem> _extractNotableItems(
+    Map<String, dynamic> data,
+  ) {
+    final raw =
+        data['notable_items'] ??
+        data['notableItems'] ??
+        data['highlight_items'] ??
+        data['highlights'];
+    if (raw is! List) return const [];
+    final seen = <String>{};
+    return raw
+        .map((item) {
+          if (item is String) {
+            final text = _cleanText(item);
+            if (text.isEmpty) return null;
+            return EnrichedNotableItem(text: text, type: 'quote');
+          }
+          if (item is Map) {
+            return EnrichedNotableItem.fromJson(
+              Map<String, dynamic>.from(item),
+            );
+          }
+          return null;
+        })
+        .whereType<EnrichedNotableItem>()
+        .where((item) => item.hasUsefulContent)
+        .where((item) {
+          final key = _cleanText(item.text).toLowerCase();
+          if (seen.contains(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .take(12)
+        .toList();
   }
 
   static List<EnrichedContentStep> _parseContentSteps(Object? raw) {

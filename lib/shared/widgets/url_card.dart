@@ -200,7 +200,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final isProcessingFailed = widget.savedUrl.isProcessingFailed;
     final resolvedTitle = isProcessing
         ? _processingTitle(displaySourceName)
-        : TitleResolver.resolveStableDisplayTitle(
+        : TitleResolver.resolveDetailTitle(
             widget.savedUrl,
             tagFrequency: tagFreq,
           );
@@ -285,7 +285,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                 duration: const Duration(milliseconds: 300),
                                 child: Text(
                                   resolvedTitle,
-                                  maxLines: 2,
+                                  maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
                                   style: (tt.titleSmall ?? const TextStyle())
                                       .copyWith(

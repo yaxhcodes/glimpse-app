@@ -2480,6 +2480,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       ]);
     }
 
+    if (live.notableItems.isNotEmpty) {
+      sections.addAll([
+        const SizedBox(height: 18),
+        _buildNotableItemsSection(
+          items: live.notableItems,
+          theme: theme,
+          colorScheme: colorScheme,
+        ),
+      ]);
+    }
+
     final grouped = <String, List<EnrichedMention>>{};
     for (final mention in live.mentions) {
       final key = _mentionSectionKey(mention.type);
@@ -2664,6 +2675,111 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 color: colorScheme.onSurfaceVariant,
                 height: 1.45,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotableItemsSection({
+    required List<EnrichedNotableItem> items,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final displayItems = items.take(8).toList();
+    final title = _notableItemsSectionTitle(displayItems);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title: title, accent: _recipeAccent(colorScheme)),
+        const SizedBox(height: 10),
+        for (final item in displayItems)
+          _buildNotableItemRow(
+            item: item,
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
+      ],
+    );
+  }
+
+  String _notableItemsSectionTitle(List<EnrichedNotableItem> items) {
+    if (items.isEmpty) return 'Notable details';
+    final types = items.map((item) => item.type.toLowerCase()).toSet();
+    if (types.length == 1) {
+      final type = types.first;
+      if (type == 'quote') return 'Quotes';
+      if (type == 'website') return 'Websites mentioned';
+      if (type == 'tool' || type == 'app' || type == 'product') {
+        return 'Tools mentioned';
+      }
+      if (type == 'claim') return 'Claims to remember';
+      if (type == 'term') return 'Terms mentioned';
+    }
+    return 'Notable details';
+  }
+
+  Widget _buildNotableItemRow({
+    required EnrichedNotableItem item,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final isQuote = item.type.toLowerCase() == 'quote';
+    final attribution = item.attribution?.trim() ?? '';
+    final label = item.label?.trim() ?? '';
+    final why = item.whyImportant?.trim() ?? '';
+    final meta = [
+      if (!isQuote && label.isNotEmpty && label != item.text) label,
+      if (attribution.isNotEmpty) attribution,
+      if (why.isNotEmpty) why,
+    ].join(' · ');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: EdgeInsets.fromLTRB(isQuote ? 13 : 12, 11, 12, 11),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              isQuote ? Icons.format_quote_rounded : Icons.bookmark_border,
+              size: isQuote ? 18 : 16,
+              color: _recipeAccent(colorScheme),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.text,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: isQuote ? FontWeight.w600 : FontWeight.w700,
+                    height: 1.42,
+                  ),
+                ),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    meta,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
