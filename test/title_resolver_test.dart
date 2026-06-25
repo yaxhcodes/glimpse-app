@@ -48,8 +48,7 @@ void main() {
 
     test('Kristina pipe title → Kepler Track · Luxmore Hut', () {
       final u = _url(
-        title:
-            'Kristina | New Zealand travel, hiking & outdoors on Instagram',
+        title: 'Kristina | New Zealand travel, hiking & outdoors on Instagram',
         tags: [
           'kepler track',
           'luxmore hut',
@@ -85,21 +84,30 @@ void main() {
     test('Josh McCabe on Instagram → tags', () {
       final u = _url(
         title: 'Josh McCabe on Instagram',
-        tags: [
-          'cordillera huayhuash',
-          'peru',
-          'hiking',
-          'instagram',
-        ],
+        tags: ['cordillera huayhuash', 'peru', 'hiking', 'instagram'],
       );
-      final freq = {
-        'cordillera huayhuash': 1,
-        'peru': 2,
-        'hiking': 30,
-      };
+      final freq = {'cordillera huayhuash': 1, 'peru': 2, 'hiking': 30};
       expect(
         TitleResolver.resolve(u, tagFrequency: freq),
         'Cordillera Huayhuash · Peru',
+      );
+    });
+
+    test('detail title prefers saved enrichment over tag fallback', () {
+      final u = _url(title: 'Instagram', tags: ['culture', 'tourism'])
+        ..enrichmentJson =
+            '{"meaningful_title":"Nepal Travel · Kathmandu & Patan Exploration"}';
+
+      expect(
+        TitleResolver.resolve(u, tagFrequency: {'culture': 1, 'tourism': 1}),
+        'Culture · Tourism',
+      );
+      expect(
+        TitleResolver.resolveDetailTitle(
+          u,
+          tagFrequency: {'culture': 1, 'tourism': 1},
+        ),
+        'Nepal Travel · Kathmandu & Patan Exploration',
       );
     });
   });

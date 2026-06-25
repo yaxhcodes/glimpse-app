@@ -51,7 +51,7 @@ String _broadCategoryBucket(SavedUrl u) {
 }
 
 /// Extracts embeddings from rows as a flat list-of-lists.
-/// Each inner list is already a List<double> from the Isar model.
+/// Each inner list is already a `List<double>` from the Isar model.
 List<List<double>> _embeddingsFromRows(List<Map<String, dynamic>> rows) {
   return rows.map((r) {
     final raw = r['embedding'];
@@ -114,14 +114,16 @@ String _titleCaseTopic(String value) {
 
 String _textForUrls(List<SavedUrl> urls) {
   return urls
-      .map((u) => [
-            u.title,
-            u.description,
-            u.summary ?? '',
-            u.tags.join(' '),
-            u.category,
-            u.domain,
-          ].join(' '))
+      .map(
+        (u) => [
+          u.title,
+          u.description,
+          u.summary ?? '',
+          u.tags.join(' '),
+          u.category,
+          u.domain,
+        ].join(' '),
+      )
       .join(' ')
       .toLowerCase();
 }
@@ -165,8 +167,7 @@ List<SubClusterTheme> _trekSubClustersForUrls(List<SavedUrl> urls) {
       summary: _heuristicSummaryForUrls(entry.value, '${entry.key} treks'),
       urls: entry.value,
     );
-  }).toList()
-    ..sort((a, b) => b.urls.length.compareTo(a.urls.length));
+  }).toList()..sort((a, b) => b.urls.length.compareTo(a.urls.length));
 
   return result;
 }
@@ -242,7 +243,8 @@ String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
     ]),
   };
 
-  final hasTrek = text.contains('trek') ||
+  final hasTrek =
+      text.contains('trek') ||
       text.contains('himalaya') ||
       text.contains('kanchenjunga') ||
       text.contains('te araroa') ||
@@ -316,7 +318,9 @@ String _heuristicLabelForUrls(
 
   final nonGenericCategories = urls
       .map((u) => u.category.trim())
-      .where((c) => c.isNotEmpty && !_genericTopicWords.contains(c.toLowerCase()))
+      .where(
+        (c) => c.isNotEmpty && !_genericTopicWords.contains(c.toLowerCase()),
+      )
       .toList();
   if (nonGenericCategories.isNotEmpty) {
     return _titleCaseTopic(nonGenericCategories.first);
@@ -361,8 +365,7 @@ List<SubClusterTheme> _mergeSubClusters(List<SubClusterTheme> subClusters) {
       summary: _heuristicSummaryForUrls(entry.value, label),
       urls: entry.value,
     );
-  }).toList()
-    ..sort((a, b) => b.urls.length.compareTo(a.urls.length));
+  }).toList()..sort((a, b) => b.urls.length.compareTo(a.urls.length));
 
   return merged;
 }
@@ -387,10 +390,7 @@ List<ClusterTheme> _mergeDuplicateThemes(List<ClusterTheme> themes) {
     }
 
     final urls = urlsById.values.toList();
-    final label = _heuristicLabelForUrls(
-      urls,
-      fallback: group.first.label,
-    );
+    final label = _heuristicLabelForUrls(urls, fallback: group.first.label);
     final subClusters = label == 'Treks' || _isTrekLike(urls, label)
         ? _trekSubClustersForUrls(urls)
         : _mergeSubClusters(allSubs);
@@ -456,8 +456,9 @@ List<ClusterTheme> _promoteForeignSubClusters(List<ClusterTheme> themes) {
       for (final sub in promoted)
         for (final url in sub.urls) url.id,
     };
-    final remaining =
-        theme.urls.where((u) => !promotedIds.contains(u.id)).toList();
+    final remaining = theme.urls
+        .where((u) => !promotedIds.contains(u.id))
+        .toList();
 
     // Re-label the parent now that the foreign topic is gone.
     if (remaining.isNotEmpty) {
@@ -594,7 +595,7 @@ String _titlesBlock(List<SavedUrl> urls, {int take = 8}) {
   return urls
       .take(take)
       .map((u) {
-        final title = TitleResolver.resolve(
+        final title = TitleResolver.resolveDetailTitle(
           u,
           tagFrequency: null,
         ).replaceAll('"', "'");
@@ -631,17 +632,20 @@ String _buildDescriptionsBlock(
       for (var si = 0; si < subGroups.length; si++) {
         final group = subGroups[si];
         final subUrls = group.map((li) => c[li]).toList();
-        final indexed = group.take(4).map((li) {
-          final u = c[li];
-          final safe = TitleResolver.resolve(u, tagFrequency: null)
-              .replaceAll('"', "'");
-          final tags = TagNoiseFilter.filterTags(u.tags).take(4).join(', ');
-          final suffix = tags.isEmpty ? '' : ' tags: [$tags]';
-          return 'url $li: "$safe"$suffix';
-        }).join(', ');
-        buffer.writeln(
-          '  Sub-group $si (${subUrls.length} links): $indexed',
-        );
+        final indexed = group
+            .take(4)
+            .map((li) {
+              final u = c[li];
+              final safe = TitleResolver.resolveDetailTitle(
+                u,
+                tagFrequency: null,
+              ).replaceAll('"', "'");
+              final tags = TagNoiseFilter.filterTags(u.tags).take(4).join(', ');
+              final suffix = tags.isEmpty ? '' : ' tags: [$tags]';
+              return 'url $li: "$safe"$suffix';
+            })
+            .join(', ');
+        buffer.writeln('  Sub-group $si (${subUrls.length} links): $indexed');
       }
     }
   }
@@ -813,7 +817,7 @@ Future<List<ClusterTheme>?> tryHydrateClustersFromPrefs({
 /// Map so Flutter's compute() can send it across the isolate port safely.
 ///
 /// Embeddings are stored as a flat list-of-lists of doubles. Dart's isolate
-/// message passing handles List<List<double>> fine as long as the inner lists
+/// message passing handles `List<List<double>>` fine as long as the inner lists
 /// only contain Dart primitives — which they do here.
 Map<String, dynamic> _buildSubClusterPayload(
   List<List<int>> clusterGlobalIndices,
@@ -966,8 +970,9 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
             (nameRow?['reassignments'] as Map<dynamic, dynamic>?) ?? const {};
         if (rawReassign.isEmpty) continue;
 
-        final mutableGroups =
-            localGroups.map((g) => List<int>.from(g)).toList();
+        final mutableGroups = localGroups
+            .map((g) => List<int>.from(g))
+            .toList();
         var moved = 0;
 
         for (final entry in rawReassign.entries) {
@@ -987,8 +992,9 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
           final valid = mutableGroups
               .where((g) => g.length >= kMinSubClusterSize)
               .toList();
-          subLocalGroups[ci] =
-              valid.length >= kMinSubClusterCount ? valid : null;
+          subLocalGroups[ci] = valid.length >= kMinSubClusterCount
+              ? valid
+              : null;
 
           developer.log(
             'Cluster[$ci]: reassigned $moved URL(s) across sub-clusters.',
@@ -998,7 +1004,6 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
       }
 
       // ── Step 3c: build ClusterTheme objects ────────────────────────────────
-      var multiNameIdx = 0;
       themes = List<ClusterTheme>.generate(topClusters.length, (i) {
         final c = topClusters[i];
 
@@ -1017,8 +1022,6 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
             'subLabels': <Map<String, String>>[],
           };
         }
-        multiNameIdx++;
-
         // Parse Gemini sub-labels.
         final rawSubLabels = (row['subLabels'] as List<dynamic>?) ?? const [];
         final subLabels = rawSubLabels

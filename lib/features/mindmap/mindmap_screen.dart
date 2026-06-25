@@ -70,39 +70,37 @@ class InterestMapView extends StatelessWidget {
 
     final heroCluster = clusters.first;
     final mediumEnd = clusters.length < 5 ? clusters.length : 5;
-    final medium =
-        clusters.length <= 1 ? <InterestCluster>[] : clusters.sublist(1, mediumEnd);
-    final slim = clusters.length <= 5 ? <InterestCluster>[] : clusters.sublist(5);
+    final medium = clusters.length <= 1
+        ? <InterestCluster>[]
+        : clusters.sublist(1, mediumEnd);
+    final slim = clusters.length <= 5
+        ? <InterestCluster>[]
+        : clusters.sublist(5);
 
     return CustomScrollView(
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           sliver: SliverList(
-            delegate: SliverChildListDelegate.fixed(
-              [
-                _SectionEyebrow('Top signal'),
-                ClusterCard(
-                  cluster: heroCluster,
-                  tier: ClusterCardTier.hero,
-                  onTap: () => onClusterTap(heroCluster),
-                ),
-                if (medium.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  _SectionEyebrow('Active interests'),
-                ],
+            delegate: SliverChildListDelegate.fixed([
+              _SectionEyebrow('Top signal'),
+              ClusterCard(
+                cluster: heroCluster,
+                tier: ClusterCardTier.hero,
+                onTap: () => onClusterTap(heroCluster),
+              ),
+              if (medium.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _SectionEyebrow('Active interests'),
               ],
-            ),
+            ]),
           ),
         ),
         if (medium.isNotEmpty)
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             sliver: SliverToBoxAdapter(
-              child: _MasonryClusterGrid(
-                items: medium,
-                onOpen: onClusterTap,
-              ),
+              child: _MasonryClusterGrid(items: medium, onOpen: onClusterTap),
             ),
           ),
         if (slim.isNotEmpty)
@@ -118,18 +116,15 @@ class InterestMapView extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  if (index.isOdd) return const SizedBox(height: 8);
-                  final cluster = slim[index ~/ 2];
-                  return ClusterCard(
-                    cluster: cluster,
-                    tier: ClusterCardTier.slim,
-                    onTap: () => onClusterTap(cluster),
-                  );
-                },
-                childCount: slim.length * 2 - 1,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                if (index.isOdd) return const SizedBox(height: 8);
+                final cluster = slim[index ~/ 2];
+                return ClusterCard(
+                  cluster: cluster,
+                  tier: ClusterCardTier.slim,
+                  onTap: () => onClusterTap(cluster),
+                );
+              }, childCount: slim.length * 2 - 1),
             ),
           ),
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -141,7 +136,10 @@ class InterestMapView extends StatelessWidget {
 List<InterestCluster> _displayClustersForThemes(List<ClusterTheme> themes) {
   final orderedThemes = _mergeThemesForDisplay(themes)
     ..sort((a, b) => b.urls.length.compareTo(a.urls.length));
-  final totalSaves = orderedThemes.fold<int>(0, (sum, t) => sum + t.urls.length);
+  final totalSaves = orderedThemes.fold<int>(
+    0,
+    (sum, t) => sum + t.urls.length,
+  );
   if (totalSaves <= 0) return const [];
   final topLabels = {
     for (final theme in orderedThemes) theme.label.trim().toLowerCase(),
@@ -174,9 +172,13 @@ class _MasonryClusterGrid extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _MasonryColumn(items: columns.$1, onOpen: onOpen)),
+        Expanded(
+          child: _MasonryColumn(items: columns.$1, onOpen: onOpen),
+        ),
         const SizedBox(width: 10),
-        Expanded(child: _MasonryColumn(items: columns.$2, onOpen: onOpen)),
+        Expanded(
+          child: _MasonryColumn(items: columns.$2, onOpen: onOpen),
+        ),
       ],
     );
   }
@@ -422,10 +424,10 @@ class _SectionEyebrow extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: cs.onSurface,
-              fontWeight: FontWeight.w700,
-              height: 1.18,
-            ),
+          color: cs.onSurface,
+          fontWeight: FontWeight.w700,
+          height: 1.18,
+        ),
       ),
     );
   }
@@ -534,7 +536,10 @@ class _ClusterUrlRow extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final previewUrl = _previewImageUrl(url);
-    final resolvedTitle = TitleResolver.resolve(url, tagFrequency: tagFrequency);
+    final resolvedTitle = TitleResolver.resolveDetailTitle(
+      url,
+      tagFrequency: tagFrequency,
+    );
     final title = _displayTitleForUrl(url, resolvedTitle);
     if (title == null) return const SizedBox.shrink();
     final chip = tagChipColors(cs);
@@ -824,9 +829,7 @@ class MindmapScreen extends ConsumerWidget {
             return const _MindmapEmptyState();
           }
 
-          return _MindmapCanvas(
-            themes: themes,
-          );
+          return _MindmapCanvas(themes: themes);
         },
       ),
     );
@@ -882,8 +885,8 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
         final subClusters = theme.subClusters;
         final selectedSub =
             _selectedSub != null && _selectedSub! < subClusters.length
-                ? subClusters[_selectedSub!]
-                : null;
+            ? subClusters[_selectedSub!]
+            : null;
         final visibleUrls = selectedSub?.urls ?? theme.urls;
         final subLabelByUrl = <int, String>{};
         for (final sub in subClusters) {
@@ -968,27 +971,25 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                       );
                     }
                     final url = visibleUrls[index ~/ 2];
-                    final clusterIds =
-                        visibleUrls.map((u) => u.id).toList();
+                    final clusterIds = visibleUrls.map((u) => u.id).toList();
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _ClusterUrlRow(
                         url: url,
                         tagFrequency: tagFrequency,
-                        subLabel:
-                            selectedSub == null ? subLabelByUrl[url.id] : null,
+                        subLabel: selectedSub == null
+                            ? subLabelByUrl[url.id]
+                            : null,
                         onTap: () {
                           HapticFeedback.lightImpact();
-                          context.push(
-                            '/url/${url.id}',
-                            extra: clusterIds,
-                          );
+                          context.push('/url/${url.id}', extra: clusterIds);
                         },
                       ),
                     );
                   },
-                  childCount:
-                      visibleUrls.isEmpty ? 0 : visibleUrls.length * 2 - 1,
+                  childCount: visibleUrls.isEmpty
+                      ? 0
+                      : visibleUrls.length * 2 - 1,
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 28)),
