@@ -37,7 +37,7 @@ class NotifCopy {
 class GeminiCopywriter {
   GeminiCopywriter._();
 
-  static const _model = 'gemini-2.0-flash-lite';
+  static const _model = 'gemini-3.1-flash-lite';
 
   static const _systemInstruction = '''
 You are a copywriter for Glimpse, a personal URL saving app.

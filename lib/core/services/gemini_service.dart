@@ -80,8 +80,8 @@ enum ChatContextMode { retrieved, focusedSave }
 /// Wraps the Gemini API for all AI operations in Glimpse.
 class GeminiService {
   // Models
-  static const _primaryModel = 'gemini-2.5-flash';
-  static const _fallbackModel = 'gemini-2.0-flash-lite';
+  static const _primaryModel = 'gemini-3.1-flash-lite';
+  static const _fallbackModel = 'gemini-2.5-flash';
 
   // Timeouts
   static const _primaryTimeout = Duration(seconds: 20);
