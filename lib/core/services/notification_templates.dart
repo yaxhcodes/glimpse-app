@@ -96,20 +96,20 @@ class NotificationTemplates {
 
     final templates = <NotifCopy>[
       NotifCopy(
-        title: 'Your $geo list is waiting',
-        body: "$unread saves about $geo you haven't opened yet.",
+        title: 'Planning around $geo again?',
+        body: '$unread saved ideas are ready to revisit.',
       ),
       NotifCopy(
-        title: '$unread unread $geo saves',
-        body: 'You were clearly planning something. Pick one back up?',
+        title: '$geo is back on the map',
+        body: '$unread saves could help you pick up the thread.',
       ),
       NotifCopy(
         title: "$geo keeps pulling you in",
-        body: '$unread saved spots there, still unopened.',
+        body: '$unread saved spots are still worth a look.',
       ),
       NotifCopy(
         title: 'Still curious about $geo?',
-        body: '$unread of your saves are sitting there unread.',
+        body: '$unread saves are waiting for the right moment.',
       ),
     ];
 
@@ -138,20 +138,20 @@ class NotificationTemplates {
 
     final templates = <NotifCopy>[
       NotifCopy(
-        title: "First time you've saved anything about $tag.",
-        body: '$count links already. New rabbit hole unlocked.',
+        title: '$tag just became a thread.',
+        body: '$count saves already. Worth following while it is fresh.',
       ),
       NotifCopy(
-        title: '$tag just showed up in your saves.',
-        body: "You've saved $count of these in the last few days.",
+        title: 'Your $tag curiosity is growing.',
+        body: '$count saves in the last few days.',
       ),
       NotifCopy(
-        title: 'New topic alert: $tag',
-        body: '$count saves this week. Looks like something clicked.',
+        title: '$tag keeps showing up.',
+        body: '$count saves this week. Something clicked.',
       ),
       NotifCopy(
-        title: "You hadn't saved anything about $tag before.",
-        body: 'Now you have $count. Worth a look while it\'s fresh.',
+        title: 'A new $tag trail is forming.',
+        body: 'You have $count saves. Start with one.',
       ),
     ];
 
@@ -173,23 +173,23 @@ class NotificationTemplates {
 
     final templates = <NotifCopy>[
       NotifCopy(
-        title: 'You clearly know a lot about $name.',
-        body: "$count links saved. Still haven't opened one.",
+        title: 'Continue your $name thread.',
+        body: "$count saves are still waiting for a first read.",
       ),
       NotifCopy(
-        title: '$name — $count saves, 0 reads.',
-        body: 'Classic. Want to change that today?',
+        title: '$name is ready when you are.',
+        body: '$count unread saves. Start with the oldest one?',
       ),
       NotifCopy(
-        title: 'Your $name collection is getting serious.',
+        title: '$name is becoming a real pattern.',
         body: '$count unread. Maybe start with the oldest one?',
       ),
       NotifCopy(
         title: 'You keep adding to $name.',
-        body: '$count links saved over $oldestDays days. All unread.',
+        body: '$count saves over $oldestDays days. All unread.',
       ),
       NotifCopy(
-        title: '$count $name links sitting unread.',
+        title: '$count $name saves are waiting.',
         body: 'Your future self saved these for a reason.',
       ),
     ];

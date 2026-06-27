@@ -91,7 +91,7 @@ class InterestMapView extends StatelessWidget {
               ),
               if (medium.isNotEmpty) ...[
                 const SizedBox(height: 24),
-                _SectionEyebrow('Patterns Glimpse found'),
+                _SectionEyebrow('Growing interests'),
               ],
             ]),
           ),
@@ -108,7 +108,7 @@ class InterestMapView extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
-                _SectionEyebrow('Smaller signals'),
+                _SectionEyebrow('Quieter interests'),
               ]),
             ),
           ),
@@ -755,7 +755,7 @@ class MindmapScreen extends ConsumerWidget {
         );
         return '${clusters.length} patterns · $saveCount saves';
       },
-      orElse: () => 'Finding patterns across your saves',
+      orElse: () => 'Learning what keeps your attention',
     );
 
     return Scaffold(
@@ -768,7 +768,7 @@ class MindmapScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Interest map',
+              'Interests',
               style: tt.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: cs.onSurface,
@@ -799,7 +799,8 @@ class MindmapScreen extends ConsumerWidget {
         ],
       ),
       body: themesAsync.when(
-        loading: () => const LoadingIndicator(message: 'Finding patterns...'),
+        loading: () =>
+            const LoadingIndicator(message: 'Reading your interests...'),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(28),

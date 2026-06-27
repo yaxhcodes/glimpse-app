@@ -31,6 +31,7 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
     ref.invalidate(revisitQueueProvider);
     ref.invalidate(onThisDayProvider);
     ref.invalidate(forgottenGemsProvider);
+    ref.invalidate(neverOpenedProvider);
     ref.invalidate(goalShelfProvider);
     ref.invalidate(interestShelfProvider);
     ref.invalidate(rediscoveryStatsProvider);
@@ -144,6 +145,13 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
           _Shelf(
             title: 'Forgotten gems',
             provider: forgottenGemsProvider,
+            tagFrequency: tagFreq,
+            onOpen: (u) => _open(u),
+            onDismiss: (u) => _dismiss(u),
+          ),
+          _Shelf(
+            title: 'Never opened',
+            provider: neverOpenedProvider,
             tagFrequency: tagFreq,
             onOpen: (u) => _open(u),
             onDismiss: (u) => _dismiss(u),
@@ -748,21 +756,22 @@ class _ShelfBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final metrics = CinematicRailMetrics.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionTitle(title, count: items.length),
         SizedBox(
-          height: 270,
+          height: metrics.listHeight,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 14),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, i) {
               final item = items[i];
               return SizedBox(
-                width: 236,
+                width: metrics.cardWidth,
                 child: GestureDetector(
                   onLongPress: () => onDismiss(item.url),
                   child: CinematicCard(

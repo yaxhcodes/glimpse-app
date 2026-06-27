@@ -340,6 +340,40 @@ class _MemoryTile extends StatelessWidget {
   }
 }
 
+/// Shared proportional sizing for a horizontal rail of [CinematicCard]s.
+///
+/// Every Rediscover shelf used to hardcode its own width/height (220/246 in one
+/// place, 236/270 in another), which made the rails feel subtly mismatched.
+/// This derives both from the viewport so the cards keep one rhythm — a card
+/// width that's a fixed share of the screen (leaving a peek of the next card),
+/// and a list height equal to the 16:9 media plus the card's fixed text block.
+class CinematicRailMetrics {
+  const CinematicRailMetrics({
+    required this.cardWidth,
+    required this.listHeight,
+  });
+
+  final double cardWidth;
+  final double listHeight;
+
+  /// Allowance for the card's text section (title, subtitle, tags, padding)
+  /// that sits below the 16:9 media. Measured from [CinematicCard]'s layout.
+  static const double _textBlock = 116.0;
+
+  factory CinematicRailMetrics.of(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isTablet = width > 600;
+    final cardWidth = isTablet
+        ? 248.0
+        : (width * 0.62).clamp(212.0, 250.0);
+    final listHeight = cardWidth * 9 / 16 + _textBlock;
+    return CinematicRailMetrics(
+      cardWidth: cardWidth,
+      listHeight: listHeight,
+    );
+  }
+}
+
 class CinematicCard extends StatelessWidget {
   final String? imageUrl;
   final String title;

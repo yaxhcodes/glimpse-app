@@ -9,6 +9,7 @@ import '../models/saved_url.dart';
 import '../services/link_preview_service.dart';
 import '../models/user_collection.dart';
 import '../services/category_resolver.dart';
+import '../services/category_taxonomy.dart';
 import '../services/session_tracking_service.dart';
 import '../services/memory_intent_resolver.dart';
 import '../services/source_membership.dart';
@@ -141,18 +142,18 @@ class IsarService {
     for (final url in allUrls) {
       if (url.isDone) continue; // archived saves don't count toward categories
       for (final category in url.effectiveCategories) {
-        if (categoryMap.containsKey(category)) {
-          categoryMap[category]!['count'] =
-              (categoryMap[category]!['count'] as int) + 1;
+        final interest = CategoryTaxonomy.normalize(
+          category: category,
+          tags: url.tags,
+        );
+        final name = interest.name;
+        if (categoryMap.containsKey(name)) {
+          categoryMap[name]!['count'] =
+              (categoryMap[name]!['count'] as int) + 1;
         } else {
-          categoryMap[category] = {
-            'category': category,
-            'emoji': CategoryResolver.emojiForCategory(
-              category,
-              fallbackEmoji: category == url.category
-                  ? url.categoryEmoji
-                  : null,
-            ),
+          categoryMap[name] = {
+            'category': name,
+            'emoji': interest.emoji,
             'count': 1,
           };
         }

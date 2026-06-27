@@ -1,44 +1,41 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/models/saved_url.dart';
 import '../../core/providers/dev_simulation_providers.dart';
-import '../../core/providers/service_providers.dart';
-import '../../core/services/rediscovery_service.dart';
-import '../../core/services/title_resolver.dart';
-import 'home_provider.dart';
-import 'rediscovery_provider.dart';
+import '../rediscover/journey_visual.dart';
+import '../rediscover/rediscover_journey_provider.dart';
 
 class RediscoverySection extends ConsumerWidget {
   const RediscoverySection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(rediscoveryLinksProvider);
+    final async = ref.watch(rediscoverJourneysProvider);
     return async.when(
-      // Keep the current cards on screen while the set is recomputed after a
-      // save/delete, instead of collapsing the whole section and reflowing the
-      // page. The new set swaps in place once it's ready.
       skipLoadingOnReload: true,
-      data: (links) {
-        if (links.isEmpty) return const SizedBox.shrink();
+      data: (journeys) {
+        if (journeys.isEmpty) return const SizedBox.shrink();
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
-        final tagFreq = ref.watch(tagOccurrenceMapProvider);
         final seenTip = ref.watch(hasSeenRediscoverTipProvider);
         final size = MediaQuery.sizeOf(context);
         final isTablet = size.width > 600;
-
+        // Proportional sizing: the card width is a fixed share of the viewport
+        // (leaving a peek of the next card to signal the row scrolls), and the
+        // height is derived from a locked aspect ratio and clamped so it stays
+        // balanced from compact phones up through tablets.
+        const hPad = 16.0;
         final cardWidth = isTablet
-            ? (size.width - 48) / 2.8
-            : (size.width - 36) / 1.7;
-        final cardHeight = cardWidth * 0.65;
-        final previewCount = isTablet ? links.length : links.length.clamp(0, 5);
+            ? 320.0
+            : (size.width - hPad * 2) * 0.85;
+        final cardHeight = (cardWidth / 1.7).clamp(168.0, 196.0);
+        final previewCount = isTablet
+            ? journeys.length
+            : journeys.length.clamp(0, 4);
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+          padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -48,7 +45,6 @@ class RediscoverySection extends ConsumerWidget {
                       .read(hasSeenRediscoverTipProvider.notifier)
                       .set(true),
                 ),
-              // Tappable header row with chevron
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
                 child: InkWell(
@@ -68,12 +64,12 @@ class RediscoverySection extends ConsumerWidget {
                                 style: tt.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: cs.onSurface,
-                                  letterSpacing: -0.15,
+                                  letterSpacing: 0,
                                 ),
                               ),
                               const SizedBox(height: 1),
                               Text(
-                                'Based on your activity',
+                                'Worth picking back up',
                                 style: tt.labelSmall?.copyWith(
                                   fontSize: 10,
                                   color: cs.onSurfaceVariant,
@@ -95,34 +91,20 @@ class RediscoverySection extends ConsumerWidget {
                 ),
               ),
               SizedBox(
-                height: cardHeight + 8, // breathing room
+                height: cardHeight,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: hPad),
                   itemCount: previewCount,
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, i) => _RediscoveryCard(
-                    url: links[i],
-                    tagFrequency: tagFreq,
+                  itemBuilder: (context, i) => _RediscoverJourneyCard(
+                    journey: journeys[i],
                     width: cardWidth,
                     height: cardHeight,
-                    onTap: () async {
-                      final svc = RediscoveryService(
-                        ref.read(isarServiceProvider),
-                      );
-                      await svc.markResurfaced(links[i].id);
-                      await svc.markOpened(links[i].id);
-                      ref.invalidate(rediscoveryLinksProvider);
-                      if (context.mounted) {
-                        context.push(
-                          '/url/${links[i].id}',
-                          extra: links
-                              .take(previewCount)
-                              .map((l) => l.id)
-                              .toList(),
-                        );
-                      }
-                    },
+                    onTap: () => context.push(
+                      '/rediscover/journey',
+                      extra: journeys[i],
+                    ),
                   ),
                 ),
               ),
@@ -160,7 +142,7 @@ class _RediscoverTip extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'New: Rediscover brings back saves worth a second look — tap any to dive back in.',
+              'Rediscover surfaces related saves when the timing feels right.',
               style: tt.bodySmall?.copyWith(color: cs.onSurface, height: 1.3),
             ),
           ),
@@ -179,17 +161,15 @@ class _RediscoverTip extends StatelessWidget {
   }
 }
 
-class _RediscoveryCard extends StatelessWidget {
-  const _RediscoveryCard({
-    required this.url,
-    required this.tagFrequency,
+class _RediscoverJourneyCard extends StatelessWidget {
+  const _RediscoverJourneyCard({
+    required this.journey,
     required this.onTap,
     required this.width,
     required this.height,
   });
 
-  final SavedUrl url;
-  final Map<String, int> tagFrequency;
+  final RediscoverJourney journey;
   final VoidCallback onTap;
   final double width;
   final double height;
@@ -197,96 +177,122 @@ class _RediscoveryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-    final isLight = cs.brightness == Brightness.light;
-    final photoTextColor = isLight ? cs.scrim : cs.inverseSurface;
-    final photoMetaColor = isLight
-        ? cs.scrim.withValues(alpha: 0.60)
-        : cs.inverseSurface.withValues(alpha: 0.50);
-    final hasThumbnail =
-        url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
-    final title = TitleResolver.resolve(url, tagFrequency: tagFrequency);
+    final visual = visualForJourney(context, journey);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Light mode needs a touch more presence for the wash to register.
+    final iconWashOpacity = isDark ? 0.22 : 0.32;
+    // The fused glyph scales with the card so the bleed stays proportional.
+    final iconSize = height * 1.04;
 
     return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
       clipBehavior: Clip.antiAlias,
-      elevation: isLight ? 1 : 0,
-      shadowColor: cs.shadow.withValues(alpha: 0.08),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
           width: width,
           height: height,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: visual.colors,
+            ),
+          ),
           child: Stack(
-            fit: StackFit.expand,
             children: [
-              if (hasThumbnail)
-                CachedNetworkImage(
-                  imageUrl: url.thumbnailUrl!,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+              // Fused category icon: oversized, accent-tinted, bleeding off the
+              // top-left corner and fading diagonally into the gradient. No
+              // chip or frame — the glyph itself is the texture.
+              Positioned(
+                left: -iconSize * 0.16,
+                top: -iconSize * 0.24,
+                child: Opacity(
+                  opacity: iconWashOpacity,
+                  child: ShaderMask(
+                    shaderCallback: (bounds) {
+                      return LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          visual.accentColor.withValues(alpha: 1),
+                          visual.accentColor.withValues(alpha: 0),
+                        ],
+                        stops: const [0.08, 0.70],
+                      ).createShader(bounds);
+                    },
+                    blendMode: BlendMode.dstIn,
+                    child: Icon(
+                      visual.icon,
+                      size: iconSize,
+                      color: visual.accentColor,
+                    ),
+                  ),
                 ),
-              // Stronger cinematic gradient
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: hasThumbnail
-                        ? isLight
-                            ? [
-                                cs.surface.withValues(alpha: 0.04),
-                                cs.surface.withValues(alpha: 0.18),
-                                cs.surface.withValues(alpha: 0.62),
-                                cs.surface.withValues(alpha: 0.88),
-                              ]
-                            : [
-                                cs.scrim.withValues(alpha: 0.08),
-                                cs.scrim.withValues(alpha: 0.30),
-                                cs.scrim.withValues(alpha: 0.70),
-                                cs.scrim.withValues(alpha: 0.92),
-                              ]
-                        : [
-                            cs.surfaceContainerLow,
-                            cs.surfaceContainerLow,
-                          ],
+              ),
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: JourneyMotifPainter(
+                    motif: visual.motif,
+                    color: visual.motifColor,
+                    variant: journey.title.hashCode,
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: visual.overlayColors,
+                    ),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    const Spacer(),
                     Text(
-                      title,
-                      style: tt.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        color: hasThumbnail
-                            ? photoTextColor.withValues(alpha: 0.92)
-                            : cs.onSurface,
-                        height: 1.2,
-                        letterSpacing: -0.1,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      url.domain,
-                      style: tt.labelSmall?.copyWith(
-                        fontSize: 10,
-                        color: hasThumbnail
-                            ? photoMetaColor
-                            : cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w400,
-                      ),
+                      visual.eyebrow,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      style: tt.labelSmall?.copyWith(
+                        color: visual.mutedForeground.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                        fontSize: 10,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      journey.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.titleLarge?.copyWith(
+                        color: visual.foreground,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        height: 1.14,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    Text(
+                      _metadataLine(journey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.labelMedium?.copyWith(
+                        color: visual.mutedForeground.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                        letterSpacing: 0,
+                      ),
                     ),
                   ],
                 ),
@@ -296,5 +302,27 @@ class _RediscoveryCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _metadataLine(RediscoverJourney journey) {
+    final n = journey.items.length;
+    final dates = [
+      for (final item in journey.items)
+        item.url.openedAt ?? item.url.resurfacedAt ?? item.url.savedAt,
+    ]..sort((a, b) => b.compareTo(a));
+    final opened = dates.isEmpty ? 'recently' : _timeAgo(dates.first);
+    return '$n ${n == 1 ? 'save' : 'saves'} · opened $opened';
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
+    return '${(diff.inDays / 365).floor()}y ago';
   }
 }

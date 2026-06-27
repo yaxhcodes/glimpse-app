@@ -3,7 +3,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/category_order_provider.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/category_resolver.dart';
+import '../../core/services/category_taxonomy.dart';
 
 /// Provider for the home screen — all URLs grouped by category.
 final allUrlsProvider = FutureProvider<List<SavedUrl>>((ref) async {
@@ -94,16 +94,18 @@ List<Map<String, dynamic>> _categoriesFromUrls(List<SavedUrl> urls) {
   final categoryMap = <String, Map<String, dynamic>>{};
   for (final url in urls) {
     for (final category in url.effectiveCategories) {
-      final existing = categoryMap[category];
+      final interest = CategoryTaxonomy.normalize(
+        category: category,
+        tags: url.tags,
+      );
+      final name = interest.name;
+      final existing = categoryMap[name];
       if (existing != null) {
         existing['count'] = (existing['count'] as int) + 1;
       } else {
-        categoryMap[category] = {
-          'category': category,
-          'emoji': CategoryResolver.emojiForCategory(
-            category,
-            fallbackEmoji: category == url.category ? url.categoryEmoji : null,
-          ),
+        categoryMap[name] = {
+          'category': name,
+          'emoji': interest.emoji,
           'count': 1,
         };
       }

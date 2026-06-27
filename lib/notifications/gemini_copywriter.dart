@@ -402,8 +402,8 @@ Write a notification for this user now.
         final g = fp.featuredGeo ?? 'a place';
         final u = fp.featuredGeoUnreadCount;
         return NotifCopy(
-          title: 'Your ${_tc(g)} list is waiting',
-          body: '$u saves about ${_tc(g)} you have not opened yet.',
+          title: 'Planning around ${_tc(g)} again?',
+          body: '$u saved ideas are ready to revisit.',
         );
       case 'B':
         final tag = _bestNewInterestTag(fp) ?? 'something new';

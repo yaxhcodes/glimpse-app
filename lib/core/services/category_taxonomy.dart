@@ -5,67 +5,77 @@ class CategoryDefinition {
   const CategoryDefinition(this.name, this.emoji);
 }
 
-/// Keeps top-level categories stable while allowing specific topics to live in tags.
+/// Keeps top-level Interests stable while allowing specific subjects to live in
+/// tags/topics. Older granular category names are still accepted as aliases so
+/// existing saves and enrichment payloads do not need a storage migration.
 class CategoryTaxonomy {
   static const categories = <CategoryDefinition>[
     CategoryDefinition('Technology', '💻'),
-    CategoryDefinition('AI & ML', '🤖'),
-    CategoryDefinition('Software Development', '🧑‍💻'),
-    CategoryDefinition('Gadgets & Hardware', '📱'),
-    CategoryDefinition('Apps & Tools', '🧰'),
-    CategoryDefinition('Cybersecurity', '🔐'),
-    CategoryDefinition('Data & Analytics', '📊'),
     CategoryDefinition('Business', '💼'),
-    CategoryDefinition('Startups', '🚀'),
-    CategoryDefinition('Marketing & Growth', '📣'),
-    CategoryDefinition('Creator Economy', '🎙️'),
     CategoryDefinition('Finance', '💰'),
-    CategoryDefinition('Personal Finance', '🏦'),
-    CategoryDefinition('Investing', '📈'),
-    CategoryDefinition('Crypto', '₿'),
     CategoryDefinition('Science', '🔬'),
-    CategoryDefinition('Space & Astronomy', '🪐'),
-    CategoryDefinition('Biology & Medicine', '🧬'),
     CategoryDefinition('Health', '❤️'),
-    CategoryDefinition('Fitness', '💪'),
-    CategoryDefinition('Nutrition', '🥗'),
-    CategoryDefinition('Mental Health', '🧠'),
     CategoryDefinition('Education', '📘'),
-    CategoryDefinition('Language Learning', '🗣️'),
-    CategoryDefinition('Math', '➗'),
     CategoryDefinition('News', '📰'),
-    CategoryDefinition('World Affairs', '🌐'),
-    CategoryDefinition('Law & Policy', '⚖️'),
     CategoryDefinition('Design', '🎨'),
-    CategoryDefinition('Art & Illustration', '🖌️'),
-    CategoryDefinition('Photography', '📷'),
-    CategoryDefinition('Architecture', '🏛️'),
-    CategoryDefinition('History & Culture', '🏺'),
-    CategoryDefinition('Spirituality & Philosophy', '🕯️'),
-    CategoryDefinition('Relationships', '🤝'),
-    CategoryDefinition('Career', '🧭'),
-    CategoryDefinition('Productivity', '✅'),
-    CategoryDefinition('Nature & Environment', '🌱'),
-    CategoryDefinition('Parenting & Family', '👨‍👩‍👧'),
-    CategoryDefinition('Home & Garden', '🌿'),
-    CategoryDefinition('DIY & Making', '🛠️'),
-    CategoryDefinition('Food & Cooking', '🍳'),
-    CategoryDefinition('Restaurants & Cafes', '🍽️'),
+    CategoryDefinition('History', '🏺'),
+    CategoryDefinition('Philosophy', '🕯️'),
+    CategoryDefinition('Nature', '🌿'),
+    CategoryDefinition('Food', '🍳'),
     CategoryDefinition('Travel', '🌍'),
-    CategoryDefinition('Outdoors & Adventure', '🥾'),
     CategoryDefinition('Entertainment', '🎬'),
-    CategoryDefinition('Movies & TV', '📺'),
-    CategoryDefinition('Music', '🎧'),
-    CategoryDefinition('Gaming', '🎮'),
     CategoryDefinition('Lifestyle', '✨'),
-    CategoryDefinition('Fashion & Beauty', '👗'),
-    CategoryDefinition('Shopping', '🛒'),
-    CategoryDefinition('Vehicles', '🚗'),
-    CategoryDefinition('Reference', '📚'),
-    CategoryDefinition('Books & Literature', '📖'),
-    CategoryDefinition('Documentation', '📄'),
+    CategoryDefinition('Sports', '🏅'),
     CategoryDefinition('Other', '🔖'),
   ];
+
+  static const _interestAliases = <String, String>{
+    'ai & ml': 'Technology',
+    'software development': 'Technology',
+    'gadgets & hardware': 'Technology',
+    'apps & tools': 'Technology',
+    'cybersecurity': 'Technology',
+    'data & analytics': 'Technology',
+    'startups': 'Business',
+    'marketing & growth': 'Business',
+    'creator economy': 'Business',
+    'personal finance': 'Finance',
+    'investing': 'Finance',
+    'crypto': 'Finance',
+    'space & astronomy': 'Science',
+    'biology & medicine': 'Science',
+    'fitness': 'Health',
+    'nutrition': 'Health',
+    'mental health': 'Health',
+    'language learning': 'Education',
+    'math': 'Education',
+    'world affairs': 'News',
+    'law & policy': 'News',
+    'art & illustration': 'Design',
+    'photography': 'Design',
+    'architecture': 'Design',
+    'history & culture': 'History',
+    'spirituality & philosophy': 'Philosophy',
+    'relationships': 'Lifestyle',
+    'career': 'Business',
+    'productivity': 'Lifestyle',
+    'nature & environment': 'Nature',
+    'parenting & family': 'Lifestyle',
+    'home & garden': 'Lifestyle',
+    'diy & making': 'Lifestyle',
+    'food & cooking': 'Food',
+    'restaurants & cafes': 'Food',
+    'outdoors & adventure': 'Travel',
+    'movies & tv': 'Entertainment',
+    'music': 'Entertainment',
+    'gaming': 'Entertainment',
+    'fashion & beauty': 'Lifestyle',
+    'shopping': 'Lifestyle',
+    'vehicles': 'Lifestyle',
+    'reference': 'Education',
+    'books & literature': 'Education',
+    'documentation': 'Education',
+  };
 
   static String promptOptions() {
     return categories.map((c) => '- ${c.name} (${c.emoji})').join('\n');
@@ -1621,15 +1631,13 @@ class CategoryTaxonomy {
   };
 
   static CategoryDefinition byName(String name) {
-    return categories.firstWhere(
-      (item) => item.name == name,
-      orElse: () => const CategoryDefinition('Other', '🔖'),
-    );
+    return tryByName(name) ?? const CategoryDefinition('Other', '🔖');
   }
 
   static CategoryDefinition? tryByName(String name) {
+    final canonical = _interestAliases[name.trim().toLowerCase()];
     for (final item in categories) {
-      if (item.name == name) {
+      if (item.name == name || item.name == canonical) {
         return item;
       }
     }

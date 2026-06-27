@@ -143,6 +143,21 @@ final forgottenGemsProvider = FutureProvider<List<RediscoveryItem>>((
       .toList();
 });
 
+final neverOpenedProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
+  final live = await _liveUrls(ref);
+  return live
+      .where((u) => u.openedAt == null)
+      .take(12)
+      .map(
+        (u) => RediscoveryItem(
+          url: u,
+          reason: 'Never opened',
+          timeAgo: _formatTimeAgo(u.savedAt),
+        ),
+      )
+      .toList();
+});
+
 /// Interest-based shelf, titled after the topic that ties the picks together.
 typedef InterestShelf = ({String title, List<RediscoveryItem> items});
 typedef GoalShelf = ({String title, List<RediscoveryItem> items});

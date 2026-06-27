@@ -46,6 +46,8 @@ import 'features/ask/ask_screen.dart';
 import 'features/mindmap/mindmap_screen.dart';
 import 'features/recap/recap_screen.dart';
 import 'features/synthesis/synthesis_screen.dart';
+import 'features/rediscover/rediscover_journey_detail_screen.dart';
+import 'features/rediscover/rediscover_journey_provider.dart';
 import 'features/rediscover/rediscover_screen.dart';
 import 'features/sources/archive_screen.dart';
 import 'features/sources/source_detail_screen.dart';
@@ -197,6 +199,16 @@ final _router = GoRouter(
     GoRoute(
       path: '/rediscover',
       builder: (context, state) => const RediscoverScreen(),
+    ),
+    GoRoute(
+      path: '/rediscover/journey',
+      builder: (context, state) {
+        final journey = state.extra is RediscoverJourney
+            ? state.extra as RediscoverJourney
+            : null;
+        if (journey == null) return const RediscoverScreen();
+        return RediscoverJourneyDetailScreen(journey: journey);
+      },
     ),
     GoRoute(
       path: '/sources',

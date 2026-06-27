@@ -55,8 +55,8 @@ class _UrlCardSkeletonState extends State<UrlCardSkeleton>
         );
         final theme = Theme.of(context);
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.all(12),
           decoration: ShapeDecoration(
             color: UrlCard.listCardFillColor(theme),
             shape: UrlCard.listCardShape(theme, radius: 14),
@@ -66,9 +66,9 @@ class _UrlCardSkeletonState extends State<UrlCardSkeleton>
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Container(width: 64, height: 64, color: shimmer),
+                child: Container(width: 56, height: 56, color: shimmer),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,7 +223,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ExpressiveTapScale(
         child: Material(
           color: widget.isSelected
@@ -254,24 +254,24 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               }
             },
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   widget.selectionMode
                       ? _SelectionThumbnailControl(
                           selected: widget.isSelected,
-                          size: 64,
+                          size: 56,
                           onTap: widget.onSelectionTap,
                         )
                       : LinkCardThumbnail.build(
                           url: widget.savedUrl,
                           isRead: isRead,
                           context: context,
-                          size: 64,
+                          size: 56,
                           borderRadius: 10,
                         ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

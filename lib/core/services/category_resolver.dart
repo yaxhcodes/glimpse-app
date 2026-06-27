@@ -13,8 +13,9 @@ class CategoryResolver {
     void addCategory(String? value) {
       final trimmed = value?.trim();
       if (trimmed == null || trimmed.isEmpty) return;
-      if (!ordered.contains(trimmed)) {
-        ordered.add(trimmed);
+      final normalized = CategoryTaxonomy.normalize(category: trimmed).name;
+      if (!ordered.contains(normalized)) {
+        ordered.add(normalized);
       }
     }
 
