@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../../notifications/gemini_copywriter.dart';
 
 import '../database/isar_service.dart';
+import '../models/engagement_event.dart';
 import '../models/saved_url.dart';
 import 'digest_notifications.dart';
 import 'digest_prefs.dart';
@@ -74,6 +76,15 @@ class NotificationScheduler {
       final result = await _tryType(isar, type, fp, sig: _signature(type, fp));
       if (result != null) {
         await NotifBandit.recordSend(type);
+        // Also feed the unified event log so the affinity model sees
+        // notification engagement at the topic level (the bandit tracks it by
+        // type). Best-effort.
+        unawaited(
+          isar.logEvent(
+            type: EngagementEventType.notifShown,
+            triggerType: type,
+          ),
+        );
         await DigestPrefs.recordFired();
         await DigestPrefs.setLastFiredType(type);
         await DigestPrefs.setLastFired(type);

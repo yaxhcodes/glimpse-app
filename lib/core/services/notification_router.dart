@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../database/isar_service.dart';
+import '../models/engagement_event.dart';
 import 'digest_prefs.dart';
 import 'notif_bandit.dart';
 import 'tag_analyzer.dart';
@@ -105,7 +107,16 @@ class NotificationRouter {
 
     // Reward signal for the on-device bandit: this type got opened.
     final letter = _rewardLetter(map);
-    if (letter != null) unawaited(NotifBandit.recordOpen(letter));
+    if (letter != null) {
+      unawaited(NotifBandit.recordOpen(letter));
+      // Mirror into the unified event log for the affinity model.
+      unawaited(
+        IsarService().logEvent(
+          type: EngagementEventType.notifOpened,
+          triggerType: letter,
+        ),
+      );
+    }
     // Opening a notification is also an "active now" signal — feed the peak-hour
     // histogram so future notifications are timed to when the user engages.
     unawaited(TagAnalyzer.recordAppOpen());
