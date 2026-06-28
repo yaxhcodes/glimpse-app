@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/affinity_profile.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../home/home_provider.dart';
 import '../mindmap/cluster_theme.dart';
@@ -51,8 +52,9 @@ final rediscoverJourneysProvider =
   // rank and lead its items — instead of getting a competing card. The old
   // keyword memory-goals, forgotten-gems, and never-opened grab-bag generators
   // are retired; coherence now comes from a single grouping source.
+  final profile = await ref.watch(affinityProfileProvider.future);
   final clusters = await ref.watch(interestClusterThemesProvider.future);
-  final journeys = _clusterJourneys(clusters, liveIds);
+  final journeys = _clusterJourneys(clusters, liveIds, profile);
 
   // Thin-library fallback: if clusters have not formed yet, show one
   // recency/neglect shelf so new users aren't left empty.
@@ -156,7 +158,8 @@ String _dominantTopic(List<SavedUrl> urls) {
 /// eyebrow both derive from the cluster's on-theme core, so they always agree.
 List<RediscoverJourney> _clusterJourneys(
   List<ClusterTheme> clusters,
-  Set<int> liveIds, {
+  Set<int> liveIds,
+  AffinityProfile profile, {
   int maxJourneys = 5,
 }) {
   final now = DateTime.now();
@@ -204,8 +207,13 @@ List<RediscoverJourney> _clusterJourneys(
         )
         .inDays;
     final recency = freshestDays <= 7 ? 1.2 : (freshestDays <= 30 ? 1.0 : 0.85);
-    final score =
-        _framingBase(framing) * neglect * recency + (hasQueued ? 15.0 : 0.0);
+    // Behavioral affinity (1.0 = neutral while cold) nudges clusters the user
+    // actually engages with up, and ones they ignore/dismiss down.
+    final affinity = (profile.clusterMultiplier(cluster.label) +
+            profile.categoryMultiplier(topic.isEmpty ? null : topic)) /
+        2;
+    final score = _framingBase(framing) * neglect * recency * affinity +
+        (hasQueued ? 15.0 : 0.0);
 
     scored.add((
       score,
