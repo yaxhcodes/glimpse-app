@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/models/engagement_event.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
 import '../../core/providers/service_providers.dart';
@@ -168,6 +169,9 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         ..embedding = null; // enrichment will update
 
       await isarService.saveUrl(savedUrl);
+      unawaited(
+        isarService.logEvent(type: EngagementEventType.save, url: savedUrl),
+      );
       savedUrl
         ..processingStatus = UrlProcessingStatus.queued
         ..processingUpdatedAt = DateTime.now();

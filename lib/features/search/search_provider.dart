@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../core/models/engagement_event.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/usage_providers.dart';
@@ -55,6 +57,13 @@ class Search extends _$Search {
   Future<void> search(String query) async {
     final id = ++_requestId;
     state = const AsyncValue.loading();
+    // Behavioral signal: what the user searches for feeds topic affinity.
+    unawaited(
+      ref.read(isarServiceProvider).logEvent(
+            type: EngagementEventType.search,
+            query: query,
+          ),
+    );
 
     try {
       final isar = ref.read(isarServiceProvider);
