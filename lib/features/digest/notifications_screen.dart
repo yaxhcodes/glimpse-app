@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/category_resolver.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/services/notification_hub_labels.dart';
 import '../../core/services/notification_router.dart';
@@ -306,6 +307,9 @@ class CuratedNotificationListTile extends StatelessWidget {
       for (final c in u.effectiveCategories) {
         final trimmed = c.trim();
         if (trimmed.isEmpty) continue;
+        // Domains only — keep platform/source names out of this line.
+        // See title-and-copy-consistency-spec.md §5.
+        if (CategoryResolver.isPlatformName(trimmed)) continue;
         catCounts[trimmed] = (catCounts[trimmed] ?? 0) + 1;
       }
     }

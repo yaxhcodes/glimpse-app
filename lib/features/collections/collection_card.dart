@@ -125,7 +125,9 @@ class _CollectionCardState extends State<CollectionCard> {
   String? _latestSaveText(CollectionSummary summary) {
     final lastAddedAt = summary.lastAddedAt;
     if (lastAddedAt == null) {
-      return summary.linkCount == 0 ? 'No saves yet' : null;
+      // Empty collections already read "No links" on the count line above —
+      // a second "No saves yet" line is redundant, so show nothing here.
+      return null;
     }
     return 'Added · ${formatRelativeTime(lastAddedAt)}';
   }
@@ -255,7 +257,9 @@ class _CollectionListCardState extends State<CollectionListCard> {
   String? _latestSaveText(CollectionSummary summary) {
     final lastAddedAt = summary.lastAddedAt;
     if (lastAddedAt == null) {
-      return summary.linkCount == 0 ? 'No saves yet' : null;
+      // Empty collections already read "No links" on the count line above —
+      // a second "No saves yet" line is redundant, so show nothing here.
+      return null;
     }
     return 'Added · ${formatRelativeTime(lastAddedAt)}';
   }

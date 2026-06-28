@@ -248,7 +248,7 @@ class NotificationTemplates {
     final tagCounts = _tagCounts(fp.allUrls);
     final rawSnippet = (link.summary ?? '').trim().isNotEmpty
         ? link.summary!.trim()
-        : TitleResolver.resolve(link, tagFrequency: tagCounts);
+        : TitleResolver.resolveDetailTitle(link, tagFrequency: tagCounts);
     final summary = SummaryTrimmer.trim(rawSnippet, maxLength: 70);
     final relDay = _relativeDay(link.savedAt);
 
@@ -275,7 +275,7 @@ class NotificationTemplates {
         : SummaryTrimmer.trim(
             (hookLink.summary ?? '').trim().isNotEmpty
                 ? hookLink.summary!.trim()
-                : TitleResolver.resolve(hookLink, tagFrequency: tagCounts),
+                : TitleResolver.resolveDetailTitle(hookLink, tagFrequency: tagCounts),
             maxLength: 50,
           );
 

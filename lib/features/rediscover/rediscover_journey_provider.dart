@@ -1,11 +1,14 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/tag_analyzer.dart';
-import '../goals/memory_goals_provider.dart';
 import '../home/home_provider.dart';
+import '../mindmap/cluster_theme.dart';
+import '../mindmap/interest_clusters_provider.dart';
 import 'rediscover_provider.dart';
 
 enum RediscoverJourneyKind {
@@ -40,109 +43,38 @@ final rediscoverJourneysProvider =
   final urls = await _liveRediscoverUrls(ref);
   if (urls.length < 3) return const [];
 
-  final journeys = <RediscoverJourney>[];
-
-  final goals = await ref.watch(memoryGoalsProvider.future);
   final liveIds = {for (final url in urls) url.id};
-  final rankedGoals =
-      goals.where((goal) => goal.urls.any((url) => liveIds.contains(url.id)))
-          .toList()
-        ..sort((a, b) => b.strength.compareTo(a.strength));
-  for (final goal in rankedGoals.take(2)) {
-    final items = goal.urls
-        .where((url) => liveIds.contains(url.id))
-        .take(8)
-        .map(
-          (url) => RediscoveryItem(
-            url: url,
-            reason: _goalReason(goal.status),
-            timeAgo: _formatTimeAgo(url.savedAt),
-          ),
-        )
-        .toList();
-    if (items.length < 2) continue;
-    journeys.add(
-      RediscoverJourney(
-        kind: RediscoverJourneyKind.memoryGoal,
-        title: _journeyTitleForGoal(goal.name, goal.status),
-        subtitle: '${items.length} saves worth reopening',
-        icon: Icons.route_rounded,
-        items: items,
-        signal: 90 + goal.strength,
-      ),
-    );
-  }
 
-  final due = await ref.watch(revisitQueueProvider.future);
-  if (due.isNotEmpty) {
-    journeys.add(
-      RediscoverJourney(
-        kind: RediscoverJourneyKind.continueLearning,
-        title: _continueTitle(due),
-        subtitle: '${due.length} saved for later',
-        icon: Icons.playlist_play_rounded,
-        items: due.take(8).toList(),
-        signal: 86,
-      ),
-    );
-  }
+  // One coherent pipeline: every topic journey comes from the embedding
+  // clusters that power the Interests map (on-theme cores), framed by member
+  // state. Explicitly queued saves are folded in — they boost their cluster's
+  // rank and lead its items — instead of getting a competing card. The old
+  // keyword memory-goals, forgotten-gems, and never-opened grab-bag generators
+  // are retired; coherence now comes from a single grouping source.
+  final clusters = await ref.watch(interestClusterThemesProvider.future);
+  final journeys = _clusterJourneys(clusters, liveIds);
 
-  final topic = _dominantTopic(urls);
-  final interestItems = (await ref.watch(interestShelfProvider.future))
-      .items
-      .take(8)
-      .toList();
-  if (interestItems.length >= 2) {
-    journeys.add(
-      RediscoverJourney(
-        kind: RediscoverJourneyKind.becauseYouSaved,
-        title: topic.isEmpty
-            ? 'Your recent curiosity continues'
-            : _topicJourneyTitle(topic),
-        subtitle: '${interestItems.length} saves worth reopening',
-        icon: Icons.auto_awesome_rounded,
-        items: interestItems,
-        signal: 74,
-      ),
-    );
-  }
-
-  final gems = await ref.watch(forgottenGemsProvider.future);
-  if (gems.length >= 2) {
-    journeys.add(
-      RediscoverJourney(
-        kind: RediscoverJourneyKind.forgottenGems,
-        title: _hiddenGemTitle(gems),
-        subtitle: '${gems.length} older saves worth reopening',
-        icon: Icons.diamond_outlined,
-        items: gems.take(8).toList(),
-        signal: 68,
-      ),
-    );
-  }
-
-  final neverOpened = urls
-      .where((url) => url.openedAt == null)
-      .take(10)
-      .map(
-        (url) => RediscoveryItem(
-          url: url,
-          reason: 'Never opened',
-          timeAgo: _formatTimeAgo(url.savedAt),
+  // Thin-library fallback: if clusters have not formed yet, show one
+  // recency/neglect shelf so new users aren't left empty.
+  if (journeys.isEmpty) {
+    final interestItems =
+        (await ref.watch(interestShelfProvider.future)).items.take(8).toList();
+    if (interestItems.length >= 2) {
+      final topic =
+          _dominantTopic(interestItems.map((item) => item.url).toList());
+      journeys.add(
+        RediscoverJourney(
+          kind: RediscoverJourneyKind.becauseYouSaved,
+          title: topic.isEmpty
+              ? 'Your recent curiosity continues'
+              : _topicJourneyTitle(topic),
+          subtitle: '${interestItems.length} saves worth reopening',
+          icon: Icons.auto_awesome_rounded,
+          items: interestItems,
+          signal: 74,
         ),
-      )
-      .toList();
-  if (neverOpened.length >= 3) {
-    journeys.add(
-      RediscoverJourney(
-        kind: RediscoverJourneyKind.neverOpened,
-        title: _neverOpenedTitle(neverOpened),
-        subtitle: '${neverOpened.length} unopened saves',
-        icon: Icons.mark_email_unread_outlined,
-        items: neverOpened,
-        signal: 54,
-      ),
-    );
+      );
+    }
   }
 
   final anniversaries = await ref.watch(onThisDayProvider.future);
@@ -160,8 +92,32 @@ final rediscoverJourneysProvider =
   }
 
   journeys.sort((a, b) => b.signal.compareTo(a.signal));
-  return journeys.take(6).toList();
+  return _dedupeJourneys(journeys).take(6).toList();
 });
+
+/// Removes redundant journeys, keeping the highest-signal one. Two independent
+/// generators (memory goals + interest clusters) can both surface the same
+/// topic — e.g. a "cook" goal and a food cluster both titled "Still perfecting
+/// your recipes?" — so drop later journeys that repeat a title or mostly repeat
+/// the saves of one already kept.
+List<RediscoverJourney> _dedupeJourneys(List<RediscoverJourney> journeys) {
+  final kept = <RediscoverJourney>[];
+  final seenTitles = <String>{};
+  for (final j in journeys) {
+    final titleKey = j.title.trim().toLowerCase();
+    if (seenTitles.contains(titleKey)) continue;
+    final ids = j.items.map((i) => i.url.id).toSet();
+    final overlapsKept = ids.isNotEmpty &&
+        kept.any((k) {
+          final kIds = k.items.map((i) => i.url.id).toSet();
+          return ids.intersection(kIds).length / ids.length >= 0.5;
+        });
+    if (overlapsKept) continue;
+    seenTitles.add(titleKey);
+    kept.add(j);
+  }
+  return kept;
+}
 
 Future<List<SavedUrl>> _liveRediscoverUrls(Ref ref) async {
   ref.watch(
@@ -190,48 +146,174 @@ String _dominantTopic(List<SavedUrl> urls) {
   return top.value >= 2 ? top.key : '';
 }
 
-String _continueTitle(List<RediscoveryItem> items) {
-  final first = items.firstOrNull?.url;
-  if (first == null) return 'Continue where you left off';
-  final topic = TagAnalyzer.notificationTopicTags(first.tags).firstOrNull;
-  if (topic != null) return _topicJourneyTitle(topic);
-  return 'Continue where you left off';
+/// Builds coherent journeys from the strongest interest clusters, so every save
+/// in a journey is genuinely about the same thing. Prefers clusters with the
+/// most unopened members (most worth resurfacing); within a journey, unopened
+/// and oldest saves come first.
+/// The single Rediscover pipeline: one journey per coherent interest cluster,
+/// framed by member state (Continue / Forgotten gem / Still waiting), with
+/// explicitly-queued saves boosting rank and leading the items. Title and
+/// eyebrow both derive from the cluster's on-theme core, so they always agree.
+List<RediscoverJourney> _clusterJourneys(
+  List<ClusterTheme> clusters,
+  Set<int> liveIds, {
+  int maxJourneys = 5,
+}) {
+  final now = DateTime.now();
+  final scored = <(double, RediscoverJourney)>[];
+
+  for (final cluster in clusters) {
+    final members = cluster.urls
+        .where((u) => liveIds.contains(u.id) && u.isProcessingReady)
+        .toList();
+    if (members.length < 3) continue;
+
+    // Restrict to the cluster's on-theme core so outliers the clusterer lumped
+    // into the tail (e.g. a film save inside a food cluster) don't show up.
+    final core = _onThemeCore(members);
+    if (core.length < 3) continue;
+
+    final unopened = core.where((u) => u.openedAt == null).length;
+    if (unopened == 0) continue; // nothing worth resurfacing
+
+    // Order: explicitly-queued first, then unopened, then oldest.
+    final picked = ([...core]..sort((a, b) {
+          final aq = a.isQueued ? 0 : 1;
+          final bq = b.isQueued ? 0 : 1;
+          if (aq != bq) return aq - bq;
+          final ao = a.openedAt == null ? 0 : 1;
+          final bo = b.openedAt == null ? 0 : 1;
+          if (ao != bo) return ao - bo;
+          return a.savedAt.compareTo(b.savedAt);
+        }))
+        .take(8)
+        .toList();
+    if (picked.length < 2) continue;
+
+    final framing = _framingFor(core, now);
+    final hasQueued = core.any((u) => u.isQueued);
+    final topic = _dominantTopic(picked);
+    final title =
+        topic.isEmpty ? _topicJourneyTitle(cluster.label) : _topicJourneyTitle(topic);
+
+    // Score: framing base × neglect × recency, plus an explicit-intent boost.
+    final neglect = 0.5 + unopened / core.length; // 0.5–1.5
+    final freshestDays = now
+        .difference(
+          core.map((u) => u.savedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+        )
+        .inDays;
+    final recency = freshestDays <= 7 ? 1.2 : (freshestDays <= 30 ? 1.0 : 0.85);
+    final score =
+        _framingBase(framing) * neglect * recency + (hasQueued ? 15.0 : 0.0);
+
+    scored.add((
+      score,
+      RediscoverJourney(
+        kind: framing,
+        title: title,
+        subtitle: _framingSubtitle(framing, picked.length, hasQueued),
+        icon: _framingIcon(framing),
+        items: picked
+            .map(
+              (u) => RediscoveryItem(
+                url: u,
+                reason: _itemReason(u),
+                timeAgo: _formatTimeAgo(u.savedAt),
+              ),
+            )
+            .toList(),
+        signal: score,
+      ),
+    ));
+  }
+
+  scored.sort((a, b) => b.$1.compareTo(a.$1));
+  return scored.take(maxJourneys).map((e) => e.$2).toList();
 }
 
-String _journeyTitleForGoal(String goal, String status) {
-  final clean = goal.trim();
-  if (clean.isEmpty) return 'Worth another look';
-  final lower = clean.toLowerCase();
-  if (_containsAny(lower, const ['trek', 'hike', 'camp', 'trail'])) {
-    return 'Planning another trek?';
-  }
-  if (_containsAny(lower, const ['cook', 'recipe', 'food', 'meal'])) {
-    return 'Still perfecting your recipes?';
-  }
-  if (_containsAny(lower, const ['wildlife', 'nature', 'forest'])) {
-    return 'Nature called again';
-  }
-  if (_containsAny(lower, const ['philosophy', 'stoicism', 'gita'])) {
-    return 'Philosophy worth revisiting';
-  }
-  if (_containsAny(lower, const ['ai', 'agent', 'llm', 'openai', 'claude'])) {
-    return 'Continue Building';
-  }
-  if (_containsAny(lower, const ['startup', 'business', 'founder'])) {
-    return 'Back to building?';
-  }
-  if (_containsAny(lower, const ['photo', 'camera', 'visual'])) {
-    return 'Capture something new';
-  }
-  if (_containsAny(lower, const ['book', 'reading', 'literature'])) {
-    return 'Worth another chapter';
-  }
-  return switch (status) {
-    'dormant' => 'Worth another look',
-    'cooling' => 'Back to this',
-    'active' => 'Keep going',
-    _ => 'Worth another look',
+/// Picks a framing for a cluster from its members' state.
+RediscoverJourneyKind _framingFor(List<SavedUrl> core, DateTime now) {
+  final recentBurst =
+      core.where((u) => now.difference(u.savedAt).inHours <= 48).length;
+  if (recentBurst >= 2) return RediscoverJourneyKind.continueLearning;
+  final hasOldGem = core.any(
+    (u) => u.openedAt == null && now.difference(u.savedAt).inDays >= 21,
+  );
+  if (hasOldGem) return RediscoverJourneyKind.forgottenGems;
+  return RediscoverJourneyKind.becauseYouSaved;
+}
+
+double _framingBase(RediscoverJourneyKind framing) => switch (framing) {
+  RediscoverJourneyKind.continueLearning => 84.0,
+  RediscoverJourneyKind.forgottenGems => 64.0,
+  _ => 74.0,
+};
+
+IconData _framingIcon(RediscoverJourneyKind framing) => switch (framing) {
+  RediscoverJourneyKind.continueLearning => Icons.playlist_play_rounded,
+  RediscoverJourneyKind.forgottenGems => Icons.diamond_outlined,
+  _ => Icons.auto_awesome_rounded,
+};
+
+String _framingSubtitle(RediscoverJourneyKind framing, int n, bool hasQueued) {
+  if (hasQueued) return '$n saves, including ones you queued';
+  return switch (framing) {
+    RediscoverJourneyKind.continueLearning => "$n saves — you're on a thread",
+    RediscoverJourneyKind.forgottenGems => '$n saves you set aside a while ago',
+    _ => '$n saves worth reopening',
   };
+}
+
+String _itemReason(SavedUrl u) {
+  if (u.isQueued) return 'You saved this to revisit';
+  if (u.openedAt == null) return 'Unopened';
+  return 'Worth revisiting';
+}
+
+/// Keeps the cluster members closest to the cluster centroid and drops the
+/// outlier tail, so a heterogeneous cluster surfaces only its coherent core.
+/// Falls back to all members when too few have embeddings to be reliable.
+List<SavedUrl> _onThemeCore(List<SavedUrl> members) {
+  final withEmbedding = members
+      .where((u) => u.embedding != null && u.embedding!.isNotEmpty)
+      .toList();
+  if (withEmbedding.length < 5) return List<SavedUrl>.from(members);
+
+  final dim = withEmbedding.first.embedding!.length;
+  final centroid = List<double>.filled(dim, 0.0);
+  var counted = 0;
+  for (final u in withEmbedding) {
+    final e = u.embedding!;
+    if (e.length != dim) continue;
+    for (var i = 0; i < dim; i++) {
+      centroid[i] += e[i];
+    }
+    counted++;
+  }
+  if (counted == 0) return List<SavedUrl>.from(members);
+  for (var i = 0; i < dim; i++) {
+    centroid[i] /= counted;
+  }
+
+  double cosineToCentroid(SavedUrl u) {
+    final e = u.embedding;
+    if (e == null || e.length != dim) return -1;
+    var dot = 0.0, na = 0.0, nb = 0.0;
+    for (var i = 0; i < dim; i++) {
+      dot += e[i] * centroid[i];
+      na += e[i] * e[i];
+      nb += centroid[i] * centroid[i];
+    }
+    if (na == 0 || nb == 0) return -1;
+    return dot / (math.sqrt(na) * math.sqrt(nb));
+  }
+
+  final sorted = [...withEmbedding]
+    ..sort((a, b) => cosineToCentroid(b).compareTo(cosineToCentroid(a)));
+  // Keep the most central ~60%; the tail is where off-theme outliers land.
+  final keep = (sorted.length * 0.6).ceil().clamp(4, sorted.length);
+  return sorted.take(keep).toList();
 }
 
 String _topicJourneyTitle(String topic) {
@@ -266,63 +348,11 @@ String _topicJourneyTitle(String topic) {
   return 'Worth returning to ${_titleCase(topic)}';
 }
 
-String _hiddenGemTitle(List<RediscoveryItem> items) {
-  final text = _itemsText(items);
-  if (_containsAny(text, const ['code', 'software', 'ai', 'agent'])) {
-    return 'Build notes you almost forgot';
-  }
-  if (_containsAny(text, const ['travel', 'trek', 'hike', 'mountain'])) {
-    return 'Routes worth reopening';
-  }
-  if (_containsAny(text, const ['recipe', 'cook', 'food'])) {
-    return 'Recipes hiding in your saves';
-  }
-  if (_containsAny(text, const ['book', 'read', 'philosophy'])) {
-    return 'Ideas worth another pass';
-  }
-  return 'Hidden gems worth another look';
-}
-
-String _neverOpenedTitle(List<RediscoveryItem> items) {
-  final text = _itemsText(items);
-  if (_containsAny(text, const ['book', 'read', 'essay'])) {
-    return 'Worth opening tonight';
-  }
-  if (_containsAny(text, const ['video', 'youtube', 'watch'])) {
-    return 'Things you meant to watch';
-  }
-  if (_containsAny(text, const ['recipe', 'cook', 'food'])) {
-    return 'Recipes still waiting';
-  }
-  return 'Start with what you never opened';
-}
-
-String _itemsText(List<RediscoveryItem> items) {
-  return [
-    for (final item in items.take(8)) ...[
-      item.url.title,
-      item.url.category,
-      ...item.url.tags,
-      ...item.url.effectiveCategories,
-    ],
-  ].join(' ').toLowerCase();
-}
-
 bool _containsAny(String text, List<String> needles) {
   for (final needle in needles) {
     if (text.contains(needle)) return true;
   }
   return false;
-}
-
-String _goalReason(String status) {
-  return switch (status) {
-    'dormant' => 'Worth reopening',
-    'cooling' => 'Worth revisiting',
-    'queued' => 'Saved for later',
-    'active' => 'Still relevant',
-    _ => 'Related save',
-  };
 }
 
 String _formatTimeAgo(DateTime date) {

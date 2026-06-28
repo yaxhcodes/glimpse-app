@@ -417,7 +417,7 @@ class NotificationScheduler {
     if (desc.isNotEmpty) {
       return SummaryTrimmer.trim(desc, maxLength: 120);
     }
-    return TitleResolver.resolve(link, tagFrequency: counts);
+    return TitleResolver.resolveDetailTitle(link, tagFrequency: counts);
   }
 }
 

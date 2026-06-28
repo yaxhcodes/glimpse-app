@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/category_resolver.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/revisit_scorer.dart';
 import '../goals/memory_goals_provider.dart';
@@ -267,7 +268,11 @@ String? _dominantCategory(List<SavedUrl> urls) {
   final counts = <String, int>{};
   for (final u in urls) {
     for (final c in u.effectiveCategories) {
-      if (c == 'Other') continue;
+      // Skip non-content buckets and platform/source names ("Instagram", "X",
+      // "Web") so the topic reflects what the saves are about, not where they
+      // came from. See title-and-copy-consistency-spec.md §5.
+      if (c == 'Other' || c == 'Web') continue;
+      if (CategoryResolver.isPlatformName(c)) continue;
       counts[c] = (counts[c] ?? 0) + 1;
     }
   }

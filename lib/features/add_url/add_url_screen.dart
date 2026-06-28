@@ -462,7 +462,7 @@ class _DuplicateUrlPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final title = TitleResolver.resolve(url);
+    final title = TitleResolver.resolveDetailTitle(url);
     final detail = _previewDetail(url);
 
     return _DuplicatePreviewShell(

@@ -72,7 +72,7 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
                   child: ListTile(
                     dense: true,
                     title: Text(
-                        TitleResolver.resolve(u, tagFrequency: tagFreq),
+                        TitleResolver.resolveDetailTitle(u, tagFrequency: tagFreq),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     subtitle: Text(u.domain,

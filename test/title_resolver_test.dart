@@ -110,5 +110,29 @@ void main() {
         'Nepal Travel · Kathmandu & Patan Exploration',
       );
     });
+
+    // Parity contract: every user-facing surface resolves through
+    // resolveDetailTitle (see title-and-copy-consistency-spec.md §4). For a
+    // low-signal handle title with an AI meaningful_title, the canonical method
+    // must return the enrichment title verbatim — NOT the tag-derived pair that
+    // the old notification list showed ("Stoicism · Self-improvement").
+    test('canonical title uses enrichment, not tag fallback (parity)', () {
+      final u = _url(
+        title: 'adonisyin_ on Instagram',
+        tags: ['stoicism', 'self-improvement'],
+      )..enrichmentJson =
+          '{"meaningful_title":"Marcus Aurelius · Stoic Wisdom Quotes"}';
+      final freq = {'stoicism': 1, 'self-improvement': 1};
+
+      // The canonical (detail) resolution every surface now shares.
+      final canonical = TitleResolver.resolveDetailTitle(u, tagFrequency: freq);
+      expect(canonical, 'Marcus Aurelius · Stoic Wisdom Quotes');
+
+      // And it must not collapse to the tag-derived title.
+      expect(canonical, isNot('Stoicism · Self-improvement'));
+
+      // The trailing subtitle is preserved (no compact-card dropping).
+      expect(canonical.contains('·'), isTrue);
+    });
   });
 }

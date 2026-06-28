@@ -47,8 +47,7 @@ class JourneyVisual {
 
 JourneyVisual visualForJourney(BuildContext context, RediscoverJourney journey) {
   final cs = Theme.of(context).colorScheme;
-  final text = _semanticText(journey);
-  final type = _motifFor(text);
+  final type = _motifForJourney(journey);
   final colors = _colorsFor(cs, type);
 
   return JourneyVisual(
@@ -66,18 +65,46 @@ JourneyVisual visualForJourney(BuildContext context, RediscoverJourney journey) 
   );
 }
 
-String _semanticText(RediscoverJourney journey) {
-  final parts = <String>[
-    journey.title,
-    journey.subtitle,
-    for (final item in journey.items.take(6)) ...[
+/// Picks the motif by majority vote across the journey's items, so a single
+/// tech-tagged save can't mislabel a whole philosophy journey as "Software".
+///
+/// The old version concatenated every item + the title and matched motifs in
+/// priority order — and since `software` is checked first against the broadest
+/// keyword net (ai, agent, code, github, mcp…), any journey that grazed one of
+/// those words came back "Software". Voting per item makes the dominant content
+/// win instead. Platform/source names carry no motif, so they don't vote.
+JourneyMotif _motifForJourney(RediscoverJourney journey) {
+  final votes = <JourneyMotif, int>{};
+  var total = 0;
+  for (final item in journey.items) {
+    total++;
+    final text = [
       item.url.category,
-      item.url.domain,
-      ...item.url.effectiveCategories,
-      ...item.url.tags.take(8),
-    ],
-  ];
-  return parts.join(' ').toLowerCase();
+      ...item.url.tags.take(10),
+    ].join(' ').toLowerCase();
+    votes.update(_motifFor(text), (v) => v + 1, ifAbsent: () => 1);
+  }
+
+  // Strongest specific (non-general) motif among the items.
+  JourneyMotif? best;
+  var bestCount = 0;
+  votes.forEach((motif, count) {
+    if (motif == JourneyMotif.general) return;
+    if (count > bestCount) {
+      best = motif;
+      bestCount = count;
+    }
+  });
+
+  // Only let a specific motif label the journey if it represents a real share
+  // of the items — otherwise one off-topic save (e.g. a lone AI link inside an
+  // Agriculture cluster) hijacks the eyebrow. Below the bar, defer to the
+  // title's own wording, then to neutral.
+  final threshold = total <= 3 ? 2 : (total * 0.34).ceil();
+  if (best != null && bestCount >= threshold) {
+    return best!;
+  }
+  return _motifFor(journey.title.toLowerCase());
 }
 
 JourneyMotif _motifFor(String text) {
@@ -120,6 +147,12 @@ JourneyMotif _motifFor(String text) {
     'garden',
     'plant',
     'ecology',
+    'agriculture',
+    'farming',
+    'crop',
+    'soil',
+    'harvest',
+    'agritech',
   ])) {
     return JourneyMotif.nature;
   }

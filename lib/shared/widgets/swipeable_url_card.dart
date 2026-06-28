@@ -325,7 +325,7 @@ class _PinLimitSheet extends ConsumerWidget {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final pinned = pinnedUrls[index];
-                    final title = TitleResolver.resolve(
+                    final title = TitleResolver.resolveDetailTitle(
                       pinned,
                       tagFrequency: tagFreq,
                     );

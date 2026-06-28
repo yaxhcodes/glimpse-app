@@ -396,7 +396,7 @@ class _HeroPick extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final url = item.url;
-    final title = TitleResolver.resolve(url, tagFrequency: tagFrequency);
+    final title = TitleResolver.resolveDetailTitle(url, tagFrequency: tagFrequency);
     final source = url.effectiveCategories.firstOrNull ?? url.domain;
     final hasImage = url.thumbnailUrl != null && url.thumbnailUrl!.isNotEmpty;
 
@@ -776,7 +776,7 @@ class _ShelfBody extends StatelessWidget {
                   onLongPress: () => onDismiss(item.url),
                   child: CinematicCard(
                     imageUrl: item.url.thumbnailUrl,
-                    title: TitleResolver.resolve(
+                    title: TitleResolver.resolveDetailTitle(
                       item.url,
                       tagFrequency: tagFrequency,
                     ),
