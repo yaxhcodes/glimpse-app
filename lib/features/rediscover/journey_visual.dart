@@ -73,38 +73,12 @@ JourneyVisual visualForJourney(BuildContext context, RediscoverJourney journey) 
 /// keyword net (ai, agent, code, github, mcp…), any journey that grazed one of
 /// those words came back "Software". Voting per item makes the dominant content
 /// win instead. Platform/source names carry no motif, so they don't vote.
+/// The journey's motif comes from its [RediscoverJourney.topicAnchor] — the
+/// same dominant topic that drives the title — so the eyebrow and title can
+/// never disagree (e.g. a "Travel" eyebrow over a "Self-improvement" title).
+/// Falls back to the title text for non-topic journeys (on-this-day, etc.).
 JourneyMotif _motifForJourney(RediscoverJourney journey) {
-  final votes = <JourneyMotif, int>{};
-  var total = 0;
-  for (final item in journey.items) {
-    total++;
-    final text = [
-      item.url.category,
-      ...item.url.tags.take(10),
-    ].join(' ').toLowerCase();
-    votes.update(_motifFor(text), (v) => v + 1, ifAbsent: () => 1);
-  }
-
-  // Strongest specific (non-general) motif among the items.
-  JourneyMotif? best;
-  var bestCount = 0;
-  votes.forEach((motif, count) {
-    if (motif == JourneyMotif.general) return;
-    if (count > bestCount) {
-      best = motif;
-      bestCount = count;
-    }
-  });
-
-  // Only let a specific motif label the journey if it represents a real share
-  // of the items — otherwise one off-topic save (e.g. a lone AI link inside an
-  // Agriculture cluster) hijacks the eyebrow. Below the bar, defer to the
-  // title's own wording, then to neutral.
-  final threshold = total <= 3 ? 2 : (total * 0.34).ceil();
-  if (best != null && bestCount >= threshold) {
-    return best!;
-  }
-  return _motifFor(journey.title.toLowerCase());
+  return _motifFor((journey.topicAnchor ?? journey.title).toLowerCase());
 }
 
 JourneyMotif _motifFor(String text) {
@@ -175,6 +149,20 @@ JourneyMotif _motifFor(String text) {
     'gita',
     'meaning',
     'ethics',
+    'self-improvement',
+    'self improvement',
+    'self-help',
+    'personal growth',
+    'mindset',
+    'spiritual',
+    'spirituality',
+    'meditation',
+    'discipline',
+    'wisdom',
+    'manifestation',
+    'hinduism',
+    'dharma',
+    'psychology',
   ])) {
     return JourneyMotif.philosophy;
   }

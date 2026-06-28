@@ -29,6 +29,7 @@ class RediscoverJourney {
     required this.icon,
     required this.items,
     required this.signal,
+    this.topicAnchor,
   });
 
   final RediscoverJourneyKind kind;
@@ -37,6 +38,12 @@ class RediscoverJourney {
   final IconData icon;
   final List<RediscoveryItem> items;
   final double signal;
+
+  /// The dominant content topic this journey is about. Drives the visual
+  /// eyebrow/motif so the title and eyebrow always agree (the title text may be
+  /// a varied phrase that doesn't literally contain the topic). Null for
+  /// non-topic journeys (e.g. on-this-day).
+  final String? topicAnchor;
 }
 
 final rediscoverJourneysProvider =
@@ -69,11 +76,12 @@ final rediscoverJourneysProvider =
           kind: RediscoverJourneyKind.becauseYouSaved,
           title: topic.isEmpty
               ? 'Your recent curiosity continues'
-              : _topicJourneyTitle(topic),
+              : _framedTitle(RediscoverJourneyKind.becauseYouSaved, topic),
           subtitle: '${interestItems.length} saves worth reopening',
           icon: Icons.auto_awesome_rounded,
           items: interestItems,
           signal: 74,
+          topicAnchor: topic.isEmpty ? null : topic,
         ),
       );
     }
@@ -195,9 +203,8 @@ List<RediscoverJourney> _clusterJourneys(
 
     final framing = _framingFor(core, now);
     final hasQueued = core.any((u) => u.isQueued);
-    final topic = _dominantTopic(picked);
-    final title =
-        topic.isEmpty ? _topicJourneyTitle(cluster.label) : _topicJourneyTitle(topic);
+    final topic = _journeyTopic(picked, cluster.label);
+    final title = _framedTitle(framing, topic);
 
     // Score: framing base × neglect × recency, plus an explicit-intent boost.
     final neglect = 0.5 + unopened / core.length; // 0.5–1.5
@@ -232,6 +239,7 @@ List<RediscoverJourney> _clusterJourneys(
             )
             .toList(),
         signal: score,
+        topicAnchor: topic,
       ),
     ));
   }
@@ -324,15 +332,25 @@ List<SavedUrl> _onThemeCore(List<SavedUrl> members) {
   return sorted.take(keep).toList();
 }
 
-String _topicJourneyTitle(String topic) {
+/// The dominant content topic for a journey's title/eyebrow, falling back to
+/// the cluster label when the saves have no clear shared tag.
+String _journeyTopic(List<SavedUrl> picked, String fallbackLabel) {
+  final topic = _dominantTopic(picked);
+  return topic.isEmpty ? fallbackLabel : topic;
+}
+
+/// A hand-tuned phrase for a well-known topic, or null to use a framed default.
+/// These phrases needn't contain the topic word — the eyebrow follows
+/// [RediscoverJourney.topicAnchor], not the title text.
+String? _specialTopicTitle(String topic) {
   final lower = topic.toLowerCase();
   if (_containsAny(lower, const ['trek', 'hike', 'camp', 'trail'])) {
     return 'Planning another trek?';
   }
   if (_containsAny(lower, const ['ai', 'agent', 'llm', 'openai', 'claude'])) {
-    return 'Continue Building';
+    return 'Continue building';
   }
-  if (_containsAny(lower, const ['wildlife', 'nature', 'forest'])) {
+  if (_containsAny(lower, const ['wildlife', 'forest'])) {
     return 'Nature called again';
   }
   if (_containsAny(lower, const ['cook', 'recipe', 'food', 'meal'])) {
@@ -341,19 +359,39 @@ String _topicJourneyTitle(String topic) {
   if (_containsAny(lower, const ['philosophy', 'stoicism', 'gita'])) {
     return 'Time to reflect';
   }
-  if (_containsAny(lower, const ['startup', 'business', 'founder'])) {
+  if (_containsAny(lower, const ['startup', 'founder'])) {
     return 'Back to building?';
   }
-  if (_containsAny(lower, const ['photo', 'camera', 'visual'])) {
+  if (_containsAny(lower, const ['photo', 'camera'])) {
     return 'Capture something new';
-  }
-  if (_containsAny(lower, const ['book', 'reading', 'literature'])) {
-    return 'Worth another chapter';
   }
   if (_containsAny(lower, const ['history', 'ancient', 'museum'])) {
     return 'Rediscover forgotten worlds';
   }
-  return 'Worth returning to ${_titleCase(topic)}';
+  return null;
+}
+
+/// A title for a cluster journey: a hand-tuned phrase when one fits, else a
+/// framing-aware, non-repetitive default (so every card isn't "Worth returning
+/// to X").
+String _framedTitle(RediscoverJourneyKind framing, String topic) {
+  final special = _specialTopicTitle(topic);
+  if (special != null) return special;
+  final t = _titleCase(topic);
+  switch (framing) {
+    case RediscoverJourneyKind.continueLearning:
+      return 'Keep going on $t';
+    case RediscoverJourneyKind.forgottenGems:
+      return 'You set $t aside';
+    default:
+      const openers = [
+        'Worth returning to ',
+        'Back into ',
+        'More on ',
+        'Revisit ',
+      ];
+      return '${openers[topic.hashCode.abs() % openers.length]}$t';
+  }
 }
 
 bool _containsAny(String text, List<String> needles) {
