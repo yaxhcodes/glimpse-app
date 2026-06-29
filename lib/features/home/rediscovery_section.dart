@@ -283,7 +283,7 @@ class _RediscoverJourneyCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      memory.identity,
+                      memory.homeCopy.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: tt.titleLarge?.copyWith(

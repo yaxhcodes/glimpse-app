@@ -16,6 +16,7 @@ import '../../shared/widgets/swipeable_url_card.dart';
 import '../home/home_provider.dart';
 import 'journey_visual.dart';
 import 'rediscover_journey_provider.dart';
+import 'rediscover_memory.dart';
 import 'rediscover_provider.dart';
 
 class RediscoverJourneyDetailScreen extends ConsumerWidget {
@@ -29,6 +30,10 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final tagFrequency = ref.watch(tagOccurrenceMapProvider);
+    final memory = RediscoverMemory.fromJourney(
+      journey,
+      tagFrequency: tagFrequency,
+    );
     final items = journey.items;
     final connected = items.map((item) => item.url).toList();
     final forgotten = items
@@ -54,9 +59,10 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
             ),
           ),
           SliverToBoxAdapter(
-            child: _JourneyHero(journey: journey, visual: visual),
+            child: _JourneyHero(memory: memory, visual: visual),
           ),
           SliverToBoxAdapter(child: _JourneyTimeline(journey: journey)),
+          SliverToBoxAdapter(child: _MemoryReasoning(memory: memory)),
           if (revisit.isNotEmpty)
             _JourneyRail(
               title: 'Continue from here',
@@ -72,7 +78,9 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
               onOpen: (url) => _open(context, ref, url, connected),
             ),
           SliverToBoxAdapter(child: _RelatedInterests(journey: journey)),
-          SliverToBoxAdapter(child: SectionTitle('Connected saves', count: connected.length)),
+          SliverToBoxAdapter(
+            child: SectionTitle('Connected saves', count: connected.length),
+          ),
           SliverList(
             delegate: SliverChildBuilderDelegate((context, index) {
               final url = connected[index];
@@ -114,6 +122,7 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     ref.invalidate(todaysPicksProvider);
     ref.invalidate(revisitQueueProvider);
     ref.invalidate(interestShelfProvider);
+    ref.invalidate(rediscoverJourneysProvider);
     if (context.mounted) {
       context.push(
         '/url/${url.id}',
@@ -123,10 +132,49 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
   }
 }
 
-class _JourneyHero extends StatelessWidget {
-  const _JourneyHero({required this.journey, required this.visual});
+class _MemoryReasoning extends StatelessWidget {
+  const _MemoryReasoning({required this.memory});
 
-  final RediscoverJourney journey;
+  final RediscoverMemory memory;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            memory.rediscoverCopy.body,
+            style: tt.bodyMedium?.copyWith(
+              color: cs.onSurface,
+              height: 1.38,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            memory.rediscoverCopy.actionLabel,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: tt.labelLarge?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.3,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JourneyHero extends StatelessWidget {
+  const _JourneyHero({required this.memory, required this.visual});
+
+  final RediscoverMemory memory;
   final JourneyVisual visual;
 
   @override
@@ -183,7 +231,7 @@ class _JourneyHero extends StatelessWidget {
               painter: JourneyMotifPainter(
                 motif: visual.motif,
                 color: visual.motifColor,
-                variant: journey.title.hashCode,
+                variant: memory.id.hashCode,
               ),
             ),
           ),
@@ -215,7 +263,7 @@ class _JourneyHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 7),
                 Text(
-                  journey.title,
+                  memory.rediscoverCopy.title,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: tt.headlineSmall?.copyWith(
@@ -227,7 +275,7 @@ class _JourneyHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  journey.subtitle,
+                  memory.rediscoverCopy.subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: tt.bodyMedium?.copyWith(

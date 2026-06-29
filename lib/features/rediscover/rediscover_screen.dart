@@ -215,7 +215,7 @@ class _MemoryJourneyCard extends StatelessWidget {
                           ),
                           const Spacer(),
                           Text(
-                            memory.identity,
+                            memory.rediscoverCopy.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: tt.headlineSmall?.copyWith(
@@ -227,7 +227,7 @@ class _MemoryJourneyCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            memory.journey.subtitle,
+                            memory.rediscoverCopy.subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: tt.labelMedium?.copyWith(
@@ -248,7 +248,7 @@ class _MemoryJourneyCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    memory.whyNow,
+                    memory.rediscoverCopy.body,
                     style: tt.bodySmall?.copyWith(
                       color: cs.onSurface,
                       fontWeight: FontWeight.w600,
@@ -258,7 +258,7 @@ class _MemoryJourneyCard extends StatelessWidget {
                   if (memory.primaryTitle != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      '${memory.actionLabel}: ${memory.primaryTitle}',
+                      memory.rediscoverCopy.actionLabel,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: tt.labelMedium?.copyWith(
