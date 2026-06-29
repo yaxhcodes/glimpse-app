@@ -325,11 +325,40 @@ List<SavedUrl> _onThemeCore(List<SavedUrl> members) {
     return dot / (math.sqrt(na) * math.sqrt(nb));
   }
 
-  final sorted = [...withEmbedding]
-    ..sort((a, b) => cosineToCentroid(b).compareTo(cosineToCentroid(a)));
-  // Keep the most central ~60%; the tail is where off-theme outliers land.
-  final keep = (sorted.length * 0.6).ceil().clamp(4, sorted.length);
-  return sorted.take(keep).toList();
+  final scored = [
+    for (final u in withEmbedding)
+      (url: u, similarity: cosineToCentroid(u)),
+  ]..sort((a, b) => b.similarity.compareTo(a.similarity));
+  final valid = scored.where((entry) => entry.similarity >= 0).toList();
+  if (valid.length < 5) return List<SavedUrl>.from(members);
+
+  final mean =
+      valid.map((entry) => entry.similarity).reduce((a, b) => a + b) /
+          valid.length;
+  final variance = valid
+          .map((entry) {
+            final delta = entry.similarity - mean;
+            return delta * delta;
+          })
+          .reduce((a, b) => a + b) /
+      valid.length;
+  final stdDev = math.sqrt(variance);
+
+  if (stdDev < 0.035) {
+    return valid.map((entry) => entry.url).toList();
+  }
+
+  final threshold = mean - stdDev * 0.45;
+  var core = valid.where((entry) => entry.similarity >= threshold).toList();
+  final minKeep = math.min(4, valid.length);
+  if (core.length < minKeep) {
+    core = valid.take(minKeep).toList();
+  }
+  final maxKeep = math.max(minKeep, (valid.length * 0.85).ceil());
+  if (core.length > maxKeep) {
+    core = core.take(maxKeep).toList();
+  }
+  return core.map((entry) => entry.url).toList();
 }
 
 /// The dominant content topic for a journey's title/eyebrow, falling back to

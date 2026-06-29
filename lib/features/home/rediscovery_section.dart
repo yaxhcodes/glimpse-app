@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/engagement_event.dart';
 import '../../core/providers/dev_simulation_providers.dart';
+import '../../core/providers/service_providers.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_journey_provider.dart';
 
@@ -101,10 +105,16 @@ class RediscoverySection extends ConsumerWidget {
                     journey: journeys[i],
                     width: cardWidth,
                     height: cardHeight,
-                    onTap: () => context.push(
-                      '/rediscover/journey',
-                      extra: journeys[i],
-                    ),
+                    onTap: () {
+                      unawaited(
+                        ref.read(isarServiceProvider).logEvent(
+                              type: EngagementEventType.clusterVisit,
+                              clusterLabel:
+                                  journeys[i].topicAnchor ?? journeys[i].title,
+                            ),
+                      );
+                      context.push('/rediscover/journey', extra: journeys[i]);
+                    },
                   ),
                 ),
               ),

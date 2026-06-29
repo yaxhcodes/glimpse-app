@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/engagement_event.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
@@ -101,6 +104,13 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     if (url.isQueued) {
       await ref.read(isarServiceProvider).clearIntent(url.id);
     }
+    unawaited(
+      ref.read(isarServiceProvider).logEvent(
+            type: EngagementEventType.cardOpened,
+            url: url,
+            clusterLabel: journey.topicAnchor ?? journey.title,
+          ),
+    );
     ref.invalidate(todaysPicksProvider);
     ref.invalidate(revisitQueueProvider);
     ref.invalidate(interestShelfProvider);
