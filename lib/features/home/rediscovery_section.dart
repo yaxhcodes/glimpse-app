@@ -9,6 +9,7 @@ import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/service_providers.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_journey_provider.dart';
+import '../rediscover/rediscover_memory.dart';
 
 class RediscoverySection extends ConsumerWidget {
   const RediscoverySection({super.key});
@@ -187,6 +188,7 @@ class _RediscoverJourneyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final memory = RediscoverMemory.fromJourney(journey);
     final visual = visualForJourney(context, journey);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // Light mode needs a touch more presence for the wash to register.
@@ -281,7 +283,7 @@ class _RediscoverJourneyCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      journey.title,
+                      memory.identity,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: tt.titleLarge?.copyWith(
@@ -294,7 +296,7 @@ class _RediscoverJourneyCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 9),
                     Text(
-                      _metadataLine(journey),
+                      _metadataLine(memory),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: tt.labelMedium?.copyWith(
@@ -314,14 +316,14 @@ class _RediscoverJourneyCard extends StatelessWidget {
     );
   }
 
-  String _metadataLine(RediscoverJourney journey) {
-    final n = journey.items.length;
+  String _metadataLine(RediscoverMemory memory) {
+    final n = memory.saveCount;
     final dates = [
-      for (final item in journey.items)
+      for (final item in memory.journey.items)
         item.url.openedAt ?? item.url.resurfacedAt ?? item.url.savedAt,
     ]..sort((a, b) => b.compareTo(a));
     final opened = dates.isEmpty ? 'recently' : _timeAgo(dates.first);
-    return '$n ${n == 1 ? 'save' : 'saves'} · opened $opened';
+    return '$n ${n == 1 ? 'save' : 'saves'} · ${memory.waitingLabel} · $opened';
   }
 
   String _timeAgo(DateTime date) {

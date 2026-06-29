@@ -7,11 +7,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/engagement_event.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../home/home_provider.dart';
 import 'journey_visual.dart';
 import 'rediscover_journey_provider.dart';
+import 'rediscover_memory.dart';
 import 'rediscover_provider.dart';
 
 class RediscoverScreen extends ConsumerStatefulWidget {
@@ -151,11 +151,11 @@ class _MemoryJourneyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final visual = visualForJourney(context, journey);
-    final first = journey.items.isEmpty ? null : journey.items.first.url;
-    final firstTitle = first == null
-        ? null
-        : TitleResolver.resolveDetailTitle(first, tagFrequency: tagFrequency);
+    final memory = RediscoverMemory.fromJourney(
+      journey,
+      tagFrequency: tagFrequency,
+    );
+    final visual = visualForJourney(context, memory.journey);
 
     return Material(
       color: cs.surfaceContainerLow,
@@ -215,7 +215,7 @@ class _MemoryJourneyCard extends StatelessWidget {
                           ),
                           const Spacer(),
                           Text(
-                            journey.title,
+                            memory.identity,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: tt.headlineSmall?.copyWith(
@@ -227,7 +227,7 @@ class _MemoryJourneyCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            journey.subtitle,
+                            memory.journey.subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: tt.labelMedium?.copyWith(
@@ -248,17 +248,17 @@ class _MemoryJourneyCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _whyNow(journey),
+                    memory.whyNow,
                     style: tt.bodySmall?.copyWith(
                       color: cs.onSurface,
                       fontWeight: FontWeight.w600,
                       height: 1.35,
                     ),
                   ),
-                  if (firstTitle != null) ...[
+                  if (memory.primaryTitle != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Start with $firstTitle',
+                      '${memory.actionLabel}: ${memory.primaryTitle}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: tt.labelMedium?.copyWith(
@@ -270,9 +270,9 @@ class _MemoryJourneyCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _MemoryMetaPill('${journey.items.length} saves'),
+                      _MemoryMetaPill('${memory.saveCount} saves'),
                       const SizedBox(width: 8),
-                      _MemoryMetaPill(_waitingLabel(journey)),
+                      _MemoryMetaPill(memory.waitingLabel),
                       const Spacer(),
                       Icon(
                         Icons.arrow_forward_rounded,
@@ -290,28 +290,6 @@ class _MemoryJourneyCard extends StatelessWidget {
     );
   }
 
-  String _whyNow(RediscoverJourney journey) {
-    return switch (journey.kind) {
-      RediscoverJourneyKind.continueLearning =>
-        'This thread is still warm from what you saved recently.',
-      RediscoverJourneyKind.forgottenGems =>
-        'These waited long enough to be useful again.',
-      RediscoverJourneyKind.onThisDay =>
-        'You saved these around this point in an earlier cycle.',
-      RediscoverJourneyKind.memoryGoal =>
-        'This points back to a goal you have been quietly building.',
-      RediscoverJourneyKind.neverOpened =>
-        'You saved these for later and never gave them a first look.',
-      RediscoverJourneyKind.becauseYouSaved =>
-        'This connects to patterns in what you keep saving.',
-    };
-  }
-
-  String _waitingLabel(RediscoverJourney journey) {
-    final unopened = journey.items.where((item) => item.url.openedAt == null).length;
-    if (unopened == 0) return 'ready';
-    return '$unopened waiting';
-  }
 }
 
 class _MemoryMetaPill extends StatelessWidget {
