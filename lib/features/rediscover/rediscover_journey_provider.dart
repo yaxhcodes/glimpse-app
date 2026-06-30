@@ -51,7 +51,37 @@ final rediscoverJourneysProvider =
   final urls = await _liveRediscoverUrls(ref);
   if (urls.length < 3) return const [];
 
-  final liveIds = {for (final url in urls) url.id};
+  final profile = await ref.watch(affinityProfileProvider.future);
+  final clusters = await ref.watch(interestClusterThemesProvider.future);
+  final interestItems =
+      (await ref.watch(interestShelfProvider.future)).items.take(8).toList();
+  final anniversaries =
+      (await ref.watch(onThisDayProvider.future)).take(8).toList();
+
+  return buildRediscoverJourneys(
+    liveUrls: urls,
+    clusters: clusters,
+    profile: profile,
+    interestFallbackItems: interestItems,
+    anniversaryItems: anniversaries,
+  );
+});
+
+/// Shared Rediscover journey engine used by Home, Rediscover, and notifications.
+///
+/// Candidate collection can differ by runtime context (Riverpod foreground vs.
+/// WorkManager background), but grouping, framing, ranking, and deduplication
+/// stay here so notification selection does not grow a separate recommender.
+List<RediscoverJourney> buildRediscoverJourneys({
+  required List<SavedUrl> liveUrls,
+  required List<ClusterTheme> clusters,
+  required AffinityProfile profile,
+  List<RediscoveryItem> interestFallbackItems = const [],
+  List<RediscoveryItem> anniversaryItems = const [],
+}) {
+  if (liveUrls.length < 3) return const [];
+
+  final liveIds = {for (final url in liveUrls) url.id};
 
   // One coherent pipeline: every topic journey comes from the embedding
   // clusters that power the Interests map (on-theme cores), framed by member
@@ -59,27 +89,23 @@ final rediscoverJourneysProvider =
   // rank and lead its items — instead of getting a competing card. The old
   // keyword memory-goals, forgotten-gems, and never-opened grab-bag generators
   // are retired; coherence now comes from a single grouping source.
-  final profile = await ref.watch(affinityProfileProvider.future);
-  final clusters = await ref.watch(interestClusterThemesProvider.future);
   final journeys = _clusterJourneys(clusters, liveIds, profile);
 
   // Thin-library fallback: if clusters have not formed yet, show one
   // recency/neglect shelf so new users aren't left empty.
   if (journeys.isEmpty) {
-    final interestItems =
-        (await ref.watch(interestShelfProvider.future)).items.take(8).toList();
-    if (interestItems.length >= 2) {
-      final topic =
-          _dominantTopic(interestItems.map((item) => item.url).toList());
+    final items = interestFallbackItems.take(8).toList();
+    if (items.length >= 2) {
+      final topic = _dominantTopic(items.map((item) => item.url).toList());
       journeys.add(
         RediscoverJourney(
           kind: RediscoverJourneyKind.becauseYouSaved,
           title: topic.isEmpty
               ? 'Your recent curiosity continues'
               : _framedTitle(RediscoverJourneyKind.becauseYouSaved, topic),
-          subtitle: '${interestItems.length} saves worth reopening',
+          subtitle: '${items.length} saves worth reopening',
           icon: Icons.auto_awesome_rounded,
-          items: interestItems,
+          items: items,
           signal: 74,
           topicAnchor: topic.isEmpty ? null : topic,
         ),
@@ -87,15 +113,14 @@ final rediscoverJourneysProvider =
     }
   }
 
-  final anniversaries = await ref.watch(onThisDayProvider.future);
-  if (anniversaries.length >= 2) {
+  if (anniversaryItems.length >= 2) {
     journeys.add(
       RediscoverJourney(
         kind: RediscoverJourneyKind.onThisDay,
         title: 'From another season',
-        subtitle: '${anniversaries.length} saves from earlier cycles',
+        subtitle: '${anniversaryItems.length} saves from earlier cycles',
         icon: Icons.history_rounded,
-        items: anniversaries.take(8).toList(),
+        items: anniversaryItems.take(8).toList(),
         signal: 50,
       ),
     );
@@ -103,7 +128,7 @@ final rediscoverJourneysProvider =
 
   journeys.sort((a, b) => b.signal.compareTo(a.signal));
   return _dedupeJourneys(journeys).take(6).toList();
-});
+}
 
 /// Removes redundant journeys, keeping the highest-signal one. Two independent
 /// generators (memory goals + interest clusters) can both surface the same

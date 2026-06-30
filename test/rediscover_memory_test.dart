@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory.dart';
+import 'package:glimpse/features/rediscover/rediscover_notification_candidate.dart';
 import 'package:glimpse/features/rediscover/rediscover_provider.dart';
 
 SavedUrl _url({
@@ -80,5 +81,58 @@ void main() {
     expect(memory.metadata.hasQueuedSaves, isTrue);
     expect(memory.metadata.primaryUrlIds, [7]);
     expect(memory.metadata.supportingUrlIds, [9]);
+  });
+
+  test('notification candidate scores interruption value separately', () {
+    final first = _url(
+      id: 1,
+      title: 'Protein Dinner',
+      savedAt: DateTime(2026, 5, 1),
+      intentStatus: 'queued',
+    );
+    final second = _url(
+      id: 2,
+      title: 'Breakfast Bowl',
+      savedAt: DateTime(2026, 5, 2),
+    );
+    final third = _url(
+      id: 3,
+      title: 'High Protein Wrap',
+      savedAt: DateTime(2026, 5, 3),
+    );
+    final memory = RediscoverMemory.fromJourney(
+      RediscoverJourney(
+        kind: RediscoverJourneyKind.forgottenGems,
+        title: 'Still perfecting your recipes?',
+        subtitle: '3 saves you set aside a while ago',
+        icon: Icons.dinner_dining_rounded,
+        items: [_item(first), _item(second), _item(third)],
+        signal: 80,
+        topicAnchor: 'protein recipes',
+      ),
+    );
+
+    final candidate = RediscoverNotificationCandidate.scoreMemory(
+      memory,
+      now: DateTime(2026, 6, 6, 19),
+    );
+
+    expect(candidate.shouldNotify, isTrue);
+    expect(candidate.explanation.map((entry) => entry['code']), containsAll([
+      'explicit_revisit',
+      'long_unopened',
+      'cooking_evening',
+    ]));
+
+    final repeated = RediscoverNotificationCandidate.scoreMemory(
+      memory,
+      now: DateTime(2026, 6, 6, 19),
+      recentlyNotified: true,
+    );
+    expect(repeated.shouldNotify, isFalse);
+    expect(
+      repeated.explanation.map((entry) => entry['code']),
+      contains('recent_repeat'),
+    );
   });
 }

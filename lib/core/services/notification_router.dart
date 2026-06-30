@@ -33,7 +33,7 @@ class NotificationRouter {
     step();
   }
 
-  /// Resolve the scheduler letter (A–G) the bandit keys on, from either a
+  /// Resolve the scheduler letter (A–G, R) the bandit keys on, from either a
   /// fresh payload (`type` is the letter) or a hub history entry (`type` is the
   /// snake_case history type).
   static String? _rewardLetter(Map<String, dynamic> map) {
@@ -43,7 +43,7 @@ class NotificationRouter {
     return _historyTypeToLetter[t];
   }
 
-  static const _letters = {'A', 'B', 'C', 'D', 'E', 'F', 'G'};
+  static const _letters = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'R'};
   static const _historyTypeToLetter = {
     'geo': 'A',
     'new_interest': 'B',
@@ -52,6 +52,7 @@ class NotificationRouter {
     'resurface': 'E',
     'digest': 'F',
     'revisit': 'G',
+    'rediscover': 'R',
   };
 
   static List<int> _parseLinkIds(Map<String, dynamic> map) {
@@ -171,7 +172,7 @@ class NotificationDetailExtra {
   final String? historyType;
 }
 
-/// Maps scheduler letter (A–F) or persisted hub history [type] to a stable key.
+/// Maps scheduler letter (A-G, R) or persisted hub history [type] to a stable key.
 String? historyTypeFromNotificationMap(Map<String, dynamic> map) {
   final t = map['type'] as String?;
   final fromLetter = historyTypeFromPayloadLetter(t);
@@ -184,12 +185,13 @@ String? historyTypeFromNotificationMap(Map<String, dynamic> map) {
     'streak',
     'resurface',
     'revisit',
+    'rediscover',
   };
   if (t != null && known.contains(t)) return t;
   return null;
 }
 
-/// Maps scheduler payload `type` (A–F) to hub history snake_case.
+/// Maps scheduler payload `type` (A-G, R) to hub history snake_case.
 String? historyTypeFromPayloadLetter(String? letter) {
   switch (letter) {
     case 'A':
@@ -206,6 +208,8 @@ String? historyTypeFromPayloadLetter(String? letter) {
       return 'digest';
     case 'G':
       return 'revisit';
+    case 'R':
+      return 'rediscover';
     default:
       return null;
   }
