@@ -1,4 +1,6 @@
 import '../../core/models/saved_url.dart';
+import '../../core/services/memory_intent_resolver.dart';
+import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import 'rediscover_journey_provider.dart';
 
@@ -61,6 +63,37 @@ class RediscoverMemoryIdentity {
   final String suggestedNextStep;
 }
 
+enum RediscoverSemanticJourneyType {
+  learning,
+  planning,
+  cooking,
+  building,
+  researching,
+  collecting,
+  watching,
+  practicing,
+  improving,
+  revisiting,
+}
+
+class RediscoverSemanticIntent {
+  const RediscoverSemanticIntent({
+    required this.label,
+    required this.journeyType,
+    required this.userGoal,
+    required this.behaviorSummary,
+    required this.evidencePhrases,
+    required this.confidence,
+  });
+
+  final String label;
+  final RediscoverSemanticJourneyType journeyType;
+  final String userGoal;
+  final String behaviorSummary;
+  final List<String> evidencePhrases;
+  final double confidence;
+}
+
 class RediscoverJourneyMetadata {
   const RediscoverJourneyMetadata({
     required this.kind,
@@ -105,6 +138,18 @@ enum _MemoryDomain {
   general,
 }
 
+class _SemanticLabelResult {
+  const _SemanticLabelResult({
+    required this.label,
+    required this.confidence,
+    required this.evidence,
+  });
+
+  final String label;
+  final double confidence;
+  final List<String> evidence;
+}
+
 class RediscoverMemory {
   const RediscoverMemory({
     required this.journey,
@@ -116,6 +161,7 @@ class RediscoverMemory {
     required this.whyNow,
     required this.emotion,
     required this.personality,
+    required this.semanticIntent,
     required this.copyIdentity,
     required this.encouragedAction,
     required this.homeCopy,
@@ -138,6 +184,7 @@ class RediscoverMemory {
   final String whyNow;
   final RediscoverMemoryEmotion emotion;
   final RediscoverMemoryPersonality personality;
+  final RediscoverSemanticIntent semanticIntent;
   final RediscoverMemoryIdentity copyIdentity;
   final String encouragedAction;
   final RediscoverMemoryCopy homeCopy;
@@ -189,6 +236,7 @@ class RediscoverMemory {
     );
     final topicLabel = metadata.topicLabel;
     final personality = _personalityFor(journey, topicLabel, primaryTitle);
+    final semanticIntent = _semanticIntentFor(journey, topicLabel: topicLabel);
     final copyIdentity = _copyIdentityFor(
       journey,
       topicLabel: topicLabel,
@@ -197,6 +245,7 @@ class RediscoverMemory {
       unopenedCount: unopenedCount,
       openedCount: openedCount,
       personality: personality,
+      semanticIntent: semanticIntent,
     );
     final what = copyIdentity.primary;
     final whyItMatters = copyIdentity.secondaryDescription;
@@ -213,6 +262,7 @@ class RediscoverMemory {
       whyNow: whyNow,
       emotion: emotion,
       personality: personality,
+      semanticIntent: semanticIntent,
       copyIdentity: copyIdentity,
       encouragedAction: action,
       homeCopy: _homeCopyFor(
@@ -251,36 +301,346 @@ class RediscoverMemory {
     required int unopenedCount,
     required int openedCount,
     required RediscoverMemoryPersonality personality,
+    required RediscoverSemanticIntent semanticIntent,
   }) {
     final domain = _domainFor(journey, topicLabel, primaryTitle);
-    final title = _primaryIdentityFor(
-      journey,
-      domain: domain,
-      topicLabel: topicLabel,
-      primaryTitle: primaryTitle,
-      personality: personality,
-    );
     return RediscoverMemoryIdentity(
-      primary: title,
+      primary: semanticIntent.label,
       secondaryDescription: _secondaryDescriptionFor(
         journey,
         domain: domain,
-        topicLabel: topicLabel,
         primaryTitle: primaryTitle,
         saveCount: saveCount,
         unopenedCount: unopenedCount,
+        semanticIntent: semanticIntent,
       ),
       reasonForToday: _reasonForTodayFor(
         journey,
         openedCount: openedCount,
         unopenedCount: unopenedCount,
+        semanticIntent: semanticIntent,
       ),
       suggestedNextStep: _suggestedNextStepFor(
         journey,
         domain: domain,
         primaryTitle: primaryTitle,
+        semanticIntent: semanticIntent,
       ),
     );
+  }
+
+  static RediscoverSemanticIntent _semanticIntentFor(
+    RediscoverJourney journey, {
+    required String topicLabel,
+  }) {
+    final urls = journey.items.map((item) => item.url).toList();
+    final text = _combinedText(journey, topicLabel);
+    final tags = _rankedTags(urls);
+    final intentCounts = <String, int>{};
+    for (final url in urls) {
+      final intent = MemoryIntentResolver.fromUrl(url);
+      final primary = intent?.primaryIntent.trim().toLowerCase();
+      if (primary != null && primary.isNotEmpty) {
+        intentCounts[primary] = (intentCounts[primary] ?? 0) + 1;
+      }
+    }
+
+    final primaryIntent = _dominantKey(intentCounts);
+    final journeyType = _journeyTypeFor(
+      primaryIntent,
+      domain: _domainFor(journey, topicLabel, urls.isEmpty ? null : urls.first.title),
+      text: text,
+    );
+    final labelResult = _semanticLabelFor(
+      journey,
+      journeyType: journeyType,
+      topicLabel: topicLabel,
+      tags: tags,
+      text: text,
+    );
+    final goal = _userGoalFor(labelResult.label, journeyType);
+    final behavior = _behaviorSummaryFor(
+      labelResult.label,
+      journeyType,
+      journey.kind,
+    );
+
+    return RediscoverSemanticIntent(
+      label: labelResult.label,
+      journeyType: journeyType,
+      userGoal: goal,
+      behaviorSummary: behavior,
+      evidencePhrases: labelResult.evidence,
+      confidence: labelResult.confidence,
+    );
+  }
+
+  static String _combinedText(RediscoverJourney journey, String topicLabel) {
+    return [
+      topicLabel,
+      journey.title,
+      journey.subtitle,
+      for (final item in journey.items.take(8)) ...[
+        item.url.title,
+        item.url.description,
+        item.url.summary ?? '',
+        item.url.category,
+        item.url.categories.join(' '),
+        item.url.tags.join(' '),
+        MemoryIntentResolver.searchableText(item.url),
+      ],
+    ].join(' ').toLowerCase();
+  }
+
+  static List<String> _rankedTags(List<SavedUrl> urls) {
+    final counts = <String, int>{};
+    for (final url in urls) {
+      for (final tag in TagNoiseFilter.filterTags(url.tags)) {
+        if (_semanticNoiseTerms.contains(tag)) continue;
+        counts[tag] = (counts[tag] ?? 0) + 1;
+      }
+    }
+    final ranked = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        if (byCount != 0) return byCount;
+        return b.key.length.compareTo(a.key.length);
+      });
+    return ranked.map((entry) => entry.key).toList();
+  }
+
+  static String? _dominantKey(Map<String, int> counts) {
+    if (counts.isEmpty) return null;
+    final ranked = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        if (byCount != 0) return byCount;
+        return a.key.compareTo(b.key);
+      });
+    return ranked.first.key;
+  }
+
+  static RediscoverSemanticJourneyType _journeyTypeFor(
+    String? primaryIntent, {
+    required _MemoryDomain domain,
+    required String text,
+  }) {
+    return switch (primaryIntent) {
+      'cook' => RediscoverSemanticJourneyType.cooking,
+      'visit' => RediscoverSemanticJourneyType.planning,
+      'build' => RediscoverSemanticJourneyType.building,
+      'watch_later' => RediscoverSemanticJourneyType.watching,
+      'read_later' => _containsAny(text, const ['manga', 'book', 'reading'])
+          ? RediscoverSemanticJourneyType.collecting
+          : RediscoverSemanticJourneyType.learning,
+      'try' => RediscoverSemanticJourneyType.practicing,
+      'health_change' => RediscoverSemanticJourneyType.improving,
+      'career_move' => RediscoverSemanticJourneyType.improving,
+      'learn' => RediscoverSemanticJourneyType.learning,
+      _ => switch (domain) {
+          _MemoryDomain.cooking => RediscoverSemanticJourneyType.cooking,
+          _MemoryDomain.building => RediscoverSemanticJourneyType.building,
+          _MemoryDomain.travel => RediscoverSemanticJourneyType.planning,
+          _MemoryDomain.watchlist => RediscoverSemanticJourneyType.watching,
+          _MemoryDomain.fitness => RediscoverSemanticJourneyType.improving,
+          _MemoryDomain.philosophy => RediscoverSemanticJourneyType.learning,
+          _MemoryDomain.nature => _containsAny(text, const ['farm', 'garden'])
+              ? RediscoverSemanticJourneyType.planning
+              : RediscoverSemanticJourneyType.learning,
+          _ => RediscoverSemanticJourneyType.researching,
+        },
+    };
+  }
+
+  static _SemanticLabelResult _semanticLabelFor(
+    RediscoverJourney journey, {
+    required RediscoverSemanticJourneyType journeyType,
+    required String topicLabel,
+    required List<String> tags,
+    required String text,
+  }) {
+    _SemanticLabelResult result(
+      String label,
+      double confidence,
+      List<String> evidence,
+    ) {
+      return _SemanticLabelResult(
+        label: label,
+        confidence: confidence,
+        evidence: evidence.where((item) => item.trim().isNotEmpty).toList(),
+      );
+    }
+
+    if (_containsAny(text, const ['high protein', 'protein recipes'])) {
+      if (text.contains('breakfast')) {
+        return result('High-Protein Breakfasts', 0.92, [
+          'high protein',
+          'breakfast',
+        ]);
+      }
+      if (_containsAny(text, const ['vegetarian', 'paneer', 'soya', 'edamame'])) {
+        return result('High-Protein Vegetarian Meals', 0.9, [
+          'high protein',
+          'vegetarian',
+        ]);
+      }
+      return result('High-Protein Recipes', 0.86, ['high protein']);
+    }
+    if (_containsAny(text, const ['healthy', 'salad']) &&
+        _containsAny(text, const ['dinner', 'recipe', 'meal'])) {
+      return result('Healthy Dinner Recipes', 0.84, ['healthy', 'recipe']);
+    }
+    if (_containsAny(text, const ['free will', 'free-will'])) {
+      return result('Understanding Free Will', 0.92, ['free will']);
+    }
+    if (text.contains('consciousness')) {
+      return result('Understanding Consciousness', 0.88, ['consciousness']);
+    }
+    if (_containsAny(text, const ['stoic', 'marcus aurelius'])) {
+      return result('Stoic Principles', 0.86, ['stoicism']);
+    }
+    if (_containsAny(text, const ['hindu', 'gita', 'vedic'])) {
+      return result('Hindu Philosophy', 0.84, ['hindu philosophy']);
+    }
+    if (_containsAny(text, const ['himalaya', 'himachal', 'ladakh']) &&
+        _containsAny(text, const ['trek', 'travel', 'route'])) {
+      return result('Himalayan Treks', 0.9, ['himalaya', 'trek']);
+    }
+    if (text.contains('manga')) {
+      return result('Manga To Read', 0.88, ['manga']);
+    }
+    if (_containsAny(text, const ['movie', 'film', 'netflix'])) {
+      return result('Movies To Watch', 0.84, ['movies']);
+    }
+    if (text.contains('anime')) {
+      return result('Anime To Watch', 0.84, ['anime']);
+    }
+    if (_containsAny(text, const ['wildlife photography', 'photography'])) {
+      return result('Wildlife Photography', 0.9, ['wildlife photography']);
+    }
+    if (text.contains('wildlife')) {
+      return result('Wildlife Notes', 0.82, ['wildlife']);
+    }
+    if (_containsAny(text, const ['natural farming', 'permaculture'])) {
+      return result('Natural Farming', 0.9, ['natural farming']);
+    }
+    if (_containsAny(text, const ['crispr', 'plant biotechnology'])) {
+      return result('Plant Biotechnology', 0.88, ['plant biotechnology']);
+    }
+    if (_containsAny(text, const ['flutter', 'riverpod'])) {
+      return result('Flutter Development Notes', 0.88, ['flutter']);
+    }
+    if (_containsAny(text, const ['llm', 'genai', 'ai agent', 'ai engineering'])) {
+      return result('AI Engineering Notes', 0.88, ['AI engineering']);
+    }
+    if (_containsAny(text, const ['startup', 'founder', 'y combinator'])) {
+      return result('Startup Reading', 0.86, ['startup']);
+    }
+
+    final meaningfulTag = tags.isEmpty ? null : tags.first;
+    if (meaningfulTag != null) {
+      final concept = _topicTitle(meaningfulTag);
+      final label = _labelFromConcept(concept, journeyType);
+      return result(label, 0.72, [meaningfulTag]);
+    }
+
+    return result(_clearTopicLabel(topicLabel, journeyType), 0.56, [topicLabel]);
+  }
+
+  static String _labelFromConcept(
+    String concept,
+    RediscoverSemanticJourneyType journeyType,
+  ) {
+    final lower = concept.toLowerCase();
+    if (lower.endsWith('recipes') ||
+        lower.endsWith('meals') ||
+        lower.endsWith('notes') ||
+        lower.endsWith('treks') ||
+        lower.endsWith('photography')) {
+      return concept;
+    }
+    return switch (journeyType) {
+      RediscoverSemanticJourneyType.cooking => lower.contains('recipe')
+          ? concept
+          : '$concept Recipes',
+      RediscoverSemanticJourneyType.watching => '$concept To Watch',
+      RediscoverSemanticJourneyType.collecting => lower.contains('book')
+          ? concept
+          : '$concept List',
+      RediscoverSemanticJourneyType.building => '$concept Notes',
+      RediscoverSemanticJourneyType.planning => concept,
+      RediscoverSemanticJourneyType.improving => concept,
+      RediscoverSemanticJourneyType.practicing => concept,
+      RediscoverSemanticJourneyType.learning => lower.startsWith('understanding')
+          ? concept
+          : 'Understanding $concept',
+      RediscoverSemanticJourneyType.researching => concept,
+      RediscoverSemanticJourneyType.revisiting => concept,
+    };
+  }
+
+  static String _clearTopicLabel(
+    String topicLabel,
+    RediscoverSemanticJourneyType journeyType,
+  ) {
+    final clean = topicLabel.trim().isEmpty ? 'Saved Ideas' : topicLabel;
+    return _labelFromConcept(clean, journeyType);
+  }
+
+  static String _userGoalFor(
+    String label,
+    RediscoverSemanticJourneyType journeyType,
+  ) {
+    final lower = _lowerFirst(label);
+    return switch (journeyType) {
+      RediscoverSemanticJourneyType.cooking => 'cook $lower',
+      RediscoverSemanticJourneyType.planning => 'plan around $lower',
+      RediscoverSemanticJourneyType.building => 'build with $lower',
+      RediscoverSemanticJourneyType.watching => 'choose what to watch',
+      RediscoverSemanticJourneyType.collecting => 'keep a useful $lower',
+      RediscoverSemanticJourneyType.practicing => 'try $lower',
+      RediscoverSemanticJourneyType.improving => 'improve $lower',
+      RediscoverSemanticJourneyType.learning => 'understand $lower',
+      RediscoverSemanticJourneyType.researching => 'research $lower',
+      RediscoverSemanticJourneyType.revisiting => 'return to $lower',
+    };
+  }
+
+  static String _behaviorSummaryFor(
+    String label,
+    RediscoverSemanticJourneyType journeyType,
+    RediscoverJourneyKind kind,
+  ) {
+    final lower = _lowerFirst(label);
+    final base = switch (journeyType) {
+      RediscoverSemanticJourneyType.cooking =>
+        'You were collecting recipes for $lower.',
+      RediscoverSemanticJourneyType.planning =>
+        'You were comparing options around $lower.',
+      RediscoverSemanticJourneyType.building =>
+        'You were saving practical notes for $lower.',
+      RediscoverSemanticJourneyType.watching =>
+        'You were building a watchlist around $lower.',
+      RediscoverSemanticJourneyType.collecting =>
+        'You were collecting $lower for later.',
+      RediscoverSemanticJourneyType.practicing =>
+        'You were gathering ways to practice $lower.',
+      RediscoverSemanticJourneyType.improving =>
+        'You were looking for ways to improve $lower.',
+      RediscoverSemanticJourneyType.learning =>
+        'You were trying to understand $lower.',
+      RediscoverSemanticJourneyType.researching =>
+        'You were researching $lower from a few angles.',
+      RediscoverSemanticJourneyType.revisiting =>
+        'You kept coming back to $lower.',
+    };
+    if (kind == RediscoverJourneyKind.continueLearning) {
+      return base.replaceFirst('.', ' and recently added more.');
+    }
+    if (kind == RediscoverJourneyKind.neverOpened) {
+      return base.replaceFirst('were ', 'saved these to ');
+    }
+    return base;
   }
 
   static RediscoverMemoryEmotion _emotionFor(RediscoverJourney journey) {
@@ -521,79 +881,45 @@ class RediscoverMemory {
     return _MemoryDomain.general;
   }
 
-  static String _primaryIdentityFor(
-    RediscoverJourney journey, {
-    required _MemoryDomain domain,
-    required String topicLabel,
-    required String? primaryTitle,
-    required RediscoverMemoryPersonality personality,
-  }) {
-    final titleText = (primaryTitle ?? '').toLowerCase();
-    if (domain == _MemoryDomain.cooking && titleText.contains('breakfast')) {
-      return 'A Better Breakfast';
-    }
-    if (domain == _MemoryDomain.cooking && titleText.contains('dinner')) {
-      return 'Dinner You Already Planned';
-    }
-
-    final bank = switch (domain) {
-      _MemoryDomain.cooking => _cookingTitles(journey.kind),
-      _MemoryDomain.building => _buildingTitles(journey.kind),
-      _MemoryDomain.philosophy => _philosophyTitles(journey.kind),
-      _MemoryDomain.travel => _travelTitles(journey.kind),
-      _MemoryDomain.nature => _natureTitles(journey.kind),
-      _MemoryDomain.fitness => _fitnessTitles(journey.kind),
-      _MemoryDomain.creative => _creativeTitles(journey.kind),
-      _MemoryDomain.learning => _learningTitles(journey.kind),
-      _MemoryDomain.money => _moneyTitles(journey.kind),
-      _MemoryDomain.watchlist => _watchlistTitles(journey.kind),
-      _MemoryDomain.general => _generalTitles(journey.kind, personality),
-    };
-    return _pick(bank, journey, topicLabel);
-  }
-
   static String _secondaryDescriptionFor(
     RediscoverJourney journey, {
     required _MemoryDomain domain,
-    required String topicLabel,
     required String? primaryTitle,
     required int saveCount,
     required int unopenedCount,
+    required RediscoverSemanticIntent semanticIntent,
   }) {
     final count = _countWord(saveCount);
     final noun = _domainNoun(domain, plural: saveCount != 1);
     final first = primaryTitle == null ? '' : ' Start with $primaryTitle.';
     if (unopenedCount == saveCount) {
-      return '$count saved $noun you have not opened yet.$first';
+      return '$count saved $noun for ${semanticIntent.userGoal}.$first';
     }
     if (unopenedCount > 0) {
-      return '$count saved $noun, $unopenedCount still waiting.$first';
+      return '$count saved $noun for ${semanticIntent.userGoal}, '
+          '$unopenedCount still unopened.$first';
     }
-    return '$count saved $noun around ${topicLabel.toLowerCase()}.$first';
+    return '$count saved $noun for ${semanticIntent.userGoal}.$first';
   }
 
   static String _reasonForTodayFor(
     RediscoverJourney journey, {
     required int openedCount,
     required int unopenedCount,
+    required RediscoverSemanticIntent semanticIntent,
   }) {
+    final summary = semanticIntent.behaviorSummary;
     return switch (journey.kind) {
       RediscoverJourneyKind.continueLearning =>
-        'You have been adding to this recently, so the thread still has momentum.',
-      RediscoverJourneyKind.forgottenGems =>
-        'You saved these with intent, then let them fall out of view.',
-      RediscoverJourneyKind.onThisDay =>
-        'This belongs to an earlier season of what mattered to you.',
+        summary,
+      RediscoverJourneyKind.forgottenGems => '$summary You had left this aside.',
+      RediscoverJourneyKind.onThisDay => '$summary This was part of an earlier season.',
       RediscoverJourneyKind.memoryGoal =>
-        'Several saves point toward the same thing you may still want to do.',
+        summary,
       RediscoverJourneyKind.neverOpened =>
-        unopenedCount <= 1
-            ? 'This is still waiting for its first real look.'
-            : 'These are still waiting for a first real look.',
+        '$summary You have not opened ${unopenedCount <= 1 ? 'it' : 'them'} yet.',
       RediscoverJourneyKind.becauseYouSaved =>
-        openedCount > 0
-            ? 'You returned to part of this already; the rest still connects.'
-            : 'The pattern is clear enough to be worth bringing back.',
+        openedCount > 0 ? '$summary You already returned to part of it.' : summary,
     };
   }
 
@@ -601,318 +927,57 @@ class RediscoverMemory {
     RediscoverJourney journey, {
     required _MemoryDomain domain,
     required String? primaryTitle,
+    required RediscoverSemanticIntent semanticIntent,
   }) {
     if (primaryTitle != null && primaryTitle.trim().isNotEmpty) {
       return switch (domain) {
-        _MemoryDomain.cooking => 'Cook from $primaryTitle',
+        _MemoryDomain.cooking => 'Try $primaryTitle',
         _MemoryDomain.building => 'Open $primaryTitle first',
         _MemoryDomain.travel => 'Recheck $primaryTitle',
         _MemoryDomain.watchlist => 'Start with $primaryTitle',
         _ => 'Start with $primaryTitle',
       };
     }
-    return switch (journey.kind) {
-      RediscoverJourneyKind.continueLearning => 'Continue where you left off',
-      RediscoverJourneyKind.forgottenGems => 'Reopen the strongest save',
-      RediscoverJourneyKind.onThisDay => 'Look back for a minute',
-      RediscoverJourneyKind.memoryGoal => 'Choose the most practical next step',
-      RediscoverJourneyKind.neverOpened => 'Open one saved piece',
-      RediscoverJourneyKind.becauseYouSaved => 'Follow the connection',
+    return switch (semanticIntent.journeyType) {
+      RediscoverSemanticJourneyType.cooking => 'Pick one recipe',
+      RediscoverSemanticJourneyType.planning => 'Review the most practical save',
+      RediscoverSemanticJourneyType.building => 'Open the clearest note',
+      RediscoverSemanticJourneyType.watching => 'Pick one to watch',
+      RediscoverSemanticJourneyType.collecting => 'Open the strongest item',
+      RediscoverSemanticJourneyType.practicing => 'Try one small step',
+      RediscoverSemanticJourneyType.improving => 'Choose one practical change',
+      RediscoverSemanticJourneyType.learning => 'Start with the clearest save',
+      RediscoverSemanticJourneyType.researching => 'Open the best overview',
+      RediscoverSemanticJourneyType.revisiting => 'Reopen one save',
     };
   }
 
-  static List<String> _cookingTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.continueLearning => const [
-            'The Meal Plan Taking Shape',
-            'Still Working Out Dinner',
-            'The Kitchen Thread Continues',
-          ],
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Recipes You Nearly Tried',
-            'What You Meant to Cook',
-            'A Small Dinner Rescue',
-          ],
-        RediscoverJourneyKind.neverOpened => const [
-            'The Unopened Recipe Stack',
-            'Meals Still on the Shelf',
-            'The First Recipe to Try',
-          ],
-        RediscoverJourneyKind.memoryGoal => const [
-            'A More Useful Kitchen',
-            'The Cooking Goal Is Still There',
-            'A Practical Meal Plan',
-          ],
-        RediscoverJourneyKind.onThisDay => const [
-            'A Recipe From Before',
-            'An Old Kitchen Note',
-            'The Meal Idea Came Back',
-          ],
-        RediscoverJourneyKind.becauseYouSaved => const [
-            'The Flavor Pattern',
-            'A Weeknight Idea',
-            'The Food Thread You Started',
-          ],
-      };
-
-  static List<String> _buildingTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.continueLearning => const [
-            'The Project Is Still Open',
-            'Your Build Notes Are Still Here',
-            'The Workbench Is Ready',
-          ],
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Project You Kept Preparing For',
-            'An Unfinished Build Trail',
-            'The Idea You Parked',
-          ],
-        RediscoverJourneyKind.neverOpened => const [
-            'Tools You Never Tested',
-            'The First Build Step',
-            'A Saved Shortcut',
-          ],
-        RediscoverJourneyKind.memoryGoal => const [
-            'The Thing You Wanted to Make',
-            'A Build Goal With Receipts',
-            'The Plan Is Still Usable',
-          ],
-        RediscoverJourneyKind.onThisDay => const [
-            'An Earlier Build Note',
-            'A Project From Another Week',
-            'The Old Prototype Thread',
-          ],
-        RediscoverJourneyKind.becauseYouSaved => const [
-            'A Pattern in What You Build',
-            'The Stack You Were Studying',
-            'The Tools Keep Reappearing',
-          ],
-      };
-
-  static List<String> _philosophyTitles(RediscoverJourneyKind kind) =>
-      switch (kind) {
-        RediscoverJourneyKind.continueLearning => const [
-            'The Question Is Still Open',
-            'A Thought You Kept Following',
-            'The Same Idea Keeps Returning',
-          ],
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Questions You Put Down',
-            'A Thought Worth Picking Up',
-            'The Note That Still Asks Something',
-          ],
-        RediscoverJourneyKind.neverOpened => const [
-            'Unread Questions',
-            'A First Look at the Idea',
-            'The Essay Waiting Quietly',
-          ],
-        RediscoverJourneyKind.memoryGoal => const [
-            'A Practice You Meant to Keep',
-            'The Reflection Habit',
-            'A Quieter Goal',
-          ],
-        RediscoverJourneyKind.onThisDay => const [
-            'A Question From Before',
-            'An Older Thought Returned',
-            'Something You Were Wrestling With',
-          ],
-        RediscoverJourneyKind.becauseYouSaved => const [
-            'The Questions You Kept Collecting',
-            'A Line of Thought',
-            'The Idea Trail',
-          ],
-      };
-
-  static List<String> _travelTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.continueLearning => const [
-            'The Trip Is Taking Shape',
-            'The Route Keeps Growing',
-            'Planning Another Way Out',
-          ],
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Trip You Started Sketching',
-            'A Route You Left Behind',
-            'The Place You Meant to Revisit',
-          ],
-        RediscoverJourneyKind.neverOpened => const [
-            'The First Stop Is Still There',
-            'Places You Never Checked',
-            'The Unopened Route',
-          ],
-        RediscoverJourneyKind.memoryGoal => const [
-            'A Trip That Still Makes Sense',
-            'The Plan Is Still Possible',
-            'A Map You Already Started',
-          ],
-        RediscoverJourneyKind.onThisDay => const [
-            'A Place From Before',
-            'An Older Route Returned',
-            'The Travel Note Came Back',
-          ],
-        RediscoverJourneyKind.becauseYouSaved => const [
-            'The Places Keep Lining Up',
-            'A Small Escape Plan',
-            'The Map in Your Saves',
-          ],
-      };
-
-  static List<String> _natureTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.continueLearning => const [
-            'The Green Notebook Grows',
-            'Still Learning the Land',
-            'The Living Thread Continues',
-          ],
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Nature Notes You Forgot',
-            'A Quieter Kind of Research',
-            'The Field Notes Are Still Here',
-          ],
-        _ => const [
-            'The Living Things Notebook',
-            'A Small Return to Nature',
-            'The Outdoor Thread',
-          ],
-      };
-
-  static List<String> _fitnessTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.memoryGoal => const [
-            'The Routine You Were Testing',
-            'A Health Plan With Evidence',
-            'The Stronger Week',
-          ],
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Routine You Put Aside',
-            'A Useful Reset',
-            'The Health Notes Waiting',
-          ],
-        _ => const [
-            'A Better Baseline',
-            'The Experiment With Energy',
-            'The Training Thread',
-          ],
-      };
-
-  static List<String> _creativeTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.continueLearning => const [
-            'The Idea Still Has Shape',
-            'The Creative Thread Continues',
-            'Something You Could Make',
-          ],
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Idea You Almost Used',
-            'A Draft Still Waiting',
-            'The Reference Stack',
-          ],
-        _ => const [
-            'A Spark You Saved',
-            'The Moodboard Has a Point',
-            'The Thing You Might Make',
-          ],
-      };
-
-  static List<String> _learningTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.continueLearning => const [
-            'The Lesson Continues',
-            'You Were Building Context',
-            'The Study Trail Is Warm',
-          ],
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Lesson You Parked',
-            'A Useful Explainer Returned',
-            'The Research Stack',
-          ],
-        _ => const [
-            'The Thing You Wanted to Understand',
-            'A Thread Worth Finishing',
-            'The Learning Curve',
-          ],
-      };
-
-  static List<String> _moneyTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.memoryGoal => const [
-            'A More Boring Money Plan',
-            'The Practical Finance Stack',
-            'A Decision You Were Preparing For',
-          ],
-        _ => const [
-            'The Money Notes You Saved',
-            'A Practical Check-In',
-            'The Decision File',
-          ],
-      };
-
-  static List<String> _watchlistTitles(RediscoverJourneyKind kind) => switch (kind) {
-        RediscoverJourneyKind.forgottenGems => const [
-            'The Watchlist With a Reason',
-            'What You Meant to Watch',
-            'A Story You Saved for Later',
-          ],
-        RediscoverJourneyKind.onThisDay => const [
-            'An Old Watchlist Note',
-            'Something You Once Wanted to See',
-            'The Story Came Back',
-          ],
-        _ => const [
-            'The Next Thing to Watch',
-            'A Queue With Taste',
-            'The Story Thread',
-          ],
-      };
-
-  static List<String> _generalTitles(
-    RediscoverJourneyKind kind,
-    RediscoverMemoryPersonality personality,
-  ) {
-    if (personality == RediscoverMemoryPersonality.calm) {
-      return const [
-        'A Quiet Save Worth Opening',
-        'The Thing You Left for Later',
-        'A Small Return',
-      ];
-    }
-    return switch (kind) {
-      RediscoverJourneyKind.continueLearning => const [
-          'The Thread You Were Building',
-          'This Was Becoming Something',
-          'The Next Piece Is Still There',
-        ],
-      RediscoverJourneyKind.forgottenGems => const [
-          'You Were Onto Something Here',
-          'The Thing You Meant to Revisit',
-          'A Save With Some Weight',
-        ],
-      RediscoverJourneyKind.onThisDay => const [
-          'Something From Before',
-          'An Older Interest Returned',
-          'The Past Version of This',
-        ],
-      RediscoverJourneyKind.memoryGoal => const [
-          'A Goal Hiding in Plain Sight',
-          'The Plan Beneath the Saves',
-          'A Next Step You Already Collected',
-        ],
-      RediscoverJourneyKind.neverOpened => const [
-          'The First Look Is Still Missing',
-          'Saved, But Never Started',
-          'One Worth Opening First',
-        ],
-      RediscoverJourneyKind.becauseYouSaved => const [
-          'There Is a Pattern Here',
-          'This Keeps Showing Up',
-          'The Interest Underneath',
-        ],
-    };
+  static String _lowerFirst(String value) {
+    final clean = value.trim();
+    if (clean.isEmpty) return clean;
+    return clean.toLowerCase();
   }
 
-  static String _pick(
-    List<String> values,
-    RediscoverJourney journey,
-    String salt,
-  ) {
-    if (values.isEmpty) return 'Something Worth Reopening';
-    final ids = journey.items.map((item) => item.url.id).join(':');
-    final index = '$ids:${journey.kind.name}:$salt'.hashCode.abs() %
-        values.length;
-    return values[index];
-  }
+  static const _semanticNoiseTerms = {
+    'business',
+    'education',
+    'entertainment',
+    'food',
+    'guide',
+    'health',
+    'idea',
+    'ideas',
+    'lifestyle',
+    'movie recommendations',
+    'other',
+    'recipe',
+    'recipes',
+    'recommendations',
+    'reference',
+    'science',
+    'technology',
+    'travel',
+  };
 
   static String _domainNoun(_MemoryDomain domain, {required bool plural}) {
     return switch (domain) {

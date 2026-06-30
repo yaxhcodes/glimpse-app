@@ -101,7 +101,7 @@ List<RediscoverJourney> buildRediscoverJourneys({
         RediscoverJourney(
           kind: RediscoverJourneyKind.becauseYouSaved,
           title: topic.isEmpty
-              ? 'Your recent curiosity continues'
+              ? 'Recent Saves Worth Reopening'
               : _framedTitle(RediscoverJourneyKind.becauseYouSaved, topic),
           subtitle: '${items.length} saves worth reopening',
           icon: Icons.auto_awesome_rounded,

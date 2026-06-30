@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
@@ -14,6 +16,8 @@ SavedUrl _url({
   String? intentStatus,
   String category = 'Food & Cooking',
   List<String> tags = const ['recipe', 'high protein'],
+  String? summary,
+  String? enrichmentJson,
 }) {
   return SavedUrl()
     ..id = id
@@ -21,13 +25,29 @@ SavedUrl _url({
     ..domain = 'example.com'
     ..title = title
     ..description = ''
+    ..summary = summary
     ..category = category
     ..categoryEmoji = ''
     ..categories = [category]
     ..tags = tags
     ..savedAt = savedAt ?? DateTime(2026, 6, 1)
     ..openedAt = openedAt
-    ..intentStatus = intentStatus;
+    ..intentStatus = intentStatus
+    ..enrichmentJson = enrichmentJson;
+}
+
+String _intentJson({
+  required String primaryIntent,
+  required String why,
+  String? lifeArea,
+}) {
+  return jsonEncode({
+    'memory_intent': {
+      'primary_intent': primaryIntent,
+      'life_area': lifeArea,
+      'why_saved_hypothesis': why,
+    },
+  });
 }
 
 RediscoveryItem _item(SavedUrl url) {
@@ -40,12 +60,26 @@ RediscoveryItem _item(SavedUrl url) {
 
 void main() {
   test('RediscoverMemory fully describes a resurfacing candidate', () {
-    final first = _url(id: 7, title: 'High Protein Breakfast');
+    final first = _url(
+      id: 7,
+      title: 'High Protein Breakfast',
+      tags: const ['recipe', 'high protein', 'breakfast'],
+      enrichmentJson: _intentJson(
+        primaryIntent: 'cook',
+        lifeArea: 'food',
+        why: 'The user likely saved this to cook healthier breakfasts.',
+      ),
+    );
     final second = _url(
       id: 9,
       title: 'Soya Keema Masala',
       openedAt: DateTime(2026, 6, 5),
       intentStatus: 'queued',
+      enrichmentJson: _intentJson(
+        primaryIntent: 'cook',
+        lifeArea: 'food',
+        why: 'The user likely saved this for high-protein vegetarian meals.',
+      ),
     );
     final journey = RediscoverJourney(
       kind: RediscoverJourneyKind.forgottenGems,
@@ -62,11 +96,21 @@ void main() {
     expect(memory.id, 'forgottenGems:protein-recipes:7-9');
     expect(memory.topicKey, 'protein recipes');
     expect(memory.topicLabel, 'Protein Recipes');
-    expect(memory.what, 'A Better Breakfast');
+    expect(memory.what, 'High-Protein Breakfasts');
     expect(memory.copyIdentity.primary, memory.what);
-    expect(memory.copyIdentity.secondaryDescription, contains('recipes'));
-    expect(memory.copyIdentity.reasonForToday, contains('intent'));
+    expect(
+      memory.copyIdentity.secondaryDescription,
+      contains('cook high-protein breakfasts'),
+    );
+    expect(memory.copyIdentity.reasonForToday, contains('collecting recipes'));
     expect(memory.copyIdentity.suggestedNextStep, contains(first.title));
+    expect(memory.semanticIntent.label, 'High-Protein Breakfasts');
+    expect(
+      memory.semanticIntent.journeyType,
+      RediscoverSemanticJourneyType.cooking,
+    );
+    expect(memory.semanticIntent.evidencePhrases, contains('high protein'));
+    expect(memory.semanticIntent.confidence, greaterThan(0.8));
     expect(memory.emotion, RediscoverMemoryEmotion.recognition);
     expect(memory.personality, RediscoverMemoryPersonality.practical);
     expect(memory.encouragedAction, contains(first.title));
@@ -75,10 +119,11 @@ void main() {
     expect(memory.homeCopy.body, memory.whyNow);
     expect(memory.rediscoverCopy.body, contains(memory.whyItMatters));
     expect(memory.rediscoverCopy.actionLabel, contains(first.title));
-    expect(memory.notificationCopy.title, contains('A Better Breakfast'));
-    expect(memory.notificationCopy.body, contains('intent'));
+    expect(memory.notificationCopy.title, contains('High-Protein Breakfasts'));
+    expect(memory.notificationCopy.body, contains('collecting recipes'));
     expect(memory.what, isNot(contains('waiting for you')));
     expect(memory.what, isNot(contains('curiosity')));
+    expect(memory.what, isNot(contains('Flavor Pattern')));
 
     expect(memory.primaryUrl, first);
     expect(memory.supportingUrls, [second]);
@@ -192,25 +237,30 @@ void main() {
           _item(
             _url(
               id: 30,
-              title: 'Notes on Attention',
+              title: 'Philosophy Perspectives on Free Will',
               category: 'Philosophy',
-              tags: const ['philosophy', 'attention'],
+              tags: const ['philosophy', 'free-will', 'consciousness'],
+              enrichmentJson: _intentJson(
+                primaryIntent: 'learn',
+                lifeArea: 'education',
+                why: 'The user saved this to understand free will.',
+              ),
             ),
           ),
           _item(
             _url(
               id: 31,
-              title: 'A Question About Desire',
+              title: 'Free Will Debate',
               category: 'Philosophy',
-              tags: const ['question', 'wisdom'],
+              tags: const ['free will', 'determinism', 'agency'],
             ),
           ),
           _item(
             _url(
               id: 32,
-              title: 'The Habit of Reflection',
+              title: 'Consciousness and Agency',
               category: 'Philosophy',
-              tags: const ['reflection', 'stoicism'],
+              tags: const ['consciousness', 'agency'],
             ),
           ),
         ],
@@ -221,12 +271,16 @@ void main() {
 
     expect(buildMemory.personality, RediscoverMemoryPersonality.ambitious);
     expect(reflectiveMemory.personality, RediscoverMemoryPersonality.reflective);
+    expect(buildMemory.what, 'Flutter Development Notes');
+    expect(reflectiveMemory.what, 'Understanding Free Will');
     expect(buildMemory.what, isNot(reflectiveMemory.what));
-    expect(buildMemory.what.toLowerCase(), isNot(contains('app architecture')));
-    expect(reflectiveMemory.what.toLowerCase(), isNot(contains('philosophy')));
     expect(
       [buildMemory.what, reflectiveMemory.what].join(' '),
       isNot(contains('waiting for you')),
+    );
+    expect(
+      [buildMemory.what, reflectiveMemory.what].join(' '),
+      isNot(contains('A Pattern in What You Build')),
     );
   });
 }

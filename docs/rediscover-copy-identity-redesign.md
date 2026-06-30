@@ -58,99 +58,99 @@ Not added yet:
 2. Dinner You Already Planned
 3. The Recipes You Nearly Tried
 4. What You Meant to Cook
-5. A Small Dinner Rescue
-6. The Meal Plan Taking Shape
-7. The Kitchen Thread Continues
-8. Meals Still on the Shelf
-9. A Practical Meal Plan
-10. The Food Thread You Started
-11. The Project You Kept Preparing For
-12. Your Build Notes Are Still Here
-13. The Workbench Is Ready
-14. The Idea You Parked
-15. The Thing You Wanted to Make
-16. A Build Goal With Receipts
-17. The Stack You Were Studying
-18. The Tools Keep Reappearing
-19. The First Build Step
-20. The Plan Is Still Usable
+5. Quick Vegetarian Meals
+6. Weeknight Meal Ideas
+7. Indian Vegetarian Recipes
+8. Easy Lunch Recipes
+9. Healthy Dinner Recipes
+10. Paneer Recipes
+11. Flutter Development Notes
+12. AI Engineering Notes
+13. Local-First App Architecture
+14. Offline Sync Notes
+15. Riverpod Patterns
+16. Startup Reading
+17. Founder Advice
+18. API Development Notes
+19. Agent Skills
+20. GenAI Career Notes
 21. The Question Is Still Open
-22. A Thought You Kept Following
-23. The Questions You Put Down
-24. A Thought Worth Picking Up
-25. The Note That Still Asks Something
-26. A Practice You Meant to Keep
-27. Something You Were Wrestling With
-28. The Questions You Kept Collecting
-29. A Line of Thought
-30. The Idea Trail
-31. The Trip You Started Sketching
-32. The Route Keeps Growing
-33. Planning Another Way Out
-34. A Route You Left Behind
-35. The Place You Meant to Revisit
-36. The First Stop Is Still There
-37. A Map You Already Started
-38. The Places Keep Lining Up
-39. A Small Escape Plan
-40. The Map in Your Saves
-41. The Green Notebook Grows
-42. Still Learning the Land
-43. The Living Thread Continues
-44. The Nature Notes You Forgot
-45. A Quieter Kind of Research
-46. The Field Notes Are Still Here
-47. The Living Things Notebook
-48. A Small Return to Nature
-49. The Outdoor Thread
-50. The Routine You Were Testing
-51. A Health Plan With Evidence
-52. The Stronger Week
-53. The Routine You Put Aside
-54. A Useful Reset
-55. The Health Notes Waiting
-56. A Better Baseline
-57. The Experiment With Energy
-58. The Training Thread
-59. The Idea Still Has Shape
-60. The Creative Thread Continues
-61. Something You Could Make
-62. The Idea You Almost Used
-63. A Draft Still Waiting
-64. The Reference Stack
-65. A Spark You Saved
-66. The Moodboard Has a Point
-67. The Thing You Might Make
-68. The Lesson Continues
-69. You Were Building Context
-70. The Study Trail Is Warm
-71. The Lesson You Parked
-72. A Useful Explainer Returned
-73. The Research Stack
-74. The Thing You Wanted to Understand
-75. A Thread Worth Finishing
-76. The Learning Curve
-77. A More Boring Money Plan
-78. The Practical Finance Stack
-79. A Decision You Were Preparing For
-80. The Money Notes You Saved
-81. A Practical Check-In
-82. The Decision File
-83. The Watchlist With a Reason
-84. What You Meant to Watch
-85. A Story You Saved for Later
-86. An Old Watchlist Note
-87. Something You Once Wanted to See
-88. The Story Came Back
-89. The Next Thing to Watch
-90. A Queue With Taste
-91. The Story Thread
-92. A Quiet Save Worth Opening
-93. The Thing You Left for Later
-94. A Small Return
-95. The Thread You Were Building
-96. This Was Becoming Something
-97. You Were Onto Something Here
-98. A Goal Hiding in Plain Sight
-99. Saved, But Never Started
-100. There Is a Pattern Here
+22. Understanding Consciousness
+23. Stoic Principles
+24. Critical Thinking Books
+25. Argumentation Books
+26. Hindu Philosophy
+27. Independent Thought
+28. Social Justice Critiques
+29. Bhagavad Gita Notes
+30. Personal Growth Ideas
+31. Himalayan Treks
+32. Himachal Travel
+33. Ladakh Villages
+34. Udaipur Heritage Walks
+35. Nepal Travel
+36. Kashmir Treks
+37. Iceland Photography Spots
+38. Offbeat India Travel
+39. Weekend Treks
+40. Mountain Travel
+41. Natural Farming
+42. Permaculture
+43. Plant Biotechnology
+44. Wildlife Notes
+45. Wildlife Photography
+46. Moose Documentaries
+47. Animal Facts
+48. Food Forests
+49. Sustainable Agriculture
+50. High-Protein Vegetarian Meals
+51. Vegetarian Protein Sources
+52. Better Breakfasts
+53. Quick Wrap Recipes
+54. Healthy Salads
+55. Pantry Noodles
+56. One-Pot Pasta
+57. Indian Curry Recipes
+58. Fitness Habits
+59. Mental Health Habits
+60. Nature for Anxiety
+61. Photography References
+62. Visual Design Notes
+63. ASCII Art Tools
+64. Writing Skills
+65. Personal Branding
+66. Content Marketing
+67. Design Tools
+68. Self-Education
+69. Learning Reflections
+70. Survivorship Bias
+71. Quantum Mechanics
+72. Human Adaptation
+73. Natural History
+74. Vedic Literature
+75. Science Notes
+76. Research References
+77. Money Notes
+78. Business Learning
+79. GTM Career Notes
+80. First 100 Users
+81. Startup Launch Notes
+82. Food Business Ideas
+83. Manga To Read
+84. Anime To Watch
+85. Mind-Bending Movies
+86. Netflix Movies
+87. Rewatchable Films
+88. Japanese Films
+89. Bollywood Music
+90. Movie Recommendations
+91. Pogo Channel History
+92. Life Advice for Your 20s
+93. Career Development
+94. Mindset Habits
+95. Skill Development
+96. Founder Growth
+97. AI Sustainability
+98. Data Center Water Use
+99. Local AI Hardware
+100. Open Source Agent Tools
