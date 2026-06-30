@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,7 @@ import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/engagement_event.dart';
 import '../models/saved_url.dart';
 import '../services/link_preview_service.dart';
 import '../models/user_collection.dart';
@@ -29,6 +31,7 @@ class IsarService {
     return Isar.open([
       SavedUrlSchema,
       UserCollectionSchema,
+      EngagementEventSchema,
     ], directory: dir.path);
   }
 
@@ -40,6 +43,81 @@ class IsarService {
   Future<int> saveUrl(SavedUrl url) async {
     final isar = await _db;
     return isar.writeTxn(() => isar.savedUrls.put(url));
+  }
+
+  // --------------- ENGAGEMENT EVENT LOG (#4 Phase 1) ---------------
+  // On-device behavior log that fuels Rediscover/notification ranking. Writes
+  // are best-effort: a logging failure must never break a user action.
+
+  static const int _maxEngagementEvents = 5000;
+  static const Duration _engagementRetention = Duration(days: 180);
+
+  Future<void> logEvent({
+    required EngagementEventType type,
+    SavedUrl? url,
+    String? query,
+    String? clusterLabel,
+    String? triggerType,
+  }) async {
+    try {
+      final isar = await _db;
+      final now = DateTime.now();
+      final event = EngagementEvent()
+        ..type = type
+        ..at = now
+        ..hourLocal = now.hour
+        ..urlId = url?.id
+        ..query = query
+        ..clusterLabel = clusterLabel
+        ..triggerType = triggerType;
+      if (url != null) {
+        event.source = CategoryResolver.displaySourceName(
+          rawUrl: url.rawUrl,
+          fallbackDomain: url.domain,
+        );
+        // Content category only — platforms/buckets are not topics.
+        for (final c in url.effectiveCategories) {
+          if (c == 'Other' || c == 'Web') continue;
+          if (CategoryResolver.isPlatformName(c)) continue;
+          event.category = c;
+          break;
+        }
+      }
+      await isar.writeTxn(() => isar.engagementEvents.put(event));
+      await _pruneEngagementEvents(isar);
+    } catch (_) {
+      // Swallow — behavioral logging is never allowed to surface to the user.
+    }
+  }
+
+  Future<void> _pruneEngagementEvents(Isar isar) async {
+    final count = await isar.engagementEvents.count();
+    final cutoff = DateTime.now().subtract(_engagementRetention);
+    if (count <= _maxEngagementEvents) {
+      // Cheap path: only drop anything past the retention window.
+      final stale =
+          await isar.engagementEvents.filter().atLessThan(cutoff).count();
+      if (stale == 0) return;
+    }
+    await isar.writeTxn(() async {
+      await isar.engagementEvents.filter().atLessThan(cutoff).deleteAll();
+      final remaining = await isar.engagementEvents.count();
+      if (remaining > _maxEngagementEvents) {
+        final oldest = await isar.engagementEvents
+            .where()
+            .sortByAt()
+            .limit(remaining - _maxEngagementEvents)
+            .findAll();
+        await isar.engagementEvents
+            .deleteAll(oldest.map((e) => e.id).toList());
+      }
+    });
+  }
+
+  /// Most recent events first — the input to the affinity profile (later phase).
+  Future<List<EngagementEvent>> recentEvents({int limit = _maxEngagementEvents}) async {
+    final isar = await _db;
+    return isar.engagementEvents.where().sortByAtDesc().limit(limit).findAll();
   }
 
   // --------------- READ ---------------
@@ -719,13 +797,18 @@ class IsarService {
 
   Future<void> updateOpenedAt(int urlId, DateTime when) async {
     final isar = await _db;
+    SavedUrl? opened;
     await isar.writeTxn(() async {
       final url = await isar.savedUrls.get(urlId);
       if (url != null) {
         url.openedAt = when;
         await isar.savedUrls.put(url);
+        opened = url;
       }
     });
+    if (opened != null) {
+      unawaited(logEvent(type: EngagementEventType.open, url: opened));
+    }
   }
 
   /// Mark a link unread (e.g. toggling from the home card).
@@ -755,13 +838,19 @@ class IsarService {
   /// Rediscovery. Dismissed links are excluded from all resurfacing.
   Future<void> updateRediscoverDismissedAt(int urlId, DateTime? when) async {
     final isar = await _db;
+    SavedUrl? changed;
     await isar.writeTxn(() async {
       final url = await isar.savedUrls.get(urlId);
       if (url != null) {
         url.rediscoverDismissedAt = when;
         await isar.savedUrls.put(url);
+        changed = url;
       }
     });
+    // Only a dismiss (non-null) is a negative signal; restore is not logged.
+    if (when != null && changed != null) {
+      unawaited(logEvent(type: EngagementEventType.cardDismissed, url: changed));
+    }
   }
 
   /// Set the on-device intent for a save (from a suggested-action chip).
@@ -776,6 +865,7 @@ class IsarService {
     DateTime? revisitAfter,
   }) async {
     final isar = await _db;
+    SavedUrl? changed;
     await isar.writeTxn(() async {
       final url = await isar.savedUrls.get(urlId);
       if (url == null) return;
@@ -787,7 +877,11 @@ class IsarService {
         url.openedAt = DateTime.now();
       }
       await isar.savedUrls.put(url);
+      changed = url;
     });
+    if (changed != null) {
+      unawaited(logEvent(type: EngagementEventType.intentSet, url: changed));
+    }
   }
 
   /// Clear any intent (toggle a chip back off).

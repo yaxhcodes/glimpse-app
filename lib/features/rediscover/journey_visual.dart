@@ -47,8 +47,7 @@ class JourneyVisual {
 
 JourneyVisual visualForJourney(BuildContext context, RediscoverJourney journey) {
   final cs = Theme.of(context).colorScheme;
-  final text = _semanticText(journey);
-  final type = _motifFor(text);
+  final type = _motifForJourney(journey);
   final colors = _colorsFor(cs, type);
 
   return JourneyVisual(
@@ -66,18 +65,20 @@ JourneyVisual visualForJourney(BuildContext context, RediscoverJourney journey) 
   );
 }
 
-String _semanticText(RediscoverJourney journey) {
-  final parts = <String>[
-    journey.title,
-    journey.subtitle,
-    for (final item in journey.items.take(6)) ...[
-      item.url.category,
-      item.url.domain,
-      ...item.url.effectiveCategories,
-      ...item.url.tags.take(8),
-    ],
-  ];
-  return parts.join(' ').toLowerCase();
+/// Picks the motif by majority vote across the journey's items, so a single
+/// tech-tagged save can't mislabel a whole philosophy journey as "Software".
+///
+/// The old version concatenated every item + the title and matched motifs in
+/// priority order — and since `software` is checked first against the broadest
+/// keyword net (ai, agent, code, github, mcp…), any journey that grazed one of
+/// those words came back "Software". Voting per item makes the dominant content
+/// win instead. Platform/source names carry no motif, so they don't vote.
+/// The journey's motif comes from its [RediscoverJourney.topicAnchor] — the
+/// same dominant topic that drives the title — so the eyebrow and title can
+/// never disagree (e.g. a "Travel" eyebrow over a "Self-improvement" title).
+/// Falls back to the title text for non-topic journeys (on-this-day, etc.).
+JourneyMotif _motifForJourney(RediscoverJourney journey) {
+  return _motifFor((journey.topicAnchor ?? journey.title).toLowerCase());
 }
 
 JourneyMotif _motifFor(String text) {
@@ -120,6 +121,12 @@ JourneyMotif _motifFor(String text) {
     'garden',
     'plant',
     'ecology',
+    'agriculture',
+    'farming',
+    'crop',
+    'soil',
+    'harvest',
+    'agritech',
   ])) {
     return JourneyMotif.nature;
   }
@@ -142,6 +149,20 @@ JourneyMotif _motifFor(String text) {
     'gita',
     'meaning',
     'ethics',
+    'self-improvement',
+    'self improvement',
+    'self-help',
+    'personal growth',
+    'mindset',
+    'spiritual',
+    'spirituality',
+    'meditation',
+    'discipline',
+    'wisdom',
+    'manifestation',
+    'hinduism',
+    'dharma',
+    'psychology',
   ])) {
     return JourneyMotif.philosophy;
   }

@@ -145,12 +145,7 @@ class _DigestTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final title = TitleResolver.formatForCompactCard(
-      url,
-      TitleResolver.collapseWhitespace(
-        TitleResolver.resolve(url, tagFrequency: tagFrequency),
-      ),
-    );
+    final title = TitleResolver.resolveDetailTitle(url, tagFrequency: tagFrequency);
     final isRead = url.openedAt != null;
     final isLight = theme.brightness == Brightness.light;
 

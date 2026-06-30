@@ -8,6 +8,8 @@ import 'package:glimpse/core/services/digest_prefs.dart';
 import 'package:glimpse/core/services/intent_classifier.dart';
 import 'package:glimpse/core/services/notif_bandit.dart';
 import 'package:glimpse/core/services/notification_action_handler.dart';
+import 'package:glimpse/core/services/notification_router.dart';
+import 'package:glimpse/core/services/notification_scheduler.dart';
 import 'package:glimpse/core/services/revisit_scorer.dart';
 import 'package:glimpse/core/services/tag_analyzer.dart';
 import 'package:glimpse/core/services/user_fingerprint.dart';
@@ -398,6 +400,21 @@ void main() {
         expect(recent.length, 1);
       },
     );
+  });
+
+  group('NotificationRouter history type mapping', () {
+    test('maps Rediscover memory payloads to rediscover history', () {
+      expect(NotificationScheduler.labelFor('R'), 'Rediscover Memory');
+      expect(historyTypeFromPayloadLetter('R'), 'rediscover');
+      expect(
+        historyTypeFromNotificationMap(const {'type': 'rediscover'}),
+        'rediscover',
+      );
+      expect(
+        historyTypeFromNotificationMap(const {'type': 'R'}),
+        'rediscover',
+      );
+    });
   });
 
   group('NotifBandit', () {

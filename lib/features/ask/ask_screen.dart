@@ -1526,7 +1526,7 @@ class _AttachedSourceBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final tagFreq = ref.watch(tagOccurrenceMapProvider);
-    final title = TitleResolver.resolveStableDisplayTitle(
+    final title = TitleResolver.resolveDetailTitle(
       source,
       tagFrequency: tagFreq,
     );

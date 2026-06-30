@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/engagement_event.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
@@ -13,6 +16,7 @@ import '../../shared/widgets/swipeable_url_card.dart';
 import '../home/home_provider.dart';
 import 'journey_visual.dart';
 import 'rediscover_journey_provider.dart';
+import 'rediscover_memory.dart';
 import 'rediscover_provider.dart';
 
 class RediscoverJourneyDetailScreen extends ConsumerWidget {
@@ -26,6 +30,10 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final tagFrequency = ref.watch(tagOccurrenceMapProvider);
+    final memory = RediscoverMemory.fromJourney(
+      journey,
+      tagFrequency: tagFrequency,
+    );
     final items = journey.items;
     final connected = items.map((item) => item.url).toList();
     final forgotten = items
@@ -51,12 +59,10 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
             ),
           ),
           SliverToBoxAdapter(
-            child: _JourneyHero(journey: journey, visual: visual),
-          ),
-          SliverToBoxAdapter(
-            child: _JourneyExplanation(journey: journey),
+            child: _JourneyHero(memory: memory, visual: visual),
           ),
           SliverToBoxAdapter(child: _JourneyTimeline(journey: journey)),
+          SliverToBoxAdapter(child: _MemoryReasoning(memory: memory)),
           if (revisit.isNotEmpty)
             _JourneyRail(
               title: 'Continue from here',
@@ -72,7 +78,9 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
               onOpen: (url) => _open(context, ref, url, connected),
             ),
           SliverToBoxAdapter(child: _RelatedInterests(journey: journey)),
-          SliverToBoxAdapter(child: SectionTitle('Connected saves', count: connected.length)),
+          SliverToBoxAdapter(
+            child: SectionTitle('Connected saves', count: connected.length),
+          ),
           SliverList(
             delegate: SliverChildBuilderDelegate((context, index) {
               final url = connected[index];
@@ -104,9 +112,17 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     if (url.isQueued) {
       await ref.read(isarServiceProvider).clearIntent(url.id);
     }
+    unawaited(
+      ref.read(isarServiceProvider).logEvent(
+            type: EngagementEventType.cardOpened,
+            url: url,
+            clusterLabel: journey.topicAnchor ?? journey.title,
+          ),
+    );
     ref.invalidate(todaysPicksProvider);
     ref.invalidate(revisitQueueProvider);
     ref.invalidate(interestShelfProvider);
+    ref.invalidate(rediscoverJourneysProvider);
     if (context.mounted) {
       context.push(
         '/url/${url.id}',
@@ -116,10 +132,49 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
   }
 }
 
-class _JourneyHero extends StatelessWidget {
-  const _JourneyHero({required this.journey, required this.visual});
+class _MemoryReasoning extends StatelessWidget {
+  const _MemoryReasoning({required this.memory});
 
-  final RediscoverJourney journey;
+  final RediscoverMemory memory;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            memory.rediscoverCopy.body,
+            style: tt.bodyMedium?.copyWith(
+              color: cs.onSurface,
+              height: 1.38,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            memory.rediscoverCopy.actionLabel,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: tt.labelLarge?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.3,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JourneyHero extends StatelessWidget {
+  const _JourneyHero({required this.memory, required this.visual});
+
+  final RediscoverMemory memory;
   final JourneyVisual visual;
 
   @override
@@ -176,7 +231,7 @@ class _JourneyHero extends StatelessWidget {
               painter: JourneyMotifPainter(
                 motif: visual.motif,
                 color: visual.motifColor,
-                variant: journey.title.hashCode,
+                variant: memory.id.hashCode,
               ),
             ),
           ),
@@ -208,7 +263,7 @@ class _JourneyHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 7),
                 Text(
-                  journey.title,
+                  memory.rediscoverCopy.title,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: tt.headlineSmall?.copyWith(
@@ -220,7 +275,7 @@ class _JourneyHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  journey.subtitle,
+                  memory.rediscoverCopy.subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: tt.bodyMedium?.copyWith(
@@ -235,79 +290,6 @@ class _JourneyHero extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _JourneyExplanation extends StatelessWidget {
-  const _JourneyExplanation({required this.journey});
-
-  final RediscoverJourney journey;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final topics = _topics(journey);
-    final sourceCount = journey.items
-        .map((item) => item.url.domain)
-        .where((domain) => domain.trim().isNotEmpty)
-        .toSet()
-        .length;
-    final topicLine = topics.isEmpty
-        ? 'These saves share timing, intent, and recent rediscovery signals.'
-        : 'These saves keep circling ${_naturalJoin(topics.take(3).toList())}.';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Why this belongs together',
-            style: tt.titleSmall?.copyWith(
-              color: cs.onSurface,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '$topicLine Glimpse found ${journey.items.length} connected saves across $sourceCount ${sourceCount == 1 ? 'source' : 'sources'}.',
-            style: tt.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-              height: 1.45,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<String> _topics(RediscoverJourney journey) {
-    final counts = <String, int>{};
-    for (final item in journey.items) {
-      for (final tag in TagAnalyzer.notificationTopicTags(item.url.tags)) {
-        counts[tag] = (counts[tag] ?? 0) + 1;
-      }
-    }
-    final sorted = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return sorted.take(4).map((entry) => _titleCase(entry.key)).toList();
-  }
-
-  String _naturalJoin(List<String> values) {
-    if (values.isEmpty) return '';
-    if (values.length == 1) return values.first;
-    if (values.length == 2) return '${values.first} and ${values.last}';
-    return '${values.take(values.length - 1).join(', ')}, and ${values.last}';
-  }
-
-  String _titleCase(String value) {
-    return value
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-        .join(' ');
   }
 }
 
@@ -504,7 +486,7 @@ class _JourneyRail extends StatelessWidget {
                   width: metrics.cardWidth,
                   child: CinematicCard(
                     imageUrl: item.url.thumbnailUrl,
-                    title: TitleResolver.resolve(
+                    title: TitleResolver.resolveDetailTitle(
                       item.url,
                       tagFrequency: tagFrequency,
                     ),

@@ -50,6 +50,12 @@ class CategoryResolver {
     return fallbackEmoji ?? '📁';
   }
 
+  /// Whether [value] names a known platform/source (Instagram, YouTube, …)
+  /// rather than a content domain. Domain/category copy (e.g. "Mostly X and Y")
+  /// must exclude these so a platform never leaks into a domain-only line.
+  static bool isPlatformName(String value) =>
+      DomainCategorizer.infoForCategory(value.trim()) != null;
+
   static String displaySourceName({
     required String rawUrl,
     required String fallbackDomain,

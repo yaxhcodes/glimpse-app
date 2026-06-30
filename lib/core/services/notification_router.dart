@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../database/isar_service.dart';
+import '../models/engagement_event.dart';
 import 'digest_prefs.dart';
 import 'notif_bandit.dart';
 import 'tag_analyzer.dart';
@@ -31,7 +33,7 @@ class NotificationRouter {
     step();
   }
 
-  /// Resolve the scheduler letter (A–G) the bandit keys on, from either a
+  /// Resolve the scheduler letter (A–G, R) the bandit keys on, from either a
   /// fresh payload (`type` is the letter) or a hub history entry (`type` is the
   /// snake_case history type).
   static String? _rewardLetter(Map<String, dynamic> map) {
@@ -41,7 +43,7 @@ class NotificationRouter {
     return _historyTypeToLetter[t];
   }
 
-  static const _letters = {'A', 'B', 'C', 'D', 'E', 'F', 'G'};
+  static const _letters = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'R'};
   static const _historyTypeToLetter = {
     'geo': 'A',
     'new_interest': 'B',
@@ -50,6 +52,7 @@ class NotificationRouter {
     'resurface': 'E',
     'digest': 'F',
     'revisit': 'G',
+    'rediscover': 'R',
   };
 
   static List<int> _parseLinkIds(Map<String, dynamic> map) {
@@ -105,7 +108,16 @@ class NotificationRouter {
 
     // Reward signal for the on-device bandit: this type got opened.
     final letter = _rewardLetter(map);
-    if (letter != null) unawaited(NotifBandit.recordOpen(letter));
+    if (letter != null) {
+      unawaited(NotifBandit.recordOpen(letter));
+      // Mirror into the unified event log for the affinity model.
+      unawaited(
+        IsarService().logEvent(
+          type: EngagementEventType.notifOpened,
+          triggerType: letter,
+        ),
+      );
+    }
     // Opening a notification is also an "active now" signal — feed the peak-hour
     // histogram so future notifications are timed to when the user engages.
     unawaited(TagAnalyzer.recordAppOpen());
@@ -160,7 +172,7 @@ class NotificationDetailExtra {
   final String? historyType;
 }
 
-/// Maps scheduler letter (A–F) or persisted hub history [type] to a stable key.
+/// Maps scheduler letter (A-G, R) or persisted hub history [type] to a stable key.
 String? historyTypeFromNotificationMap(Map<String, dynamic> map) {
   final t = map['type'] as String?;
   final fromLetter = historyTypeFromPayloadLetter(t);
@@ -173,12 +185,13 @@ String? historyTypeFromNotificationMap(Map<String, dynamic> map) {
     'streak',
     'resurface',
     'revisit',
+    'rediscover',
   };
   if (t != null && known.contains(t)) return t;
   return null;
 }
 
-/// Maps scheduler payload `type` (A–F) to hub history snake_case.
+/// Maps scheduler payload `type` (A-G, R) to hub history snake_case.
 String? historyTypeFromPayloadLetter(String? letter) {
   switch (letter) {
     case 'A':
@@ -195,6 +208,8 @@ String? historyTypeFromPayloadLetter(String? letter) {
       return 'digest';
     case 'G':
       return 'revisit';
+    case 'R':
+      return 'rediscover';
     default:
       return null;
   }

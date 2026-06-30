@@ -43,7 +43,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
             Text('Add to collection', style: theme.textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              TitleResolver.resolve(widget.url, tagFrequency: tagFreq),
+              TitleResolver.resolveDetailTitle(widget.url, tagFrequency: tagFreq),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

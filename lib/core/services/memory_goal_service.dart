@@ -240,6 +240,10 @@ class MemoryGoalService {
 
   static String _goalName(String intent, String concept) {
     final cleanConcept = _titleCase(concept);
+    // Some concepts are already an activity or field ("Software Development",
+    // "Website Growth") where a leading action verb reads wrong
+    // ("Build Software Development"). Use the concept on its own in that case.
+    if (_isActivityConcept(concept)) return cleanConcept;
     return switch (intent) {
       'cook' => 'Cook $cleanConcept',
       'visit' => 'Visit $cleanConcept',
@@ -251,6 +255,28 @@ class MemoryGoalService {
       'health_change' => 'Improve $cleanConcept',
       _ => 'Revisit $cleanConcept',
     };
+  }
+
+  /// True when the concept already names an activity/field, so a leading
+  /// action verb ("Build", "Learn") would produce awkward grammar.
+  static bool _isActivityConcept(String concept) {
+    final lower = concept.trim().toLowerCase();
+    const activitySuffixes = [
+      'development',
+      'growth',
+      'building',
+      'design',
+      'writing',
+      'marketing',
+      'management',
+      'engineering',
+      'analysis',
+      'research',
+      'training',
+      'planning',
+      'investing',
+    ];
+    return activitySuffixes.any(lower.endsWith);
   }
 
   static String _goalId(String intent, String concept) {

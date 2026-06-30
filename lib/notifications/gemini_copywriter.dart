@@ -49,6 +49,7 @@ Rules:
 - Never say "you have unread links" or "check your saves" — too generic.
 - Never use exclamation marks.
 - Never use the word "collection" or "library".
+- Never name a platform or app (Instagram, YouTube, TikTok, X, Reddit, GitHub, etc.). Refer to the topic or domain, never where it was saved.
 - Tone: like a smart, low-key friend who noticed a pattern — not a productivity app.
 - Vary the angle: sometimes curious, sometimes gently teasing, sometimes matter-of-fact.
 - Output ONLY valid JSON: {"title": "...", "body": "..."}. No explanation, no markdown.
@@ -208,7 +209,7 @@ Write a notification for this user now.
   }
 
   static String _linkLine(SavedUrl l, Map<String, int> tagCounts) {
-    final title = TitleResolver.resolve(l, tagFrequency: tagCounts);
+    final title = TitleResolver.resolveDetailTitle(l, tagFrequency: tagCounts);
     final tags = TagAnalyzer.notificationTopicTags(l.tags).take(4).join(', ');
     final summ = (l.summary ?? '').trim();
     final summShort = summ.isEmpty
@@ -226,7 +227,7 @@ Write a notification for this user now.
             : null;
         if (link == null) return 'User bookmarked a save to revisit.';
         final counts = _tagCounts(fp.allUrls);
-        final displayTitle = TitleResolver.resolve(
+        final displayTitle = TitleResolver.resolveDetailTitle(
           link,
           tagFrequency: counts,
         ).replaceAll("'", "''");
@@ -264,7 +265,7 @@ Write a notification for this user now.
         }
         final days = DateTime.now().difference(link.savedAt).inDays;
         final counts = _tagCounts(fp.allUrls);
-        final displayTitle = TitleResolver.resolve(
+        final displayTitle = TitleResolver.resolveDetailTitle(
           link,
           tagFrequency: counts,
         ).replaceAll("'", "''");
@@ -384,7 +385,7 @@ Write a notification for this user now.
             : null;
         final counts = _tagCounts(fp.allUrls);
         final t = link != null
-            ? TitleResolver.resolve(link, tagFrequency: counts)
+            ? TitleResolver.resolveDetailTitle(link, tagFrequency: counts)
             : 'that save';
         final action = link?.intentAction ?? '';
         final verb = action.contains('watch')
@@ -428,7 +429,7 @@ Write a notification for this user now.
         final l = fp.topUnreadLink;
         final counts = _tagCounts(fp.allUrls);
         final t = l != null
-            ? TitleResolver.resolve(l, tagFrequency: counts)
+            ? TitleResolver.resolveDetailTitle(l, tagFrequency: counts)
             : 'A save';
         return NotifCopy(
           title: 'Still sitting there: ${_short(t, 40)}',

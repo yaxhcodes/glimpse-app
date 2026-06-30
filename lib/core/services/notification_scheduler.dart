@@ -1,13 +1,25 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../notifications/gemini_copywriter.dart';
+import '../../features/mindmap/interest_cluster_service.dart';
+import '../../features/rediscover/rediscover_journey_provider.dart';
+import '../../features/rediscover/rediscover_memory.dart';
+import '../../features/rediscover/rediscover_notification_candidate.dart';
+import '../../features/rediscover/rediscover_provider.dart';
 
 import '../database/isar_service.dart';
+import '../models/engagement_event.dart';
 import '../models/saved_url.dart';
+import 'affinity_profile.dart';
 import 'digest_notifications.dart';
 import 'digest_prefs.dart';
 import 'notif_bandit.dart';
 import 'notification_templates.dart';
+import 'rediscovery_service.dart';
+import 'revisit_scorer.dart';
 import 'summary_trimmer.dart';
 import 'tag_analyzer.dart';
 import 'title_resolver.dart';
@@ -25,6 +37,7 @@ class NotificationScheduler {
 
   /// Labels for settings / diagnostics (user-facing).
   static const _typeLabels = {
+    'R': 'Rediscover Memory',
     'A': 'Travel & Places',
     'B': 'New Discovery',
     'C': 'Reading Reminder',
@@ -58,6 +71,13 @@ class NotificationScheduler {
       within: const Duration(days: 3),
     );
 
+    final memoryResult = await _tryRediscoverMemory(
+      isar,
+      fp,
+      recentSigs: recentSigs,
+    );
+    if (memoryResult != null) return memoryResult;
+
     // Eligible, non-cooldown candidates for today.
     final candidates = <String>[];
     for (final type in _typeOrder) {
@@ -74,6 +94,15 @@ class NotificationScheduler {
       final result = await _tryType(isar, type, fp, sig: _signature(type, fp));
       if (result != null) {
         await NotifBandit.recordSend(type);
+        // Also feed the unified event log so the affinity model sees
+        // notification engagement at the topic level (the bandit tracks it by
+        // type). Best-effort.
+        unawaited(
+          isar.logEvent(
+            type: EngagementEventType.notifShown,
+            triggerType: type,
+          ),
+        );
         await DigestPrefs.recordFired();
         await DigestPrefs.setLastFiredType(type);
         await DigestPrefs.setLastFired(type);
@@ -132,18 +161,36 @@ class NotificationScheduler {
   static Future<List<NotifDiag>> diagnostics(IsarService isar) async {
     final fp = await UserFingerprint.compute(isar);
     final recent = await DigestPrefs.recentSignatures();
-    return _typeOrder.map((t) {
-      final eligible = NotificationTemplates.isEligible(t, fp);
-      final sig = _signature(t, fp);
-      final onCooldown = sig != null && recent.contains(sig);
-      return NotifDiag(
-        type: t,
-        label: labelFor(t),
-        eligible: eligible,
-        onCooldown: onCooldown,
-        detail: _eligibilityDetail(t, fp),
-      );
-    }).toList();
+    final memoryCandidate = await _bestRediscoverMemoryCandidate(
+      isar,
+      fp,
+      recentSigs: recent,
+    );
+    return [
+      NotifDiag(
+        type: 'R',
+        label: labelFor('R'),
+        eligible: memoryCandidate?.shouldNotify ?? false,
+        onCooldown: memoryCandidate == null
+            ? false
+            : recent.contains(_memorySignature(memoryCandidate.memory)),
+        detail: memoryCandidate == null
+            ? 'no Rediscover memory candidate'
+            : _memoryDiagDetail(memoryCandidate),
+      ),
+      ..._typeOrder.map((t) {
+        final eligible = NotificationTemplates.isEligible(t, fp);
+        final sig = _signature(t, fp);
+        final onCooldown = sig != null && recent.contains(sig);
+        return NotifDiag(
+          type: t,
+          label: labelFor(t),
+          eligible: eligible,
+          onCooldown: onCooldown,
+          detail: _eligibilityDetail(t, fp),
+        );
+      }),
+    ];
   }
 
   /// Short human reason describing the gating metric for [type].
@@ -175,13 +222,34 @@ class NotificationScheduler {
 
   static Future<String> runSingle(IsarService isar, String type) async {
     final fp = await UserFingerprint.compute(isar);
-      final result = await _tryType(isar, type, fp);
+    if (type == 'R') {
+      final result = await _tryRediscoverMemory(
+        isar,
+        fp,
+        recentSigs: await DigestPrefs.recentSignatures(),
+      );
+      if (result != null) return result;
+      return 'skipped: conditions not met for ${labelFor(type)}';
+    }
+    final result = await _tryType(isar, type, fp);
     if (result != null) return result;
     return 'skipped: conditions not met for ${labelFor(type)}';
   }
 
   static Future<NotifCopy?> preview(IsarService isar, String type) async {
     final fp = await UserFingerprint.compute(isar);
+    if (type == 'R') {
+      final candidate = await _bestRediscoverMemoryCandidate(
+        isar,
+        fp,
+        recentSigs: await DigestPrefs.recentSignatures(),
+      );
+      if (candidate == null || !candidate.shouldNotify) return null;
+      return NotifCopy(
+        title: candidate.memory.notificationCopy.title,
+        body: candidate.memory.notificationCopy.body,
+      );
+    }
     if (!NotificationTemplates.isEligible(type, fp)) return null;
     final links = _relevantSavedUrls(type, fp);
     return GeminiCopywriter.generate(
@@ -189,6 +257,169 @@ class NotificationScheduler {
       fingerprint: fp,
       relevantLinks: links,
     );
+  }
+
+  static Future<String?> _tryRediscoverMemory(
+    IsarService isar,
+    UserFingerprint fp, {
+    required Set<String> recentSigs,
+  }) async {
+    final candidate = await _bestRediscoverMemoryCandidate(
+      isar,
+      fp,
+      recentSigs: recentSigs,
+    );
+    if (candidate == null || !candidate.shouldNotify) return null;
+
+    final memory = candidate.memory;
+    final linkIds = [
+      ...memory.metadata.primaryUrlIds,
+      ...memory.metadata.supportingUrlIds,
+    ];
+    if (linkIds.isEmpty) return null;
+
+    final copy = memory.notificationCopy;
+    final notifId = 'notif_${DateTime.now().millisecondsSinceEpoch}';
+    final firedAt = DateTime.now().toIso8601String();
+    final sig = _memorySignature(memory);
+    final payload = <String, dynamic>{
+      'type': 'R',
+      'linkIds': linkIds,
+      'title': copy.title,
+      'body': copy.body,
+      'notifId': notifId,
+      'firedAt': firedAt,
+      'memoryId': memory.id,
+      'notificationScore': candidate.score,
+      'explanation': candidate.explanation,
+    };
+
+    await DigestPrefs.saveNotifPayload(notifId, payload);
+
+    await DigestNotifications.show(
+      type: NotifType.resurface,
+      title: copy.title,
+      body: copy.body,
+      payloadJson: jsonEncode(payload),
+      withActions: linkIds.length == 1,
+    );
+
+    await DigestPrefs.addDigestToHistory(
+      ids: linkIds,
+      summaries: [copy.body],
+      topic: copy.title,
+      type: 'rediscover',
+      notifId: notifId,
+      body: copy.body,
+      sig: sig,
+    );
+
+    await NotifBandit.recordSend('R');
+    unawaited(
+      isar.logEvent(
+        type: EngagementEventType.notifShown,
+        triggerType: 'R',
+      ),
+    );
+    await DigestPrefs.recordFired();
+    await DigestPrefs.setLastFiredType('R');
+    await DigestPrefs.setLastFired('R');
+
+    return 'rediscover: ${copy.title}';
+  }
+
+  static Future<RediscoverNotificationCandidate?> _bestRediscoverMemoryCandidate(
+    IsarService isar,
+    UserFingerprint fp, {
+    required Set<String> recentSigs,
+  }) async {
+    final memories = await _loadRediscoverMemories(isar, fp);
+    if (memories.isEmpty) return null;
+
+    final lastNotificationAt = await DigestPrefs.lastFiredTimestamp();
+    final now = DateTime.now();
+    final candidates = [
+      for (final memory in memories)
+        RediscoverNotificationCandidate.scoreMemory(
+          memory,
+          now: now,
+          recentlyNotified: recentSigs.contains(_memorySignature(memory)),
+          lastNotificationAt: lastNotificationAt,
+        ),
+    ]..sort((a, b) => b.score.compareTo(a.score));
+    return candidates.first;
+  }
+
+  static Future<List<RediscoverMemory>> _loadRediscoverMemories(
+    IsarService isar,
+    UserFingerprint fp,
+  ) async {
+    final liveUrls = fp.allUrls
+        .where((url) => !url.isDone && url.rediscoverDismissedAt == null)
+        .toList();
+    if (liveUrls.length < 3) return const [];
+
+    final prefs = await SharedPreferences.getInstance();
+    final embeddedUrls = await isar.getUrlsWithEmbeddings();
+    final clusters = await tryHydrateClustersFromPrefs(
+          prefs: prefs,
+          embeddedUrls: embeddedUrls,
+          currentEmbeddedCount: embeddedUrls.length,
+        ) ??
+        const [];
+    final profile = AffinityProfile.fromEvents(await isar.recentEvents());
+    final interest = await RediscoveryService(isar).getRediscoveryLinks(
+      limit: 8,
+    );
+    final journeys = buildRediscoverJourneys(
+      liveUrls: liveUrls,
+      clusters: clusters,
+      profile: profile,
+      interestFallbackItems: interest.map(_rediscoveryItemFor).toList(),
+      anniversaryItems: _anniversaryItems(liveUrls),
+    );
+    return journeys.map(RediscoverMemory.fromJourney).toList();
+  }
+
+  static RediscoveryItem _rediscoveryItemFor(SavedUrl url) {
+    return RediscoveryItem(
+      url: url,
+      reason: RevisitScorer.onThisDayLabel(url) ??
+          (url.openedAt == null ? 'Unopened' : 'Worth revisiting'),
+      timeAgo: _formatTimeAgo(url.savedAt),
+    );
+  }
+
+  static List<RediscoveryItem> _anniversaryItems(List<SavedUrl> urls) {
+    return urls
+        .where((url) => RevisitScorer.onThisDayLabel(url) != null)
+        .map(_rediscoveryItemFor)
+        .take(8)
+        .toList();
+  }
+
+  static String _formatTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
+    return '${(diff.inDays / 365).floor()}y ago';
+  }
+
+  static String _memorySignature(RediscoverMemory memory) => 'R:${memory.id}';
+
+  static String _memoryDiagDetail(RediscoverNotificationCandidate candidate) {
+    final reasons = candidate.reasons
+        .where((reason) => reason.points > 0)
+        .map((reason) => reason.label)
+        .take(3)
+        .join(', ');
+    return '${candidate.score.toStringAsFixed(1)} pts'
+        '${reasons.isEmpty ? '' : ' · $reasons'}';
   }
 
   static Future<String?> _tryType(
@@ -417,7 +648,7 @@ class NotificationScheduler {
     if (desc.isNotEmpty) {
       return SummaryTrimmer.trim(desc, maxLength: 120);
     }
-    return TitleResolver.resolve(link, tagFrequency: counts);
+    return TitleResolver.resolveDetailTitle(link, tagFrequency: counts);
   }
 }
 

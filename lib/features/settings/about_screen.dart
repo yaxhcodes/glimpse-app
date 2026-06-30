@@ -105,7 +105,7 @@ class AboutScreen extends StatelessWidget {
                       title: 'Terms of Service',
                       trailing: const _OpenLinkIcon(),
                       onTap: () => _openUrl(
-                        'https://glimpse-app-gray.vercel.app/terms',
+                        'https://www.getglimpse.xyz/terms',
                       ),
                     ),
                     SettingsTile(
@@ -114,7 +114,7 @@ class AboutScreen extends StatelessWidget {
                       title: 'Privacy Policy',
                       trailing: const _OpenLinkIcon(),
                       onTap: () => _openUrl(
-                        'https://glimpse-app-gray.vercel.app/privacy',
+                        'https://www.getglimpse.xyz/privacy',
                       ),
                     ),
                   ],
@@ -131,7 +131,7 @@ class AboutScreen extends StatelessWidget {
                       title: 'FAQ',
                       trailing: const _OpenLinkIcon(),
                       onTap: () =>
-                          _openUrl('https://glimpse-app-gray.vercel.app/faq'),
+                          _openUrl('https://www.getglimpse.xyz/faq'),
                     ),
                   ],
                 ),

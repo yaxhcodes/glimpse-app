@@ -87,6 +87,9 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
     final catCounts = <String, int>{};
     for (final u in urls) {
       for (final c in u.effectiveCategories) {
+        // Domains only — never let a platform/source name (Instagram, …) leak
+        // into this line. See title-and-copy-consistency-spec.md §5.
+        if (CategoryResolver.isPlatformName(c)) continue;
         catCounts[c] = (catCounts[c] ?? 0) + 1;
       }
     }
@@ -112,12 +115,7 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
   /// Unified card row with curated thumbnails (same priority rules as hub).
   Widget _linkRow(BuildContext context, SavedUrl u, ThemeData theme, ColorScheme cs,
       Map<String, int> tagFreq, int animationIndex, double entranceT) {
-    final resolvedTitle = TitleResolver.formatForCompactCard(
-      u,
-      TitleResolver.collapseWhitespace(
-        TitleResolver.resolve(u, tagFrequency: tagFreq),
-      ),
-    );
+    final resolvedTitle = TitleResolver.resolveDetailTitle(u, tagFrequency: tagFreq);
     final isRead = u.openedAt != null;
     final isLight = theme.brightness == Brightness.light;
     final platformLabel = CategoryResolver.displaySourceName(
