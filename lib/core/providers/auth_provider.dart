@@ -89,6 +89,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
   }
 
   Future<void> signOut() async {
+    SubscriptionService.instance.clearAuthenticatedUser();
     await ref.read(authServiceProvider).signOut();
     state = const AsyncData(null);
   }

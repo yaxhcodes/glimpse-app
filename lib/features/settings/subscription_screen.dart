@@ -195,11 +195,10 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final purchased = await service.purchaseRecommendedPackage();
     if (!purchased) return;
 
-    // 2. Explicit, one-shot reconciliation. This is the ONLY call site
-    // of refreshAfterPurchase() in the app — it runs syncPurchases +
-    // invalidateCustomerInfoCache + getCustomerInfo and flips Riverpod
-    // state to Pro. Without it the local RC cache could serve the
-    // pre-purchase "free" payload for up to 5 minutes.
+    // 2. Explicit, one-shot post-purchase reconciliation. Authenticated login
+    // also syncs purchases when linking the RevenueCat user, but purchases
+    // still need this immediate cache refresh so the local RC cache does not
+    // serve the pre-purchase "free" payload for up to 5 minutes.
     await ref.read(subscriptionTierProvider.notifier).refreshAfterPurchase();
 
     if (!context.mounted) return;

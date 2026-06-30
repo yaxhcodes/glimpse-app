@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -92,11 +91,15 @@ class SubscriptionService {
   /// preserving existing anonymous purchases through RevenueCat's alias flow.
   Future<void> logInWithAuthenticatedUser(String userId) async {
     if (!_configured || userId.isEmpty) return;
-    if (_authenticatedAppUserId == userId) return;
     try {
       final currentId = await Purchases.appUserID;
       if (currentId == userId) {
         _authenticatedAppUserId = userId;
+        final info = await _refreshCustomerInfoForAuthenticatedUser(
+          source: 'alreadyAuthenticated',
+        );
+        _logCustomerInfo('alreadyAuthenticated', info);
+        await _syncSubscriptionProfile(info);
         return;
       }
 
@@ -105,16 +108,12 @@ class SubscriptionService {
       _logCustomerInfo('logInAuthenticatedUser', result.customerInfo);
       await _syncSubscriptionProfile(result.customerInfo);
 
-      if (Platform.isAndroid) {
-        try {
-          await Purchases.syncPurchases();
-        } catch (e) {
-          developer.log(
-            'RevenueCat: sync after authenticated login failed — $e',
-            name: 'Subscription',
-          );
-        }
-      }
+      final info = await _refreshCustomerInfoForAuthenticatedUser(
+        source: 'postAuthenticatedLogin',
+        syncPurchases: Platform.isAndroid,
+      );
+      _logCustomerInfo('postAuthenticatedLogin', info);
+      await _syncSubscriptionProfile(info);
     } catch (e, st) {
       developer.log(
         'RevenueCat: authenticated login failed — $e',
@@ -122,6 +121,15 @@ class SubscriptionService {
         stackTrace: st,
       );
     }
+  }
+
+  /// Clear the Supabase-linked identity marker without calling
+  /// `Purchases.logOut()`. Logging out of RevenueCat would create a fresh
+  /// anonymous customer and can fragment purchases; the app requires auth
+  /// before purchase surfaces, so the next account sign-in will call
+  /// `logInWithAuthenticatedUser` again.
+  void clearAuthenticatedUser() {
+    _authenticatedAppUserId = null;
   }
 
   /// Initialise the RevenueCat SDK. Call once at app startup from [main]
@@ -239,6 +247,31 @@ class SubscriptionService {
         name: 'Subscription',
       );
     }
+  }
+
+  static Future<CustomerInfo> _refreshCustomerInfoForAuthenticatedUser({
+    required String source,
+    bool syncPurchases = false,
+  }) async {
+    if (syncPurchases) {
+      try {
+        await Purchases.syncPurchases();
+      } catch (e) {
+        developer.log(
+          'RevenueCat: syncPurchases failed during $source — $e',
+          name: 'Subscription',
+        );
+      }
+    }
+    try {
+      await Purchases.invalidateCustomerInfoCache();
+    } catch (e) {
+      developer.log(
+        'RevenueCat: invalidate cache failed during $source — $e',
+        name: 'Subscription',
+      );
+    }
+    return Purchases.getCustomerInfo();
   }
 
   /// Derive the app tier from a [CustomerInfo]. Public so the notifier can
