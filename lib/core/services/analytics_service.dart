@@ -1,0 +1,57 @@
+import 'package:flutter/widgets.dart';
+
+enum AnalyticsEvent {
+  appOpen('app_open'),
+  sessionStart('session_start'),
+  sessionEnd('session_end'),
+  screenOpen('screen_open'),
+  homeOpened('home_opened'),
+  saveCompleted('save_completed'),
+  rediscoverOpened('rediscover_opened'),
+  searchOpened('search_opened'),
+  askGlimpseOpened('ask_glimpse_opened'),
+  subscriptionScreenOpened('subscription_screen_opened'),
+  subscriptionPurchased('subscription_purchased'),
+  settingsOpened('settings_opened'),
+  onboardingCompleted('onboarding_completed');
+
+  const AnalyticsEvent(this.name);
+
+  final String name;
+}
+
+enum AnalyticsScreen {
+  home('home'),
+  collections('collections'),
+  interests('interests'),
+  search('search'),
+  addUrl('add_url'),
+  settings('settings'),
+  subscription('subscription'),
+  privacy('privacy'),
+  rediscover('rediscover'),
+  askGlimpse('ask_glimpse'),
+  urlDetail('url_detail'),
+  dataBackup('data_backup'),
+  onboarding('onboarding');
+
+  const AnalyticsScreen(this.name);
+
+  final String name;
+}
+
+abstract interface class AnalyticsService {
+  String get sessionId;
+
+  Future<void> initialize();
+
+  Future<void> trackEvent(AnalyticsEvent event, {AnalyticsScreen? screen});
+
+  Future<void> trackScreen(AnalyticsScreen screen);
+
+  Future<void> flush();
+
+  Future<void> handleLifecycleState(AppLifecycleState state);
+
+  Future<void> dispose();
+}

@@ -8,21 +8,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'ai_user_id_service.dart';
-
-import 'ai_proxy_config.dart';
+import 'supabase_config.dart';
 
 /// What the user has access to.
 enum SubscriptionTier { free, premium }
 
 /// Features that can be gated.
-enum PremiumFeature {
-  askChat,
-  recap,
-  synthesis,
-  semanticSearch,
-}
+enum PremiumFeature { askChat, recap, synthesis, semanticSearch }
 
 /// RevenueCat configuration — keys injected at build time via --dart-define.
 ///
@@ -35,8 +30,7 @@ enum PremiumFeature {
 class RevenueCatConfig {
   RevenueCatConfig._();
 
-  static const androidApiKey =
-      String.fromEnvironment('REVENUECAT_ANDROID_KEY');
+  static const androidApiKey = String.fromEnvironment('REVENUECAT_ANDROID_KEY');
   static const iosApiKey = String.fromEnvironment('REVENUECAT_IOS_KEY');
 
   // Hardcoded, NOT read from --dart-define.
@@ -89,8 +83,46 @@ class SubscriptionService {
 
   static bool _configured = false;
   static Future<void>? _initInProgress;
+  static String? _authenticatedAppUserId;
 
   bool get isConfigured => _configured;
+
+  /// Migrate RevenueCat from the anonymous/per-install fallback ID to the
+  /// authenticated Supabase user ID. This prevents customer fragmentation while
+  /// preserving existing anonymous purchases through RevenueCat's alias flow.
+  Future<void> logInWithAuthenticatedUser(String userId) async {
+    if (!_configured || userId.isEmpty) return;
+    if (_authenticatedAppUserId == userId) return;
+    try {
+      final currentId = await Purchases.appUserID;
+      if (currentId == userId) {
+        _authenticatedAppUserId = userId;
+        return;
+      }
+
+      final result = await Purchases.logIn(userId);
+      _authenticatedAppUserId = userId;
+      _logCustomerInfo('logInAuthenticatedUser', result.customerInfo);
+      await _syncSubscriptionProfile(result.customerInfo);
+
+      if (Platform.isAndroid) {
+        try {
+          await Purchases.syncPurchases();
+        } catch (e) {
+          developer.log(
+            'RevenueCat: sync after authenticated login failed — $e',
+            name: 'Subscription',
+          );
+        }
+      }
+    } catch (e, st) {
+      developer.log(
+        'RevenueCat: authenticated login failed — $e',
+        name: 'Subscription',
+        stackTrace: st,
+      );
+    }
+  }
 
   /// Initialise the RevenueCat SDK. Call once at app startup from [main]
   /// **before** [runApp] and before any purchase. Never throws.
@@ -119,9 +151,7 @@ class SubscriptionService {
     }
 
     try {
-      await Purchases.setLogLevel(
-        kDebugMode ? LogLevel.debug : LogLevel.warn,
-      );
+      await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.warn);
 
       final appUserId = await _AppUserId.getOrCreate();
       final config = PurchasesConfiguration(key)..appUserID = appUserId;
@@ -141,8 +171,10 @@ class SubscriptionService {
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print('[Subscription] configured appUserId=$resolvedAppUserId '
-            'key=${_obfuscate(key)} entitlement="${RevenueCatConfig.entitlementId}"');
+        print(
+          '[Subscription] configured appUserId=$resolvedAppUserId '
+          'key=${_obfuscate(key)} entitlement="${RevenueCatConfig.entitlementId}"',
+        );
       }
 
       // WHY no `addCustomerInfoUpdateListener` here:
@@ -179,9 +211,33 @@ class SubscriptionService {
       name: 'Subscription',
     );
     if (kDebugMode) {
-      print('[Subscription] $source — entitlements.active=$activeIds '
-          'activeSubscriptions=$subs '
-          '(lookingFor="${RevenueCatConfig.entitlementId}")');
+      print(
+        '[Subscription] $source — entitlements.active=$activeIds '
+        'activeSubscriptions=$subs '
+        '(lookingFor="${RevenueCatConfig.entitlementId}")',
+      );
+    }
+  }
+
+  static Future<void> _syncSubscriptionProfile(CustomerInfo info) async {
+    if (!SupabaseConfig.isConfigured) return;
+    final userId = _authenticatedAppUserId;
+    if (userId == null || userId.isEmpty) return;
+    try {
+      final customerId = await Purchases.appUserID;
+      await Supabase.instance.client.from('subscriptions').upsert({
+        'user_id': userId,
+        'revenuecat_customer_id': customerId,
+        'plan': tierFromInfo(info) == SubscriptionTier.premium
+            ? 'premium'
+            : 'free',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (e) {
+      developer.log(
+        'RevenueCat: Supabase subscription sync failed — $e',
+        name: 'Subscription',
+      );
     }
   }
 
@@ -242,6 +298,7 @@ class SubscriptionService {
       }
       return null;
     }
+
     return pick(PackageType.monthly) ??
         pick(PackageType.annual) ??
         pick(PackageType.weekly) ??
@@ -263,7 +320,8 @@ class SubscriptionService {
     try {
       final offerings = await Purchases.getOfferings();
       final curId = offerings.current?.identifier ?? 'null';
-      final pkgIds = offerings.current?.availablePackages
+      final pkgIds =
+          offerings.current?.availablePackages
               .map((p) => p.identifier)
               .toList() ??
           const <String>[];
@@ -294,8 +352,10 @@ class SubscriptionService {
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print('[Subscription] Purchases.purchase → package=${pkg.identifier} '
-            'product=${pkg.storeProduct.identifier}');
+        print(
+          '[Subscription] Purchases.purchase → package=${pkg.identifier} '
+          'product=${pkg.storeProduct.identifier}',
+        );
       }
 
       final result = await Purchases.purchase(PurchaseParams.package(pkg));
@@ -307,6 +367,7 @@ class SubscriptionService {
         name: 'Subscription',
       );
       _logCustomerInfo('afterPurchase', result.customerInfo);
+      await _syncSubscriptionProfile(result.customerInfo);
       return true;
     } on PlatformException catch (e, st) {
       final code = PurchasesErrorHelper.getErrorCode(e);
@@ -350,6 +411,7 @@ class SubscriptionService {
     try {
       final info = await Purchases.restorePurchases();
       _logCustomerInfo('restorePurchases', info);
+      await _syncSubscriptionProfile(info);
       return tierFromInfo(info);
     } catch (e) {
       developer.log('RevenueCat: restore failed — $e', name: 'Subscription');
@@ -460,20 +522,23 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
   Future<SubscriptionTier> build() async {
     // 1. Register the RC listener ONCE per notifier lifetime. It writes
     // directly into Riverpod state — no StreamController in the middle.
-    final listener = (CustomerInfo info) {
+    void listener(CustomerInfo info) {
       final tier = SubscriptionService.tierFromInfo(info);
       developer.log(
         'SubscriptionTierNotifier: listener → $tier '
         '(active=${info.entitlements.active.keys.toList()})',
         name: 'Subscription',
       );
+      unawaited(SubscriptionService._syncSubscriptionProfile(info));
       if (kDebugMode) {
-        print('[Subscription] notifier listener → $tier '
-            '(active=${info.entitlements.active.keys.toList()})');
+        print(
+          '[Subscription] notifier listener → $tier '
+          '(active=${info.entitlements.active.keys.toList()})',
+        );
       }
       // Overwrite any AsyncLoading / AsyncError the UI might be showing.
       state = AsyncData(tier);
-    };
+    }
     Purchases.addCustomerInfoUpdateListener(listener);
     _listener = listener;
     ref.onDispose(() {
@@ -499,14 +564,17 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
       final info = await Purchases.getCustomerInfo();
 
       final tier = SubscriptionService.tierFromInfo(info);
+      unawaited(SubscriptionService._syncSubscriptionProfile(info));
       developer.log(
         'SubscriptionTierNotifier: build (cached) → $tier '
         '(active=${info.entitlements.active.keys.toList()})',
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print('[Subscription] notifier build (cached) → $tier '
-            '(active=${info.entitlements.active.keys.toList()})');
+        print(
+          '[Subscription] notifier build (cached) → $tier '
+          '(active=${info.entitlements.active.keys.toList()})',
+        );
       }
       return tier;
     } catch (e) {
@@ -552,14 +620,17 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
       final info = await Purchases.getCustomerInfo();
 
       final tier = SubscriptionService.tierFromInfo(info);
+      await SubscriptionService._syncSubscriptionProfile(info);
       developer.log(
         'SubscriptionTierNotifier: refreshAfterPurchase → $tier '
         '(active=${info.entitlements.active.keys.toList()})',
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print('[Subscription] refreshAfterPurchase → $tier '
-            '(active=${info.entitlements.active.keys.toList()})');
+        print(
+          '[Subscription] refreshAfterPurchase → $tier '
+          '(active=${info.entitlements.active.keys.toList()})',
+        );
       }
       state = AsyncData(tier);
     } catch (e, st) {
@@ -576,8 +647,8 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
 /// Current subscription tier — watched by UI to gate features.
 final subscriptionTierProvider =
     AsyncNotifierProvider<SubscriptionTierNotifier, SubscriptionTier>(
-  SubscriptionTierNotifier.new,
-);
+      SubscriptionTierNotifier.new,
+    );
 
 /// Convenience provider for the subscription service singleton.
 final subscriptionServiceProvider = Provider<SubscriptionService>((ref) {

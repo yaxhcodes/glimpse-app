@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/app_environment.dart';
+import '../../core/providers/analytics_provider.dart';
+import '../../core/services/analytics_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 import 'settings_components.dart';
@@ -13,8 +16,7 @@ class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
 
   @override
-  ConsumerState<SubscriptionScreen> createState() =>
-      _SubscriptionScreenState();
+  ConsumerState<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
 class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
@@ -64,7 +66,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ),
         data: (rcTier) {
           final isPro = ref.watch(isProUserProvider);
-          final showDevOverrideHint = AppEnvironment.allowsLocalProOverride &&
+          final showDevOverrideHint =
+              AppEnvironment.allowsLocalProOverride &&
               (ref.watch(devProOverrideProvider).valueOrNull ?? false) &&
               rcTier == SubscriptionTier.free;
 
@@ -200,9 +203,16 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     await ref.read(subscriptionTierProvider.notifier).refreshAfterPurchase();
 
     if (!context.mounted) return;
-    final entitled = ref.read(subscriptionTierProvider).valueOrNull ==
+    final entitled =
+        ref.read(subscriptionTierProvider).valueOrNull ==
         SubscriptionTier.premium;
     if (entitled) {
+      unawaited(
+        ref.read(analyticsServiceProvider).trackEvent(
+              AnalyticsEvent.subscriptionPurchased,
+              screen: AnalyticsScreen.subscription,
+            ),
+      );
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(

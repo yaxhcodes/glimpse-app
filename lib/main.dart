@@ -16,6 +16,7 @@ import 'features/onboarding/onboarding_bootstrap.dart';
 import 'core/services/ai/app_attestation_service.dart';
 import 'core/services/ai_proxy_config.dart';
 import 'core/services/subscription_service.dart';
+import 'core/services/supabase_auth_service.dart';
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -29,8 +30,9 @@ void main() async {
   // Resolve the onboarding decision before the first frame so the root screen
   // renders correctly without a flash. New installs (empty library) see
   // onboarding; existing installs are left untouched.
-  final hasSeenOnboarding =
-      await OnboardingBootstrap.resolveHasSeenOnboarding(isarService);
+  final hasSeenOnboarding = await OnboardingBootstrap.resolveHasSeenOnboarding(
+    isarService,
+  );
 
   // App attestation protects the no-login AI proxy without putting any
   // shared secret in the Flutter client.
@@ -45,6 +47,10 @@ void main() async {
   // service reads AiProxyConfig.enabled. This must complete before
   // GeminiService / EmbeddingService are constructed.
   await AiProxyConfig.initUserId();
+
+  // Supabase is used only for auth, account metadata, subscription identity,
+  // and anonymous product analytics. User content remains local in Isar.
+  await SupabaseAuthService.initializeSupabaseClient();
 
   // Initialise RevenueCat SDK. Never throws — falls back to free tier
   // if the platform key is missing or configure() fails.

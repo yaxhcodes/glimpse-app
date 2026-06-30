@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
+import '../../core/providers/analytics_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/usage_providers.dart';
+import '../../core/services/analytics_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/usage_service.dart';
 import '../../core/services/domain_categorizer.dart';
@@ -217,6 +219,11 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         normalizedUrl,
         processingId: processingId,
         notifyCapture: notifyCapture,
+      );
+      unawaited(
+        _ref
+            .read(analyticsServiceProvider)
+            .trackEvent(AnalyticsEvent.saveCompleted),
       );
 
       return true;
