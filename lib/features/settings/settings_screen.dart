@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_environment.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
 import '../../core/services/entitlement_service.dart';
@@ -89,6 +90,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (name != null && mounted) {
       await setUserDisplayName(name);
       ref.invalidate(userDisplayNameProvider);
+    }
+  }
+
+  Future<void> _logout() async {
+    await ref.read(authControllerProvider.notifier).signOut();
+  }
+
+  Future<void> _requestAccountDeletion() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: const Text(
+          'This removes your Glimpse account metadata. Your on-device library is not uploaded to Supabase.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete account'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(authControllerProvider.notifier).requestAccountDeletion();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     }
   }
 
@@ -186,6 +230,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
 
+                // ─── Account ────────────────────────────
+                const SettingsGroupLabel('Account'),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.logout_rounded,
+                      iconColor: SettingsAccents.blue,
+                      title: 'Log out',
+                      subtitle: 'Sign out of this device',
+                      onTap: _logout,
+                    ),
+                    SettingsTile(
+                      icon: Icons.person_remove_outlined,
+                      iconColor: cs.error,
+                      destructive: true,
+                      title: 'Delete account',
+                      subtitle: 'Request account deletion',
+                      onTap: _requestAccountDeletion,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
                 // ─── Notifications ───────────────────────
                 const SettingsGroupLabel('Notifications'),
                 const SettingsGroup(children: [_DigestToggle()]),
@@ -201,6 +268,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: 'Data & Backup',
                       subtitle: 'Protect and restore your saved knowledge',
                       onTap: () => context.push('/settings/data-backup'),
+                    ),
+                    SettingsTile(
+                      icon: Icons.privacy_tip_outlined,
+                      iconColor: SettingsAccents.indigo,
+                      title: 'Privacy',
+                      subtitle: 'What stays local and what is uploaded',
+                      onTap: () => context.push('/settings/privacy'),
                     ),
                   ],
                 ),
@@ -639,9 +713,7 @@ class _DeveloperSection extends ConsumerWidget {
                 ref.read(simulateFirstSaveProvider.notifier).set(v);
                 if (!v) {
                   ref
-                          .read(
-                            hasSimulatedFirstSaveInSessionProvider.notifier,
-                          )
+                          .read(hasSimulatedFirstSaveInSessionProvider.notifier)
                           .state =
                       false;
                 }
@@ -795,8 +867,9 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
     final peak = await TagAnalyzer.peakOpenHour();
     final canFire = await DigestPrefs.canFireToday();
     final openRates = await NotifBandit.openRates();
-    final diagnostics =
-        await NotificationScheduler.diagnostics(ref.read(isarServiceProvider));
+    final diagnostics = await NotificationScheduler.diagnostics(
+      ref.read(isarServiceProvider),
+    );
     if (!mounted) return;
     setState(() {
       _openRates = openRates;
@@ -1001,10 +1074,12 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
           const SizedBox(height: 10),
           ...(_openRates.entries.toList()
                 ..sort((a, b) => b.value.compareTo(a.value)))
-              .map((e) => _BanditRateRow(
-                    label: _testTypes[e.key] ?? e.key,
-                    rate: e.value,
-                  )),
+              .map(
+                (e) => _BanditRateRow(
+                  label: _testTypes[e.key] ?? e.key,
+                  rate: e.value,
+                ),
+              ),
         ],
 
         // Per-type readiness: which of the 7 types can fire right now, and why.
@@ -1041,8 +1116,8 @@ class _DiagRow extends StatelessWidget {
     final cs = theme.colorScheme;
     final (label, color) = diag.eligible
         ? diag.onCooldown
-            ? ('Cooling', cs.tertiary)
-            : ('Ready', cs.primary)
+              ? ('Cooling', cs.tertiary)
+              : ('Ready', cs.primary)
         : ('Waiting', cs.outline);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -1073,7 +1148,9 @@ class _DiagRow extends StatelessWidget {
                 ),
                 Text(
                   diag.detail,
-                  style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.outline,
+                  ),
                 ),
               ],
             ),

@@ -4,8 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_assets.dart';
+import '../../core/providers/analytics_provider.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/analytics_service.dart';
 import '../../core/services/demo_seed_service.dart';
 import 'onboarding_motion.dart';
 
@@ -49,6 +52,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await DemoSeedService(ref.read(isarServiceProvider)).seed();
     // The share gesture has just been taught — don't re-tip it in-app.
     await ref.read(hasSeenShareTipProvider.notifier).set(true);
+    await ref.read(authControllerProvider.notifier).markOnboardingCompleted();
+    await ref
+        .read(analyticsServiceProvider)
+        .trackEvent(AnalyticsEvent.onboardingCompleted);
     // Flipping this swaps the root gate over to the main app.
     await ref.read(hasSeenOnboardingProvider.notifier).set(true);
   }
@@ -103,50 +110,50 @@ class _IntroStep extends StatelessWidget {
         const Positioned.fill(child: AuroraBackground(intensity: 0.9)),
         SafeArea(
           child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
-        child: Column(
-          children: [
-            const Spacer(),
-            Image.asset(AppAssets.logo, width: 88, height: 88),
-            const SizedBox(height: 22),
-            Text(
-              'Glimpse',
-              style: tt.displaySmall?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Save it once. We bring it back\nwhen it matters.',
-              textAlign: TextAlign.center,
-              style: tt.titleMedium?.copyWith(
-                color: cs.onSurfaceVariant,
-                height: 1.5,
-              ),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: onSkip,
-              child: Text(
-                'Skip — I know my way around',
-                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onStart,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: const StadiumBorder(),
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+            child: Column(
+              children: [
+                const Spacer(),
+                Image.asset(AppAssets.logo, width: 88, height: 88),
+                const SizedBox(height: 22),
+                Text(
+                  'Glimpse',
+                  style: tt.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
                 ),
-                child: const Text('Show me how'),
-              ),
+                const SizedBox(height: 14),
+                Text(
+                  'Save it once. We bring it back\nwhen it matters.',
+                  textAlign: TextAlign.center,
+                  style: tt.titleMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: onSkip,
+                  child: Text(
+                    'Skip — I know my way around',
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: onStart,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: const Text('Show me how'),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
           ),
         ),
       ],
@@ -179,7 +186,9 @@ class _ReelStep extends StatelessWidget {
               colors: [
                 const Color(0xFF0B0B0E),
                 Color.alphaBlend(
-                    cs.primary.withValues(alpha: 0.20), const Color(0xFF0B0B0E)),
+                  cs.primary.withValues(alpha: 0.20),
+                  const Color(0xFF0B0B0E),
+                ),
                 const Color(0xFF050505),
               ],
             ),
@@ -239,20 +248,27 @@ class _ReelStep extends StatelessWidget {
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              const Icon(Icons.account_circle,
-                                  color: Colors.white, size: 20),
+                              const Icon(
+                                Icons.account_circle,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                               const SizedBox(width: 6),
-                              Text('quietpages',
-                                  style: tt.bodyMedium?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500)),
+                              Text(
+                                'quietpages',
+                                style: tt.bodyMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '5 books that rewired how I think 📚',
-                            style: tt.bodySmall
-                                ?.copyWith(color: Colors.white70),
+                            style: tt.bodySmall?.copyWith(
+                              color: Colors.white70,
+                            ),
                           ),
                         ],
                       ),
@@ -315,12 +331,17 @@ class _RightRail extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: accent, width: 2),
                 ),
-                child: const Icon(Icons.send_outlined,
-                    color: Colors.white, size: 22),
+                child: const Icon(
+                  Icons.send_outlined,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
               const SizedBox(height: 4),
-              const Text('Share',
-                  style: TextStyle(color: Colors.white, fontSize: 11)),
+              const Text(
+                'Share',
+                style: TextStyle(color: Colors.white, fontSize: 11),
+              ),
             ],
           ),
         ),
@@ -414,22 +435,31 @@ class _ShareSheetStep extends StatelessWidget {
                           context,
                           bg: const Color(0xFF25D366),
                           label: 'WhatsApp',
-                          child: const Icon(Icons.chat,
-                              color: Colors.white, size: 26),
+                          child: const Icon(
+                            Icons.chat,
+                            color: Colors.white,
+                            size: 26,
+                          ),
                         ),
                         _appTile(
                           context,
                           bg: const Color(0xFFF1F1F3),
                           label: 'Gemini',
-                          child: const Icon(Icons.auto_awesome,
-                              color: Color(0xFF1A73E8), size: 24),
+                          child: const Icon(
+                            Icons.auto_awesome,
+                            color: Color(0xFF1A73E8),
+                            size: 24,
+                          ),
                         ),
                         _appTile(
                           context,
                           bg: const Color(0xFF5865F2),
                           label: 'Discord',
-                          child: const Icon(Icons.forum,
-                              color: Colors.white, size: 24),
+                          child: const Icon(
+                            Icons.forum,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ],
                     ),
@@ -468,8 +498,10 @@ class _ShareSheetStep extends StatelessWidget {
             ),
             child: Text(
               'Tap Glimpse to turn it into a reading list',
-              style: tt.bodySmall
-                  ?.copyWith(color: cs.onPrimary, fontWeight: FontWeight.w500),
+              style: tt.bodySmall?.copyWith(
+                color: cs.onPrimary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -521,9 +553,13 @@ class _ShareSheetStep extends StatelessWidget {
         children: [
           const Icon(Icons.near_me, color: Color(0xFF4DA3FF), size: 22),
           const SizedBox(width: 14),
-          Text('Share via "Nearby Share"',
-              style: tt.bodyMedium?.copyWith(
-                  color: Colors.white, fontWeight: FontWeight.w500)),
+          Text(
+            'Share via "Nearby Share"',
+            style: tt.bodyMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -564,7 +600,10 @@ class _ShareSheetStep extends StatelessWidget {
               maxLines: 2,
               textAlign: TextAlign.center,
               style: tt.bodySmall?.copyWith(
-                  color: Colors.white70, fontSize: 11, height: 1.15),
+                color: Colors.white70,
+                fontSize: 11,
+                height: 1.15,
+              ),
             ),
           ],
         ),
@@ -624,7 +663,8 @@ class _RevealStep extends StatelessWidget {
                     child: Stack(
                       children: [
                         const Positioned.fill(
-                            child: AuroraBackground(intensity: 0.7)),
+                          child: AuroraBackground(intensity: 0.7),
+                        ),
                         const Center(child: _CoverStack(coverWidth: 62)),
                         Positioned(
                           left: 12,
@@ -635,11 +675,14 @@ class _RevealStep extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('5 books that rewired how I think',
-                      style: tt.headlineSmall?.copyWith(
-                          color: cs.onSurface,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2)),
+                  Text(
+                    '5 books that rewired how I think',
+                    style: tt.headlineSmall?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   _sourceRow(context),
                   const SizedBox(height: 14),
@@ -660,7 +703,9 @@ class _RevealStep extends StatelessWidget {
                     'Five books on attention, habit and how the mind works — '
                     'each with a one-line reason it made the cut.',
                     style: tt.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant, height: 1.5),
+                      color: cs.onSurfaceVariant,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   _sectionHeader(context, 'Worth reading'),
@@ -727,8 +772,10 @@ class _RevealStep extends StatelessWidget {
           child: const Icon(Icons.photo_camera, size: 11, color: Colors.white),
         ),
         const SizedBox(width: 8),
-        Text('Instagram • now',
-            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        Text(
+          'Instagram • now',
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
         const SizedBox(width: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
@@ -736,8 +783,10 @@ class _RevealStep extends StatelessWidget {
             color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(100),
           ),
-          child: Text('Unread',
-              style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+          child: Text(
+            'Unread',
+            style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
         ),
       ],
     );
@@ -804,9 +853,13 @@ class _RevealStep extends StatelessWidget {
   Widget _sectionHeader(BuildContext context, String title) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    return Text(title,
-        style: tt.titleLarge?.copyWith(
-            color: cs.primary, fontWeight: FontWeight.w600));
+    return Text(
+      title,
+      style: tt.titleLarge?.copyWith(
+        color: cs.primary,
+        fontWeight: FontWeight.w600,
+      ),
+    );
   }
 
   Widget _bookRow(BuildContext context, (String, String, String) book) {
@@ -829,8 +882,11 @@ class _RevealStep extends StatelessWidget {
                     ColoredBox(color: cs.surfaceContainerHighest),
                 errorWidget: (_, _, _) => Container(
                   color: cs.surfaceContainerHighest,
-                  child: Icon(Icons.menu_book_outlined,
-                      size: 18, color: cs.onSurfaceVariant),
+                  child: Icon(
+                    Icons.menu_book_outlined,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),
@@ -840,19 +896,30 @@ class _RevealStep extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(book.$1,
-                    style: tt.bodyLarge?.copyWith(
-                        color: cs.onSurface, fontWeight: FontWeight.w500)),
+                Text(
+                  book.$1,
+                  style: tt.bodyLarge?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 3),
-                Text(book.$2,
-                    style: tt.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant, height: 1.4)),
+                Text(
+                  book.$2,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Icon(Icons.open_in_new,
-              size: 16, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+          Icon(
+            Icons.open_in_new,
+            size: 16,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
         ],
       ),
     );
@@ -886,24 +953,33 @@ class _CoverStack extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              _cover(context, _kCoverUrls[2],
-                  angle: -0.22 * t,
-                  dx: -coverWidth * 0.6 * t,
-                  dy: coverWidth * 0.12 * t,
-                  scale: 0.88,
-                  t: t),
-              _cover(context, _kCoverUrls[1],
-                  angle: 0.22 * t,
-                  dx: coverWidth * 0.6 * t,
-                  dy: coverWidth * 0.12 * t,
-                  scale: 0.88,
-                  t: t),
-              _cover(context, _kCoverUrls[0],
-                  angle: 0,
-                  dx: 0,
-                  dy: -coverWidth * 0.06 * t,
-                  scale: 1.0,
-                  t: t),
+              _cover(
+                context,
+                _kCoverUrls[2],
+                angle: -0.22 * t,
+                dx: -coverWidth * 0.6 * t,
+                dy: coverWidth * 0.12 * t,
+                scale: 0.88,
+                t: t,
+              ),
+              _cover(
+                context,
+                _kCoverUrls[1],
+                angle: 0.22 * t,
+                dx: coverWidth * 0.6 * t,
+                dy: coverWidth * 0.12 * t,
+                scale: 0.88,
+                t: t,
+              ),
+              _cover(
+                context,
+                _kCoverUrls[0],
+                angle: 0,
+                dx: 0,
+                dy: -coverWidth * 0.06 * t,
+                scale: 1.0,
+                t: t,
+              ),
             ],
           ),
         );
@@ -922,11 +998,14 @@ class _CoverStack extends StatelessWidget {
   }) {
     final cs = Theme.of(context).colorScheme;
     Widget fallback() => Container(
-          color: cs.surfaceContainerHigh,
-          alignment: Alignment.center,
-          child: Icon(Icons.menu_book_outlined,
-              color: cs.onSurfaceVariant, size: coverWidth * 0.3),
-        );
+      color: cs.surfaceContainerHigh,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.menu_book_outlined,
+        color: cs.onSurfaceVariant,
+        size: coverWidth * 0.3,
+      ),
+    );
     return Transform(
       alignment: Alignment.center,
       transform: Matrix4.identity()

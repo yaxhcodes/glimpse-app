@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers/analytics_provider.dart';
 import '../../core/providers/bulk_selection_provider.dart';
+import '../../core/services/analytics_service.dart';
 import '../home/home_screen.dart';
 import '../home/home_provider.dart';
 import '../collections/collections_screen.dart';
@@ -36,6 +40,9 @@ class _MainShellState extends ConsumerState<MainShell> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        ref.read(analyticsServiceProvider).trackScreen(AnalyticsScreen.home),
+      );
       final request = ref.read(searchShellQueryRequestProvider);
       if (!mounted || request == null) return;
       setState(() => _currentIndex = _searchTabIndex);
@@ -118,6 +125,11 @@ class _MainShellState extends ConsumerState<MainShell> {
             final wasAlreadySearch =
                 _currentIndex == _searchTabIndex && i == _searchTabIndex;
             setState(() => _currentIndex = i);
+            unawaited(
+              ref
+                  .read(analyticsServiceProvider)
+                  .trackScreen(_screenForIndex(i)),
+            );
             if (wasAlreadyHome) {
               ref.read(homeScrollToTopSignalProvider.notifier).state++;
             }
@@ -151,5 +163,14 @@ class _MainShellState extends ConsumerState<MainShell> {
         ),
       ),
     );
+  }
+
+  AnalyticsScreen _screenForIndex(int index) {
+    return switch (index) {
+      0 => AnalyticsScreen.home,
+      1 => AnalyticsScreen.collections,
+      2 => AnalyticsScreen.interests,
+      _ => AnalyticsScreen.search,
+    };
   }
 }

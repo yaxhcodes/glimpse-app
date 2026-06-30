@@ -7,9 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'core/providers/analytics_provider.dart';
+import 'core/providers/auth_provider.dart';
 import 'core/providers/backup_provider.dart';
 import 'core/providers/dev_simulation_providers.dart';
 import 'core/providers/service_providers.dart';
+import 'features/auth/auth_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/home/guide_detail_screen.dart';
 import 'core/services/backup/backup_intent_service.dart';
@@ -39,6 +42,7 @@ import 'features/url_detail/url_detail_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/look_and_feel_screen.dart';
 import 'features/settings/about_screen.dart';
+import 'features/settings/privacy_screen.dart';
 import 'features/settings/subscription_screen.dart';
 import 'features/settings/data_backup_screen.dart';
 import 'features/settings/backup_preview_screen.dart';
@@ -55,6 +59,7 @@ import 'features/sources/sources_screen.dart';
 import 'features/batch_save/batch_preview_screen.dart';
 import 'core/config/app_environment.dart';
 import 'core/services/entitlement_service.dart';
+import 'core/services/analytics_service.dart';
 import 'core/services/url_save_notifications.dart';
 import 'core/utils/url_extractor.dart';
 import 'shared/widgets/app_snackbar.dart';
@@ -163,6 +168,10 @@ final _router = GoRouter(
       builder: (context, state) => const SubscriptionScreen(),
     ),
     GoRoute(
+      path: '/settings/privacy',
+      builder: (context, state) => const PrivacyScreen(),
+    ),
+    GoRoute(
       path: '/settings/data-backup',
       builder: (context, state) => const DataBackupScreen(),
     ),
@@ -247,11 +256,14 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   late StreamSubscription _shareIntentSub;
   StreamSubscription<String>? _backupIntentSub;
   final BackupIntentService _backupIntentService = BackupIntentService();
+  String? _lastTrackedLocation;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _router.routerDelegate.addListener(_trackRouteOpen);
+    unawaited(ref.read(analyticsServiceProvider).initialize());
 
     // Record peak-hour histogram on cold start.
     unawaited(TagAnalyzer.recordAppOpen());
@@ -280,6 +292,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     unawaited(_backupIntentService.start());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _trackRouteOpen();
       final isar = ref.read(isarServiceProvider);
 
       // One-time local cleanup of stale auto-inferred categories (e.g. the
@@ -429,6 +442,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    unawaited(ref.read(analyticsServiceProvider).handleLifecycleState(state));
     if (state == AppLifecycleState.resumed) {
       unawaited(TagAnalyzer.recordAppOpen());
       // No subscription re-sync on resume:
@@ -444,10 +458,35 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _router.routerDelegate.removeListener(_trackRouteOpen);
     _shareIntentSub.cancel();
     _backupIntentSub?.cancel();
     unawaited(_backupIntentService.dispose());
     super.dispose();
+  }
+
+  void _trackRouteOpen() {
+    final location = _router.routeInformationProvider.value.uri.path;
+    if (location == _lastTrackedLocation) return;
+    _lastTrackedLocation = location;
+    final screen = _screenForPath(location);
+    if (screen == null) return;
+    unawaited(ref.read(analyticsServiceProvider).trackScreen(screen));
+  }
+
+  AnalyticsScreen? _screenForPath(String path) {
+    if (path == '/add') return AnalyticsScreen.addUrl;
+    if (path == '/search') return AnalyticsScreen.search;
+    if (path == '/settings') return AnalyticsScreen.settings;
+    if (path == '/settings/subscription') return AnalyticsScreen.subscription;
+    if (path == '/settings/privacy') return AnalyticsScreen.privacy;
+    if (path.startsWith('/settings/data-backup')) {
+      return AnalyticsScreen.dataBackup;
+    }
+    if (path == '/ask') return AnalyticsScreen.askGlimpse;
+    if (path.startsWith('/rediscover')) return AnalyticsScreen.rediscover;
+    if (path.startsWith('/url/')) return AnalyticsScreen.urlDetail;
+    return null;
   }
 
   @override
@@ -577,7 +616,39 @@ class _RootGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authControllerProvider);
     final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
-    return hasSeenOnboarding ? const MainShell() : const OnboardingScreen();
+    return authState.when(
+      data: (user) {
+        if (user == null) return const AuthScreen();
+        if (hasSeenOnboarding && !user.onboardingCompleted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(authControllerProvider.notifier).markOnboardingCompleted();
+          });
+        }
+        return hasSeenOnboarding ? const MainShell() : const OnboardingScreen();
+      },
+      loading: () => const _StartupProgress(),
+      error: (_, _) => const AuthScreen(),
+    );
+  }
+}
+
+class _StartupProgress extends StatelessWidget {
+  const _StartupProgress();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: Center(
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.primary),
+        ),
+      ),
+    );
   }
 }

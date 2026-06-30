@@ -15,6 +15,7 @@ assets/**/*.exe
 .swiftpm/
 migrate_working_dir/
 .wrangler/
+node_modules/
 glimpse-enrichment-backend/
 
 # IntelliJ related

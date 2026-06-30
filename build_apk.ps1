@@ -2,7 +2,10 @@
 # Usage:
 #   .\build_apk.ps1 `
 #     -ProxyBaseUrl "https://glimpse-proxy.glimpse.workers.dev" `
-#     -RevenueCatAndroidKey "goog_xxx"
+#     -RevenueCatAndroidKey "goog_xxx" `
+#     -SupabaseUrl "https://project-ref.supabase.co" `
+#     -SupabasePublishableKey "sb_publishable_xxx" `
+#     -GoogleWebClientId "client-id.apps.googleusercontent.com"
 #
 # AI_PROXY_USER_ID is no longer needed — the app generates and persists a
 # per-install UUID at runtime (see ai_user_id_service.dart).
@@ -18,7 +21,10 @@
 param(
     [string]$ProxyBaseUrl = "",
     [string]$RevenueCatAndroidKey = "",
-    [string]$RevenueCatIosKey = ""
+    [string]$RevenueCatIosKey = "",
+    [string]$SupabaseUrl = "",
+    [string]$SupabasePublishableKey = "",
+    [string]$GoogleWebClientId = ""
 )
 
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-17"
@@ -28,6 +34,9 @@ $defines = @()
 if ($ProxyBaseUrl -ne "") { $defines += "--dart-define=AI_PROXY_BASE_URL=$ProxyBaseUrl" }
 if ($RevenueCatAndroidKey -ne "") { $defines += "--dart-define=REVENUECAT_ANDROID_KEY=$RevenueCatAndroidKey" }
 if ($RevenueCatIosKey -ne "") { $defines += "--dart-define=REVENUECAT_IOS_KEY=$RevenueCatIosKey" }
+if ($SupabaseUrl -ne "") { $defines += "--dart-define=SUPABASE_URL=$SupabaseUrl" }
+if ($SupabasePublishableKey -ne "") { $defines += "--dart-define=SUPABASE_PUBLISHABLE_KEY=$SupabasePublishableKey" }
+if ($GoogleWebClientId -ne "") { $defines += "--dart-define=GOOGLE_WEB_CLIENT_ID=$GoogleWebClientId" }
 
 Write-Host "Building (entitlement id is hardcoded in subscription_service.dart)"
 
