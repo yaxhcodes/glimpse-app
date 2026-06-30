@@ -12,6 +12,8 @@ SavedUrl _url({
   DateTime? savedAt,
   DateTime? openedAt,
   String? intentStatus,
+  String category = 'Food & Cooking',
+  List<String> tags = const ['recipe', 'high protein'],
 }) {
   return SavedUrl()
     ..id = id
@@ -19,10 +21,10 @@ SavedUrl _url({
     ..domain = 'example.com'
     ..title = title
     ..description = ''
-    ..category = 'Food & Cooking'
+    ..category = category
     ..categoryEmoji = ''
-    ..categories = ['Food & Cooking']
-    ..tags = ['recipe', 'high protein']
+    ..categories = [category]
+    ..tags = tags
     ..savedAt = savedAt ?? DateTime(2026, 6, 1)
     ..openedAt = openedAt
     ..intentStatus = intentStatus;
@@ -60,18 +62,23 @@ void main() {
     expect(memory.id, 'forgottenGems:protein-recipes:7-9');
     expect(memory.topicKey, 'protein recipes');
     expect(memory.topicLabel, 'Protein Recipes');
-    expect(memory.what, 'Protein Recipes waiting for you');
-    expect(memory.whyItMatters, contains('Protein Recipes'));
-    expect(memory.whyNow, contains('waited long enough'));
+    expect(memory.what, 'A Better Breakfast');
+    expect(memory.copyIdentity.primary, memory.what);
+    expect(memory.copyIdentity.secondaryDescription, contains('recipes'));
+    expect(memory.copyIdentity.reasonForToday, contains('intent'));
+    expect(memory.copyIdentity.suggestedNextStep, contains(first.title));
     expect(memory.emotion, RediscoverMemoryEmotion.recognition);
-    expect(memory.encouragedAction, 'Reopen the best one');
+    expect(memory.personality, RediscoverMemoryPersonality.practical);
+    expect(memory.encouragedAction, contains(first.title));
 
     expect(memory.homeCopy.title, memory.what);
     expect(memory.homeCopy.body, memory.whyNow);
     expect(memory.rediscoverCopy.body, contains(memory.whyItMatters));
     expect(memory.rediscoverCopy.actionLabel, contains(first.title));
-    expect(memory.notificationCopy.title, contains('Protein Recipes'));
-    expect(memory.notificationCopy.body, contains('fresh look'));
+    expect(memory.notificationCopy.title, contains('A Better Breakfast'));
+    expect(memory.notificationCopy.body, contains('intent'));
+    expect(memory.what, isNot(contains('waiting for you')));
+    expect(memory.what, isNot(contains('curiosity')));
 
     expect(memory.primaryUrl, first);
     expect(memory.supportingUrls, [second]);
@@ -133,6 +140,93 @@ void main() {
     expect(
       repeated.explanation.map((entry) => entry['code']),
       contains('recent_repeat'),
+    );
+  });
+
+  test('copy identities vary by memory personality and story', () {
+    final buildMemory = RediscoverMemory.fromJourney(
+      RediscoverJourney(
+        kind: RediscoverJourneyKind.memoryGoal,
+        title: 'Continue building',
+        subtitle: '3 saves, including ones you queued',
+        icon: Icons.terminal_rounded,
+        items: [
+          _item(
+            _url(
+              id: 20,
+              title: 'Local First App Architecture',
+              category: 'Technology',
+              tags: const ['flutter', 'app', 'architecture'],
+              intentStatus: 'queued',
+            ),
+          ),
+          _item(
+            _url(
+              id: 21,
+              title: 'Offline Sync Notes',
+              category: 'Technology',
+              tags: const ['sync', 'api'],
+            ),
+          ),
+          _item(
+            _url(
+              id: 22,
+              title: 'Riverpod Cache Strategy',
+              category: 'Technology',
+              tags: const ['flutter', 'state management'],
+            ),
+          ),
+        ],
+        signal: 92,
+        topicAnchor: 'app architecture',
+      ),
+    );
+
+    final reflectiveMemory = RediscoverMemory.fromJourney(
+      RediscoverJourney(
+        kind: RediscoverJourneyKind.becauseYouSaved,
+        title: 'Time to reflect',
+        subtitle: '3 saves worth reopening',
+        icon: Icons.psychology_alt_rounded,
+        items: [
+          _item(
+            _url(
+              id: 30,
+              title: 'Notes on Attention',
+              category: 'Philosophy',
+              tags: const ['philosophy', 'attention'],
+            ),
+          ),
+          _item(
+            _url(
+              id: 31,
+              title: 'A Question About Desire',
+              category: 'Philosophy',
+              tags: const ['question', 'wisdom'],
+            ),
+          ),
+          _item(
+            _url(
+              id: 32,
+              title: 'The Habit of Reflection',
+              category: 'Philosophy',
+              tags: const ['reflection', 'stoicism'],
+            ),
+          ),
+        ],
+        signal: 78,
+        topicAnchor: 'philosophy',
+      ),
+    );
+
+    expect(buildMemory.personality, RediscoverMemoryPersonality.ambitious);
+    expect(reflectiveMemory.personality, RediscoverMemoryPersonality.reflective);
+    expect(buildMemory.what, isNot(reflectiveMemory.what));
+    expect(buildMemory.what.toLowerCase(), isNot(contains('app architecture')));
+    expect(reflectiveMemory.what.toLowerCase(), isNot(contains('philosophy')));
+    expect(
+      [buildMemory.what, reflectiveMemory.what].join(' '),
+      isNot(contains('waiting for you')),
     );
   });
 }
