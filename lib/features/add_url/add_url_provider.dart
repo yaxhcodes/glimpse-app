@@ -6,6 +6,7 @@ import '../../core/models/engagement_event.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
 import '../../core/providers/analytics_provider.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/analytics_service.dart';
@@ -86,6 +87,18 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
   }) async {
     if (_isSaving) return false;
     _isSaving = true;
+
+    final user = _ref.read(authServiceProvider).currentUser;
+    if (user == null) {
+      _isSaving = false;
+      state = state.copyWith(
+        status: AddUrlStatus.error,
+        errorMessage: 'Sign in to save links.',
+        clearSavedUrlId: true,
+        aiLimitReached: false,
+      );
+      return false;
+    }
 
     final isarService = _ref.read(isarServiceProvider);
 

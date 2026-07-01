@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/domain_categorizer.dart';
@@ -67,7 +68,7 @@ class BatchSaveState {
   int get errorCount =>
       items.where((i) => i.status == BatchItemStatus.error).length;
 
-  bool get canSave => readyCount > 0;
+  bool get canSave => status == BatchSaveStatus.preview && readyCount > 0;
 }
 
 /// Orchestrates multi-URL capture with instant save and background enrichment.
@@ -182,6 +183,15 @@ class BatchSaveNotifier extends StateNotifier<BatchSaveState> {
   /// fallback for AI fields. Enrichment (AI tags, summaries, embeddings)
   /// runs in the background so the user sees success instantly.
   Future<void> saveAll() async {
+    final user = _ref.read(authServiceProvider).currentUser;
+    if (user == null) {
+      state = state.copyWith(
+        status: BatchSaveStatus.error,
+        errorMessage: 'Sign in to save links.',
+      );
+      return;
+    }
+
     final toSave = state.items
         .where((i) => i.status == BatchItemStatus.ready)
         .toList();

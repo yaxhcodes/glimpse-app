@@ -381,6 +381,20 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       final ctx = _router.routerDelegate.navigatorKey.currentContext;
       if (ctx == null) return;
 
+      if (ref.read(authServiceProvider).currentUser == null) {
+        _router.go('/');
+        ScaffoldMessenger.of(ctx)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Sign in to save links.'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        return;
+      }
+
       if (extracted.hasMultiple) {
         // Multi-share → batch preview
         _router.push('/batch-save', extra: extracted.urls);

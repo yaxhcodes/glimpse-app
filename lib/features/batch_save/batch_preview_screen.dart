@@ -37,6 +37,7 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
     final isSaving = state.status == BatchSaveStatus.saving;
     final isDone = state.status == BatchSaveStatus.done;
     final isEnriching = state.status == BatchSaveStatus.enriching;
+    final isError = state.status == BatchSaveStatus.error;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -168,7 +169,38 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (isDone) ...[
+              if (isError) ...[
+                Row(
+                  children: [
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      color: cs.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        state.errorMessage ?? 'Could not save these links.',
+                        style: tt.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => context.go('/'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text('Sign in'),
+                ),
+              ] else if (isDone) ...[
                 Row(
                   children: [
                     Icon(Icons.check_circle, color: cs.primary, size: 20),
@@ -319,6 +351,9 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
     }
     if (state.status == BatchSaveStatus.done) {
       return 'Your rabbit hole has been captured.';
+    }
+    if (state.status == BatchSaveStatus.error) {
+      return state.errorMessage ?? 'Could not save these links.';
     }
     if (state.items.length > 1) {
       return 'Captured from your research session — review before saving';
