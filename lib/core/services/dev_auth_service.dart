@@ -38,6 +38,12 @@ class DevAuthService implements AuthService {
   }
 
   @override
+  Future<GoogleAccountHint?> restoreGoogleAccountHint() async => null;
+
+  @override
+  Future<AppUser> signInWithGoogleHint() async => _startDevSession();
+
+  @override
   Future<AppUser> signInWithGoogle() async => _startDevSession();
 
   @override

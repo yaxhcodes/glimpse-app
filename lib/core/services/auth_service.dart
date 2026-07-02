@@ -14,6 +14,18 @@ class AuthCancelled implements Exception {
   const AuthCancelled();
 }
 
+class GoogleAccountHint {
+  const GoogleAccountHint({
+    required this.email,
+    this.displayName,
+    this.photoUrl,
+  });
+
+  final String email;
+  final String? displayName;
+  final String? photoUrl;
+}
+
 abstract interface class AuthService {
   bool get isConfigured;
 
@@ -22,6 +34,10 @@ abstract interface class AuthService {
   Stream<AppUser?> get authStateChanges;
 
   Future<AppUser?> restoreSession();
+
+  Future<GoogleAccountHint?> restoreGoogleAccountHint();
+
+  Future<AppUser> signInWithGoogleHint();
 
   Future<AppUser> signInWithGoogle();
 

@@ -505,6 +505,18 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authControllerProvider, (previous, next) {
+      final wasSignedIn = previous?.valueOrNull != null;
+      final isSignedOut = next.valueOrNull == null && !next.isLoading;
+      if (!wasSignedIn || !isSignedOut) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_router.routeInformationProvider.value.uri.path != '/') {
+          _router.go('/');
+        }
+      });
+    });
+
     final themeMode = ref.watch(themeModeProvider);
     final amoledSurfaces = ref.watch(amoledSurfacesProvider);
     final accent = ref.watch(accentColorProvider);
@@ -632,24 +644,40 @@ class _RootGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
     final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
-    return authState.when(
+    final child = authState.when(
       data: (user) {
-        if (user == null) return const AuthScreen();
+        if (user == null) {
+          return AuthScreen(
+            key: const ValueKey('auth'),
+            isOnboardingEntry: !hasSeenOnboarding,
+          );
+        }
         if (hasSeenOnboarding && !user.onboardingCompleted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ref.read(authControllerProvider.notifier).markOnboardingCompleted();
           });
         }
-        return hasSeenOnboarding ? const MainShell() : const OnboardingScreen();
+        return hasSeenOnboarding
+            ? const MainShell(key: ValueKey('main-shell'))
+            : const OnboardingScreen(key: ValueKey('onboarding'));
       },
-      loading: () => const _StartupProgress(),
-      error: (_, _) => const AuthScreen(),
+      loading: () => const _StartupProgress(key: ValueKey('startup')),
+      error: (_, _) => AuthScreen(
+        key: const ValueKey('auth-error'),
+        isOnboardingEntry: !hasSeenOnboarding,
+      ),
+    );
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeOutCubic,
+      child: child,
     );
   }
 }
 
 class _StartupProgress extends StatelessWidget {
-  const _StartupProgress();
+  const _StartupProgress({super.key});
 
   @override
   Widget build(BuildContext context) {

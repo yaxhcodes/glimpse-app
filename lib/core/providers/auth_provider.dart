@@ -22,6 +22,11 @@ final authControllerProvider = AsyncNotifierProvider<AuthController, AppUser?>(
   AuthController.new,
 );
 
+final googleAccountHintProvider =
+    FutureProvider.autoDispose<GoogleAccountHint?>((ref) {
+      return ref.watch(authServiceProvider).restoreGoogleAccountHint();
+    });
+
 class AuthController extends AsyncNotifier<AppUser?> {
   StreamSubscription<AppUser?>? _authSubscription;
 
@@ -47,7 +52,6 @@ class AuthController extends AsyncNotifier<AppUser?> {
 
   Future<void> signInWithGoogle() async {
     final auth = ref.read(authServiceProvider);
-    state = const AsyncLoading();
     try {
       final user = await auth.signInWithGoogle();
       await _linkSubscriptionIdentity(user.id);
@@ -59,9 +63,21 @@ class AuthController extends AsyncNotifier<AppUser?> {
     }
   }
 
+  Future<void> signInWithGoogleHint() async {
+    final auth = ref.read(authServiceProvider);
+    try {
+      final user = await auth.signInWithGoogleHint();
+      await _linkSubscriptionIdentity(user.id);
+      state = AsyncData(user);
+    } on AuthCancelled {
+      state = AsyncData(auth.currentUser);
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
+
   Future<void> signInWithApple() async {
     final auth = ref.read(authServiceProvider);
-    state = const AsyncLoading();
     try {
       final user = await auth.signInWithApple();
       await _linkSubscriptionIdentity(user.id);

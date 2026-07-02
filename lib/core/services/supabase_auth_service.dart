@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
@@ -22,6 +23,11 @@ class SupabaseAuthService implements AuthService {
   final _stateController = StreamController<AppUser?>.broadcast();
   StreamSubscription<AuthState>? _authSubscription;
   AppUser? _currentUser;
+  GoogleSignInAccount? _googleHintAccount;
+
+  static const _lastGoogleEmailKey = 'auth.last_google_email';
+  static const _lastGoogleDisplayNameKey = 'auth.last_google_display_name';
+  static const _lastGooglePhotoUrlKey = 'auth.last_google_photo_url';
 
   static Future<void> initializeSupabaseClient() async {
     if (_supabaseInitialized || !SupabaseConfig.isConfigured) return;
@@ -69,32 +75,58 @@ class SupabaseAuthService implements AuthService {
   }
 
   @override
+  Future<GoogleAccountHint?> restoreGoogleAccountHint() async {
+    if (!isConfigured) return null;
+    return _readStoredGoogleHint();
+  }
+
+  @override
+  Future<AppUser> signInWithGoogleHint() async {
+    _ensureConfigured();
+    await _ensureGoogleInitialized();
+
+    try {
+      final googleUser =
+          _googleHintAccount ??
+          await GoogleSignIn.instance.attemptLightweightAuthentication(
+            reportAllExceptions: true,
+          ) ??
+          await GoogleSignIn.instance.authenticate();
+      return _signInWithGoogleAccount(googleUser);
+    } on AuthFailure {
+      rethrow;
+    } on GoogleSignInException catch (e, st) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        developer.log('Google hint sign-in cancelled by user', name: 'Auth');
+        throw const AuthCancelled();
+      }
+      developer.log(
+        'Google hint sign-in error: ${e.code} ${e.description}',
+        name: 'Auth',
+        stackTrace: st,
+      );
+      throw AuthFailure(
+        'Google sign-in failed: ${e.description ?? e.code.name}',
+        e,
+      );
+    } catch (e, st) {
+      developer.log(
+        'Google hint sign-in failed: $e',
+        name: 'Auth',
+        stackTrace: st,
+      );
+      throw AuthFailure('Google sign-in failed: $e', e);
+    }
+  }
+
+  @override
   Future<AppUser> signInWithGoogle() async {
     _ensureConfigured();
     await _ensureGoogleInitialized();
 
     try {
-      final googleUser = await GoogleSignIn.instance.authenticate();
-      final idToken = googleUser.authentication.idToken;
-      if (idToken == null || idToken.isEmpty) {
-        throw const AuthFailure('Google did not return an identity token.');
-      }
-
-      final response = await _client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-      );
-      final user = response.user;
-      if (user == null) {
-        throw const AuthFailure('Supabase did not return a signed-in user.');
-      }
-      final appUser = await _loadOrCreateAppUser(
-        user,
-        displayNameHint: googleUser.displayName,
-      );
-      _currentUser = appUser;
-      _stateController.add(appUser);
-      return appUser;
+      final googleUser = await _authenticateWithGoogleUi();
+      return _signInWithGoogleAccount(googleUser);
     } on AuthFailure {
       rethrow;
     } on GoogleSignInException catch (e, st) {
@@ -124,18 +156,47 @@ class SupabaseAuthService implements AuthService {
         name: 'Auth',
         stackTrace: st,
       );
-      throw AuthFailure(
-        'Google sign-in failed: ${e.message ?? e.code}',
-        e,
-      );
+      throw AuthFailure('Google sign-in failed: ${e.message ?? e.code}', e);
     } catch (e, st) {
-      developer.log(
-        'Google sign-in failed: $e',
-        name: 'Auth',
-        stackTrace: st,
-      );
+      developer.log('Google sign-in failed: $e', name: 'Auth', stackTrace: st);
       throw AuthFailure('Google sign-in failed: $e', e);
     }
+  }
+
+  Future<GoogleSignInAccount> _authenticateWithGoogleUi() async {
+    final lightweightAuth = GoogleSignIn.instance
+        .attemptLightweightAuthentication(reportAllExceptions: true);
+    final lightweightUser = lightweightAuth == null
+        ? null
+        : await lightweightAuth;
+    return lightweightUser ?? GoogleSignIn.instance.authenticate();
+  }
+
+  Future<AppUser> _signInWithGoogleAccount(
+    GoogleSignInAccount googleUser,
+  ) async {
+    final idToken = googleUser.authentication.idToken;
+    if (idToken == null || idToken.isEmpty) {
+      throw const AuthFailure('Google did not return an identity token.');
+    }
+
+    final response = await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+    );
+    final user = response.user;
+    if (user == null) {
+      throw const AuthFailure('Supabase did not return a signed-in user.');
+    }
+    final hint = _googleHint(googleUser);
+    await _storeGoogleHint(hint);
+    final appUser = await _loadOrCreateAppUser(
+      user,
+      displayNameHint: googleUser.displayName,
+    );
+    _currentUser = appUser;
+    _stateController.add(appUser);
+    return appUser;
   }
 
   @override
@@ -181,11 +242,7 @@ class SupabaseAuthService implements AuthService {
       );
       throw AuthFailure('Supabase rejected Apple sign-in: ${e.message}', e);
     } catch (e, st) {
-      developer.log(
-        'Apple sign-in failed: $e',
-        name: 'Auth',
-        stackTrace: st,
-      );
+      developer.log('Apple sign-in failed: $e', name: 'Auth', stackTrace: st);
       throw AuthFailure('Apple sign-in failed: $e', e);
     }
   }
@@ -229,6 +286,17 @@ class SupabaseAuthService implements AuthService {
   @override
   Future<void> signOut() async {
     if (!isConfigured) return;
+    final signedInUser = _client.auth.currentUser;
+    if (signedInUser != null) {
+      await _storeGoogleHint(
+        GoogleAccountHint(
+          email: signedInUser.email ?? '',
+          displayName: _displayNameFromMetadata(signedInUser.userMetadata),
+          photoUrl: _photoUrlFromMetadata(signedInUser.userMetadata),
+        ),
+      );
+    }
+    _googleHintAccount = null;
     try {
       await _ensureGoogleInitialized();
       await GoogleSignIn.instance.signOut();
@@ -364,6 +432,15 @@ class SupabaseAuthService implements AuthService {
     return null;
   }
 
+  String? _photoUrlFromMetadata(Map<String, dynamic>? metadata) {
+    if (metadata == null) return null;
+    for (final key in const ['avatar_url', 'picture', 'photo_url']) {
+      final value = metadata[key];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return null;
+  }
+
   String? _profileString(Map<String, dynamic>? data, String key) {
     final value = data?[key];
     if (value is! String) return null;
@@ -384,6 +461,55 @@ class SupabaseAuthService implements AuthService {
         .where((part) => part.isNotEmpty)
         .toList();
     return parts.isEmpty ? null : parts.join(' ');
+  }
+
+  GoogleAccountHint _googleHint(GoogleSignInAccount account) {
+    return GoogleAccountHint(
+      email: account.email,
+      displayName: _trimOrNull(account.displayName),
+      photoUrl: _trimOrNull(account.photoUrl),
+    );
+  }
+
+  Future<GoogleAccountHint?> _readStoredGoogleHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = _trimOrNull(prefs.getString(_lastGoogleEmailKey));
+    if (email == null) return null;
+    return GoogleAccountHint(
+      email: email,
+      displayName: _trimOrNull(prefs.getString(_lastGoogleDisplayNameKey)),
+      photoUrl: _trimOrNull(prefs.getString(_lastGooglePhotoUrlKey)),
+    );
+  }
+
+  Future<void> _storeGoogleHint(GoogleAccountHint hint) async {
+    if (hint.email.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastGoogleEmailKey, hint.email);
+    await _setOptionalString(
+      prefs,
+      _lastGoogleDisplayNameKey,
+      hint.displayName,
+    );
+    await _setOptionalString(prefs, _lastGooglePhotoUrlKey, hint.photoUrl);
+  }
+
+  Future<void> _setOptionalString(
+    SharedPreferences prefs,
+    String key,
+    String? value,
+  ) async {
+    final trimmed = _trimOrNull(value);
+    if (trimmed == null) {
+      await prefs.remove(key);
+      return;
+    }
+    await prefs.setString(key, trimmed);
+  }
+
+  String? _trimOrNull(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
   void _ensureConfigured() {

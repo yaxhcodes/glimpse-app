@@ -95,6 +95,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _logout() async {
     await ref.read(authControllerProvider.notifier).signOut();
+    if (!mounted) return;
+    context.go('/');
   }
 
   Future<void> _requestAccountDeletion() async {
