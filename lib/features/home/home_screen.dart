@@ -820,25 +820,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                           ),
-                                          const SizedBox(width: 3),
-                                          Icon(
-                                            Icons.chevron_right_rounded,
-                                            size: 17,
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant
-                                                .withValues(alpha: 0.48),
-                                          ),
                                         ],
                                       ),
                                     ),
                                   ),
                                 ),
-                                Icon(
-                                  Icons.drag_indicator_rounded,
-                                  size: 16,
-                                  color: theme.colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.38),
+                                InkWell(
+                                  onTap: () => context.push('/sources'),
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 20,
+                                      color: theme.colorScheme.onSurfaceVariant
+                                          .withValues(alpha: 0.48),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
