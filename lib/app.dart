@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:dynamic_color/dynamic_color.dart';
@@ -256,6 +257,8 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   late StreamSubscription _shareIntentSub;
   StreamSubscription<String>? _backupIntentSub;
   final BackupIntentService _backupIntentService = BackupIntentService();
+  List<String>? _pendingSharedUrls;
+  bool _processingSharedUrls = false;
   String? _lastTrackedLocation;
 
   @override
@@ -378,37 +381,67 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (extracted.urls.isEmpty) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ctx = _router.routerDelegate.navigatorKey.currentContext;
-      if (ctx == null) return;
+      unawaited(_handleSharedUrls(extracted.urls));
+    });
+  }
 
-      if (ref.read(authServiceProvider).currentUser == null) {
+  Future<void> _handleSharedUrls(List<String> urls) async {
+    if (urls.isEmpty || _processingSharedUrls) return;
+    _processingSharedUrls = true;
+
+    try {
+      final user =
+          ref.read(authServiceProvider).currentUser ??
+          await ref.read(authControllerProvider.future);
+      if (!mounted) return;
+
+      if (user == null) {
+        _pendingSharedUrls = List.unmodifiable(urls);
         _router.go('/');
-        ScaffoldMessenger.of(ctx)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text('Sign in to save links.'),
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 3),
-            ),
-          );
+        _showSignInToSaveMessage();
         return;
       }
 
-      if (extracted.hasMultiple) {
+      _pendingSharedUrls = null;
+      if (urls.length > 1) {
         // Multi-share → batch preview
-        _router.push('/batch-save', extra: extracted.urls);
+        _router.push('/batch-save', extra: urls);
       } else {
         // Single share → capture immediately and let notifications carry the result.
-        unawaited(
-          _quickSave(
-            extracted.urls.first,
-            notifyCapture: true,
-            returnAfterSave: true,
-          ),
+        await _quickSave(
+          urls.first,
+          notifyCapture: true,
+          returnAfterSave: true,
         );
       }
-    });
+    } catch (e, st) {
+      developer.log(
+        'Shared URL auth gate failed; preserving pending share.',
+        name: 'ShareIntent',
+        error: e,
+        stackTrace: st,
+      );
+      if (!mounted) return;
+      _pendingSharedUrls = List.unmodifiable(urls);
+      _router.go('/');
+      _showSignInToSaveMessage();
+    } finally {
+      _processingSharedUrls = false;
+    }
+  }
+
+  void _showSignInToSaveMessage() {
+    final ctx = _router.routerDelegate.navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    ScaffoldMessenger.of(ctx)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Sign in to save links.'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
   }
 
   Future<void> _quickSave(
@@ -508,6 +541,15 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     ref.listen(authControllerProvider, (previous, next) {
       final wasSignedIn = previous?.valueOrNull != null;
       final isSignedOut = next.valueOrNull == null && !next.isLoading;
+      final pendingSharedUrls = _pendingSharedUrls;
+      if (next.valueOrNull != null &&
+          pendingSharedUrls != null &&
+          pendingSharedUrls.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          unawaited(_handleSharedUrls(pendingSharedUrls));
+        });
+      }
       if (!wasSignedIn || !isSignedOut) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

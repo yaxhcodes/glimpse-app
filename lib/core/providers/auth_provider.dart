@@ -45,7 +45,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
 
     final user = await auth.restoreSession();
     if (user != null) {
-      await _linkSubscriptionIdentity(user.id);
+      unawaited(_linkSubscriptionIdentity(user.id));
     }
     return user;
   }

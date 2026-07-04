@@ -58,19 +58,9 @@ class SupabaseAuthService implements AuthService {
       _currentUser = null;
       return null;
     }
-    AppUser appUser;
-    try {
-      appUser = await _loadOrCreateAppUser(user);
-    } catch (e, st) {
-      developer.log(
-        'Auth profile restore failed — using offline session fallback: $e',
-        name: 'Auth',
-        stackTrace: st,
-      );
-      appUser = _offlineAppUser(user);
-    }
+    final appUser = _offlineAppUser(user);
     _currentUser = appUser;
-    unawaited(updateLastSeen());
+    unawaited(_refreshRestoredProfile(user));
     return appUser;
   }
 
@@ -341,6 +331,20 @@ class SupabaseAuthService implements AuthService {
         );
       }
     });
+  }
+
+  Future<void> _refreshRestoredProfile(User user) async {
+    try {
+      final appUser = await _loadOrCreateAppUser(user);
+      _currentUser = appUser;
+      _stateController.add(appUser);
+    } catch (e, st) {
+      developer.log(
+        'Auth profile restore failed — using offline session fallback: $e',
+        name: 'Auth',
+        stackTrace: st,
+      );
+    }
   }
 
   Future<void> _ensureGoogleInitialized() async {
