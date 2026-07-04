@@ -9,6 +9,7 @@ import '../models/saved_url.dart';
 import '../models/url_processing_status.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
+import 'domain_centroid_service.dart';
 import 'domain_categorizer.dart';
 import 'embedding_input.dart';
 import 'embedding_service.dart';
@@ -46,6 +47,7 @@ class EnrichmentService {
   final UsageService _usageService;
   final bool _isPro;
   final void Function()? _onEnriched;
+  late final DomainCentroidService _domainCentroidService;
 
   EnrichmentService({
     required IsarService isarService,
@@ -64,6 +66,7 @@ class EnrichmentService {
        _usageService = usageService,
        _isPro = isPro,
        _onEnriched = onEnriched {
+    _domainCentroidService = DomainCentroidService(_isarService);
     if (kDebugMode) {
       developer.log(
         'EnrichmentService created: gemini=${_geminiService != null}, '
@@ -86,6 +89,7 @@ class EnrichmentService {
       'enrichBatch START: ${urlIds.length} URLs',
       name: 'Enrichment',
     );
+    await _domainCentroidService.rebuildCentroids();
 
     // Run each save through the same guarded state machine used by single
     // saves, so a failed AI phase cannot be followed by a raw READY save.
@@ -370,6 +374,10 @@ class EnrichmentService {
     String? enrichedTitle;
     String? enrichedThumbnailUrl;
     String? enrichmentJson;
+    List<String> keyPoints = const [];
+    String? categoryEvidence;
+    double? categoryConfidence;
+    List<String> topics = const [];
     MemoryIntentMetadata? memoryIntent;
 
     final mediaRequiresEvidence = TranscriptEnrichmentService.supportsUrl(
@@ -538,6 +546,12 @@ class EnrichmentService {
         category = result.category;
         emoji = result.emoji;
         tags = result.tags;
+        keyPoints = result.keyPoints;
+        categoryEvidence = result.categoryEvidence.trim().isEmpty
+            ? null
+            : result.categoryEvidence.trim();
+        categoryConfidence = result.categoryConfidence;
+        topics = result.topics;
         memoryIntent = result.memoryIntent;
         summary = result.summary.trim();
         if (!_isValidAiSummary(summary) || tags.isEmpty) {
@@ -662,6 +676,10 @@ class EnrichmentService {
           category: category,
           tags: enrichedTags,
           contentType: 'generic',
+          keyPoints: keyPoints,
+          categoryEvidence: categoryEvidence,
+          categoryConfidence: categoryConfidence,
+          topics: topics,
           thumbnailUrl: freshUrl.thumbnailUrl,
           memoryIntent: memoryIntent,
         ).toJson(),
@@ -670,6 +688,10 @@ class EnrichmentService {
     if (enrichmentJson != null && enrichmentJson.isNotEmpty) {
       freshUrl.enrichmentJson = enrichmentJson;
     }
+    await _applyCategoryCentroidValidationIfPossible(
+      freshUrl,
+      stage: 'AI_ENRICHMENT_CATEGORY_VALIDATED',
+    );
     freshUrl.processingError = null;
 
     await _isarService.updateUrl(freshUrl);
@@ -1119,6 +1141,10 @@ class EnrichmentService {
       }
 
       freshUrl.embedding = vec;
+      await _applyCategoryCentroidValidationIfPossible(
+        freshUrl,
+        stage: 'EMBEDDING_CATEGORY_VALIDATED',
+      );
       await _isarService.updateUrl(freshUrl);
       developer.log(
         '_enrichEmbedding SAVE OK: ${freshUrl.rawUrl} (${vec.length} dims)',
@@ -1131,6 +1157,98 @@ class EnrichmentService {
         stackTrace: st,
       );
     }
+  }
+
+  Future<void> _applyCategoryCentroidValidationIfPossible(
+    SavedUrl url, {
+    required String stage,
+  }) async {
+    final embedding = url.embedding;
+    if (embedding == null || embedding.isEmpty) return;
+    final claimedCategory = CategoryTaxonomy.normalize(
+      category: url.category,
+      tags: url.tags,
+    ).name;
+    if (claimedCategory == 'Other') return;
+
+    final validation = await _domainCentroidService.validate(
+      claimedCategory: claimedCategory,
+      saveEmbedding: embedding,
+    );
+    if (!validation.isReliable) return;
+
+    final fields = {
+      'claimed_category': claimedCategory,
+      'centroid_similarity': validation.similarity,
+      'centroid_sample_size': validation.centroidSampleSize,
+      'similarity_floor': DomainCentroidService.similarityFloor,
+    };
+    if (validation.similarity >= DomainCentroidService.similarityFloor) {
+      UrlProcessingObserver.logStage(
+        stage,
+        processingId: url.processingId ?? 'url-${url.id}',
+        saveId: url.id.toString(),
+        url: url.rawUrl,
+        platform: url.category,
+        attempt: url.processingAttempt,
+        fields: fields,
+      );
+      return;
+    }
+
+    final originalCategory = url.category;
+    final other = CategoryTaxonomy.byName('Other');
+    url
+      ..category = other.name
+      ..categoryEmoji = other.emoji
+      ..categories = CategoryResolver.buildCategories(
+        primaryCategory: other.name,
+        platformCategory: DomainCategorizer.categorize(url.rawUrl).category,
+      )
+      ..enrichmentJson = _markCategoryNeedsReview(
+        url.enrichmentJson,
+        originalCategory: originalCategory,
+        validation: validation,
+      );
+
+    UrlProcessingObserver.logStage(
+      'CATEGORY_CENTROID_REJECTED',
+      processingId: url.processingId ?? 'url-${url.id}',
+      saveId: url.id.toString(),
+      url: url.rawUrl,
+      platform: originalCategory,
+      attempt: url.processingAttempt,
+      fields: fields,
+    );
+  }
+
+  String _markCategoryNeedsReview(
+    String? rawJson, {
+    required String originalCategory,
+    required DomainCentroidResult validation,
+  }) {
+    final data = <String, dynamic>{};
+    if (rawJson != null && rawJson.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawJson);
+        if (decoded is Map) {
+          data.addAll(Map<String, dynamic>.from(decoded));
+        }
+      } catch (_) {
+        data['unparsed_enrichment'] = rawJson;
+      }
+    }
+    data
+      ..['category'] = 'Other'
+      ..['category_needs_review'] = true
+      ..['original_gemini_category'] = originalCategory
+      ..['category_validation'] = {
+        'method': 'embedding_centroid',
+        'similarity': validation.similarity,
+        'centroid_sample_size': validation.centroidSampleSize,
+        'similarity_floor': DomainCentroidService.similarityFloor,
+      };
+    return jsonEncode(data);
   }
 
   Future<T> _runWithSemaphore<T>(

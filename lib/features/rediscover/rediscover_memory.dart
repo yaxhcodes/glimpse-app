@@ -40,10 +40,7 @@ class RediscoverMemoryCopy {
 }
 
 class RediscoverNotificationCopy {
-  const RediscoverNotificationCopy({
-    required this.title,
-    required this.body,
-  });
+  const RediscoverNotificationCopy({required this.title, required this.body});
 
   final String title;
   final String body;
@@ -221,8 +218,9 @@ class RediscoverMemory {
             tagFrequency: tagFrequency,
           );
     final saveCount = journey.items.length;
-    final unopenedCount =
-        journey.items.where((item) => item.url.openedAt == null).length;
+    final unopenedCount = journey.items
+        .where((item) => item.url.openedAt == null)
+        .length;
     final openedCount = saveCount - unopenedCount;
     final topicKey = (journey.topicAnchor ?? journey.title).trim();
     final emotion = _emotionFor(journey);
@@ -348,7 +346,11 @@ class RediscoverMemory {
     final primaryIntent = _dominantKey(intentCounts);
     final journeyType = _journeyTypeFor(
       primaryIntent,
-      domain: _domainFor(journey, topicLabel, urls.isEmpty ? null : urls.first.title),
+      domain: _domainFor(
+        journey,
+        topicLabel,
+        urls.isEmpty ? null : urls.first.title,
+      ),
       text: text,
     );
     final labelResult = _semanticLabelFor(
@@ -430,25 +432,27 @@ class RediscoverMemory {
       'visit' => RediscoverSemanticJourneyType.planning,
       'build' => RediscoverSemanticJourneyType.building,
       'watch_later' => RediscoverSemanticJourneyType.watching,
-      'read_later' => _containsAny(text, const ['manga', 'book', 'reading'])
-          ? RediscoverSemanticJourneyType.collecting
-          : RediscoverSemanticJourneyType.learning,
+      'read_later' =>
+        _containsAny(text, const ['manga', 'book', 'reading'])
+            ? RediscoverSemanticJourneyType.collecting
+            : RediscoverSemanticJourneyType.learning,
       'try' => RediscoverSemanticJourneyType.practicing,
       'health_change' => RediscoverSemanticJourneyType.improving,
       'career_move' => RediscoverSemanticJourneyType.improving,
       'learn' => RediscoverSemanticJourneyType.learning,
       _ => switch (domain) {
-          _MemoryDomain.cooking => RediscoverSemanticJourneyType.cooking,
-          _MemoryDomain.building => RediscoverSemanticJourneyType.building,
-          _MemoryDomain.travel => RediscoverSemanticJourneyType.planning,
-          _MemoryDomain.watchlist => RediscoverSemanticJourneyType.watching,
-          _MemoryDomain.fitness => RediscoverSemanticJourneyType.improving,
-          _MemoryDomain.philosophy => RediscoverSemanticJourneyType.learning,
-          _MemoryDomain.nature => _containsAny(text, const ['farm', 'garden'])
+        _MemoryDomain.cooking => RediscoverSemanticJourneyType.cooking,
+        _MemoryDomain.building => RediscoverSemanticJourneyType.building,
+        _MemoryDomain.travel => RediscoverSemanticJourneyType.planning,
+        _MemoryDomain.watchlist => RediscoverSemanticJourneyType.watching,
+        _MemoryDomain.fitness => RediscoverSemanticJourneyType.improving,
+        _MemoryDomain.philosophy => RediscoverSemanticJourneyType.learning,
+        _MemoryDomain.nature =>
+          _containsAny(text, const ['farm', 'garden'])
               ? RediscoverSemanticJourneyType.planning
               : RediscoverSemanticJourneyType.learning,
-          _ => RediscoverSemanticJourneyType.researching,
-        },
+        _ => RediscoverSemanticJourneyType.researching,
+      },
     };
   }
 
@@ -478,7 +482,12 @@ class RediscoverMemory {
           'breakfast',
         ]);
       }
-      if (_containsAny(text, const ['vegetarian', 'paneer', 'soya', 'edamame'])) {
+      if (_containsAny(text, const [
+        'vegetarian',
+        'paneer',
+        'soya',
+        'edamame',
+      ])) {
         return result('High-Protein Vegetarian Meals', 0.9, [
           'high protein',
           'vegetarian',
@@ -530,7 +539,12 @@ class RediscoverMemory {
     if (_containsAny(text, const ['flutter', 'riverpod'])) {
       return result('Flutter Development Notes', 0.88, ['flutter']);
     }
-    if (_containsAny(text, const ['llm', 'genai', 'ai agent', 'ai engineering'])) {
+    if (_containsAny(text, const [
+      'llm',
+      'genai',
+      'ai agent',
+      'ai engineering',
+    ])) {
       return result('AI Engineering Notes', 0.88, ['AI engineering']);
     }
     if (_containsAny(text, const ['startup', 'founder', 'y combinator'])) {
@@ -544,7 +558,9 @@ class RediscoverMemory {
       return result(label, 0.72, [meaningfulTag]);
     }
 
-    return result(_clearTopicLabel(topicLabel, journeyType), 0.56, [topicLabel]);
+    return result(_clearTopicLabel(topicLabel, journeyType), 0.56, [
+      topicLabel,
+    ]);
   }
 
   static String _labelFromConcept(
@@ -560,20 +576,17 @@ class RediscoverMemory {
       return concept;
     }
     return switch (journeyType) {
-      RediscoverSemanticJourneyType.cooking => lower.contains('recipe')
-          ? concept
-          : '$concept Recipes',
+      RediscoverSemanticJourneyType.cooking =>
+        lower.contains('recipe') ? concept : '$concept Recipes',
       RediscoverSemanticJourneyType.watching => '$concept To Watch',
-      RediscoverSemanticJourneyType.collecting => lower.contains('book')
-          ? concept
-          : '$concept List',
+      RediscoverSemanticJourneyType.collecting =>
+        lower.contains('book') ? concept : '$concept List',
       RediscoverSemanticJourneyType.building => '$concept Notes',
       RediscoverSemanticJourneyType.planning => concept,
       RediscoverSemanticJourneyType.improving => concept,
       RediscoverSemanticJourneyType.practicing => concept,
-      RediscoverSemanticJourneyType.learning => lower.startsWith('understanding')
-          ? concept
-          : 'Understanding $concept',
+      RediscoverSemanticJourneyType.learning =>
+        lower.startsWith('understanding') ? concept : 'Understanding $concept',
       RediscoverSemanticJourneyType.researching => concept,
       RediscoverSemanticJourneyType.revisiting => concept,
     };
@@ -618,7 +631,7 @@ class RediscoverMemory {
       RediscoverSemanticJourneyType.planning =>
         'You were comparing options around $lower.',
       RediscoverSemanticJourneyType.building =>
-        'You were saving practical notes for $lower.',
+        'You were saving technical references for $lower.',
       RediscoverSemanticJourneyType.watching =>
         'You were building a watchlist around $lower.',
       RediscoverSemanticJourneyType.collecting =>
@@ -645,12 +658,15 @@ class RediscoverMemory {
 
   static RediscoverMemoryEmotion _emotionFor(RediscoverJourney journey) {
     return switch (journey.kind) {
-      RediscoverJourneyKind.continueLearning => RediscoverMemoryEmotion.momentum,
-      RediscoverJourneyKind.forgottenGems => RediscoverMemoryEmotion.recognition,
+      RediscoverJourneyKind.continueLearning =>
+        RediscoverMemoryEmotion.momentum,
+      RediscoverJourneyKind.forgottenGems =>
+        RediscoverMemoryEmotion.recognition,
       RediscoverJourneyKind.onThisDay => RediscoverMemoryEmotion.nostalgia,
       RediscoverJourneyKind.memoryGoal => RediscoverMemoryEmotion.intention,
       RediscoverJourneyKind.neverOpened => RediscoverMemoryEmotion.relief,
-      RediscoverJourneyKind.becauseYouSaved => RediscoverMemoryEmotion.curiosity,
+      RediscoverJourneyKind.becauseYouSaved =>
+        RediscoverMemoryEmotion.curiosity,
     };
   }
 
@@ -677,7 +693,9 @@ class RediscoverMemory {
     required String? primaryTitle,
   }) {
     final startLine =
-        primaryTitle == null ? whyItMatters : '$action: $primaryTitle';
+        primaryTitle == null || _containsTitle(action, primaryTitle)
+        ? action
+        : '$action: $primaryTitle';
     return RediscoverMemoryCopy(
       title: title,
       subtitle: journey.subtitle,
@@ -709,7 +727,8 @@ class RediscoverMemory {
       RediscoverMemoryPersonality.practical => '$title might be useful today',
       RediscoverMemoryPersonality.adventurous => '$title is worth reopening',
       RediscoverMemoryPersonality.ambitious => '$title is still in reach',
-      RediscoverMemoryPersonality.experimental => '$title deserves a second look',
+      RediscoverMemoryPersonality.experimental =>
+        '$title deserves a second look',
       RediscoverMemoryPersonality.reflective => '$title came back for a reason',
       RediscoverMemoryPersonality.creative => '$title is still alive',
       RediscoverMemoryPersonality.inspirational => '$title still has a spark',
@@ -748,9 +767,10 @@ class RediscoverMemory {
       _MemoryDomain.learning => RediscoverMemoryPersonality.curious,
       _MemoryDomain.money => RediscoverMemoryPersonality.practical,
       _MemoryDomain.watchlist => RediscoverMemoryPersonality.inspirational,
-      _MemoryDomain.general => journey.kind == RediscoverJourneyKind.continueLearning
-          ? RediscoverMemoryPersonality.curious
-          : RediscoverMemoryPersonality.reflective,
+      _MemoryDomain.general =>
+        journey.kind == RediscoverJourneyKind.continueLearning
+            ? RediscoverMemoryPersonality.curious
+            : RediscoverMemoryPersonality.reflective,
     };
   }
 
@@ -772,15 +792,7 @@ class RediscoverMemory {
       ],
     ].join(' ').toLowerCase();
 
-    if (_containsAny(text, const [
-      'recipe',
-      'cook',
-      'meal',
-      'breakfast',
-      'dinner',
-      'food',
-      'kitchen',
-    ])) {
+    if (_hasFoodSubjectMatter(text)) {
       return _MemoryDomain.cooking;
     }
     if (_containsAny(text, const [
@@ -910,16 +922,18 @@ class RediscoverMemory {
   }) {
     final summary = semanticIntent.behaviorSummary;
     return switch (journey.kind) {
-      RediscoverJourneyKind.continueLearning =>
-        summary,
-      RediscoverJourneyKind.forgottenGems => '$summary You had left this aside.',
-      RediscoverJourneyKind.onThisDay => '$summary This was part of an earlier season.',
-      RediscoverJourneyKind.memoryGoal =>
-        summary,
+      RediscoverJourneyKind.continueLearning => summary,
+      RediscoverJourneyKind.forgottenGems =>
+        '$summary You had left this aside.',
+      RediscoverJourneyKind.onThisDay =>
+        '$summary This was part of an earlier season.',
+      RediscoverJourneyKind.memoryGoal => summary,
       RediscoverJourneyKind.neverOpened =>
         '$summary You have not opened ${unopenedCount <= 1 ? 'it' : 'them'} yet.',
       RediscoverJourneyKind.becauseYouSaved =>
-        openedCount > 0 ? '$summary You already returned to part of it.' : summary,
+        openedCount > 0
+            ? '$summary You already returned to part of it.'
+            : summary,
     };
   }
 
@@ -940,7 +954,8 @@ class RediscoverMemory {
     }
     return switch (semanticIntent.journeyType) {
       RediscoverSemanticJourneyType.cooking => 'Pick one recipe',
-      RediscoverSemanticJourneyType.planning => 'Review the most practical save',
+      RediscoverSemanticJourneyType.planning =>
+        'Review the most practical save',
       RediscoverSemanticJourneyType.building => 'Open the clearest note',
       RediscoverSemanticJourneyType.watching => 'Pick one to watch',
       RediscoverSemanticJourneyType.collecting => 'Open the strongest item',
@@ -982,14 +997,14 @@ class RediscoverMemory {
   static String _domainNoun(_MemoryDomain domain, {required bool plural}) {
     return switch (domain) {
       _MemoryDomain.cooking => plural ? 'recipes' : 'recipe',
-      _MemoryDomain.building => plural ? 'build notes' : 'build note',
+      _MemoryDomain.building => plural ? 'technical saves' : 'technical save',
       _MemoryDomain.philosophy => plural ? 'questions' : 'question',
       _MemoryDomain.travel => plural ? 'places' : 'place',
-      _MemoryDomain.nature => plural ? 'field notes' : 'field note',
+      _MemoryDomain.nature => plural ? 'nature saves' : 'nature save',
       _MemoryDomain.fitness => plural ? 'health ideas' : 'health idea',
       _MemoryDomain.creative => plural ? 'references' : 'reference',
-      _MemoryDomain.learning => plural ? 'learning notes' : 'learning note',
-      _MemoryDomain.money => plural ? 'money notes' : 'money note',
+      _MemoryDomain.learning => plural ? 'learning saves' : 'learning save',
+      _MemoryDomain.money => plural ? 'money saves' : 'money save',
       _MemoryDomain.watchlist => plural ? 'watchlist saves' : 'watchlist save',
       _MemoryDomain.general => plural ? 'saves' : 'save',
     };
@@ -1015,6 +1030,57 @@ class RediscoverMemory {
       if (text.contains(needle)) return true;
     }
     return false;
+  }
+
+  static bool _containsTitle(String value, String title) {
+    return value.toLowerCase().contains(title.toLowerCase());
+  }
+
+  static bool _hasFoodSubjectMatter(String text) {
+    if (_containsAny(text, const [
+      'recipe',
+      'recipes',
+      'ingredient',
+      'ingredients',
+      'cook ',
+      'cooking',
+      'bake',
+      'baking',
+      'kitchen',
+      'dish',
+      'meal prep',
+      'restaurant',
+      'cafe',
+      'cuisine',
+    ])) {
+      return true;
+    }
+    final hasMealWord = _containsAny(text, const [
+      'breakfast',
+      'lunch',
+      'dinner',
+      'snack',
+      'meal',
+    ]);
+    if (!hasMealWord) return false;
+    if (_containsAny(text, const [
+      'debate',
+      'argument',
+      'conversation',
+      'discussion',
+      'thought',
+    ])) {
+      return false;
+    }
+    return _containsAny(text, const [
+      'healthy',
+      'protein',
+      'vegetarian',
+      'vegan',
+      'calorie',
+      'eat',
+      'food',
+    ]);
   }
 
   static RediscoverJourneyMetadata _metadataFor(
@@ -1058,14 +1124,16 @@ class RediscoverMemory {
         .trim()
         .split(RegExp(r'\s+|_+'))
         .where((word) => word.isNotEmpty);
-    return words.map((word) {
-      final lower = word.toLowerCase();
-      const upper = {'ai', 'api', 'ui', 'ux', 'seo', 'saas'};
-      const lowerCase = {'and', 'or', 'for', 'to', 'of', 'in', 'on'};
-      if (upper.contains(lower)) return lower.toUpperCase();
-      if (lowerCase.contains(lower)) return lower;
-      if (lower.length <= 3) return lower.toUpperCase();
-      return '${lower[0].toUpperCase()}${lower.substring(1)}';
-    }).join(' ');
+    return words
+        .map((word) {
+          final lower = word.toLowerCase();
+          const upper = {'ai', 'api', 'ui', 'ux', 'seo', 'saas'};
+          const lowerCase = {'and', 'or', 'for', 'to', 'of', 'in', 'on'};
+          if (upper.contains(lower)) return lower.toUpperCase();
+          if (lowerCase.contains(lower)) return lower;
+          if (lower.length <= 3) return lower.toUpperCase();
+          return '${lower[0].toUpperCase()}${lower.substring(1)}';
+        })
+        .join(' ');
   }
 }

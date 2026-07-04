@@ -17,6 +17,10 @@ class CategorizationResult {
   final String emoji;
   final List<String> tags;
   final String summary;
+  final List<String> keyPoints;
+  final String categoryEvidence;
+  final double? categoryConfidence;
+  final List<String> topics;
   final MemoryIntentMetadata? memoryIntent;
 
   const CategorizationResult({
@@ -24,6 +28,10 @@ class CategorizationResult {
     required this.emoji,
     required this.tags,
     required this.summary,
+    this.keyPoints = const [],
+    this.categoryEvidence = '',
+    this.categoryConfidence,
+    this.topics = const [],
     this.memoryIntent,
   });
 }
@@ -320,11 +328,19 @@ Description: ${description.isEmpty ? '(not available)' : description}
 URL: $url''');
 
     final prompt =
-        '''You are a content classifier for a bookmark app. Given the title, description, and URL of a webpage, respond with a JSON object containing exactly these fields:
-- "category": choose exactly one category from the allowed list below
+        '''You are the content-understanding engine for Glimpse, an app that helps people rediscover things they saved.
+
+Your job is to extract what a saved page is fundamentally about, not to pattern-match on individual words in its title, description, or URL. Saved content often uses casual, idiomatic, or hyperbolic language. Domain words can be figurative: "recipe for success" in a business page, "food for thought" in a philosophy page, "marathon meeting" in a workplace page, "digital diet" in a productivity page, or "ruin dinner debates" in a book list. These do not make the content Food, Fitness, or Travel.
+
+Return one valid JSON object. Keep this field order:
+- "summary": 2-3 sentences explaining what this page is substantively about in plain language. Never open with "This page", "This post", "This video", or "This article"; start with the substance.
+- "key_points": 2-5 concise strings capturing the useful claims, items, or takeaways.
+- "category_evidence": one sentence describing what the content is actually trying to teach, show, argue, or help the saver do. Write this in your own words; do not quote a single source phrase as evidence.
+- "category": choose exactly one category from the allowed list below, based on the summary and key_points you just wrote, not isolated raw words.
 - "emoji": use the matching emoji for that category from the allowed list below
-- "tags": an array of 3–5 lowercase descriptive keywords for the specific topic
-- "summary": 2–3 sentences explaining what this page is about in plain language
+- "category_confidence": number from 0 to 1. Use 0.9+ only when the category is central and unambiguous; use 0.5-0.7 for thin or borderline evidence.
+- "topics": 1-3 short phrases, 2-4 words each, that add specificity within the category.
+- "tags": an array of 3-5 lowercase descriptive keywords for the specific topic
 - "memory_intent": an object describing why someone likely saved this, with:
   - "primary_intent": exactly one of learn, visit, cook, build, buy, try, watch_later, read_later, reference, career_move, health_change, inspiration, share
   - "secondary_intents": array of 0–3 additional intents from the same list
@@ -349,12 +365,10 @@ Important rules:
 - Use only the title, description, and URL provided below. Do not infer unseen video/article content from the title alone.
 - If the description is unavailable or too thin, make the summary conservative: say it is a saved item with the provided title and summarize only what the title/platform safely imply.
 - Never invent specifics such as people, locations, stunts, tools, claims, or plot details unless they appear in the title or description.
-- Choose the most specific stable source bucket that fits. Broad buckets like "Technology", "Science", "Finance", "Entertainment", "Lifestyle", and "Reference" are fallbacks only when no niche option fits.
-- Put named entities in tags, but do not hide clear domains inside broad buckets. AI saves are not generic Technology; gadgets are not generic Technology; novels are not generic Reference.
-- Examples: AI agents, LLMs, machine learning → "AI & ML"; React, Flutter, APIs → "Software Development"; phones, laptops, cameras, wearables → "Gadgets & Hardware"; budgeting and credit cards → "Personal Finance"; stocks and ETFs → "Investing"; Bhagavad Gita, dharma, spiritual wisdom → "Spirituality & Philosophy"; ancient temples, monuments, built heritage → "Architecture" plus relevant tags; mythology or cultural heritage → "History & Culture".
-- Avoid weak word-collision categories. Do not choose "Vehicles" because of words like "career" or a background object; do not choose "Marketing & Growth" because of generic personal growth; do not choose "Parenting & Family" because one recommendation mentions family unless the save itself is about parenting/family.
-- Do not classify metaphorical words like "recipe" or "formula" as "Food & Cooking" unless actual food, cooking, dish, ingredient, restaurant, or meal evidence is present. Example: "success doesn't have a recipe" is not Food & Cooking.
-- Summary style (critical): Never start the summary with "This Instagram reel", "This post", "This video", "This article", or "This content". Start directly with what the content is about. Good: "A free NASA data source offering real-time environmental monitoring…" Bad: "This Instagram reel highlights a free NASA data source…"
+- If your only justification for a category would be a specific word or idiom rather than the substance of the summary/key_points, that category is wrong.
+- Put nuance and cross-domain flavor in topics and tags, not by forcing a second category.
+- Do not classify metaphorical words like "recipe", "formula", "diet", "dinner", "marathon", "battle", or "hike" as Food, Health, or Travel unless literal subject-matter evidence is present.
+- Food requires actual cooking, dishes, ingredients, restaurants, meals, nutrition, or cuisine. A dinner debate, food for thought, recipe for success, or digital diet is not Food.
 
 $content
 
@@ -374,6 +388,8 @@ Output valid JSON only. No markdown, no explanation.''';
               rawTags.map((t) => t.toString()).toList(),
             ).take(5).toList()
           : <String>[];
+      final keyPoints = _stringList(data['key_points']).take(5).toList();
+      final topics = _stringList(data['topics']).take(3).toList();
 
       final normalized = CategoryTaxonomy.normalize(
         category: (data['category'] as String? ?? 'Other').trim(),
@@ -386,6 +402,15 @@ Output valid JSON only. No markdown, no explanation.''';
         emoji: normalized.emoji,
         tags: tags,
         summary: (data['summary'] as String? ?? '').trim(),
+        keyPoints: keyPoints,
+        categoryEvidence:
+            (data['category_evidence'] ?? data['domain_evidence'] ?? '')
+                .toString()
+                .trim(),
+        categoryConfidence: _parseDouble(
+          data['category_confidence'] ?? data['domain_confidence'],
+        ),
+        topics: topics,
         memoryIntent: MemoryIntentMetadata.fromJsonOrNull(
           data['memory_intent'] ?? data,
         ),
@@ -403,6 +428,21 @@ Output valid JSON only. No markdown, no explanation.''';
         summary: '',
       );
     }
+  }
+
+  static List<String> _stringList(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((item) => item?.toString().trim() ?? '')
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
+  static double? _parseDouble(Object? raw) {
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble().clamp(0, 1).toDouble();
+    final parsed = double.tryParse(raw.toString().trim());
+    return parsed?.clamp(0, 1).toDouble();
   }
 
   Future<RecipeEnhancementResult> enhanceRecipe({

@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
+import 'package:glimpse/core/models/url_processing_status.dart';
+import 'package:glimpse/core/services/affinity_profile.dart';
+import 'package:glimpse/features/mindmap/cluster_theme.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory.dart';
 import 'package:glimpse/features/rediscover/rediscover_notification_candidate.dart';
@@ -18,6 +21,7 @@ SavedUrl _url({
   List<String> tags = const ['recipe', 'high protein'],
   String? summary,
   String? enrichmentJson,
+  List<double>? embedding,
 }) {
   return SavedUrl()
     ..id = id
@@ -33,6 +37,8 @@ SavedUrl _url({
     ..savedAt = savedAt ?? DateTime(2026, 6, 1)
     ..openedAt = openedAt
     ..intentStatus = intentStatus
+    ..processingStatus = UrlProcessingStatus.ready
+    ..embedding = embedding
     ..enrichmentJson = enrichmentJson;
 }
 
@@ -51,11 +57,7 @@ String _intentJson({
 }
 
 RediscoveryItem _item(SavedUrl url) {
-  return RediscoveryItem(
-    url: url,
-    reason: 'Unopened',
-    timeAgo: '2w ago',
-  );
+  return RediscoveryItem(url: url, reason: 'Unopened', timeAgo: '2w ago');
 }
 
 void main() {
@@ -170,11 +172,10 @@ void main() {
     );
 
     expect(candidate.shouldNotify, isTrue);
-    expect(candidate.explanation.map((entry) => entry['code']), containsAll([
-      'explicit_revisit',
-      'long_unopened',
-      'cooking_evening',
-    ]));
+    expect(
+      candidate.explanation.map((entry) => entry['code']),
+      containsAll(['explicit_revisit', 'long_unopened', 'cooking_evening']),
+    );
 
     final repeated = RediscoverNotificationCandidate.scoreMemory(
       memory,
@@ -270,7 +271,10 @@ void main() {
     );
 
     expect(buildMemory.personality, RediscoverMemoryPersonality.ambitious);
-    expect(reflectiveMemory.personality, RediscoverMemoryPersonality.reflective);
+    expect(
+      reflectiveMemory.personality,
+      RediscoverMemoryPersonality.reflective,
+    );
     expect(buildMemory.what, 'Flutter Development Notes');
     expect(reflectiveMemory.what, 'Understanding Free Will');
     expect(buildMemory.what, isNot(reflectiveMemory.what));
@@ -281,6 +285,168 @@ void main() {
     expect(
       [buildMemory.what, reflectiveMemory.what].join(' '),
       isNot(contains('A Pattern in What You Build')),
+    );
+  });
+
+  test('journey builder merges true duplicate clusters by centroid', () {
+    final first = [
+      for (var i = 0; i < 3; i++)
+        _url(
+          id: i + 1,
+          title: 'Natural Farming ${i + 1}',
+          category: 'Nature',
+          tags: const ['natural farming', 'soil'],
+          embedding: [1, 0.01 * i],
+        ),
+    ];
+    final duplicate = [
+      for (var i = 0; i < 3; i++)
+        _url(
+          id: i + 10,
+          title: 'Soil Farming ${i + 1}',
+          category: 'Nature',
+          tags: const ['natural farming', 'soil'],
+          embedding: [0.99, 0.02 * i],
+        ),
+    ];
+
+    final journeys = buildRediscoverJourneys(
+      liveUrls: [...first, ...duplicate],
+      clusters: [
+        ClusterTheme(
+          index: 0,
+          label: 'Natural Farming',
+          summary: '',
+          urls: first,
+        ),
+        ClusterTheme(
+          index: 1,
+          label: 'Natural Farming',
+          summary: '',
+          urls: duplicate,
+        ),
+      ],
+      profile: AffinityProfile.empty,
+    );
+
+    expect(journeys, hasLength(1));
+    expect(
+      journeys.single.items.map((item) => item.url.id).toSet(),
+      hasLength(6),
+    );
+  });
+
+  test('journey titles are unique for adjacent consciousness clusters', () {
+    final philosophy = [
+      _url(
+        id: 101,
+        title: 'Free Will and Determinism',
+        category: 'Philosophy',
+        tags: const ['free will', 'determinism', 'consciousness'],
+        embedding: [1, 0],
+      ),
+      _url(
+        id: 102,
+        title: 'Agency in Philosophy',
+        category: 'Philosophy',
+        tags: const ['free will', 'agency'],
+        embedding: [0.98, 0.05],
+      ),
+      _url(
+        id: 103,
+        title: 'Consciousness and Choice',
+        category: 'Philosophy',
+        tags: const ['consciousness', 'choice'],
+        embedding: [0.96, 0.03],
+      ),
+    ];
+    final ai = [
+      _url(
+        id: 201,
+        title: 'AI Consciousness Research',
+        category: 'Technology',
+        tags: const ['ai consciousness', 'llm', 'research'],
+        embedding: [0, 1],
+      ),
+      _url(
+        id: 202,
+        title: 'Machine Consciousness',
+        category: 'Technology',
+        tags: const ['ai consciousness', 'machine learning'],
+        embedding: [0.03, 0.97],
+      ),
+      _url(
+        id: 203,
+        title: 'LLMs and Awareness',
+        category: 'Technology',
+        tags: const ['ai consciousness', 'llm'],
+        embedding: [0.02, 0.98],
+      ),
+    ];
+
+    final journeys = buildRediscoverJourneys(
+      liveUrls: [...philosophy, ...ai],
+      clusters: [
+        ClusterTheme(
+          index: 0,
+          label: 'Understanding Consciousness',
+          summary: '',
+          urls: philosophy,
+        ),
+        ClusterTheme(
+          index: 1,
+          label: 'Understanding Consciousness',
+          summary: '',
+          urls: ai,
+        ),
+      ],
+      profile: AffinityProfile.empty,
+    );
+
+    final titles = journeys.map((journey) => journey.title).toSet();
+    expect(journeys, hasLength(2));
+    expect(titles, hasLength(2));
+    expect(titles, contains('Free Will'));
+    expect(titles, contains('AI & Consciousness'));
+  });
+
+  test('dinner debate wording does not make philosophy copy into recipes', () {
+    final first = _url(
+      id: 301,
+      title: 'Rhetoric Books for Dinner Debates',
+      category: 'Philosophy',
+      tags: const ['rhetoric', 'debate', 'books'],
+      summary: 'A reading list for argumentation and critical thinking.',
+    );
+    final second = _url(
+      id: 302,
+      title: 'Logical Fallacies Reading List',
+      category: 'Philosophy',
+      tags: const ['rhetoric', 'fallacies', 'books'],
+    );
+    final journey = RediscoverJourney(
+      kind: RediscoverJourneyKind.becauseYouSaved,
+      title: 'Rhetoric & Debate',
+      subtitle: '2 saves worth reopening',
+      icon: Icons.menu_book_rounded,
+      items: [_item(first), _item(second)],
+      signal: 70,
+      topicAnchor: 'rhetoric',
+    );
+
+    final memory = RediscoverMemory.fromJourney(journey);
+
+    expect(
+      memory.semanticIntent.journeyType,
+      isNot(RediscoverSemanticJourneyType.cooking),
+    );
+    expect(
+      memory.copyIdentity.secondaryDescription.toLowerCase(),
+      isNot(contains('recipe')),
+    );
+    expect(
+      memory.copyIdentity.secondaryDescription.toLowerCase(),
+      isNot(contains('cook')),
     );
   });
 }

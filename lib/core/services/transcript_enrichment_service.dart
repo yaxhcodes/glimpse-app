@@ -20,6 +20,11 @@ class TranscriptEnrichmentResult {
     this.notableItems = const [],
     this.recipe,
     this.keyPoints = const [],
+    this.categoryEvidence,
+    this.categoryConfidence,
+    this.topics = const [],
+    this.categoryNeedsReview = false,
+    this.originalGeminiCategory,
     this.thumbnailUrl,
     this.creator,
     this.caption,
@@ -44,6 +49,11 @@ class TranscriptEnrichmentResult {
   final List<EnrichedNotableItem> notableItems;
   final EnrichedRecipe? recipe;
   final List<String> keyPoints;
+  final String? categoryEvidence;
+  final double? categoryConfidence;
+  final List<String> topics;
+  final bool categoryNeedsReview;
+  final String? originalGeminiCategory;
   final String? thumbnailUrl;
   final String? creator;
   final String? caption;
@@ -116,6 +126,11 @@ class TranscriptEnrichmentResult {
     List<EnrichedNotableItem>? notableItems,
     EnrichedRecipe? recipe,
     List<String>? keyPoints,
+    String? categoryEvidence,
+    double? categoryConfidence,
+    List<String>? topics,
+    bool? categoryNeedsReview,
+    String? originalGeminiCategory,
     String? thumbnailUrl,
     String? creator,
     String? caption,
@@ -140,6 +155,12 @@ class TranscriptEnrichmentResult {
       notableItems: notableItems ?? this.notableItems,
       recipe: recipe ?? this.recipe,
       keyPoints: keyPoints ?? this.keyPoints,
+      categoryEvidence: categoryEvidence ?? this.categoryEvidence,
+      categoryConfidence: categoryConfidence ?? this.categoryConfidence,
+      topics: topics ?? this.topics,
+      categoryNeedsReview: categoryNeedsReview ?? this.categoryNeedsReview,
+      originalGeminiCategory:
+          originalGeminiCategory ?? this.originalGeminiCategory,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       creator: creator ?? this.creator,
       caption: caption ?? this.caption,
@@ -167,6 +188,11 @@ class TranscriptEnrichmentResult {
       'notable_items': notableItems.map((item) => item.toJson()).toList(),
       'recipe': recipe?.toJson(),
       'key_points': keyPoints,
+      'category_evidence': categoryEvidence,
+      'category_confidence': categoryConfidence,
+      'topics': topics,
+      'category_needs_review': categoryNeedsReview,
+      'original_gemini_category': originalGeminiCategory,
       'thumbnail_url': thumbnailUrl,
       'creator': creator,
       'caption': caption,
@@ -215,6 +241,21 @@ class TranscriptEnrichmentResult {
       recipe: EnrichedRecipe.fromJsonOrNull(json['recipe']),
       keyPoints: TranscriptEnrichmentService._extractStringList(
         json['key_points'],
+      ),
+      categoryEvidence: TranscriptEnrichmentService._cleanNullableText(
+        json['category_evidence'] ?? json['domain_evidence'],
+      ),
+      categoryConfidence: TranscriptEnrichmentService._toDouble(
+        json['category_confidence'] ??
+            json['domain_confidence'] ??
+            json['confidence'],
+      ),
+      topics: TranscriptEnrichmentService._extractStringList(json['topics']),
+      categoryNeedsReview:
+          json['category_needs_review'] == true ||
+          json['domain_needs_review'] == true,
+      originalGeminiCategory: TranscriptEnrichmentService._cleanNullableText(
+        json['original_gemini_category'] ?? json['original_gemini_domain'],
       ),
       thumbnailUrl: TranscriptEnrichmentService._cleanNullableText(
         json['thumbnail_url'],
@@ -1264,6 +1305,21 @@ class TranscriptEnrichmentService {
         recipe: recipe,
         keyPoints: _extractStringList(data['key_points']),
         notableItems: _extractNotableItems(data),
+        categoryEvidence: _cleanNullableText(
+          data['category_evidence'] ?? data['domain_evidence'],
+        ),
+        categoryConfidence: _toDouble(
+          data['category_confidence'] ??
+              data['domain_confidence'] ??
+              data['confidence'],
+        ),
+        topics: _extractStringList(data['topics']),
+        categoryNeedsReview:
+            data['category_needs_review'] == true ||
+            data['domain_needs_review'] == true,
+        originalGeminiCategory: _cleanNullableText(
+          data['original_gemini_category'] ?? data['original_gemini_domain'],
+        ),
         thumbnailUrl: _cleanText(data['thumbnail_url']).isNotEmpty
             ? _cleanText(data['thumbnail_url'])
             : null,
@@ -1619,6 +1675,13 @@ class TranscriptEnrichmentService {
   static String? _cleanNullableText(Object? raw) {
     final text = _cleanText(raw);
     return text.isEmpty ? null : text;
+  }
+
+  static double? _toDouble(Object? raw) {
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble();
+    final value = double.tryParse(_cleanText(raw));
+    return value;
   }
 
   static int? _extractPositiveInt(Object? raw) {

@@ -31,9 +31,7 @@ class RediscoverySection extends ConsumerWidget {
         // height is derived from a locked aspect ratio and clamped so it stays
         // balanced from compact phones up through tablets.
         const hPad = 16.0;
-        final cardWidth = isTablet
-            ? 320.0
-            : (size.width - hPad * 2) * 0.85;
+        final cardWidth = isTablet ? 320.0 : (size.width - hPad * 2) * 0.85;
         final cardHeight = (cardWidth / 1.7).clamp(168.0, 196.0);
         final previewCount = isTablet
             ? journeys.length
@@ -46,9 +44,8 @@ class RediscoverySection extends ConsumerWidget {
             children: [
               if (!seenTip)
                 _RediscoverTip(
-                  onDismiss: () => ref
-                      .read(hasSeenRediscoverTipProvider.notifier)
-                      .set(true),
+                  onDismiss: () =>
+                      ref.read(hasSeenRediscoverTipProvider.notifier).set(true),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
@@ -57,7 +54,9 @@ class RediscoverySection extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 0, vertical: 4),
+                      horizontal: 0,
+                      vertical: 4,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -101,14 +100,16 @@ class RediscoverySection extends ConsumerWidget {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: hPad),
                   itemCount: previewCount,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
                   itemBuilder: (context, i) => _RediscoverJourneyCard(
                     journey: journeys[i],
                     width: cardWidth,
                     height: cardHeight,
                     onTap: () {
                       unawaited(
-                        ref.read(isarServiceProvider).logEvent(
+                        ref
+                            .read(isarServiceProvider)
+                            .logEvent(
                               type: EngagementEventType.clusterVisit,
                               clusterLabel:
                                   journeys[i].topicAnchor ?? journeys[i].title,
@@ -124,7 +125,7 @@ class RediscoverySection extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 }
@@ -190,6 +191,10 @@ class _RediscoverJourneyCard extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final memory = RediscoverMemory.fromJourney(journey);
     final visual = visualForJourney(context, journey);
+    final title = journey.title.trim().isNotEmpty
+        ? journey.title
+        : memory.homeCopy.title;
+    final hook = journey.hookLine ?? _metadataLine(memory);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // Light mode needs a touch more presence for the wash to register.
     final iconWashOpacity = isDark ? 0.22 : 0.32;
@@ -283,7 +288,7 @@ class _RediscoverJourneyCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      memory.homeCopy.title,
+                      title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: tt.titleLarge?.copyWith(
@@ -296,7 +301,7 @@ class _RediscoverJourneyCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 9),
                     Text(
-                      _metadataLine(memory),
+                      hook,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: tt.labelMedium?.copyWith(

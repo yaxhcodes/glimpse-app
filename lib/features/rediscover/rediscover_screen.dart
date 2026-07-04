@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/engagement_event.dart';
+import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/rediscovery_service.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../home/home_provider.dart';
 import 'journey_visual.dart';
@@ -25,7 +27,9 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
   void _openJourney(RediscoverJourney journey) {
     HapticFeedback.lightImpact();
     unawaited(
-      ref.read(isarServiceProvider).logEvent(
+      ref
+          .read(isarServiceProvider)
+          .logEvent(
             type: EngagementEventType.clusterVisit,
             clusterLabel: journey.topicAnchor ?? journey.title,
           ),
@@ -33,11 +37,44 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
     context.push('/rediscover/journey', extra: journey);
   }
 
+  Future<void> _openUrl(SavedUrl url) async {
+    HapticFeedback.lightImpact();
+    final service = RediscoveryService(ref.read(isarServiceProvider));
+    await service.markResurfaced(url.id);
+    await service.markOpened(url.id);
+    unawaited(
+      ref
+          .read(isarServiceProvider)
+          .logEvent(type: EngagementEventType.cardOpened, url: url),
+    );
+    ref.invalidate(todaysPicksProvider);
+    ref.invalidate(revisitQueueProvider);
+    ref.invalidate(interestShelfProvider);
+    ref.invalidate(rediscoverTodayProvider);
+    ref.invalidate(rediscoverJourneysProvider);
+    if (mounted) {
+      context.push('/url/${url.id}');
+    }
+  }
+
+  void _openTodaySlot(RediscoverTodaySlot slot) {
+    final journey = slot.journey;
+    if (journey != null) {
+      _openJourney(journey);
+      return;
+    }
+    final url = slot.item?.url;
+    if (url != null) {
+      unawaited(_openUrl(url));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final tagFreq = ref.watch(tagOccurrenceMapProvider);
     final statsAsync = ref.watch(rediscoveryStatsProvider);
+    final todayAsync = ref.watch(rediscoverTodayProvider);
     final journeysAsync = ref.watch(rediscoverJourneysProvider);
 
     return Scaffold(
@@ -57,6 +94,16 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
             ),
           ),
           SliverToBoxAdapter(child: _IntentHeader(statsAsync: statsAsync)),
+          todayAsync.when(
+            skipLoadingOnReload: true,
+            data: (slots) => slots.isEmpty
+                ? const SliverToBoxAdapter(child: SizedBox.shrink())
+                : SliverToBoxAdapter(
+                    child: _TodaySection(slots: slots, onTap: _openTodaySlot),
+                  ),
+            loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+            error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          ),
           journeysAsync.when(
             skipLoadingOnReload: true,
             data: (journeys) {
@@ -91,6 +138,7 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
     );
   }
 }
+
 class _IntentHeader extends StatelessWidget {
   final AsyncValue<RediscoveryStats> statsAsync;
 
@@ -105,7 +153,7 @@ class _IntentHeader extends StatelessWidget {
 
     final headline = unopened > 0
         ? 'A few memories worth returning to'
-        : 'The quiet threads are still here';
+        : 'The quiet saves are still here';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
@@ -156,140 +204,223 @@ class _MemoryJourneyCard extends StatelessWidget {
       tagFrequency: tagFrequency,
     );
     final visual = visualForJourney(context, memory.journey);
+    final title = journey.title.trim().isNotEmpty
+        ? journey.title
+        : memory.rediscoverCopy.title;
+    final eyebrow = (journey.categoryLabel ?? visual.eyebrow).toUpperCase();
+    final hook = journey.hookLine ?? memory.rediscoverCopy.body;
 
     return Material(
       color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 168,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: visual.colors,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: visual.colors,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  visual.icon,
+                  color: visual.foreground.withValues(alpha: 0.88),
+                  size: 25,
                 ),
               ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: JourneyMotifPainter(
-                        motif: visual.motif,
-                        color: visual.motifColor,
-                        variant: journey.title.hashCode,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: -18,
-                    top: -20,
-                    child: Icon(
-                      visual.icon,
-                      size: 136,
-                      color: visual.accentColor.withValues(alpha: 0.18),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            visual.eyebrow,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.labelSmall?.copyWith(
-                              color: visual.mutedForeground,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
-                              fontSize: 10,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            memory.rediscoverCopy.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.headlineSmall?.copyWith(
-                              color: visual.foreground,
-                              fontWeight: FontWeight.w800,
-                              height: 1.08,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            memory.rediscoverCopy.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.labelMedium?.copyWith(
-                              color: visual.mutedForeground,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    memory.rediscoverCopy.body,
-                    style: tt.bodySmall?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                    ),
-                  ),
-                  if (memory.primaryTitle != null) ...[
-                    const SizedBox(height: 8),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      memory.rediscoverCopy.actionLabel,
+                      eyebrow,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                        fontSize: 10,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: tt.labelMedium?.copyWith(
+                      style: tt.titleMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w800,
+                        height: 1.12,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      hook,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                         height: 1.35,
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _MemoryMetaPill(_metadataLine(memory)),
+                        const Spacer(),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 18,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
                   ],
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _MemoryMetaPill('${memory.saveCount} saves'),
-                      const SizedBox(width: 8),
-                      _MemoryMetaPill(memory.waitingLabel),
-                      const Spacer(),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 18,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
+  String _metadataLine(RediscoverMemory memory) {
+    final total = memory.saveCount;
+    final unopened = memory.unopenedCount;
+    if (unopened == total) return '$total saves · all unopened';
+    return '$total saves · $unopened unopened';
+  }
+}
+
+class _TodaySection extends StatelessWidget {
+  const _TodaySection({required this.slots, required this.onTap});
+
+  final List<RediscoverTodaySlot> slots;
+  final ValueChanged<RediscoverTodaySlot> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Today',
+            style: tt.titleMedium?.copyWith(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (final slot in slots)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _TodaySlotTile(slot: slot, onTap: () => onTap(slot)),
+            ),
+          Divider(height: 18, color: cs.outlineVariant.withValues(alpha: 0.5)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodaySlotTile extends StatelessWidget {
+  const _TodaySlotTile({required this.slot, required this.onTap});
+
+  final RediscoverTodaySlot slot;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final thumb = slot.item?.url.thumbnailUrl;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 46,
+                  height: 46,
+                  child: thumb?.trim().isNotEmpty == true
+                      ? Image.network(
+                          thumb!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _slotIcon(cs),
+                        )
+                      : _slotIcon(cs),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      slot.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      slot.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: cs.onSurfaceVariant,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _slotIcon(ColorScheme cs) {
+    return DecoratedBox(
+      decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+      child: Icon(slot.icon, color: cs.onSurfaceVariant, size: 22),
+    );
+  }
 }
 
 class _MemoryMetaPill extends StatelessWidget {

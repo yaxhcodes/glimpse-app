@@ -113,7 +113,9 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
       await ref.read(isarServiceProvider).clearIntent(url.id);
     }
     unawaited(
-      ref.read(isarServiceProvider).logEvent(
+      ref
+          .read(isarServiceProvider)
+          .logEvent(
             type: EngagementEventType.cardOpened,
             url: url,
             clusterLabel: journey.topicAnchor ?? journey.title,
@@ -141,30 +143,33 @@ class _MemoryReasoning extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final narrative = memory.journey.narrative ?? memory.rediscoverCopy.body;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            memory.rediscoverCopy.body,
+            narrative,
             style: tt.bodyMedium?.copyWith(
               color: cs.onSurface,
               height: 1.38,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            memory.rediscoverCopy.actionLabel,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: tt.labelLarge?.copyWith(
-              color: cs.onSurfaceVariant,
-              height: 1.3,
-              fontWeight: FontWeight.w700,
+          if (memory.rediscoverCopy.actionLabel.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              memory.rediscoverCopy.actionLabel,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: tt.labelLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -180,6 +185,10 @@ class _JourneyHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final title = memory.journey.title.trim().isNotEmpty
+        ? memory.journey.title
+        : memory.rediscoverCopy.title;
+    final subtitle = memory.journey.hookLine ?? memory.rediscoverCopy.subtitle;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final iconWashOpacity = isDark ? 0.22 : 0.32;
     const height = 232.0;
@@ -263,7 +272,7 @@ class _JourneyHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 7),
                 Text(
-                  memory.rediscoverCopy.title,
+                  title,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: tt.headlineSmall?.copyWith(
@@ -275,7 +284,7 @@ class _JourneyHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  memory.rediscoverCopy.subtitle,
+                  subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: tt.bodyMedium?.copyWith(
@@ -305,7 +314,9 @@ class _JourneyTimeline extends StatelessWidget {
       ..sort((a, b) => b.url.savedAt.compareTo(a.url.savedAt));
     final first = sorted.isNotEmpty ? sorted.last.url.savedAt : null;
     final latest = sorted.isNotEmpty ? sorted.first.url.savedAt : null;
-    final unopened = journey.items.where((item) => item.url.openedAt == null).length;
+    final unopened = journey.items
+        .where((item) => item.url.openedAt == null)
+        .length;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 2),
