@@ -163,17 +163,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // ─── Preferences ─────────────────────────
-                const SettingsGroupLabel('Preferences'),
+                // ─── Account & plan ──────────────────────
+                const SettingsGroupLabel('Account & plan'),
                 SettingsGroup(
                   children: [
-                    SettingsTile(
-                      icon: Icons.palette_outlined,
-                      iconColor: SettingsAccents.violet,
-                      title: 'Look & Feel',
-                      subtitle: 'Theme and accent color',
-                      onTap: () => context.push('/settings/look-and-feel'),
-                    ),
                     SettingsTile(
                       icon: Icons.badge_outlined,
                       iconColor: SettingsAccents.blue,
@@ -185,19 +178,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       onTap: _editDisplayName,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // ─── Swipe actions ───────────────────────
-                const SettingsGroupLabel('Swipe actions'),
-                const _SwipeActionsGroup(),
-                const SizedBox(height: 24),
-
-                // ─── Subscription ────────────────────────
-                const SettingsGroupLabel('Subscription'),
-                SettingsGroup(
-                  children: [
                     SettingsTile(
                       leading: SvgPicture.asset(
                         'assets/glimpse.svg',
@@ -232,27 +212,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // ─── Account ────────────────────────────
-                const SettingsGroupLabel('Account'),
+                // ─── Personalization ─────────────────────
+                const SettingsGroupLabel('Personalization'),
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.logout_rounded,
-                      iconColor: SettingsAccents.blue,
-                      title: 'Log out',
-                      subtitle: 'Sign out of this device',
-                      onTap: _logout,
-                    ),
-                    SettingsTile(
-                      icon: Icons.person_remove_outlined,
-                      iconColor: cs.error,
-                      destructive: true,
-                      title: 'Delete account',
-                      subtitle: 'Request account deletion',
-                      onTap: _requestAccountDeletion,
+                      icon: Icons.palette_outlined,
+                      iconColor: SettingsAccents.violet,
+                      title: 'Look & Feel',
+                      subtitle: 'Theme and accent color',
+                      onTap: () => context.push('/settings/look-and-feel'),
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
+
+                // ─── Library gestures ────────────────────
+                const SettingsGroupLabel('Library gestures'),
+                const _SwipeActionsGroup(),
                 const SizedBox(height: 24),
 
                 // ─── Notifications ───────────────────────
@@ -260,23 +237,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SettingsGroup(children: [_DigestToggle()]),
                 const SizedBox(height: 24),
 
-                // ─── Data ────────────────────────────────
-                const SettingsGroupLabel('Data'),
+                // ─── Privacy & data ──────────────────────
+                const SettingsGroupLabel('Privacy & data'),
                 SettingsGroup(
                   children: [
-                    SettingsTile(
-                      icon: Icons.cloud_outlined,
-                      iconColor: SettingsAccents.green,
-                      title: 'Data & Backup',
-                      subtitle: 'Protect and restore your saved knowledge',
-                      onTap: () => context.push('/settings/data-backup'),
-                    ),
                     SettingsTile(
                       icon: Icons.privacy_tip_outlined,
                       iconColor: SettingsAccents.indigo,
                       title: 'Privacy',
                       subtitle: 'What stays local and what is uploaded',
                       onTap: () => context.push('/settings/privacy'),
+                    ),
+                    SettingsTile(
+                      icon: Icons.cloud_outlined,
+                      iconColor: SettingsAccents.green,
+                      title: 'Data & Backup',
+                      subtitle: 'Protect and restore your saved knowledge',
+                      onTap: () => context.push('/settings/data-backup'),
                     ),
                   ],
                 ),
@@ -307,6 +284,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: 'Version, legal & help',
                       trailing: const _VersionTrailing(),
                       onTap: () => context.push('/settings/about'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // ─── Account actions ─────────────────────
+                const SettingsGroupLabel('Account actions'),
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: Icons.logout_rounded,
+                      iconColor: SettingsAccents.blue,
+                      title: 'Log out',
+                      subtitle: 'Sign out of this device',
+                      onTap: _logout,
+                    ),
+                    SettingsTile(
+                      icon: Icons.person_remove_outlined,
+                      iconColor: cs.error,
+                      destructive: true,
+                      title: 'Delete account',
+                      subtitle: 'Request account deletion',
+                      onTap: _requestAccountDeletion,
                     ),
                   ],
                 ),
@@ -847,6 +847,7 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
   List<NotifDiag> _diagnostics = const [];
 
   static const _testTypes = {
+    'R': 'Rediscover Memory',
     'A': 'Geography Collector',
     'B': 'New Interest',
     'C': 'Deep Collector',
