@@ -106,17 +106,21 @@ class NotificationRouter {
     final ids = _parseLinkIds(map);
     final title = map['title'] as String? ?? 'Notification';
 
-    // Reward signal for the on-device bandit: this type got opened.
+    // Reward signal for the on-device bandit: this type got opened. Deduped
+    // per notification so hub-history re-taps don't inflate the arm, and the
+    // affinity event log only sees the first genuine engagement.
     final letter = _rewardLetter(map);
     if (letter != null) {
-      unawaited(NotifBandit.recordOpen(letter));
-      // Mirror into the unified event log for the affinity model.
-      unawaited(
-        IsarService().logEvent(
-          type: EngagementEventType.notifOpened,
-          triggerType: letter,
-        ),
-      );
+      final notifId = map['notifId'] as String?;
+      unawaited(() async {
+        final counted = await NotifBandit.recordOpenOnce(letter, notifId);
+        if (counted) {
+          await IsarService().logEvent(
+            type: EngagementEventType.notifOpened,
+            triggerType: letter,
+          );
+        }
+      }());
     }
     // Opening a notification is also an "active now" signal — feed the peak-hour
     // histogram so future notifications are timed to when the user engages.

@@ -42,7 +42,8 @@ class RecipeEnhancementResult {
     required this.difficulty,
     required this.tags,
     this.steps = const [],
-    this.nutrition,
+    this.ingredients = const [],
+    this.servings,
   });
 
   final String summary;
@@ -53,8 +54,11 @@ class RecipeEnhancementResult {
   /// produce valid multi-step output.
   final List<String> steps;
 
-  /// Estimated nutrition data returned by the AI alongside other recipe fields.
-  final RecipeNutrition? nutrition;
+  /// AI-extracted metric ingredients for deterministic nutrition lookup.
+  final List<EnrichedRecipeIngredient> ingredients;
+
+  /// AI-estimated adult serving count when the source does not provide one.
+  final int? servings;
 }
 
 class ChatResponseSection {
@@ -482,7 +486,7 @@ URL: $url''');
 
     final stepsInstruction = needsStepRegeneration
         ? '''
-- "steps": a JSON array of cooking instruction strings. Each string is one meaningful cooking action (1–3 sentences max). Split aggressively — generate a new step for each new action, ingredient addition, heat change, waiting period, garnishing, or serving action. Target 4–12 steps for most recipes. Never return a single step containing the entire recipe. If the supplied instructions are a single paragraph or transcript dump, reconstruct them into proper sequential steps. Do not number the steps — the array order provides the sequence.'''
+- "steps": a JSON array of cooking instruction strings. Each string is one meaningful cooking action (1–3 sentences max). Split aggressively — generate a new step for each new action, ingredient addition, heat change, waiting period, garnishing, or serving action. Target 4–12 steps for most recipes. Never return a single step containing the entire recipe. If supplied instructions are missing, a single paragraph, or a transcript dump, reconstruct conservative sequential steps from the title, description, ingredients, and visible cooking cues. Do not number the steps — the array order provides the sequence.'''
         : '''
 - "steps": a JSON array of cooking instruction strings. Each string is one meaningful cooking action (1–3 sentences max, 250 characters max). If any existing step exceeds 250 characters or bundles multiple distinct actions, split it. Otherwise preserve the existing steps. Do not number the steps.''';
 
@@ -493,14 +497,21 @@ Return a JSON object with exactly these fields:
 - "difficulty": exactly "Easy", "Medium", or "Hard"
 - "tags": 3 to 6 short useful recipe tags such as Noodles, Vegetarian, Quick Meals, Asian Inspired, High Protein
 $stepsInstruction
-- "nutrition": an object estimating nutritional values per serving with these sub-fields:
-  - "calories": number (kcal per serving)
-  - "protein_g": number (grams)
-  - "carbs_g": number (grams)
-  - "fat_g": number (grams)
-  - "fiber_g": number (grams)
-  - "confidence": number 0.0-1.0 (how confident the estimate is given available ingredient data)
-  Estimate values using the ingredients and quantities. If exact quantities are missing, infer reasonable values for a typical serving. Always return best-effort estimates — never return null for nutrition.
+- "servings": integer adult serving count. If missing from the recipe, infer the most likely adult serving count from ingredient quantities and dish format.
+- "ingredients": a JSON array of ingredient objects:
+  - "name": normalized ingredient name, singular when natural (for example "ground beef", "olive oil", "onion")
+  - "quantity": number converted to metric units when the recipe provides a quantity, otherwise null
+  - "unit": "g" or "ml" when quantity is known, otherwise null
+  - "notes": short preparation note only when useful, otherwise null
+
+Ingredient rules:
+- Never estimate calories, protein, carbohydrates, fat, fiber, or any nutrition values.
+- Never perform nutrition calculations.
+- Convert explicit ingredient amounts to metric units whenever possible.
+- Preserve unknown quantities as null; do not invent ingredient quantities for nutrition.
+- Normalize names for database lookup: "beef mince" becomes "ground beef", "passata" becomes "tomato puree", "caster sugar" becomes "sugar".
+- Do not include optional accompaniments unless they are listed as ingredients.
+- If servings are missing, estimate only the adult serving count as an integer.
 
 Rules for steps:
 - Each step represents one distinct cooking action a person performs in sequence.
@@ -532,18 +543,13 @@ Output valid JSON only. No markdown, no explanation.''';
             ).take(6).toList()
           : <String>[];
       final steps = _parseEnhancedSteps(data['steps'], recipe.steps);
-      final nutrition = _parseNutrition(
-        data['nutrition'] ??
-            data['nutrition_per_serving'] ??
-            data['nutritionPerServing'] ??
-            data,
-      );
       return RecipeEnhancementResult(
         summary: data['summary']?.toString().trim() ?? '',
         difficulty: normalizedDifficulty,
         tags: tags,
         steps: steps,
-        nutrition: nutrition,
+        ingredients: _parseRecipeIngredients(data['ingredients']),
+        servings: _parsePositiveInt(data['servings'] ?? data['serving_count']),
       );
     } catch (e, stack) {
       developer.log(
@@ -555,7 +561,6 @@ Output valid JSON only. No markdown, no explanation.''';
         summary: '',
         difficulty: _recipeDifficultyFallback(recipe),
         tags: const [],
-        nutrition: null,
       );
     }
   }
@@ -593,9 +598,33 @@ Output valid JSON only. No markdown, no explanation.''';
     return parsed.take(20).toList();
   }
 
-  /// Parses the nutrition object returned by the AI into a [RecipeNutrition].
-  static RecipeNutrition? _parseNutrition(Object? raw) {
-    return RecipeNutrition.fromJsonOrNull(raw);
+  static List<EnrichedRecipeIngredient> _parseRecipeIngredients(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((item) {
+          if (item is! Map) return null;
+          final json = Map<String, dynamic>.from(item);
+          final name = json['name']?.toString().trim() ?? '';
+          if (name.isEmpty) return null;
+          return EnrichedRecipeIngredient(
+            name: name,
+            quantity: json['quantity']?.toString().trim(),
+            unit: json['unit']?.toString().trim(),
+            notes: json['notes']?.toString().trim(),
+          );
+        })
+        .whereType<EnrichedRecipeIngredient>()
+        .take(30)
+        .toList();
+  }
+
+  static int? _parsePositiveInt(Object? raw) {
+    if (raw == null) return null;
+    final value = raw is num
+        ? raw.toDouble()
+        : double.tryParse(raw.toString().trim());
+    if (value == null || value <= 0) return null;
+    return value.round();
   }
 
   String _recipeDifficultyFallback(EnrichedRecipe recipe) {

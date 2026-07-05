@@ -35,6 +35,22 @@ class NotificationScheduler {
   // D (saving-streak, the guilt-y "you don't read" one) comes last.
   static const _typeOrder = ['G', 'E', 'A', 'B', 'C', 'D', 'F'];
 
+  /// Minimum days between two notifications of the same type, on top of the
+  /// per-topic signature cooldown. This is what gives the week texture: a
+  /// Rediscover memory one day, a specific old save another, a place nudge
+  /// later — never the same voice on repeat. G is exempt (explicit intent:
+  /// due is due), D is rarest (it's the guilt-adjacent one).
+  static const _minTypeGap = <String, Duration>{
+    'G': Duration.zero,
+    'R': Duration(days: 3),
+    'E': Duration(days: 2),
+    'A': Duration(days: 5),
+    'B': Duration(days: 3),
+    'C': Duration(days: 4),
+    'D': Duration(days: 7),
+    'F': Duration(days: 6),
+  };
+
   /// Labels for settings / diagnostics (user-facing).
   static const _typeLabels = {
     'R': 'Rediscover Memory',
@@ -71,17 +87,29 @@ class NotificationScheduler {
       within: const Duration(days: 3),
     );
 
-    final memoryResult = await _tryRediscoverMemory(
+    // The Rediscover memory is ONE candidate among the notification types —
+    // quality-gated by its own score threshold, but it competes in the bandit
+    // ranking like everything else instead of preempting the whole system.
+    final memoryCandidate = await _bestRediscoverMemoryCandidate(
       isar,
       fp,
       recentSigs: recentSigs,
     );
-    if (memoryResult != null) return memoryResult;
 
     // Eligible, non-cooldown candidates for today.
     final candidates = <String>[];
-    for (final type in _typeOrder) {
+    for (final type in ['R', ..._typeOrder]) {
       if (type == 'F' && DateTime.now().weekday != DateTime.sunday) continue;
+      final gap = _minTypeGap[type] ?? Duration.zero;
+      if (!await DigestPrefs.canFireType(type, minInterval: gap)) continue;
+      if (type == 'R') {
+        if (memoryCandidate == null || !memoryCandidate.shouldNotify) continue;
+        if (recentSigs.contains(_memorySignature(memoryCandidate.memory))) {
+          continue;
+        }
+        candidates.add(type);
+        continue;
+      }
       if (!NotificationTemplates.isEligible(type, fp)) continue;
       final sig = _signature(type, fp);
       if (sig != null && recentSigs.contains(sig)) continue; // fired recently
@@ -91,21 +119,11 @@ class NotificationScheduler {
     final ordered = await _rankCandidates(candidates);
 
     for (final type in ordered) {
-      final result = await _tryType(isar, type, fp, sig: _signature(type, fp));
+      final result = type == 'R'
+          ? await _fireMemory(memoryCandidate!)
+          : await _tryType(isar, type, fp, sig: _signature(type, fp));
       if (result != null) {
-        await NotifBandit.recordSend(type);
-        // Also feed the unified event log so the affinity model sees
-        // notification engagement at the topic level (the bandit tracks it by
-        // type). Best-effort.
-        unawaited(
-          isar.logEvent(
-            type: EngagementEventType.notifShown,
-            triggerType: type,
-          ),
-        );
-        await DigestPrefs.recordFired();
-        await DigestPrefs.setLastFiredType(type);
-        await DigestPrefs.setLastFired(type);
+        await _recordFire(isar, type);
         return result;
       }
     }
@@ -117,8 +135,9 @@ class NotificationScheduler {
 
   /// Order today's candidates. The revisit-due type (G) always leads — the user
   /// explicitly asked to come back to those saves, so it isn't a guess to learn
-  /// about. The rest are ranked by the on-device [NotifBandit], which adapts to
-  /// which types this user actually opens.
+  /// about. The rest — the Rediscover memory (R) included — are ranked by the
+  /// on-device [NotifBandit], which adapts to which types this user actually
+  /// opens.
   static Future<List<String>> _rankCandidates(List<String> candidates) async {
     if (candidates.length <= 1) return candidates;
     final rest = candidates.where((t) => t != 'G').toList();
@@ -166,31 +185,37 @@ class NotificationScheduler {
       fp,
       recentSigs: recent,
     );
-    return [
+
+    Future<bool> gapActive(String type) async {
+      final gap = _minTypeGap[type] ?? Duration.zero;
+      return !await DigestPrefs.canFireType(type, minInterval: gap);
+    }
+
+    final memorySigCooldown = memoryCandidate != null &&
+        recent.contains(_memorySignature(memoryCandidate.memory));
+    final out = <NotifDiag>[
       NotifDiag(
         type: 'R',
         label: labelFor('R'),
         eligible: memoryCandidate?.shouldNotify ?? false,
-        onCooldown: memoryCandidate == null
-            ? false
-            : recent.contains(_memorySignature(memoryCandidate.memory)),
+        onCooldown: memorySigCooldown || await gapActive('R'),
         detail: memoryCandidate == null
             ? 'no Rediscover memory candidate'
             : _memoryDiagDetail(memoryCandidate),
       ),
-      ..._typeOrder.map((t) {
-        final eligible = NotificationTemplates.isEligible(t, fp);
-        final sig = _signature(t, fp);
-        final onCooldown = sig != null && recent.contains(sig);
-        return NotifDiag(
-          type: t,
-          label: labelFor(t),
-          eligible: eligible,
-          onCooldown: onCooldown,
-          detail: _eligibilityDetail(t, fp),
-        );
-      }),
     ];
+    for (final t in _typeOrder) {
+      final sig = _signature(t, fp);
+      final sigCooldown = sig != null && recent.contains(sig);
+      out.add(NotifDiag(
+        type: t,
+        label: labelFor(t),
+        eligible: NotificationTemplates.isEligible(t, fp),
+        onCooldown: sigCooldown || await gapActive(t),
+        detail: _eligibilityDetail(t, fp),
+      ));
+    }
+    return out;
   }
 
   /// Short human reason describing the gating metric for [type].
@@ -223,12 +248,15 @@ class NotificationScheduler {
   static Future<String> runSingle(IsarService isar, String type) async {
     final fp = await UserFingerprint.compute(isar);
     if (type == 'R') {
-      final result = await _tryRediscoverMemory(
+      final candidate = await _bestRediscoverMemoryCandidate(
         isar,
         fp,
         recentSigs: await DigestPrefs.recentSignatures(),
       );
-      if (result != null) return result;
+      if (candidate != null && candidate.shouldNotify) {
+        final result = await _fireMemory(candidate);
+        if (result != null) return result;
+      }
       return 'skipped: conditions not met for ${labelFor(type)}';
     }
     final result = await _tryType(isar, type, fp);
@@ -259,18 +287,27 @@ class NotificationScheduler {
     );
   }
 
-  static Future<String?> _tryRediscoverMemory(
-    IsarService isar,
-    UserFingerprint fp, {
-    required Set<String> recentSigs,
-  }) async {
-    final candidate = await _bestRediscoverMemoryCandidate(
-      isar,
-      fp,
-      recentSigs: recentSigs,
+  /// Send bookkeeping shared by every fired type: bandit arm, unified event
+  /// log (so the affinity model sees notification engagement at the topic
+  /// level), daily cap, and per-type gap timestamps.
+  static Future<void> _recordFire(IsarService isar, String type) async {
+    await NotifBandit.recordSend(type);
+    unawaited(
+      isar.logEvent(
+        type: EngagementEventType.notifShown,
+        triggerType: type,
+      ),
     );
-    if (candidate == null || !candidate.shouldNotify) return null;
+    await DigestPrefs.recordFired();
+    await DigestPrefs.setLastFiredType(type);
+    await DigestPrefs.setLastFired(type);
+  }
 
+  /// Show the Rediscover-memory notification for an already-selected
+  /// [candidate]. Selection and send bookkeeping live with the caller.
+  static Future<String?> _fireMemory(
+    RediscoverNotificationCandidate candidate,
+  ) async {
     final memory = candidate.memory;
     final linkIds = [
       ...memory.metadata.primaryUrlIds,
@@ -313,17 +350,6 @@ class NotificationScheduler {
       body: copy.body,
       sig: sig,
     );
-
-    await NotifBandit.recordSend('R');
-    unawaited(
-      isar.logEvent(
-        type: EngagementEventType.notifShown,
-        triggerType: 'R',
-      ),
-    );
-    await DigestPrefs.recordFired();
-    await DigestPrefs.setLastFiredType('R');
-    await DigestPrefs.setLastFired('R');
 
     return 'rediscover: ${copy.title}';
   }

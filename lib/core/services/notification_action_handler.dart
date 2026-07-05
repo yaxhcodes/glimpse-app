@@ -40,10 +40,12 @@ class NotificationActionHandler {
     final ids = _linkIdsFromMap(map);
 
     // Acting on a notification (Done / Later) is engagement — reward the bandit
-    // for this type just like an open.
+    // for this type just like an open (once per notification).
     final letter = map?['type'] as String?;
     if (letter != null && letter.length == 1) {
-      unawaited(NotifBandit.recordOpen(letter));
+      unawaited(
+        NotifBandit.recordOpenOnce(letter, map?['notifId'] as String?),
+      );
     }
 
     if (ids.isEmpty) return true; // consumed, but nothing to act on

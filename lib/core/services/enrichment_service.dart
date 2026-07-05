@@ -16,6 +16,7 @@ import 'embedding_service.dart';
 import 'gemini_service.dart';
 import 'link_preview_service.dart';
 import 'memory_intent_resolver.dart';
+import 'recipe_nutrition_service.dart';
 import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
 import 'title_resolver.dart';
@@ -44,6 +45,7 @@ class EnrichmentService {
   final EmbeddingService? _embeddingService;
   final LinkPreviewService? _linkService;
   final TranscriptEnrichmentService? _transcriptEnrichmentService;
+  final RecipeNutritionService? _recipeNutritionService;
   final UsageService _usageService;
   final bool _isPro;
   final void Function()? _onEnriched;
@@ -55,6 +57,7 @@ class EnrichmentService {
     EmbeddingService? embeddingService,
     LinkPreviewService? linkService,
     TranscriptEnrichmentService? transcriptEnrichmentService,
+    RecipeNutritionService? recipeNutritionService,
     required UsageService usageService,
     required bool isPro,
     void Function()? onEnriched,
@@ -63,6 +66,7 @@ class EnrichmentService {
        _embeddingService = embeddingService,
        _linkService = linkService,
        _transcriptEnrichmentService = transcriptEnrichmentService,
+       _recipeNutritionService = recipeNutritionService,
        _usageService = usageService,
        _isPro = isPro,
        _onEnriched = onEnriched {
@@ -892,13 +896,18 @@ class EnrichmentService {
     if (!_recipeNeedsEnhancement(recipe) ||
         _geminiService == null ||
         aiLimitReached) {
-      final estimatedNutrition =
-          recipe.nutrition ?? RecipeNutrition.estimateFromRecipe(recipe);
+      if (recipe.nutrition != null || _recipeNutritionService == null) {
+        return recipe;
+      }
+      final calculatedNutrition = await _recipeNutritionService.calculate(
+        recipe: recipe,
+        estimatedServings: null,
+      );
       return recipe.copyWith(
-        nutrition: estimatedNutrition,
+        nutrition: calculatedNutrition,
         nutritionAttempted:
             recipe.nutritionAttempted ||
-            estimatedNutrition?.hasAnyValue == true,
+            calculatedNutrition?.hasAnyValue == true,
       );
     }
 
@@ -914,13 +923,26 @@ class EnrichmentService {
       final enhancedSteps = enhancement.steps.isNotEmpty
           ? enhancement.steps
           : recipe.steps;
-      final enhancedNutrition =
-          enhancement.nutrition ??
+      final enhancedIngredients = enhancement.ingredients.isNotEmpty
+          ? enhancement.ingredients
+          : recipe.ingredients;
+      final enhancedServings = recipe.servings?.trim().isNotEmpty == true
+          ? recipe.servings
+          : enhancement.servings?.toString();
+      final recipeWithStructuredIngredients = recipe.copyWith(
+        ingredients: enhancedIngredients,
+        servings: enhancedServings,
+        steps: enhancedSteps,
+      );
+      final calculatedNutrition =
           recipe.nutrition ??
-          RecipeNutrition.estimateFromRecipe(recipe);
+          await _recipeNutritionService?.calculate(
+            recipe: recipeWithStructuredIngredients,
+            estimatedServings: enhancement.servings,
+          );
       developer.log(
         '_enrichAi recipe enhancement result: '
-        'nutrition=${enhancedNutrition?.hasAnyValue == true}, '
+        'nutrition=${calculatedNutrition?.hasAnyValue == true}, '
         'steps=${enhancedSteps.length}',
         name: 'Enrichment',
       );
@@ -936,9 +958,11 @@ class EnrichmentService {
           ...enhancement.tags,
           'recipe',
         ]),
+        ingredients: enhancedIngredients,
         steps: enhancedSteps,
-        nutrition: enhancedNutrition,
-        nutritionAttempted: enhancedNutrition?.hasAnyValue == true,
+        servings: enhancedServings,
+        nutrition: calculatedNutrition,
+        nutritionAttempted: calculatedNutrition?.hasAnyValue == true,
       );
     } catch (e, st) {
       developer.log(
@@ -946,12 +970,7 @@ class EnrichmentService {
         name: 'Enrichment',
         stackTrace: st,
       );
-      final estimatedNutrition =
-          recipe.nutrition ?? RecipeNutrition.estimateFromRecipe(recipe);
-      return recipe.copyWith(
-        nutrition: estimatedNutrition,
-        nutritionAttempted: estimatedNutrition?.hasAnyValue == true,
-      );
+      return recipe;
     }
   }
 

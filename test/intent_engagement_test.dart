@@ -463,5 +463,39 @@ void main() {
       final rates = await NotifBandit.openRates();
       expect(rates['B'], closeTo(0.5, 0.001));
     });
+
+    test('recordOpenOnce rewards each notification only once', () async {
+      await NotifBandit.recordSend('E');
+      // Tray tap, then two hub-history re-taps on the same notification.
+      expect(await NotifBandit.recordOpenOnce('E', 'notif_1'), isTrue);
+      expect(await NotifBandit.recordOpenOnce('E', 'notif_1'), isFalse);
+      expect(await NotifBandit.recordOpenOnce('E', 'notif_1'), isFalse);
+      final rates = await NotifBandit.openRates();
+      expect(rates['E'], closeTo(1.0, 0.001));
+
+      // A different notification of the same type is a fresh reward.
+      await NotifBandit.recordSend('E');
+      expect(await NotifBandit.recordOpenOnce('E', 'notif_2'), isTrue);
+    });
+
+    test('recordOpenOnce without an id still counts (legacy payloads)',
+        () async {
+      await NotifBandit.recordSend('C');
+      expect(await NotifBandit.recordOpenOnce('C', null), isTrue);
+      expect(await NotifBandit.recordOpenOnce('C', ''), isTrue);
+    });
+
+    test('migrates v1 stats clamping inflated opens to sends', () async {
+      // v1 counted hub re-taps as new rewards, so opens could exceed sends.
+      SharedPreferences.setMockInitialValues({
+        'notif_bandit_stats_v1': jsonEncode({
+          'C': {'o': 4.5, 's': 1.0},
+          'B': {'o': 1.0, 's': 3.0},
+        }),
+      });
+      final rates = await NotifBandit.openRates();
+      expect(rates['C'], closeTo(1.0, 0.001)); // was 450%
+      expect(rates['B'], closeTo(1.0 / 3.0, 0.001)); // sane data untouched
+    });
   });
 }

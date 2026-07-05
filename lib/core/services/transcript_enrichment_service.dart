@@ -470,7 +470,7 @@ class MemoryIntentMetadata {
   }
 }
 
-/// Estimated nutrition information for a recipe (per serving).
+/// Nutrition information for a recipe (per serving).
 class RecipeNutrition {
   const RecipeNutrition({
     this.calories,
@@ -480,6 +480,9 @@ class RecipeNutrition {
     this.fiberG,
     this.confidence,
     this.isEstimated = true,
+    this.servings,
+    this.source = RecipeNutritionSource.schema,
+    this.unmatchedIngredients = const [],
     // Future dietary tags
     this.isVegetarian,
     this.isVegan,
@@ -495,6 +498,9 @@ class RecipeNutrition {
   final double? fiberG;
   final double? confidence;
   final bool isEstimated;
+  final int? servings;
+  final RecipeNutritionSource source;
+  final List<String> unmatchedIngredients;
 
   // Dietary tags (future-ready)
   final bool? isVegetarian;
@@ -518,6 +524,10 @@ class RecipeNutrition {
     'fiber_g': fiberG,
     'confidence': confidence,
     'is_estimated': isEstimated,
+    'servings': servings,
+    'source': source.name,
+    if (unmatchedIngredients.isNotEmpty)
+      'unmatched_ingredients': unmatchedIngredients,
     'is_vegetarian': isVegetarian,
     'is_vegan': isVegan,
     'is_gluten_free': isGlutenFree,
@@ -545,6 +555,11 @@ class RecipeNutrition {
       ),
       confidence: _toDouble(json['confidence']),
       isEstimated: json['is_estimated'] != false,
+      servings: _toInt(json['servings'] ?? json['serving_count']),
+      source: RecipeNutritionSource.fromJson(json['source']),
+      unmatchedIngredients: TranscriptEnrichmentService._extractStringList(
+        json['unmatched_ingredients'] ?? json['unmatchedIngredients'],
+      ),
       isVegetarian: json['is_vegetarian'] as bool?,
       isVegan: json['is_vegan'] as bool?,
       isGlutenFree: json['is_gluten_free'] as bool?,
@@ -552,72 +567,6 @@ class RecipeNutrition {
       isHighProtein: json['is_high_protein'] as bool?,
     );
     return n.hasAnyValue ? n : null;
-  }
-
-  static RecipeNutrition? estimateFromRecipe(EnrichedRecipe recipe) {
-    if (recipe.ingredients.isEmpty) return null;
-
-    var calories = 0.0;
-    var protein = 0.0;
-    var carbs = 0.0;
-    var fat = 0.0;
-    var fiber = 0.0;
-    var matched = 0;
-
-    void add({
-      required double kcal,
-      double p = 0,
-      double c = 0,
-      double f = 0,
-      double fi = 0,
-    }) {
-      calories += kcal;
-      protein += p;
-      carbs += c;
-      fat += f;
-      fiber += fi;
-      matched++;
-    }
-
-    for (final ingredient in recipe.ingredients) {
-      final name = ingredient.displayText.toLowerCase();
-      if (_containsAny(name, const ['paneer', 'cottage cheese'])) {
-        add(kcal: 220, p: 18, c: 6, f: 16);
-      } else if (_containsAny(name, const ['rajma', 'kidney bean'])) {
-        add(kcal: 215, p: 14, c: 40, f: 1, fi: 13);
-      } else if (_containsAny(name, const ['wrap', 'tortilla', 'roti'])) {
-        add(kcal: 160, p: 5, c: 30, f: 4, fi: 3);
-      } else if (_containsAny(name, const ['cheese slice', 'cheese'])) {
-        add(kcal: 55, p: 3, c: 2, f: 4);
-      } else if (_containsAny(name, const ['hung curd', 'curd', 'yogurt'])) {
-        add(kcal: 80, p: 7, c: 5, f: 4);
-      } else if (_containsAny(name, const ['pea', 'peas'])) {
-        add(kcal: 60, p: 4, c: 10, f: 0.5, fi: 4);
-      } else if (_containsAny(name, const ['onion'])) {
-        add(kcal: 45, p: 1, c: 11, fi: 2);
-      } else if (_containsAny(name, const ['tomato'])) {
-        add(kcal: 25, p: 1, c: 5, fi: 1.5);
-      } else if (_containsAny(name, const ['oil', 'butter', 'ghee'])) {
-        add(kcal: 120, f: 14);
-      } else if (_containsAny(name, const ['jalapeno', 'pickle'])) {
-        add(kcal: 10, c: 2, fi: 0.5);
-      } else if (_containsAny(name, const ['seasoning', 'spice', 'masala'])) {
-        add(kcal: 10, c: 2);
-      }
-    }
-
-    if (matched == 0) return null;
-
-    final servings = _servingCount(recipe);
-    return RecipeNutrition(
-      calories: calories / servings,
-      proteinG: protein / servings,
-      carbsG: carbs / servings,
-      fatG: fat / servings,
-      fiberG: fiber / servings,
-      confidence: matched / recipe.ingredients.length,
-      isEstimated: true,
-    );
   }
 
   static double? _toDouble(Object? v) {
@@ -631,30 +580,23 @@ class RecipeNutrition {
     return double.tryParse(match.group(0)!.replaceAll(',', '.'));
   }
 
-  static bool _containsAny(String text, List<String> needles) {
-    return needles.any(text.contains);
+  static int? _toInt(Object? v) {
+    final value = _toDouble(v);
+    if (value == null || value <= 0) return null;
+    return value.round();
   }
+}
 
-  static double _servingCount(EnrichedRecipe recipe) {
-    final servingText = [
-      recipe.servings,
-      ...recipe.steps,
-    ].whereType<String>().join(' ').toLowerCase();
-    final numeric = RegExp(
-      r'\b(?:serves?|servings?|yield)\s*(\d+)\b',
-    ).firstMatch(servingText);
-    final direct = RegExp(
-      r'\b(\d+)\s*(?:servings?|wraps?|bowls?)\b',
-    ).firstMatch(servingText);
-    final wordTwo = RegExp(
-      r'\b(?:two|2)\s*(?:servings?|wraps?|bowls?)\b',
-    ).firstMatch(servingText);
-    final parsed = int.tryParse(numeric?.group(1) ?? direct?.group(1) ?? '');
-    if (parsed != null && parsed > 0) return parsed.toDouble();
-    if (wordTwo != null || servingText.contains('divide between two')) {
-      return 2;
-    }
-    return 1;
+enum RecipeNutritionSource {
+  schema,
+  calculated;
+
+  static RecipeNutritionSource fromJson(Object? raw) {
+    final value = raw?.toString().trim().toLowerCase();
+    return switch (value) {
+      'calculated' || 'database' || 'nutrition_database' => calculated,
+      _ => schema,
+    };
   }
 }
 

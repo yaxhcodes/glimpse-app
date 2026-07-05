@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/isar_service.dart';
@@ -11,6 +12,7 @@ import '../services/embedding_service.dart';
 import '../services/enrichment_service.dart';
 import '../services/gemini_service.dart';
 import '../services/link_preview_service.dart';
+import '../services/recipe_nutrition_service.dart';
 import '../services/transcript_enrichment_service.dart';
 import '../services/entitlement_service.dart';
 import 'usage_providers.dart';
@@ -38,7 +40,19 @@ final linkPreviewServiceProvider = Provider<LinkPreviewService>((ref) {
 
 final transcriptEnrichmentServiceProvider =
     Provider<TranscriptEnrichmentService>((ref) {
-  return TranscriptEnrichmentService();
+      return TranscriptEnrichmentService();
+    });
+
+final recipeNutritionServiceProvider = Provider<RecipeNutritionService>((ref) {
+  const usdaApiKey = String.fromEnvironment(
+    'USDA_FDC_API_KEY',
+    defaultValue: 'DEMO_KEY',
+  );
+  return RecipeNutritionService(
+    dataSource: CachedNutritionDataSource(
+      remote: UsdaFoodDataCentralDataSource(dio: Dio(), apiKey: usdaApiKey),
+    ),
+  );
 });
 
 /// Single shared Voyage embedding client.
@@ -96,16 +110,19 @@ final geminiServiceProvider = Provider<GeminiService?>((ref) {
 ///   final service = enricher(onEnriched: () { ref.invalidate(...); });
 final enrichmentServiceProvider =
     Provider<EnrichmentService Function({void Function()? onEnriched})>((ref) {
-  return ({void Function()? onEnriched}) {
-    return EnrichmentService(
-      isarService: ref.read(isarServiceProvider),
-      geminiService: ref.read(geminiServiceProvider),
-      embeddingService: ref.read(embeddingServiceProvider),
-      linkService: ref.read(linkPreviewServiceProvider),
-      transcriptEnrichmentService: ref.read(transcriptEnrichmentServiceProvider),
-      usageService: ref.read(usageServiceProvider),
-      isPro: ref.read(isProUserProvider),
-      onEnriched: onEnriched,
-    );
-  };
-});
+      return ({void Function()? onEnriched}) {
+        return EnrichmentService(
+          isarService: ref.read(isarServiceProvider),
+          geminiService: ref.read(geminiServiceProvider),
+          embeddingService: ref.read(embeddingServiceProvider),
+          linkService: ref.read(linkPreviewServiceProvider),
+          transcriptEnrichmentService: ref.read(
+            transcriptEnrichmentServiceProvider,
+          ),
+          recipeNutritionService: ref.read(recipeNutritionServiceProvider),
+          usageService: ref.read(usageServiceProvider),
+          isPro: ref.read(isProUserProvider),
+          onEnriched: onEnriched,
+        );
+      };
+    });

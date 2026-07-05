@@ -16,7 +16,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class NotifBandit {
   NotifBandit._();
 
-  static const _statsKey = 'notif_bandit_stats_v1';
+  static const _statsKey = 'notif_bandit_stats_v2';
+  static const _legacyStatsKey = 'notif_bandit_stats_v1';
+  static const _rewardedIdsKey = 'notif_bandit_rewarded_ids_v1';
+  static const _rewardedIdsCap = 200;
 
   /// Above this many sends for an arm, halve its counts so recent behaviour
   /// dominates (tastes drift). Keeps beliefs bounded and adaptive.
@@ -31,6 +34,29 @@ class NotifBandit {
 
   /// Record that a notification of [type] was opened — the positive reward.
   static Future<void> recordOpen(String type) => _bump(type, opened: true);
+
+  /// Reward [type] at most once per [notifId]: the same notification can be
+  /// tapped in the tray and then re-opened from the hub history any number of
+  /// times, but only the first engagement counts. Repeat-counting is what
+  /// inflated open rates past 100% and froze the ranking. Returns true when
+  /// the reward was actually counted.
+  static Future<bool> recordOpenOnce(String type, String? notifId) async {
+    if (notifId == null || notifId.isEmpty) {
+      // Legacy payload without an id — can't dedupe, count it.
+      await recordOpen(type);
+      return true;
+    }
+    final p = await SharedPreferences.getInstance();
+    final ids = p.getStringList(_rewardedIdsKey) ?? const <String>[];
+    if (ids.contains(notifId)) return false;
+    final next = [...ids, notifId];
+    if (next.length > _rewardedIdsCap) {
+      next.removeRange(0, next.length - _rewardedIdsCap);
+    }
+    await p.setStringList(_rewardedIdsKey, next);
+    await recordOpen(type);
+    return true;
+  }
 
   /// Rank [eligibleTypes] best-first by a Thompson sample of each arm's belief.
   /// [rng] is injectable for deterministic tests.
@@ -58,7 +84,8 @@ class NotifBandit {
     final stats = await _load();
     return {
       for (final e in stats.entries)
-        if (e.value.sends > 0) e.key: e.value.opens / e.value.sends,
+        if (e.value.sends > 0)
+          e.key: (e.value.opens / e.value.sends).clamp(0.0, 1.0),
     };
   }
 
@@ -66,7 +93,7 @@ class NotifBandit {
 
   static Future<void> _bump(String type, {required bool opened}) async {
     final p = await SharedPreferences.getInstance();
-    final stats = _decode(p.getString(_statsKey));
+    final stats = await _load();
     var arm = stats[type] ?? const _Arm(0, 0);
     // Decay before incrementing so a long-running arm stays adaptive.
     if (arm.sends >= _decayCap) {
@@ -81,7 +108,20 @@ class NotifBandit {
 
   static Future<Map<String, _Arm>> _load() async {
     final p = await SharedPreferences.getInstance();
-    return _decode(p.getString(_statsKey));
+    final raw = p.getString(_statsKey);
+    if (raw != null) return _decode(raw);
+    // One-time migration: v1 counted every re-open (hub history taps) as a new
+    // reward, so opens could exceed sends and lock an arm's belief near 1.
+    // Clamp opens to sends on the way in, keep the send history.
+    final legacy = p.getString(_legacyStatsKey);
+    if (legacy == null) return {};
+    final clamped = {
+      for (final e in _decode(legacy).entries)
+        e.key: _Arm(min(e.value.opens, e.value.sends), e.value.sends),
+    };
+    await p.setString(_statsKey, _encode(clamped));
+    await p.remove(_legacyStatsKey);
+    return clamped;
   }
 
   static Map<String, _Arm> _decode(String? raw) {
