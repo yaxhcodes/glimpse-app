@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -16,18 +18,34 @@ class DigestScheduler {
   /// Cancel pending work and schedule the next run.
   /// Called on app start and whenever settings change.
   static Future<void> reschedule() async {
-    await Workmanager().cancelByUniqueName(_taskUniqueName);
+    final workmanager = Workmanager();
+    try {
+      await workmanager.cancelByUniqueName(_taskUniqueName);
+    } on UnimplementedError catch (error) {
+      developer.log(
+        'Digest scheduling unavailable: $error',
+        name: 'DigestScheduler',
+      );
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(DigestPrefs.digestEnabledKey) ?? true)) return;
 
     final delay = await _nextDelay();
 
-    await Workmanager().registerOneOffTask(
-      _taskUniqueName,
-      taskName,
-      initialDelay: delay,
-      existingWorkPolicy: ExistingWorkPolicy.replace,
-    );
+    try {
+      await workmanager.registerOneOffTask(
+        _taskUniqueName,
+        taskName,
+        initialDelay: delay,
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+      );
+    } on UnimplementedError catch (error) {
+      developer.log(
+        'Digest scheduling unavailable: $error',
+        name: 'DigestScheduler',
+      );
+    }
   }
 
   /// Schedule tomorrow's run. Called by the background callback after each run.
@@ -37,12 +55,19 @@ class DigestScheduler {
 
     final delay = await _nextDelay();
 
-    await Workmanager().registerOneOffTask(
-      _taskUniqueName,
-      taskName,
-      initialDelay: delay,
-      existingWorkPolicy: ExistingWorkPolicy.replace,
-    );
+    try {
+      await Workmanager().registerOneOffTask(
+        _taskUniqueName,
+        taskName,
+        initialDelay: delay,
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+      );
+    } on UnimplementedError catch (error) {
+      developer.log(
+        'Digest scheduling unavailable: $error',
+        name: 'DigestScheduler',
+      );
+    }
   }
 
   /// Compute delay until next fire window: (peak_hour - 1) tomorrow,

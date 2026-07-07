@@ -28,6 +28,10 @@ import 'ask_provider.dart';
 
 /// Max width for chat column on large phones / tablets (readable line length).
 const double _kChatMaxWidth = 680;
+const Duration _kAssistantHapticInterval = Duration(milliseconds: 160);
+const int _kAssistantHapticCharacterStep = 32;
+
+final Set<String> _completedAssistantAnimationIds = <String>{};
 
 class AskScreen extends ConsumerStatefulWidget {
   const AskScreen({super.key, this.embedded = false, this.initialSource});
@@ -116,6 +120,28 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     );
   }
 
+  void _syncCompletedAssistantAnimations(List<ChatMessage> messages) {
+    final assistantIds = messages
+        .where((message) => !message.isUser)
+        .map((message) => message.id)
+        .toSet();
+    _completedAssistantAnimationIds.removeWhere(
+      (messageId) => !assistantIds.contains(messageId),
+    );
+  }
+
+  void _markAssistantAnimationComplete(String messageId) {
+    _completedAssistantAnimationIds.add(messageId);
+  }
+
+  void _usePromptChip(String prompt) {
+    _controller.value = TextEditingValue(
+      text: prompt,
+      selection: TextSelection.collapsed(offset: prompt.length),
+    );
+    _focusNode.requestFocus();
+  }
+
   void _onBuildPlanTapped(List<SavedUrl> sources, String originalQuestion) {
     _onSendMessage(
       'Build me a practical weekend plan from these saves',
@@ -131,6 +157,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final isar = ref.read(isarServiceProvider);
     showModalBottomSheet(
       context: context,
+      showDragHandle: false,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -170,6 +197,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final savedUrlCount = urlsAsync.valueOrNull?.length ?? 0;
     final userName = ref.watch(userDisplayNameProvider).valueOrNull;
     final suggestionsAsync = ref.watch(askEmptySuggestionsProvider);
+
+    _syncCompletedAssistantAnimations(askState.messages);
 
     ref.listen(askProvider, (_, next) {
       // Scroll on every state change so the indicator and new messages
@@ -276,19 +305,41 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                               );
                             }
                             final msg = askState.messages[index];
+                            final animateAssistant =
+                                !msg.isUser &&
+                                !_completedAssistantAnimationIds.contains(
+                                  msg.id,
+                                );
                             return _ChatTurn(
                               key: ValueKey(msg.id),
                               message: msg,
+                              animateAssistant: animateAssistant,
+                              onAssistantAnimationComplete:
+                                  _markAssistantAnimationComplete,
                               onAssistantContentGrowth: _scrollToBottom,
                               onProactiveTipTap: msg.proactiveTip != null
-                                  ? () {
-                                      _controller.value = TextEditingValue(
-                                        text: msg.proactiveTip!,
-                                        selection: TextSelection.collapsed(
-                                          offset: msg.proactiveTip!.length,
+                                  ? () => _usePromptChip(msg.proactiveTip!)
+                                  : null,
+                              onFollowUpTap: _usePromptChip,
+                              onActionConsumed: () => ref
+                                  .read(askProvider.notifier)
+                                  .consumeAction(msg.id),
+                              onSaveAnswerToNotesTap:
+                                  msg.canSaveAsNote && !msg.noteSaved
+                                  ? () async {
+                                      HapticFeedback.lightImpact();
+                                      final saved = await ref
+                                          .read(askProvider.notifier)
+                                          .saveAnswerAsNote(msg.id);
+                                      if (!context.mounted || !saved) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Saved to notes'),
+                                          behavior: SnackBarBehavior.floating,
                                         ),
                                       );
-                                      _focusNode.requestFocus();
                                     }
                                   : null,
                               onSynthesizeTap:
@@ -320,6 +371,12 @@ class _AskScreenState extends ConsumerState<AskScreen> {
             focusNode: _focusNode,
             isLoading: askState.isLoading,
             attachedSource: _attachedSource,
+            onClearAttachedSource: _attachedSource == null
+                ? null
+                : () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _attachedSource = null);
+                  },
             onSubmit: (text) => _onSendMessage(text),
           ),
         ],
@@ -519,16 +576,26 @@ class _ChatTurn extends StatelessWidget {
   const _ChatTurn({
     super.key,
     required this.message,
+    required this.animateAssistant,
+    required this.onAssistantAnimationComplete,
     this.onAssistantContentGrowth,
     this.onProactiveTipTap,
+    this.onFollowUpTap,
+    this.onActionConsumed,
+    this.onSaveAnswerToNotesTap,
     this.onSynthesizeTap,
     this.onBuildPlanTap,
     this.onSaveToCollectionTap,
   });
 
   final ChatMessage message;
+  final bool animateAssistant;
+  final ValueChanged<String> onAssistantAnimationComplete;
   final VoidCallback? onAssistantContentGrowth;
   final VoidCallback? onProactiveTipTap;
+  final ValueChanged<String>? onFollowUpTap;
+  final VoidCallback? onActionConsumed;
+  final Future<void> Function()? onSaveAnswerToNotesTap;
   final VoidCallback? onSynthesizeTap;
   final VoidCallback? onBuildPlanTap;
   final VoidCallback? onSaveToCollectionTap;
@@ -540,8 +607,13 @@ class _ChatTurn extends StatelessWidget {
     }
     return _AssistantBlock(
       message: message,
+      animate: animateAssistant,
+      onAnimationComplete: onAssistantAnimationComplete,
       onContentGrowth: onAssistantContentGrowth,
       onProactiveTipTap: onProactiveTipTap,
+      onFollowUpTap: onFollowUpTap,
+      onActionConsumed: onActionConsumed,
+      onSaveAnswerToNotesTap: onSaveAnswerToNotesTap,
       onSynthesizeTap: onSynthesizeTap,
       onBuildPlanTap: onBuildPlanTap,
       onSaveToCollectionTap: onSaveToCollectionTap,
@@ -595,16 +667,26 @@ class _UserBubble extends StatelessWidget {
 class _AssistantBlock extends StatefulWidget {
   const _AssistantBlock({
     required this.message,
+    required this.animate,
+    required this.onAnimationComplete,
     this.onContentGrowth,
     this.onProactiveTipTap,
+    this.onFollowUpTap,
+    this.onActionConsumed,
+    this.onSaveAnswerToNotesTap,
     this.onSynthesizeTap,
     this.onBuildPlanTap,
     this.onSaveToCollectionTap,
   });
 
   final ChatMessage message;
+  final bool animate;
+  final ValueChanged<String> onAnimationComplete;
   final VoidCallback? onContentGrowth;
   final VoidCallback? onProactiveTipTap;
+  final ValueChanged<String>? onFollowUpTap;
+  final VoidCallback? onActionConsumed;
+  final Future<void> Function()? onSaveAnswerToNotesTap;
   final VoidCallback? onSynthesizeTap;
   final VoidCallback? onBuildPlanTap;
   final VoidCallback? onSaveToCollectionTap;
@@ -621,8 +703,11 @@ class _AssistantBlockState extends State<_AssistantBlock> {
   DateTime? _lastScrollNudge;
   bool _tipVisible = false;
   bool _chipVisible = false;
+  bool _followUpsVisible = false;
+  bool _saveActionVisible = false;
   bool _actionConsumed = false;
   bool _streamingCancelled = false;
+  DateTime? _lastHapticFeedback;
 
   String get _intro => widget.message.text;
   bool get _hasBody => _intro.trim().isNotEmpty;
@@ -640,6 +725,17 @@ class _AssistantBlockState extends State<_AssistantBlock> {
   @override
   void initState() {
     super.initState();
+    _actionConsumed = widget.message.actionConsumed;
+    if (!widget.animate) {
+      _displayedIntro = _intro;
+      _introComplete = true;
+      _visibleCardCount = _cardTotal;
+      _tipVisible = widget.message.proactiveTip != null;
+      _chipVisible = widget.message.action != ChatAction.none;
+      _followUpsVisible = widget.message.followUpSuggestions.isNotEmpty;
+      _saveActionVisible = widget.onSaveAnswerToNotesTap != null;
+      return;
+    }
     if (!_hasBody) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _startSectionReveal(),
@@ -656,13 +752,29 @@ class _AssistantBlockState extends State<_AssistantBlock> {
     for (int i = 1; i <= fullText.length; i++) {
       if (!mounted || _streamingCancelled) return;
       setState(() => _displayedIntro = fullText.substring(0, i));
+      _maybePlayTextHaptic(i);
       final delay = fullText.length > 200 ? 6 : 15;
       await Future.delayed(Duration(milliseconds: delay));
     }
     if (!mounted || _streamingCancelled) return;
     setState(() => _introComplete = true);
+    widget.onAnimationComplete(widget.message.id);
     _throttledScroll();
     _showCards();
+  }
+
+  void _maybePlayTextHaptic(int visibleCharacterCount) {
+    if (visibleCharacterCount == 1 ||
+        visibleCharacterCount % _kAssistantHapticCharacterStep != 0) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastHapticFeedback != null &&
+        now.difference(_lastHapticFeedback!) < _kAssistantHapticInterval) {
+      return;
+    }
+    _lastHapticFeedback = now;
+    HapticFeedback.selectionClick();
   }
 
   void _showCards() {
@@ -674,8 +786,11 @@ class _AssistantBlockState extends State<_AssistantBlock> {
   Future<void> _startSectionReveal() async {
     final n = _cardTotal;
     if (n == 0) {
+      widget.onAnimationComplete(widget.message.id);
       _showTipIfPresent();
       _showChipIfPresent();
+      _showFollowUpsIfPresent();
+      _showSaveActionIfPresent();
       _throttledScroll();
       return;
     }
@@ -685,8 +800,11 @@ class _AssistantBlockState extends State<_AssistantBlock> {
       setState(() => _visibleCardCount = i + 1);
       _throttledScroll();
     }
+    widget.onAnimationComplete(widget.message.id);
     _showTipIfPresent();
     _showChipIfPresent();
+    _showFollowUpsIfPresent();
+    _showSaveActionIfPresent();
   }
 
   void _showTipIfPresent() {
@@ -711,6 +829,28 @@ class _AssistantBlockState extends State<_AssistantBlock> {
     }
   }
 
+  void _showFollowUpsIfPresent() {
+    if (widget.message.followUpSuggestions.isNotEmpty) {
+      Future.delayed(const Duration(milliseconds: 180), () {
+        if (mounted) {
+          setState(() => _followUpsVisible = true);
+          _throttledScroll();
+        }
+      });
+    }
+  }
+
+  void _showSaveActionIfPresent() {
+    if (widget.onSaveAnswerToNotesTap != null) {
+      Future.delayed(const Duration(milliseconds: 220), () {
+        if (mounted) {
+          setState(() => _saveActionVisible = true);
+          _throttledScroll();
+        }
+      });
+    }
+  }
+
   void _throttledScroll() {
     final now = DateTime.now();
     if (_lastScrollNudge == null ||
@@ -722,6 +862,9 @@ class _AssistantBlockState extends State<_AssistantBlock> {
 
   @override
   void dispose() {
+    if (widget.animate) {
+      widget.onAnimationComplete(widget.message.id);
+    }
     _streamingCancelled = true;
     super.dispose();
   }
@@ -814,6 +957,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                 action: widget.message.action,
                 onTap: () {
                   setState(() => _actionConsumed = true);
+                  widget.onActionConsumed?.call();
                   switch (widget.message.action) {
                     case ChatAction.saveToCollection:
                       widget.onSaveToCollectionTap?.call();
@@ -825,6 +969,19 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                       break;
                   }
                 },
+              ),
+            ),
+          ],
+          if (widget.onSaveAnswerToNotesTap != null && _saveActionVisible) ...[
+            const SizedBox(height: 10),
+            AnimatedOpacity(
+              opacity: _saveActionVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              child: _AssistantUtilityAction(
+                icon: Icons.note_add_outlined,
+                label: 'Save answer',
+                onTap: widget.onSaveAnswerToNotesTap!,
               ),
             ),
           ],
@@ -840,8 +997,80 @@ class _AssistantBlockState extends State<_AssistantBlock> {
               ),
             ),
           ],
+          if (widget.message.followUpSuggestions.isNotEmpty &&
+              _followUpsVisible) ...[
+            const SizedBox(height: 10),
+            AnimatedOpacity(
+              opacity: _followUpsVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              child: _FollowUpChips(
+                prompts: widget.message.followUpSuggestions,
+                onTap: widget.onFollowUpTap,
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _AssistantUtilityAction extends StatelessWidget {
+  const _AssistantUtilityAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 16),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          foregroundColor: colorScheme.primary,
+          side: BorderSide(color: colorScheme.outlineVariant),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FollowUpChips extends StatelessWidget {
+  const _FollowUpChips({required this.prompts, this.onTap});
+
+  final List<String> prompts;
+  final ValueChanged<String>? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: prompts.take(3).map((prompt) {
+        return ActionChip(
+          label: Text(prompt),
+          onPressed: onTap == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  onTap!(prompt);
+                },
+        );
+      }).toList(),
     );
   }
 }
@@ -1340,6 +1569,7 @@ class _ComposerBar extends StatelessWidget {
     required this.focusNode,
     required this.isLoading,
     this.attachedSource,
+    this.onClearAttachedSource,
     required this.onSubmit,
   });
 
@@ -1347,6 +1577,7 @@ class _ComposerBar extends StatelessWidget {
   final FocusNode focusNode;
   final bool isLoading;
   final SavedUrl? attachedSource;
+  final VoidCallback? onClearAttachedSource;
   final ValueChanged<String> onSubmit;
 
   @override
@@ -1367,7 +1598,10 @@ class _ComposerBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (attachedSource != null) ...[
-                  _AttachedSourceBar(source: attachedSource!),
+                  _AttachedSourceBar(
+                    source: attachedSource!,
+                    onClear: onClearAttachedSource,
+                  ),
                   const SizedBox(height: 8),
                 ],
                 Row(
@@ -1517,9 +1751,10 @@ class _ComposerBar extends StatelessWidget {
 }
 
 class _AttachedSourceBar extends ConsumerWidget {
-  const _AttachedSourceBar({required this.source});
+  const _AttachedSourceBar({required this.source, this.onClear});
 
   final SavedUrl source;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1575,6 +1810,18 @@ class _AttachedSourceBar extends ConsumerWidget {
               ],
             ),
           ),
+          if (onClear != null) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onClear,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: cs.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              child: const Text('All saves'),
+            ),
+          ],
         ],
       ),
     );

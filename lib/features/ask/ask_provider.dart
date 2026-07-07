@@ -19,12 +19,18 @@ class ChatMessage {
   final String text;
   final bool isUser;
   final List<SavedUrl> sources;
+  final List<int> citedSourceIds;
   final List<ChatMessageSection> sections;
   final String? proactiveTip;
+  final List<String> followUpSuggestions;
   final ChatAction action;
   final String? label;
   final String? originalQuestion;
   final bool actionConsumed;
+  final ChatAnswerConfidence confidence;
+  final ChatAnswerType answerType;
+  final bool canSaveAsNote;
+  final bool noteSaved;
 
   static int _idCounter = 0;
   static String _generateId() {
@@ -37,26 +43,40 @@ class ChatMessage {
     required this.text,
     required this.isUser,
     this.sources = const [],
+    List<int>? citedSourceIds,
     this.sections = const [],
     this.proactiveTip,
+    this.followUpSuggestions = const [],
     this.action = ChatAction.none,
     this.label,
     this.originalQuestion,
     this.actionConsumed = false,
-  }) : id = id ?? _generateId();
+    this.confidence = ChatAnswerConfidence.medium,
+    this.answerType = ChatAnswerType.direct,
+    this.canSaveAsNote = false,
+    this.noteSaved = false,
+  }) : citedSourceIds =
+           citedSourceIds ?? sources.map((source) => source.id).toList(),
+       id = id ?? _generateId();
 
-  ChatMessage copyWith({bool? actionConsumed}) {
+  ChatMessage copyWith({bool? actionConsumed, bool? noteSaved}) {
     return ChatMessage(
       id: id,
       text: text,
       isUser: isUser,
       sources: sources,
+      citedSourceIds: citedSourceIds,
       sections: sections,
       proactiveTip: proactiveTip,
+      followUpSuggestions: followUpSuggestions,
       action: action,
       label: label,
       originalQuestion: originalQuestion,
       actionConsumed: actionConsumed ?? this.actionConsumed,
+      confidence: confidence,
+      answerType: answerType,
+      canSaveAsNote: canSaveAsNote,
+      noteSaved: noteSaved ?? this.noteSaved,
     );
   }
 }
@@ -134,6 +154,108 @@ const _greetingReplies = [
   "Hello! What shall we explore?",
 ];
 
+class AskContextPlan {
+  const AskContextPlan({
+    required this.contextUrls,
+    required this.isFollowUp,
+    required this.suppressedSourceIds,
+  });
+
+  final List<SavedUrl> contextUrls;
+  final bool isFollowUp;
+  final Set<int> suppressedSourceIds;
+}
+
+class AskConversationPlanner {
+  static AskContextPlan plan({
+    required String question,
+    required List<SavedUrl> allUrls,
+    required List<ChatMessage> previousMessages,
+    List<MapEntry<SavedUrl, double>> semanticScored = const [],
+    int limit = 6,
+  }) {
+    final isFollowUp = looksLikeFollowUp(question);
+    final allowRepeats = asksForPreviousSources(question);
+    final citedIds = citedSourceIds(previousMessages);
+    final suppressedIds = isFollowUp && !allowRepeats ? citedIds : <int>{};
+
+    final candidateUrls = suppressedIds.isEmpty
+        ? allUrls
+        : allUrls.where((url) => !suppressedIds.contains(url.id)).toList();
+    final candidateSemantic = suppressedIds.isEmpty
+        ? semanticScored
+        : semanticScored
+              .where((entry) => !suppressedIds.contains(entry.key.id))
+              .toList();
+
+    var contextUrls = AskRetrievalService.retrieve(
+      query: question,
+      allUrls: candidateUrls,
+      semanticScored: candidateSemantic,
+      limit: limit,
+    );
+
+    if (contextUrls.isEmpty && isFollowUp) {
+      contextUrls = activeContext(previousMessages, limit: limit);
+    }
+
+    return AskContextPlan(
+      contextUrls: contextUrls,
+      isFollowUp: isFollowUp,
+      suppressedSourceIds: suppressedIds,
+    );
+  }
+
+  static Set<int> citedSourceIds(List<ChatMessage> messages) {
+    final ids = <int>{};
+    for (final message in messages) {
+      if (message.isUser) continue;
+      ids.addAll(message.citedSourceIds);
+      ids.addAll(message.sources.map((source) => source.id));
+      ids.addAll(message.sections.map((section) => section.source.id));
+    }
+    return ids;
+  }
+
+  static List<SavedUrl> activeContext(
+    List<ChatMessage> messages, {
+    int limit = 6,
+  }) {
+    final byId = <int, SavedUrl>{};
+    for (final message in messages.reversed) {
+      if (message.isUser) continue;
+      for (final section in message.sections.reversed) {
+        byId.putIfAbsent(section.source.id, () => section.source);
+      }
+      for (final source in message.sources.reversed) {
+        byId.putIfAbsent(source.id, () => source);
+      }
+      if (byId.length >= limit) break;
+    }
+    return byId.values.take(limit).toList();
+  }
+
+  static bool looksLikeFollowUp(String question) {
+    final q = question.trim().toLowerCase();
+    if (q.length <= 32 &&
+        RegExp(
+          r'\b(more|else|another|continue|expand|deeper|why|how so)\b',
+        ).hasMatch(q)) {
+      return true;
+    }
+    return RegExp(
+      r'\b(what else|anything else|anything more|tell me more|show me more|go deeper|more like this|another one|another example|expand on that|continue from there)\b',
+    ).hasMatch(q);
+  }
+
+  static bool asksForPreviousSources(String question) {
+    final q = question.trim().toLowerCase();
+    return RegExp(
+      r'\b(same|that|this|those|previous|earlier|again|it|them)\b',
+    ).hasMatch(q);
+  }
+}
+
 class AskNotifier extends StateNotifier<AskState> {
   final Ref _ref;
 
@@ -176,10 +298,13 @@ class AskNotifier extends StateNotifier<AskState> {
 
     return ChatMessage(
       text:
-          'Glimpse could not reach the AI right now, so here are the most relevant saved links and what they contain.',
+          "I couldn't reach AI just now, but these are the closest saves I found.",
       isUser: false,
       sources: sections.map((section) => section.source).toList(),
       sections: sections,
+      confidence: ChatAnswerConfidence.low,
+      answerType: ChatAnswerType.fallback,
+      canSaveAsNote: sections.isNotEmpty,
     );
   }
 
@@ -191,10 +316,11 @@ class AskNotifier extends StateNotifier<AskState> {
     int? saveAnswerToUrlId,
   }) async {
     if (question.trim().isEmpty) return;
+    final previousMessages = state.messages;
 
     state = state.copyWith(
       messages: [
-        ...state.messages,
+        ...previousMessages,
         ChatMessage(text: question, isUser: true),
       ],
       isLoading: true,
@@ -249,6 +375,7 @@ class AskNotifier extends StateNotifier<AskState> {
           saveAnswerToUrlId: saveAnswerToUrlId,
           usageService: usageService,
           gemini: gemini,
+          previousMessages: previousMessages,
         );
         return;
       }
@@ -266,7 +393,15 @@ class AskNotifier extends StateNotifier<AskState> {
         await usageService.incrementUsage(UsageFeature.ask);
         _ref.read(usageRevisionProvider.notifier).state++;
 
-        _addBotMessage(text, label: isPlan ? '📋 Plan' : null);
+        _addBotMessage(
+          text,
+          sources: preloadedSources,
+          confidence: ChatAnswerConfidence.medium,
+          answerType: isPlan ? ChatAnswerType.plan : ChatAnswerType.synthesis,
+          label: isPlan ? '📋 Plan' : null,
+          originalQuestion: originalQuestion ?? question,
+          canSaveAsNote: true,
+        );
         return;
       }
 
@@ -290,30 +425,26 @@ class AskNotifier extends StateNotifier<AskState> {
           semanticScored = const [];
         }
       }
-      final contextUrls = AskRetrievalService.retrieve(
-        query: question,
+      final contextPlan = AskConversationPlanner.plan(
+        question: question,
         allUrls: allUrls,
         semanticScored: semanticScored,
         limit: 6,
+        previousMessages: previousMessages,
       );
+      final contextUrls = contextPlan.contextUrls;
 
       if (contextUrls.isEmpty) {
         _addBotMessage(
           "I couldn't find any relevant saved links for that question. Try saving some links first!",
+          confidence: ChatAnswerConfidence.insufficientEvidence,
+          answerType: ChatAnswerType.insufficientEvidence,
         );
         return;
       }
 
       // Build conversation history from previous messages, cap at 6 exchanges.
-      final history = state.messages
-          .where((m) => m.text.trim().isNotEmpty)
-          .map(
-            (m) => {'role': m.isUser ? 'User' : 'Glimpse', 'content': m.text},
-          )
-          .toList();
-      final recentHistory = history.length > 12
-          ? history.sublist(history.length - 12)
-          : history;
+      final recentHistory = _recentConversationHistory(previousMessages);
 
       final answer = await gemini.chat(
         question: question,
@@ -349,8 +480,12 @@ class AskNotifier extends StateNotifier<AskState> {
         sources: actionSources,
         sections: sections,
         proactiveTip: answer.proactiveTip,
+        followUpSuggestions: answer.followUpSuggestions,
         action: action,
+        confidence: answer.confidence,
+        answerType: answer.answerType,
         originalQuestion: question,
+        canSaveAsNote: actionSources.isNotEmpty,
       );
     } catch (e) {
       developer.log('Ask AI error: $e', name: 'AskNotifier');
@@ -392,20 +527,25 @@ class AskNotifier extends StateNotifier<AskState> {
     return ChatAction.saveToCollection;
   }
 
+  List<Map<String, String>> _recentConversationHistory(
+    List<ChatMessage> messages,
+  ) {
+    final history = messages
+        .where((m) => m.text.trim().isNotEmpty)
+        .map((m) => {'role': m.isUser ? 'User' : 'Glimpse', 'content': m.text})
+        .toList();
+    return history.length > 12 ? history.sublist(history.length - 12) : history;
+  }
+
   Future<void> _answerWithFixedContext({
     required String question,
     required List<SavedUrl> contextUrls,
     required UsageService usageService,
     required GeminiService gemini,
+    required List<ChatMessage> previousMessages,
     int? saveAnswerToUrlId,
   }) async {
-    final history = state.messages
-        .where((m) => m.text.trim().isNotEmpty)
-        .map((m) => {'role': m.isUser ? 'User' : 'Glimpse', 'content': m.text})
-        .toList();
-    final recentHistory = history.length > 12
-        ? history.sublist(history.length - 12)
-        : history;
+    final recentHistory = _recentConversationHistory(previousMessages);
 
     final answer = await gemini.chat(
       question: question,
@@ -445,7 +585,12 @@ class AskNotifier extends StateNotifier<AskState> {
       sources: sources.isEmpty ? contextUrls.take(1).toList() : sources,
       sections: sections,
       proactiveTip: answer.proactiveTip,
+      followUpSuggestions: answer.followUpSuggestions,
+      confidence: answer.confidence,
+      answerType: answer.answerType,
       originalQuestion: question,
+      canSaveAsNote: saveAnswerToUrlId == null,
+      noteSaved: saveAnswerToUrlId != null,
     );
   }
 
@@ -480,6 +625,59 @@ class AskNotifier extends StateNotifier<AskState> {
     _ref.invalidate(urlStreamProvider);
   }
 
+  Future<bool> saveAnswerAsNote(String messageId) async {
+    final index = state.messages.indexWhere(
+      (message) => message.id == messageId,
+    );
+    if (index == -1) return false;
+
+    final message = state.messages[index];
+    if (message.isUser ||
+        message.noteSaved ||
+        !message.canSaveAsNote ||
+        message.sources.isEmpty) {
+      return false;
+    }
+
+    final question =
+        _questionBefore(index) ?? message.originalQuestion ?? 'Ask Glimpse';
+    final uniqueSources = <int, SavedUrl>{};
+    for (final source in message.sources) {
+      uniqueSources[source.id] = source;
+    }
+
+    for (final source in uniqueSources.values) {
+      final sectionsForSource = message.sections
+          .where((section) => section.source.id == source.id)
+          .toList();
+      await _appendAskNote(
+        urlId: source.id,
+        question: question,
+        answer: message.text,
+        sections: sectionsForSource,
+      );
+    }
+
+    state = state.copyWith(
+      messages: [
+        ...state.messages.sublist(0, index),
+        message.copyWith(noteSaved: true),
+        ...state.messages.sublist(index + 1),
+      ],
+    );
+    return true;
+  }
+
+  String? _questionBefore(int messageIndex) {
+    for (var i = messageIndex - 1; i >= 0; i--) {
+      final message = state.messages[i];
+      if (message.isUser && message.text.trim().isNotEmpty) {
+        return message.text.trim();
+      }
+    }
+    return null;
+  }
+
   String _formatNoteTimestamp(DateTime when) {
     String two(int value) => value.toString().padLeft(2, '0');
     return '${when.year}-${two(when.month)}-${two(when.day)} '
@@ -502,22 +700,40 @@ class AskNotifier extends StateNotifier<AskState> {
     List<SavedUrl> sources = const [],
     List<ChatMessageSection> sections = const [],
     String? proactiveTip,
+    List<String> followUpSuggestions = const [],
     ChatAction action = ChatAction.none,
     String? label,
     String? originalQuestion,
+    ChatAnswerConfidence confidence = ChatAnswerConfidence.medium,
+    ChatAnswerType answerType = ChatAnswerType.direct,
+    bool canSaveAsNote = false,
+    bool noteSaved = false,
   }) {
+    final citedSources = <int, SavedUrl>{};
+    for (final source in sources) {
+      citedSources[source.id] = source;
+    }
+    for (final section in sections) {
+      citedSources[section.source.id] = section.source;
+    }
     state = state.copyWith(
       messages: [
         ...state.messages,
         ChatMessage(
           text: text,
           isUser: false,
-          sources: sources,
+          sources: citedSources.values.toList(),
+          citedSourceIds: citedSources.keys.toList(),
           sections: sections,
           proactiveTip: proactiveTip,
+          followUpSuggestions: followUpSuggestions,
           action: action,
           label: label,
           originalQuestion: originalQuestion,
+          confidence: confidence,
+          answerType: answerType,
+          canSaveAsNote: canSaveAsNote && citedSources.isNotEmpty,
+          noteSaved: noteSaved,
         ),
       ],
       isLoading: false,

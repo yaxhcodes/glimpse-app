@@ -18,6 +18,7 @@ class LinkMetadata {
   final String? siteName;
   final String? author;
   final EnrichedRecipe? recipe;
+
   /// Tags extracted by platform-specific parsers (e.g. Instagram hashtags).
   final List<String>? extractedTags;
 
@@ -37,7 +38,16 @@ class LinkMetadata {
 class LinkPreviewService {
   final Dio _dio;
 
-  LinkPreviewService({Dio? dio}) : _dio = dio ?? Dio();
+  LinkPreviewService({Dio? dio})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 12),
+              sendTimeout: const Duration(seconds: 10),
+            ),
+          );
 
   /// Normalise a raw URL to ensure it has a scheme.
   static String normalizeUrl(String url) {
@@ -56,7 +66,9 @@ class LinkPreviewService {
     if (host.startsWith('www.')) host = host.substring(4);
 
     if (host == 'youtu.be') {
-      final id = parsed.pathSegments.isNotEmpty ? parsed.pathSegments.first : '';
+      final id = parsed.pathSegments.isNotEmpty
+          ? parsed.pathSegments.first
+          : '';
       if (id.isNotEmpty) {
         return Uri.https('www.youtube.com', '/watch', {'v': id}).toString();
       }
@@ -66,11 +78,17 @@ class LinkPreviewService {
         host.endsWith('.youtube.com') ||
         host == 'youtube-nocookie.com' ||
         host.endsWith('.youtube-nocookie.com')) {
-      final segments = parsed.pathSegments.where((item) => item.isNotEmpty).toList();
+      final segments = parsed.pathSegments
+          .where((item) => item.isNotEmpty)
+          .toList();
       String? id;
-      if (segments.isNotEmpty && segments.first == 'shorts' && segments.length >= 2) {
+      if (segments.isNotEmpty &&
+          segments.first == 'shorts' &&
+          segments.length >= 2) {
         id = segments[1];
-      } else if (segments.isNotEmpty && segments.first == 'embed' && segments.length >= 2) {
+      } else if (segments.isNotEmpty &&
+          segments.first == 'embed' &&
+          segments.length >= 2) {
         id = segments[1];
       } else {
         id = parsed.queryParameters['v'];
@@ -80,18 +98,28 @@ class LinkPreviewService {
       }
     }
 
-    if (host == 'instagram.com' || host.endsWith('.instagram.com') || host == 'instagr.am') {
-      final segments = parsed.pathSegments.where((item) => item.isNotEmpty).toList();
+    if (host == 'instagram.com' ||
+        host.endsWith('.instagram.com') ||
+        host == 'instagr.am') {
+      final segments = parsed.pathSegments
+          .where((item) => item.isNotEmpty)
+          .toList();
       if (segments.length >= 2 &&
           {'reel', 'reels', 'p', 'tv'}.contains(segments.first.toLowerCase())) {
-        return Uri.https('www.instagram.com', '/${segments.first}/${segments[1]}/')
-            .toString();
+        return Uri.https(
+          'www.instagram.com',
+          '/${segments.first}/${segments[1]}/',
+        ).toString();
       }
     }
 
     if (host == 'tiktok.com' || host.endsWith('.tiktok.com')) {
-      final segments = parsed.pathSegments.where((item) => item.isNotEmpty).toList();
-      final videoIndex = segments.indexWhere((item) => item.toLowerCase() == 'video');
+      final segments = parsed.pathSegments
+          .where((item) => item.isNotEmpty)
+          .toList();
+      final videoIndex = segments.indexWhere(
+        (item) => item.toLowerCase() == 'video',
+      );
       if (videoIndex > 0 && videoIndex + 1 < segments.length) {
         return Uri.https(
           'www.tiktok.com',
@@ -114,13 +142,16 @@ class LinkPreviewService {
     final host = uri?.host.replaceFirst('www.', '') ?? '';
 
     if (!await urlSecurityValidator.isSafePublicUrl(normalized)) {
-      developer.log('Blocked unsafe preview URL: $normalized',
-          name: 'LinkPreview');
+      developer.log(
+        'Blocked unsafe preview URL: $normalized',
+        name: 'LinkPreview',
+      );
       return LinkMetadata(title: domain, description: '', domain: domain);
     }
 
     // ---- Reddit: use their JSON API ----
-    if (host == 'reddit.com' || host.endsWith('.reddit.com') ||
+    if (host == 'reddit.com' ||
+        host.endsWith('.reddit.com') ||
         host == 'redd.it') {
       final result = await _fetchReddit(normalized, domain);
       if (result != null) return result;
@@ -134,7 +165,8 @@ class LinkPreviewService {
 
     // ---- Instagram: run cleaning pipeline ----
     // (Also catches instagr.am short links and subdomains)
-    final isInstagram = host == 'instagram.com' ||
+    final isInstagram =
+        host == 'instagram.com' ||
         host.endsWith('.instagram.com') ||
         host == 'instagr.am';
 
@@ -145,8 +177,10 @@ class LinkPreviewService {
     }
 
     // ---- X / Twitter: use oEmbed endpoint ----
-    if (host == 'x.com' || host == 'twitter.com' ||
-        host == 'mobile.x.com' || host == 'mobile.twitter.com') {
+    if (host == 'x.com' ||
+        host == 'twitter.com' ||
+        host == 'mobile.x.com' ||
+        host == 'mobile.twitter.com') {
       final result = await _fetchXEmbed(normalized, domain);
       if (result != null) return result;
     }
@@ -196,8 +230,11 @@ class LinkPreviewService {
         return meta;
       }
     } catch (e, st) {
-      developer.log('Manual OG parse failed for $normalized: $e',
-          name: 'LinkPreview', stackTrace: st);
+      developer.log(
+        'Manual OG parse failed for $normalized: $e',
+        name: 'LinkPreview',
+        stackTrace: st,
+      );
     }
 
     // Fallback: use domain as title
@@ -276,7 +313,9 @@ class LinkPreviewService {
     try {
       // Convert URL to .json endpoint
       var jsonUrl = url.split('?').first;
-      if (jsonUrl.endsWith('/')) jsonUrl = jsonUrl.substring(0, jsonUrl.length - 1);
+      if (jsonUrl.endsWith('/')) {
+        jsonUrl = jsonUrl.substring(0, jsonUrl.length - 1);
+      }
       jsonUrl = '$jsonUrl.json';
 
       final response = await _safeGet(
@@ -306,8 +345,10 @@ class LinkPreviewService {
           if (preview != null) {
             final images = preview['images'] as List?;
             if (images != null && images.isNotEmpty) {
-              imageUrl = (images[0]['source']?['url'] as String?)
-                  ?.replaceAll('&amp;', '&');
+              imageUrl = (images[0]['source']?['url'] as String?)?.replaceAll(
+                '&amp;',
+                '&',
+              );
             }
           }
           if (imageUrl == null &&
@@ -332,8 +373,10 @@ class LinkPreviewService {
         }
       }
     } catch (e) {
-      developer.log('Reddit metadata fetch failed for $domain: $e',
-          name: 'LinkPreview');
+      developer.log(
+        'Reddit metadata fetch failed for $domain: $e',
+        name: 'LinkPreview',
+      );
     }
     return null;
   }
@@ -376,8 +419,9 @@ class LinkPreviewService {
           ? null
           : json.decode(playerJson) as Map<String, dynamic>?;
       final details = player?['videoDetails'] as Map<String, dynamic>?;
-      final microformat = player?['microformat']?['playerMicroformatRenderer']
-          as Map<String, dynamic>?;
+      final microformat =
+          player?['microformat']?['playerMicroformatRenderer']
+              as Map<String, dynamic>?;
 
       final parsed = _parseOgTags(html, domain);
       final title = _firstNonEmpty([
@@ -397,7 +441,8 @@ class LinkPreviewService {
       ]);
       final imageUrl = _bestYouTubeThumbnail(details) ?? parsed.imageUrl;
 
-      if (title.trim().isEmpty || _isGenericTitle(title.toLowerCase(), domain)) {
+      if (title.trim().isEmpty ||
+          _isGenericTitle(title.toLowerCase(), domain)) {
         return null;
       }
 
@@ -515,31 +560,33 @@ class LinkPreviewService {
             .trim();
 
         final normalizedOEmbed = _normalizeLargeText(tweetText);
-        final resolvedTweetText = (fullTweetFromApi != null &&
-            fullTweetFromApi.trim().isNotEmpty)
-          ? _normalizeLargeText(fullTweetFromApi)
-          : normalizedOEmbed;
+        final resolvedTweetText =
+            (fullTweetFromApi != null && fullTweetFromApi.trim().isNotEmpty)
+            ? _normalizeLargeText(fullTweetFromApi)
+            : normalizedOEmbed;
 
         // Use tweet content as title (more informative than just @author)
         // Format: first ~80 chars of tweet, or "@author" if no text (image-only tweet)
         final shortText = resolvedTweetText.isNotEmpty
-          ? resolvedTweetText
-            .substring(0, resolvedTweetText.length.clamp(0, 80))
-            .trim()
+            ? resolvedTweetText
+                  .substring(0, resolvedTweetText.length.clamp(0, 80))
+                  .trim()
             : '';
         final title = shortText.isNotEmpty
             ? shortText
             : (author != null ? '@$author' : domain);
         // Description: full tweet text with author attribution
         final description = author != null && resolvedTweetText.isNotEmpty
-          ? '@$author: $resolvedTweetText'
-          : resolvedTweetText;
+            ? '@$author: $resolvedTweetText'
+            : resolvedTweetText;
 
         // Extract username from author_url (e.g. "https://twitter.com/username")
         final authorUrl = data['author_url'] as String?;
         String? profileImageUrl;
         if (authorUrl != null) {
-          final usernameMatch = RegExp(r'(?:twitter\.com|x\.com)/([^/?#]+)').firstMatch(authorUrl);
+          final usernameMatch = RegExp(
+            r'(?:twitter\.com|x\.com)/([^/?#]+)',
+          ).firstMatch(authorUrl);
           final username = usernameMatch?.group(1);
           if (username != null && username.isNotEmpty) {
             profileImageUrl = 'https://unavatar.io/twitter/$username';
@@ -563,7 +610,9 @@ class LinkPreviewService {
     final fallbackText = await _fetchFullXPostText(url);
     if (fallbackText != null && fallbackText.trim().isNotEmpty) {
       final normalized = _normalizeLargeText(fallbackText);
-      final shortText = normalized.substring(0, normalized.length.clamp(0, 80)).trim();
+      final shortText = normalized
+          .substring(0, normalized.length.clamp(0, 80))
+          .trim();
       return LinkMetadata(
         title: shortText.isNotEmpty ? shortText : domain,
         description: normalized,
@@ -692,7 +741,10 @@ class LinkPreviewService {
   }
 
   /// Mobile Safari HTML often includes a usable [og:image] where Googlebot pages do not.
-  Future<LinkMetadata?> _fetchInstagramPageMetadata(String url, String domain) async {
+  Future<LinkMetadata?> _fetchInstagramPageMetadata(
+    String url,
+    String domain,
+  ) async {
     try {
       final response = await _safeGet(
         url,
@@ -719,7 +771,8 @@ class LinkPreviewService {
       var meta = _parseOgTags(html, domain);
       meta = _cleanInstagramMetadata(meta, domain);
 
-      final hasImage = meta.imageUrl != null && meta.imageUrl!.trim().isNotEmpty;
+      final hasImage =
+          meta.imageUrl != null && meta.imageUrl!.trim().isNotEmpty;
       if (!hasImage) return null;
 
       final t = meta.title.toLowerCase();
@@ -738,8 +791,10 @@ class LinkPreviewService {
       }
       return meta;
     } catch (e) {
-      developer.log('Instagram page metadata failed for $domain: $e',
-          name: 'LinkPreview');
+      developer.log(
+        'Instagram page metadata failed for $domain: $e',
+        name: 'LinkPreview',
+      );
       return null;
     }
   }
@@ -760,29 +815,31 @@ class LinkPreviewService {
     if (u.startsWith('/')) {
       u = Uri.parse('https://www.instagram.com').resolve(u).toString();
     }
-    u = u.replaceAllMapped(
-      RegExp(r'/s(\d+)x(\d+)/', caseSensitive: false),
-      (m) {
-        final w = int.tryParse(m.group(1) ?? '') ?? 0;
-        final h = int.tryParse(m.group(2) ?? '') ?? 0;
-        if (w > 0 && h > 0 && w < 1080 && h < 1080) {
-          return '/s1080x1080/';
-        }
-        return m.group(0)!;
-      },
-    );
+    u = u.replaceAllMapped(RegExp(r'/s(\d+)x(\d+)/', caseSensitive: false), (
+      m,
+    ) {
+      final w = int.tryParse(m.group(1) ?? '') ?? 0;
+      final h = int.tryParse(m.group(2) ?? '') ?? 0;
+      if (w > 0 && h > 0 && w < 1080 && h < 1080) {
+        return '/s1080x1080/';
+      }
+      return m.group(0)!;
+    });
     return u;
   }
 
   /// Cleans up Instagram OG metadata:
-  /// - strips the quoted caption from titles like "username on Instagram: \"caption\"" 
+  /// - strips the quoted caption from titles like "username on Instagram: \"caption\""
   /// - strips the "N Likes, M Comments - " prefix from description
   LinkMetadata _cleanInstagramMetadata(LinkMetadata meta, String domain) {
     var title = meta.title;
     // Remove the quoted caption portion: "user on Instagram: \"...\"" → "user on Instagram"
     final patterns = [
-      RegExp(r':[ ]*["\u201c].+["\u201d]\s*$', dotAll: true),  // straight or curly quotes
-      RegExp(r":\s*['.+']\s*\$", dotAll: true),               // single quotes
+      RegExp(
+        r':[ ]*["\u201c].+["\u201d]\s*$',
+        dotAll: true,
+      ), // straight or curly quotes
+      RegExp(r":\s*['.+']\s*\$", dotAll: true), // single quotes
     ];
     for (final p in patterns) {
       final cleaned = title.replaceFirst(p, '').trim();
@@ -815,7 +872,6 @@ class LinkPreviewService {
     );
   }
 
-
   /// Parses Open Graph and standard HTML meta-tags from raw [html].
   LinkMetadata _parseOgTags(String html, String domain) {
     String? ogTitle = _extractMeta(html, 'og:title');
@@ -838,7 +894,8 @@ class LinkPreviewService {
 
     // Extract author / creator / site name for better search
     final siteName = _extractMeta(html, 'og:site_name');
-    final author = _extractMetaByName(html, 'author') ??
+    final author =
+        _extractMetaByName(html, 'author') ??
         _extractMeta(html, 'article:author') ??
         _extractMeta(html, 'twitter:creator') ??
         _extractMetaByName(html, 'twitter:creator');
@@ -885,7 +942,9 @@ class LinkPreviewService {
       final match = pattern.firstMatch(html);
       if (match != null) {
         final value = match.group(1)?.trim();
-        if (value != null && value.isNotEmpty) return _decodeHtmlEntities(value);
+        if (value != null && value.isNotEmpty) {
+          return _decodeHtmlEntities(value);
+        }
       }
     }
     return null;
@@ -908,7 +967,9 @@ class LinkPreviewService {
       final match = pattern.firstMatch(html);
       if (match != null) {
         final value = match.group(1)?.trim();
-        if (value != null && value.isNotEmpty) return _decodeHtmlEntities(value);
+        if (value != null && value.isNotEmpty) {
+          return _decodeHtmlEntities(value);
+        }
       }
     }
     return null;

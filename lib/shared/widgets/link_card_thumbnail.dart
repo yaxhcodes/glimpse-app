@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../core/services/saved_media_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import 'category_chip.dart' show faviconUrl, platformColors;
 
@@ -13,13 +15,31 @@ class LinkCardThumbnail {
   LinkCardThumbnail._();
 
   /// Dark mode: lower [d] = stronger desaturation (easier to see). Light: gentler.
-  static ColorFilter readDesaturationFilterForBrightness(Brightness brightness) {
+  static ColorFilter readDesaturationFilterForBrightness(
+    Brightness brightness,
+  ) {
     final d = brightness == Brightness.dark ? 0.35 : 0.45;
     return ColorFilter.matrix(<double>[
-      d, d, d, 0, 0,
-      d, d, d, 0, 0,
-      d, d, d, 0, 0,
-      0, 0, 0, 1, 0,
+      d,
+      d,
+      d,
+      0,
+      0,
+      d,
+      d,
+      d,
+      0,
+      0,
+      d,
+      d,
+      d,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
     ]);
   }
 
@@ -63,8 +83,9 @@ class LinkCardThumbnail {
       return String.fromCharCode(tag.runes.first).toUpperCase();
     }
     try {
-      final host =
-          Uri.parse(url.rawUrl).host.replaceFirst(RegExp(r'^www\.'), '');
+      final host = Uri.parse(
+        url.rawUrl,
+      ).host.replaceFirst(RegExp(r'^www\.'), '');
       if (host.isNotEmpty) {
         return host[0].toUpperCase();
       }
@@ -84,7 +105,8 @@ class LinkCardThumbnail {
     final cs = Theme.of(context).colorScheme;
     final tag = _firstNonNoiseTag(url);
     final label = _placeholderLetter(url, tag);
-    final favicon = faviconUrl(url.category) ??
+    final favicon =
+        faviconUrl(url.category) ??
         faviconUrl(url.domain) ??
         _googleFaviconUrl(url);
     final accent = _sourceAccent(url, cs);
@@ -191,23 +213,17 @@ class LinkCardThumbnail {
     double size = 64,
     double borderRadius = 10,
   }) {
-    final trimmed = url.thumbnailUrl?.trim();
-    final thumbUrl = (trimmed != null && trimmed.isNotEmpty) ? trimmed : null;
+    final thumbUrls = SavedMediaResolver.imageCandidates(url);
 
-    final Widget base = thumbUrl != null
+    final Widget base = thumbUrls.isNotEmpty
         ? ClipRRect(
             borderRadius: BorderRadius.circular(borderRadius),
-            child: CachedNetworkImage(
-              imageUrl: thumbUrl,
+            child: _FallbackCachedThumbnail(
+              imageUrls: thumbUrls,
+              url: url,
               width: size,
               height: size,
-              fit: BoxFit.cover,
-              errorWidget: (_, _, _) => tagLetterPlaceholder(
-                url,
-                context,
-                size: size,
-                borderRadius: borderRadius,
-              ),
+              borderRadius: borderRadius,
             ),
           )
         : tagLetterPlaceholder(
@@ -217,10 +233,63 @@ class LinkCardThumbnail {
             borderRadius: borderRadius,
           );
 
-    return wrapReadState(
-      context: context,
-      isRead: isRead,
-      child: base,
+    return wrapReadState(context: context, isRead: isRead, child: base);
+  }
+}
+
+class _FallbackCachedThumbnail extends StatefulWidget {
+  const _FallbackCachedThumbnail({
+    required this.imageUrls,
+    required this.url,
+    required this.width,
+    required this.height,
+    required this.borderRadius,
+  });
+
+  final List<String> imageUrls;
+  final SavedUrl url;
+  final double width;
+  final double height;
+  final double borderRadius;
+
+  @override
+  State<_FallbackCachedThumbnail> createState() =>
+      _FallbackCachedThumbnailState();
+}
+
+class _FallbackCachedThumbnailState extends State<_FallbackCachedThumbnail> {
+  int _index = 0;
+
+  @override
+  void didUpdateWidget(covariant _FallbackCachedThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.imageUrls, widget.imageUrls)) {
+      _index = 0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = widget.imageUrls[_index];
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      width: widget.width,
+      height: widget.height,
+      fit: BoxFit.cover,
+      httpHeaders: SavedMediaResolver.imageHttpHeaders(imageUrl),
+      errorWidget: (_, _, _) {
+        if (_index + 1 < widget.imageUrls.length) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _index += 1);
+          });
+        }
+        return LinkCardThumbnail.tagLetterPlaceholder(
+          widget.url,
+          context,
+          size: widget.width,
+          borderRadius: widget.borderRadius,
+        );
+      },
     );
   }
 }

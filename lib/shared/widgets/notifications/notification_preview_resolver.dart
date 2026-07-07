@@ -1,11 +1,9 @@
 import '../../../core/models/saved_url.dart';
 import '../../../core/services/domain_categorizer.dart';
+import '../../../core/services/saved_media_resolver.dart';
 
 /// Widescreen (e.g. 16:9) vs square hero (e.g. X profile photos).
-enum NotificationHeroShape {
-  widescreen,
-  square,
-}
+enum NotificationHeroShape { widescreen, square }
 
 /// How to render a curated preview for a [SavedUrl] in notifications.
 class NotificationPreviewSpec {
@@ -24,13 +22,7 @@ class NotificationPreviewSpec {
   final bool showVideoPlayBadge;
 
   static Map<String, String>? instagramCdnHeadersFor(String? imageUrl) {
-    if (imageUrl == null || imageUrl.isEmpty) return null;
-    final l = imageUrl.toLowerCase();
-    if (l.contains('cdninstagram.com') ||
-        l.contains('fbcdn.net')) {
-      return {'Referer': 'https://www.instagram.com/'};
-    }
-    return null;
+    return SavedMediaResolver.imageHttpHeaders(imageUrl);
   }
 
   static NotificationPreviewSpec fromSavedUrl(SavedUrl url) {
@@ -60,7 +52,8 @@ class NotificationPreviewSpec {
           l.contains('pbs.twimg.com/ext_tw_video_thumb');
     }
 
-    final isIgLikelyVideo = host.contains('instagram') &&
+    final isIgLikelyVideo =
+        host.contains('instagram') &&
         (path.contains('/reel') || path.contains('/tv/'));
 
     if (isX) {
@@ -124,7 +117,4 @@ class NotificationPreviewSpec {
   }
 }
 
-enum NotificationVisualMode {
-  networkImage,
-  neutralPlaceholder,
-}
+enum NotificationVisualMode { networkImage, neutralPlaceholder }

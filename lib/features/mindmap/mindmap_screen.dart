@@ -825,7 +825,7 @@ class MindmapScreen extends ConsumerWidget {
           ),
         ),
         data: (themes) {
-          if (themes.isEmpty || themes.length < 3) {
+          if (_displayClustersForThemes(themes).isEmpty) {
             return const _MindmapEmptyState();
           }
 

@@ -9,8 +9,10 @@ import '../../core/providers/service_providers.dart';
 /// reopened. Without it the family cache holds a stale [SavedUrl] instance —
 /// note edits are written to Isar but the cached object keeps the old
 /// `userNotes`, so reopening the page shows the note as "gone" until restart.
-final urlDetailProvider =
-    FutureProvider.autoDispose.family<SavedUrl?, int>((ref, id) async {
+final urlDetailProvider = FutureProvider.autoDispose.family<SavedUrl?, int>((
+  ref,
+  id,
+) async {
   final isarService = ref.watch(isarServiceProvider);
   return isarService.getUrlById(id);
 });
@@ -73,12 +75,17 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
       await isarService.updateUrl(url);
 
       final enricher = _ref.read(enrichmentServiceProvider)();
-      await enricher.enrichMetadata(id);
+      final failedTasks = <String>[];
+      final metadataCompleted = await enricher.enrichMetadata(id);
+      if (!metadataCompleted) {
+        failedTasks.add('metadata_failed');
+      }
       await enricher.enrichSingle(
         id,
         forceAi: true,
         forceEmbedding: true,
         countAiUsage: !hasSavedAiPayload,
+        initialFailures: failedTasks,
       );
       state = const AsyncData(null);
       return true;
@@ -120,7 +127,7 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
         );
       }
       return true;
-    } catch (_, __) {
+    } catch (_) {
       return false;
     }
   }
@@ -147,8 +154,7 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
 
     final meaningfulTags = url.tags
         .map((tag) => tag.trim().toLowerCase())
-        .where((tag) =>
-            tag.isNotEmpty && tag != 'youtube' && tag != 'video')
+        .where((tag) => tag.isNotEmpty && tag != 'youtube' && tag != 'video')
         .toList();
     return meaningfulTags.isEmpty;
   }
@@ -156,5 +162,5 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
 
 final urlDetailNotifierProvider =
     StateNotifierProvider<UrlDetailNotifier, AsyncValue<void>>((ref) {
-  return UrlDetailNotifier(ref);
-});
+      return UrlDetailNotifier(ref);
+    });

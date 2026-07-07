@@ -309,13 +309,18 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         platform: url.category,
         attempt: url.processingAttempt ?? 0,
       );
-      // First enrich metadata, then AI + embedding
-      await enricher.enrichMetadata(url.id);
-      await enricher.enrichSingle(url.id);
+      final failedTasks = <String>[];
+      final metadataCompleted = await enricher.enrichMetadata(url.id);
+      if (!metadataCompleted) {
+        failedTasks.add('metadata_failed');
+      }
+      await enricher.enrichSingle(url.id, initialFailures: failedTasks);
       if (notifyCapture) {
         final enriched = await isarService.getUrlById(url.id);
         if (enriched != null &&
-            enriched.processingStatus == UrlProcessingStatus.ready) {
+            UrlProcessingStatus.isSuccessfulTerminal(
+              enriched.processingStatus,
+            )) {
           await UrlSaveNotifications.showCaptureReady(enriched);
         } else if (enriched != null &&
             enriched.processingStatus == UrlProcessingStatus.failed) {
@@ -325,7 +330,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       developer.log('_findAndEnrich DONE: $normalizedUrl', name: 'AddUrl');
     } catch (e, st) {
       UrlProcessingObserver.logStage(
-        'SAVE_FAILED',
+        'BACKGROUND_ENRICHMENT_FAILED',
         processingId: processingId,
         url: normalizedUrl,
         error: e,

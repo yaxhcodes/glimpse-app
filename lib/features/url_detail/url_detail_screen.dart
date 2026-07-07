@@ -13,6 +13,7 @@ import '../../core/services/category_resolver.dart';
 import '../../core/services/category_taxonomy.dart';
 import '../../core/services/intent_classifier.dart';
 import '../../core/services/recipe_state_service.dart';
+import '../../core/services/saved_media_resolver.dart';
 import '../../core/services/summary_rewriter.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/text_cleaner.dart';
@@ -265,6 +266,9 @@ class _ImageViewerScreenState extends State<_ImageViewerScreen> {
                       child: CachedNetworkImage(
                         imageUrl: imageUrl,
                         fit: BoxFit.contain,
+                        httpHeaders: SavedMediaResolver.imageHttpHeaders(
+                          imageUrl,
+                        ),
                       ),
                     ),
                   ),
@@ -2311,6 +2315,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         child: CachedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.cover,
+                          httpHeaders: SavedMediaResolver.imageHttpHeaders(
+                            imageUrl,
+                          ),
                           errorWidget: (_, _, _) => _buildMediaPlaceholder(
                             url: url,
                             displaySourceName: displaySourceName,
@@ -2431,7 +2438,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       if (seen.add(imageUrl)) out.add(imageUrl);
     }
 
-    add(url.thumbnailUrl);
+    for (final imageUrl in SavedMediaResolver.imageCandidates(url)) {
+      add(imageUrl);
+    }
     for (final imageUrl in live?.imageUrls ?? const <String>[]) {
       add(imageUrl);
     }

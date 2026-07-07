@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
@@ -408,15 +409,21 @@ class UsdaFoodDataCentralDataSource implements NutritionDataSource {
   Future<FoodNutrition?> lookup(String normalizedIngredientName) async {
     if (_apiKey.trim().isEmpty) return null;
     try {
-      final search = await _dio.get<Map<String, dynamic>>(
-        'https://api.nal.usda.gov/fdc/v1/foods/search',
-        queryParameters: {
-          'api_key': _apiKey,
-          'query': normalizedIngredientName,
-          'pageSize': 1,
-          'dataType': ['Foundation', 'SR Legacy', 'Survey (FNDDS)'],
-        },
-      );
+      final search = await _dio
+          .get<Map<String, dynamic>>(
+            'https://api.nal.usda.gov/fdc/v1/foods/search',
+            queryParameters: {
+              'api_key': _apiKey,
+              'query': normalizedIngredientName,
+              'pageSize': 1,
+              'dataType': ['Foundation', 'SR Legacy', 'Survey (FNDDS)'],
+            },
+            options: Options(
+              receiveTimeout: const Duration(seconds: 8),
+              sendTimeout: const Duration(seconds: 8),
+            ),
+          )
+          .timeout(const Duration(seconds: 8));
       final foods = search.data?['foods'];
       if (foods is! List || foods.isEmpty || foods.first is! Map) return null;
 

@@ -45,8 +45,9 @@ class SavedUrl {
   /// Durable lifecycle state for the URL ingestion/enrichment pipeline.
   ///
   /// Older rows may have this null; new saves move through
-  /// PENDING -> QUEUED -> EXTRACTING -> ENRICHING -> GENERATING_EMBEDDINGS
-  /// -> READY, or RETRYING/FAILED when recovery is still in progress/exhausted.
+  /// PENDING -> QUEUED -> PROCESSING -> EXTRACTING -> ENRICHING
+  /// -> GENERATING_EMBEDDINGS -> COMPLETED, or PARTIAL when one or more
+  /// enrichment tasks failed after the bookmark was already saved.
   String? processingStatus;
 
   /// Correlates local save state with backend structured logs.
@@ -155,10 +156,12 @@ class SavedUrl {
 
   @ignore
   bool get isProcessingFailed =>
-      processingStatus == UrlProcessingStatus.failed &&
-      !hasPresentableEnrichment;
+      !hasPresentableEnrichment &&
+      (processingStatus == UrlProcessingStatus.partial ||
+          processingStatus == UrlProcessingStatus.failed);
 
   @ignore
   bool get isProcessingReady =>
-      processingStatus == UrlProcessingStatus.ready || hasPresentableEnrichment;
+      UrlProcessingStatus.isSuccessfulTerminal(processingStatus) ||
+      hasPresentableEnrichment;
 }

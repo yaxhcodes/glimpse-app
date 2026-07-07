@@ -19,6 +19,7 @@ const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v15';
 
 /// How many URLs must change before we force a full rebuild.
 const _clusterRebuildThreshold = 5;
+const _smallLibraryCacheThreshold = 12;
 
 // ─── Isolate row helpers ──────────────────────────────────────────────────────
 
@@ -736,6 +737,16 @@ Future<List<ClusterTheme>?> tryHydrateClustersFromPrefs({
 
   // Cache exists — check if the library has changed significantly.
   final cachedCount = prefs.getInt(kInterestClusterUrlCountKey) ?? 0;
+  if ((cachedCount <= _smallLibraryCacheThreshold ||
+          currentEmbeddedCount <= _smallLibraryCacheThreshold) &&
+      cachedCount != currentEmbeddedCount) {
+    developer.log(
+      'Small library cluster cache stale (cached=$cachedCount, current=$currentEmbeddedCount) — rebuilding.',
+      name: 'Mindmap',
+    );
+    return null;
+  }
+
   if ((currentEmbeddedCount - cachedCount).abs() >= _clusterRebuildThreshold) {
     developer.log(
       'Cluster cache stale (cached=$cachedCount, current=$currentEmbeddedCount) — rebuilding.',
