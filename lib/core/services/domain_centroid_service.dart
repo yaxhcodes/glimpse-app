@@ -10,11 +10,19 @@ class DomainCentroidResult {
     required this.similarity,
     required this.centroidSampleSize,
     required this.isReliable,
+    this.suggestedCategory,
+    this.suggestedSimilarity = 0,
+    this.suggestedSampleSize = 0,
   });
 
   final double similarity;
   final int centroidSampleSize;
   final bool isReliable;
+  final String? suggestedCategory;
+  final double suggestedSimilarity;
+  final int suggestedSampleSize;
+
+  bool get hasCorrectionSuggestion => suggestedCategory != null;
 }
 
 class DomainCentroidService {
@@ -25,6 +33,7 @@ class DomainCentroidService {
   static const minSampleSizeForReliableCentroid = 5;
   static const similarityFloor = 0.5;
   static const highConfidenceFloor = 0.75;
+  static const correctionMargin = 0.08;
 
   final Map<String, List<double>> _centroidCache = {};
   final Map<String, int> _sampleSizeCache = {};
@@ -101,14 +110,7 @@ class DomainCentroidService {
     ).name;
     final centroid = _centroidCache[normalizedCategory];
     final sampleSize = _sampleSizeCache[normalizedCategory] ?? 0;
-    if (centroid == null || saveEmbedding.isEmpty) {
-      return DomainCentroidResult(
-        similarity: 0,
-        centroidSampleSize: sampleSize,
-        isReliable: false,
-      );
-    }
-    if (saveEmbedding.length != centroid.length) {
+    if (saveEmbedding.isEmpty) {
       return DomainCentroidResult(
         similarity: 0,
         centroidSampleSize: sampleSize,
@@ -117,11 +119,51 @@ class DomainCentroidService {
     }
 
     final normalizedSave = _normalize(saveEmbedding);
+    final claimedSimilarity =
+        centroid == null || saveEmbedding.length != centroid.length
+        ? 0.0
+        : _cosineSimilarity(centroid, normalizedSave);
+    final suggested = _bestCorrectionCandidate(
+      normalizedSave,
+      claimedCategory: normalizedCategory,
+      claimedSimilarity: claimedSimilarity,
+    );
+
     return DomainCentroidResult(
-      similarity: _cosineSimilarity(centroid, normalizedSave),
+      similarity: claimedSimilarity,
       centroidSampleSize: sampleSize,
       isReliable: sampleSize >= minSampleSizeForReliableCentroid,
+      suggestedCategory: suggested?.category,
+      suggestedSimilarity: suggested?.similarity ?? 0,
+      suggestedSampleSize: suggested?.sampleSize ?? 0,
     );
+  }
+
+  _CorrectionCandidate? _bestCorrectionCandidate(
+    List<double> normalizedSave, {
+    required String claimedCategory,
+    required double claimedSimilarity,
+  }) {
+    _CorrectionCandidate? best;
+    for (final entry in _centroidCache.entries) {
+      final category = entry.key;
+      if (category == claimedCategory) continue;
+      final sampleSize = _sampleSizeCache[category] ?? 0;
+      if (sampleSize < minSampleSizeForReliableCentroid) continue;
+      final centroid = entry.value;
+      if (centroid.length != normalizedSave.length) continue;
+      final similarity = _cosineSimilarity(centroid, normalizedSave);
+      if (similarity < similarityFloor) continue;
+      if (similarity < claimedSimilarity + correctionMargin) continue;
+      if (best == null || similarity > best.similarity) {
+        best = _CorrectionCandidate(
+          category: category,
+          similarity: similarity,
+          sampleSize: sampleSize,
+        );
+      }
+    }
+    return best;
   }
 
   static double _categoryConfidence(SavedUrl url) {
@@ -157,4 +199,16 @@ class DomainCentroidService {
     }
     return dot;
   }
+}
+
+class _CorrectionCandidate {
+  const _CorrectionCandidate({
+    required this.category,
+    required this.similarity,
+    required this.sampleSize,
+  });
+
+  final String category;
+  final double similarity;
+  final int sampleSize;
 }

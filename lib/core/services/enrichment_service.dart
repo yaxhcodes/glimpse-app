@@ -100,7 +100,17 @@ class EnrichmentService {
     final saveSemaphore = _Semaphore(2);
     final futures = <Future<void>>[];
     for (final id in urlIds) {
-      futures.add(_runWithSemaphore(saveSemaphore, () => enrichSingle(id)));
+      futures.add(() async {
+        try {
+          await _runWithSemaphore(saveSemaphore, () => enrichSingle(id));
+        } catch (e, st) {
+          developer.log(
+            'enrichBatch item failed for $id: $e',
+            name: 'Enrichment',
+            stackTrace: st,
+          );
+        }
+      }());
     }
     await Future.wait(futures, eagerError: false);
 
@@ -118,90 +128,163 @@ class EnrichmentService {
     bool forceAi = false,
     bool forceEmbedding = false,
     bool countAiUsage = true,
+    List<String> initialFailures = const [],
   }) async {
-    try {
-      await _enrichAi(urlId, force: forceAi, countUsage: countAiUsage);
-      _onEnriched?.call();
-    } catch (e, st) {
-      developer.log(
-        'enrichSingle AI phase failed for $urlId: $e',
-        name: 'Enrichment',
-        stackTrace: st,
-      );
-    }
-    final afterAi = await _isarService.getUrlById(urlId);
-    if (afterAi?.processingStatus == UrlProcessingStatus.failed) {
-      developer.log(
-        'enrichSingle STOP: AI phase left save failed for $urlId',
-        name: 'Enrichment',
-      );
-      _onEnriched?.call();
-      return;
-    }
-    if (afterAi != null &&
-        afterAi.processingStatus != UrlProcessingStatus.generatingEmbeddings &&
-        afterAi.processingStatus != UrlProcessingStatus.ready &&
-        TranscriptEnrichmentService.supportsUrl(afterAi.rawUrl)) {
-      developer.log(
-        'enrichSingle SKIP embedding: media save not ready '
-        '(status=${afterAi.processingStatus}) for $urlId',
-        name: 'Enrichment',
-      );
-      _onEnriched?.call();
-      return;
-    }
-    try {
-      await _markProcessing(
-        urlId,
-        UrlProcessingStatus.generatingEmbeddings,
-        error: afterAi?.processingError == 'ai_limit_reached'
-            ? 'ai_limit_reached'
-            : null,
-        stage: 'EMBEDDING_GENERATION_STARTED',
-      );
-      await _enrichEmbedding(urlId, force: forceEmbedding);
-      final afterEmbedding = await _isarService.getUrlById(urlId);
-      final hasPresentableEnrichment =
-          afterEmbedding != null && _hasPresentableEnrichment(afterEmbedding);
-      final hasAiEnrichment =
-          afterEmbedding != null && _hasAiEnrichment(afterEmbedding);
-      final allowedNonAiFallback =
-          afterEmbedding?.processingError == 'ai_limit_reached' &&
-          hasPresentableEnrichment;
-      if (hasAiEnrichment || allowedNonAiFallback) {
-        await _markProcessing(
-          urlId,
-          UrlProcessingStatus.ready,
-          error: allowedNonAiFallback ? 'ai_limit_reached' : null,
-          stage: 'SAVE_COMPLETED',
-        );
-      } else {
-        await _markProcessing(
-          urlId,
-          UrlProcessingStatus.failed,
-          error: 'ai_enrichment_missing',
-          stage: 'SAVE_FAILED',
-        );
-      }
-    } catch (e, st) {
-      developer.log(
-        'enrichSingle embedding phase failed for $urlId: $e',
-        name: 'Enrichment',
-        stackTrace: st,
-      );
-    }
+    final failures = <String>[...initialFailures];
+    await _markProcessing(
+      urlId,
+      UrlProcessingStatus.processing,
+      error: null,
+      stage: 'BACKGROUND_ENRICHMENT_STARTED',
+    );
+
+    final aiFailure = await _enrichAi(
+      urlId,
+      force: forceAi,
+      countUsage: countAiUsage,
+    );
+    if (aiFailure != null) failures.add(aiFailure);
     _onEnriched?.call();
+
+    final afterAi = await _isarService.getUrlById(urlId);
+    if (afterAi == null) return;
+
+    await _markProcessing(
+      urlId,
+      UrlProcessingStatus.generatingEmbeddings,
+      error: null,
+      stage: 'EMBEDDING_GENERATION_STARTED',
+    );
+    final embeddingFailure = await _enrichEmbedding(
+      urlId,
+      force: forceEmbedding,
+    );
+    if (embeddingFailure != null) failures.add(embeddingFailure);
+
+    final afterEmbedding = await _isarService.getUrlById(urlId);
+    if (afterEmbedding == null) return;
+    final hasPresentableEnrichment = _hasPresentableEnrichment(afterEmbedding);
+    final hasAiEnrichment = _hasAiEnrichment(afterEmbedding);
+    final uniqueFailures = _uniqueFailures(failures);
+    final status = uniqueFailures.isEmpty
+        ? UrlProcessingStatus.completed
+        : (hasPresentableEnrichment ||
+              hasAiEnrichment ||
+              afterEmbedding.title.trim().isNotEmpty)
+        ? UrlProcessingStatus.partial
+        : UrlProcessingStatus.failed;
+    await _markProcessing(
+      urlId,
+      status,
+      error: uniqueFailures.isEmpty ? null : uniqueFailures.join(';'),
+      stage: uniqueFailures.isEmpty
+          ? 'SAVE_COMPLETED'
+          : status == UrlProcessingStatus.partial
+          ? 'SAVE_PARTIAL'
+          : 'SAVE_FAILED',
+      fields: {
+        'failed_task_count': uniqueFailures.length,
+        if (uniqueFailures.isNotEmpty) 'failed_tasks': uniqueFailures.join(','),
+      },
+    );
+    developer.log(
+      uniqueFailures.isEmpty
+          ? 'enrichSingle completed for $urlId'
+          : 'enrichSingle finished with ${uniqueFailures.length} failed task(s) for $urlId: ${uniqueFailures.join(', ')}',
+      name: 'Enrichment',
+    );
+    _onEnriched?.call();
+  }
+
+  List<String> _uniqueFailures(List<String> failures) {
+    return failures
+        .expand((item) => item.split(';'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
+  String? _appendFailure(String? existing, String failure) {
+    final values = _uniqueFailures([...?existing?.split(';'), failure]);
+    return values.isEmpty ? null : values.join(';');
+  }
+
+  void _logTaskFailure(
+    String task,
+    int urlId,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    developer.log(
+      '$task failed for $urlId: $error',
+      name: 'Enrichment',
+      stackTrace: stackTrace,
+    );
+  }
+
+  Future<void> _logTaskStage(
+    int urlId,
+    String stage, {
+    required String task,
+    Object? error,
+    Map<String, Object?> fields = const {},
+  }) async {
+    final url = await _isarService.getUrlById(urlId);
+    if (url == null) return;
+    UrlProcessingObserver.logStage(
+      stage,
+      processingId: url.processingId ?? 'url-$urlId',
+      saveId: url.id.toString(),
+      url: url.rawUrl,
+      platform: url.category,
+      attempt: url.processingAttempt,
+      error: error,
+      fields: {'task': task, ...fields},
+    );
+  }
+
+  Future<void> _markTaskFailed(
+    int urlId, {
+    required String task,
+    required String error,
+  }) {
+    return _logTaskStage(
+      urlId,
+      'ENRICHMENT_TASK_FAILED',
+      task: task,
+      error: error,
+      fields: {'error_code': error},
+    );
+  }
+
+  Future<void> _markTaskCompleted(
+    int urlId, {
+    required String task,
+    Map<String, Object?> fields = const {},
+  }) {
+    return _logTaskStage(
+      urlId,
+      'ENRICHMENT_TASK_COMPLETED',
+      task: task,
+      fields: fields,
+    );
   }
 
   /// Enrich metadata for a single URL (fetch title/description/thumbnail).
   /// Used when the URL was saved with only a domain fallback.
-  Future<void> enrichMetadata(int urlId) async {
+  Future<bool> enrichMetadata(int urlId) async {
     if (_linkService == null) {
       developer.log(
         'enrichMetadata SKIP: linkService is null for $urlId',
         name: 'Enrichment',
       );
-      return;
+      await _markTaskFailed(
+        urlId,
+        task: 'metadata',
+        error: 'metadata_service_unavailable',
+      );
+      return false;
     }
     final url = await _isarService.getUrlById(urlId);
     if (url == null) {
@@ -209,7 +292,7 @@ class EnrichmentService {
         'enrichMetadata SKIP: URL $urlId not found in Isar',
         name: 'Enrichment',
       );
-      return;
+      return false;
     }
 
     developer.log('enrichMetadata START: ${url.rawUrl}', name: 'Enrichment');
@@ -292,41 +375,50 @@ class EnrichmentService {
         'enrichMetadata SAVE OK: ${url.rawUrl}',
         name: 'Enrichment',
       );
+      await _markTaskCompleted(
+        urlId,
+        task: 'metadata',
+        fields: {
+          'has_title': metadata.title.trim().isNotEmpty,
+          'has_thumbnail': metadata.imageUrl?.trim().isNotEmpty == true,
+          'has_recipe': metadata.recipe != null,
+        },
+      );
       _onEnriched?.call();
+      return true;
     } catch (e, st) {
       developer.log(
         'enrichMetadata FAILED for $urlId: $e',
         name: 'Enrichment',
         stackTrace: st,
       );
+      await _markTaskFailed(urlId, task: 'metadata', error: 'metadata_failed');
+      return false;
     }
   }
 
   /// Phase 1: AI categorization + summary.
   /// Entire method is wrapped in try/catch so failures never crash
   /// the batch or prevent Phase 2 (embedding) from running.
-  Future<void> _enrichAi(
+  Future<String?> _enrichAi(
     int urlId, {
     bool force = false,
     bool countUsage = true,
   }) async {
     try {
-      await _enrichAiInner(urlId, force: force, countUsage: countUsage);
+      return await _enrichAiInner(urlId, force: force, countUsage: countUsage);
     } catch (e, st) {
-      developer.log(
-        '_enrichAi FAILED for $urlId: $e',
-        name: 'Enrichment',
-        stackTrace: st,
-      );
-      await _markFailedIfStillActiveWithoutEnrichment(
+      _logTaskFailure('summary', urlId, e, st);
+      await _markTaskFailed(
         urlId,
+        task: 'summary',
         error: 'ai_enrichment_failed_unexpected',
-        stage: 'SAVE_FAILED',
       );
+      return 'ai_enrichment_failed_unexpected';
     }
   }
 
-  Future<void> _enrichAiInner(
+  Future<String?> _enrichAiInner(
     int urlId, {
     bool force = false,
     bool countUsage = true,
@@ -337,7 +429,7 @@ class EnrichmentService {
         '_enrichAi SKIP: URL $urlId not found in Isar',
         name: 'Enrichment',
       );
-      return;
+      return 'bookmark_missing';
     }
 
     developer.log('_enrichAi START: ${url.rawUrl}', name: 'Enrichment');
@@ -357,7 +449,7 @@ class EnrichmentService {
         '_enrichAi SKIP (already enriched): ${url.rawUrl}',
         name: 'Enrichment',
       );
-      return;
+      return null;
     }
 
     final aiLimitReached = countUsage
@@ -383,27 +475,26 @@ class EnrichmentService {
     double? categoryConfidence;
     List<String> topics = const [];
     MemoryIntentMetadata? memoryIntent;
+    String? aiFailure;
+    final nestedTaskFailures = <String>[];
 
     final mediaRequiresEvidence = TranscriptEnrichmentService.supportsUrl(
       url.rawUrl,
     );
-    final transcriptResult =
+    final transcriptAttempt =
         !aiLimitReached && _transcriptEnrichmentService != null
         ? await _enrichTranscriptWithRetries(url, forceRefresh: force)
         : null;
+    final transcriptResult = transcriptAttempt?.result;
+    aiFailure = transcriptAttempt?.failureCode;
 
-    // Genuine media-extraction failure (NOT a quota issue): stop here — the
-    // retry helper has already marked this FAILED so the user can retry later.
-    // When the user is simply out of free AI saves we deliberately fall
-    // through to the basic, non-AI save path below: the bookmark is kept and
-    // completes immediately (we allow indefinite non-AI saves), just without
-    // transcript/entity enrichment. The UI surfaces an upgrade prompt.
+    // Media extraction failures are task-level failures. The bookmark still
+    // falls through to the basic metadata/domain path below.
     if (mediaRequiresEvidence && transcriptResult == null && !aiLimitReached) {
       developer.log(
-        '_enrichAi STOP: media evidence unavailable for ${url.rawUrl}',
+        '_enrichAi FALLBACK: media evidence unavailable for ${url.rawUrl}',
         name: 'Enrichment',
       );
-      return;
     }
 
     if (transcriptResult != null) {
@@ -422,9 +513,11 @@ class EnrichmentService {
       if (recipeForEnhancement != null) {
         final enhancedRecipe = await _enhanceRecipeIfNeeded(
           recipeForEnhancement,
+          urlId: urlId,
           url: url.rawUrl,
           aiLimitReached: aiLimitReached,
           countUsage: false,
+          onTaskFailure: nestedTaskFailures.add,
         );
         final recipeTags = TagNoiseFilter.filterTags([
           ...transcriptResult.tags,
@@ -489,9 +582,11 @@ class EnrichmentService {
     } else if (savedRecipe != null && !mediaRequiresEvidence) {
       final enhancedRecipe = await _enhanceRecipeIfNeeded(
         savedRecipe,
+        urlId: urlId,
         url: url.rawUrl,
         aiLimitReached: aiLimitReached,
         countUsage: countUsage,
+        onTaskFailure: nestedTaskFailures.add,
       );
       final normalized = CategoryTaxonomy.normalize(
         category: 'Food & Cooking',
@@ -559,44 +654,45 @@ class EnrichmentService {
         memoryIntent = result.memoryIntent;
         summary = result.summary.trim();
         if (!_isValidAiSummary(summary) || tags.isEmpty) {
-          await _markProcessing(
+          aiFailure = 'gemini_returned_low_quality_result';
+          await _markTaskFailed(
             urlId,
-            UrlProcessingStatus.failed,
+            task: 'summary',
             error: 'gemini_returned_low_quality_result',
-            stage: 'SAVE_FAILED',
           );
-          return;
+          category = platformCat.category;
+          emoji = platformCat.emoji;
+          tags = _metadataFallbackTags(url, platformCat.tags);
+          summary = _metadataFallbackSummary(url);
         }
-        if (countUsage) {
+        if (aiFailure == null && countUsage) {
           await _usageService.incrementUsage(UsageFeature.aiSave);
         }
       } catch (e, st) {
-        developer.log(
-          '_enrichAi Gemini FAILED for $urlId: $e',
-          name: 'Enrichment',
-          stackTrace: st,
-        );
-        await _markProcessing(
+        aiFailure = 'gemini_enrichment_failed';
+        _logTaskFailure('summary', urlId, e, st);
+        await _markTaskFailed(
           urlId,
-          UrlProcessingStatus.failed,
+          task: 'summary',
           error: 'gemini_enrichment_failed',
-          stage: 'SAVE_FAILED',
         );
-        return;
+        category = platformCat.category;
+        emoji = platformCat.emoji;
+        tags = _metadataFallbackTags(url, platformCat.tags);
+        summary = _metadataFallbackSummary(url);
       }
     } else {
       if (_geminiService == null && !aiLimitReached && !mediaRequiresEvidence) {
         developer.log(
-          '_enrichAi FAILED: GeminiService is null for eligible save',
+          '_enrichAi FALLBACK: GeminiService is null for eligible save',
           name: 'Enrichment',
         );
-        await _markProcessing(
+        aiFailure = 'gemini_unavailable';
+        await _markTaskFailed(
           urlId,
-          UrlProcessingStatus.failed,
+          task: 'summary',
           error: 'gemini_unavailable',
-          stage: 'SAVE_FAILED',
         );
-        return;
       }
       if (_geminiService == null) {
         developer.log(
@@ -626,7 +722,7 @@ class EnrichmentService {
         '_enrichAi SKIP: URL $urlId disappeared before save',
         name: 'Enrichment',
       );
-      return;
+      return 'bookmark_missing';
     }
 
     freshUrl.category = category;
@@ -692,6 +788,9 @@ class EnrichmentService {
     if (enrichmentJson != null && enrichmentJson.isNotEmpty) {
       freshUrl.enrichmentJson = enrichmentJson;
     }
+    for (final failure in nestedTaskFailures) {
+      aiFailure = _appendFailure(aiFailure, failure);
+    }
     await _applyCategoryCentroidValidationIfPossible(
       freshUrl,
       stage: 'AI_ENRICHMENT_CATEGORY_VALIDATED',
@@ -699,23 +798,23 @@ class EnrichmentService {
     freshUrl.processingError = null;
 
     await _isarService.updateUrl(freshUrl);
-    await _markProcessing(
+    await _markTaskCompleted(
       freshUrl.id,
-      UrlProcessingStatus.generatingEmbeddings,
-      error: aiLimitReached ? 'ai_limit_reached' : null,
-      stage: 'RECOMMENDATION_COMPLETED',
+      task: 'summary',
       fields: {
         'tag_count': enrichedTags.length,
         'has_recipe': enrichmentJson?.contains('"recipe"') == true,
+        if (aiLimitReached) 'skipped_reason': 'ai_limit_reached',
       },
     );
     developer.log(
       '_enrichAi SAVE OK: ${freshUrl.rawUrl} → $category',
       name: 'Enrichment',
     );
+    return aiFailure;
   }
 
-  Future<TranscriptEnrichmentResult?> _enrichTranscriptWithRetries(
+  Future<_TranscriptEnrichmentAttempt> _enrichTranscriptWithRetries(
     SavedUrl url, {
     required bool forceRefresh,
   }) async {
@@ -777,7 +876,17 @@ class EnrichmentService {
               'mention_count': result.mentions.length,
             },
           );
-          return result;
+          await _markTaskCompleted(
+            url.id,
+            task: 'transcript',
+            fields: {
+              'transcript_length': result.transcript?.length ?? 0,
+              'ocr_length': result.ocrText?.length ?? 0,
+              'image_count': result.imageUrls.length,
+              'mention_count': result.mentions.length,
+            },
+          );
+          return _TranscriptEnrichmentAttempt(result: result);
         }
         lastError = const TranscriptEnrichmentException(
           'low_quality_transcript_result',
@@ -788,14 +897,16 @@ class EnrichmentService {
       }
     }
 
+    final failureCode = lastError?.message ?? 'transcript_extraction_failed';
     await _markProcessing(
       url.id,
-      UrlProcessingStatus.failed,
+      UrlProcessingStatus.enriching,
       attempt: _mediaRetryDelays.length,
-      error: lastError?.message ?? 'transcript_extraction_failed',
+      error: failureCode,
       stage: 'TRANSCRIPT_VALIDATION_FAILED',
     );
-    return null;
+    await _markTaskFailed(url.id, task: 'transcript', error: failureCode);
+    return _TranscriptEnrichmentAttempt(failureCode: failureCode);
   }
 
   Future<void> _markProcessing(
@@ -825,23 +936,6 @@ class EnrichmentService {
       fields: {'status': status, ...fields},
     );
     _onEnriched?.call();
-  }
-
-  Future<void> _markFailedIfStillActiveWithoutEnrichment(
-    int urlId, {
-    required String error,
-    required String stage,
-  }) async {
-    final url = await _isarService.getUrlById(urlId);
-    if (url == null) return;
-    if (!UrlProcessingStatus.isActive(url.processingStatus)) return;
-    if (url.hasPresentableEnrichment) return;
-    await _markProcessing(
-      urlId,
-      UrlProcessingStatus.failed,
-      error: error,
-      stage: stage,
-    );
   }
 
   List<String> _metadataFallbackTags(SavedUrl url, List<String> baseTags) {
@@ -889,9 +983,11 @@ class EnrichmentService {
 
   Future<EnrichedRecipe> _enhanceRecipeIfNeeded(
     EnrichedRecipe recipe, {
+    required int urlId,
     required String url,
     required bool aiLimitReached,
     required bool countUsage,
+    required void Function(String failure) onTaskFailure,
   }) async {
     if (!_recipeNeedsEnhancement(recipe) ||
         _geminiService == null ||
@@ -899,9 +995,11 @@ class EnrichmentService {
       if (recipe.nutrition != null || _recipeNutritionService == null) {
         return recipe;
       }
-      final calculatedNutrition = await _recipeNutritionService.calculate(
-        recipe: recipe,
+      final calculatedNutrition = await _calculateRecipeNutrition(
+        recipe,
+        urlId: urlId,
         estimatedServings: null,
+        onTaskFailure: onTaskFailure,
       );
       return recipe.copyWith(
         nutrition: calculatedNutrition,
@@ -936,9 +1034,11 @@ class EnrichmentService {
       );
       final calculatedNutrition =
           recipe.nutrition ??
-          await _recipeNutritionService?.calculate(
-            recipe: recipeWithStructuredIngredients,
+          await _calculateRecipeNutrition(
+            recipeWithStructuredIngredients,
+            urlId: urlId,
             estimatedServings: enhancement.servings,
+            onTaskFailure: onTaskFailure,
           );
       developer.log(
         '_enrichAi recipe enhancement result: '
@@ -970,7 +1070,38 @@ class EnrichmentService {
         name: 'Enrichment',
         stackTrace: st,
       );
+      onTaskFailure('recipe_failed');
+      await _markTaskFailed(urlId, task: 'recipe', error: 'recipe_failed');
       return recipe;
+    }
+  }
+
+  Future<RecipeNutrition?> _calculateRecipeNutrition(
+    EnrichedRecipe recipe, {
+    required int urlId,
+    required int? estimatedServings,
+    required void Function(String failure) onTaskFailure,
+  }) async {
+    final service = _recipeNutritionService;
+    if (service == null) return null;
+    try {
+      return await service.calculate(
+        recipe: recipe,
+        estimatedServings: estimatedServings,
+      );
+    } catch (e, st) {
+      developer.log(
+        '_enrichAi recipe nutrition failed: $e',
+        name: 'Enrichment',
+        stackTrace: st,
+      );
+      onTaskFailure('nutrition_failed');
+      await _markTaskFailed(
+        urlId,
+        task: 'nutrition',
+        error: 'nutrition_failed',
+      );
+      return null;
     }
   }
 
@@ -1086,25 +1217,27 @@ class EnrichmentService {
 
   /// Phase 2: Generate embedding vector.
   /// Entire method is wrapped in try/catch so failures never crash the batch.
-  Future<void> _enrichEmbedding(int urlId, {bool force = false}) async {
+  Future<String?> _enrichEmbedding(int urlId, {bool force = false}) async {
     try {
-      await _enrichEmbeddingInner(urlId, force: force);
+      return await _enrichEmbeddingInner(urlId, force: force);
     } catch (e, st) {
-      developer.log(
-        '_enrichEmbedding FAILED for $urlId: $e',
-        name: 'Enrichment',
-        stackTrace: st,
+      _logTaskFailure('embedding', urlId, e, st);
+      await _markTaskFailed(
+        urlId,
+        task: 'embedding',
+        error: 'embedding_failed_unexpected',
       );
+      return 'embedding_failed_unexpected';
     }
   }
 
-  Future<void> _enrichEmbeddingInner(int urlId, {bool force = false}) async {
+  Future<String?> _enrichEmbeddingInner(int urlId, {bool force = false}) async {
     if (_embeddingService == null) {
       developer.log(
         '_enrichEmbedding SKIP: EmbeddingService is null for $urlId',
         name: 'Enrichment',
       );
-      return;
+      return null;
     }
 
     final url = await _isarService.getUrlById(urlId);
@@ -1113,7 +1246,7 @@ class EnrichmentService {
         '_enrichEmbedding SKIP: URL $urlId not found in Isar',
         name: 'Enrichment',
       );
-      return;
+      return 'bookmark_missing';
     }
 
     // Skip if already embedded
@@ -1122,7 +1255,7 @@ class EnrichmentService {
         '_enrichEmbedding SKIP (already embedded): ${url.rawUrl}',
         name: 'Enrichment',
       );
-      return;
+      return null;
     }
 
     developer.log('_enrichEmbedding START: ${url.rawUrl}', name: 'Enrichment');
@@ -1146,7 +1279,12 @@ class EnrichmentService {
           '_enrichEmbedding EMPTY vector returned for ${url.rawUrl}',
           name: 'Enrichment',
         );
-        return;
+        await _markTaskFailed(
+          urlId,
+          task: 'embedding',
+          error: 'embedding_empty_vector',
+        );
+        return 'embedding_empty_vector';
       }
 
       // Reload in case AI enrichment modified it concurrently
@@ -1156,7 +1294,7 @@ class EnrichmentService {
           '_enrichEmbedding SKIP: URL $urlId disappeared before save',
           name: 'Enrichment',
         );
-        return;
+        return 'bookmark_missing';
       }
 
       freshUrl.embedding = vec;
@@ -1165,16 +1303,24 @@ class EnrichmentService {
         stage: 'EMBEDDING_CATEGORY_VALIDATED',
       );
       await _isarService.updateUrl(freshUrl);
+      await _markTaskCompleted(
+        freshUrl.id,
+        task: 'embedding',
+        fields: {'dimensions': vec.length},
+      );
       developer.log(
         '_enrichEmbedding SAVE OK: ${freshUrl.rawUrl} (${vec.length} dims)',
         name: 'Enrichment',
       );
+      return null;
     } on EmbeddingException catch (e, st) {
-      developer.log(
-        '_enrichEmbedding EmbeddingException for $urlId: $e',
-        name: 'Enrichment',
-        stackTrace: st,
+      _logTaskFailure('embedding', urlId, e, st);
+      await _markTaskFailed(
+        urlId,
+        task: 'embedding',
+        error: 'embedding_failed',
       );
+      return 'embedding_failed';
     }
   }
 
@@ -1188,20 +1334,56 @@ class EnrichmentService {
       category: url.category,
       tags: url.tags,
     ).name;
-    if (claimedCategory == 'Other') return;
 
     final validation = await _domainCentroidService.validate(
       claimedCategory: claimedCategory,
       saveEmbedding: embedding,
     );
-    if (!validation.isReliable) return;
+    if (!validation.isReliable && !validation.hasCorrectionSuggestion) return;
 
     final fields = {
       'claimed_category': claimedCategory,
       'centroid_similarity': validation.similarity,
       'centroid_sample_size': validation.centroidSampleSize,
       'similarity_floor': DomainCentroidService.similarityFloor,
+      'correction_margin': DomainCentroidService.correctionMargin,
+      if (validation.suggestedCategory != null)
+        'suggested_category': validation.suggestedCategory,
+      if (validation.suggestedCategory != null)
+        'suggested_similarity': validation.suggestedSimilarity,
+      if (validation.suggestedCategory != null)
+        'suggested_sample_size': validation.suggestedSampleSize,
     };
+    if (validation.suggestedCategory != null) {
+      final originalCategory = url.category;
+      final corrected = CategoryTaxonomy.byName(validation.suggestedCategory!);
+      url
+        ..category = corrected.name
+        ..categoryEmoji = corrected.emoji
+        ..categories = CategoryResolver.buildCategories(
+          primaryCategory: corrected.name,
+          platformCategory: DomainCategorizer.categorize(url.rawUrl).category,
+        )
+        ..enrichmentJson = _markCategoryCentroidDecision(
+          url.enrichmentJson,
+          originalCategory: originalCategory,
+          finalCategory: corrected.name,
+          validation: validation,
+          needsReview: false,
+        );
+
+      UrlProcessingObserver.logStage(
+        'CATEGORY_CENTROID_CORRECTED',
+        processingId: url.processingId ?? 'url-${url.id}',
+        saveId: url.id.toString(),
+        url: url.rawUrl,
+        platform: originalCategory,
+        attempt: url.processingAttempt,
+        fields: fields,
+      );
+      return;
+    }
+
     if (validation.similarity >= DomainCentroidService.similarityFloor) {
       UrlProcessingObserver.logStage(
         stage,
@@ -1224,10 +1406,12 @@ class EnrichmentService {
         primaryCategory: other.name,
         platformCategory: DomainCategorizer.categorize(url.rawUrl).category,
       )
-      ..enrichmentJson = _markCategoryNeedsReview(
+      ..enrichmentJson = _markCategoryCentroidDecision(
         url.enrichmentJson,
         originalCategory: originalCategory,
+        finalCategory: other.name,
         validation: validation,
+        needsReview: true,
       );
 
     UrlProcessingObserver.logStage(
@@ -1241,10 +1425,12 @@ class EnrichmentService {
     );
   }
 
-  String _markCategoryNeedsReview(
+  String _markCategoryCentroidDecision(
     String? rawJson, {
     required String originalCategory,
+    required String finalCategory,
     required DomainCentroidResult validation,
+    required bool needsReview,
   }) {
     final data = <String, dynamic>{};
     if (rawJson != null && rawJson.trim().isNotEmpty) {
@@ -1258,14 +1444,21 @@ class EnrichmentService {
       }
     }
     data
-      ..['category'] = 'Other'
-      ..['category_needs_review'] = true
+      ..['category'] = finalCategory
+      ..['category_needs_review'] = needsReview
       ..['original_gemini_category'] = originalCategory
       ..['category_validation'] = {
         'method': 'embedding_centroid',
         'similarity': validation.similarity,
         'centroid_sample_size': validation.centroidSampleSize,
         'similarity_floor': DomainCentroidService.similarityFloor,
+        'correction_margin': DomainCentroidService.correctionMargin,
+        if (validation.suggestedCategory != null)
+          'suggested_category': validation.suggestedCategory,
+        if (validation.suggestedCategory != null)
+          'suggested_similarity': validation.suggestedSimilarity,
+        if (validation.suggestedCategory != null)
+          'suggested_sample_size': validation.suggestedSampleSize,
       };
     return jsonEncode(data);
   }
@@ -1281,6 +1474,13 @@ class EnrichmentService {
       sem.release();
     }
   }
+}
+
+class _TranscriptEnrichmentAttempt {
+  const _TranscriptEnrichmentAttempt({this.result, this.failureCode});
+
+  final TranscriptEnrichmentResult? result;
+  final String? failureCode;
 }
 
 /// Simple counting semaphore for concurrency control.

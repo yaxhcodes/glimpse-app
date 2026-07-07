@@ -370,6 +370,9 @@ Important rules:
 - If the description is unavailable or too thin, make the summary conservative: say it is a saved item with the provided title and summarize only what the title/platform safely imply.
 - Never invent specifics such as people, locations, stunts, tools, claims, or plot details unless they appear in the title or description.
 - If your only justification for a category would be a specific word or idiom rather than the substance of the summary/key_points, that category is wrong.
+- Classify by subject matter, not explanatory tone. A post that explains a philosophical, spiritual, metaphysical, or religious idea is Philosophy, not Education, unless the save is mainly about study methods, courses, school, language learning, or skill acquisition.
+- Brahman, Advaita, Vedanta, non-duality, dharma, scripture, free will, consciousness, existentialism, and similar questions about reality or meaning belong in Philosophy even when the format feels educational.
+- Sports requires actual sport, teams, athletes, matches, tournaments, training, or sports analysis; do not use Sports for generic competition metaphors.
 - Put nuance and cross-domain flavor in topics and tags, not by forcing a second category.
 - Do not classify metaphorical words like "recipe", "formula", "diet", "dinner", "marathon", "battle", or "hike" as Food, Health, or Travel unless literal subject-matter evidence is present.
 - Food requires actual cooking, dishes, ingredients, restaurants, meals, nutrition, or cuisine. A dinner debate, food for thought, recipe for success, or digital diet is not Food.

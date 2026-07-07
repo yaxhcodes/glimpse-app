@@ -75,6 +75,26 @@ class CategoryTaxonomy {
     'reference': 'Education',
     'books & literature': 'Education',
     'documentation': 'Education',
+    'spirituality': 'Philosophy',
+    'religion': 'Philosophy',
+    'vedanta': 'Philosophy',
+    'advaita': 'Philosophy',
+    'advaita vedanta': 'Philosophy',
+    'non-duality': 'Philosophy',
+    'non duality': 'Philosophy',
+    'non-dualism': 'Philosophy',
+    'non dualism': 'Philosophy',
+    'brahman': 'Philosophy',
+    'dharma': 'Philosophy',
+    'scripture': 'Philosophy',
+    'sports': 'Sports',
+    'cricket': 'Sports',
+    'football': 'Sports',
+    'basketball': 'Sports',
+    'soccer': 'Sports',
+    'tennis': 'Sports',
+    'running': 'Sports',
+    'athletics': 'Sports',
   };
 
   static String promptOptions() {
@@ -187,478 +207,29 @@ class CategoryTaxonomy {
       'shopping': 'Shopping',
       'cars': 'Vehicles',
       'vehicles': 'Vehicles',
+      'sports': 'Sports',
+      'sport': 'Sports',
+      'cricket': 'Sports',
+      'football': 'Sports',
+      'soccer': 'Sports',
+      'basketball': 'Sports',
+      'tennis': 'Sports',
+      'athletics': 'Sports',
+      'match': 'Sports',
+      'tournament': 'Sports',
+      'advaita': 'Spirituality & Philosophy',
+      'vedanta': 'Spirituality & Philosophy',
+      'advaita vedanta': 'Spirituality & Philosophy',
+      'non-duality': 'Spirituality & Philosophy',
+      'non duality': 'Spirituality & Philosophy',
+      'non-dualism': 'Spirituality & Philosophy',
+      'non dualism': 'Spirituality & Philosophy',
+      'brahman': 'Spirituality & Philosophy',
+      'consciousness': 'Spirituality & Philosophy',
     };
 
     if (synonymMap.containsKey(normalizedInput)) {
       return byName(synonymMap[normalizedInput]!);
-    }
-
-    final searchable = [
-      normalizedInput,
-      ...tags.map((tag) => tag.toLowerCase()),
-    ].join(' ');
-
-    if (_containsAny(searchable, [
-      'ai',
-      'artificial intelligence',
-      'machine learning',
-      'llm',
-      'genai',
-      'agentic',
-    ])) {
-      return byName('AI & ML');
-    }
-    if (_containsAny(searchable, [
-      'react',
-      'flutter',
-      'dart',
-      'javascript',
-      'typescript',
-      'webdev',
-      'software',
-      'code',
-      'api',
-      'backend',
-      'frontend',
-    ])) {
-      return byName('Software Development');
-    }
-    if (_containsAny(searchable, [
-      'gadget',
-      'phone',
-      'laptop',
-      'camera',
-      'headphones',
-      'hardware',
-      'device',
-      'android',
-      'iphone',
-    ])) {
-      return byName('Gadgets & Hardware');
-    }
-    if (_containsAny(searchable, [
-      'app',
-      'tool',
-      'extension',
-      'plugin',
-      'workflow app',
-      'saas tool',
-    ])) {
-      return byName('Apps & Tools');
-    }
-    if (_containsAny(searchable, [
-      'cybersecurity',
-      'security',
-      'privacy',
-      'breach',
-      'malware',
-      'phishing',
-      'vulnerability',
-    ])) {
-      return byName('Cybersecurity');
-    }
-    if (_containsAny(searchable, [
-      'data',
-      'analytics',
-      'dashboard',
-      'sql',
-      'database',
-      'visualization',
-      'metrics',
-    ])) {
-      return byName('Data & Analytics');
-    }
-    if (_containsAny(searchable, [
-      'budget',
-      'saving money',
-      'personal finance',
-      'bank',
-      'credit card',
-      'tax',
-    ])) {
-      return byName('Personal Finance');
-    }
-    if (_containsAny(searchable, [
-      'invest',
-      'stock',
-      'portfolio',
-      'market',
-      'etf',
-    ])) {
-      return byName('Investing');
-    }
-    if (_containsAny(searchable, [
-      'crypto',
-      'bitcoin',
-      'ethereum',
-      'web3',
-      'defi',
-    ])) {
-      return byName('Crypto');
-    }
-    if (_containsAny(searchable, [
-      'garden',
-      'plants',
-      'balcony',
-      'compost',
-      'tomato',
-    ])) {
-      return byName('Home & Garden');
-    }
-    if (_containsAny(searchable, [
-      'architecture',
-      'architectural',
-      'temple',
-      'monument',
-      'heritage site',
-      'ancient indian architecture',
-      'structure',
-    ])) {
-      return byName('Architecture');
-    }
-    if (_containsAny(searchable, [
-      'history',
-      'ancient',
-      'culture',
-      'cultural',
-      'heritage',
-      'civilization',
-      'mythology',
-      'mahabharata',
-      'ramayana',
-    ])) {
-      return byName('History & Culture');
-    }
-    if (_containsAny(searchable, [
-      'spiritual',
-      'spirituality',
-      'philosophy',
-      'bhagavad gita',
-      'gita',
-      'krishna',
-      'arjuna',
-      'dharma',
-      'vedic',
-      'hindu',
-      'buddhist',
-      'meditation',
-      'wisdom',
-    ])) {
-      return byName('Spirituality & Philosophy');
-    }
-    if (_containsAny(searchable, [
-      'relationship',
-      'dating',
-      'marriage',
-      'friendship',
-      'communication',
-    ])) {
-      return byName('Relationships');
-    }
-    if (_containsAny(searchable, [
-      'career',
-      'job',
-      'interview',
-      'resume',
-      'workplace',
-      'promotion',
-    ])) {
-      return byName('Career');
-    }
-    if (_containsAny(searchable, [
-      'productivity',
-      'habit',
-      'workflow',
-      'focus',
-      'time management',
-    ])) {
-      return byName('Productivity');
-    }
-    if (_containsAny(searchable, [
-      'climate',
-      'environment',
-      'wildlife',
-      'nature',
-      'sustainability',
-    ])) {
-      return byName('Nature & Environment');
-    }
-    if (_containsAny(searchable, [
-      'parenting',
-      'family',
-      'kids',
-      'children',
-      'childcare',
-    ])) {
-      return byName('Parenting & Family');
-    }
-    if (_containsAny(searchable, [
-      'startup',
-      'founder',
-      'fundraising',
-      'venture capital',
-      'pitch deck',
-    ])) {
-      return byName('Startups');
-    }
-    if (_containsAny(searchable, [
-      'marketing',
-      'growth',
-      'seo',
-      'copywriting',
-      'brand strategy',
-      'sales funnel',
-    ])) {
-      return byName('Marketing & Growth');
-    }
-    if (_containsAny(searchable, [
-      'creator',
-      'youtube growth',
-      'newsletter',
-      'audience',
-      'monetization',
-    ])) {
-      return byName('Creator Economy');
-    }
-    if (_containsAny(searchable, [
-      'space',
-      'astronomy',
-      'nasa',
-      'planet',
-      'galaxy',
-      'telescope',
-    ])) {
-      return byName('Space & Astronomy');
-    }
-    if (_containsAny(searchable, [
-      'biology',
-      'medicine',
-      'medical',
-      'disease',
-      'genetics',
-      'neuroscience',
-    ])) {
-      return byName('Biology & Medicine');
-    }
-    if (_containsAny(searchable, [
-      'fitness',
-      'workout',
-      'strength',
-      'running',
-      'exercise',
-      'mobility',
-    ])) {
-      return byName('Fitness');
-    }
-    if (_containsAny(searchable, [
-      'nutrition',
-      'diet',
-      'protein',
-      'calorie',
-      'vitamin',
-      'supplement',
-    ])) {
-      return byName('Nutrition');
-    }
-    if (_containsAny(searchable, [
-      'mental health',
-      'psychology',
-      'therapy',
-      'anxiety',
-      'stress',
-      'mindfulness',
-    ])) {
-      return byName('Mental Health');
-    }
-    if (_containsAny(searchable, [
-      'language',
-      'english',
-      'spanish',
-      'japanese',
-      'vocabulary',
-      'grammar',
-    ])) {
-      return byName('Language Learning');
-    }
-    if (_containsAny(searchable, [
-      'math',
-      'algebra',
-      'calculus',
-      'geometry',
-      'statistics',
-    ])) {
-      return byName('Math');
-    }
-    if (_containsAny(searchable, [
-      'world affairs',
-      'geopolitics',
-      'international relations',
-      'foreign policy',
-    ])) {
-      return byName('World Affairs');
-    }
-    if (_containsAny(searchable, [
-      'law',
-      'policy',
-      'legal',
-      'regulation',
-      'government',
-    ])) {
-      return byName('Law & Policy');
-    }
-    if (_containsAny(searchable, [
-      'art',
-      'illustration',
-      'drawing',
-      'painting',
-      'artist',
-    ])) {
-      return byName('Art & Illustration');
-    }
-    if (_containsAny(searchable, [
-      'photo',
-      'photography',
-      'camera',
-      'lightroom',
-      'portrait',
-    ])) {
-      return byName('Photography');
-    }
-    if (_containsAny(searchable, [
-      'diy',
-      'make',
-      'maker',
-      'woodworking',
-      'repair',
-      'craft',
-    ])) {
-      return byName('DIY & Making');
-    }
-    if (_containsAny(searchable, [
-      'restaurant',
-      'cafe',
-      'coffee shop',
-      'places to eat',
-      'dining',
-    ])) {
-      return byName('Restaurants & Cafes');
-    }
-    if (_containsAny(searchable, [
-      'hike',
-      'hiking',
-      'trek',
-      'camping',
-      'trail',
-      'outdoors',
-    ])) {
-      return byName('Outdoors & Adventure');
-    }
-    if (_containsAny(searchable, [
-      'movie',
-      'film',
-      'cinema',
-      'tv show',
-      'series',
-      'anime',
-    ])) {
-      return byName('Movies & TV');
-    }
-    if (_containsAny(searchable, [
-      'music',
-      'song',
-      'album',
-      'playlist',
-      'artist',
-      'concert',
-    ])) {
-      return byName('Music');
-    }
-    if (_containsAny(searchable, [
-      'gaming',
-      'game',
-      'videogame',
-      'steam',
-      'playstation',
-      'xbox',
-    ])) {
-      return byName('Gaming');
-    }
-    if (_containsAny(searchable, [
-      'fashion',
-      'style',
-      'outfit',
-      'skincare',
-      'beauty',
-      'makeup',
-    ])) {
-      return byName('Fashion & Beauty');
-    }
-    if (_containsAny(searchable, [
-      'car',
-      'bike',
-      'vehicle',
-      'ev',
-      'motorcycle',
-      'automotive',
-    ])) {
-      return byName('Vehicles');
-    }
-    if (_containsAny(searchable, [
-      'book',
-      'novel',
-      'author',
-      'literature',
-      'poetry',
-    ])) {
-      return byName('Books & Literature');
-    }
-    if (_containsAny(searchable, [
-      'documentation',
-      'docs',
-      'manual',
-      'reference guide',
-      'api reference',
-    ])) {
-      return byName('Documentation');
-    }
-    if (_hasFoodCookingSignal(searchable)) {
-      return byName('Food & Cooking');
-    }
-    if (_containsAny(searchable, [
-      'design',
-      'figma',
-      'brand',
-      'typography',
-      'ux',
-      'ui',
-    ])) {
-      return byName('Design');
-    }
-    if (_containsAny(searchable, [
-      'health',
-      'fitness',
-      'nutrition',
-      'sleep',
-      'medicine',
-      'protein',
-      'plant-based',
-      'vegan',
-      'calcium',
-      'healthy',
-    ])) {
-      return byName('Health');
-    }
-    if (_containsAny(searchable, [
-      'learn',
-      'study',
-      'course',
-      'lesson',
-      'tutorial',
-    ])) {
-      return byName('Education');
-    }
-    if (_containsAny(searchable, ['news', 'election', 'policy', 'breaking'])) {
-      return byName('News');
     }
 
     if (emoji != null && emoji.isNotEmpty) {
@@ -1642,12 +1213,5 @@ class CategoryTaxonomy {
       }
     }
     return null;
-  }
-
-  static bool _containsAny(String text, List<String> needles) {
-    for (final needle in needles) {
-      if (text.contains(needle)) return true;
-    }
-    return false;
   }
 }

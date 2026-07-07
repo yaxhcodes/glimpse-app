@@ -50,12 +50,47 @@ void main() {
 
     expect(food.isReliable, isTrue);
     expect(food.similarity, lessThan(DomainCentroidService.similarityFloor));
+    expect(food.suggestedCategory, 'Philosophy');
+    expect(food.suggestedSimilarity, philosophy.similarity);
     expect(philosophy.isReliable, isTrue);
     expect(
       philosophy.similarity,
       greaterThan(DomainCentroidService.similarityFloor),
     );
   });
+
+  test(
+    'suggests stronger category even when claimed category is plausible',
+    () {
+      final service = DomainCentroidService(null);
+      service.rebuildCentroidsFromUrls([
+        for (var i = 0; i < 5; i += 1)
+          url(id: i, category: 'Education', embedding: [0.72, 0.18 + 0.01 * i]),
+        for (var i = 0; i < 5; i += 1)
+          url(
+            id: 10 + i,
+            category: 'Philosophy',
+            embedding: [0.18, 0.72 + 0.01 * i],
+          ),
+      ]);
+
+      final result = service.validateCached(
+        claimedCategory: 'Education',
+        saveEmbedding: [0.34, 0.9],
+      );
+
+      expect(result.isReliable, isTrue);
+      expect(
+        result.similarity,
+        greaterThan(DomainCentroidService.similarityFloor),
+      );
+      expect(result.suggestedCategory, 'Philosophy');
+      expect(
+        result.suggestedSimilarity,
+        greaterThan(result.similarity + DomainCentroidService.correctionMargin),
+      );
+    },
+  );
 
   test('does not validate against cold-start centroids', () {
     final service = DomainCentroidService(null);
