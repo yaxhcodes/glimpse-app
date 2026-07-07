@@ -145,7 +145,8 @@ class _MemoryReasoning extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final narrative = memory.journey.narrative ?? memory.rediscoverCopy.body;
+    final narrative = memory.journey.narrative?.trim() ?? '';
+    if (narrative.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
       child: Column(

@@ -619,7 +619,7 @@ _narrativeFor(RediscoverJourney journey) {
     recommended?.title,
   );
   final narrative = _withoutRepeatedTitle(
-    _detailNarrativeFor(title, topic, contentNoun, urls),
+    _detailNarrativeFor(urls),
     recommended?.title,
   );
 
@@ -757,24 +757,91 @@ String _hookLineFor(
   return '$prefix $title through $count connected $contentNoun.';
 }
 
-String _detailNarrativeFor(
-  String title,
-  String topic,
-  String contentNoun,
-  List<SavedUrl> urls,
-) {
-  final examples = urls
-      .take(3)
-      .map(
-        (url) => url.summary?.trim().isNotEmpty == true
-            ? url.summary!.trim()
-            : url.title.trim(),
-      )
-      .where((item) => item.isNotEmpty)
-      .toList();
-  final sample = examples.isEmpty ? '' : ' ${examples.join(' ')}';
-  return 'These $contentNoun circle around $topic without collapsing into a generic pile.$sample'
+String _detailNarrativeFor(List<SavedUrl> urls) {
+  final snippets = <String>[];
+  final seen = <String>{};
+
+  for (final url in urls) {
+    final snippet = _contentSnippetFor(url);
+    if (snippet == null) continue;
+    final key = _titleFamilyKey(snippet);
+    if (key.isEmpty || !seen.add(key)) continue;
+    snippets.add(snippet);
+    if (snippets.length == 3) break;
+  }
+
+  if (snippets.length < 2 && urls.length > 1) return '';
+  if (snippets.isEmpty) return '';
+
+  return 'Inside: ${_readableList(snippets)}.';
+}
+
+String? _contentSnippetFor(SavedUrl url) {
+  final rawTitle = _cleanSnippetCandidate(url.title, preferLeadingClause: true);
+  if (rawTitle != null) return rawTitle;
+
+  final title = _cleanSnippetCandidate(
+    TitleResolver.resolveDetailTitle(url),
+    preferLeadingClause: true,
+  );
+  if (title != null) return title;
+
+  final summary = _cleanSnippetCandidate(url.summary);
+  if (summary != null) return summary;
+
+  return _cleanSnippetCandidate(url.description);
+}
+
+String? _cleanSnippetCandidate(
+  String? value, {
+  bool preferLeadingClause = false,
+}) {
+  var clean = value?.trim();
+  if (clean == null || clean.isEmpty) return null;
+
+  clean = clean
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'^[#\-\s]+'), '')
       .trim();
+  if (clean.isEmpty) return null;
+
+  if (preferLeadingClause) {
+    final parts = clean.split(RegExp(r'\s+[•·|]\s+'));
+    if (parts.length > 1 && parts.first.trim().length >= 8) {
+      clean = parts.first.trim();
+    }
+  }
+
+  clean = clean
+      .replaceFirst(
+        RegExp(
+          r'^(try|watch|read|learn|discover|explore)\s+',
+          caseSensitive: false,
+        ),
+        '',
+      )
+      .replaceFirst(RegExp(r'^how to\s+', caseSensitive: false), '')
+      .trim();
+
+  if (clean.isEmpty) return null;
+  if (TitleResolver.isLowSignalTitle(clean)) return null;
+
+  final sentenceEnd = clean.indexOf(RegExp(r'[.!?]'));
+  if (sentenceEnd > 0 && sentenceEnd < clean.length - 1) {
+    clean = clean.substring(0, sentenceEnd).trim();
+  }
+
+  final words = clean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  if (words.length < 2) return null;
+  if (words.length > 7) clean = words.take(7).join(' ');
+
+  return clean.replaceAll(RegExp(r'[.!?,;:]+$'), '');
+}
+
+String _readableList(List<String> values) {
+  if (values.length == 1) return values.single;
+  if (values.length == 2) return '${values.first} and ${values.last}';
+  return '${values.take(values.length - 1).join(', ')}, and ${values.last}';
 }
 
 String _withoutRepeatedTitle(String text, String? title) {

@@ -412,6 +412,53 @@ void main() {
     expect(titles, contains('AI & Consciousness'));
   });
 
+  test('journey detail narrative summarizes contents without pasting summaries', () {
+    final urls = [
+      _url(
+        id: 701,
+        title: 'Try Optimizing Seed Nutrition • Health & Wellness',
+        tags: const ['nutrition', 'seeds', 'recipe'],
+        summary:
+            'Learn how to properly prepare common seeds to maximize nutrient absorption and avoid digestive issues. This guide provides specific preparation methods for flax, chia, pumpkin, sesame, and sabja seeds.',
+      ),
+      _url(
+        id: 702,
+        title: 'Choosing Better Chocolate in India',
+        tags: const ['nutrition', 'chocolate', 'health'],
+        summary:
+            'An oncologist breaks down how to select healthier chocolate options in the Indian market by prioritizing high cacao content and clean ingredients.',
+      ),
+      _url(
+        id: 703,
+        title: 'Indian Flatbreads for Fitness Goals',
+        tags: const ['nutrition', 'flatbread', 'health'],
+        summary:
+            'This guide breaks down the specific health benefits of various Indian flatbreads to help you align your diet with your fitness goals.',
+      ),
+    ];
+
+    final journeys = buildRediscoverJourneys(
+      liveUrls: urls,
+      clusters: [
+        ClusterTheme(index: 0, label: 'Nutrition', summary: '', urls: urls),
+      ],
+      profile: AffinityProfile.empty,
+    );
+
+    final narrative = journeys.single.narrative;
+
+    expect(
+      narrative,
+      'Inside: Optimizing Seed Nutrition, Choosing Better Chocolate in India, and Indian Flatbreads for Fitness Goals.',
+    );
+    expect(narrative, isNot(contains('This guide provides')));
+    expect(narrative, isNot(contains('An oncologist breaks down')));
+    expect(
+      narrative,
+      isNot(contains('without collapsing into a generic pile')),
+    );
+  });
+
   test('dinner debate wording does not make philosophy copy into recipes', () {
     final first = _url(
       id: 301,
