@@ -123,7 +123,9 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     );
     ref.invalidate(todaysPicksProvider);
     ref.invalidate(revisitQueueProvider);
-    ref.invalidate(interestShelfProvider);
+    ref.invalidate(relatedSavesProvider);
+    ref.invalidate(recentlyResurfacedProvider);
+    ref.invalidate(rediscoverRecapsProvider);
     ref.invalidate(rediscoverJourneysProvider);
     if (context.mounted) {
       context.push(

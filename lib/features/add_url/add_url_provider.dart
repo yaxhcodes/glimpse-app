@@ -22,20 +22,27 @@ import '../../core/services/url_processing_observer.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../home/home_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
+import '../rediscover/rediscover_memory_prefs.dart';
+import '../rediscover/rediscover_provider.dart';
 
 /// State for the Add URL flow.
 enum AddUrlStatus {
   idle,
   saving, // instant save in progress
   done,
+  duplicate,
   error,
 }
+
+enum AddUrlOutcome { none, captured, alreadySaved, capturedWithRelated }
 
 class AddUrlState {
   final AddUrlStatus status;
   final String? errorMessage;
   final String url;
   final int? savedUrlId;
+  final AddUrlOutcome outcome;
+  final List<int> relatedSaveIds;
 
   /// True when the save succeeded but the user's monthly AI-save allowance is
   /// exhausted, so this save will NOT be AI-enriched. The UI surfaces an
@@ -47,22 +54,34 @@ class AddUrlState {
     this.errorMessage,
     this.url = '',
     this.savedUrlId,
+    this.outcome = AddUrlOutcome.none,
+    this.relatedSaveIds = const [],
     this.aiLimitReached = false,
   });
 
   AddUrlState copyWith({
     AddUrlStatus? status,
     String? errorMessage,
+    bool clearErrorMessage = false,
     String? url,
     int? savedUrlId,
     bool clearSavedUrlId = false,
+    AddUrlOutcome? outcome,
+    List<int>? relatedSaveIds,
+    bool clearRelatedSaveIds = false,
     bool? aiLimitReached,
   }) {
     return AddUrlState(
       status: status ?? this.status,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage
+          ? null
+          : errorMessage ?? this.errorMessage,
       url: url ?? this.url,
       savedUrlId: clearSavedUrlId ? null : savedUrlId ?? this.savedUrlId,
+      outcome: outcome ?? this.outcome,
+      relatedSaveIds: clearRelatedSaveIds
+          ? const []
+          : relatedSaveIds ?? this.relatedSaveIds,
       aiLimitReached: aiLimitReached ?? this.aiLimitReached,
     );
   }
@@ -79,7 +98,9 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
   /// Instant-save a URL using domain-categorizer fallback for AI fields.
   /// Background enrichment (AI categorization, embedding) runs afterwards.
   ///
-  /// Returns `true` if saved successfully, `false` on validation / duplicate error.
+  /// Returns `true` only when a new row is captured. Exact duplicates are a
+  /// successful resurfacing outcome in [state], but return `false` so manual
+  /// entry screens can keep the existing-save preview visible.
   Future<bool> saveUrl(
     String rawUrl, {
     String? notes,
@@ -95,6 +116,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         status: AddUrlStatus.error,
         errorMessage: 'Sign in to save links.',
         clearSavedUrlId: true,
+        outcome: AddUrlOutcome.none,
+        clearRelatedSaveIds: true,
         aiLimitReached: false,
       );
       return false;
@@ -126,6 +149,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           status: AddUrlStatus.error,
           errorMessage: 'Please enter a valid URL',
           clearSavedUrlId: true,
+          outcome: AddUrlOutcome.none,
+          clearRelatedSaveIds: true,
         );
         return false;
       }
@@ -133,14 +158,24 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       // Exact duplicate check
       final existing = await isarService.findByRawUrl(normalizedUrl);
       if (existing != null) {
+        await isarService.updateResurfacedAt(existing.id, DateTime.now());
+        if (existing.rediscoverDismissedAt != null) {
+          await isarService.updateRediscoverDismissedAt(existing.id, null);
+        }
         if (notifyCapture) {
           await UrlSaveNotifications.showAlreadyCaptured(existing);
         }
+        _ref.invalidate(urlStreamProvider);
+        _ref.invalidate(rediscoverRecapsProvider);
+        _ref.invalidate(recentlyResurfacedProvider);
+        _ref.invalidate(relatedSavesProvider);
         _isSaving = false;
         state = state.copyWith(
-          status: AddUrlStatus.error,
-          errorMessage: 'This URL has already been saved',
+          status: AddUrlStatus.duplicate,
+          clearErrorMessage: true,
           savedUrlId: existing.id,
+          outcome: AddUrlOutcome.alreadySaved,
+          clearRelatedSaveIds: true,
         );
         return false;
       }
@@ -149,8 +184,10 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       state = state.copyWith(
         status: AddUrlStatus.saving,
         url: normalizedUrl,
-        errorMessage: null,
+        clearErrorMessage: true,
         clearSavedUrlId: true,
+        outcome: AddUrlOutcome.none,
+        clearRelatedSaveIds: true,
       );
 
       final platformCat = DomainCategorizer.categorize(normalizedUrl);
@@ -215,6 +252,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       _ref.invalidate(categoriesProvider);
       _ref.invalidate(askEmptySuggestionsProvider);
       _ref.invalidate(interestClusterThemesProvider);
+      _ref.invalidate(rediscoverRecapsProvider);
+      _ref.invalidate(relatedSavesProvider);
 
       // Surface (but never block on) the AI-save allowance: if it's exhausted,
       // the background enrichment will skip AI work, so tell the UI to prompt
@@ -226,7 +265,10 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
 
       state = state.copyWith(
         status: AddUrlStatus.done,
+        clearErrorMessage: true,
         savedUrlId: savedUrl.id,
+        outcome: AddUrlOutcome.captured,
+        clearRelatedSaveIds: true,
         aiLimitReached: aiLimitReached,
       );
       _isSaving = false;
@@ -250,6 +292,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         status: AddUrlStatus.error,
         errorMessage: e.toString(),
         clearSavedUrlId: true,
+        outcome: AddUrlOutcome.none,
+        clearRelatedSaveIds: true,
       );
       return false;
     }
@@ -315,6 +359,18 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         failedTasks.add('metadata_failed');
       }
       await enricher.enrichSingle(url.id, initialFailures: failedTasks);
+      final relatedIds = await _surfaceSimilarOlderSaves(url.id);
+      if (relatedIds.isNotEmpty) {
+        _ref.invalidate(rediscoverRecapsProvider);
+        _ref.invalidate(recentlyResurfacedProvider);
+        _ref.invalidate(relatedSavesProvider);
+        if (mounted && state.savedUrlId == url.id) {
+          state = state.copyWith(
+            outcome: AddUrlOutcome.capturedWithRelated,
+            relatedSaveIds: relatedIds,
+          );
+        }
+      }
       if (notifyCapture) {
         final enriched = await isarService.getUrlById(url.id);
         if (enriched != null &&
@@ -341,6 +397,36 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         stackTrace: st,
       );
     }
+  }
+
+  Future<List<int>> _surfaceSimilarOlderSaves(int sourceId) async {
+    final isarService = _ref.read(isarServiceProvider);
+    final source = await isarService.getUrlById(sourceId);
+    final embedding = source?.embedding;
+    if (source == null || embedding == null || embedding.isEmpty) {
+      return const [];
+    }
+
+    final scored = await isarService.semanticSearchScored(
+      embedding,
+      limit: 8,
+      minScore: 0.72,
+    );
+    final related = <int>[];
+    for (final entry in scored) {
+      final candidate = entry.key;
+      if (candidate.id == source.id) continue;
+      if (!candidate.savedAt.isBefore(source.savedAt)) continue;
+      if (candidate.isDone || candidate.rediscoverDismissedAt != null) continue;
+      related.add(candidate.id);
+      await isarService.updateResurfacedAt(candidate.id, DateTime.now());
+      if (related.length >= 3) break;
+    }
+    await RediscoverMemoryPrefs.saveRelatedSaves(
+      sourceId: source.id,
+      relatedIds: related,
+    );
+    return related;
   }
 
   String _extractDomain(String url) {

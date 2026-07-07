@@ -5,8 +5,10 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/revisit_scorer.dart';
+import '../../core/services/title_resolver.dart';
 import '../goals/memory_goals_provider.dart';
 import '../home/home_provider.dart';
+import 'rediscover_memory_prefs.dart';
 
 /// A rediscovery item enriched with a "why now" reason and relative time.
 class RediscoveryItem {
@@ -23,6 +25,26 @@ class RediscoveryItem {
 
 /// Headline stats that give the page a sense of purpose.
 typedef RediscoveryStats = ({int total, int unopened});
+
+enum RediscoverRecapCadence { daily, weekly, monthly }
+
+class RediscoverRecap {
+  const RediscoverRecap({
+    required this.cadence,
+    required this.title,
+    required this.subtitle,
+    required this.items,
+    required this.generatedAt,
+    required this.reason,
+  });
+
+  final RediscoverRecapCadence cadence;
+  final String title;
+  final String subtitle;
+  final List<RediscoveryItem> items;
+  final DateTime generatedAt;
+  final String reason;
+}
 
 /// Watches the library so every rediscovery surface refreshes on save/delete/
 /// dismiss, then returns all non-dismissed URLs newest-first.
@@ -67,6 +89,47 @@ final rediscoveryStatsProvider = FutureProvider<RediscoveryStats>((ref) async {
   final live = await _liveUrls(ref);
   final unopened = live.where((u) => u.openedAt == null).length;
   return (total: live.length, unopened: unopened);
+});
+
+final rediscoverRecapsProvider = FutureProvider<List<RediscoverRecap>>((
+  ref,
+) async {
+  final live = await _liveUrls(ref);
+  final recaps = buildRediscoverRecaps(live);
+  final visible = <RediscoverRecap>[];
+  for (final recap in recaps) {
+    final canShow = await RediscoverMemoryPrefs.canShowRecap(
+      cadence: recap.cadence.name,
+      itemIds: recap.items.map((item) => item.url.id).toList(),
+    );
+    if (canShow) visible.add(recap);
+  }
+  return visible;
+});
+
+final recentlyResurfacedProvider = FutureProvider<List<RediscoveryItem>>((
+  ref,
+) async {
+  final live = await _liveUrls(ref);
+  final cutoff = DateTime.now().subtract(const Duration(days: 30));
+  final resurfaced =
+      live
+          .where(
+            (u) => u.resurfacedAt != null && u.resurfacedAt!.isAfter(cutoff),
+          )
+          .toList()
+        ..sort((a, b) => b.resurfacedAt!.compareTo(a.resurfacedAt!));
+
+  return resurfaced
+      .take(8)
+      .map(
+        (u) => RediscoveryItem(
+          url: u,
+          reason: _resurfacedReason(u),
+          timeAgo: _formatTimeAgo(u.resurfacedAt ?? u.savedAt),
+        ),
+      )
+      .toList();
 });
 
 /// The hero queue: a small, finite, curated set of picks to triage today.
@@ -159,8 +222,10 @@ final neverOpenedProvider = FutureProvider<List<RediscoveryItem>>((ref) async {
       .toList();
 });
 
-/// Interest-based shelf, titled after the topic that ties the picks together.
-typedef InterestShelf = ({String title, List<RediscoveryItem> items});
+/// Related saves, titled after the topic that ties the picks together. This is
+/// supporting evidence for Rediscover, not the primary Interests surface.
+typedef RelatedSavesShelf = ({String title, List<RediscoveryItem> items});
+typedef InterestShelf = RelatedSavesShelf;
 typedef GoalShelf = ({String title, List<RediscoveryItem> items});
 
 final goalShelfProvider = FutureProvider<GoalShelf?>((ref) async {
@@ -199,7 +264,7 @@ final goalShelfProvider = FutureProvider<GoalShelf?>((ref) async {
   return (title: goal.name, items: items);
 });
 
-final interestShelfProvider = FutureProvider<InterestShelf>((ref) async {
+final relatedSavesProvider = FutureProvider<RelatedSavesShelf>((ref) async {
   ref.watch(
     urlStreamProvider.select(
       (async) => async.whenOrNull(data: (urls) => urls.length),
@@ -213,8 +278,8 @@ final interestShelfProvider = FutureProvider<InterestShelf>((ref) async {
 
   final topic = _dominantCategory(urls);
   final title = topic == null
-      ? 'From your interests'
-      : 'Because you saved $topic';
+      ? 'Related saves'
+      : 'More worth reopening in $topic';
 
   final items = urls
       .map(
@@ -227,6 +292,188 @@ final interestShelfProvider = FutureProvider<InterestShelf>((ref) async {
       .toList();
   return (title: title, items: items);
 });
+
+final interestShelfProvider = relatedSavesProvider;
+
+List<RediscoverRecap> buildRediscoverRecaps(
+  List<SavedUrl> live, {
+  DateTime? now,
+}) {
+  final clock = now ?? DateTime.now();
+  final recaps = <RediscoverRecap>[];
+  final active = live
+      .where((u) => !u.isDone && u.rediscoverDismissedAt == null)
+      .toList();
+  if (active.isEmpty) return const [];
+
+  final dailyItems = _dailyRecapItems(active, clock);
+  if (dailyItems.isNotEmpty) {
+    recaps.add(
+      RediscoverRecap(
+        cadence: RediscoverRecapCadence.daily,
+        title: 'Today in your saves',
+        subtitle: _recapSubtitle(
+          dailyItems,
+          fallback: 'A few saves worth using today',
+        ),
+        items: dailyItems,
+        generatedAt: clock,
+        reason:
+            'A short queue chosen from due, unopened, and time-relevant saves.',
+      ),
+    );
+  }
+
+  final weeklyItems = _windowRecapItems(
+    active,
+    clock.subtract(const Duration(days: 7)),
+    clock,
+    olderSupport: _forgottenGems(active).take(2),
+  );
+  if (weeklyItems.length >= 2) {
+    final savedThisWeek = active
+        .where(
+          (u) => !u.savedAt.isBefore(clock.subtract(const Duration(days: 7))),
+        )
+        .length;
+    final unopened = weeklyItems
+        .where((item) => item.url.openedAt == null)
+        .length;
+    recaps.add(
+      RediscoverRecap(
+        cadence: RediscoverRecapCadence.weekly,
+        title: 'Your week in saves',
+        subtitle: '$savedThisWeek saved this week · $unopened waiting',
+        items: weeklyItems,
+        generatedAt: clock,
+        reason:
+            'What you captured this week, plus one older save that still fits.',
+      ),
+    );
+  }
+
+  final monthlyItems = _monthlyRecapItems(active, clock);
+  if (monthlyItems.length >= 3) {
+    final topic = _dominantCategory(
+      monthlyItems.map((item) => item.url).toList(),
+    );
+    recaps.add(
+      RediscoverRecap(
+        cadence: RediscoverRecapCadence.monthly,
+        title: topic == null
+            ? 'Your month in memories'
+            : '$topic kept showing up',
+        subtitle: _recapSubtitle(
+          monthlyItems,
+          fallback: 'Patterns and older saves worth returning to',
+        ),
+        items: monthlyItems,
+        generatedAt: clock,
+        reason:
+            'Recurring patterns from the last month, balanced with older useful saves.',
+      ),
+    );
+  }
+
+  return recaps;
+}
+
+List<RediscoveryItem> _dailyRecapItems(List<SavedUrl> live, DateTime now) {
+  final due = live.where((u) => u.isRevisitDue).toList()
+    ..sort(
+      (a, b) =>
+          (a.revisitAfter ?? a.savedAt).compareTo(b.revisitAfter ?? b.savedAt),
+    );
+  final anniversaries = _onThisDay(live);
+  final forgotten = _forgottenGems(live);
+  final stillWaiting = live.where((u) {
+    final age = now.difference(u.savedAt).inDays;
+    return u.openedAt == null && age >= 3 && age <= 21;
+  }).toList()..sort((a, b) => a.savedAt.compareTo(b.savedAt));
+
+  final picked = _uniqueUrls([
+    ...due,
+    ...stillWaiting,
+    ...anniversaries,
+    ...forgotten,
+  ]).take(4);
+  return picked.map((u) => _recapItem(u, live)).toList();
+}
+
+List<RediscoveryItem> _windowRecapItems(
+  List<SavedUrl> live,
+  DateTime start,
+  DateTime end, {
+  Iterable<SavedUrl> olderSupport = const [],
+}) {
+  final window =
+      live
+          .where((u) => !u.savedAt.isBefore(start) && !u.savedAt.isAfter(end))
+          .toList()
+        ..sort((a, b) {
+          final ao = a.openedAt == null ? 0 : 1;
+          final bo = b.openedAt == null ? 0 : 1;
+          if (ao != bo) return ao - bo;
+          return b.savedAt.compareTo(a.savedAt);
+        });
+  return _uniqueUrls([
+    ...window,
+    ...olderSupport,
+  ]).take(6).map((u) => _recapItem(u, live)).toList();
+}
+
+List<RediscoveryItem> _monthlyRecapItems(List<SavedUrl> live, DateTime now) {
+  final monthStart = now.subtract(const Duration(days: 30));
+  final month = live.where((u) => !u.savedAt.isBefore(monthStart)).toList();
+  final recurring = <SavedUrl>[];
+  final categories = <String, List<SavedUrl>>{};
+  for (final url in month) {
+    final category = url.effectiveCategories.firstOrNull ?? url.category;
+    if (CategoryResolver.isPlatformName(category) || category == 'Other') {
+      continue;
+    }
+    (categories[category] ??= []).add(url);
+  }
+  final ranked = categories.entries.toList()
+    ..sort((a, b) => b.value.length.compareTo(a.value.length));
+  if (ranked.isNotEmpty && ranked.first.value.length >= 2) {
+    recurring.addAll(ranked.first.value);
+  }
+  return _uniqueUrls([
+    ...recurring,
+    ..._forgottenGems(live),
+  ]).take(6).map((u) => _recapItem(u, live)).toList();
+}
+
+Iterable<SavedUrl> _uniqueUrls(Iterable<SavedUrl> urls) sync* {
+  final seen = <int>{};
+  for (final url in urls) {
+    if (seen.add(url.id)) yield url;
+  }
+}
+
+RediscoveryItem _recapItem(SavedUrl url, List<SavedUrl> live) {
+  return RediscoveryItem(
+    url: url,
+    reason: _reasonFor(url, live),
+    timeAgo: _formatTimeAgo(url.savedAt),
+  );
+}
+
+String _recapSubtitle(List<RediscoveryItem> items, {required String fallback}) {
+  if (items.isEmpty) return fallback;
+  final unopened = items.where((item) => item.url.openedAt == null).length;
+  if (unopened == items.length) return '${items.length} unopened saves';
+  final first = TitleResolver.resolveDetailTitle(items.first.url);
+  return '$first and ${items.length - 1} more';
+}
+
+String _resurfacedReason(SavedUrl url) {
+  final age = DateTime.now().difference(url.savedAt).inDays;
+  if (age <= 1) return 'Just captured';
+  if (url.openedAt == null) return 'Brought back from your saves';
+  return 'Connected to something new';
+}
 
 // ── Selection helpers ──────────────────────────────────────────────────────
 

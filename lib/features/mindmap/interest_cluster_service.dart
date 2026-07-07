@@ -43,13 +43,40 @@ List<Map<String, dynamic>> _rowsForIsolate(List<SavedUrl> urls) {
 /// topics (Food & Cooking vs Technology) never share a cluster. Maps any raw /
 /// platform category onto one of the 16 [CategoryTaxonomy] buckets.
 String _broadCategoryBucket(SavedUrl u) {
+  final text = _evidenceTextForUrl(u);
+  if (_hasHealthNutritionSignal(text)) return 'Health';
+
   try {
+    final inferred = CategoryTaxonomy.inferAdditionalCategories(
+      tags: u.tags,
+      text: text,
+    );
+    for (final category in inferred) {
+      final normalized = CategoryTaxonomy.normalize(
+        category: category,
+        tags: u.tags,
+      ).name;
+      if (normalized != 'Other') return normalized;
+    }
+
+    for (final category in u.effectiveCategories) {
+      final normalized = CategoryTaxonomy.normalize(
+        category: category,
+        tags: u.tags,
+      ).name;
+      if (normalized != 'Other') return normalized;
+    }
+
     return CategoryTaxonomy.normalize(category: u.category, tags: u.tags).name;
   } catch (_) {
     final c = u.category.trim();
     return c.isEmpty ? 'Other' : c;
   }
 }
+
+@visibleForTesting
+String debugBroadCategoryBucketForInterest(SavedUrl url) =>
+    _broadCategoryBucket(url);
 
 /// Extracts embeddings from rows as a flat list-of-lists.
 /// Each inner list is already a `List<double>` from the Isar model.
@@ -114,19 +141,57 @@ String _titleCaseTopic(String value) {
 }
 
 String _textForUrls(List<SavedUrl> urls) {
-  return urls
-      .map(
-        (u) => [
-          u.title,
-          u.description,
-          u.summary ?? '',
-          u.tags.join(' '),
-          u.category,
-          u.domain,
-        ].join(' '),
-      )
-      .join(' ')
-      .toLowerCase();
+  return urls.map(_evidenceTextForUrl).join(' ').toLowerCase();
+}
+
+String _evidenceTextForUrl(SavedUrl u) {
+  return [
+    u.title,
+    u.description,
+    u.summary ?? '',
+    u.tags.join(' '),
+    u.category,
+    u.categories.join(' '),
+    u.domain,
+  ].join(' ').toLowerCase();
+}
+
+bool _hasHealthNutritionSignal(String text) {
+  return _containsAnyWholePhrase(text, const [
+        'nutrition',
+        'nutritional',
+        'nutrient',
+        'diet',
+        'fat loss',
+        'weight loss',
+        'calorie',
+        'calories',
+        'protein',
+        'fiber',
+        'fibre',
+        'vitamin',
+        'mineral',
+        'wellness',
+        'healthy',
+        'healthier',
+        'fitness',
+        'workout',
+        'chia',
+        'sabja',
+      ]) ||
+      RegExp(
+        r'(?<![a-z0-9])health(?:\s*&\s*wellness)?(?!\s*check)(?![a-z0-9])',
+      ).hasMatch(text);
+}
+
+bool _containsAnyWholePhrase(String text, List<String> phrases) {
+  for (final phrase in phrases) {
+    final escaped = RegExp.escape(phrase).replaceAll(r'\ ', r'\s+');
+    if (RegExp('(?<![a-z0-9])$escaped(?![a-z0-9])').hasMatch(text)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool _isTrekLike(List<SavedUrl> urls, [String label = '']) {
@@ -176,6 +241,25 @@ List<SubClusterTheme> _trekSubClustersForUrls(List<SavedUrl> urls) {
 String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
   final text = _textForUrls(urls);
   final scores = <String, int>{
+    'Nutrition & Wellness': _keywordScore(text, [
+      'nutrition',
+      'nutritional',
+      'nutrient',
+      'diet',
+      'fat loss',
+      'weight loss',
+      'calorie',
+      'protein',
+      'fiber',
+      'fibre',
+      'vitamin',
+      'wellness',
+      'healthy',
+      'healthier',
+      'chia',
+      'sabja',
+      'seeds',
+    ]),
     'AI Agents': _keywordScore(text, [
       'agent',
       'genai',
@@ -262,6 +346,10 @@ String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
 
   return null;
 }
+
+@visibleForTesting
+String debugHeuristicLabelForInterest(List<SavedUrl> urls) =>
+    _heuristicLabelForUrls(urls);
 
 int _keywordScore(String text, List<String> keywords) {
   var score = 0;

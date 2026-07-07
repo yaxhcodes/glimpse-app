@@ -88,8 +88,8 @@ final rediscoverJourneysProvider = FutureProvider<List<RediscoverJourney>>((
 
   final profile = await ref.watch(affinityProfileProvider.future);
   final clusters = await ref.watch(interestClusterThemesProvider.future);
-  final interestItems = (await ref.watch(
-    interestShelfProvider.future,
+  final relatedItems = (await ref.watch(
+    relatedSavesProvider.future,
   )).items.take(8).toList();
   final anniversaries = (await ref.watch(
     onThisDayProvider.future,
@@ -99,7 +99,7 @@ final rediscoverJourneysProvider = FutureProvider<List<RediscoverJourney>>((
     liveUrls: urls,
     clusters: clusters,
     profile: profile,
-    interestFallbackItems: interestItems,
+    interestFallbackItems: relatedItems,
     anniversaryItems: anniversaries,
   );
 });

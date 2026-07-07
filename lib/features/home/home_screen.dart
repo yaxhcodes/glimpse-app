@@ -267,6 +267,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           );
       }
+    } else if (addState.status == AddUrlStatus.duplicate) {
+      HapticFeedback.lightImpact();
+      setState(() {
+        _inputUiState = _InputUiState.success;
+        _inputValid = false;
+        _isCelebratingFirstSave = false;
+      });
+      final id = addState.savedUrlId;
+      showAutoDismissSnackBarVia(
+        messenger,
+        SnackBar(
+          content: const Text('Already in Glimpse'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          action: id == null
+              ? null
+              : SnackBarAction(
+                  label: 'Open',
+                  onPressed: () => context.push('/url/$id'),
+                ),
+        ),
+      );
+
+      _resetTimer?.cancel();
+      _resetTimer = Timer(const Duration(milliseconds: 900), () {
+        if (mounted) {
+          setState(() => _inputUiState = _InputUiState.idle);
+          _urlInputController.clear();
+        }
+      });
     } else {
       setState(() {
         _inputUiState = _InputUiState.error;
@@ -316,10 +346,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (byName[name] != null) byName[name]!,
     ];
     final orderedNames = ordered.map((cluster) => cluster.name).toSet();
-    final rest = clusters
-        .where((cluster) => !orderedNames.contains(cluster.name))
-        .toList()
-      ..sort((a, b) => b.count.compareTo(a.count));
+    final rest =
+        clusters
+            .where((cluster) => !orderedNames.contains(cluster.name))
+            .toList()
+          ..sort((a, b) => b.count.compareTo(a.count));
     return [...ordered, ...rest];
   }
 
@@ -357,11 +388,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ref.watch(sourceClustersProvider).valueOrNull ??
         const <SourceCluster>[];
     final sourceOrder = ref.watch(sourceOrderProvider);
-    final sourceClusters = _orderedSourceClusters(sourceClusterValues, sourceOrder);
+    final sourceClusters = _orderedSourceClusters(
+      sourceClusterValues,
+      sourceOrder,
+    );
     final addUrlStatus = ref.watch(addUrlProvider.select((s) => s.status));
     final isAddingUrl =
         addUrlStatus != AddUrlStatus.idle &&
         addUrlStatus != AddUrlStatus.done &&
+        addUrlStatus != AddUrlStatus.duplicate &&
         addUrlStatus != AddUrlStatus.error;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -791,7 +826,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   SliverToBoxAdapter(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onLongPress: () => _showSourceReorderSheet(sourceClusters),
+                      onLongPress: () =>
+                          _showSourceReorderSheet(sourceClusters),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -846,14 +882,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
                               clipBehavior: Clip.none,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               itemCount: sourceClusters.length.clamp(0, 10),
                               separatorBuilder: (_, _) =>
                                   const SizedBox(width: 6),
                               itemBuilder: (context, index) {
                                 final source = sourceClusters[index];
                                 final name = source.name;
-                                final fav = faviconUrl(name) ?? source.faviconUrl;
+                                final fav =
+                                    faviconUrl(name) ?? source.faviconUrl;
                                 final iconSpec = resolveSourceIcon(name);
                                 return FilterChip(
                                   showCheckmark: false,
@@ -872,7 +911,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,
                                         letterSpacing: 0.1,
-                                        color: theme.colorScheme.onSurfaceVariant,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
                                       ),
                                   backgroundColor:
                                       theme.colorScheme.surfaceContainerLow,
@@ -1068,10 +1108,7 @@ class _DomainInitialAvatar extends StatelessWidget {
 }
 
 class _SourceReorderSheet extends StatefulWidget {
-  const _SourceReorderSheet({
-    required this.initial,
-    required this.onChanged,
-  });
+  const _SourceReorderSheet({required this.initial, required this.onChanged});
 
   final List<SourceCluster> initial;
   final ValueChanged<List<String>> onChanged;

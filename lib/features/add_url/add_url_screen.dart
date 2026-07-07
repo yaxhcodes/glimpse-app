@@ -153,7 +153,9 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
     final textTheme = theme.textTheme;
     final isSaving = state.status == AddUrlStatus.saving;
     final isEnabled =
-        state.status == AddUrlStatus.idle || state.status == AddUrlStatus.error;
+        state.status == AddUrlStatus.idle ||
+        state.status == AddUrlStatus.error ||
+        state.status == AddUrlStatus.duplicate;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -357,12 +359,16 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                     ],
 
                     // Error message
-                    if (state.status == AddUrlStatus.error &&
-                        state.errorMessage != null) ...[
+                    if (state.status == AddUrlStatus.error ||
+                        state.status == AddUrlStatus.duplicate) ...[
                       const SizedBox(height: 8),
                       _DuplicateSaveNotice(
-                        message: state.errorMessage!,
+                        message: state.status == AddUrlStatus.duplicate
+                            ? 'Already in Glimpse'
+                            : state.errorMessage ??
+                                  'Could not capture this link',
                         savedUrlId: state.savedUrlId,
+                        isError: state.status == AddUrlStatus.error,
                       ),
                     ],
 
@@ -397,10 +403,12 @@ class _DuplicateSaveNotice extends ConsumerWidget {
   const _DuplicateSaveNotice({
     required this.message,
     required this.savedUrlId,
+    required this.isError,
   });
 
   final String message;
   final int? savedUrlId;
+  final bool isError;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -411,7 +419,9 @@ class _DuplicateSaveNotice extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.errorContainer,
+        color: isError
+            ? colorScheme.errorContainer
+            : colorScheme.secondaryContainer.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -420,7 +430,9 @@ class _DuplicateSaveNotice extends ConsumerWidget {
           Text(
             message,
             style: TextStyle(
-              color: colorScheme.onErrorContainer,
+              color: isError
+                  ? colorScheme.onErrorContainer
+                  : colorScheme.onSecondaryContainer,
               fontWeight: FontWeight.w600,
             ),
           ),

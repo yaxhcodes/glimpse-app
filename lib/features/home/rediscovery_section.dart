@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/engagement_event.dart';
+import '../../core/models/saved_url.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/rediscovery_service.dart';
+import '../../core/services/title_resolver.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_journey_provider.dart';
 import '../rediscover/rediscover_memory.dart';
+import '../rediscover/rediscover_provider.dart';
 
 class RediscoverySection extends ConsumerWidget {
   const RediscoverySection({super.key});
@@ -17,10 +21,14 @@ class RediscoverySection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(rediscoverJourneysProvider);
+    final resurfaced =
+        ref.watch(recentlyResurfacedProvider).valueOrNull ?? const [];
     return async.when(
       skipLoadingOnReload: true,
       data: (journeys) {
-        if (journeys.isEmpty) return const SizedBox.shrink();
+        if (journeys.isEmpty && resurfaced.isEmpty) {
+          return const SizedBox.shrink();
+        }
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
         final seenTip = ref.watch(hasSeenRediscoverTipProvider);
@@ -94,38 +102,141 @@ class RediscoverySection extends ConsumerWidget {
                   ),
                 ),
               ),
-              SizedBox(
-                height: cardHeight,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: hPad),
-                  itemCount: previewCount,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (context, i) => _RediscoverJourneyCard(
-                    journey: journeys[i],
-                    width: cardWidth,
-                    height: cardHeight,
-                    onTap: () {
-                      unawaited(
-                        ref
-                            .read(isarServiceProvider)
-                            .logEvent(
-                              type: EngagementEventType.clusterVisit,
-                              clusterLabel:
-                                  journeys[i].topicAnchor ?? journeys[i].title,
-                            ),
-                      );
-                      context.push('/rediscover/journey', extra: journeys[i]);
-                    },
+              if (resurfaced.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                  child: _RecentMemoryTile(
+                    item: resurfaced.first,
+                    onTap: () =>
+                        _openResurfaced(context, ref, resurfaced.first.url),
                   ),
                 ),
-              ),
+              if (previewCount > 0)
+                SizedBox(
+                  height: cardHeight,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: hPad),
+                    itemCount: previewCount,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) => _RediscoverJourneyCard(
+                      journey: journeys[i],
+                      width: cardWidth,
+                      height: cardHeight,
+                      onTap: () {
+                        unawaited(
+                          ref
+                              .read(isarServiceProvider)
+                              .logEvent(
+                                type: EngagementEventType.clusterVisit,
+                                clusterLabel:
+                                    journeys[i].topicAnchor ??
+                                    journeys[i].title,
+                              ),
+                        );
+                        context.push('/rediscover/journey', extra: journeys[i]);
+                      },
+                    ),
+                  ),
+                ),
             ],
           ),
         );
       },
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+
+  Future<void> _openResurfaced(
+    BuildContext context,
+    WidgetRef ref,
+    SavedUrl url,
+  ) async {
+    final service = RediscoveryService(ref.read(isarServiceProvider));
+    await service.markResurfaced(url.id);
+    await service.markOpened(url.id);
+    unawaited(
+      ref
+          .read(isarServiceProvider)
+          .logEvent(type: EngagementEventType.cardOpened, url: url),
+    );
+    ref.invalidate(recentlyResurfacedProvider);
+    ref.invalidate(rediscoverJourneysProvider);
+    if (context.mounted) {
+      context.push('/url/${url.id}');
+    }
+  }
+}
+
+class _RecentMemoryTile extends StatelessWidget {
+  const _RecentMemoryTile({required this.item, required this.onTap});
+
+  final RediscoveryItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: cs.secondaryContainer.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.history_rounded,
+                  size: 20,
+                  color: cs.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Back in view',
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      TitleResolver.resolveDetailTitle(item.url),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 21,
+                color: cs.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

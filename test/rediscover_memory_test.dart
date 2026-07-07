@@ -8,8 +8,10 @@ import 'package:glimpse/core/services/affinity_profile.dart';
 import 'package:glimpse/features/mindmap/cluster_theme.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory.dart';
+import 'package:glimpse/features/rediscover/rediscover_memory_prefs.dart';
 import 'package:glimpse/features/rediscover/rediscover_notification_candidate.dart';
 import 'package:glimpse/features/rediscover/rediscover_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 SavedUrl _url({
   required int id,
@@ -448,5 +450,107 @@ void main() {
       memory.copyIdentity.secondaryDescription.toLowerCase(),
       isNot(contains('cook')),
     );
+  });
+
+  test('recap builder creates daily, weekly and monthly memory recaps', () {
+    final now = DateTime(2026, 7, 7, 10);
+    final urls = [
+      _url(
+        id: 401,
+        title: 'Riverpod Cache Notes',
+        category: 'Technology',
+        tags: const ['flutter', 'architecture'],
+        savedAt: DateTime(2026, 7, 6),
+        openedAt: DateTime(2026, 7, 6, 18),
+      ),
+      _url(
+        id: 402,
+        title: 'Offline Sync Patterns',
+        category: 'Technology',
+        tags: const ['flutter', 'sync'],
+        savedAt: DateTime(2026, 7, 3),
+      ),
+      _url(
+        id: 403,
+        title: 'Local First Databases',
+        category: 'Technology',
+        tags: const ['database', 'sync'],
+        savedAt: DateTime(2026, 6, 24),
+      ),
+      _url(
+        id: 404,
+        title: 'Old Architecture Talk',
+        category: 'Technology',
+        tags: const ['architecture'],
+        savedAt: DateTime(2026, 5, 20),
+        summary: 'A useful older talk about app architecture.',
+      ),
+    ];
+
+    final recaps = buildRediscoverRecaps(urls, now: now);
+    final cadences = recaps.map((recap) => recap.cadence).toSet();
+
+    expect(cadences, contains(RediscoverRecapCadence.daily));
+    expect(cadences, contains(RediscoverRecapCadence.weekly));
+    expect(cadences, contains(RediscoverRecapCadence.monthly));
+    expect(
+      recaps
+          .firstWhere((recap) => recap.cadence == RediscoverRecapCadence.weekly)
+          .title,
+      'Your week in saves',
+    );
+    expect(
+      recaps
+          .firstWhere(
+            (recap) => recap.cadence == RediscoverRecapCadence.monthly,
+          )
+          .title,
+      contains('Technology'),
+    );
+  });
+
+  test('recap seen-state suppresses unchanged recaps only', () async {
+    SharedPreferences.setMockInitialValues({});
+
+    expect(
+      await RediscoverMemoryPrefs.canShowRecap(
+        cadence: 'weekly',
+        itemIds: [3, 1, 2],
+      ),
+      isTrue,
+    );
+
+    await RediscoverMemoryPrefs.markRecapSeen(
+      cadence: 'weekly',
+      itemIds: [1, 2, 3],
+    );
+
+    expect(
+      await RediscoverMemoryPrefs.canShowRecap(
+        cadence: 'weekly',
+        itemIds: [3, 2, 1],
+      ),
+      isFalse,
+    );
+    expect(
+      await RediscoverMemoryPrefs.canShowRecap(
+        cadence: 'weekly',
+        itemIds: [1, 2, 4],
+      ),
+      isTrue,
+    );
+  });
+
+  test('related-save prefs cool down repeated pairs', () async {
+    SharedPreferences.setMockInitialValues({});
+
+    await RediscoverMemoryPrefs.saveRelatedSaves(
+      sourceId: 20,
+      relatedIds: [7, 8],
+    );
+    expect(await RediscoverMemoryPrefs.relatedSavesFor(20), [7, 8]);
+
+    await RediscoverMemoryPrefs.saveRelatedSaves(sourceId: 20, relatedIds: [7]);
+    expect(await RediscoverMemoryPrefs.relatedSavesFor(20), [7, 8]);
   });
 }
