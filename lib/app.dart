@@ -64,6 +64,7 @@ import 'core/services/analytics_service.dart';
 import 'core/services/url_save_notifications.dart';
 import 'core/utils/url_extractor.dart';
 import 'shared/widgets/app_snackbar.dart';
+import 'shared/widgets/app_display_scale.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
 
@@ -611,10 +612,10 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           scrollBehavior: const AppScrollBehavior(),
           routerConfig: _router,
           builder: (context, child) {
-            if (!AppEnvironment.isDevContext) {
-              return child ?? const SizedBox.shrink();
-            }
             var content = child ?? const SizedBox.shrink();
+            if (!AppEnvironment.isDevContext) {
+              return AppDisplayScale(child: content);
+            }
             content = Banner(
               message: 'DEV',
               location: BannerLocation.topStart,
@@ -668,7 +669,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
                 ],
               );
             }
-            return content;
+            return AppDisplayScale(child: content);
           },
         );
       },
