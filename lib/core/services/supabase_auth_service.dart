@@ -183,6 +183,7 @@ class SupabaseAuthService implements AuthService {
     final appUser = await _loadOrCreateAppUser(
       user,
       displayNameHint: googleUser.displayName,
+      photoUrlHint: googleUser.photoUrl,
     );
     _currentUser = appUser;
     _stateController.add(appUser);
@@ -360,6 +361,7 @@ class SupabaseAuthService implements AuthService {
   Future<AppUser> _loadOrCreateAppUser(
     User user, {
     String? displayNameHint,
+    String? photoUrlHint,
   }) async {
     final diagnostics = await DeviceDiagnosticsService().load();
     final existing = await _fetchProfile(user.id);
@@ -380,7 +382,7 @@ class SupabaseAuthService implements AuthService {
     });
 
     final profile = await _fetchProfile(user.id);
-    return _mapAppUser(user, profile ?? existing);
+    return _mapAppUser(user, profile ?? existing, photoUrlHint: photoUrlHint);
   }
 
   Future<Map<String, dynamic>?> _fetchProfile(String userId) async {
@@ -392,7 +394,11 @@ class SupabaseAuthService implements AuthService {
     return data == null ? null : Map<String, dynamic>.from(data);
   }
 
-  AppUser _mapAppUser(User user, Map<String, dynamic>? profile) {
+  AppUser _mapAppUser(
+    User user,
+    Map<String, dynamic>? profile, {
+    String? photoUrlHint,
+  }) {
     final createdAt = _date(profile?['created_at']) ?? _date(user.createdAt);
     final diagnosticsProfile = profile ?? const <String, dynamic>{};
     return AppUser(
@@ -401,6 +407,8 @@ class SupabaseAuthService implements AuthService {
       displayName:
           _profileString(diagnosticsProfile, 'display_name') ??
           _displayNameFromMetadata(user.userMetadata),
+      photoUrl:
+          _trimOrNull(photoUrlHint) ?? _photoUrlFromMetadata(user.userMetadata),
       createdAt: createdAt,
       lastSeen: _date(diagnosticsProfile['last_seen']),
       platform: _profileString(diagnosticsProfile, 'platform') ?? 'unknown',
@@ -418,6 +426,7 @@ class SupabaseAuthService implements AuthService {
       id: user.id,
       email: user.email,
       displayName: _displayNameFromMetadata(user.userMetadata),
+      photoUrl: _photoUrlFromMetadata(user.userMetadata),
       createdAt: _date(user.createdAt),
       lastSeen: null,
       platform: 'unknown',

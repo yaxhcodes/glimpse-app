@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_environment.dart';
+import '../../core/models/app_user.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
@@ -142,6 +144,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final authState = ref.watch(authControllerProvider);
+    final accountUser = authState.valueOrNull;
     final displayNameAsync = ref.watch(userDisplayNameProvider);
     final isPro = ref.watch(isProUserProvider);
 
@@ -167,14 +171,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SettingsGroupLabel('Account & plan'),
                 SettingsGroup(
                   children: [
+                    _AccountIdentityTile(
+                      user: accountUser,
+                      preferredName: displayNameAsync.valueOrNull,
+                      isLoading: authState.isLoading && accountUser == null,
+                    ),
                     SettingsTile(
                       icon: Icons.badge_outlined,
                       iconColor: SettingsAccents.blue,
-                      title: 'Your name',
+                      title: 'Preferred name',
                       subtitle: displayNameAsync.when(
-                        data: (n) => n == null || n.isEmpty ? 'Optional' : n,
+                        data: (n) => n == null || n.isEmpty
+                            ? 'Optional Ask greeting'
+                            : n,
                         loading: () => '…',
-                        error: (_, _) => 'Optional',
+                        error: (_, _) => 'Optional Ask greeting',
                       ),
                       onTap: _editDisplayName,
                     ),
@@ -322,6 +333,153 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AccountIdentityTile extends StatelessWidget {
+  const _AccountIdentityTile({
+    required this.user,
+    required this.preferredName,
+    required this.isLoading,
+  });
+
+  final AppUser? user;
+  final String? preferredName;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final email = _trimOrNull(user?.email);
+    final accountName = _trimOrNull(user?.displayName);
+    final title =
+        accountName ??
+        _trimOrNull(preferredName) ??
+        _nameFromEmail(email) ??
+        (isLoading ? 'Loading account' : 'Signed in');
+    final subtitle =
+        email ?? (isLoading ? 'Checking session…' : 'Glimpse account');
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 76),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            _AccountAvatar(
+              imageUrl: _trimOrNull(user?.photoUrl),
+              label: title,
+              email: email,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _trimOrNull(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  String? _nameFromEmail(String? email) {
+    if (email == null) return null;
+    final localPart = email.split('@').first.trim();
+    if (localPart.isEmpty) return null;
+    return localPart;
+  }
+}
+
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({
+    required this.imageUrl,
+    required this.label,
+    required this.email,
+  });
+
+  final String? imageUrl;
+  final String label;
+  final String? email;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = _AccountAvatarFallback(initial: _initial);
+    final imageUrl = this.imageUrl;
+
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: ClipOval(
+        child: imageUrl == null
+            ? fallback
+            : CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, _) => fallback,
+                errorWidget: (_, _, _) => fallback,
+              ),
+      ),
+    );
+  }
+
+  String get _initial {
+    final source = label.trim().isNotEmpty ? label : email ?? '';
+    final trimmed = source.trim();
+    if (trimmed.isEmpty) return 'G';
+    return trimmed.substring(0, 1).toUpperCase();
+  }
+}
+
+class _AccountAvatarFallback extends StatelessWidget {
+  const _AccountAvatarFallback({required this.initial});
+
+  final String initial;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(color: cs.primaryContainer),
+      child: Center(
+        child: Text(
+          initial,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: cs.onPrimaryContainer,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }

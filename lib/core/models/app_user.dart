@@ -6,6 +6,7 @@ class AppUser {
     required this.id,
     this.email,
     this.displayName,
+    this.photoUrl,
     this.createdAt,
     this.lastSeen,
     required this.platform,
@@ -19,6 +20,7 @@ class AppUser {
   final String id;
   final String? email;
   final String? displayName;
+  final String? photoUrl;
   final DateTime? createdAt;
   final DateTime? lastSeen;
   final String platform;
@@ -32,6 +34,7 @@ class AppUser {
     String? id,
     String? email,
     String? displayName,
+    String? photoUrl,
     DateTime? createdAt,
     DateTime? lastSeen,
     String? platform,
@@ -45,6 +48,7 @@ class AppUser {
       id: id ?? this.id,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
+      photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt ?? this.createdAt,
       lastSeen: lastSeen ?? this.lastSeen,
       platform: platform ?? this.platform,
