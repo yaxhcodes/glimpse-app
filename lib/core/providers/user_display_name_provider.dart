@@ -1,21 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'auth_provider.dart';
+
 const _kUserDisplayName = 'glimpse_user_display_name';
 
-/// Optional first name / display string for personalized greetings (Settings).
+/// Display string for personalized greetings.
+///
+/// Legacy local overrides are still honored for restored backups and existing
+/// installs. New signed-in users naturally fall back to their account name.
 final userDisplayNameProvider = FutureProvider<String?>((ref) async {
+  final accountName = ref.watch(authControllerProvider).valueOrNull?.displayName;
   final prefs = await SharedPreferences.getInstance();
   final v = prefs.getString(_kUserDisplayName);
-  if (v == null || v.trim().isEmpty) return null;
-  return v.trim();
-});
+  final localName = v?.trim();
+  if (localName != null && localName.isNotEmpty) return localName;
 
-Future<void> setUserDisplayName(String? name) async {
-  final prefs = await SharedPreferences.getInstance();
-  if (name == null || name.trim().isEmpty) {
-    await prefs.remove(_kUserDisplayName);
-  } else {
-    await prefs.setString(_kUserDisplayName, name.trim());
-  }
-}
+  if (accountName == null || accountName.trim().isEmpty) return null;
+  return accountName.trim();
+});

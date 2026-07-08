@@ -13,7 +13,6 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
 import '../../core/services/entitlement_service.dart';
-import '../../core/providers/user_display_name_provider.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../collections/collections_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
@@ -82,19 +81,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _editDisplayName() async {
-    final prefsName = await ref.read(userDisplayNameProvider.future);
-    if (!mounted) return;
-    final name = await showDialog<String?>(
-      context: context,
-      builder: (ctx) => _DisplayNameDialog(initialName: prefsName),
-    );
-    if (name != null && mounted) {
-      await setUserDisplayName(name);
-      ref.invalidate(userDisplayNameProvider);
-    }
-  }
-
   Future<void> _logout() async {
     await ref.read(authControllerProvider.notifier).signOut();
     if (!mounted) return;
@@ -146,7 +132,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final cs = theme.colorScheme;
     final authState = ref.watch(authControllerProvider);
     final accountUser = authState.valueOrNull;
-    final displayNameAsync = ref.watch(userDisplayNameProvider);
     final isPro = ref.watch(isProUserProvider);
 
     return Scaffold(
@@ -173,21 +158,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     _AccountIdentityTile(
                       user: accountUser,
-                      preferredName: displayNameAsync.valueOrNull,
                       isLoading: authState.isLoading && accountUser == null,
-                    ),
-                    SettingsTile(
-                      icon: Icons.badge_outlined,
-                      iconColor: SettingsAccents.blue,
-                      title: 'Preferred name',
-                      subtitle: displayNameAsync.when(
-                        data: (n) => n == null || n.isEmpty
-                            ? 'Optional Ask greeting'
-                            : n,
-                        loading: () => '…',
-                        error: (_, _) => 'Optional Ask greeting',
-                      ),
-                      onTap: _editDisplayName,
                     ),
                     SettingsTile(
                       leading: SvgPicture.asset(
@@ -341,12 +312,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 class _AccountIdentityTile extends StatelessWidget {
   const _AccountIdentityTile({
     required this.user,
-    required this.preferredName,
     required this.isLoading,
   });
 
   final AppUser? user;
-  final String? preferredName;
   final bool isLoading;
 
   @override
@@ -357,7 +326,6 @@ class _AccountIdentityTile extends StatelessWidget {
     final accountName = _trimOrNull(user?.displayName);
     final title =
         accountName ??
-        _trimOrNull(preferredName) ??
         _nameFromEmail(email) ??
         (isLoading ? 'Loading account' : 'Signed in');
     final subtitle =
@@ -515,59 +483,6 @@ class _VersionTrailing extends StatelessWidget {
           Icons.chevron_right_rounded,
           size: 24,
           color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-        ),
-      ],
-    );
-  }
-}
-
-class _DisplayNameDialog extends StatefulWidget {
-  const _DisplayNameDialog({required this.initialName});
-
-  final String? initialName;
-
-  @override
-  State<_DisplayNameDialog> createState() => _DisplayNameDialogState();
-}
-
-class _DisplayNameDialogState extends State<_DisplayNameDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialName ?? '');
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _close(String? value) {
-    FocusManager.instance.primaryFocus?.unfocus();
-    Navigator.pop(context, value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Your name'),
-      content: TextField(
-        controller: _controller,
-        decoration: const InputDecoration(
-          hintText: 'Used in Ask Glimpse greetings',
-        ),
-        textCapitalization: TextCapitalization.words,
-        autofocus: true,
-        onSubmitted: (_) => _close(_controller.text),
-      ),
-      actions: [
-        TextButton(onPressed: () => _close(null), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () => _close(_controller.text),
-          child: const Text('Save'),
         ),
       ],
     );

@@ -257,6 +257,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     with WidgetsBindingObserver {
   late StreamSubscription _shareIntentSub;
   StreamSubscription<String>? _backupIntentSub;
+  StreamSubscription<void>? _appUpdateReadySub;
   final BackupIntentService _backupIntentService = BackupIntentService();
   List<String>? _pendingSharedUrls;
   bool _processingSharedUrls = false;
@@ -294,6 +295,14 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     // Backup files opened via "Open with..." from a file manager.
     _backupIntentSub = _backupIntentService.incoming.listen(_handleBackupFile);
     unawaited(_backupIntentService.start());
+
+    final appUpdateService = ref.read(appUpdateServiceProvider);
+    _appUpdateReadySub = appUpdateService.flexibleUpdateReady.listen((_) {
+      _showAppUpdateReadyPrompt();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(appUpdateService.checkForUpdateOnLaunch());
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _trackRouteOpen();
@@ -493,6 +502,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     unawaited(ref.read(analyticsServiceProvider).handleLifecycleState(state));
     if (state == AppLifecycleState.resumed) {
       unawaited(TagAnalyzer.recordAppOpen());
+      unawaited(ref.read(appUpdateServiceProvider).checkForUpdateOnResume());
       // No subscription re-sync on resume:
       //   * RC auto-fetches CustomerInfo when the app foregrounds
       //   * any change fires `addCustomerInfoUpdateListener`
@@ -509,8 +519,32 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     _router.routerDelegate.removeListener(_trackRouteOpen);
     _shareIntentSub.cancel();
     _backupIntentSub?.cancel();
+    _appUpdateReadySub?.cancel();
     unawaited(_backupIntentService.dispose());
     super.dispose();
+  }
+
+  void _showAppUpdateReadyPrompt() {
+    final ctx = _router.routerDelegate.navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    ScaffoldMessenger.of(ctx)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('A fresh Glimpse is ready.'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(days: 1),
+          action: SnackBarAction(
+            label: 'Restart',
+            onPressed: () {
+              unawaited(
+                ref.read(appUpdateServiceProvider).completeFlexibleUpdate(),
+              );
+            },
+          ),
+        ),
+      );
   }
 
   void _trackRouteOpen() {

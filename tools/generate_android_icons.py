@@ -1,29 +1,30 @@
 """
-Generate all Android icon assets for Glimpse from source artwork.
+Generate platform icon assets for Glimpse from source artwork.
 
 Inputs (relative to project root):
     assets/glimpse.png   -> RGBA app icon source (will be cropped to bbox)
     assets/mono.svg      -> monochrome notification icon source
 
 Outputs (relative to project root):
-    generated_icons/res/...   -> a self-contained res/ folder ready to drop
+    generated_icons/res/...   -> a self-contained Android res/ folder ready to drop
                                  into android/app/src/main/
+    ios/Runner/.../AppIcon    -> iOS app icon files updated in place
 
 The script does not modify the source pixels other than:
-    - cropping the launcher PNG to its non-transparent bounding box
+    - cropping the launcher PNG to its visible alpha bounding box
     - resizing (high-quality LANCZOS) to target densities
 No background removal or recoloring. Launcher artwork is scaled with enough
 transparent margin to sit naturally beside other Android adaptive icons.
 The themed launcher icon uses the same artwork placement as the adaptive
-foreground, but converts the primary blue artwork pixels into a white alpha
-mask for Android 13+ Material You launcher tinting. The white eye and darker
-blue interior linework are cut out so the themed icon keeps the app mark's
-eye and inner outline detail.
+foreground, but converts visible character pixels into a white alpha mask for
+Android 13+ Material You launcher tinting. Light eye fill and very dark pupil
+detail are cut out so the themed icon keeps the app mark's eye detail.
 """
 
 from __future__ import annotations
 
 import os
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -35,21 +36,32 @@ if sys.platform == "win32" and _CAIRO_DIR.is_dir():
     os.add_dll_directory(str(_CAIRO_DIR))
     os.environ["PATH"] = str(_CAIRO_DIR) + os.pathsep + os.environ.get("PATH", "")
 
-import cairosvg
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
+
+try:
+    import cairosvg
+except ModuleNotFoundError:
+    cairosvg = None
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = PROJECT_ROOT / "assets"
 OUT_RES = PROJECT_ROOT / "generated_icons" / "res"
+IOS_APPICONSET = (
+    PROJECT_ROOT / "ios" / "Runner" / "Assets.xcassets" / "AppIcon.appiconset"
+)
 
 GLIMPSE_PNG = ASSETS_DIR / "glimpse.png"
 MONO_SVG = ASSETS_DIR / "mono.svg"
 
 LAUNCHER_BG_HEX = "#F5F4F0"
 
-# Launcher artwork scale. The source mascot is tall with a top ring and lower
-# tail, so a 72% max-dimension scale reads oversized in Android launchers.
-LAUNCHER_ARTWORK_SCALE = 0.60
+# Launcher artwork scale. Android adaptive icons reserve a central safe zone;
+# with visible-alpha cropping, 56% matches the production icon's optical size.
+LAUNCHER_ARTWORK_SCALE = 0.56
+
+# Transparent exports can contain 1-alpha edge debris far outside the visible
+# artwork. Cropping to only perceptible alpha keeps the optical size correct.
+ARTWORK_ALPHA_CROP_THRESHOLD = 1
 
 # Android density buckets for launcher icons (mipmap-*).
 # Legacy launcher bitmap size is 48dp. Adaptive foreground/background layers
@@ -81,8 +93,13 @@ PLAY_STORE_SIZE = 512
 # inside a circular mask (safe zone is the inner 66% of the canvas), so we
 # render the character well inside that zone to guarantee nothing is clipped.
 SPLASH_CANVAS = 1152
-SPLASH_SCALE = 0.55  # character occupies 55% -> fits inside 66% safe zone
+SPLASH_SCALE = 0.64  # character occupies 64% -> fits inside 66% safe zone
 SPLASH_OUT = ASSETS_DIR / "splash_icon.png"
+
+BRANDING_SIZE = (800, 320)
+BRANDING_TEXT = "SHINRIN YOKU"
+BRANDING_OUT = ASSETS_DIR / "splash_branding.png"
+BRANDING_DARK_OUT = ASSETS_DIR / "splash_branding_dark.png"
 
 
 def hex_to_rgba(hex_color: str) -> tuple[int, int, int, int]:
@@ -91,9 +108,12 @@ def hex_to_rgba(hex_color: str) -> tuple[int, int, int, int]:
 
 
 def load_cropped_glimpse() -> Image.Image:
-    """Open glimpse.png as RGBA and crop to its non-transparent bbox."""
+    """Open glimpse.png as RGBA and crop to its visible alpha bbox."""
     img = Image.open(GLIMPSE_PNG).convert("RGBA")
-    bbox = img.getbbox()
+    visible_alpha = img.getchannel("A").point(
+        lambda alpha: 255 if alpha > ARTWORK_ALPHA_CROP_THRESHOLD else 0
+    )
+    bbox = visible_alpha.getbbox()
     if bbox is None:
         raise RuntimeError("glimpse.png appears to be fully transparent")
     cropped = img.crop(bbox)
@@ -141,7 +161,7 @@ def write_png(img: Image.Image, path: Path) -> None:
 
 
 def generate_launcher_icons(glimpse: Image.Image) -> None:
-    print("\n[1/6] Generating mipmap launcher icons...")
+    print("\n[1/7] Generating mipmap launcher icons...")
     for density, size in LAUNCHER_DENSITIES.items():
         mipmap_dir = OUT_RES / f"mipmap-{density}"
         adaptive_size = ADAPTIVE_LAYER_DENSITIES[density]
@@ -169,14 +189,22 @@ def generate_launcher_icons(glimpse: Image.Image) -> None:
         )
 
 
-def is_eye_cutout_pixel(red: int, green: int, blue: int) -> bool:
+def is_light_cutout_pixel(red: int, green: int, blue: int) -> bool:
     return min(red, green, blue) >= 220 and max(red, green, blue) - min(
         red, green, blue
-    ) <= 36
+    ) <= 48
 
 
-def is_inner_outline_cutout_pixel(red: int, green: int, blue: int) -> bool:
-    return red <= 58 and green <= 105 and blue >= 180
+def is_eye_area_pixel(x: int, y: int, width: int, height: int) -> bool:
+    normalized_x = x / width
+    normalized_y = y / height
+    return 0.24 <= normalized_x <= 0.58 and 0.04 <= normalized_y <= 0.38
+
+
+def is_dark_eye_cutout_pixel(red: int, green: int, blue: int) -> bool:
+    return max(red, green, blue) <= 82 and max(red, green, blue) - min(
+        red, green, blue
+    ) <= 42
 
 
 def load_cropped_themed_launcher_mask(glimpse: Image.Image) -> Image.Image:
@@ -188,10 +216,13 @@ def load_cropped_themed_launcher_mask(glimpse: Image.Image) -> Image.Image:
             red, green, blue, alpha = src[x, y]
             if (
                 alpha > 0
-                and not is_eye_cutout_pixel(red, green, blue)
-                and not is_inner_outline_cutout_pixel(red, green, blue)
+                and not is_light_cutout_pixel(red, green, blue)
+                and not (
+                    is_eye_area_pixel(x, y, glimpse.width, glimpse.height)
+                    and is_dark_eye_cutout_pixel(red, green, blue)
+                )
             ):
-                dest[x, y] = alpha
+                dest[x, y] = 255
 
     mask = Image.new("RGBA", glimpse.size, (255, 255, 255, 0))
     mask.putalpha(mask_alpha)
@@ -207,7 +238,7 @@ def load_cropped_themed_launcher_mask(glimpse: Image.Image) -> Image.Image:
 
 
 def generate_themed_launcher_icons(themed_mask: Image.Image) -> None:
-    print("\n[2/6] Generating Material You themed launcher masks...")
+    print("\n[2/7] Generating Material You themed launcher masks...")
     for density, size in ADAPTIVE_LAYER_DENSITIES.items():
         drawable_dir = OUT_RES / f"drawable-{density}"
         themed = fit_centered(themed_mask, size, LAUNCHER_ARTWORK_SCALE)
@@ -217,7 +248,7 @@ def generate_themed_launcher_icons(themed_mask: Image.Image) -> None:
 
 
 def generate_play_store_icon(glimpse: Image.Image) -> None:
-    print("\n[3/6] Generating Play Store 512x512 icon...")
+    print("\n[3/7] Generating Play Store 512x512 icon...")
     foreground = fit_centered(
         glimpse,
         PLAY_STORE_SIZE,
@@ -230,10 +261,37 @@ def generate_play_store_icon(glimpse: Image.Image) -> None:
     print(f"  -> {out_path.relative_to(PROJECT_ROOT)}")
 
 
+def generate_ios_icons(glimpse: Image.Image) -> None:
+    print("\n[4/7] Generating iOS AppIcon.appiconset icons...")
+    contents_path = IOS_APPICONSET / "Contents.json"
+    contents = json.loads(contents_path.read_text(encoding="utf-8"))
+    generated = 0
+
+    for entry in contents["images"]:
+        filename = entry.get("filename")
+        if not filename:
+            continue
+        point_size = float(entry["size"].split("x", maxsplit=1)[0])
+        scale = int(entry["scale"].removesuffix("x"))
+        pixel_size = round(point_size * scale)
+
+        foreground = fit_centered(
+            glimpse,
+            pixel_size,
+            LAUNCHER_ARTWORK_SCALE,
+        )
+        background = make_solid_background(pixel_size, LAUNCHER_BG_HEX)
+        composed = composite(foreground, background).convert("RGB")
+        write_png(composed, IOS_APPICONSET / filename)
+        generated += 1
+
+    print(f"  -> {generated} iOS icon files")
+
+
 def generate_splash_source(glimpse: Image.Image) -> None:
     """Render the splash source PNG for flutter_native_splash. Padded so the
     character fits comfortably inside Android 12's circular safe zone."""
-    print("\n[4/6] Generating splash source for flutter_native_splash...")
+    print("\n[5/8] Generating splash source for flutter_native_splash...")
     splash = fit_centered(glimpse, SPLASH_CANVAS, SPLASH_SCALE)
     write_png(splash, SPLASH_OUT)
     print(
@@ -243,8 +301,79 @@ def generate_splash_source(glimpse: Image.Image) -> None:
     )
 
 
+def load_branding_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    font_paths = [
+        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "segoeui.ttf",
+        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "arial.ttf",
+    ]
+    for path in font_paths:
+        if path.is_file():
+            return ImageFont.truetype(str(path), size=size)
+    return ImageFont.load_default()
+
+
+def tracked_text_size(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    tracking: int,
+) -> tuple[int, int]:
+    width = 0
+    height = 0
+    for index, char in enumerate(text):
+        bbox = draw.textbbox((0, 0), char, font=font)
+        width += bbox[2] - bbox[0]
+        if index < len(text) - 1:
+            width += tracking
+        height = max(height, bbox[3] - bbox[1])
+    return width, height
+
+
+def draw_tracked_text(
+    draw: ImageDraw.ImageDraw,
+    position: tuple[float, float],
+    text: str,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    fill: tuple[int, int, int, int],
+    tracking: int,
+) -> None:
+    x, y = position
+    for index, char in enumerate(text):
+        draw.text((x, y), char, font=font, fill=fill)
+        bbox = draw.textbbox((0, 0), char, font=font)
+        x += bbox[2] - bbox[0]
+        if index < len(text) - 1:
+            x += tracking
+
+
+def make_branding(fill: tuple[int, int, int, int]) -> Image.Image:
+    image = Image.new("RGBA", BRANDING_SIZE, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    font = load_branding_font(size=31)
+    tracking = 6
+    text_width, text_height = tracked_text_size(draw, BRANDING_TEXT, font, tracking)
+    position = (
+        (BRANDING_SIZE[0] - text_width) / 2,
+        (BRANDING_SIZE[1] - text_height) / 2,
+    )
+    draw_tracked_text(draw, position, BRANDING_TEXT, font, fill, tracking)
+    return image
+
+
+def generate_splash_branding() -> None:
+    print("\n[6/8] Generating subtle splash branding...")
+    write_png(make_branding((96, 103, 78, 130)), BRANDING_OUT)
+    write_png(make_branding((214, 218, 193, 130)), BRANDING_DARK_OUT)
+    print(f"  -> {BRANDING_OUT.relative_to(PROJECT_ROOT)}")
+    print(f"  -> {BRANDING_DARK_OUT.relative_to(PROJECT_ROOT)}")
+
+
 def generate_notification_icons() -> None:
-    print("\n[5/6] Generating drawable notification icons...")
+    print("\n[7/8] Generating drawable notification icons...")
+    if cairosvg is None:
+        print("  skipped: cairosvg is not installed and mono.svg is unchanged")
+        return
+
     svg_bytes = MONO_SVG.read_bytes()
     for density, size in NOTIFICATION_DENSITIES.items():
         drawable_dir = OUT_RES / f"drawable-{density}"
@@ -283,7 +412,7 @@ LAUNCHER_BG_XML = """<?xml version="1.0" encoding="utf-8"?>
 
 
 def generate_xml_resources() -> None:
-    print("\n[6/6] Generating XML resources...")
+    print("\n[8/8] Generating XML resources...")
     anydpi = OUT_RES / "mipmap-anydpi-v26"
     anydpi.mkdir(parents=True, exist_ok=True)
     (anydpi / "ic_launcher.xml").write_text(ADAPTIVE_ICON_XML, encoding="utf-8")
@@ -311,14 +440,16 @@ def main() -> None:
     generate_launcher_icons(glimpse)
     generate_themed_launcher_icons(themed_mask)
     generate_play_store_icon(glimpse)
+    generate_ios_icons(glimpse)
     generate_splash_source(glimpse)
+    generate_splash_branding()
     generate_notification_icons()
     generate_xml_resources()
 
     print("\nDone. Drop the contents of generated_icons/res/ into")
     print("android/app/src/main/res/ to install the new icons.")
     print("Then run `dart run flutter_native_splash:create` to refresh the")
-    print("splash assets from assets/splash_icon.png.")
+    print("splash assets from assets/splash_icon.png and splash_branding*.png.")
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/isar_service.dart';
 import '../services/ai_proxy_config.dart';
+import '../services/app_update_service.dart';
 import '../services/backup/backup_service.dart';
 import '../services/backup/backup_storage_service.dart';
 import '../services/bundled_keys.dart';
@@ -53,6 +55,14 @@ final recipeNutritionServiceProvider = Provider<RecipeNutritionService>((ref) {
       remote: UsdaFoodDataCentralDataSource(dio: Dio(), apiKey: usdaApiKey),
     ),
   );
+});
+
+final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
+  final service = AppUpdateService();
+  ref.onDispose(() {
+    unawaited(service.dispose());
+  });
+  return service;
 });
 
 /// Single shared Voyage embedding client.
