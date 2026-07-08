@@ -3,11 +3,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import '../config/app_environment.dart';
 
 /// Features tracked for monthly usage limits.
-enum UsageFeature {
-  aiSave,
-  ask,
-  search,
-}
+enum UsageFeature { aiSave, ask, search }
 
 /// Centralized limits configuration.
 ///
@@ -32,9 +28,9 @@ class UsageLimits {
   }
 
   static int _prodLimit(UsageFeature feature) => switch (feature) {
-    UsageFeature.aiSave => 15,
-    UsageFeature.ask => 5,
-    UsageFeature.search => 15,
+    UsageFeature.aiSave => 30,
+    UsageFeature.ask => 30,
+    UsageFeature.search => 30,
   };
 
   static int _devLimit(UsageFeature feature) => switch (feature) {

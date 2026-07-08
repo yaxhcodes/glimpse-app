@@ -114,17 +114,18 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                       children: [
                         _PlanFeatureTile(
                           title: 'AI tagging & categorization',
-                          subtitle: 'Free: 15 saves / mo  ·  Pro: Unlimited',
+                          subtitle: 'Free: 30 saves / mo  ·  Pro: Unlimited',
                           included: true,
                         ),
                         _PlanFeatureTile(
                           title: 'Keyword search',
-                          subtitle: 'Free: 15 searches / mo  ·  Pro: Unlimited',
+                          subtitle: 'Free: 30 searches / mo  ·  Pro: Unlimited',
                           included: true,
                         ),
                         _PlanFeatureTile(
                           title: 'Ask Your Bookmarks',
-                          subtitle: 'Free: 5 questions / mo  ·  Pro: Unlimited',
+                          subtitle:
+                              'Free: 30 questions / mo  ·  Pro: Unlimited',
                           included: true,
                         ),
                       ],
@@ -207,7 +208,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         SubscriptionTier.premium;
     if (entitled) {
       unawaited(
-        ref.read(analyticsServiceProvider).trackEvent(
+        ref
+            .read(analyticsServiceProvider)
+            .trackEvent(
               AnalyticsEvent.subscriptionPurchased,
               screen: AnalyticsScreen.subscription,
             ),

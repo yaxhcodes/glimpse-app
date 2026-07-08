@@ -133,6 +133,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final authState = ref.watch(authControllerProvider);
     final accountUser = authState.valueOrNull;
     final isPro = ref.watch(isProUserProvider);
+    final aiSaveRemaining = ref.watch(
+      remainingUsageProvider(UsageFeature.aiSave),
+    );
+    final planSubtitle = isPro
+        ? 'Manage your plan'
+        : aiSaveRemaining.when(
+            data: (remaining) {
+              final label = remaining == 1 ? 'AI save' : 'AI saves';
+              return '$remaining $label left this month';
+            },
+            loading: () => 'Checking save allowance',
+            error: (_, _) => 'Manage your plan',
+          );
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -172,7 +185,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       iconColor: SettingsAccents.gold,
                       title: 'Glimpse AI',
-                      subtitle: 'Manage your plan',
+                      subtitle: planSubtitle,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -310,10 +323,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 }
 
 class _AccountIdentityTile extends StatelessWidget {
-  const _AccountIdentityTile({
-    required this.user,
-    required this.isLoading,
-  });
+  const _AccountIdentityTile({required this.user, required this.isLoading});
 
   final AppUser? user;
   final bool isLoading;

@@ -167,6 +167,21 @@ class UsageService {
   /// [isPro] is `true` → returns a large sentinel (`9999`).
   Future<int> getRemaining(UsageFeature feature, bool isPro) async {
     if (isPro) return 9999;
+    final serverFeature = _serverFeature(feature);
+    if (serverFeature != null) {
+      try {
+        final snap = await _aiQuota!.peek(serverFeature);
+        if (snap.enforced) {
+          await _setLocalCount(feature, snap.used);
+          return snap.remaining.clamp(0, snap.limit);
+        }
+      } catch (e) {
+        developer.log(
+          'Quota peek failed for ${feature.name}, using local remaining: $e',
+          name: 'UsageService',
+        );
+      }
+    }
     final usage = await getUsage(feature);
     final limit = UsageLimits.getLimit(feature);
     return (limit - usage).clamp(0, limit);
@@ -189,6 +204,22 @@ class UsageService {
   /// threshold (≥ 80 % of limit).
   Future<bool> isNearLimit(UsageFeature feature, bool isPro) async {
     if (isPro) return false;
+    final serverFeature = _serverFeature(feature);
+    if (serverFeature != null) {
+      try {
+        final snap = await _aiQuota!.peek(serverFeature);
+        if (snap.enforced) {
+          await _setLocalCount(feature, snap.used);
+          if (snap.limit == 0) return false;
+          return snap.used >= (snap.limit * 0.8).ceil();
+        }
+      } catch (e) {
+        developer.log(
+          'Quota peek failed for ${feature.name}, using local near-limit: $e',
+          name: 'UsageService',
+        );
+      }
+    }
     final usage = await getUsage(feature);
     final limit = UsageLimits.getLimit(feature);
     if (limit == 0) return false;
