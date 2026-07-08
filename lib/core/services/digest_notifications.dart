@@ -1,5 +1,7 @@
+import 'dart:developer' as developer;
 import 'dart:math' show Random;
 
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'digest_prefs.dart';
@@ -25,7 +27,7 @@ enum NotifType {
   /// A save the user explicitly bookmarked to return to ("Watch Later", "Try
   /// This Weekend", …) whose chosen moment has now arrived. Highest-signal,
   /// least-spammy type — the user asked for it.
-  revisitDue;
+  revisitDue,
 }
 
 const _groupKey = 'glimpse_notifications';
@@ -57,12 +59,14 @@ class DigestNotifications {
         if (await NotificationActionHandler.handleIfAction(details)) return;
         onOpenNotification(details.payload);
       },
-      onDidReceiveBackgroundNotificationResponse: notificationBackgroundResponse,
+      onDidReceiveBackgroundNotificationResponse:
+          notificationBackgroundResponse,
     );
 
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
 
     final launch = await _plugin.getNotificationAppLaunchDetails();
@@ -82,7 +86,8 @@ class DigestNotifications {
     const android = AndroidInitializationSettings('ic_notification');
     await _plugin.initialize(
       const InitializationSettings(android: android),
-      onDidReceiveBackgroundNotificationResponse: notificationBackgroundResponse,
+      onDidReceiveBackgroundNotificationResponse:
+          notificationBackgroundResponse,
     );
     await _ensureChannel();
   }
@@ -90,7 +95,8 @@ class DigestNotifications {
   static Future<void> _ensureChannel() async {
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (androidPlugin == null) return;
 
     await androidPlugin.createNotificationChannel(
@@ -152,15 +158,34 @@ class DigestNotifications {
           : null,
     );
 
-    await _plugin.show(
-      notifId,
-      title,
-      body,
-      NotificationDetails(android: androidDetails),
-      payload: payloadJson,
-    );
+    try {
+      await _plugin.show(
+        notifId,
+        title,
+        body,
+        NotificationDetails(android: androidDetails),
+        payload: payloadJson,
+      );
+    } on PlatformException catch (e, st) {
+      developer.log(
+        'Failed to show notification.',
+        name: 'DigestNotifications',
+        error: e,
+        stackTrace: st,
+      );
+      return;
+    }
 
-    await _updateGroupSummary();
+    try {
+      await _updateGroupSummary();
+    } on PlatformException catch (e, st) {
+      developer.log(
+        'Failed to update notification group summary.',
+        name: 'DigestNotifications',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   static Future<void> _updateGroupSummary() async {
@@ -181,7 +206,7 @@ class DigestNotifications {
     // is unnecessary and can actually suppress the child on some devices.
     if (count == 1) {
       // Cancel any previously-shown summary so it doesn't linger.
-      await _plugin.cancel(_summaryNotifId);
+      await _cancelGroupSummary();
       return;
     }
 
@@ -189,8 +214,9 @@ class DigestNotifications {
         .map((e) => e['topic']?.toString() ?? 'Notification')
         .toList();
 
-    final summaryText =
-        count == 1 ? '1 new notification' : '$count new notifications';
+    final summaryText = count == 1
+        ? '1 new notification'
+        : '$count new notifications';
 
     final summaryDetails = AndroidNotificationDetails(
       _channelId,
@@ -217,5 +243,18 @@ class DigestNotifications {
       summaryText,
       NotificationDetails(android: summaryDetails),
     );
+  }
+
+  static Future<void> _cancelGroupSummary() async {
+    try {
+      await _plugin.cancel(_summaryNotifId);
+    } on PlatformException catch (e, st) {
+      developer.log(
+        'Failed to cancel notification group summary.',
+        name: 'DigestNotifications',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 }
