@@ -1,5 +1,5 @@
 import 'dart:developer' as developer;
-import 'dart:math' show Random;
+import 'dart:math' show Random, min;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -174,8 +174,9 @@ class AskConversationPlanner {
     List<MapEntry<SavedUrl, double>> semanticScored = const [],
     int limit = 6,
   }) {
-    final isFollowUp = looksLikeFollowUp(question);
-    final allowRepeats = asksForPreviousSources(question);
+    final referencesContext = referencesActiveContext(question);
+    final isFollowUp = looksLikeFollowUp(question) || referencesContext;
+    final allowRepeats = referencesContext || asksForPreviousSources(question);
     final citedIds = citedSourceIds(previousMessages);
     final suppressedIds = isFollowUp && !allowRepeats ? citedIds : <int>{};
 
@@ -188,12 +189,18 @@ class AskConversationPlanner {
               .where((entry) => !suppressedIds.contains(entry.key.id))
               .toList();
 
-    var contextUrls = AskRetrievalService.retrieve(
-      query: question,
-      allUrls: candidateUrls,
-      semanticScored: candidateSemantic,
-      limit: limit,
-    );
+    var contextUrls = referencesContext
+        ? latestContext(previousMessages, limit: limit)
+        : const <SavedUrl>[];
+
+    if (contextUrls.isEmpty) {
+      contextUrls = AskRetrievalService.retrieve(
+        query: question,
+        allUrls: candidateUrls,
+        semanticScored: candidateSemantic,
+        limit: limit,
+      );
+    }
 
     if (contextUrls.isEmpty && isFollowUp) {
       contextUrls = activeContext(previousMessages, limit: limit);
@@ -235,6 +242,38 @@ class AskConversationPlanner {
     return byId.values.take(limit).toList();
   }
 
+  static List<SavedUrl> latestContext(
+    List<ChatMessage> messages, {
+    int limit = 6,
+  }) {
+    for (final message in messages.reversed) {
+      if (message.isUser) continue;
+      final byId = <int, SavedUrl>{};
+      for (final section in message.sections) {
+        byId.putIfAbsent(section.source.id, () => section.source);
+      }
+      for (final source in message.sources) {
+        byId.putIfAbsent(source.id, () => source);
+      }
+      if (byId.isNotEmpty) return byId.values.take(limit).toList();
+    }
+    return const [];
+  }
+
+  static bool referencesActiveContext(String question) {
+    final q = question.trim().toLowerCase();
+    if (RegExp(
+      r'\b(these|those|them|both|all (?:two|three|four|of them)|'
+      r'the (?:two|three|four)|above|previous (?:ones|sources|saves|links)|'
+      r'that (?:one|save|source|link)|this (?:save|source|link))\b',
+    ).hasMatch(q)) {
+      return true;
+    }
+    return RegExp(
+      r'\b(synthesi[sz]e|summari[sz]e|combine|compare)\b.*\b(all|together)\b',
+    ).hasMatch(q);
+  }
+
   static bool looksLikeFollowUp(String question) {
     final q = question.trim().toLowerCase();
     if (q.length <= 32 &&
@@ -253,6 +292,219 @@ class AskConversationPlanner {
     return RegExp(
       r'\b(same|that|this|those|previous|earlier|again|it|them)\b',
     ).hasMatch(q);
+  }
+}
+
+/// Rejects model-generated prompts that are not supported by the retrieved
+/// saves or that repeat a question the user has already asked.
+class AskSuggestionGuard {
+  static const _stopWords = <String>{
+    'a',
+    'about',
+    'an',
+    'and',
+    'any',
+    'are',
+    'better',
+    'can',
+    'choose',
+    'could',
+    'did',
+    'discuss',
+    'do',
+    'does',
+    'explain',
+    'examples',
+    'for',
+    'from',
+    'help',
+    'how',
+    'i',
+    'impact',
+    'improve',
+    'in',
+    'into',
+    'is',
+    'it',
+    'know',
+    'like',
+    'main',
+    'me',
+    'more',
+    'my',
+    'of',
+    'on',
+    'optimize',
+    'or',
+    'other',
+    'our',
+    'recommend',
+    'recommended',
+    'should',
+    'since',
+    'some',
+    'specific',
+    'support',
+    'tell',
+    'that',
+    'the',
+    'their',
+    'them',
+    'there',
+    'these',
+    'this',
+    'those',
+    'through',
+    'to',
+    'versus',
+    'want',
+    'we',
+    'what',
+    'when',
+    'which',
+    'who',
+    'why',
+    'with',
+    'would',
+    'you',
+    'your',
+  };
+
+  static List<String> filter({
+    required List<String> candidates,
+    required List<SavedUrl> evidence,
+    required List<ChatMessage> previousMessages,
+    required String currentQuestion,
+    String? topicText,
+  }) {
+    final evidenceTokens = _tokens(
+      evidence
+          .map(
+            (url) => [
+              url.title,
+              url.summary ?? '',
+              url.description,
+              url.category,
+              ...url.tags,
+              url.userNotes ?? '',
+              url.enrichmentJson ?? '',
+            ].join(' '),
+          )
+          .join(' '),
+    );
+    final asked = <String>[
+      ...previousMessages
+          .where((message) => message.isUser)
+          .map((message) => message.text),
+      currentQuestion,
+    ];
+    final topicTokens = topicText == null
+        ? const <String>{}
+        : _tokens(topicText);
+    final accepted = <String>[];
+
+    for (final candidate in candidates) {
+      final clean = candidate.trim();
+      if (clean.isEmpty || !clean.endsWith('?')) continue;
+      if (!_isGrounded(clean, evidenceTokens)) continue;
+      if (topicTokens.isNotEmpty &&
+          _tokens(clean).intersection(topicTokens).isEmpty) {
+        continue;
+      }
+      if (asked.any((question) => _isNearDuplicate(clean, question))) continue;
+      if (accepted.any((question) => _isNearDuplicate(clean, question))) {
+        continue;
+      }
+      accepted.add(clean);
+      if (accepted.length == 3) break;
+    }
+    return accepted;
+  }
+
+  static List<SavedUrl> citedEvidence({
+    required ChatResponse answer,
+    required List<SavedUrl> retrievedEvidence,
+  }) {
+    final cited = <int, SavedUrl>{};
+    for (final section in answer.sections) {
+      final index = section.sourceIndex - 1;
+      if (index < 0 || index >= retrievedEvidence.length) continue;
+      final source = retrievedEvidence[index];
+      cited.putIfAbsent(source.id, () => source);
+    }
+    return cited.values.toList();
+  }
+
+  static bool _isGrounded(String question, Set<String> evidenceTokens) {
+    final questionTokens = _tokens(question);
+    if (questionTokens.isEmpty || evidenceTokens.isEmpty) return false;
+    final matched = questionTokens.where(evidenceTokens.contains).length;
+    return matched / questionTokens.length >= 0.7;
+  }
+
+  static bool _isNearDuplicate(String a, String b) {
+    final normalizedA = _normalize(a);
+    final normalizedB = _normalize(b);
+    if (normalizedA == normalizedB) return true;
+
+    final aTokens = _tokens(a);
+    final bTokens = _tokens(b);
+    if (aTokens.length < 2 || bTokens.length < 2) return false;
+    final shared = aTokens.intersection(bTokens).length;
+    return shared / min(aTokens.length, bTokens.length) >= 0.8;
+  }
+
+  static Set<String> _tokens(String value) => RegExp(r'[a-z0-9]+')
+      .allMatches(value.toLowerCase())
+      .map((match) => match.group(0)!)
+      .where((token) => !_stopWords.contains(token))
+      .map(_stem)
+      .where((token) => token.length > 2 && !_stopWords.contains(token))
+      .toSet();
+
+  static String _normalize(String value) => RegExp(
+    r'[a-z0-9]+',
+  ).allMatches(value.toLowerCase()).map((match) => match.group(0)!).join(' ');
+
+  static String _stem(String token) {
+    if (token.length > 5 && token.endsWith('ies')) {
+      return '${token.substring(0, token.length - 3)}y';
+    }
+    if (token.length > 5 && token.endsWith('ing')) {
+      return token.substring(0, token.length - 3);
+    }
+    if (token.length > 4 && token.endsWith('ed')) {
+      return token.substring(0, token.length - 2);
+    }
+    if (token.length > 4 && token.endsWith('s')) {
+      return token.substring(0, token.length - 1);
+    }
+    return token;
+  }
+}
+
+class AskAnswerActionPolicy {
+  static final _libraryPresenceQuestion = RegExp(
+    r'\b(did i save|have i saved|do i have (?:anything|something|any)|'
+    r'any(?:thing)? saved (?:about|on)|any saves? (?:about|on)|'
+    r'(?:is|are) there any(?:thing)? .+ in my (?:library|saves?))\b',
+    caseSensitive: false,
+  );
+
+  static bool canSaveAnswer({
+    required String question,
+    required ChatAnswerType answerType,
+    required ChatAnswerConfidence confidence,
+    required int sourceCount,
+  }) {
+    if (sourceCount == 0 ||
+        confidence == ChatAnswerConfidence.low ||
+        confidence == ChatAnswerConfidence.insufficientEvidence ||
+        answerType == ChatAnswerType.fallback ||
+        answerType == ChatAnswerType.insufficientEvidence) {
+      return false;
+    }
+    return !_libraryPresenceQuestion.hasMatch(question.trim());
   }
 }
 
@@ -304,7 +556,7 @@ class AskNotifier extends StateNotifier<AskState> {
       sections: sections,
       confidence: ChatAnswerConfidence.low,
       answerType: ChatAnswerType.fallback,
-      canSaveAsNote: sections.isNotEmpty,
+      canSaveAsNote: false,
     );
   }
 
@@ -452,6 +704,12 @@ class AskNotifier extends StateNotifier<AskState> {
         conversationHistory: recentHistory,
         contextMode: ChatContextMode.retrieved,
       );
+      final safeSuggestions = _guardSuggestions(
+        answer: answer,
+        evidence: contextUrls,
+        previousMessages: previousMessages,
+        currentQuestion: question,
+      );
 
       final sections = answer.sections
           .map(
@@ -470,7 +728,11 @@ class AskNotifier extends StateNotifier<AskState> {
           .map((s) => contextUrls[s.sourceIndex - 1])
           .toList();
 
-      final action = _resolveAction(answer, question);
+      final action = _resolveAction(
+        answer,
+        question,
+        hasProactiveTip: safeSuggestions.proactiveTip != null,
+      );
 
       await usageService.incrementUsage(UsageFeature.ask);
       _ref.read(usageRevisionProvider.notifier).state++;
@@ -479,13 +741,18 @@ class AskNotifier extends StateNotifier<AskState> {
         answer.intro,
         sources: actionSources,
         sections: sections,
-        proactiveTip: answer.proactiveTip,
-        followUpSuggestions: answer.followUpSuggestions,
+        proactiveTip: safeSuggestions.proactiveTip,
+        followUpSuggestions: safeSuggestions.followUps,
         action: action,
         confidence: answer.confidence,
         answerType: answer.answerType,
         originalQuestion: question,
-        canSaveAsNote: actionSources.isNotEmpty,
+        canSaveAsNote: AskAnswerActionPolicy.canSaveAnswer(
+          question: question,
+          answerType: answer.answerType,
+          confidence: answer.confidence,
+          sourceCount: actionSources.length,
+        ),
       );
     } catch (e) {
       developer.log('Ask AI error: $e', name: 'AskNotifier');
@@ -509,7 +776,11 @@ class AskNotifier extends StateNotifier<AskState> {
     }
   }
 
-  ChatAction _resolveAction(ChatResponse response, String userQuestion) {
+  ChatAction _resolveAction(
+    ChatResponse response,
+    String userQuestion, {
+    required bool hasProactiveTip,
+  }) {
     if (response.sections.isEmpty) return ChatAction.none;
 
     final q = userQuestion.toLowerCase();
@@ -520,7 +791,7 @@ class AskNotifier extends StateNotifier<AskState> {
       return ChatAction.buildPlan;
     }
 
-    if (response.proactiveTip != null && response.sections.length >= 3) {
+    if (hasProactiveTip && response.sections.length >= 3) {
       return ChatAction.synthesize;
     }
 
@@ -535,6 +806,46 @@ class AskNotifier extends StateNotifier<AskState> {
         .map((m) => {'role': m.isUser ? 'User' : 'Glimpse', 'content': m.text})
         .toList();
     return history.length > 12 ? history.sublist(history.length - 12) : history;
+  }
+
+  ({String? proactiveTip, List<String> followUps}) _guardSuggestions({
+    required ChatResponse answer,
+    required List<SavedUrl> evidence,
+    required List<ChatMessage> previousMessages,
+    required String currentQuestion,
+  }) {
+    final citedEvidence = AskSuggestionGuard.citedEvidence(
+      answer: answer,
+      retrievedEvidence: evidence,
+    );
+    final topicText = [
+      currentQuestion,
+      answer.intro,
+      ...answer.sections.expand(
+        (section) => [section.heading, section.summary],
+      ),
+    ].join(' ');
+    final followUps = AskSuggestionGuard.filter(
+      candidates: answer.followUpSuggestions,
+      evidence: citedEvidence,
+      previousMessages: previousMessages,
+      currentQuestion: currentQuestion,
+      topicText: topicText,
+    );
+    final proactiveTip = answer.proactiveTip;
+    final safeTip = proactiveTip == null
+        ? const <String>[]
+        : AskSuggestionGuard.filter(
+            candidates: [proactiveTip],
+            evidence: citedEvidence,
+            previousMessages: previousMessages,
+            currentQuestion: currentQuestion,
+            topicText: topicText,
+          );
+    return (
+      proactiveTip: safeTip.isEmpty ? null : safeTip.single,
+      followUps: followUps,
+    );
   }
 
   Future<void> _answerWithFixedContext({
@@ -552,6 +863,12 @@ class AskNotifier extends StateNotifier<AskState> {
       contextUrls: contextUrls,
       conversationHistory: recentHistory,
       contextMode: ChatContextMode.focusedSave,
+    );
+    final safeSuggestions = _guardSuggestions(
+      answer: answer,
+      evidence: contextUrls,
+      previousMessages: previousMessages,
+      currentQuestion: question,
     );
 
     final sections = answer.sections
@@ -584,12 +901,19 @@ class AskNotifier extends StateNotifier<AskState> {
       answer.intro,
       sources: sources.isEmpty ? contextUrls.take(1).toList() : sources,
       sections: sections,
-      proactiveTip: answer.proactiveTip,
-      followUpSuggestions: answer.followUpSuggestions,
+      proactiveTip: safeSuggestions.proactiveTip,
+      followUpSuggestions: safeSuggestions.followUps,
       confidence: answer.confidence,
       answerType: answer.answerType,
       originalQuestion: question,
-      canSaveAsNote: saveAnswerToUrlId == null,
+      canSaveAsNote:
+          saveAnswerToUrlId == null &&
+          AskAnswerActionPolicy.canSaveAnswer(
+            question: question,
+            answerType: answer.answerType,
+            confidence: answer.confidence,
+            sourceCount: sources.isEmpty ? contextUrls.length : sources.length,
+          ),
       noteSaved: saveAnswerToUrlId != null,
     );
   }

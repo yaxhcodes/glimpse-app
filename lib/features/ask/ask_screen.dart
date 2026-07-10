@@ -17,6 +17,7 @@ import '../../shared/widgets/usage_badge.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
+import '../../core/services/gemini_service.dart' show ChatAnswerType;
 import '../../core/services/title_resolver.dart';
 import '../home/home_provider.dart';
 import '../collections/collection_visual.dart';
@@ -632,13 +633,25 @@ class _UserBubble extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
     final maxW = math.min(520.0, MediaQuery.sizeOf(context).width * 0.86);
+    final textStyle =
+        textTheme.bodyLarge?.copyWith(
+          color: colorScheme.onPrimary,
+          height: 1.45,
+        ) ??
+        TextStyle(color: colorScheme.onPrimary, height: 1.45);
+    final bubbleWidth = _balancedBubbleWidth(
+      context: context,
+      text: text,
+      style: textStyle,
+      maxWidth: maxW,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Align(
         alignment: Alignment.centerRight,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxW),
+        child: SizedBox(
+          width: bubbleWidth,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -650,17 +663,45 @@ class _UserBubble extends StatelessWidget {
                 bottomRight: Radius.circular(20),
               ),
             ),
-            child: Text(
-              text,
-              style: textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onPrimary,
-                height: 1.45,
-              ),
-            ),
+            child: Text(text, style: textStyle),
           ),
         ),
       ),
     );
+  }
+
+  double _balancedBubbleWidth({
+    required BuildContext context,
+    required String text,
+    required TextStyle style,
+    required double maxWidth,
+  }) {
+    const horizontalPadding = 32.0;
+    final maxTextWidth = math.max(1.0, maxWidth - horizontalPadding);
+    TextPainter painter(double width) => TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: width);
+
+    final widestLayout = painter(maxTextWidth);
+    final targetLines = widestLayout.computeLineMetrics().length;
+    if (targetLines <= 1) {
+      return math.min(maxWidth, widestLayout.width + horizontalPadding);
+    }
+
+    var low = math.min(96.0, maxTextWidth);
+    var high = maxTextWidth;
+    for (var i = 0; i < 10; i++) {
+      final midpoint = (low + high) / 2;
+      final lines = painter(midpoint).computeLineMetrics().length;
+      if (lines <= targetLines) {
+        high = midpoint;
+      } else {
+        low = midpoint;
+      }
+    }
+    return math.min(maxWidth, high + horizontalPadding + 4);
   }
 }
 
@@ -876,6 +917,9 @@ class _AssistantBlockState extends State<_AssistantBlock> {
     final textTheme = theme.textTheme;
     final hasSections = widget.message.sections.isNotEmpty;
     final hasSources = widget.message.sources.isNotEmpty;
+    final collapsesSources =
+        widget.message.answerType == ChatAnswerType.synthesis ||
+        widget.message.answerType == ChatAnswerType.plan;
     final tip = widget.message.proactiveTip;
     final label = widget.message.label;
 
@@ -908,23 +952,49 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                   bottomRight: Radius.circular(20),
                 ),
               ),
-              child: _introComplete
-                  ? SelectableText(
-                      _intro,
-                      style: textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurface,
-                        height: 1.5,
-                      ),
-                    )
-                  : Text(
-                      _displayedIntro,
-                      style: textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurface,
-                        height: 1.5,
-                      ),
-                    ),
+              child: _AssistantRichText(
+                text: _introComplete ? _intro : _displayedIntro,
+                baseStyle:
+                    textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurface,
+                      height: 1.5,
+                    ) ??
+                    const TextStyle(),
+                selectable: _introComplete,
+              ),
             ),
-          if (hasSections) ...[
+          if (collapsesSources &&
+              (hasSections || hasSources) &&
+              _visibleCardCount == _cardTotal)
+            _SourceDisclosure(
+              count: _cardTotal,
+              children: hasSections
+                  ? [
+                      for (
+                        var index = 0;
+                        index < widget.message.sections.length;
+                        index++
+                      )
+                        _AnswerSectionCard(
+                          order: index + 1,
+                          showIndex: widget.message.sections.length > 1,
+                          section: widget.message.sections[index],
+                        ),
+                    ]
+                  : [
+                      for (
+                        var index = 0;
+                        index < widget.message.sources.length;
+                        index++
+                      )
+                        _SourceCard(
+                          source: widget.message.sources[index],
+                          order: index + 1,
+                          showIndex: widget.message.sources.length > 1,
+                        ),
+                    ],
+            )
+          else if (!collapsesSources && hasSections) ...[
             for (var index = 0; index < widget.message.sections.length; index++)
               if (index < _visibleCardCount)
                 _StaggerAppear(
@@ -934,7 +1004,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                     section: widget.message.sections[index],
                   ),
                 ),
-          ] else if (hasSources) ...[
+          ] else if (!collapsesSources && hasSources) ...[
             for (var index = 0; index < widget.message.sources.length; index++)
               if (index < _visibleCardCount)
                 _StaggerAppear(
@@ -945,43 +1015,48 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                   ),
                 ),
           ],
-          if (widget.message.action != ChatAction.none &&
-              !_actionConsumed &&
-              _chipVisible) ...[
+          if ((widget.message.action != ChatAction.none &&
+                  !_actionConsumed &&
+                  _chipVisible) ||
+              (widget.onSaveAnswerToNotesTap != null &&
+                  _saveActionVisible)) ...[
             const SizedBox(height: 10),
             AnimatedOpacity(
-              opacity: _chipVisible ? 1.0 : 0.0,
+              opacity: 1,
               duration: const Duration(milliseconds: 350),
               curve: Curves.easeOut,
-              child: _ChatActionChip(
-                action: widget.message.action,
-                onTap: () {
-                  setState(() => _actionConsumed = true);
-                  widget.onActionConsumed?.call();
-                  switch (widget.message.action) {
-                    case ChatAction.saveToCollection:
-                      widget.onSaveToCollectionTap?.call();
-                    case ChatAction.synthesize:
-                      widget.onSynthesizeTap?.call();
-                    case ChatAction.buildPlan:
-                      widget.onBuildPlanTap?.call();
-                    case ChatAction.none:
-                      break;
-                  }
-                },
-              ),
-            ),
-          ],
-          if (widget.onSaveAnswerToNotesTap != null && _saveActionVisible) ...[
-            const SizedBox(height: 10),
-            AnimatedOpacity(
-              opacity: _saveActionVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              child: _AssistantUtilityAction(
-                icon: Icons.note_add_outlined,
-                label: 'Save answer',
-                onTap: widget.onSaveAnswerToNotesTap!,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (widget.message.action != ChatAction.none &&
+                      !_actionConsumed &&
+                      _chipVisible)
+                    _ChatActionChip(
+                      action: widget.message.action,
+                      onTap: () {
+                        setState(() => _actionConsumed = true);
+                        widget.onActionConsumed?.call();
+                        switch (widget.message.action) {
+                          case ChatAction.saveToCollection:
+                            widget.onSaveToCollectionTap?.call();
+                          case ChatAction.synthesize:
+                            widget.onSynthesizeTap?.call();
+                          case ChatAction.buildPlan:
+                            widget.onBuildPlanTap?.call();
+                          case ChatAction.none:
+                            break;
+                        }
+                      },
+                    ),
+                  if (widget.onSaveAnswerToNotesTap != null &&
+                      _saveActionVisible)
+                    _AssistantUtilityAction(
+                      icon: Icons.note_add_outlined,
+                      label: 'Save answer',
+                      onTap: widget.onSaveAnswerToNotesTap!,
+                    ),
+                ],
               ),
             ),
           ],
@@ -1030,19 +1105,177 @@ class _AssistantUtilityAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 16),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          visualDensity: VisualDensity.compact,
-          foregroundColor: colorScheme.primary,
-          side: BorderSide(color: colorScheme.outlineVariant),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        foregroundColor: colorScheme.primary,
+        side: BorderSide(color: colorScheme.outlineVariant),
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+}
+
+/// A deliberately small Markdown renderer for model prose. Ask only needs
+/// headings, bullets and emphasis; keeping this local avoids turning arbitrary
+/// model output into a full HTML-capable document surface.
+class _AssistantRichText extends StatelessWidget {
+  const _AssistantRichText({
+    required this.text,
+    required this.baseStyle,
+    this.selectable = true,
+  });
+
+  final String text;
+  final TextStyle baseStyle;
+  final bool selectable;
+
+  @override
+  Widget build(BuildContext context) {
+    final blocks = <Widget>[];
+    for (final rawLine in text.split('\n')) {
+      final line = rawLine.trimRight();
+      if (line.trim().isEmpty) {
+        if (blocks.isNotEmpty) blocks.add(const SizedBox(height: 10));
+        continue;
+      }
+
+      final heading = RegExp(
+        r'^#{1,6}(?:\s+|$)(.*)$',
+      ).firstMatch(line.trimLeft());
+      final bullet = RegExp(r'^\s*[-*](?:\s+|$)(.*)$').firstMatch(line);
+      if (heading != null) {
+        blocks.add(
+          Padding(
+            padding: EdgeInsets.only(top: blocks.isEmpty ? 0 : 8, bottom: 2),
+            child: _richLine(
+              TextSpan(
+                style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+                children: _inlineSpans(heading.group(1)!, baseStyle),
+              ),
+            ),
           ),
+        );
+      } else if (bullet != null) {
+        blocks.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1, right: 9),
+                  child: Text('•', style: baseStyle),
+                ),
+                Expanded(
+                  child: _richLine(
+                    TextSpan(
+                      style: baseStyle,
+                      children: _inlineSpans(bullet.group(1)!, baseStyle),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        blocks.add(
+          _richLine(
+            TextSpan(style: baseStyle, children: _inlineSpans(line, baseStyle)),
+          ),
+        );
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: blocks,
+    );
+  }
+
+  Widget _richLine(TextSpan span) {
+    return selectable ? SelectableText.rich(span) : Text.rich(span);
+  }
+
+  static List<InlineSpan> _inlineSpans(String text, TextStyle baseStyle) {
+    final spans = <InlineSpan>[];
+    final emphasis = RegExp(r'\*\*(.+?)\*\*');
+    var cursor = 0;
+    for (final match in emphasis.allMatches(text)) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, match.start)));
+      }
+      spans.add(
+        TextSpan(
+          text: match.group(1),
+          style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+        ),
+      );
+      cursor = match.end;
+    }
+    if (cursor < text.length) {
+      final remaining = text.substring(cursor);
+      final openEmphasis = remaining.indexOf('**');
+      if (openEmphasis >= 0) {
+        if (openEmphasis > 0) {
+          spans.add(TextSpan(text: remaining.substring(0, openEmphasis)));
+        }
+        spans.add(
+          TextSpan(
+            text: remaining.substring(openEmphasis + 2),
+            style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+          ),
+        );
+      } else {
+        final safeText = remaining.endsWith('*')
+            ? remaining.substring(0, remaining.length - 1)
+            : remaining;
+        if (safeText.isNotEmpty) spans.add(TextSpan(text: safeText));
+      }
+    }
+    return spans;
+  }
+}
+
+class _SourceDisclosure extends StatelessWidget {
+  const _SourceDisclosure({required this.count, required this.children});
+
+  final int count;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+          childrenPadding: const EdgeInsets.only(bottom: 4),
+          minTileHeight: 44,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            side: BorderSide(color: colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          leading: Icon(
+            Icons.library_books_outlined,
+            size: 18,
+            color: colorScheme.primary,
+          ),
+          title: Text(count == 1 ? '1 source' : '$count sources'),
+          subtitle: const Text('Used for this answer'),
+          children: children,
         ),
       ),
     );
@@ -1057,20 +1290,57 @@ class _FollowUpChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: prompts.take(3).map((prompt) {
-        return ActionChip(
-          label: Text(prompt),
-          onPressed: onTap == null
-              ? null
-              : () {
-                  HapticFeedback.selectionClick();
-                  onTap!(prompt);
-                },
-        );
-      }).toList(),
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < prompts.take(3).length; index++) ...[
+          if (index > 0) const SizedBox(height: 8),
+          Material(
+            color: colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap == null
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      onTap!(prompts[index]);
+                    },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        prompts[index],
+                        softWrap: true,
+                        style: textTheme.labelLarge?.copyWith(
+                          color: colorScheme.onSecondaryContainer,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Icon(
+                      Icons.north_west_rounded,
+                      size: 16,
+                      color: colorScheme.onSecondaryContainer.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -1856,33 +2126,18 @@ class _ChatActionChip extends StatelessWidget {
 
     if (action == ChatAction.none) return const SizedBox.shrink();
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(top: 10),
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        foregroundColor: cs.primary,
+        side: BorderSide(color: cs.outlineVariant),
+        minimumSize: const Size(0, 44),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: cs.primary.withValues(alpha: 0.35),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: cs.primary),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.primary,
-              ),
-            ),
-          ],
-        ),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
