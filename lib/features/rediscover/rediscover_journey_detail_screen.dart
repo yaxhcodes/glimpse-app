@@ -11,6 +11,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../home/home_provider.dart';
@@ -278,11 +279,12 @@ class _JourneyHero extends StatelessWidget {
                   title,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: tt.headlineSmall?.copyWith(
+                  style: AppTypography.editorial(
+                    tt.headlineSmall,
                     color: visual.foreground,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     height: 1.04,
-                    letterSpacing: -0.3,
+                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 10),

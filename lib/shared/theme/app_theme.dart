@@ -29,9 +29,8 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 // ─────────────────────────────────────────────────────────────────────────────
 // Typography system
 //
-// Space Grotesk  → display / app-bar branding (modern tech look)
-// Inter          → titles, body, metadata, bottom nav labels (explicit theme)
-// Fira Code      → tags and technical labels (structured, database-like)
+// Instrument Sans → interface, navigation, controls, labels, and metadata
+// Newsreader      → opt-in editorial titles via AppTypography
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Predefined accent color palettes inspired by Pixel / Seal.
@@ -113,78 +112,78 @@ class AppTheme {
 
   static TextTheme _buildTextTheme() {
     return TextTheme(
-      // ── Space Grotesk — Display / Branding ─────────────────────────────
-      displayLarge: GoogleFonts.spaceGrotesk(
+      // ── Instrument Sans — Display / Branding
+      displayLarge: GoogleFonts.instrumentSans(
         fontSize: 57,
         fontWeight: FontWeight.w700,
         height: 1.12,
         letterSpacing: -0.25,
       ),
-      displayMedium: GoogleFonts.spaceGrotesk(
+      displayMedium: GoogleFonts.instrumentSans(
         fontSize: 45,
         fontWeight: FontWeight.w700,
         height: 1.16,
         letterSpacing: 0,
       ),
-      displaySmall: GoogleFonts.spaceGrotesk(
+      displaySmall: GoogleFonts.instrumentSans(
         fontSize: 36,
         fontWeight: FontWeight.w700,
         height: 1.2,
         letterSpacing: 0,
       ),
-      headlineLarge: GoogleFonts.spaceGrotesk(
+      headlineLarge: GoogleFonts.instrumentSans(
         fontSize: 32,
         fontWeight: FontWeight.w700,
         height: 1.2,
         letterSpacing: 0.32,
       ),
-      headlineMedium: GoogleFonts.spaceGrotesk(
+      headlineMedium: GoogleFonts.instrumentSans(
         fontSize: 28,
         fontWeight: FontWeight.w700,
         height: 1.2,
         letterSpacing: 0.28,
       ),
-      headlineSmall: GoogleFonts.spaceGrotesk(
+      headlineSmall: GoogleFonts.instrumentSans(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         height: 1.2,
         letterSpacing: 0.24,
       ),
 
-      // ── Inter — Titles ──────────────────────────────────────────────────
-      titleLarge: GoogleFonts.inter(
+      // ── Instrument Sans — Titles
+      titleLarge: GoogleFonts.instrumentSans(
         fontSize: 20,
         fontWeight: FontWeight.w600,
         height: 1.2,
         letterSpacing: 0,
       ),
-      titleMedium: GoogleFonts.inter(
+      titleMedium: GoogleFonts.instrumentSans(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         height: 1.2,
         letterSpacing: 0,
       ),
-      titleSmall: GoogleFonts.inter(
+      titleSmall: GoogleFonts.instrumentSans(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         height: 1.2,
         letterSpacing: 0,
       ),
 
-      // ── Inter — Body ────────────────────────────────────────────────────
-      bodyLarge: GoogleFonts.inter(
+      // ── Instrument Sans — Body
+      bodyLarge: GoogleFonts.instrumentSans(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         height: 1.4,
         letterSpacing: 0,
       ),
-      bodyMedium: GoogleFonts.inter(
+      bodyMedium: GoogleFonts.instrumentSans(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         height: 1.4,
         letterSpacing: 0,
       ),
-      bodySmall: GoogleFonts.inter(
+      bodySmall: GoogleFonts.instrumentSans(
         // metadata: source names, timestamps
         fontSize: 13,
         fontWeight: FontWeight.w500,
@@ -192,22 +191,22 @@ class AppTheme {
         letterSpacing: 0,
       ),
 
-      // ── Inter / Fira Code — Labels ──────────────────────────────────────
-      labelLarge: GoogleFonts.inter(
+      // ── Instrument Sans — Labels
+      labelLarge: GoogleFonts.instrumentSans(
         // buttons, navigation items
         fontSize: 14,
         fontWeight: FontWeight.w500,
         height: 1.3,
         letterSpacing: 0,
       ),
-      labelMedium: GoogleFonts.firaCode(
-        // tag chips, technical labels
+      labelMedium: GoogleFonts.instrumentSans(
+        // tag chips and compact labels
         fontSize: 13,
         fontWeight: FontWeight.w500,
         height: 1.3,
         letterSpacing: 0.26,
       ),
-      labelSmall: GoogleFonts.firaCode(
+      labelSmall: GoogleFonts.instrumentSans(
         // small source chips, overlays
         fontSize: 12,
         fontWeight: FontWeight.w500,
@@ -219,20 +218,19 @@ class AppTheme {
 
   static ThemeData _buildTheme(ColorScheme colorScheme) {
     final textTheme = _buildTextTheme();
-    // App-bar title uses Space Grotesk Bold for branding feel
-    final appBarTitleStyle = GoogleFonts.spaceGrotesk(
+    final appBarTitleStyle = GoogleFonts.instrumentSans(
       fontSize: 20,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.2,
       color: colorScheme.onSurface,
     );
-    // Chip labels use Fira Code with container-aware text so text is readable in
+    // Chip labels use container-aware text so text is readable in
     // both light and dark mode. A plain TextStyle (not MaterialStateTextStyle)
     // is required here — Flutter's chip widget reads `.color` directly and
     // does NOT call the MaterialStateTextStyle resolver, so a resolver-based
     // style always resolves to null color and falls back to the washed-out M3
     // default (onSurfaceVariant).
-    final chipLabelStyle = GoogleFonts.firaCode(
+    final chipLabelStyle = GoogleFonts.instrumentSans(
       fontSize: 12,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.24,
@@ -392,7 +390,7 @@ class AppTheme {
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
-          return GoogleFonts.inter(
+          return GoogleFonts.instrumentSans(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             height: 1.3,

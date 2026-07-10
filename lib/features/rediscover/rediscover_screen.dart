@@ -10,6 +10,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../home/home_provider.dart';
 import 'journey_visual.dart';
@@ -215,10 +216,11 @@ class _IntentHeader extends StatelessWidget {
         children: [
           Text(
             headline,
-            style: tt.titleSmall?.copyWith(
+            style: AppTypography.editorial(
+              tt.titleSmall,
               fontWeight: FontWeight.w700,
               color: cs.onSurface,
-              letterSpacing: -0.15,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 2),
@@ -355,10 +357,12 @@ class _RecapCard extends StatelessWidget {
                 recap.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: tt.titleMedium?.copyWith(
+                style: AppTypography.editorial(
+                  tt.titleMedium,
                   color: cs.onSurface,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   height: 1.15,
+                  letterSpacing: 0,
                 ),
               ),
               const SizedBox(height: 5),
@@ -605,10 +609,12 @@ class _MemoryJourneyCard extends StatelessWidget {
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: tt.titleMedium?.copyWith(
+                      style: AppTypography.editorial(
+                        tt.titleMedium,
                         color: cs.onSurface,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         height: 1.12,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 7),

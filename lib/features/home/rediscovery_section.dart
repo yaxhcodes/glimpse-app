@@ -10,6 +10,7 @@ import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/theme/app_typography.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_journey_provider.dart';
 import '../rediscover/rediscover_memory.dart';
@@ -402,12 +403,13 @@ class _RediscoverJourneyCard extends StatelessWidget {
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: tt.titleLarge?.copyWith(
+                      style: AppTypography.editorial(
+                        tt.titleLarge,
                         color: visual.foreground,
                         fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         height: 1.14,
-                        letterSpacing: -0.2,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 9),

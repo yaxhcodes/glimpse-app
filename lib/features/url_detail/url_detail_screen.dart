@@ -19,6 +19,7 @@ import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/text_cleaner.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/services/transcript_enrichment_service.dart';
+import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/category_chip.dart'
     show faviconUrl, platformColors;
 import '../../shared/widgets/content_recommendation_section.dart';
@@ -733,10 +734,12 @@ class _CookModeHeader extends StatelessWidget {
           title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: AppTypography.editorial(
+            theme.textTheme.titleLarge,
             color: colorScheme.onSurface,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             height: 1.12,
+            letterSpacing: 0,
           ),
         ),
         if (meta.isNotEmpty) ...[
@@ -2083,11 +2086,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             // ── Hero recognition ────────────────────────────────────────
             Text(
               displayTitle,
-              style: theme.textTheme.titleLarge?.copyWith(
+              style: AppTypography.editorial(
+                theme.textTheme.titleLarge,
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
                 height: 1.25,
                 color: colorScheme.onSurface,
+                letterSpacing: 0,
               ),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
