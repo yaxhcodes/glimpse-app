@@ -43,92 +43,90 @@ class GuideCard extends ConsumerWidget {
             context.push('/guide');
           },
           child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    padding: const EdgeInsets.all(9),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Image.asset(AppAssets.logo, fit: BoxFit.contain),
                     ),
-                    child: Image.asset(AppAssets.logo, fit: BoxFit.contain),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(right: 22),
-                          child: Text(
-                            'Save anything — Glimpse sorts it',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                (tt.titleSmall ?? const TextStyle()).copyWith(
-                              fontWeight: FontWeight.w600,
-                              height: 1.25,
-                              fontSize: (tt.titleSmall?.fontSize ?? 14) + 0.5,
-                              color: cs.onSurface,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 22),
+                            child: Text(
+                              'Save anything — Glimpse sorts it',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: (tt.titleSmall ?? const TextStyle())
+                                  .copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.25,
+                                    fontSize:
+                                        (tt.titleSmall?.fontSize ?? 14) + 0.5,
+                                    color: cs.onSurface,
+                                  ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('Glimpse · Tap to learn how', style: metaStyle),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 3,
-                          children: [
-                            for (final feature in _features)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: tagColors.background,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  feature,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                    color: tagColors.foreground,
-                                    fontFamily: tt.labelSmall?.fontFamily,
-                                    letterSpacing: 0.1,
+                          const SizedBox(height: 4),
+                          Text('Glimpse · Tap to learn how', style: metaStyle),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 3,
+                            children: [
+                              for (final feature in _features)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: tagColors.background,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    feature,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: tagColors.foreground,
+                                      fontFamily: tt.labelSmall?.fontFamily,
+                                      letterSpacing: 0.1,
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: InkWell(
-                onTap: () =>
-                    ref.read(hasSeenGuideCardProvider.notifier).set(true),
-                borderRadius: BorderRadius.circular(20),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+                  ],
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton(
+                  onPressed: () =>
+                      ref.read(hasSeenGuideCardProvider.notifier).set(true),
+                  tooltip: 'Dismiss guide',
+                  icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+                ),
+              ),
+            ],
           ),
         ),
       ),

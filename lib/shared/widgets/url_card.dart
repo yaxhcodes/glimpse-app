@@ -586,10 +586,7 @@ class _EnrichmentProgressPill extends StatelessWidget {
                   : const Icon(Icons.refresh_rounded, size: 14),
               label: const Text('Retry'),
               style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                minimumSize: const Size(0, 28),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 foregroundColor: cs.error,
               ),
             ),

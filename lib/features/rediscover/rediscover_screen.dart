@@ -10,6 +10,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../home/home_provider.dart';
@@ -525,11 +526,7 @@ class _MemoryItemTile extends StatelessWidget {
   Widget _fallbackIcon(ColorScheme cs) {
     return DecoratedBox(
       decoration: BoxDecoration(color: cs.surfaceContainerHighest),
-      child: Icon(
-        Icons.auto_awesome_rounded,
-        color: cs.onSurfaceVariant,
-        size: 21,
-      ),
+      child: AppIcon(AppIcons.rediscover, color: cs.onSurfaceVariant, size: 21),
     );
   }
 }
@@ -819,11 +816,7 @@ class _NoMemoriesYet extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(
-              Icons.auto_awesome_rounded,
-              color: cs.onSurfaceVariant,
-              size: 28,
-            ),
+            AppIcon(AppIcons.rediscover, color: cs.onSurfaceVariant, size: 28),
             const SizedBox(height: 12),
             Text(
               'Nothing strong enough today',

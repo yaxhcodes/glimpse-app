@@ -10,6 +10,7 @@ import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_typography.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_journey_provider.dart';
@@ -262,7 +263,7 @@ class _RediscoverTip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.auto_awesome, size: 18, color: cs.primary),
+          AppIcon(AppIcons.rediscover, size: 18, color: cs.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -271,13 +272,10 @@ class _RediscoverTip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          InkWell(
-            onTap: onDismiss,
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.all(3),
-              child: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
-            ),
+          IconButton(
+            onPressed: onDismiss,
+            tooltip: 'Dismiss Rediscover tip',
+            icon: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
           ),
         ],
       ),

@@ -12,6 +12,7 @@ import '../../core/providers/backup_provider.dart';
 import '../../core/services/backup/backup_models.dart';
 import '../../core/services/backup/backup_service.dart';
 import '../../core/services/backup_scheduler.dart';
+import '../../shared/theme/app_layout.dart';
 
 /// Mihon-inspired Data & Backup screen.
 ///
@@ -98,6 +99,9 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     final isSavingLocal = state.status == BackupStatus.savingLocal;
     final isImporting = state.status == BackupStatus.validating;
     final exportBusy = isExporting || isSavingLocal;
+    final pagePadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+    );
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -110,7 +114,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 32),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _SettingsCard(
@@ -183,7 +187,8 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Share backup'),
                         subtitle: const Text(
-                            'Send a backup to another app or cloud service'),
+                          'Send a backup to another app or cloud service',
+                        ),
                         trailing: isExporting
                             ? SizedBox(
                                 width: 18,
@@ -223,15 +228,17 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final summary = linkCount != null
         ? 'Saved $linkCount ${linkCount == 1 ? 'link' : 'links'} to '
-            '${_lastSegment(pathOrLabel)}'
+              '${_lastSegment(pathOrLabel)}'
         : 'Backup saved to ${_lastSegment(pathOrLabel)}';
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(summary),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(summary),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   String _lastSegment(String pathOrLabel) {
@@ -252,17 +259,19 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(error.message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 6),
-        action: detail == null
-            ? null
-            : SnackBarAction(
-                label: 'Details',
-                onPressed: () => _showErrorDetails(error),
-              ),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+          action: detail == null
+              ? null
+              : SnackBarAction(
+                  label: 'Details',
+                  onPressed: () => _showErrorDetails(error),
+                ),
+        ),
+      );
   }
 
   Future<void> _showErrorDetails(BackupError error) async {
@@ -281,9 +290,9 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         actions: [
           TextButton(
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(
-                text: '${error.message}\n\n$detail',
-              ));
+              await Clipboard.setData(
+                ClipboardData(text: '${error.message}\n\n$detail'),
+              );
               if (ctx.mounted) Navigator.of(ctx).pop();
             },
             child: const Text('Copy'),
@@ -326,21 +335,25 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(e.message),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
       ref.read(backupProvider.notifier).reset();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: const Text('Could not read the selected file.'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Could not read the selected file.'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       ref.read(backupProvider.notifier).reset();
     }
   }
@@ -360,7 +373,7 @@ class _SettingsCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Material(
       color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
@@ -382,10 +395,10 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: cs.primary,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-          ),
+        color: cs.primary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.2,
+      ),
     );
   }
 }
@@ -403,18 +416,14 @@ class _Note extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.info_outline_rounded,
-              size: 18,
-              color: cs.tertiary,
-            ),
+            Icon(Icons.info_outline_rounded, size: 18, color: cs.tertiary),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -442,13 +451,11 @@ class _StorageLocationTile extends ConsumerWidget {
     final cs = theme.colorScheme;
     final asyncLocation = ref.watch(backupStorageLocationProvider);
 
-    final value = asyncLocation.maybeWhen(
-      data: (v) => v,
-      orElse: () => null,
-    );
+    final value = asyncLocation.maybeWhen(data: (v) => v, orElse: () => null);
     final hasLocation = value?.uri != null;
-    final pathText =
-        hasLocation ? (value!.label ?? 'Folder selected') : 'Pick a folder';
+    final pathText = hasLocation
+        ? (value!.label ?? 'Folder selected')
+        : 'Pick a folder';
     final isAndroid = Platform.isAndroid;
 
     final row = InkWell(
@@ -456,18 +463,19 @@ class _StorageLocationTile extends ConsumerWidget {
           ? null
           : () async {
               try {
-                await ref
-                    .read(backupProvider.notifier)
-                    .pickStorageLocation();
+                await ref.read(backupProvider.notifier).pickStorageLocation();
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
-                  ..showSnackBar(SnackBar(
-                    content: const Text(
-                        'Could not save folder permission. Please try again.'),
-                    behavior: SnackBarBehavior.floating,
-                  ));
+                  ..showSnackBar(
+                    SnackBar(
+                      content: const Text(
+                        'Could not save folder permission. Please try again.',
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
               }
             },
       child: Padding(
@@ -483,9 +491,7 @@ class _StorageLocationTile extends ConsumerWidget {
                     pathText,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: hasLocation
-                          ? cs.onSurface
-                          : cs.onSurfaceVariant,
+                      color: hasLocation ? cs.onSurface : cs.onSurfaceVariant,
                     ),
                   ),
                   if (!hasLocation) ...[
@@ -602,9 +608,7 @@ class _AutoBackupSection extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
                   'Set a storage location above before automatic backups can run.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.error,
-                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
                 ),
               ),
           ],
@@ -666,15 +670,18 @@ class _AutoBackupSection extends ConsumerWidget {
                 child: Text(
                   'Automatic backup frequency',
                   style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               for (final h in BackupScheduler.intervalHourChoices)
                 ListTile(
                   title: Text(BackupScheduler.intervalLabel(h)),
                   trailing: h == currentHours
-                      ? Icon(Icons.check_rounded, color: Theme.of(ctx).colorScheme.primary)
+                      ? Icon(
+                          Icons.check_rounded,
+                          color: Theme.of(ctx).colorScheme.primary,
+                        )
                       : null,
                   onTap: () => Navigator.pop(ctx, h),
                 ),
@@ -766,12 +773,12 @@ class _RecentBackupsSection extends ConsumerWidget {
             return asyncLast.when(
               data: (isoFromPrefs) {
                 final primary = entries.isNotEmpty ? entries.first : null;
-                final fromPrefs =
-                    isoFromPrefs != null ? DateTime.tryParse(isoFromPrefs) : null;
+                final fromPrefs = isoFromPrefs != null
+                    ? DateTime.tryParse(isoFromPrefs)
+                    : null;
                 final fromFile = primary?.lastModified;
                 final display = fromPrefs ?? fromFile;
-                final label =
-                    display != null ? _formatRelative(display) : null;
+                final label = display != null ? _formatRelative(display) : null;
 
                 final body = label != null
                     ? Text(

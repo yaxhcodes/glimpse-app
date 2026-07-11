@@ -20,6 +20,8 @@ import '../../core/services/text_cleaner.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/services/transcript_enrichment_service.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/category_chip.dart'
     show faviconUrl, platformColors;
 import '../../shared/widgets/content_recommendation_section.dart';
@@ -1863,7 +1865,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             actions: [
               if (url != null) ...[
                 IconButton(
-                  icon: const Icon(Icons.folder_outlined),
+                  icon: const AppIcon(AppIcons.addToCollection),
                   tooltip: 'Add to collection',
                   onPressed: () => _showAddToCollection(url),
                 ),
@@ -2066,126 +2068,133 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final bottomPad = MediaQuery.paddingOf(context).bottom + 28;
 
     return SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Image ───────────────────────────────────────────────────
-            _buildDetailMedia(
-              url: url,
-              showImage: showImage,
-              imageUrls: carouselImages,
-              categoryLabels: categoryLabels,
-              displaySourceName: displaySourceName,
-              theme: theme,
-              colorScheme: colorScheme,
-            ),
-            const SizedBox(height: 16),
-
-            // ── Hero recognition ────────────────────────────────────────
-            Text(
-              displayTitle,
-              style: AppTypography.editorial(
-                theme.textTheme.titleLarge,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
-                color: colorScheme.onSurface,
-                letterSpacing: 0,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 12),
-
-            // ── Source ──────────────────────────────────────────────────
-            _buildSourceSavedRow(
-              url: url,
-              displaySourceName: displaySourceName,
-              colorScheme: colorScheme,
-              theme: theme,
-            ),
-
-            if (url.isProcessingFailed) ...[
-              const SizedBox(height: 12),
-              _buildEnrichmentFailedPanel(theme, colorScheme),
-            ],
-
-            if (metadata.hasSocialRow) ...[
-              const SizedBox(height: 10),
-              _buildSocialMetricsRow(
-                metadata: metadata,
-                displaySourceName: displaySourceName,
-                theme: theme,
-                colorScheme: colorScheme,
-              ),
-            ],
-
-            const SizedBox(height: 14),
-            _buildOpenButton(url, displaySourceName),
-
-            if (showSummary) ...[
-              const SizedBox(height: 20),
-              _buildSummarySection(
-                summary: summaryDisplayText,
-                theme: theme,
-                colorScheme: colorScheme,
-              ),
-            ],
-
-            ..._buildEnrichmentSections(
-              url: url,
-              live: live,
-              theme: theme,
-              colorScheme: colorScheme,
-            ),
-
-            // ── Description ─────────────────────────────────────────────
-            // ── Tags ────────────────────────────────────────────────────
-            const SizedBox(height: 16),
-            TagGroup(
-              tags: visibleTags,
-              onTap: _openTagSearch,
-              onLongPress: (tag) => _showTagMenu(url, tag),
-              accent: _recipeAccent(colorScheme),
-            ),
-
-            // ── Notes ───────────────────────────────────────────────────
-            const SizedBox(height: 16),
-            Column(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadableContentWidth,
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    SectionHeader(
-                      title: 'Your Notes',
-                      accent: _recipeAccent(colorScheme),
-                    ),
-                    const Spacer(),
-                    if (_notesEdited)
-                      TextButton(
-                        onPressed: _saveNotes,
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        child: const Text('Save'),
-                      ),
-                  ],
+                // ── Image ───────────────────────────────────────────────────
+                _buildDetailMedia(
+                  url: url,
+                  showImage: showImage,
+                  imageUrls: carouselImages,
+                  categoryLabels: categoryLabels,
+                  displaySourceName: displaySourceName,
+                  theme: theme,
+                  colorScheme: colorScheme,
                 ),
-                const SizedBox(height: 8),
-                _buildNotesComposer(theme: theme, colorScheme: colorScheme),
-                if (noteSuggestions.isNotEmpty)
-                  _buildNoteQuickAdd(
-                    url: url,
-                    suggestions: noteSuggestions,
+                const SizedBox(height: 16),
+
+                // ── Hero recognition ────────────────────────────────────────
+                Text(
+                  displayTitle,
+                  style: AppTypography.editorial(
+                    theme.textTheme.titleLarge,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                    color: colorScheme.onSurface,
+                    letterSpacing: 0,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 12),
+
+                // ── Source ──────────────────────────────────────────────────
+                _buildSourceSavedRow(
+                  url: url,
+                  displaySourceName: displaySourceName,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                ),
+
+                if (url.isProcessingFailed) ...[
+                  const SizedBox(height: 12),
+                  _buildEnrichmentFailedPanel(theme, colorScheme),
+                ],
+
+                if (metadata.hasSocialRow) ...[
+                  const SizedBox(height: 10),
+                  _buildSocialMetadata(
+                    metadata: metadata,
+                    displaySourceName: displaySourceName,
+                    colorScheme: colorScheme,
+                  ),
+                ],
+
+                const SizedBox(height: 14),
+                _buildOpenButton(url, displaySourceName),
+
+                if (showSummary) ...[
+                  const SizedBox(height: 20),
+                  _buildSummarySection(
+                    summary: summaryDisplayText,
                     theme: theme,
                     colorScheme: colorScheme,
                   ),
+                ],
+
+                ..._buildEnrichmentSections(
+                  url: url,
+                  live: live,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                ),
+
+                // ── Description ─────────────────────────────────────────────
+                // ── Tags ────────────────────────────────────────────────────
+                const SizedBox(height: 16),
+                TagGroup(
+                  tags: visibleTags,
+                  onTap: _openTagSearch,
+                  onLongPress: (tag) => _showTagMenu(url, tag),
+                  accent: _recipeAccent(colorScheme),
+                ),
+
+                // ── Notes ───────────────────────────────────────────────────
+                const SizedBox(height: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        SectionHeader(
+                          title: 'Your Notes',
+                          accent: _recipeAccent(colorScheme),
+                        ),
+                        const Spacer(),
+                        if (_notesEdited)
+                          TextButton(
+                            onPressed: _saveNotes,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
+                            child: const Text('Save'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _buildNotesComposer(theme: theme, colorScheme: colorScheme),
+                    if (noteSuggestions.isNotEmpty)
+                      _buildNoteQuickAdd(
+                        url: url,
+                        suggestions: noteSuggestions,
+                        theme: theme,
+                        colorScheme: colorScheme,
+                      ),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -2670,13 +2679,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
-  Widget _buildSocialMetricsRow({
+  Widget _buildSocialMetadata({
     required _DetailMetadata metadata,
     required String displaySourceName,
-    required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final pills = <Widget>[
+    final metrics = <Widget>[
       if (metadata.likesLabel != null)
         MetadataPill(
           value: metadata.likesLabel!,
@@ -2687,16 +2695,30 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           value: metadata.commentsLabel!,
           icon: Icons.chat_bubble_outline_rounded,
         ),
-      if (metadata.creatorUsername != null)
-        CreatorProfileLink(
-          username: metadata.creatorUsername!,
-          platform: displaySourceName,
-          accent: colorScheme.onSurfaceVariant,
-          compact: true,
-        ),
     ];
-    if (pills.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: 8, runSpacing: 8, children: pills);
+    final creator = metadata.creatorUsername;
+    if (creator == null && metrics.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (var index = 0; index < metrics.length; index++) ...[
+          if (index > 0) const SizedBox(width: 8),
+          metrics[index],
+        ],
+        if (creator != null && metrics.isNotEmpty) const SizedBox(width: 8),
+        if (creator != null)
+          Flexible(
+            fit: FlexFit.loose,
+            child: CreatorProfileLink(
+              username: creator,
+              platform: displaySourceName,
+              accent: colorScheme.onSurfaceVariant,
+              compact: true,
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildSourceSavedRow({
@@ -3043,7 +3065,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final isQuote = item.type.toLowerCase() == 'quote';
+    final itemType = item.type.toLowerCase();
+    final isQuote = itemType == 'quote';
+    final leadingIcon = itemType == 'term'
+        ? AppIcons.termMentioned
+        : isQuote
+        ? Icons.format_quote_rounded
+        : Icons.bookmark_border;
     final attribution = item.attribution?.trim() ?? '';
     final label = item.label?.trim() ?? '';
     final why = item.whyImportant?.trim() ?? '';
@@ -3069,8 +3097,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Icon(
-              isQuote ? Icons.format_quote_rounded : Icons.bookmark_border,
-              size: isQuote ? 18 : 16,
+              leadingIcon,
+              size: isQuote || itemType == 'term' ? 18 : 16,
               color: _recipeAccent(colorScheme),
             ),
           ),
@@ -3149,7 +3177,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               ),
               style: TextButton.styleFrom(
                 foregroundColor: recipeAccent,
-                visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
             ),
@@ -3209,7 +3236,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 style: FilledButton.styleFrom(
                   backgroundColor: _recipeAccentSurface(colorScheme),
                   foregroundColor: recipeAccent,
-                  visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 7,
@@ -3764,7 +3790,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               onPressed: () => _checkAllIngredients(url.id, recipe),
               style: TextButton.styleFrom(
                 foregroundColor: recipeAccent,
-                visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
               child: const Text('All'),
@@ -3773,7 +3798,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               onPressed: () => _resetIngredientChecks(url.id),
               style: TextButton.styleFrom(
                 foregroundColor: recipeAccent,
-                visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
               child: const Text('Reset'),
@@ -4803,63 +4827,60 @@ class _IngredientRow extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () => onToggle(!isChecked),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: Checkbox(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Checkbox(
                   value: isChecked,
                   onChanged: onToggle,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ingredient.name,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: isChecked
-                            ? colorScheme.onSurface.withValues(alpha: 0.38)
-                            : colorScheme.onSurface,
-                        decoration: isChecked
-                            ? TextDecoration.lineThrough
-                            : null,
-                        decorationColor: colorScheme.onSurface.withValues(
-                          alpha: 0.38,
-                        ),
-                        height: 1.3,
-                      ),
-                    ),
-                    if (subLabel.isNotEmpty) ...[
-                      const SizedBox(height: 1),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        subLabel,
-                        style: theme.textTheme.labelSmall?.copyWith(
+                        ingredient.name,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                           color: isChecked
-                              ? colorScheme.onSurfaceVariant.withValues(
-                                  alpha: 0.4,
-                                )
-                              : colorScheme.onSurfaceVariant,
+                              ? colorScheme.onSurface.withValues(alpha: 0.38)
+                              : colorScheme.onSurface,
+                          decoration: isChecked
+                              ? TextDecoration.lineThrough
+                              : null,
+                          decorationColor: colorScheme.onSurface.withValues(
+                            alpha: 0.38,
+                          ),
                           height: 1.3,
                         ),
                       ),
+                      if (subLabel.isNotEmpty) ...[
+                        const SizedBox(height: 1),
+                        Text(
+                          subLabel,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: isChecked
+                                ? colorScheme.onSurfaceVariant.withValues(
+                                    alpha: 0.4,
+                                  )
+                                : colorScheme.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

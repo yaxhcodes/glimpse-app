@@ -27,7 +27,6 @@ void main() {
         theme.textTheme.bodyMedium,
         theme.textTheme.labelSmall,
         theme.appBarTheme.titleTextStyle,
-        theme.chipTheme.labelStyle,
         theme.navigationBarTheme.labelTextStyle?.resolve(const <WidgetState>{
           WidgetState.selected,
         }),

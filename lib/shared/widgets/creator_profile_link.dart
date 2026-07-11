@@ -32,13 +32,20 @@ class CreatorProfileLink extends StatelessWidget {
           color: effectiveAccent.withValues(alpha: 0.82),
         ),
         const SizedBox(width: 4),
-        Text(
-          normalized,
-          style: (compact ? theme.textTheme.labelMedium : theme.textTheme.bodyMedium)
-              ?.copyWith(
-            color: effectiveAccent,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
+        Flexible(
+          child: Text(
+            normalized,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style:
+                (compact
+                        ? theme.textTheme.labelMedium
+                        : theme.textTheme.bodyMedium)
+                    ?.copyWith(
+                      color: effectiveAccent,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
           ),
         ),
         const SizedBox(width: 5),
@@ -50,22 +57,36 @@ class CreatorProfileLink extends StatelessWidget {
       ],
     );
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(compact ? 12 : 10),
-      onTap: () => _openProfile(normalized),
-      child: compact
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.78),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: content,
-            )
-          : Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              child: content,
+    final visual = compact
+        ? Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: content,
+          )
+        : Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: content,
+          );
+
+    return Semantics(
+      link: true,
+      label: 'Open $normalized on $platform',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: 1,
+          heightFactor: 1,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(compact ? 12 : 10),
+            onTap: () => _openProfile(normalized),
+            child: visual,
+          ),
+        ),
+      ),
     );
   }
 

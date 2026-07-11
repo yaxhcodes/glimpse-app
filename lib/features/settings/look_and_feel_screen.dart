@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_layout.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_provider.dart';
 import 'settings_components.dart';
@@ -15,6 +17,9 @@ class LookAndFeelScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final lightOnly = themeMode == ThemeMode.light;
+    final pagePadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+    );
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -31,7 +36,7 @@ class LookAndFeelScreen extends ConsumerWidget {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+            padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _ThemePreviewStrip(colorScheme: cs),
@@ -57,17 +62,17 @@ class LookAndFeelScreen extends ConsumerWidget {
                           segments: const [
                             ButtonSegment(
                               value: ThemeMode.system,
-                              icon: Icon(Icons.brightness_auto_rounded),
+                              icon: AppIcon(AppIcons.automaticTheme),
                               label: Text('System'),
                             ),
                             ButtonSegment(
                               value: ThemeMode.light,
-                              icon: Icon(Icons.light_mode_rounded),
+                              icon: AppIcon(AppIcons.lightTheme),
                               label: Text('Light'),
                             ),
                             ButtonSegment(
                               value: ThemeMode.dark,
-                              icon: Icon(Icons.dark_mode_rounded),
+                              icon: AppIcon(AppIcons.darkTheme),
                               label: Text('Dark'),
                             ),
                           ],
@@ -85,7 +90,7 @@ class LookAndFeelScreen extends ConsumerWidget {
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.contrast_rounded,
+                      icon: AppIcons.amoledTheme,
                       iconColor: lightOnly
                           ? cs.onSurfaceVariant
                           : SettingsAccents.indigo,
@@ -96,16 +101,16 @@ class LookAndFeelScreen extends ConsumerWidget {
                       onTap: lightOnly
                           ? null
                           : () => ref
-                              .read(amoledSurfacesProvider.notifier)
-                              .set(!amoledSurfaces),
+                                .read(amoledSurfacesProvider.notifier)
+                                .set(!amoledSurfaces),
                       trailing: Switch(
                         value: amoledSurfaces,
                         thumbIcon: settingsSwitchThumbIcon(),
                         onChanged: lightOnly
                             ? null
                             : (v) => ref
-                                .read(amoledSurfacesProvider.notifier)
-                                .set(v),
+                                  .read(amoledSurfacesProvider.notifier)
+                                  .set(v),
                       ),
                     ),
                   ],
@@ -212,8 +217,8 @@ class _ThemePreviewStrip extends StatelessWidget {
               child: Container(
                 color: colorScheme.primary,
                 alignment: Alignment.center,
-                child: Icon(
-                  Icons.palette_rounded,
+                child: AppIcon(
+                  AppIcons.appearance,
                   size: 36,
                   color: colorScheme.onPrimary,
                 ),
@@ -287,17 +292,16 @@ class _AccentSwatch extends StatelessWidget {
   static Gradient _quadrantGradient(List<Color> tones) {
     return SweepGradient(
       colors: [
-        tones[0], tones[0],
-        tones[1], tones[1],
-        tones[2], tones[2],
-        tones[3], tones[3],
+        tones[0],
+        tones[0],
+        tones[1],
+        tones[1],
+        tones[2],
+        tones[2],
+        tones[3],
+        tones[3],
       ],
-      stops: const [
-        0.0, 0.25,
-        0.25, 0.5,
-        0.5, 0.75,
-        0.75, 1.0,
-      ],
+      stops: const [0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0],
     );
   }
 
@@ -345,9 +349,7 @@ class _AccentSwatch extends StatelessWidget {
           padding: EdgeInsets.all(selected ? 4 : 0),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: selected
-                ? Border.all(color: cs.primary, width: 2.5)
-                : null,
+            border: selected ? Border.all(color: cs.primary, width: 2.5) : null,
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -360,8 +362,8 @@ class _AccentSwatch extends StatelessWidget {
             ),
             child: isDynamic && !selected
                 ? const Center(
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
+                    child: AppIcon(
+                      AppIcons.automaticTheme,
                       color: Colors.white,
                       size: 20,
                     ),

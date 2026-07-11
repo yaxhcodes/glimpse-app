@@ -161,41 +161,58 @@ class CategoryChip extends StatelessWidget {
     final brandColor = _ensureReadable(rawColor, isDark);
     final favicon = faviconUrl(category);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: brandColor.withValues(alpha: isDark ? 0.14 : 0.10),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (favicon != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: CachedNetworkImage(
-                  imageUrl: favicon,
-                  width: 12,
-                  height: 12,
-                  errorWidget: (_, _, _) =>
-                      Text(emoji, style: const TextStyle(fontSize: 10)),
-                ),
-              )
-            else
-              Text(emoji, style: const TextStyle(fontSize: 10)),
-            const SizedBox(width: 4),
-            Text(
-              category,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: brandColor,
-                height: 1.1,
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: brandColor.withValues(alpha: isDark ? 0.14 : 0.10),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (favicon != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: CachedNetworkImage(
+                imageUrl: favicon,
+                width: 12,
+                height: 12,
+                errorWidget: (_, _, _) =>
+                    Text(emoji, style: const TextStyle(fontSize: 10)),
               ),
+            )
+          else
+            Text(emoji, style: const TextStyle(fontSize: 10)),
+          const SizedBox(width: 4),
+          Text(
+            category,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: brandColor,
+              height: 1.1,
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return chip;
+    return Semantics(
+      button: true,
+      label: category,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: 1,
+          heightFactor: 1,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(onTap: onTap, child: chip),
+          ),
         ),
       ),
     );

@@ -25,6 +25,8 @@ import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/usage_service.dart';
+import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_layout.dart';
 import 'settings_components.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -130,6 +132,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final pagePadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+    );
     final authState = ref.watch(authControllerProvider);
     final accountUser = authState.valueOrNull;
     final isPro = ref.watch(isProUserProvider);
@@ -162,7 +167,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+            padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ─── Account & plan ──────────────────────
@@ -212,7 +217,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.palette_outlined,
+                      icon: AppIcons.appearance,
                       iconColor: SettingsAccents.violet,
                       title: 'Look & Feel',
                       subtitle: 'Theme and accent color',
@@ -237,14 +242,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.privacy_tip_outlined,
+                      icon: AppIcons.privacy,
                       iconColor: SettingsAccents.indigo,
                       title: 'Privacy',
                       subtitle: 'What stays local and what is uploaded',
                       onTap: () => context.push('/settings/privacy'),
                     ),
                     SettingsTile(
-                      icon: Icons.cloud_outlined,
+                      icon: AppIcons.backup,
                       iconColor: SettingsAccents.green,
                       title: 'Data & Backup',
                       subtitle: 'Protect and restore your saved knowledge',
@@ -256,7 +261,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.delete_outline_rounded,
+                      icon: AppIcons.clearData,
                       iconColor: cs.error,
                       destructive: true,
                       title: 'Clear All Data',
@@ -273,7 +278,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.info_outline_rounded,
+                      icon: AppIcons.about,
                       iconColor: SettingsAccents.indigo,
                       title: 'About Glimpse',
                       subtitle: 'Version, legal & help',
@@ -289,14 +294,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.logout_rounded,
+                      icon: AppIcons.logout,
                       iconColor: SettingsAccents.blue,
                       title: 'Log out',
                       subtitle: 'Sign out of this device',
                       onTap: _logout,
                     ),
                     SettingsTile(
-                      icon: Icons.person_remove_outlined,
+                      icon: AppIcons.deleteAccount,
                       iconColor: cs.error,
                       destructive: true,
                       title: 'Delete account',
@@ -697,7 +702,7 @@ class _DigestToggleState extends ConsumerState<_DigestToggle> {
   @override
   Widget build(BuildContext context) {
     return SettingsTile(
-      icon: Icons.notifications_active_outlined,
+      icon: AppIcons.smartNotifications,
       iconColor: SettingsAccents.amber,
       title: 'Smart notifications',
       subtitle: 'Behavior-based alerts',

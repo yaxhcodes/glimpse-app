@@ -10,6 +10,7 @@ import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
+import '../../shared/theme/app_layout.dart';
 import 'settings_components.dart';
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
@@ -31,6 +32,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final tierAsync = ref.watch(subscriptionTierProvider);
+    final pagePadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+    );
     developer.log(
       'SubscriptionScreen: rebuild with tier=$tierAsync',
       name: 'Subscription',
@@ -76,7 +80,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               // Scrollable feature list.
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 24),
                   children: [
                     _PlanHero(
                       isPro: isPro,

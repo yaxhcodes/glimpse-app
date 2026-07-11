@@ -101,6 +101,7 @@ dependencies:
   sign_in_with_apple: ^8.1.0
   device_info_plus: ^12.4.0
   connectivity_plus: ^7.2.0
+  material_symbols_icons: 4.2951.0
 
 dev_dependencies:
   flutter_test:

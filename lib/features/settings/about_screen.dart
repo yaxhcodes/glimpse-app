@@ -3,6 +3,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_assets.dart';
+import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_layout.dart';
 import 'settings_components.dart';
 
 class AboutScreen extends StatelessWidget {
@@ -24,6 +26,9 @@ class AboutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final pagePadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+    );
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -40,7 +45,7 @@ class AboutScreen extends StatelessWidget {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+            padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ── Brand hero ──
@@ -100,22 +105,19 @@ class AboutScreen extends StatelessWidget {
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.description_outlined,
+                      icon: AppIcons.terms,
                       iconColor: SettingsAccents.indigo,
                       title: 'Terms of Service',
                       trailing: const _OpenLinkIcon(),
-                      onTap: () => _openUrl(
-                        'https://www.getglimpse.xyz/terms',
-                      ),
+                      onTap: () => _openUrl('https://www.getglimpse.xyz/terms'),
                     ),
                     SettingsTile(
-                      icon: Icons.privacy_tip_outlined,
+                      icon: AppIcons.privacy,
                       iconColor: SettingsAccents.green,
                       title: 'Privacy Policy',
                       trailing: const _OpenLinkIcon(),
-                      onTap: () => _openUrl(
-                        'https://www.getglimpse.xyz/privacy',
-                      ),
+                      onTap: () =>
+                          _openUrl('https://www.getglimpse.xyz/privacy'),
                     ),
                   ],
                 ),
@@ -126,12 +128,11 @@ class AboutScreen extends StatelessWidget {
                 SettingsGroup(
                   children: [
                     SettingsTile(
-                      icon: Icons.help_outline_rounded,
+                      icon: AppIcons.help,
                       iconColor: SettingsAccents.blue,
                       title: 'FAQ',
                       trailing: const _OpenLinkIcon(),
-                      onTap: () =>
-                          _openUrl('https://www.getglimpse.xyz/faq'),
+                      onTap: () => _openUrl('https://www.getglimpse.xyz/faq'),
                     ),
                   ],
                 ),

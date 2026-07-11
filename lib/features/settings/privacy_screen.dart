@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/theme/app_layout.dart';
+
 class PrivacyScreen extends StatelessWidget {
   const PrivacyScreen({super.key});
 
@@ -21,6 +23,10 @@ class PrivacyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final pagePadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+      compactPadding: 20,
+    );
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -30,7 +36,7 @@ class PrivacyScreen extends StatelessWidget {
         foregroundColor: cs.onSurface,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        padding: EdgeInsets.fromLTRB(pagePadding, 12, pagePadding, 32),
         children: [
           _PrivacySection(title: 'Local', items: _localItems),
           const SizedBox(height: 24),
@@ -65,7 +71,7 @@ class _PrivacySection extends StatelessWidget {
         DecoratedBox(
           decoration: BoxDecoration(
             color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             children: [

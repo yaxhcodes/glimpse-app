@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/theme/app_icons.dart';
 import 'rediscover_journey_provider.dart';
 
 enum JourneyMotif {
@@ -45,7 +46,10 @@ class JourneyVisual {
   final List<Color> overlayColors;
 }
 
-JourneyVisual visualForJourney(BuildContext context, RediscoverJourney journey) {
+JourneyVisual visualForJourney(
+  BuildContext context,
+  RediscoverJourney journey,
+) {
   final cs = Theme.of(context).colorScheme;
   final type = _motifForJourney(journey);
   final colors = _colorsFor(cs, type);
@@ -213,42 +217,54 @@ JourneyMotif _motifFor(String text) {
 List<Color> _colorsFor(ColorScheme cs, JourneyMotif motif) {
   final isDark = cs.brightness == Brightness.dark;
   final semantic = switch (motif) {
-    JourneyMotif.software => isDark
-        ? const [Color(0xFF203A55), Color(0xFF3D668A)]
-        : const [Color(0xFFD8EAF7), Color(0xFFBFD7EA)],
-    JourneyMotif.nature => isDark
-        ? const [Color(0xFF274D37), Color(0xFF6F8F62)]
-        : const [Color(0xFFDDE8D4), Color(0xFFC4D8B8)],
-    JourneyMotif.travel => isDark
-        ? const [Color(0xFF6D4D35), Color(0xFFC08A56)]
-        : const [Color(0xFFF2DEC8), Color(0xFFDAB98E)],
-    JourneyMotif.food => isDark
-        ? const [Color(0xFF7A4A25), Color(0xFFD18B4B)]
-        : const [Color(0xFFF3D6C3), Color(0xFFE5B48A)],
-    JourneyMotif.philosophy => isDark
-        ? const [Color(0xFF27231F), Color(0xFF866E49)]
-        : const [Color(0xFFE2DED6), Color(0xFFC5B79D)],
-    JourneyMotif.business => isDark
-        ? const [Color(0xFF27313D), Color(0xFF657384)]
-        : const [Color(0xFFE0E5EA), Color(0xFFC3CBD3)],
-    JourneyMotif.science => isDark
-        ? const [Color(0xFF234B5E), Color(0xFF76AFC2)]
-        : const [Color(0xFFD7EEF3), Color(0xFFB7DDE6)],
-    JourneyMotif.history => isDark
-        ? const [Color(0xFF7A6241), Color(0xFFC7A675)]
-        : const [Color(0xFFF0E1C8), Color(0xFFD8C29D)],
-    JourneyMotif.books => isDark
-        ? const [Color(0xFF443B5A), Color(0xFF8D7DAD)]
-        : const [Color(0xFFE4DFF1), Color(0xFFC9BFDD)],
-    JourneyMotif.finance => isDark
-        ? const [Color(0xFF27463E), Color(0xFF7D946D)]
-        : const [Color(0xFFDDE7D8), Color(0xFFC6D4BA)],
-    JourneyMotif.photography => isDark
-        ? const [Color(0xFF343944), Color(0xFF7F8796)]
-        : const [Color(0xFFE1E3E8), Color(0xFFC7CCD5)],
-    JourneyMotif.general => isDark
-        ? const [Color(0xFF3C4858), Color(0xFF6D7B8C)]
-        : const [Color(0xFFE0E5EA), Color(0xFFC8D0D9)],
+    JourneyMotif.software =>
+      isDark
+          ? const [Color(0xFF203A55), Color(0xFF3D668A)]
+          : const [Color(0xFFD8EAF7), Color(0xFFBFD7EA)],
+    JourneyMotif.nature =>
+      isDark
+          ? const [Color(0xFF274D37), Color(0xFF6F8F62)]
+          : const [Color(0xFFDDE8D4), Color(0xFFC4D8B8)],
+    JourneyMotif.travel =>
+      isDark
+          ? const [Color(0xFF6D4D35), Color(0xFFC08A56)]
+          : const [Color(0xFFF2DEC8), Color(0xFFDAB98E)],
+    JourneyMotif.food =>
+      isDark
+          ? const [Color(0xFF7A4A25), Color(0xFFD18B4B)]
+          : const [Color(0xFFF3D6C3), Color(0xFFE5B48A)],
+    JourneyMotif.philosophy =>
+      isDark
+          ? const [Color(0xFF27231F), Color(0xFF866E49)]
+          : const [Color(0xFFE2DED6), Color(0xFFC5B79D)],
+    JourneyMotif.business =>
+      isDark
+          ? const [Color(0xFF27313D), Color(0xFF657384)]
+          : const [Color(0xFFE0E5EA), Color(0xFFC3CBD3)],
+    JourneyMotif.science =>
+      isDark
+          ? const [Color(0xFF234B5E), Color(0xFF76AFC2)]
+          : const [Color(0xFFD7EEF3), Color(0xFFB7DDE6)],
+    JourneyMotif.history =>
+      isDark
+          ? const [Color(0xFF7A6241), Color(0xFFC7A675)]
+          : const [Color(0xFFF0E1C8), Color(0xFFD8C29D)],
+    JourneyMotif.books =>
+      isDark
+          ? const [Color(0xFF443B5A), Color(0xFF8D7DAD)]
+          : const [Color(0xFFE4DFF1), Color(0xFFC9BFDD)],
+    JourneyMotif.finance =>
+      isDark
+          ? const [Color(0xFF27463E), Color(0xFF7D946D)]
+          : const [Color(0xFFDDE7D8), Color(0xFFC6D4BA)],
+    JourneyMotif.photography =>
+      isDark
+          ? const [Color(0xFF343944), Color(0xFF7F8796)]
+          : const [Color(0xFFE1E3E8), Color(0xFFC7CCD5)],
+    JourneyMotif.general =>
+      isDark
+          ? const [Color(0xFF3C4858), Color(0xFF6D7B8C)]
+          : const [Color(0xFFE0E5EA), Color(0xFFC8D0D9)],
   };
   final material = switch (motif) {
     JourneyMotif.software => [cs.primaryContainer, cs.primary],
@@ -332,11 +348,7 @@ Color _motifColorFor(ColorScheme cs, List<Color> colors) {
   // Light mode: a category-tinted motif with enough tone to read as texture on
   // the now-brighter card, but soft (low opacity) so it never looks like hard
   // lines. The deeper gradient color carries the category hue.
-  final lightMotif = Color.lerp(
-    colors.last,
-    const Color(0xFF111827),
-    0.38,
-  )!;
+  final lightMotif = Color.lerp(colors.last, const Color(0xFF111827), 0.38)!;
   return cs.brightness == Brightness.dark
       ? Colors.white.withValues(alpha: 0.024)
       : lightMotif.withValues(alpha: 0.10);
@@ -372,7 +384,7 @@ IconData _iconFor(JourneyMotif motif, RediscoverJourneyKind kind) {
       RediscoverJourneyKind.neverOpened => Icons.mark_email_unread_rounded,
       RediscoverJourneyKind.onThisDay => Icons.history_edu_rounded,
       RediscoverJourneyKind.memoryGoal => Icons.route_rounded,
-      _ => Icons.auto_awesome_rounded,
+      _ => AppIcons.rediscover,
     },
   };
 }
@@ -479,7 +491,11 @@ class JourneyMotifPainter extends CustomPainter {
     for (var i = 0; i < 4; i++) {
       final dx = size.width * (0.58 + i * 0.09);
       final dy = size.height * (0.15 + i * 0.16) + shift;
-      final rect = Rect.fromCenter(center: Offset(dx, dy), width: 36, height: 14);
+      final rect = Rect.fromCenter(
+        center: Offset(dx, dy),
+        width: 36,
+        height: 14,
+      );
       canvas.drawOval(rect, paint);
       canvas.drawLine(Offset(dx - 18, dy), Offset(dx + 18, dy), paint);
     }
@@ -525,7 +541,8 @@ class JourneyMotifPainter extends CustomPainter {
   void _chart(Canvas canvas, Size size, Paint paint) {
     for (var i = 0; i < 4; i++) {
       final left = size.width * (0.56 + i * 0.08);
-      final top = size.height * (variant.isEven ? 0.64 - i * 0.08 : 0.58 - i * 0.06);
+      final top =
+          size.height * (variant.isEven ? 0.64 - i * 0.08 : 0.58 - i * 0.06);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(left, top, 14, size.height - top - 22),
@@ -561,8 +578,16 @@ class JourneyMotifPainter extends CustomPainter {
         96,
       );
       canvas.drawArc(rect, 3.14, 3.14, false, paint);
-      canvas.drawLine(rect.bottomLeft, rect.topLeft + const Offset(0, 27), paint);
-      canvas.drawLine(rect.bottomRight, rect.topRight + const Offset(0, 27), paint);
+      canvas.drawLine(
+        rect.bottomLeft,
+        rect.topLeft + const Offset(0, 27),
+        paint,
+      );
+      canvas.drawLine(
+        rect.bottomRight,
+        rect.topRight + const Offset(0, 27),
+        paint,
+      );
     }
   }
 

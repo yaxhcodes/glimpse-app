@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'app_icons.dart';
+
 /// Mouse / trackpad friendly scrolling (desktop, web) + touch.
 class AppScrollBehavior extends MaterialScrollBehavior {
   const AppScrollBehavior();
@@ -35,7 +37,7 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 
 /// Predefined accent color palettes inspired by Pixel / Seal.
 enum AppAccentColor {
-  dynamic('Dynamic', Icons.auto_awesome, null), // uses wallpaper
+  dynamic('Dynamic', AppIcons.automaticTheme, null), // uses wallpaper
   // Seeds aligned to the Google / Material You palette Pixel renders.
   purple('Purple', Icons.circle, Color(0xFF6750A4)), // M3 default
   blue('Blue', Icons.circle, Color(0xFF0B57D0)), // Google Blue
@@ -224,22 +226,18 @@ class AppTheme {
       letterSpacing: 0.2,
       color: colorScheme.onSurface,
     );
-    // Chip labels use container-aware text so text is readable in
-    // both light and dark mode. A plain TextStyle (not MaterialStateTextStyle)
-    // is required here — Flutter's chip widget reads `.color` directly and
-    // does NOT call the MaterialStateTextStyle resolver, so a resolver-based
-    // style always resolves to null color and falls back to the washed-out M3
-    // default (onSurfaceVariant).
-    final chipLabelStyle = GoogleFonts.instrumentSans(
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0.24,
-      color: colorScheme.onSecondaryContainer,
-    );
-
     final isDark = colorScheme.brightness == Brightness.dark;
     final statusBarIcons = isDark ? Brightness.light : Brightness.dark;
     final navBarIcons = isDark ? Brightness.light : Brightness.dark;
+    final controlShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    );
+    final compactControlShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+    );
+    final buttonTextStyle = textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -247,6 +245,8 @@ class AppTheme {
       scaffoldBackgroundColor: colorScheme.surface,
       textTheme: textTheme,
       splashFactory: InkSparkle.splashFactory,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      visualDensity: VisualDensity.standard,
       appBarTheme: AppBarTheme(
         centerTitle: false,
         backgroundColor: colorScheme.surface,
@@ -266,8 +266,8 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        surfaceTintColor: colorScheme.surfaceTint.withValues(alpha: 0.35),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        surfaceTintColor: colorScheme.surfaceTint.withValues(alpha: 0.22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         clipBehavior: Clip.antiAlias,
       ),
       dialogTheme: DialogThemeData(
@@ -276,8 +276,8 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        elevation: 2,
       ),
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
@@ -285,7 +285,7 @@ class AppTheme {
         backgroundColor: colorScheme.surfaceContainerHighest,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
       ),
       listTileTheme: ListTileThemeData(
@@ -297,7 +297,7 @@ class AppTheme {
         subtitleTextStyle: textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       dividerTheme: DividerThemeData(
         color: colorScheme.outlineVariant,
@@ -307,51 +307,95 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainerHigh,
-        hintStyle: TextStyle(color: colorScheme.outline),
+        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
         prefixIconColor: colorScheme.onSurfaceVariant,
-        suffixIconColor: colorScheme.primary,
+        suffixIconColor: colorScheme.onSurfaceVariant,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+          horizontal: 18,
+          vertical: 16,
         ),
       ),
-      chipTheme: ChipThemeData(
-        shape: const StadiumBorder(),
-        labelStyle: chipLabelStyle,
-        backgroundColor: colorScheme.secondaryContainer,
-        selectedColor: colorScheme.secondaryContainer,
-        side: BorderSide.none,
-        deleteIconColor: colorScheme.onSecondaryContainer,
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+          shape: WidgetStatePropertyAll(compactControlShape),
+        ),
       ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.onPrimary;
-          }
-          return colorScheme.onSurfaceVariant;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.primary;
-          }
-          return colorScheme.surfaceContainerHigh;
-        }),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: controlShape,
+          textStyle: buttonTextStyle,
+        ),
       ),
-      radioTheme: RadioThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.primary;
-          }
-          return colorScheme.onSurfaceVariant;
-        }),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(64, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          elevation: 1,
+          shape: controlShape,
+          textStyle: buttonTextStyle,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(64, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: controlShape,
+          textStyle: buttonTextStyle,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: compactControlShape,
+          textStyle: buttonTextStyle,
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(48, 44)),
+          shape: WidgetStatePropertyAll(controlShape),
+          textStyle: WidgetStatePropertyAll(buttonTextStyle),
+        ),
+      ),
+      searchBarTheme: SearchBarThemeData(
+        backgroundColor: WidgetStatePropertyAll(
+          colorScheme.surfaceContainerHigh,
+        ),
+        elevation: const WidgetStatePropertyAll(0),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        ),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 18),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: colorScheme.surfaceContainer,
+        surfaceTintColor: Colors.transparent,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainer),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(2),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+        ),
       ),
       badgeTheme: BadgeThemeData(
         backgroundColor: colorScheme.error,
@@ -363,13 +407,13 @@ class AppTheme {
         // accent). Keeps every FAB in the app consistent.
         backgroundColor: colorScheme.secondaryContainer,
         foregroundColor: colorScheme.onSecondaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         elevation: 2,
         highlightElevation: 4,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 72,
-        elevation: 3,
+        height: 80,
+        elevation: 2,
         shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
         surfaceTintColor: Colors.transparent,
         backgroundColor: colorScheme.surfaceContainerLow,
@@ -403,8 +447,31 @@ class AppTheme {
           );
         }),
       ),
-      // Android 17 / Material 3 Expressive leans on the system predictive-back
-      // animation. PredictiveBackPageTransitionsBuilder renders the OS-driven
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: colorScheme.surfaceContainerLow,
+        elevation: 0,
+        useIndicator: true,
+        indicatorColor: colorScheme.secondaryContainer,
+        indicatorShape: const StadiumBorder(),
+        selectedIconTheme: IconThemeData(
+          size: 24,
+          color: colorScheme.onSecondaryContainer,
+        ),
+        unselectedIconTheme: IconThemeData(
+          size: 24,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        selectedLabelTextStyle: textTheme.labelMedium?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelTextStyle: textTheme.labelMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      // Android 16 enables predictive-back animations by default for apps
+      // targeting API 36. PredictiveBackPageTransitionsBuilder renders the OS-driven
       // back gesture preview on Android 14+ (and falls back to a zoom transition
       // on older releases or non-gesture navigation). Safe here because every
       // back-intercepting screen uses PopScope (not the deprecated

@@ -111,21 +111,25 @@ class _TagChip extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final chip = tagChipColors(colorScheme);
 
-    return Material(
-      color: color ?? chip.background,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
+    return Semantics(
+      button: true,
+      label: tag,
+      child: Material(
+        color: color ?? chip.background,
         borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-          child: Text(
-            tag,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: foreground ?? chip.foreground,
-              fontWeight: FontWeight.w600,
-              height: 1,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+            child: Text(
+              tag,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: foreground ?? chip.foreground,
+                fontWeight: FontWeight.w600,
+                height: 1,
+              ),
             ),
           ),
         ),

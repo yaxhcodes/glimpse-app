@@ -28,6 +28,7 @@ import '../../core/constants/app_assets.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
+import '../../shared/theme/app_icons.dart';
 import '../add_url/add_url_provider.dart';
 import '../sources/sources_provider.dart';
 import 'home_provider.dart';
@@ -534,8 +535,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _buildGlimpseTitle(context),
                 const Spacer(),
                 IconButton(
-                  icon: Icon(
-                    Icons.settings_outlined,
+                  icon: AppIcon(
+                    AppIcons.settings,
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
                   ),
                   tooltip: 'Settings',
@@ -783,7 +784,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ]
                       : [
                           IconButton(
-                            icon: const Icon(Icons.add_link_rounded),
+                            icon: const AppIcon(AppIcons.addLink),
                             tooltip: 'Add URL',
                             onPressed: () => context.push('/add'),
                           ),
@@ -802,7 +803,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   fontWeight: FontWeight.w700,
                                   height: 1.0,
                                 ),
-                                child: const Icon(Icons.notifications_outlined),
+                                child: const AppIcon(AppIcons.notifications),
                               ),
                               tooltip: 'Notifications',
                               onPressed: () async {
@@ -811,7 +812,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               },
                             ),
                           IconButton(
-                            icon: const Icon(Icons.settings_outlined),
+                            icon: const AppIcon(AppIcons.settings),
                             tooltip: 'Settings',
                             onPressed: () => context.push('/settings'),
                           ),
@@ -861,17 +862,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     ),
                                   ),
                                 ),
-                                InkWell(
-                                  onTap: () => context.push('/sources'),
-                                  borderRadius: BorderRadius.circular(18),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 20,
-                                      color: theme.colorScheme.onSurfaceVariant
-                                          .withValues(alpha: 0.48),
-                                    ),
+                                IconButton(
+                                  onPressed: () => context.push('/sources'),
+                                  tooltip: 'View all sources',
+                                  icon: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 20,
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.48),
                                   ),
                                 ),
                               ],
@@ -1272,8 +1270,8 @@ class _CaptureButton extends StatelessWidget {
       child: InkWell(
         onTap: enabled ? onTap : null,
         child: SizedBox(
-          width: 40,
-          height: 40,
+          width: 48,
+          height: 48,
           child: Icon(
             Icons.arrow_forward_rounded,
             size: 20,
@@ -1352,8 +1350,7 @@ class _ClipboardSuggestion extends StatelessWidget {
                   ),
                 ),
                 onPressed: onDismiss,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                tooltip: 'Dismiss clipboard suggestion',
               ),
             ],
           ),

@@ -3,7 +3,7 @@ import 'package:flutter/physics.dart';
 
 import '../theme/app_motion.dart';
 
-/// Extended FAB with a Material 3 Expressive press response (Android 17): on
+/// Extended FAB with a Material 3 Expressive press response: on
 /// touch it springs down in scale and morphs its corners tighter, then springs
 /// back with a gentle overshoot on release.
 ///

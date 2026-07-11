@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../shared/theme/app_icons.dart';
+
 /// ─────────────────────────────────────────────────────────────────────────────
 /// Android 16 / Material 3 Expressive settings building blocks.
 ///
@@ -134,7 +136,8 @@ class SettingsTile extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child:
-                  leading ?? Icon(icon, color: accent, size: 22),
+                  leading ??
+                  AppIcon(icon!, color: accent, size: 22, weight: 450),
             ),
             const SizedBox(width: 16),
             Expanded(

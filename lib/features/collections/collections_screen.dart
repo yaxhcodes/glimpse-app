@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import 'collection_card.dart';
 import 'collections_provider.dart';
@@ -158,7 +159,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
               tooltip: 'New collection',
               onPressed: () => _createCollection(context),
               elevation: 1,
-              child: const Icon(Icons.add_rounded),
+              child: const AppIcon(AppIcons.addToCollection),
             )
           : null,
     );
@@ -186,8 +187,7 @@ class _LayoutToggle extends StatelessWidget {
     return SegmentedButton<_CollectionsLayout>(
       showSelectedIcon: false,
       style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        minimumSize: const WidgetStatePropertyAll(Size(44, 34)),
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 10),
         ),
@@ -281,7 +281,7 @@ class _CollectionsEmptyState extends StatelessWidget {
               const SizedBox(height: 26),
               FilledButton.icon(
                 onPressed: onCreate,
-                icon: const Icon(Icons.add_rounded),
+                icon: const AppIcon(AppIcons.addToCollection),
                 label: const Text('New collection'),
               ),
             ],

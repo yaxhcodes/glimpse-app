@@ -60,7 +60,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           padding: EdgeInsets.zero,
           tooltip: 'Select all',
           icon: const Icon(Icons.select_all_rounded),
@@ -74,7 +74,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
                 },
         ),
         IconButton(
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           padding: EdgeInsets.zero,
           tooltip: readLabel,
           icon: Icon(_readActionIcon(selectedUrls)),
@@ -82,49 +82,57 @@ class BulkSelectionActionButtons extends ConsumerWidget {
               ? null
               : () => _markReadState(context, ref, selectedUrls, onDone),
         ),
-        IconButton(
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
-          padding: EdgeInsets.zero,
-          tooltip: 'Add to collection',
-          icon: const Icon(Icons.create_new_folder_outlined),
-          onPressed: selectedUrls.isEmpty
-              ? null
-              : () {
-                  showAddManyToCollectionSheet(
-                    context,
-                    selectedUrls,
-                    onCompleted: onDone,
-                  );
-                },
-        ),
-        IconButton(
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
-          padding: EdgeInsets.zero,
-          tooltip: pinLabel,
-          icon: Icon(_pinActionIcon(selectedUrls, pinnedIds)),
-          onPressed: selectedUrls.isEmpty
-              ? null
-              : () => _pinSelected(
+        PopupMenuButton<_BulkSelectionMenuAction>(
+          enabled: selectedUrls.isNotEmpty,
+          tooltip: 'More selection actions',
+          icon: const Icon(Icons.more_vert_rounded),
+          onSelected: (action) {
+            switch (action) {
+              case _BulkSelectionMenuAction.addToCollection:
+                showAddManyToCollectionSheet(
                   context,
-                  ref,
                   selectedUrls,
-                  onDone,
-                  onViewPinned,
-                ),
-        ),
-        IconButton(
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 48),
-          padding: EdgeInsets.zero,
-          tooltip: 'Delete',
-          icon: Icon(Icons.delete_outline_rounded, color: cs.error),
-          onPressed: selectedUrls.isEmpty
-              ? null
-              : () => _confirmDelete(context, ref, selectedUrls, onDone),
+                  onCompleted: onDone,
+                );
+                break;
+              case _BulkSelectionMenuAction.pin:
+                _pinSelected(context, ref, selectedUrls, onDone, onViewPinned);
+                break;
+              case _BulkSelectionMenuAction.delete:
+                _confirmDelete(context, ref, selectedUrls, onDone);
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: _BulkSelectionMenuAction.addToCollection,
+              child: ListTile(
+                leading: Icon(Icons.create_new_folder_outlined),
+                title: Text('Add to collection'),
+              ),
+            ),
+            PopupMenuItem(
+              value: _BulkSelectionMenuAction.pin,
+              child: ListTile(
+                leading: Icon(_pinActionIcon(selectedUrls, pinnedIds)),
+                title: Text(pinLabel),
+              ),
+            ),
+            PopupMenuItem(
+              value: _BulkSelectionMenuAction.delete,
+              child: ListTile(
+                leading: Icon(Icons.delete_outline_rounded, color: cs.error),
+                title: Text('Delete', style: TextStyle(color: cs.error)),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 }
+
+enum _BulkSelectionMenuAction { addToCollection, pin, delete }
 
 String _readActionLabel(List<SavedUrl> urls) {
   if (urls.isEmpty) return 'Mark read';

@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/services/analytics_service.dart';
+import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_layout.dart';
 import '../home/home_screen.dart';
 import '../home/home_provider.dart';
 import '../collections/collections_screen.dart';
@@ -26,6 +28,13 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   static const int _searchTabIndex = 3;
+
+  static const _destinations = [
+    (label: 'Home', icon: AppIcons.home),
+    (label: 'Collections', icon: AppIcons.collections),
+    (label: 'Interests', icon: AppIcons.interests),
+    (label: 'Search', icon: AppIcons.search),
+  ];
 
   int _currentIndex = 0;
 
@@ -89,80 +98,143 @@ class _MainShellState extends ConsumerState<MainShell> {
           setState(() => _currentIndex = 0);
         }
       },
-      child: Scaffold(
-        backgroundColor: cs.surface,
-        body: IndexedStack(index: _currentIndex, children: _screens),
-        floatingActionButton: _currentIndex == 0 && hasLinks
-            ? ExpressiveExtendedFab(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  context.push('/ask');
-                },
-                icon: SvgPicture.asset(
-                  'assets/glimpse.svg',
-                  width: 20,
-                  height: 20,
-                  colorFilter: ColorFilter.mode(
-                    cs.onSecondaryContainer,
-                    BlendMode.srcIn,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final usesRail = AppLayout.usesNavigationRail(constraints.maxWidth);
+          final usesExtendedRail = AppLayout.usesExtendedNavigationRail(
+            constraints.maxWidth,
+          );
+          final content = _buildShellContent(constrainWidth: usesRail);
+
+          return Scaffold(
+            backgroundColor: cs.surface,
+            body: usesRail
+                ? Row(
+                    children: [
+                      SafeArea(
+                        right: false,
+                        child: NavigationRail(
+                          selectedIndex: _currentIndex,
+                          onDestinationSelected: _selectDestination,
+                          extended: usesExtendedRail,
+                          labelType: usesExtendedRail
+                              ? NavigationRailLabelType.none
+                              : NavigationRailLabelType.all,
+                          minWidth: 80,
+                          minExtendedWidth: 216,
+                          groupAlignment: -0.72,
+                          leading: Padding(
+                            padding: const EdgeInsets.only(bottom: 18),
+                            child: SvgPicture.asset(
+                              'assets/glimpse.svg',
+                              width: 28,
+                              height: 28,
+                              colorFilter: ColorFilter.mode(
+                                cs.primary,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                          ),
+                          destinations: [
+                            for (final destination in _destinations)
+                              NavigationRailDestination(
+                                icon: AppIcon(destination.icon),
+                                selectedIcon: AppIcon(
+                                  destination.icon,
+                                  selected: true,
+                                ),
+                                label: Text(destination.label),
+                              ),
+                          ],
+                        ),
+                      ),
+                      VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: cs.outlineVariant.withValues(alpha: 0.55),
+                      ),
+                      Expanded(child: content),
+                    ],
+                  )
+                : content,
+            floatingActionButton: _currentIndex == 0 && hasLinks
+                ? ExpressiveExtendedFab(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      context.push('/ask');
+                    },
+                    icon: SvgPicture.asset(
+                      'assets/glimpse.svg',
+                      width: 20,
+                      height: 20,
+                      colorFilter: ColorFilter.mode(
+                        cs.onSecondaryContainer,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    label: Text(
+                      'Ask Glimpse',
+                      style: tt.labelLarge?.copyWith(
+                        color: cs.onSecondaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                : null,
+            floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+            bottomNavigationBar: usesRail
+                ? null
+                : NavigationBar(
+                    selectedIndex: _currentIndex,
+                    onDestinationSelected: _selectDestination,
+                    labelBehavior:
+                        NavigationDestinationLabelBehavior.alwaysShow,
+                    destinations: [
+                      for (final destination in _destinations)
+                        NavigationDestination(
+                          icon: AppIcon(destination.icon),
+                          selectedIcon: AppIcon(
+                            destination.icon,
+                            selected: true,
+                          ),
+                          label: destination.label,
+                        ),
+                    ],
                   ),
-                ),
-                label: Text(
-                  'Ask Glimpse',
-                  style: tt.labelLarge?.copyWith(
-                    color: cs.onSecondaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              )
-            : null,
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (i) {
-            HapticFeedback.selectionClick();
-            final wasAlreadyHome = _currentIndex == 0 && i == 0;
-            final wasAlreadySearch =
-                _currentIndex == _searchTabIndex && i == _searchTabIndex;
-            setState(() => _currentIndex = i);
-            unawaited(
-              ref
-                  .read(analyticsServiceProvider)
-                  .trackScreen(_screenForIndex(i)),
-            );
-            if (wasAlreadyHome) {
-              ref.read(homeScrollToTopSignalProvider.notifier).state++;
-            }
-            if (wasAlreadySearch) {
-              ref.read(searchShellRefocusProvider.notifier).state++;
-            }
-          },
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.folder_outlined),
-              selectedIcon: Icon(Icons.folder_rounded),
-              label: 'Collections',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.account_tree_outlined),
-              selectedIcon: Icon(Icons.account_tree_rounded),
-              label: 'Interests',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.search_outlined),
-              selectedIcon: Icon(Icons.search_rounded),
-              label: 'Search',
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
+
+  Widget _buildShellContent({required bool constrainWidth}) {
+    final content = IndexedStack(index: _currentIndex, children: _screens);
+    if (!constrainWidth) return content;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: AppLayout.maxShellContentWidth,
+        ),
+        child: SizedBox.expand(child: content),
+      ),
+    );
+  }
+
+  void _selectDestination(int index) {
+    HapticFeedback.selectionClick();
+    final wasAlreadyHome = _currentIndex == 0 && index == 0;
+    final wasAlreadySearch =
+        _currentIndex == _searchTabIndex && index == _searchTabIndex;
+    setState(() => _currentIndex = index);
+    unawaited(
+      ref.read(analyticsServiceProvider).trackScreen(_screenForIndex(index)),
+    );
+    if (wasAlreadyHome) {
+      ref.read(homeScrollToTopSignalProvider.notifier).state++;
+    }
+    if (wasAlreadySearch) {
+      ref.read(searchShellRefocusProvider.notifier).state++;
+    }
   }
 
   AnalyticsScreen _screenForIndex(int index) {

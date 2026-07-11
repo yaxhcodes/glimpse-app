@@ -398,8 +398,6 @@ class _ActionBlock extends StatelessWidget {
         TextButton(
           onPressed: onPrivacyPolicy,
           style: TextButton.styleFrom(
-            minimumSize: const Size(48, 36),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             foregroundColor: cs.primary.withValues(alpha: 0.9),
             textStyle: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w600,

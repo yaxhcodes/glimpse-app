@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _kLeftSwipeActionKey = 'glimpse_left_swipe_action';
@@ -41,7 +42,7 @@ extension SwipeActionTypeInfo on SwipeActionType {
     return switch (this) {
       SwipeActionType.delete => Icons.delete_outline_rounded,
       SwipeActionType.toggleRead => Icons.mark_email_read_outlined,
-      SwipeActionType.addToCollection => Icons.create_new_folder_outlined,
+      SwipeActionType.addToCollection => Symbols.library_add_rounded,
       SwipeActionType.pin => Icons.push_pin_outlined,
       SwipeActionType.askGlimpse => Icons.auto_awesome_rounded,
       SwipeActionType.share => Icons.share_outlined,

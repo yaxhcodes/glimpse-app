@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
+
 /// Subtle surface / accent tokens for notification history [type] strings.
 class NotificationTypeStyle {
   const NotificationTypeStyle({
@@ -29,7 +31,7 @@ class NotificationTypeStyle {
       case 'new_interest':
         return NotificationTypeStyle(
           accent: cs.secondaryContainer,
-          icon: Icons.auto_awesome_rounded,
+          icon: AppIcons.interests,
           labelColorWeight: 0.9,
         );
       case 'collector':

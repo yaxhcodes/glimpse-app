@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 /// Material 3 Expressive–inspired motion tokens.
 ///
-/// Android 17's headline change is the Expressive motion system: spring-based,
-/// with emphasized easing for spatial transitions. Stable Flutter does not ship
-/// those tokens yet, so this centralizes an approximation built from the
+/// Material 3 Expressive complements Android 16's visual system with
+/// spring-based motion and emphasized easing for spatial transitions. Stable
+/// Flutter does not ship those tokens yet, so this centralizes an approximation built from the
 /// emphasized curves Flutter *does* provide, plus tuned [SpringDescription]s for
 /// touch response. Components reference these so the app's motion stays
 /// consistent, and we can swap in first-class Expressive tokens once the

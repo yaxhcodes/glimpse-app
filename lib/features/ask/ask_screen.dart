@@ -1110,10 +1110,9 @@ class _AssistantUtilityAction extends StatelessWidget {
       icon: Icon(icon, size: 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        visualDensity: VisualDensity.compact,
         foregroundColor: colorScheme.primary,
         side: BorderSide(color: colorScheme.outlineVariant),
-        minimumSize: const Size(0, 44),
+        minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1513,72 +1512,16 @@ class _AnswerSectionCard extends StatelessWidget {
             // Footer
             Padding(
               padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: cs.outlineVariant, width: 0.5),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Text(
-                      domain,
-                      style: TextStyle(fontSize: 11, color: cs.outline),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => context.push('/url/${source.id}'),
-                      child: Text(
-                        'Details',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                          color: cs.primary,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      width: 0.5,
-                      height: 12,
-                      color: cs.outlineVariant,
-                    ),
-                    GestureDetector(
-                      onTap: () => _openUrl(source.rawUrl),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Open',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(width: 3),
-                          Icon(
-                            Icons.open_in_new_rounded,
-                            size: 11,
-                            color: cs.outline,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              child: _SourceCardFooter(
+                domain: domain,
+                onDetails: () => context.push('/url/${source.id}'),
+                onOpen: () => _openExternalUrl(source.rawUrl),
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _openUrl(String rawUrl) async {
-    final uri = Uri.tryParse(rawUrl);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }
 
@@ -1675,60 +1618,10 @@ class _SourceCard extends StatelessWidget {
             // Footer
             Padding(
               padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: cs.outlineVariant, width: 0.5),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Text(
-                      domain,
-                      style: TextStyle(fontSize: 11, color: cs.outline),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => context.push('/url/${source.id}'),
-                      child: Text(
-                        'Details',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                          color: cs.primary,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      width: 0.5,
-                      height: 12,
-                      color: cs.outlineVariant,
-                    ),
-                    GestureDetector(
-                      onTap: () => _openUrl(source.rawUrl),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Open',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(width: 3),
-                          Icon(
-                            Icons.open_in_new_rounded,
-                            size: 11,
-                            color: cs.outline,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              child: _SourceCardFooter(
+                domain: domain,
+                onDetails: () => context.push('/url/${source.id}'),
+                onOpen: () => _openExternalUrl(source.rawUrl),
               ),
             ),
           ],
@@ -1736,12 +1629,54 @@ class _SourceCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Future<void> _openUrl(String rawUrl) async {
-    final uri = Uri.tryParse(rawUrl);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+class _SourceCardFooter extends StatelessWidget {
+  const _SourceCardFooter({
+    required this.domain,
+    required this.onDetails,
+    required this.onOpen,
+  });
+
+  final String domain;
+  final VoidCallback onDetails;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: cs.outlineVariant, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              domain,
+              style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          TextButton(onPressed: onDetails, child: const Text('Details')),
+          TextButton.icon(
+            onPressed: onOpen,
+            iconAlignment: IconAlignment.end,
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: const Text('Open'),
+          ),
+        ],
+      ),
+    );
   }
+}
+
+Future<void> _openExternalUrl(String rawUrl) async {
+  final uri = Uri.tryParse(rawUrl);
+  if (uri == null) return;
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
 class GlimpseTypingIndicator extends StatefulWidget {
@@ -2085,7 +2020,6 @@ class _AttachedSourceBar extends ConsumerWidget {
             TextButton(
               onPressed: onClear,
               style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
                 foregroundColor: cs.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
               ),
@@ -2131,10 +2065,9 @@ class _ChatActionChip extends StatelessWidget {
       icon: Icon(icon, size: 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        visualDensity: VisualDensity.compact,
         foregroundColor: cs.primary,
         side: BorderSide(color: cs.outlineVariant),
-        minimumSize: const Size(0, 44),
+        minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

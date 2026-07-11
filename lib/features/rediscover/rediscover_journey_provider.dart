@@ -8,6 +8,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/affinity_profile.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/theme/app_icons.dart';
 import '../home/home_provider.dart';
 import '../mindmap/cluster_theme.dart';
 import '../mindmap/interest_clusters_provider.dart';
@@ -184,7 +185,7 @@ final rediscoverTodayProvider = FutureProvider<List<RediscoverTodaySlot>>((
         type: RediscoverTodaySlotType.connectedSaves,
         label: 'Connected saves',
         subtitle: journey.hookLine ?? journey.subtitle,
-        icon: Icons.hub_outlined,
+        icon: AppIcons.interests,
         journey: journey,
       ),
     );
@@ -235,7 +236,7 @@ List<RediscoverJourney> buildRediscoverJourneys({
               ? 'Recent Saves Worth Reopening'
               : _framedTitle(RediscoverJourneyKind.becauseYouSaved, topic),
           subtitle: '${items.length} saves worth reopening',
-          icon: Icons.auto_awesome_rounded,
+          icon: AppIcons.rediscover,
           items: items,
           signal: 74,
           topicAnchor: topic.isEmpty ? null : topic,
@@ -467,7 +468,7 @@ double _framingBase(RediscoverJourneyKind framing) => switch (framing) {
 IconData _framingIcon(RediscoverJourneyKind framing) => switch (framing) {
   RediscoverJourneyKind.continueLearning => Icons.playlist_play_rounded,
   RediscoverJourneyKind.forgottenGems => Icons.diamond_outlined,
-  _ => Icons.auto_awesome_rounded,
+  _ => AppIcons.rediscover,
 };
 
 String _framingSubtitle(RediscoverJourneyKind framing, int n, bool hasQueued) {
