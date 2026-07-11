@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/widgets/app_snackbar.dart';
 import '../home/home_provider.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
@@ -25,6 +27,57 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     return _createCollectionAndAddUrls(context, ref, [
       widget.url,
     ], openCollection: true);
+  }
+
+  Future<void> _setCollectionMembership(
+    UserCollection collection, {
+    required bool add,
+  }) async {
+    final isar = ref.read(isarServiceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final container = ProviderScope.containerOf(context);
+    if (add) {
+      await isar.addUrlToCollection(
+        collectionId: collection.id,
+        urlId: widget.url.id,
+      );
+    } else {
+      await isar.removeUrlFromCollection(
+        collectionId: collection.id,
+        urlId: widget.url.id,
+      );
+    }
+    _refreshCollection(collection.id);
+    if (mounted) setState(() {});
+
+    if (!add || !mounted) return;
+    Navigator.pop(context);
+    showAutoDismissSnackBarVia(
+      messenger,
+      SnackBar(
+        content: Text('Added to ${collection.name}'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            await isar.removeUrlFromCollection(
+              collectionId: collection.id,
+              urlId: widget.url.id,
+            );
+            container.invalidate(collectionsListProvider);
+            container.invalidate(collectionsSummaryProvider);
+            container.invalidate(collectionUrlsProvider(collection.id));
+          },
+        ),
+      ),
+    );
+  }
+
+  void _refreshCollection(int collectionId) {
+    ref.invalidate(collectionsListProvider);
+    ref.invalidate(collectionsSummaryProvider);
+    ref.invalidate(collectionUrlsProvider(collectionId));
   }
 
   @override
@@ -104,43 +157,15 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                             title: Text(c.name),
                             trailing: Checkbox(
                               value: inCollection,
-                              onChanged: (v) async {
-                                final isar = ref.read(isarServiceProvider);
-                                if (v == true) {
-                                  await isar.addUrlToCollection(
-                                    collectionId: c.id,
-                                    urlId: widget.url.id,
-                                  );
-                                } else {
-                                  await isar.removeUrlFromCollection(
-                                    collectionId: c.id,
-                                    urlId: widget.url.id,
-                                  );
-                                }
-                                ref.invalidate(collectionsListProvider);
-                                ref.invalidate(collectionsSummaryProvider);
-                                ref.invalidate(collectionUrlsProvider(c.id));
-                                setState(() {});
-                              },
+                              onChanged: (value) => _setCollectionMembership(
+                                c,
+                                add: value == true,
+                              ),
                             ),
-                            onTap: () async {
-                              final isar = ref.read(isarServiceProvider);
-                              if (inCollection) {
-                                await isar.removeUrlFromCollection(
-                                  collectionId: c.id,
-                                  urlId: widget.url.id,
-                                );
-                              } else {
-                                await isar.addUrlToCollection(
-                                  collectionId: c.id,
-                                  urlId: widget.url.id,
-                                );
-                              }
-                              ref.invalidate(collectionsListProvider);
-                              ref.invalidate(collectionsSummaryProvider);
-                              ref.invalidate(collectionUrlsProvider(c.id));
-                              setState(() {});
-                            },
+                            onTap: () => _setCollectionMembership(
+                              c,
+                              add: !inCollection,
+                            ),
                           );
                         },
                       ),
@@ -250,6 +275,7 @@ class AddManyToCollectionSheet extends ConsumerWidget {
                             title: Text(c.name),
                             subtitle: Text('${c.urlIds.length} links'),
                             onTap: () async {
+                              final messenger = ScaffoldMessenger.of(context);
                               await ref
                                   .read(isarServiceProvider)
                                   .addUrlsToCollection(
@@ -261,6 +287,19 @@ class AddManyToCollectionSheet extends ConsumerWidget {
                               ref.invalidate(collectionUrlsProvider(c.id));
                               onCompleted?.call();
                               if (context.mounted) Navigator.pop(context);
+                              showAutoDismissSnackBarVia(
+                                messenger,
+                                SnackBar(
+                                  content: Text(
+                                    urls.length == 1
+                                        ? 'Added to ${c.name}'
+                                        : 'Added ${urls.length} items to '
+                                              '${c.name}',
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
                             },
                           );
                         },
@@ -301,6 +340,7 @@ Future<void> _createCollectionAndAddUrls(
 }) async {
   final collection = await showCreateCollectionSheet(context);
   if (collection == null || !context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
 
   await ref
       .read(isarServiceProvider)
@@ -315,6 +355,18 @@ Future<void> _createCollectionAndAddUrls(
 
   if (!context.mounted) return;
   Navigator.pop(context);
+  showAutoDismissSnackBarVia(
+    messenger,
+    SnackBar(
+      content: Text(
+        urls.length == 1
+            ? 'Added to ${collection.name}'
+            : 'Added ${urls.length} items to ${collection.name}',
+      ),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 3),
+    ),
+  );
   if (openCollection) {
     context.push('/collections/${collection.id}');
   }

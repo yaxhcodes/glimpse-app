@@ -2278,6 +2278,18 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
     );
     widget.onCollectionChanged(collection.id);
     if (widget.hostContext.mounted) {
+      ScaffoldMessenger.of(widget.hostContext).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.sources.length == 1
+                ? 'Added to ${collection.name}'
+                : 'Added ${widget.sources.length} items to '
+                      '${collection.name}',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
       widget.hostContext.push('/collections/${collection.id}');
     }
   }
@@ -2295,7 +2307,7 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
         SnackBar(
           content: Row(
             children: [
-              Expanded(child: Text('Added to "${col.name}"')),
+              Expanded(child: Text('Added to ${col.name}')),
               GestureDetector(
                 onTap: () {
                   ScaffoldMessenger.of(

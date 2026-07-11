@@ -29,6 +29,24 @@ class UrlSaveNotifications {
     );
   }
 
+  static Future<void> showSavedToCollection(String collectionName) {
+    final title = 'Saved to $collectionName';
+    const body = 'Glimpse is making sense of what caught your eye.';
+    final payload = jsonEncode({
+      'type': 'url_saved_to_collection',
+      'route': 'home',
+      'title': title,
+      'body': body,
+    });
+
+    return DigestNotifications.show(
+      type: NotifType.resurface,
+      title: title,
+      body: body,
+      payloadJson: payload,
+    );
+  }
+
   /// Shown after a shared save when the user is out of free AI saves: the
   /// bookmark was kept but not AI-enriched. Tapping routes to the subscription
   /// page (handled by NotificationRouter's `subscription` route).

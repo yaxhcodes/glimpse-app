@@ -25,6 +25,7 @@ import 'core/services/tag_analyzer.dart';
 import 'core/services/embedding_backfill_service.dart';
 import 'core/services/category_repair_service.dart';
 import 'core/models/saved_url.dart';
+import 'core/models/user_collection.dart';
 import 'features/ask/ask_empty_suggestions_provider.dart';
 import 'features/home/home_provider.dart';
 import 'features/shell/main_shell.dart';
@@ -33,8 +34,10 @@ import 'features/add_url/add_url_screen.dart';
 import 'features/add_url/add_url_provider.dart';
 import 'features/categories/category_screen.dart';
 import 'features/collections/collection_detail_screen.dart';
+import 'features/collections/collections_provider.dart';
 import 'features/collections/collections_screen.dart';
 import 'features/collections/create_collection_screen.dart';
+import 'features/collections/share_capture_sheet.dart';
 import 'features/digest/digest_screen.dart';
 import 'features/digest/notification_detail_screen.dart';
 import 'features/digest/notifications_screen.dart';
@@ -390,7 +393,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (extracted.urls.isEmpty) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_handleSharedUrls(extracted.urls));
+      unawaited(
+        _handleSharedUrls(extracted.urls),
+      );
     });
   }
 
@@ -416,11 +421,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         // Multi-share → batch preview
         _router.push('/batch-save', extra: urls);
       } else {
-        // Single share → capture immediately and let notifications carry the result.
+        final collection = await _showShareCapturePrompt();
+        if (!mounted) return;
         await _quickSave(
           urls.first,
           notifyCapture: true,
           returnAfterSave: true,
+          collection: collection,
         );
       }
     } catch (e, st) {
@@ -437,6 +444,12 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     } finally {
       _processingSharedUrls = false;
     }
+  }
+
+  Future<UserCollection?> _showShareCapturePrompt() async {
+    final context = _router.routerDelegate.navigatorKey.currentContext;
+    if (context == null || !context.mounted) return null;
+    return showShareCaptureSheet(context);
   }
 
   void _showSignInToSaveMessage() {
@@ -457,12 +470,46 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     String url, {
     bool notifyCapture = false,
     bool returnAfterSave = false,
+    UserCollection? collection,
   }) async {
     final notifier = ref.read(addUrlProvider.notifier);
-    final success = await notifier.saveUrl(url, notifyCapture: notifyCapture);
+    final success = await notifier.saveUrl(
+      url,
+      notifyCapture: notifyCapture,
+      showCaptureAcknowledgement: false,
+    );
     final state = ref.read(addUrlProvider);
     final errorMsg = state.errorMessage;
     final aiLimitReached = state.aiLimitReached;
+    final savedUrlId = state.savedUrlId;
+
+    if (savedUrlId != null) {
+      if (collection == null) {
+        await UrlSaveNotifications.showCaptureStarted();
+      } else {
+        try {
+          await ref
+              .read(isarServiceProvider)
+              .addUrlToCollection(
+                collectionId: collection.id,
+                urlId: savedUrlId,
+              );
+          ref.invalidate(collectionsListProvider);
+          ref.invalidate(collectionsSummaryProvider);
+          ref.invalidate(collectionUrlsProvider(collection.id));
+          await UrlSaveNotifications.showSavedToCollection(collection.name);
+        } catch (error, stackTrace) {
+          developer.log(
+            'The URL was saved, but could not be added to the selected collection.',
+            name: 'ShareIntent',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          await UrlSaveNotifications.showCaptureStarted();
+        }
+      }
+    }
+
     notifier.reset();
 
     // Out of free AI saves: the bookmark is kept but won't be AI-enriched.
@@ -581,7 +628,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           pendingSharedUrls.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          unawaited(_handleSharedUrls(pendingSharedUrls));
+          unawaited(
+            _handleSharedUrls(pendingSharedUrls),
+          );
         });
       }
       if (!wasSignedIn || !isSignedOut) return;

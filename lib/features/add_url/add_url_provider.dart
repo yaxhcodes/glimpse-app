@@ -105,6 +105,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     String rawUrl, {
     String? notes,
     bool notifyCapture = false,
+    bool showCaptureAcknowledgement = true,
   }) async {
     if (_isSaving) return false;
     _isSaving = true;
@@ -162,7 +163,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         if (existing.rediscoverDismissedAt != null) {
           await isarService.updateRediscoverDismissedAt(existing.id, null);
         }
-        if (notifyCapture) {
+        if (notifyCapture && showCaptureAcknowledgement) {
           await UrlSaveNotifications.showAlreadyCaptured(existing);
         }
         _ref.invalidate(urlStreamProvider);
@@ -243,7 +244,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         name: 'AddUrl',
       );
 
-      if (notifyCapture) {
+      if (notifyCapture && showCaptureAcknowledgement) {
         await UrlSaveNotifications.showCaptureStarted();
       }
 
