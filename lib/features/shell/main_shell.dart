@@ -158,25 +158,28 @@ class _MainShellState extends ConsumerState<MainShell> {
                   )
                 : content,
             floatingActionButton: _currentIndex == 0 && hasLinks
-                ? ExpressiveExtendedFab(
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      context.push('/ask');
-                    },
-                    icon: SvgPicture.asset(
-                      'assets/glimpse.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: ColorFilter.mode(
-                        cs.onSecondaryContainer,
-                        BlendMode.srcIn,
+                ? Padding(
+                    padding: EdgeInsets.only(bottom: usesRail ? 0 : 12),
+                    child: ExpressiveExtendedFab(
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        context.push('/ask');
+                      },
+                      icon: SvgPicture.asset(
+                        'assets/glimpse.svg',
+                        width: 20,
+                        height: 20,
+                        colorFilter: ColorFilter.mode(
+                          cs.onSecondaryContainer,
+                          BlendMode.srcIn,
+                        ),
                       ),
-                    ),
-                    label: Text(
-                      'Ask Glimpse',
-                      style: tt.labelLarge?.copyWith(
-                        color: cs.onSecondaryContainer,
-                        fontWeight: FontWeight.w600,
+                      label: Text(
+                        'Ask Glimpse',
+                        style: tt.labelLarge?.copyWith(
+                          color: cs.onSecondaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   )

@@ -41,8 +41,9 @@ class RediscoverySection extends ConsumerWidget {
         // height is derived from a locked aspect ratio and clamped so it stays
         // balanced from compact phones up through tablets.
         const hPad = 16.0;
-        final cardWidth = isTablet ? 320.0 : (size.width - hPad * 2) * 0.85;
-        final cardHeight = (cardWidth / 1.7).clamp(168.0, 196.0);
+        final cardWidth = isTablet ? 320.0 : (size.width - hPad * 2) * 0.80;
+        final cardHeight =
+            (cardWidth / 1.7).clamp(168.0, 196.0) + 24.0;
         final previewCount = isTablet
             ? journeys.length
             : journeys.length.clamp(0, 4);
@@ -106,7 +107,7 @@ class RediscoverySection extends ConsumerWidget {
               ),
               if (resurfaced.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                   child: _RecentMemoryTile(
                     item: resurfaced.first,
                     onTap: () =>
@@ -115,17 +116,24 @@ class RediscoverySection extends ConsumerWidget {
                 ),
               if (previewCount > 0)
                 SizedBox(
-                  height: cardHeight,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: hPad),
-                    itemCount: previewCount,
-                    separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (context, i) => _RediscoverJourneyCard(
-                      journey: journeys[i],
-                      width: cardWidth,
-                      height: cardHeight,
-                      onTap: () {
+                  height: cardHeight + 8,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: CarouselView(
+                      itemExtent: cardWidth + 12,
+                      shrinkExtent: 0,
+                      itemSnapping: true,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      itemClipBehavior: Clip.antiAlias,
+                      onTap: (i) {
                         unawaited(
                           ref
                               .read(isarServiceProvider)
@@ -138,6 +146,13 @@ class RediscoverySection extends ConsumerWidget {
                         );
                         context.push('/rediscover/journey', extra: journeys[i]);
                       },
+                      children: [
+                        for (var i = 0; i < previewCount; i++)
+                          _RediscoverJourneyCard(
+                            journey: journeys[i],
+                            height: cardHeight,
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -286,14 +301,10 @@ class _RediscoverTip extends StatelessWidget {
 class _RediscoverJourneyCard extends StatelessWidget {
   const _RediscoverJourneyCard({
     required this.journey,
-    required this.onTap,
-    required this.width,
     required this.height,
   });
 
   final RediscoverJourney journey;
-  final VoidCallback onTap;
-  final double width;
   final double height;
 
   @override
@@ -307,127 +318,117 @@ class _RediscoverJourneyCard extends StatelessWidget {
     final hook = journey.hookLine ?? _metadataLine(memory);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // Light mode needs a touch more presence for the wash to register.
-    final iconWashOpacity = isDark ? 0.22 : 0.32;
+    final iconWashOpacity = isDark ? 0.28 : 0.40;
     // The fused glyph scales with the card so the bleed stays proportional.
     final iconSize = height * 1.04;
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(24),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: visual.colors,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: visual.colors,
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Fused category icon: oversized, accent-tinted, bleeding off the
+          // top-left corner and fading diagonally into the gradient. No
+          // chip or frame — the glyph itself is the texture.
+          Positioned(
+            left: -iconSize * 0.16,
+            top: -iconSize * 0.24,
+            child: Opacity(
+              opacity: iconWashOpacity,
+              child: ShaderMask(
+                shaderCallback: (bounds) {
+                  return LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      visual.accentColor.withValues(alpha: 1),
+                      visual.accentColor.withValues(alpha: 0),
+                    ],
+                    stops: const [0.08, 0.70],
+                  ).createShader(bounds);
+                },
+                blendMode: BlendMode.dstIn,
+                child: Icon(
+                  visual.icon,
+                  size: iconSize,
+                  color: visual.accentColor,
+                ),
+              ),
             ),
           ),
-          child: Stack(
-            children: [
-              // Fused category icon: oversized, accent-tinted, bleeding off the
-              // top-left corner and fading diagonally into the gradient. No
-              // chip or frame — the glyph itself is the texture.
-              Positioned(
-                left: -iconSize * 0.16,
-                top: -iconSize * 0.24,
-                child: Opacity(
-                  opacity: iconWashOpacity,
-                  child: ShaderMask(
-                    shaderCallback: (bounds) {
-                      return LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          visual.accentColor.withValues(alpha: 1),
-                          visual.accentColor.withValues(alpha: 0),
-                        ],
-                        stops: const [0.08, 0.70],
-                      ).createShader(bounds);
-                    },
-                    blendMode: BlendMode.dstIn,
-                    child: Icon(
-                      visual.icon,
-                      size: iconSize,
-                      color: visual.accentColor,
-                    ),
-                  ),
-                ),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: JourneyMotifPainter(
+                motif: visual.motif,
+                color: visual.motifColor,
+                variant: journey.title.hashCode,
               ),
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: JourneyMotifPainter(
-                    motif: visual.motif,
-                    color: visual.motifColor,
-                    variant: journey.title.hashCode,
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: visual.overlayColors,
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Spacer(),
-                    Text(
-                      visual.eyebrow,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.labelSmall?.copyWith(
-                        color: visual.mutedForeground.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
-                        fontSize: 10,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.editorial(
-                        tt.titleLarge,
-                        color: visual.foreground,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        height: 1.14,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    const SizedBox(height: 9),
-                    Text(
-                      hook,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.labelMedium?.copyWith(
-                        color: visual.mutedForeground.withValues(alpha: 0.8),
-                        fontWeight: FontWeight.w500,
-                        fontSize: 11,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: visual.overlayColors,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Spacer(),
+                Text(
+                  visual.eyebrow,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.labelSmall?.copyWith(
+                    color: visual.mutedForeground.withValues(alpha: 0.85),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                    fontSize: 10,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.editorial(
+                    tt.titleLarge,
+                    color: visual.foreground,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1.14,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 9),
+                Text(
+                  hook,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.labelMedium?.copyWith(
+                    color: visual.mutedForeground.withValues(alpha: 0.8),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 11,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
