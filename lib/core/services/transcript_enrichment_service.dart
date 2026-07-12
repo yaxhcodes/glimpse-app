@@ -9,6 +9,7 @@ import 'text_cleaner.dart';
 
 class TranscriptEnrichmentResult {
   const TranscriptEnrichmentResult({
+    this.schemaVersion = 1,
     required this.meaningfulTitle,
     required this.summary,
     required this.category,
@@ -18,6 +19,7 @@ class TranscriptEnrichmentResult {
     this.steps = const [],
     this.mentions = const [],
     this.notableItems = const [],
+    this.contentSections = const [],
     this.recipe,
     this.keyPoints = const [],
     this.categoryEvidence,
@@ -38,6 +40,7 @@ class TranscriptEnrichmentResult {
     this.memoryIntent,
   });
 
+  final int schemaVersion;
   final String meaningfulTitle;
   final String summary;
   final String category;
@@ -47,6 +50,7 @@ class TranscriptEnrichmentResult {
   final List<EnrichedContentStep> steps;
   final List<EnrichedMention> mentions;
   final List<EnrichedNotableItem> notableItems;
+  final List<EnrichedContentSection> contentSections;
   final EnrichedRecipe? recipe;
   final List<String> keyPoints;
   final String? categoryEvidence;
@@ -74,6 +78,7 @@ class TranscriptEnrichmentResult {
       steps.isNotEmpty ||
       mentions.isNotEmpty ||
       notableItems.isNotEmpty ||
+      contentSections.isNotEmpty ||
       (recipe?.hasUsefulContent ?? false) ||
       (transcript?.trim().isNotEmpty ?? false) ||
       (ocrText?.trim().isNotEmpty ?? false);
@@ -94,6 +99,7 @@ class TranscriptEnrichmentResult {
     if (mentions.isNotEmpty ||
         steps.isNotEmpty ||
         notableItems.isNotEmpty ||
+        contentSections.isNotEmpty ||
         keyPoints.isNotEmpty ||
         (recipe?.hasUsefulContent ?? false)) {
       return true;
@@ -115,6 +121,7 @@ class TranscriptEnrichmentResult {
   }
 
   TranscriptEnrichmentResult copyWith({
+    int? schemaVersion,
     String? meaningfulTitle,
     String? summary,
     String? category,
@@ -124,6 +131,7 @@ class TranscriptEnrichmentResult {
     List<EnrichedContentStep>? steps,
     List<EnrichedMention>? mentions,
     List<EnrichedNotableItem>? notableItems,
+    List<EnrichedContentSection>? contentSections,
     EnrichedRecipe? recipe,
     List<String>? keyPoints,
     String? categoryEvidence,
@@ -144,6 +152,7 @@ class TranscriptEnrichmentResult {
     MemoryIntentMetadata? memoryIntent,
   }) {
     return TranscriptEnrichmentResult(
+      schemaVersion: schemaVersion ?? this.schemaVersion,
       meaningfulTitle: meaningfulTitle ?? this.meaningfulTitle,
       summary: summary ?? this.summary,
       category: category ?? this.category,
@@ -153,6 +162,7 @@ class TranscriptEnrichmentResult {
       steps: steps ?? this.steps,
       mentions: mentions ?? this.mentions,
       notableItems: notableItems ?? this.notableItems,
+      contentSections: contentSections ?? this.contentSections,
       recipe: recipe ?? this.recipe,
       keyPoints: keyPoints ?? this.keyPoints,
       categoryEvidence: categoryEvidence ?? this.categoryEvidence,
@@ -177,6 +187,7 @@ class TranscriptEnrichmentResult {
 
   Map<String, dynamic> toJson() {
     return {
+      'schema_version': schemaVersion,
       'meaningful_title': meaningfulTitle,
       'summary': summary,
       'category': category,
@@ -186,6 +197,9 @@ class TranscriptEnrichmentResult {
       'steps': steps.map((item) => item.toJson()).toList(),
       'mentions': mentions.map((item) => item.toJson()).toList(),
       'notable_items': notableItems.map((item) => item.toJson()).toList(),
+      'content_sections': contentSections
+          .map((section) => section.toJson())
+          .toList(),
       'recipe': recipe?.toJson(),
       'key_points': keyPoints,
       'category_evidence': categoryEvidence,
@@ -210,6 +224,11 @@ class TranscriptEnrichmentResult {
   static TranscriptEnrichmentResult? fromJson(Map<String, dynamic> json) {
     final mentions = json['mentions'];
     return TranscriptEnrichmentResult(
+      schemaVersion:
+          TranscriptEnrichmentService._extractPositiveInt(
+            json['schema_version'] ?? json['schemaVersion'],
+          ) ??
+          1,
       meaningfulTitle: TranscriptEnrichmentService._cleanText(
         json['meaningful_title'],
       ),
@@ -238,6 +257,9 @@ class TranscriptEnrichmentResult {
                 .toList()
           : const [],
       notableItems: TranscriptEnrichmentService._extractNotableItems(json),
+      contentSections: TranscriptEnrichmentService._extractContentSections(
+        json,
+      ),
       recipe: EnrichedRecipe.fromJsonOrNull(json['recipe']),
       keyPoints: TranscriptEnrichmentService._extractStringList(
         json['key_points'],
@@ -974,6 +996,31 @@ class EnrichedContentStep {
       title.trim().isNotEmpty || (description?.trim().isNotEmpty ?? false);
 }
 
+class EnrichedContentSection {
+  const EnrichedContentSection({required this.title, required this.points});
+
+  final String title;
+  final List<String> points;
+
+  bool get hasUsefulContent => title.trim().isNotEmpty && points.isNotEmpty;
+
+  Map<String, dynamic> toJson() => {'title': title, 'points': points};
+
+  static EnrichedContentSection? fromJson(Map<String, dynamic> json) {
+    final title = TranscriptEnrichmentService._cleanText(
+      json['title'] ?? json['heading'] ?? json['name'],
+    );
+    final points = TranscriptEnrichmentService._extractStringList(
+      json['points'] ?? json['items'] ?? json['details'],
+    );
+    if (title.isEmpty || points.isEmpty) return null;
+    return EnrichedContentSection(
+      title: title,
+      points: points.take(6).toList(),
+    );
+  }
+}
+
 class EnrichedMention {
   const EnrichedMention({
     required this.title,
@@ -1232,6 +1279,11 @@ class TranscriptEnrichmentService {
       ).take(8).toList();
 
       final result = TranscriptEnrichmentResult(
+        schemaVersion:
+            _extractPositiveInt(
+              data['schema_version'] ?? data['schemaVersion'],
+            ) ??
+            1,
         meaningfulTitle: _cleanText(data['meaningful_title']),
         summary: _cleanText(data['summary']),
         category: _cleanText(data['category']),
@@ -1247,6 +1299,7 @@ class TranscriptEnrichmentService {
         recipe: recipe,
         keyPoints: _extractStringList(data['key_points']),
         notableItems: _extractNotableItems(data),
+        contentSections: _extractContentSections(data),
         categoryEvidence: _cleanNullableText(
           data['category_evidence'] ?? data['domain_evidence'],
         ),
@@ -1389,6 +1442,41 @@ class TranscriptEnrichmentService {
         })
         .take(12)
         .toList();
+  }
+
+  static List<EnrichedContentSection> _extractContentSections(
+    Map<String, dynamic> data,
+  ) {
+    final raw = data['content_sections'] ?? data['contentSections'];
+    if (raw is! List) return const [];
+    final seenTitles = <String>{};
+    final seenPoints = <String>{};
+    var totalPoints = 0;
+    final sections = <EnrichedContentSection>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final parsed = EnrichedContentSection.fromJson(
+        Map<String, dynamic>.from(item),
+      );
+      if (parsed == null) continue;
+      final titleKey = _cleanText(parsed.title).toLowerCase();
+      if (!seenTitles.add(titleKey)) continue;
+      final points = <String>[];
+      for (final point in parsed.points) {
+        final key = _cleanText(point).toLowerCase();
+        if (key.isEmpty || !seenPoints.add(key)) continue;
+        points.add(point);
+        totalPoints++;
+        if (points.length >= 6 || totalPoints >= 32) break;
+      }
+      if (points.isNotEmpty) {
+        sections.add(
+          EnrichedContentSection(title: parsed.title, points: points),
+        );
+      }
+      if (sections.length >= 8 || totalPoints >= 32) break;
+    }
+    return sections;
   }
 
   static List<EnrichedContentStep> _parseContentSteps(Object? raw) {

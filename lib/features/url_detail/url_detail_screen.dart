@@ -33,6 +33,7 @@ import '../../shared/widgets/tag_group.dart';
 import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
 import '../search/search_provider.dart';
+import 'detail_expansion_section.dart';
 import 'url_detail_provider.dart';
 
 class UrlDetailScreen extends ConsumerStatefulWidget {
@@ -436,12 +437,14 @@ class _GlimpseSavedNoteCard extends StatelessWidget {
 class _NoteSuggestionChip extends StatelessWidget {
   const _NoteSuggestionChip({
     required this.label,
+    required this.icon,
     required this.onTap,
     this.selected = false,
     this.intent = false,
   });
 
   final String label;
+  final IconData icon;
   final VoidCallback onTap;
 
   /// Whether this chip sets an on-device intent ("Watch Later", "Already Read")
@@ -462,30 +465,38 @@ class _NoteSuggestionChip extends StatelessWidget {
             colorScheme.surfaceContainerHighest,
           );
     final fgColor = selected ? colorScheme.onPrimary : colorScheme.onSurface;
-    return Material(
-      color: chipColor,
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (selected) ...[
-                Icon(Icons.check_rounded, size: 15, color: fgColor),
-                const SizedBox(width: 5),
-              ],
-              Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: chipColor,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? Icons.check_rounded : icon,
+                  size: 15,
                   color: fgColor,
-                  fontWeight: FontWeight.w600,
-                  height: 1,
                 ),
-              ),
-            ],
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: fgColor,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2668,6 +2679,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               final selected = isIntent && activeAction == classified.action;
               return _NoteSuggestionChip(
                 label: suggestion,
+                icon: _quickAddIconFor(suggestion),
                 selected: selected,
                 intent: isIntent,
                 onTap: () => _handleSuggestionTap(suggestion, url),
@@ -2820,6 +2832,25 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       ]);
     }
 
+    final structuredMentionTypes = live.mentions
+        .map((mention) => _mentionSectionKey(mention.type))
+        .where((type) => type != 'person' && type != 'other')
+        .toSet();
+    final showContentSections =
+        live.contentSections.isNotEmpty &&
+        recipe?.hasUsefulContent != true &&
+        structuredMentionTypes.isEmpty;
+    if (showContentSections) {
+      sections.addAll([
+        const SizedBox(height: 18),
+        _buildFullBreakdownSection(
+          sections: live.contentSections,
+          theme: theme,
+          colorScheme: colorScheme,
+        ),
+      ]);
+    }
+
     if (live.notableItems.isNotEmpty) {
       sections.addAll([
         const SizedBox(height: 18),
@@ -2844,6 +2875,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         const SizedBox(height: 18),
         ContentRecommendationSection<EnrichedMention>(
           title: _mentionSectionTitle(key),
+          subtitle: key == 'person'
+              ? '${items.length} ${items.length == 1 ? 'person' : 'people'} mentioned'
+              : null,
           accent: _sectionAccent(key, colorScheme),
           items: items,
           itemBuilder: (context, mention) => _buildMentionRow(
@@ -2851,6 +2885,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             theme: theme,
             colorScheme: colorScheme,
           ),
+        ),
+      ]);
+    }
+
+    if (_hasSourceMaterial(live)) {
+      sections.addAll([
+        const SizedBox(height: 18),
+        _buildSourceMaterialSection(
+          live: live,
+          theme: theme,
+          colorScheme: colorScheme,
         ),
       ]);
     }
@@ -3022,6 +3067,179 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
+  Widget _buildFullBreakdownSection({
+    required List<EnrichedContentSection> sections,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return DetailExpansionSection(
+      title: 'Full breakdown',
+      accent: _recipeAccent(colorScheme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < sections.length; index++) ...[
+            if (index > 0) const SizedBox(height: 22),
+            Text(
+              sections[index].title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final point in sections[index].points)
+              _buildBreakdownPoint(
+                point: point,
+                theme: theme,
+                colorScheme: colorScheme,
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreakdownPoint({
+    required String point,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _recipeAccent(colorScheme),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              point,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _hasSourceMaterial(TranscriptEnrichmentResult live) {
+    return live.schemaVersion >= 2 &&
+        ((live.caption?.trim().isNotEmpty ?? false) ||
+            (live.transcript?.trim().isNotEmpty ?? false) ||
+            (live.ocrText?.trim().isNotEmpty ?? false));
+  }
+
+  Widget _buildSourceMaterialSection({
+    required TranscriptEnrichmentResult live,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final sourceBlocks = <(String, String)>[
+      if (live.caption?.trim().isNotEmpty == true)
+        ('Caption', live.caption!.trim()),
+      if (live.transcript?.trim().isNotEmpty == true)
+        ('Transcript', live.transcript!.trim()),
+      if (live.ocrText?.trim().isNotEmpty == true)
+        ('On-screen text', live.ocrText!.trim()),
+    ];
+    return DetailExpansionSection(
+      title: 'Transcript & Caption',
+      accent: _recipeAccent(colorScheme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < sourceBlocks.length; index++) ...[
+            if (index > 0) const SizedBox(height: 16),
+            Text(
+              sourceBlocks[index].$1,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            SelectionArea(
+              child: _buildSourceText(
+                label: sourceBlocks[index].$1,
+                text: sourceBlocks[index].$2,
+                theme: theme,
+                colorScheme: colorScheme,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  IconData _quickAddIconFor(String suggestion) {
+    return switch (suggestion) {
+      'Try This Weekend' => Icons.event_available_outlined,
+      'Need Ingredients' => Icons.shopping_basket_outlined,
+      'Share With Someone' => Icons.ios_share_rounded,
+      'Already Tried' => Icons.task_alt_rounded,
+      'Watch Later' ||
+      'Read Later' ||
+      'Revisit Later' => Icons.schedule_rounded,
+      'Add to Watchlist' => Icons.playlist_add_rounded,
+      'Already Watched' ||
+      'Already Read' ||
+      'Already Checked' => Icons.check_circle_outline_rounded,
+      'Add to Reading List' => Icons.menu_book_outlined,
+      'Research This' => Icons.manage_search_rounded,
+      'Try This Tool' || 'Worth Trying' => Icons.explore_outlined,
+      'Compare Alternatives' => Icons.compare_arrows_rounded,
+      'Use in Project' => Icons.handyman_outlined,
+      'Share With Team' => Icons.group_outlined,
+      'Plan Itinerary' => Icons.map_outlined,
+      'Check Best Season' => Icons.calendar_month_outlined,
+      'Save Route' => Icons.route_outlined,
+      'Practice Later' => Icons.school_outlined,
+      'Make Checklist' => Icons.checklist_rounded,
+      'Revisit Notes' => Icons.note_alt_outlined,
+      _ => Icons.add_circle_outline_rounded,
+    };
+  }
+
+  Widget _buildSourceText({
+    required String label,
+    required String text,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      height: 1.5,
+    );
+    if (label != 'Transcript') return Text(text, style: style);
+
+    final paragraphs = splitTranscriptParagraphs(text);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < paragraphs.length; index++) ...[
+          if (index > 0) const SizedBox(height: 12),
+          Text(paragraphs[index], style: style),
+        ],
+      ],
+    );
+  }
+
   Widget _buildNotableItemsSection({
     required List<EnrichedNotableItem> items,
     required ThemeData theme,
@@ -3033,6 +3251,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(title: title, accent: _recipeAccent(colorScheme)),
+        if (displayItems.every(
+          (item) => item.type.toLowerCase() == 'claim',
+        )) ...[
+          const SizedBox(height: 3),
+          Text(
+            '${displayItems.length} ${displayItems.length == 1 ? 'claim' : 'claims'} extracted',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         for (final item in displayItems)
           _buildNotableItemRow(
@@ -3067,11 +3297,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }) {
     final itemType = item.type.toLowerCase();
     final isQuote = itemType == 'quote';
+    final isClaim = itemType == 'claim';
     final leadingIcon = itemType == 'term'
         ? AppIcons.termMentioned
         : isQuote
         ? Icons.format_quote_rounded
-        : Icons.bookmark_border;
+        : isClaim
+        ? Icons.lightbulb_outline_rounded
+        : Icons.bookmark_border_rounded;
     final attribution = item.attribution?.trim() ?? '';
     final label = item.label?.trim() ?? '';
     final why = item.whyImportant?.trim() ?? '';
@@ -3109,11 +3342,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               children: [
                 Text(
                   item.text,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: isQuote ? FontWeight.w600 : FontWeight.w700,
-                    height: 1.42,
-                  ),
+                  style:
+                      (isClaim
+                              ? theme.textTheme.bodyLarge
+                              : theme.textTheme.bodyMedium)
+                          ?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w500,
+                            height: 1.42,
+                          ),
                 ),
                 if (meta.isNotEmpty) ...[
                   const SizedBox(height: 5),
@@ -4023,20 +4260,29 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     // Places have no poster art, so the tall poster slot looks empty/wrong for
     // them — show a compact location pin tile instead (matches a travel guide).
     final isPlace = mention.type.toLowerCase() == 'place';
+    final isPerson = mention.type.toLowerCase() == 'person';
     final accent = _recipeAccent(colorScheme);
 
     return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      color: isPerson ? colorScheme.surfaceContainerLow : Colors.transparent,
+      borderRadius: BorderRadius.circular(isPerson ? 14 : 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(isPerson ? 14 : 12),
         onTap: () => _launchMentionSearch(mention),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: isPerson
+              ? const EdgeInsets.all(12)
+              : const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (isPlace)
+              if (isPerson)
+                _buildPersonAvatar(
+                  mention: mention,
+                  posterUrl: posterUrl,
+                  colorScheme: colorScheme,
+                )
+              else if (isPlace)
                 Container(
                   width: 44,
                   height: 44,
@@ -4066,7 +4312,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         : _mentionPlaceholder(mention, colorScheme),
                   ),
                 ),
-              const SizedBox(width: 12),
+              SizedBox(width: isPerson ? 14 : 12),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 1),
@@ -4077,11 +4323,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         mention.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                        ),
+                        style:
+                            (isPerson
+                                    ? theme.textTheme.titleMedium
+                                    : theme.textTheme.bodyLarge)
+                                ?.copyWith(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: isPerson
+                                      ? FontWeight.w500
+                                      : FontWeight.w700,
+                                  height: isPerson ? 1.3 : 1.25,
+                                ),
                       ),
                       if (metadata.isNotEmpty) ...[
                         const SizedBox(height: 3),
@@ -4095,13 +4347,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         ),
                       ],
                       if (reason.isNotEmpty) ...[
-                        const SizedBox(height: 5),
+                        SizedBox(height: isPerson ? 6 : 5),
                         Text(
                           _sentenceCase(reason),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            height: 1.42,
-                          ),
+                          style:
+                              (isPerson
+                                      ? theme.textTheme.bodyMedium
+                                      : theme.textTheme.bodySmall)
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    height: isPerson ? 1.45 : 1.42,
+                                  ),
                         ),
                       ],
                     ],
@@ -4117,6 +4373,54 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonAvatar({
+    required EnrichedMention mention,
+    required String posterUrl,
+    required ColorScheme colorScheme,
+  }) {
+    const size = 52.0;
+    if (posterUrl.isNotEmpty) {
+      return ClipOval(
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: CachedNetworkImage(
+            imageUrl: posterUrl,
+            fit: BoxFit.cover,
+            errorWidget: (_, _, _) => _personMonogram(mention, colorScheme),
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      width: size,
+      height: size,
+      child: _personMonogram(mention, colorScheme),
+    );
+  }
+
+  Widget _personMonogram(EnrichedMention mention, ColorScheme colorScheme) {
+    final initial = mention.title.trim().isEmpty
+        ? 'P'
+        : mention.title.trim().substring(0, 1).toUpperCase();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer,
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          initial,
+          style: TextStyle(
+            color: colorScheme.onSecondaryContainer,
+            fontSize: 20,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ),
