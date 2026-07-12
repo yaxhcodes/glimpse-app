@@ -1,5 +1,9 @@
+import 'dart:ui' show FontVariation;
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
+const _glimpseMaterialSymbolsFamily = 'GlimpseMaterialSymbolsRounded';
 
 abstract final class AppIcons {
   // Primary navigation.
@@ -55,14 +59,68 @@ class AppIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Icon(
-      icon,
-      color: color,
-      size: size,
-      fill: fill ?? (selected ? 1 : 0),
-      weight: weight ?? (selected ? 550 : 400),
-      opticalSize: size,
-      semanticLabel: semanticLabel,
+    assert(
+      icon.fontFamily == 'MaterialSymbolsRounded' &&
+          icon.fontPackage == 'material_symbols_icons',
+      'AppIcon only supports rounded icons from material_symbols_icons.',
+    );
+
+    final iconTheme = IconTheme.of(context);
+    final tentativeIconSize = size ?? iconTheme.size ?? 24;
+    final iconSize = iconTheme.applyTextScaling ?? false
+        ? MediaQuery.textScalerOf(context).scale(tentativeIconSize)
+        : tentativeIconSize;
+    final iconOpacity = iconTheme.opacity ?? 1;
+    final baseIconColor = color ?? iconTheme.color;
+    final iconColor = iconOpacity == 1
+        ? baseIconColor
+        : baseIconColor?.withValues(
+            alpha: baseIconColor.a * iconOpacity,
+          );
+    final iconFill = fill ?? (selected ? 1.0 : 0.0);
+    final iconWeight = weight ?? (selected ? 550.0 : 400.0);
+    final textDirection = Directionality.of(context);
+
+    Widget iconWidget = RichText(
+      overflow: TextOverflow.visible,
+      textDirection: textDirection,
+      text: TextSpan(
+        text: String.fromCharCode(icon.codePoint),
+        style: TextStyle(
+          inherit: false,
+          color: iconColor,
+          fontSize: iconSize,
+          fontFamily: _glimpseMaterialSymbolsFamily,
+          shadows: iconTheme.shadows,
+          height: 1,
+          leadingDistribution: TextLeadingDistribution.even,
+          fontVariations: [
+            FontVariation('FILL', iconFill),
+            FontVariation('wght', iconWeight),
+            if (iconTheme.grade != null)
+              FontVariation('GRAD', iconTheme.grade!),
+            FontVariation('opsz', iconSize),
+          ],
+        ),
+      ),
+    );
+
+    if (icon.matchTextDirection && textDirection == TextDirection.rtl) {
+      iconWidget = Transform.flip(
+        flipX: true,
+        transformHitTests: false,
+        child: iconWidget,
+      );
+    }
+
+    return Semantics(
+      label: semanticLabel,
+      child: ExcludeSemantics(
+        child: SizedBox.square(
+          dimension: iconSize,
+          child: Center(child: iconWidget),
+        ),
+      ),
     );
   }
 }
