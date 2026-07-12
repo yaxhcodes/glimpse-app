@@ -175,7 +175,7 @@ class _MasonryClusterGrid extends StatelessWidget {
         Expanded(
           child: _MasonryColumn(items: columns.$1, onOpen: onOpen),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: _MasonryColumn(items: columns.$2, onOpen: onOpen),
         ),
@@ -200,7 +200,7 @@ class _MasonryColumn extends StatelessWidget {
             tier: ClusterCardTier.medium,
             onTap: () => onOpen(items[i]),
           ),
-          if (i != items.length - 1) const SizedBox(height: 10),
+          if (i != items.length - 1) const SizedBox(height: 12),
         ],
       ],
     );
@@ -219,10 +219,10 @@ class _MasonryColumn extends StatelessWidget {
     final height = mediumClusterTileHeight(item);
     if (leftHeight <= rightHeight) {
       left.add(item);
-      leftHeight += height + 10;
+      leftHeight += height + 12;
     } else {
       right.add(item);
-      rightHeight += height + 10;
+      rightHeight += height + 12;
     }
   }
 
@@ -420,7 +420,7 @@ class _SectionEyebrow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Text(
         label,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
