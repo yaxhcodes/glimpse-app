@@ -7,8 +7,10 @@ import '../../core/models/user_collection.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
+import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
+import '../add_url/add_url_screen.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 
@@ -35,6 +37,7 @@ class _CollectionDetailScreenState
       bulkSelectionProvider(selectionScope).notifier,
     );
     final visibleUrls = urlsAsync.valueOrNull ?? const <SavedUrl>[];
+    final collection = metaAsync.valueOrNull;
     final selectedUrls = visibleUrls
         .where((url) => selectionState.selectedIds.contains(url.id))
         .toList();
@@ -79,6 +82,18 @@ class _CollectionDetailScreenState
                   ),
                 ]
               : [
+                  IconButton(
+                    icon: const AppIcon(AppIcons.addLink),
+                    tooltip: 'Add Link',
+                    onPressed: collection == null
+                        ? null
+                        : () => context.push(
+                            '/add',
+                            extra: ManualAddArguments(
+                              initialCollection: collection,
+                            ),
+                          ),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.edit_outlined),
                     tooltip: 'Rename',

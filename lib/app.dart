@@ -86,7 +86,13 @@ final _router = GoRouter(
       path: '/add',
       builder: (context, state) {
         final initialUrl = state.uri.queryParameters['url'];
-        return AddUrlScreen(initialUrl: initialUrl);
+        final arguments = state.extra is ManualAddArguments
+            ? state.extra as ManualAddArguments
+            : null;
+        return AddUrlScreen(
+          initialUrl: initialUrl,
+          initialCollection: arguments?.initialCollection,
+        );
       },
     ),
     GoRoute(

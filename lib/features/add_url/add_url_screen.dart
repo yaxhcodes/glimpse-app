@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/link_preview_service.dart';
 import '../../core/services/summary_trimmer.dart';
@@ -13,12 +14,24 @@ import '../../core/services/title_resolver.dart';
 import '../../core/utils/url_extractor.dart';
 import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../shared/widgets/upgrade_gate.dart';
+import '../collections/share_capture_sheet.dart';
 import 'add_url_provider.dart';
+
+class ManualAddArguments {
+  const ManualAddArguments({this.initialCollection});
+
+  final UserCollection? initialCollection;
+}
 
 class AddUrlScreen extends ConsumerStatefulWidget {
   final String? initialUrl;
+  final UserCollection? initialCollection;
 
-  const AddUrlScreen({super.key, this.initialUrl});
+  const AddUrlScreen({
+    super.key,
+    this.initialUrl,
+    this.initialCollection,
+  });
 
   @override
   ConsumerState<AddUrlScreen> createState() => _AddUrlScreenState();
@@ -31,10 +44,12 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   String? _domainPreview;
   String? _clipboardPrefillUrl;
   bool _clipboardPrefilled = false;
+  UserCollection? _selectedCollection;
 
   @override
   void initState() {
     super.initState();
+    _selectedCollection = widget.initialCollection;
     _urlController.addListener(_handleUrlChanged);
     if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
       _urlController.text = widget.initialUrl!;
@@ -116,6 +131,15 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
     }
   }
 
+  Future<void> _chooseCollection() async {
+    final selection = await showOptionalCollectionPickerSheet(
+      context,
+      selectedCollectionId: _selectedCollection?.id,
+    );
+    if (!mounted || selection == null) return;
+    setState(() => _selectedCollection = selection.collection);
+  }
+
   Future<void> _onSave() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -134,7 +158,11 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
     final notes = _notesController.text.trim();
     final success = await ref
         .read(addUrlProvider.notifier)
-        .saveUrl(url, notes: notes.isNotEmpty ? notes : null);
+        .saveUrl(
+          url,
+          notes: notes.isNotEmpty ? notes : null,
+          collectionId: _selectedCollection?.id,
+        );
 
     if (success && mounted) {
       final aiLimitReached = ref.read(addUrlProvider).aiLimitReached;
@@ -256,6 +284,13 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                           ),
                           const SizedBox(height: 10),
 
+                          _CollectionSelector(
+                            collection: _selectedCollection,
+                            enabled: isEnabled,
+                            onTap: _chooseCollection,
+                          ),
+                          const SizedBox(height: 10),
+
                           // Note field
                           TextFormField(
                             controller: _notesController,
@@ -374,26 +409,98 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
 
                     const Spacer(),
 
-                    FilledButton(
-                      onPressed: isEnabled ? _onSave : null,
-                      style: FilledButton.styleFrom(
-                        elevation: isEnabled ? 2 : 0,
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    SafeArea(
+                      top: false,
+                      left: false,
+                      right: false,
+                      minimum: const EdgeInsets.only(bottom: 16),
+                      child: FilledButton(
+                        onPressed: isEnabled ? _onSave : null,
+                        style: FilledButton.styleFrom(
+                          elevation: isEnabled ? 2 : 0,
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
+                        child: const Text('Capture'),
                       ),
-                      child: const Text('Capture'),
                     ),
-                    const SizedBox(height: 16),
                   ],
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CollectionSelector extends StatelessWidget {
+  const _CollectionSelector({
+    required this.collection,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final UserCollection? collection;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    );
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: 'Collection, ${collection?.name ?? 'No Collection'}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: enabled ? onTap : null,
+          child: InputDecorator(
+            isEmpty: false,
+            decoration: InputDecoration(
+              labelText: 'Collection',
+              filled: true,
+              fillColor: colorScheme.surfaceContainerLow,
+              border: border,
+              enabledBorder: border,
+              disabledBorder: border,
+              enabled: enabled,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              suffixIcon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: enabled
+                    ? colorScheme.onSurfaceVariant
+                    : colorScheme.onSurface.withValues(alpha: 0.38),
+              ),
+            ),
+            child: Text(
+              collection?.name ?? 'No Collection',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: enabled
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurface.withValues(alpha: 0.38),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

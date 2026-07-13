@@ -20,6 +20,7 @@ import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/url_save_notifications.dart';
 import '../../core/services/url_processing_observer.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
+import '../collections/collections_provider.dart';
 import '../home/home_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
 import '../rediscover/rediscover_memory_prefs.dart';
@@ -98,12 +99,14 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
   /// Instant-save a URL using domain-categorizer fallback for AI fields.
   /// Background enrichment (AI categorization, embedding) runs afterwards.
   ///
-  /// Returns `true` only when a new row is captured. Exact duplicates are a
+  /// Returns `true` when a new row is captured or an existing row is assigned
+  /// to the requested collection. Unassigned exact duplicates remain a
   /// successful resurfacing outcome in [state], but return `false` so manual
   /// entry screens can keep the existing-save preview visible.
   Future<bool> saveUrl(
     String rawUrl, {
     String? notes,
+    int? collectionId,
     bool notifyCapture = false,
     bool showCaptureAcknowledgement = true,
   }) async {
@@ -159,6 +162,11 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       // Exact duplicate check
       final existing = await isarService.findByRawUrl(normalizedUrl);
       if (existing != null) {
+        final addedToCollection = collectionId == null ||
+            await _addToCollection(
+              urlId: existing.id,
+              collectionId: collectionId,
+            );
         await isarService.updateResurfacedAt(existing.id, DateTime.now());
         if (existing.rediscoverDismissedAt != null) {
           await isarService.updateRediscoverDismissedAt(existing.id, null);
@@ -171,14 +179,27 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         _ref.invalidate(recentlyResurfacedProvider);
         _ref.invalidate(relatedSavesProvider);
         _isSaving = false;
+        if (!addedToCollection) {
+          state = state.copyWith(
+            status: AddUrlStatus.error,
+            errorMessage:
+                'This link is saved, but it could not be added to the collection.',
+            savedUrlId: existing.id,
+            outcome: AddUrlOutcome.alreadySaved,
+            clearRelatedSaveIds: true,
+          );
+          return false;
+        }
         state = state.copyWith(
-          status: AddUrlStatus.duplicate,
+          status: collectionId == null
+              ? AddUrlStatus.duplicate
+              : AddUrlStatus.done,
           clearErrorMessage: true,
           savedUrlId: existing.id,
           outcome: AddUrlOutcome.alreadySaved,
           clearRelatedSaveIds: true,
         );
-        return false;
+        return collectionId != null;
       }
 
       // Instant save with domain-categorizer fallback
@@ -229,6 +250,11 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         ..processingStatus = UrlProcessingStatus.queued
         ..processingUpdatedAt = DateTime.now();
       await isarService.updateUrl(savedUrl);
+      final addedToCollection = collectionId == null ||
+          await _addToCollection(
+            urlId: savedUrl.id,
+            collectionId: collectionId,
+          );
       UrlProcessingObserver.logStage(
         'JOB_CREATED',
         processingId: processingId,
@@ -265,8 +291,11 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           .hasReachedLimit(UsageFeature.aiSave, _ref.read(isProUserProvider));
 
       state = state.copyWith(
-        status: AddUrlStatus.done,
-        clearErrorMessage: true,
+        status: addedToCollection ? AddUrlStatus.done : AddUrlStatus.error,
+        errorMessage: addedToCollection
+            ? null
+            : 'The link was saved, but it could not be added to the collection.',
+        clearErrorMessage: addedToCollection,
         savedUrlId: savedUrl.id,
         outcome: AddUrlOutcome.captured,
         clearRelatedSaveIds: true,
@@ -286,7 +315,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
             .trackEvent(AnalyticsEvent.saveCompleted),
       );
 
-      return true;
+      return addedToCollection;
     } catch (e) {
       _isSaving = false;
       state = state.copyWith(
@@ -428,6 +457,36 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       relatedIds: related,
     );
     return related;
+  }
+
+  Future<bool> _addToCollection({
+    required int urlId,
+    required int collectionId,
+  }) async {
+    final isarService = _ref.read(isarServiceProvider);
+    try {
+      final collection = await isarService.getCollectionById(collectionId);
+      if (collection == null) {
+        throw StateError('Collection $collectionId no longer exists.');
+      }
+      await isarService.addUrlToCollection(
+        collectionId: collectionId,
+        urlId: urlId,
+      );
+      _ref.invalidate(collectionsListProvider);
+      _ref.invalidate(collectionsSummaryProvider);
+      _ref.invalidate(collectionMetaProvider(collectionId));
+      _ref.invalidate(collectionUrlsProvider(collectionId));
+      return true;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Could not add the saved URL to collection $collectionId.',
+        name: 'AddUrl',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
   }
 
   String _extractDomain(String url) {

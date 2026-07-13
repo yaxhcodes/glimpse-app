@@ -199,17 +199,53 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
 }
 
 Future<UserCollection?> showCollectionPickerSheet(BuildContext context) {
-  return showModalBottomSheet<UserCollection>(
+  return _showCollectionPickerSheet(context).then(
+    (selection) => selection?.collection,
+  );
+}
+
+class CollectionPickerSelection {
+  const CollectionPickerSelection(this.collection);
+
+  final UserCollection? collection;
+}
+
+Future<CollectionPickerSelection?> showOptionalCollectionPickerSheet(
+  BuildContext context, {
+  int? selectedCollectionId,
+}) {
+  return _showCollectionPickerSheet(
+    context,
+    allowNoCollection: true,
+    selectedCollectionId: selectedCollectionId,
+  );
+}
+
+Future<CollectionPickerSelection?> _showCollectionPickerSheet(
+  BuildContext context, {
+  bool allowNoCollection = false,
+  int? selectedCollectionId,
+}) {
+  return showModalBottomSheet<CollectionPickerSelection>(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => const _CollectionPickerSheet(),
+    builder: (_) => _CollectionPickerSheet(
+      allowNoCollection: allowNoCollection,
+      selectedCollectionId: selectedCollectionId,
+    ),
   );
 }
 
 class _CollectionPickerSheet extends ConsumerWidget {
-  const _CollectionPickerSheet();
+  const _CollectionPickerSheet({
+    required this.allowNoCollection,
+    this.selectedCollectionId,
+  });
+
+  final bool allowNoCollection;
+  final int? selectedCollectionId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -229,13 +265,33 @@ class _CollectionPickerSheet extends ConsumerWidget {
               onPressed: () async {
                 final collection = await showCreateCollectionSheet(context);
                 if (collection != null && context.mounted) {
-                  Navigator.of(context).pop(collection);
+                  Navigator.of(
+                    context,
+                  ).pop(CollectionPickerSelection(collection));
                 }
               },
               icon: const Icon(Icons.add_rounded),
               label: const Text('New collection'),
             ),
             const SizedBox(height: 8),
+            if (allowNoCollection) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.folder_off_outlined,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                title: const Text('No Collection'),
+                trailing: selectedCollectionId == null
+                    ? Icon(Icons.check_rounded, color: theme.colorScheme.primary)
+                    : null,
+                onTap: () => Navigator.of(
+                  context,
+                ).pop(const CollectionPickerSelection(null)),
+              ),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+            ],
             collections.when(
               loading: () => const Padding(
                 padding: EdgeInsets.all(24),
@@ -262,7 +318,15 @@ class _CollectionPickerSheet extends ConsumerWidget {
                       ),
                       title: Text(collection.name),
                       subtitle: Text('${collection.urlIds.length} links'),
-                      onTap: () => Navigator.of(context).pop(collection),
+                      trailing: selectedCollectionId == collection.id
+                          ? Icon(
+                              Icons.check_rounded,
+                              color: theme.colorScheme.primary,
+                            )
+                          : null,
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(CollectionPickerSelection(collection)),
                     );
                   },
                 ),
