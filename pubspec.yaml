@@ -168,7 +168,10 @@ flutter:
     - assets/search.png
     - assets/mindmap.png
     - assets/empty_collection.png
+    - assets/onboarding_kyoto.webp
+    - android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
     - assets/brands/
+    - assets/fonts/
 
   fonts:
     - family: GlimpseMaterialSymbolsRounded

@@ -32,22 +32,32 @@ void main() {
       ),
     );
 
-    final inactive = tester.widget<Icon>(
+    final inactive = tester.widget<RichText>(
       find.descendant(
         of: find.byKey(const ValueKey('inactive')),
-        matching: find.byType(Icon),
+        matching: find.byType(RichText),
       ),
     );
-    final selected = tester.widget<Icon>(
+    final selected = tester.widget<RichText>(
       find.descendant(
         of: find.byKey(const ValueKey('selected')),
-        matching: find.byType(Icon),
+        matching: find.byType(RichText),
       ),
     );
+    final inactiveAxes = _fontAxes(inactive);
+    final selectedAxes = _fontAxes(selected);
 
-    expect(inactive.fill, 0);
-    expect(inactive.weight, 400);
-    expect(selected.fill, 1);
-    expect(selected.weight, 550);
+    expect(inactiveAxes['FILL'], 0);
+    expect(inactiveAxes['wght'], 400);
+    expect(selectedAxes['FILL'], 1);
+    expect(selectedAxes['wght'], 550);
   });
+}
+
+Map<String, double> _fontAxes(RichText text) {
+  final span = text.text as TextSpan;
+  return {
+    for (final variation in span.style!.fontVariations!)
+      variation.axis: variation.value,
+  };
 }

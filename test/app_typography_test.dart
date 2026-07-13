@@ -4,6 +4,8 @@ import 'package:glimpse/shared/theme/app_theme.dart';
 import 'package:glimpse/shared/theme/app_typography.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('all app theme variants use Instrument Sans for interface text', () {
     final seed = Colors.indigo;
     final dynamicLight = ColorScheme.fromSeed(seedColor: seed);

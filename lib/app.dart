@@ -759,9 +759,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   }
 }
 
-/// Root screen selector: shows guided onboarding for new users, otherwise the
-/// main app. Watches [hasSeenOnboardingProvider] so completing onboarding swaps
-/// straight to [MainShell].
+/// Root screen selector: shows guided onboarding for new users, then routes to
+/// authentication or the main app. Watches [hasSeenOnboardingProvider] so the
+/// next destination appears as soon as onboarding is recorded.
 class _RootGate extends ConsumerWidget {
   const _RootGate();
 
@@ -769,29 +769,25 @@ class _RootGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
     final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
-    final child = authState.when(
-      data: (user) {
-        if (user == null) {
-          return AuthScreen(
-            key: const ValueKey('auth'),
-            isOnboardingEntry: !hasSeenOnboarding,
+    final child = !hasSeenOnboarding
+        ? const OnboardingScreen(key: ValueKey('onboarding'))
+        : authState.when(
+            data: (user) {
+              if (user == null) {
+                return const AuthScreen(key: ValueKey('auth'));
+              }
+              if (!user.onboardingCompleted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  ref
+                      .read(authControllerProvider.notifier)
+                      .markOnboardingCompleted();
+                });
+              }
+              return const MainShell(key: ValueKey('main-shell'));
+            },
+            loading: () => const _StartupProgress(key: ValueKey('startup')),
+            error: (_, _) => const AuthScreen(key: ValueKey('auth-error')),
           );
-        }
-        if (hasSeenOnboarding && !user.onboardingCompleted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            ref.read(authControllerProvider.notifier).markOnboardingCompleted();
-          });
-        }
-        return hasSeenOnboarding
-            ? const MainShell(key: ValueKey('main-shell'))
-            : const OnboardingScreen(key: ValueKey('onboarding'));
-      },
-      loading: () => const _StartupProgress(key: ValueKey('startup')),
-      error: (_, _) => AuthScreen(
-        key: const ValueKey('auth-error'),
-        isOnboardingEntry: !hasSeenOnboarding,
-      ),
-    );
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       switchInCurve: Curves.easeOutCubic,

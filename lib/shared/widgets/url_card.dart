@@ -132,6 +132,7 @@ class UrlCard extends ConsumerStatefulWidget {
   final bool isPinned;
   final bool selectionMode;
   final bool isSelected;
+  final Map<String, int>? tagFrequency;
 
   const UrlCard({
     super.key,
@@ -142,6 +143,7 @@ class UrlCard extends ConsumerStatefulWidget {
     this.isPinned = false,
     this.selectionMode = false,
     this.isSelected = false,
+    this.tagFrequency,
   });
 
   /// Relative time for the source · time row (shared with other link cards).
@@ -180,7 +182,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final cs = theme.colorScheme;
     final tt = theme.textTheme;
     final tagColors = tagChipColors(cs);
-    final tagFreq = ref.watch(tagOccurrenceMapProvider);
+    final tagFrequency = widget.tagFrequency;
+    final Map<String, int> tagFreq =
+        tagFrequency ?? ref.watch(tagOccurrenceMapProvider);
 
     final displaySourceName = CategoryResolver.displaySourceName(
       rawUrl: widget.savedUrl.rawUrl,

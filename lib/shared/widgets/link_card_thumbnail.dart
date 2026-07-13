@@ -213,9 +213,26 @@ class LinkCardThumbnail {
     double size = 64,
     double borderRadius = 10,
   }) {
+    final assetPath = _assetPath(url.thumbnailUrl);
     final thumbUrls = SavedMediaResolver.imageCandidates(url);
 
-    final Widget base = thumbUrls.isNotEmpty
+    final Widget base = assetPath != null
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(borderRadius),
+            child: Image.asset(
+              assetPath,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => tagLetterPlaceholder(
+                url,
+                context,
+                size: size,
+                borderRadius: borderRadius,
+              ),
+            ),
+          )
+        : thumbUrls.isNotEmpty
         ? ClipRRect(
             borderRadius: BorderRadius.circular(borderRadius),
             child: _FallbackCachedThumbnail(
@@ -234,6 +251,15 @@ class LinkCardThumbnail {
           );
 
     return wrapReadState(context: context, isRead: isRead, child: base);
+  }
+
+  static String? _assetPath(String? value) {
+    const prefix = 'asset://';
+    final candidate = value?.trim() ?? '';
+    if (!candidate.startsWith(prefix) || candidate.length == prefix.length) {
+      return null;
+    }
+    return candidate.substring(prefix.length);
   }
 }
 

@@ -13,6 +13,9 @@ enum AnalyticsEvent {
   subscriptionScreenOpened('subscription_screen_opened'),
   subscriptionPurchased('subscription_purchased'),
   settingsOpened('settings_opened'),
+  onboardingStarted('onboarding_started'),
+  onboardingTransformed('onboarding_transformed'),
+  onboardingSkipped('onboarding_skipped'),
   onboardingCompleted('onboarding_completed');
 
   const AnalyticsEvent(this.name);
