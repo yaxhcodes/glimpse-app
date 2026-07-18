@@ -40,6 +40,28 @@ class SupabaseAuthService implements AuthService {
     instance._startAuthListener();
   }
 
+  /// Returns the current short-lived Supabase access token for trusted backend
+  /// calls. A forced refresh is used only after a backend rejects the current
+  /// credentials, preventing routine requests from creating extra auth traffic.
+  static Future<String?> currentAccessToken({bool forceRefresh = false}) async {
+    if (!_supabaseInitialized) return null;
+
+    try {
+      if (forceRefresh) {
+        await Supabase.instance.client.auth.refreshSession();
+      }
+      return Supabase.instance.client.auth.currentSession?.accessToken;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Unable to ${forceRefresh ? 'refresh' : 'read'} the Supabase session',
+        name: 'Auth',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
+
   SupabaseClient get _client => Supabase.instance.client;
 
   @override

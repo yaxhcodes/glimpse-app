@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
-import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ai/ai_transport.dart';
 import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
 
@@ -1112,32 +1112,12 @@ class EnrichedNotableItem {
 }
 
 class TranscriptEnrichmentService {
-  TranscriptEnrichmentService({Dio? dio}) : _dio = dio ?? _defaultDio();
+  TranscriptEnrichmentService({AiTransport? transport})
+    : _transport = transport ?? AiTransport.instance;
 
-  static const _defaultBaseUrl =
-      'https://glimpse-enrichment-backend.glimpse.workers.dev';
-  static const baseUrlOverride = String.fromEnvironment(
-    'GLIMPSE_ENRICHMENT_BASE_URL',
-  );
-
-  static String get baseUrl =>
-      baseUrlOverride.isEmpty ? _defaultBaseUrl : baseUrlOverride;
-
-  final Dio _dio;
+  final AiTransport _transport;
   static final Map<String, TranscriptEnrichmentResult> _memoryCache = {};
   static const _cachePrefix = 'transcript_enrichment_v5_';
-
-  static Dio _defaultDio() {
-    return Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 180),
-        sendTimeout: const Duration(seconds: 10),
-        headers: const {'Content-Type': 'application/json'},
-        responseType: ResponseType.json,
-      ),
-    );
-  }
 
   static bool supportsUrl(String rawUrl) {
     final uri = Uri.tryParse(rawUrl);
@@ -1220,47 +1200,17 @@ class TranscriptEnrichmentService {
     }
 
     try {
-      final endpoint = Uri.parse(baseUrl).resolve('enrich-url').toString();
       final requestData = <String, dynamic>{
         'url': rawUrl,
         'attempt': attempt,
-        'ignore_failed_cache': true,
         'title': title,
         'description': description,
         'thumbnailUrl': thumbnailUrl,
         'domain': domain,
       };
-      if (forceRefresh) {
-        requestData['force_refresh'] = true;
-        requestData['no_cache'] = true;
-      }
       if (saveId != null) requestData['save_id'] = saveId;
       if (processingId != null) requestData['processing_id'] = processingId;
-      final response = await _dio.post<dynamic>(
-        endpoint,
-        data: requestData,
-        options: Options(validateStatus: (_) => true),
-      );
-
-      final status = response.statusCode ?? 0;
-      if (status < 200 || status >= 300) {
-        developer.log(
-          'Transcript enrichment HTTP $status: ${response.data}',
-          name: 'TranscriptEnrichment',
-        );
-        throw TranscriptEnrichmentException(
-          'backend_http_$status',
-          statusCode: status,
-          retryable: _isRetryableStatus(status),
-        );
-      }
-
-      final data = _asMap(response.data);
-      if (data == null) {
-        throw const TranscriptEnrichmentException(
-          'backend_returned_non_object',
-        );
-      }
+      final data = await _transport.postEnrichment(body: requestData);
 
       final mentions = _extractMentions(data);
       final recipe = EnrichedRecipe.fromJsonOrNull(data['recipe']);
@@ -1360,23 +1310,20 @@ class TranscriptEnrichmentService {
       return result;
     } on TranscriptEnrichmentException {
       rethrow;
+    } on AiTransportException catch (error) {
+      throw TranscriptEnrichmentException(
+        'backend_http_${error.statusCode ?? 0}',
+        statusCode: error.statusCode,
+        retryable: error.isRetryable,
+      );
     } catch (e, st) {
       developer.log(
-        'Transcript enrichment failed for $rawUrl: $e',
+        'Transcript enrichment failed: ${e.runtimeType}',
         name: 'TranscriptEnrichment',
         stackTrace: st,
       );
       throw TranscriptEnrichmentException(e.toString());
     }
-  }
-
-  static bool _isRetryableStatus(int status) {
-    return status == 408 ||
-        status == 409 ||
-        status == 424 ||
-        status == 425 ||
-        status == 429 ||
-        status >= 500;
   }
 
   static bool _isAcceptableCachedResult(
@@ -1389,12 +1336,6 @@ class TranscriptEnrichmentService {
       return false;
     }
     return true;
-  }
-
-  static Map<String, dynamic>? _asMap(dynamic raw) {
-    if (raw is Map<String, dynamic>) return raw;
-    if (raw is Map) return Map<String, dynamic>.from(raw);
-    return null;
   }
 
   static List<EnrichedContentStep> _extractContentSteps(

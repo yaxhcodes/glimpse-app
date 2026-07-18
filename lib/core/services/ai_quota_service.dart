@@ -11,7 +11,7 @@ class AiQuotaSnapshot {
     required this.enforced,
   });
 
-  /// Uses consumed this month for the stable install id.
+  /// Uses consumed this month for the verified account.
   final int used;
 
   /// Monthly allowance for free users.
@@ -34,8 +34,9 @@ class AiQuotaSnapshot {
 /// Server-authoritative monthly quota for costly AI features.
 ///
 /// Talks to the Cloudflare Worker `/quota` endpoint, which counts usage per
-/// stable install id (sent as `X-User-Id` by [AiTransport]) and resets monthly.
-/// This is the source of truth that survives reinstall / "clear app data" —
+/// the verified Supabase account and resets monthly. `X-User-Id` remains only a
+/// secondary installation signal and never owns quota. This source of truth
+/// survives reinstall / "clear app data" —
 /// closing the free-tier farming hole that a purely local counter cannot.
 ///
 /// AI enrichment itself requires the worker, so when the worker is unreachable
@@ -43,7 +44,7 @@ class AiQuotaSnapshot {
 /// can safely fall back to the local mirror without opening an abuse hole.
 class AiQuotaService {
   AiQuotaService({AiTransport? transport})
-      : _transport = transport ?? AiTransport.instance;
+    : _transport = transport ?? AiTransport.instance;
 
   static final AiQuotaService instance = AiQuotaService();
 
@@ -52,10 +53,10 @@ class AiQuotaService {
   /// Maps a [UsageFeature] to its server feature key, or `null` when the
   /// feature is metered purely locally (no server-side cost ceiling yet).
   static String? serverFeature(UsageFeature feature) => switch (feature) {
-        UsageFeature.aiSave => 'aiSave',
-        UsageFeature.ask => null,
-        UsageFeature.search => null,
-      };
+    UsageFeature.aiSave => 'aiSave',
+    UsageFeature.ask => 'ask',
+    UsageFeature.search => 'search',
+  };
 
   /// Reads the current count without consuming (the gate check).
   Future<AiQuotaSnapshot> peek(String feature) => _call(feature, commit: false);
