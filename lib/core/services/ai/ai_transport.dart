@@ -3,9 +3,14 @@ import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 import '../ai_proxy_config.dart';
+import '../supabase_auth_service.dart';
 import 'app_attestation_service.dart';
+
+typedef AccessTokenProvider = Future<String?> Function({bool forceRefresh});
+typedef AppCheckTokenProvider = Future<String?> Function({bool forceRefresh});
 
 enum AiTransportErrorType {
   timeout,
@@ -34,7 +39,6 @@ class AiTransportException implements Exception {
   bool get isRetryable =>
       type == AiTransportErrorType.timeout ||
       type == AiTransportErrorType.network ||
-      type == AiTransportErrorType.rateLimited ||
       type == AiTransportErrorType.unavailable ||
       statusCode == 500 ||
       statusCode == 502 ||
@@ -50,10 +54,20 @@ class AiTransportException implements Exception {
 /// Single networking entrypoint for all AI features.
 ///
 /// The client only talks to the Cloudflare Worker proxy. Provider API keys stay
-/// server-side. A stable anonymous install/user ID is sent when available for
-/// future rate limiting and abuse controls.
+/// server-side. Supabase and App Check credentials authorize paid work; the
+/// stable installation ID is only an additional abuse signal.
 class AiTransport {
-  AiTransport({Dio? dio}) : _dio = dio ?? _defaultDio();
+  AiTransport({
+    Dio? dio,
+    AccessTokenProvider? accessTokenProvider,
+    AppCheckTokenProvider? appCheckTokenProvider,
+    String Function()? requestIdFactory,
+  }) : _dio = dio ?? _defaultDio(),
+       _accessTokenProvider =
+           accessTokenProvider ?? SupabaseAuthService.currentAccessToken,
+       _appCheckTokenProvider =
+           appCheckTokenProvider ?? AppAttestationService.getToken,
+       _requestIdFactory = requestIdFactory ?? _newRequestId;
 
   static final AiTransport instance = AiTransport();
 
@@ -61,6 +75,13 @@ class AiTransport {
   static const _retryDelay = Duration(milliseconds: 700);
 
   final Dio _dio;
+  final AccessTokenProvider _accessTokenProvider;
+  final AppCheckTokenProvider _appCheckTokenProvider;
+  final String Function() _requestIdFactory;
+
+  static const _uuid = Uuid();
+
+  static String _newRequestId() => _uuid.v4();
 
   static Dio _defaultDio() {
     return Dio(
@@ -113,6 +134,13 @@ class AiTransport {
     }
   }
 
+  /// Sends supported social/video enrichment through the same authenticated
+  /// public gateway as every other paid AI operation.
+  Future<Map<String, dynamic>> postEnrichment({
+    required Map<String, dynamic> body,
+    Duration timeout = const Duration(seconds: 180),
+  }) => postJson('/enrich-url', body: body, timeout: timeout);
+
   Future<dynamic> _post(
     String path, {
     required Map<String, dynamic> body,
@@ -131,7 +159,9 @@ class AiTransport {
       developer.log('POST $url', name: 'AiTransport');
     }
 
+    final requestId = _requestIdFactory();
     Object? lastError;
+    var forceCredentialRefresh = false;
     for (var attempt = 0; attempt < _maxAttempts; attempt++) {
       if (attempt > 0) {
         await Future<void>.delayed(_retryDelay);
@@ -142,7 +172,10 @@ class AiTransport {
               url.toString(),
               data: body,
               options: Options(
-                headers: await _headers(),
+                headers: await _headers(
+                  requestId: requestId,
+                  forceRefresh: forceCredentialRefresh,
+                ),
                 validateStatus: (_) => true,
               ),
             )
@@ -150,6 +183,10 @@ class AiTransport {
 
         final status = response.statusCode ?? 0;
         if (status < 200 || status >= 300) {
+          if (status == 401 && attempt == 0) {
+            forceCredentialRefresh = true;
+            continue;
+          }
           developer.log(
             'AI proxy HTTP $status for $path: ${_debugBody(response.data)}',
             name: 'AiTransport',
@@ -162,10 +199,7 @@ class AiTransport {
         return _decodeJsonIfNeeded(response.data, status);
       } on AiTransportException catch (e) {
         lastError = e;
-        developer.log(
-          'AI proxy failed for $path: $e',
-          name: 'AiTransport',
-        );
+        developer.log('AI proxy failed for $path: $e', name: 'AiTransport');
         _debugLog('AI proxy failed for $path: $e');
         if (attempt == 0 && e.isRetryable) continue;
         rethrow;
@@ -193,13 +227,25 @@ class AiTransport {
     );
   }
 
-  static Future<Map<String, String>> _headers() async {
-    final headers = <String, String>{'Content-Type': 'application/json'};
+  Future<Map<String, String>> _headers({
+    required String requestId,
+    required bool forceRefresh,
+  }) async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Idempotency-Key': requestId,
+    };
     final userId = AiProxyConfig.userId;
     if (userId.isNotEmpty) {
       headers['X-User-Id'] = userId;
     }
-    final appCheckToken = await AppAttestationService.getToken();
+    final accessToken = await _accessTokenProvider(forceRefresh: forceRefresh);
+    if (accessToken != null && accessToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $accessToken';
+    }
+    final appCheckToken = await _appCheckTokenProvider(
+      forceRefresh: forceRefresh,
+    );
     if (appCheckToken != null && appCheckToken.isNotEmpty) {
       headers['X-Firebase-AppCheck'] = appCheckToken;
     } else {
@@ -251,7 +297,8 @@ class AiTransport {
     final status = e.response?.statusCode;
     final raw = e.response?.data;
     final bodyStr = raw is String ? raw : jsonEncode(raw);
-    final isTimeout = e.type == DioExceptionType.connectionTimeout ||
+    final isTimeout =
+        e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout ||
         e.type == DioExceptionType.sendTimeout;
     return AiTransportException(
@@ -259,8 +306,8 @@ class AiTransport {
       type: isTimeout
           ? AiTransportErrorType.timeout
           : status == null
-              ? AiTransportErrorType.network
-              : _typeForStatus(status),
+          ? AiTransportErrorType.network
+          : _typeForStatus(status),
       statusCode: status,
       body: kDebugMode ? bodyStr : null,
     );
