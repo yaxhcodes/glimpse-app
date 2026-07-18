@@ -37,6 +37,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _isDeletingAccount = false;
+
   Future<void> _clearData() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -113,8 +115,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     if (confirmed != true) return;
+    setState(() => _isDeletingAccount = true);
     try {
       await ref.read(authControllerProvider.notifier).requestAccountDeletion();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Account deleted'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      context.go('/');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -125,6 +138,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+    } finally {
+      if (mounted) setState(() => _isDeletingAccount = false);
     }
   }
 
@@ -305,8 +320,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       iconColor: cs.error,
                       destructive: true,
                       title: 'Delete account',
-                      subtitle: 'Request account deletion',
-                      onTap: _requestAccountDeletion,
+                      subtitle: _isDeletingAccount
+                          ? 'Deleting your account…'
+                          : 'Request account deletion',
+                      trailing: _isDeletingAccount
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : null,
+                      onTap: _isDeletingAccount
+                          ? null
+                          : _requestAccountDeletion,
                     ),
                   ],
                 ),

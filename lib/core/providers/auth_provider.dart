@@ -110,8 +110,10 @@ class AuthController extends AsyncNotifier<AppUser?> {
     state = const AsyncData(null);
   }
 
-  Future<void> requestAccountDeletion() {
-    return ref.read(authServiceProvider).requestAccountDeletion();
+  Future<void> requestAccountDeletion() async {
+    await ref.read(authServiceProvider).requestAccountDeletion();
+    SubscriptionService.instance.clearAuthenticatedUser();
+    state = const AsyncData(null);
   }
 
   Future<void> _linkSubscriptionIdentity(String userId) async {

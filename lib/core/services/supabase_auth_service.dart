@@ -28,6 +28,7 @@ class SupabaseAuthService implements AuthService {
   static const _lastGoogleEmailKey = 'auth.last_google_email';
   static const _lastGoogleDisplayNameKey = 'auth.last_google_display_name';
   static const _lastGooglePhotoUrlKey = 'auth.last_google_photo_url';
+  static const _deleteAccountFunctionName = 'delete-account';
 
   static Future<void> initializeSupabaseClient() async {
     if (_supabaseInitialized || !SupabaseConfig.isConfigured) return;
@@ -302,9 +303,90 @@ class SupabaseAuthService implements AuthService {
   @override
   Future<void> requestAccountDeletion() async {
     _ensureConfigured();
-    throw const AuthFailure(
-      'Account deletion requires the server deletion endpoint to be enabled.',
-    );
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw const AuthFailure(
+        'Your session has expired. Sign in again to delete your account.',
+      );
+    }
+
+    try {
+      await _client.functions.invoke(
+        _deleteAccountFunctionName,
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
+      );
+    } on FunctionException catch (e, st) {
+      developer.log(
+        'Account deletion function failed — ${e.status} ${e.details}',
+        name: 'Auth',
+        stackTrace: st,
+      );
+      throw AuthFailure(_accountDeletionFailureMessage(e), e);
+    } catch (e, st) {
+      developer.log(
+        'Account deletion request failed — $e',
+        name: 'Auth',
+        stackTrace: st,
+      );
+      throw AuthFailure(
+        'Could not delete your account. Check your connection and try again.',
+        e,
+      );
+    }
+
+    await _clearDeletedAccountSession();
+  }
+
+  String _accountDeletionFailureMessage(FunctionException exception) {
+    if (exception.status == 401 || exception.status == 403) {
+      return 'Your session has expired. Sign in again to delete your account.';
+    }
+    if (exception.status == 404) {
+      return 'Account deletion is temporarily unavailable. Please try again later.';
+    }
+
+    final details = exception.details;
+    if (details is Map) {
+      final message = details['error'] ?? details['message'];
+      if (message is String && message.trim().isNotEmpty) {
+        return message.trim();
+      }
+    }
+    return 'Could not delete your account. Please try again.';
+  }
+
+  Future<void> _clearDeletedAccountSession() async {
+    _googleHintAccount = null;
+
+    try {
+      await _ensureGoogleInitialized();
+      await GoogleSignIn.instance.signOut();
+    } catch (e) {
+      developer.log('Deleted account Google cleanup failed — $e', name: 'Auth');
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await Future.wait([
+        prefs.remove(_lastGoogleEmailKey),
+        prefs.remove(_lastGoogleDisplayNameKey),
+        prefs.remove(_lastGooglePhotoUrlKey),
+      ]);
+    } catch (e) {
+      developer.log('Deleted account hint cleanup failed — $e', name: 'Auth');
+    }
+
+    try {
+      await _client.auth.signOut();
+    } catch (e) {
+      developer.log(
+        'Deleted account Supabase session cleanup failed — $e',
+        name: 'Auth',
+      );
+    }
+
+    _currentUser = null;
+    _stateController.add(null);
   }
 
   void _startAuthListener() {
