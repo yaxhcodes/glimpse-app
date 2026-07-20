@@ -11,6 +11,7 @@ import 'transcript_enrichment_service.dart';
 
 /// Result from AI categorization.
 class CategorizationResult {
+  final String meaningfulTitle;
   final String category;
   final String emoji;
   final List<String> tags;
@@ -22,6 +23,7 @@ class CategorizationResult {
   final MemoryIntentMetadata? memoryIntent;
 
   const CategorizationResult({
+    required this.meaningfulTitle,
     required this.category,
     required this.emoji,
     required this.tags,
@@ -240,6 +242,7 @@ URL: $url''');
 Your job is to extract what a saved page is fundamentally about, not to pattern-match on individual words in its title, description, or URL. Saved content often uses casual, idiomatic, or hyperbolic language. Domain words can be figurative: "recipe for success" in a business page, "food for thought" in a philosophy page, "marathon meeting" in a workplace page, "digital diet" in a productivity page, or "ruin dinner debates" in a book list. These do not make the content Food, Fitness, or Travel.
 
 Return one valid JSON object. Keep this field order:
+- "meaningful_title": a concise, content-first title, normally 4-9 words. Remove website names, repository paths, SEO fragments, clickbait framing, and format labels such as "article" or "post". Preserve important product, project, person, and place names. Use only claims supported by the supplied title and description. Do not add a subtitle or separator.
 - "summary": 2-3 sentences explaining what this page is substantively about in plain language. Never open with "This page", "This post", "This video", or "This article"; start with the substance.
 - "key_points": 2-5 concise strings capturing the useful claims, items, or takeaways.
 - "category_evidence": one sentence describing what the content is actually trying to teach, show, argue, or help the saver do. Write this in your own words; do not quote a single source phrase as evidence.
@@ -308,6 +311,7 @@ Output valid JSON only. No markdown, no explanation.''';
       );
 
       return CategorizationResult(
+        meaningfulTitle: (data['meaningful_title'] as String? ?? '').trim(),
         category: normalized.name,
         emoji: normalized.emoji,
         tags: tags,
@@ -332,6 +336,7 @@ Output valid JSON only. No markdown, no explanation.''';
         stackTrace: stack,
       );
       return const CategorizationResult(
+        meaningfulTitle: '',
         category: 'Other',
         emoji: '🔖',
         tags: [],

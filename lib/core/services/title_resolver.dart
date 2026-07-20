@@ -39,7 +39,7 @@ class TitleResolver {
   }) {
     final rawTitle = link.title.trim();
 
-    var candidateTitle = rawTitle;
+    var candidateTitle = _cleanWebMetadataTitle(link, rawTitle);
     if (_isTwitterUrl(link.rawUrl) && rawTitle.isNotEmpty) {
       final parts = rawTitle.split(RegExp(r'\n\s*\n'));
       if (parts.length >= 2 && link.summary == null) {
@@ -67,7 +67,10 @@ class TitleResolver {
     SavedUrl link, {
     Map<String, int>? tagFrequency,
   }) {
-    final enrichedTitle = _titleFromSavedEnrichment(link);
+    final savedEnrichmentTitle = _titleFromSavedEnrichment(link);
+    final enrichedTitle = savedEnrichmentTitle == null
+        ? null
+        : _cleanWebMetadataTitle(link, savedEnrichmentTitle);
     final candidate = enrichedTitle != null &&
             !isLowSignalTitle(enrichedTitle, domain: link.domain)
         ? enrichedTitle
@@ -79,7 +82,10 @@ class TitleResolver {
     SavedUrl link, {
     Map<String, int>? tagFrequency,
   }) {
-    final enrichedTitle = _titleFromSavedEnrichment(link);
+    final savedEnrichmentTitle = _titleFromSavedEnrichment(link);
+    final enrichedTitle = savedEnrichmentTitle == null
+        ? null
+        : _cleanWebMetadataTitle(link, savedEnrichmentTitle);
     final candidate = enrichedTitle != null &&
             !isLowSignalTitle(enrichedTitle, domain: link.domain)
         ? enrichedTitle
@@ -233,6 +239,98 @@ class TitleResolver {
     final label = parts.length >= 2 ? parts[parts.length - 2] : parts.first;
     if (label.isEmpty) return 'Link';
     return '${label[0].toUpperCase()}${label.length > 1 ? label.substring(1) : ''}';
+  }
+
+  /// Removes source branding and SEO scaffolding from ordinary web-page titles.
+  /// Social/video titles are intentionally left to their dedicated enrichment
+  /// paths, which already produce the canonical user-facing title.
+  static String _cleanWebMetadataTitle(SavedUrl link, String title) {
+    var cleaned = collapseWhitespace(title);
+    if (cleaned.isEmpty || _isShortFormOrSocialUrl(link.rawUrl, link.domain)) {
+      return cleaned;
+    }
+
+    final host = _effectiveHost(link);
+    if (host == 'github.com' || host.endsWith('.github.com')) {
+      final repositoryTitle = RegExp(
+        r'^GitHub\s*[-–—]\s*([^/\s]+)/([^:]+):\s*(.+)$',
+        caseSensitive: false,
+      ).firstMatch(cleaned);
+      if (repositoryTitle != null) {
+        final repository = _humanizeSlug(repositoryTitle.group(2)!);
+        final description = repositoryTitle.group(3)!.trim();
+        if (repository.isNotEmpty && description.isNotEmpty) {
+          return '$repository: $description';
+        }
+      }
+
+      cleaned = cleaned.replaceFirst(
+        RegExp(r'^GitHub\s*[-–—]\s*', caseSensitive: false),
+        '',
+      );
+    }
+
+    final pipeParts = cleaned
+        .split(RegExp(r'\s+\|\s+'))
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final isPinterest =
+        host == 'pinterest.com' ||
+        host.endsWith('.pinterest.com') ||
+        host == 'pin.it';
+    if (pipeParts.length > 1 &&
+        (isPinterest ||
+            (cleaned.length > 72 && _wordCount(pipeParts.first) >= 3))) {
+      cleaned = pipeParts.first;
+    }
+
+    final siteLabel = _siteLabel(host);
+    if (siteLabel.isNotEmpty) {
+      final escapedLabel = RegExp.escape(siteLabel);
+      cleaned = cleaned
+          .replaceFirst(
+            RegExp('^$escapedLabel\\s*[-–—|:]\\s*', caseSensitive: false),
+            '',
+          )
+          .replaceFirst(
+            RegExp('\\s*[-–—|]\\s*$escapedLabel\$', caseSensitive: false),
+            '',
+          )
+          .trim();
+    }
+
+    return cleaned.isEmpty ? collapseWhitespace(title) : cleaned;
+  }
+
+  static String _effectiveHost(SavedUrl link) {
+    final fromUrl = _hostFrom(link.rawUrl);
+    if (fromUrl.isNotEmpty) return fromUrl;
+    var domain = link.domain.trim().toLowerCase();
+    if (domain.startsWith('www.')) domain = domain.substring(4);
+    return domain.split('/').first;
+  }
+
+  static String _siteLabel(String host) {
+    final parts = host.split('.').where((part) => part.isNotEmpty).toList();
+    if (parts.length < 2) return parts.isEmpty ? '' : parts.first;
+    return parts[parts.length - 2];
+  }
+
+  static String _humanizeSlug(String slug) {
+    final words = slug
+        .trim()
+        .replaceAll(RegExp(r'[-_]+'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return '';
+    return words
+        .map((word) {
+          if (RegExp(r'[A-Z]').hasMatch(word.substring(1))) return word;
+          return word[0].toUpperCase() + word.substring(1);
+        })
+        .join(' ');
   }
 
   static bool _isTwitterUrl(String rawUrl) {

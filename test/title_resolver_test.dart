@@ -6,10 +6,11 @@ SavedUrl _url({
   required String title,
   List<String> tags = const [],
   String domain = 'instagram.com',
+  String? rawUrl,
   String? summary,
 }) {
   return SavedUrl()
-    ..rawUrl = 'https://example.com/x'
+    ..rawUrl = rawUrl ?? 'https://$domain/x'
     ..domain = domain
     ..title = title
     ..description = ''
@@ -78,6 +79,59 @@ void main() {
       expect(
         TitleResolver.resolve(u, tagFrequency: {'webpack': 2, 'javascript': 5}),
         'How to configure Webpack 5 for production',
+      );
+    });
+
+    test('Pinterest SEO title keeps the useful leading title', () {
+      final u =
+          _url(
+              title:
+                  'Graphic design ideas for business | Graphic design trends, Website for creative graphic design',
+              domain: 'pinterest.com',
+            )
+            ..enrichmentJson =
+                '{"meaningful_title":"Graphic design ideas for business | Graphic design trends, Website for creative graphic design"}';
+
+      expect(
+        TitleResolver.resolveDetailTitle(u),
+        'Graphic design ideas for business',
+      );
+    });
+
+    test('GitHub repository title removes site and owner scaffolding', () {
+      final u = _url(
+        title:
+            'GitHub - openinterpreter/openinterpreter: A lightweight coding agent, optimized for open-source workflows',
+        domain: 'github.com',
+      );
+
+      expect(
+        TitleResolver.resolveDetailTitle(u),
+        'Openinterpreter: A lightweight coding agent, optimized for open-source workflows',
+      );
+    });
+
+    test('ordinary editorial punctuation is preserved', () {
+      final u = _url(
+        title: 'Budarina — China',
+        domain: 'marinabudarina.github.io',
+      );
+
+      expect(TitleResolver.resolveDetailTitle(u), 'Budarina — China');
+    });
+
+    test('YouTube title bypasses generic metadata cleanup', () {
+      final u =
+          _url(
+              title: 'Product name | Full review and comparison',
+              domain: 'youtube.com',
+            )
+            ..enrichmentJson =
+                '{"meaningful_title":"Product name | Full review and comparison"}';
+
+      expect(
+        TitleResolver.resolveDetailTitle(u),
+        'Product name | Full review and comparison',
       );
     });
 

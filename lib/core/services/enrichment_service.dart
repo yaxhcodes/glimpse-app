@@ -653,6 +653,9 @@ class EnrichmentService {
         topics = result.topics;
         memoryIntent = result.memoryIntent;
         summary = result.summary.trim();
+        enrichedTitle = result.meaningfulTitle.trim().isEmpty
+            ? null
+            : result.meaningfulTitle.trim();
         if (!_isValidAiSummary(summary) || tags.isEmpty) {
           aiFailure = 'gemini_returned_low_quality_result';
           await _markTaskFailed(
@@ -664,6 +667,7 @@ class EnrichmentService {
           emoji = platformCat.emoji;
           tags = _metadataFallbackTags(url, platformCat.tags);
           summary = _metadataFallbackSummary(url);
+          enrichedTitle = null;
         }
         if (aiFailure == null && countUsage) {
           await _usageService.incrementUsage(UsageFeature.aiSave);
