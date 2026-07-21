@@ -685,10 +685,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
               : AppTheme.fromColorScheme(darkScheme);
         } else {
           final seed = accent.seedColor ?? const Color(0xFF1D9E75);
-          lightTheme = AppTheme.lightTheme(seed);
+          lightTheme = AppTheme.lightTheme(
+            seed,
+            schemeVariant: accent.schemeVariant,
+          );
           darkTheme = useAmoledPalette
-              ? AppTheme.amoledTheme(seed)
-              : AppTheme.darkTheme(seed);
+              ? AppTheme.amoledTheme(seed, schemeVariant: accent.schemeVariant)
+              : AppTheme.darkTheme(seed, schemeVariant: accent.schemeVariant);
         }
 
         return MaterialApp.router(

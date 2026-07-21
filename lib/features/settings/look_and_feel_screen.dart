@@ -262,14 +262,18 @@ class _ThemePreviewStrip extends StatelessWidget {
   }
 }
 
-/// Cache of seed → derived [ColorScheme] so the multi-tone swatches don't
+/// Cache of palette → derived [ColorScheme] so the multi-tone swatches don't
 /// recompute `fromSeed` on every rebuild.
-final Map<(Color, Brightness), ColorScheme> _swatchSchemeCache = {};
+final Map<(Color, Brightness, DynamicSchemeVariant), ColorScheme>
+_swatchSchemeCache = {};
 
-ColorScheme _swatchScheme(Color seed, Brightness brightness) {
-  return _swatchSchemeCache[(seed, brightness)] ??= ColorScheme.fromSeed(
+ColorScheme _swatchScheme(AppAccentColor accent, Brightness brightness) {
+  final seed = accent.seedColor!;
+  final key = (seed, brightness, accent.schemeVariant);
+  return _swatchSchemeCache[key] ??= ColorScheme.fromSeed(
     seedColor: seed,
     brightness: brightness,
+    dynamicSchemeVariant: accent.schemeVariant,
   );
 }
 
@@ -327,7 +331,7 @@ class _AccentSwatch extends StatelessWidget {
         ],
       );
     } else {
-      final s = _swatchScheme(accent.seedColor!, theme.brightness);
+      final s = _swatchScheme(accent, theme.brightness);
       gradient = _quadrantGradient([
         s.primary,
         s.tertiary,

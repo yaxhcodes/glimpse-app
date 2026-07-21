@@ -48,42 +48,67 @@ enum AppAccentColor {
   orange('Orange', Icons.circle, Color(0xFFE8710A)),
   red('Red', Icons.circle, Color(0xFFD93025)), // Google Red
   pink('Pink', Icons.circle, Color(0xFFB4255E)),
-  sakura('Sakura', Icons.circle, Color(0xFFF48FB1)),
+  sakura('Sakura', Icons.circle, Color(0xFFE68A95)),
   indigo('Indigo', Icons.circle, Color(0xFF3F51B5)),
-  slate('Slate', Icons.circle, Color(0xFF5B7083));
+  slate('Slate', Icons.circle, Color(0xFF5B7083)),
+  monochrome(
+    'Monochrome',
+    Icons.circle,
+    Color(0xFF5F6368),
+    schemeVariant: DynamicSchemeVariant.monochrome,
+  );
 
   final String label;
   final IconData icon;
   final Color? seedColor;
-  const AppAccentColor(this.label, this.icon, this.seedColor);
+  final DynamicSchemeVariant schemeVariant;
+
+  const AppAccentColor(
+    this.label,
+    this.icon,
+    this.seedColor, {
+    this.schemeVariant = DynamicSchemeVariant.tonalSpot,
+  });
 }
 
 class AppTheme {
   AppTheme._();
 
   /// Build a light theme from a [seedColor].
-  static ThemeData lightTheme(Color seedColor) {
+  static ThemeData lightTheme(
+    Color seedColor, {
+    DynamicSchemeVariant schemeVariant = DynamicSchemeVariant.tonalSpot,
+  }) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: seedColor,
       brightness: Brightness.light,
+      dynamicSchemeVariant: schemeVariant,
     );
     return _buildTheme(colorScheme);
   }
 
   /// Build a dark theme from a [seedColor].
-  static ThemeData darkTheme(Color seedColor) {
+  static ThemeData darkTheme(
+    Color seedColor, {
+    DynamicSchemeVariant schemeVariant = DynamicSchemeVariant.tonalSpot,
+  }) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: seedColor,
       brightness: Brightness.dark,
+      dynamicSchemeVariant: schemeVariant,
     );
     return _buildTheme(colorScheme);
   }
 
   /// Dark theme with **true black** and near-black containers (OLED-friendly).
-  static ThemeData amoledTheme(Color seedColor) {
+  static ThemeData amoledTheme(
+    Color seedColor, {
+    DynamicSchemeVariant schemeVariant = DynamicSchemeVariant.tonalSpot,
+  }) {
     final base = ColorScheme.fromSeed(
       seedColor: seedColor,
       brightness: Brightness.dark,
+      dynamicSchemeVariant: schemeVariant,
     );
     return _buildTheme(_amoledSurfaces(base));
   }
