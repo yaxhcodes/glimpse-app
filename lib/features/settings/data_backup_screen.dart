@@ -603,6 +603,17 @@ class _AutoBackupSection extends ConsumerWidget {
                 ),
               ),
             ],
+            if (settings.lastError != null &&
+                settings.lastAttemptIso != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Last attempt failed ${_formatAutoBackupRelative(settings.lastAttemptIso!)}. '
+                  'Glimpse will retry automatically.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+                ),
+              ),
+            ],
             if (needsFolder)
               Padding(
                 padding: const EdgeInsets.only(top: 12),

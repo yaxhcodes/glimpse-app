@@ -14,23 +14,27 @@ class BackupBackgroundTask {
 
   /// Writes a backup JSON into the configured SAF folder if interval is on
   /// and a folder exists. Updates [BackupPrefs.lastAutoBackupDateKey].
-  static Future<void> run() async {
-    if (!Platform.isAndroid) return;
+  static Future<bool> run() async {
+    if (!Platform.isAndroid) return true;
 
     final prefs = await SharedPreferences.getInstance();
     final hours = prefs.getInt(BackupPrefs.autoBackupIntervalHoursKey) ?? 0;
     if (hours <= 0) {
       developer.log('Auto backup disabled', name: _tag);
-      return;
-    }
-
-    final storage = BackupStorageService();
-    if (!await storage.hasLocation()) {
-      developer.log('No backup folder — skipping auto backup', name: _tag);
-      return;
+      return true;
     }
 
     try {
+      final attempt = DateTime.now().toIso8601String();
+      await prefs.setString(BackupPrefs.lastAutoBackupAttemptDateKey, attempt);
+
+      final storage = BackupStorageService();
+      if (!await storage.hasLocation()) {
+        await prefs.remove(BackupPrefs.lastAutoBackupErrorKey);
+        developer.log('No backup folder — skipping auto backup', name: _tag);
+        return true;
+      }
+
       final isar = IsarService();
       await isar.ensureInitialized();
 
@@ -45,18 +49,25 @@ class BackupBackgroundTask {
       final now = DateTime.now().toIso8601String();
       await prefs.setString(BackupPrefs.lastAutoBackupDateKey, now);
       await prefs.setString('glimpse_last_backup_date', now);
+      await prefs.remove(BackupPrefs.lastAutoBackupErrorKey);
 
       developer.log(
         'Auto backup OK (${built.payload.linkCount} links)',
         name: _tag,
       );
+      return true;
     } catch (e, st) {
+      await prefs.setString(
+        BackupPrefs.lastAutoBackupErrorKey,
+        '${e.runtimeType}: $e',
+      );
       developer.log(
         'Auto backup failed: $e',
         name: _tag,
         error: e,
         stackTrace: st,
       );
+      return false;
     }
   }
 }

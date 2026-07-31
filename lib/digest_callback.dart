@@ -21,9 +21,11 @@ void digestCallbackDispatcher() {
           await DigestScheduler.scheduleNext();
         } catch (_) {}
       }
-    } else if (task == BackupScheduler.taskName) {
-      await BackupBackgroundTask.run();
+      return true;
     }
-    return Future.value(true);
+    if (task == BackupScheduler.taskName) {
+      return BackupBackgroundTask.run();
+    }
+    return true;
   });
 }

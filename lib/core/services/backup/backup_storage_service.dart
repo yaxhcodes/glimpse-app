@@ -48,8 +48,9 @@ class BackupListEntry {
     return BackupListEntry(
       name: map['name'] as String? ?? '',
       uri: map['uri'] as String? ?? '',
-      lastModified:
-          ts != null && ts > 0 ? DateTime.fromMillisecondsSinceEpoch(ts) : null,
+      lastModified: ts != null && ts > 0
+          ? DateTime.fromMillisecondsSinceEpoch(ts)
+          : null,
     );
   }
 }
@@ -64,8 +65,9 @@ class BackupListEntry {
 /// without re-prompting.
 class BackupStorageService {
   static const _tag = 'BackupStorageService';
-  static const _channel =
-      MethodChannel('com.shinrinyoku.glimpse/backup_storage');
+  static const _channel = MethodChannel(
+    'com.shinrinyoku.glimpse/backup_storage',
+  );
 
   bool get isSupported => Platform.isAndroid;
 
@@ -79,8 +81,12 @@ class BackupStorageService {
     } on MissingPluginException {
       return null;
     } catch (e, st) {
-      developer.log('pickLocation failed: $e',
-          name: _tag, error: e, stackTrace: st);
+      developer.log(
+        'pickLocation failed: $e',
+        name: _tag,
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     }
   }
@@ -91,8 +97,14 @@ class BackupStorageService {
     if (!isSupported) return null;
     try {
       return await _channel.invokeMethod<String>('currentLocationUri');
-    } on MissingPluginException {
-      return null;
+    } on MissingPluginException catch (error, stackTrace) {
+      developer.log(
+        'Backup storage plugin is unavailable',
+        name: _tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
     }
   }
 
@@ -132,13 +144,10 @@ class BackupStorageService {
     if (!isSupported) {
       throw StateError('writeBackup is only supported on Android');
     }
-    final result = await _channel.invokeMethod<Map>(
-      'writeBackup',
-      {
-        'fileName': fileName,
-        'bytes': bytes,
-      },
-    );
+    final result = await _channel.invokeMethod<Map>('writeBackup', {
+      'fileName': fileName,
+      'bytes': bytes,
+    });
     if (result == null) {
       throw StateError('writeBackup returned no result');
     }

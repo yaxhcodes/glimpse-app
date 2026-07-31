@@ -36,7 +36,6 @@ class MainActivity : FlutterFragmentActivity() {
     private val channelName = "com.shinrinyoku.glimpse/backup_intent"
     private var methodChannel: MethodChannel? = null
     private var pendingBackupPath: String? = null
-    private var storageBridge: BackupStorageBridge? = null
     private var stableIdBridge: StableIdBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,12 +50,6 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-
-        // Persistent-folder bridge for backups (Mihon-style location).
-        storageBridge = BackupStorageBridge(
-            activity = this,
-            messenger = flutterEngine.dartExecutor.binaryMessenger,
-        )
 
         // Reinstall-surviving store for the stable install id (Block Store).
         stableIdBridge = StableIdBridge(

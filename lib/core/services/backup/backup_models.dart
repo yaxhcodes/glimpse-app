@@ -1,5 +1,5 @@
 class BackupData {
-  static const int currentVersion = 1;
+  static const int currentVersion = 2;
 
   final int version;
   final String createdAt;
@@ -75,9 +75,19 @@ class SavedUrlBackup {
   final String? userNotes;
   final String? summary;
   final String? enrichmentJson;
+  final String? processingStatus;
+  final String? processingId;
+  final int? processingAttempt;
+  final String? processingUpdatedAt;
+  final String? processingError;
   final String savedAt;
   final String? openedAt;
   final String? resurfacedAt;
+  final String? rediscoverDismissedAt;
+  final String? intentStatus;
+  final String? intentAction;
+  final String? intentSetAt;
+  final String? revisitAfter;
   final List<double>? embedding;
 
   SavedUrlBackup({
@@ -93,9 +103,19 @@ class SavedUrlBackup {
     this.userNotes,
     this.summary,
     this.enrichmentJson,
+    this.processingStatus,
+    this.processingId,
+    this.processingAttempt,
+    this.processingUpdatedAt,
+    this.processingError,
     required this.savedAt,
     this.openedAt,
     this.resurfacedAt,
+    this.rediscoverDismissedAt,
+    this.intentStatus,
+    this.intentAction,
+    this.intentSetAt,
+    this.revisitAfter,
     this.embedding,
   });
 
@@ -115,9 +135,21 @@ class SavedUrlBackup {
       if (userNotes != null) 'userNotes': userNotes,
       if (summary != null) 'summary': summary,
       if (enrichmentJson != null) 'enrichmentJson': enrichmentJson,
+      if (processingStatus != null) 'processingStatus': processingStatus,
+      if (processingId != null) 'processingId': processingId,
+      if (processingAttempt != null) 'processingAttempt': processingAttempt,
+      if (processingUpdatedAt != null)
+        'processingUpdatedAt': processingUpdatedAt,
+      if (processingError != null) 'processingError': processingError,
       'savedAt': savedAt,
       if (openedAt != null) 'openedAt': openedAt,
       if (resurfacedAt != null) 'resurfacedAt': resurfacedAt,
+      if (rediscoverDismissedAt != null)
+        'rediscoverDismissedAt': rediscoverDismissedAt,
+      if (intentStatus != null) 'intentStatus': intentStatus,
+      if (intentAction != null) 'intentAction': intentAction,
+      if (intentSetAt != null) 'intentSetAt': intentSetAt,
+      if (revisitAfter != null) 'revisitAfter': revisitAfter,
       ...?_optionalEmbeddingJson(sanitizedEmbedding),
     };
   }
@@ -157,9 +189,19 @@ class SavedUrlBackup {
     userNotes: json['userNotes'] as String?,
     summary: json['summary'] as String?,
     enrichmentJson: json['enrichmentJson'] as String?,
+    processingStatus: json['processingStatus'] as String?,
+    processingId: json['processingId'] as String?,
+    processingAttempt: json['processingAttempt'] as int?,
+    processingUpdatedAt: json['processingUpdatedAt'] as String?,
+    processingError: json['processingError'] as String?,
     savedAt: (json['savedAt'] as String?) ?? DateTime.now().toIso8601String(),
     openedAt: json['openedAt'] as String?,
     resurfacedAt: json['resurfacedAt'] as String?,
+    rediscoverDismissedAt: json['rediscoverDismissedAt'] as String?,
+    intentStatus: json['intentStatus'] as String?,
+    intentAction: json['intentAction'] as String?,
+    intentSetAt: json['intentSetAt'] as String?,
+    revisitAfter: json['revisitAfter'] as String?,
     embedding: _sanitizeEmbeddingForJson(
       (json['embedding'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())

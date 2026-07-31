@@ -40,9 +40,19 @@ class BackupService {
       userNotes: url.userNotes,
       summary: url.summary,
       enrichmentJson: url.enrichmentJson,
+      processingStatus: url.processingStatus,
+      processingId: url.processingId,
+      processingAttempt: url.processingAttempt,
+      processingUpdatedAt: url.processingUpdatedAt?.toIso8601String(),
+      processingError: url.processingError,
       savedAt: url.savedAt.toIso8601String(),
       openedAt: url.openedAt?.toIso8601String(),
       resurfacedAt: url.resurfacedAt?.toIso8601String(),
+      rediscoverDismissedAt: url.rediscoverDismissedAt?.toIso8601String(),
+      intentStatus: url.intentStatus,
+      intentAction: url.intentAction,
+      intentSetAt: url.intentSetAt?.toIso8601String(),
+      revisitAfter: url.revisitAfter?.toIso8601String(),
       embedding: embedding,
     );
   }
@@ -87,12 +97,23 @@ class BackupService {
     ..userNotes = b.userNotes
     ..summary = b.summary
     ..enrichmentJson = b.enrichmentJson
+    ..processingStatus = b.processingStatus
+    ..processingId = b.processingId
+    ..processingAttempt = b.processingAttempt
+    ..processingUpdatedAt = _parseOptionalDate(b.processingUpdatedAt)
+    ..processingError = b.processingError
     ..savedAt = DateTime.parse(b.savedAt)
-    ..openedAt = b.openedAt != null ? DateTime.parse(b.openedAt!) : null
-    ..resurfacedAt = b.resurfacedAt != null
-        ? DateTime.parse(b.resurfacedAt!)
-        : null
+    ..openedAt = _parseOptionalDate(b.openedAt)
+    ..resurfacedAt = _parseOptionalDate(b.resurfacedAt)
+    ..rediscoverDismissedAt = _parseOptionalDate(b.rediscoverDismissedAt)
+    ..intentStatus = b.intentStatus
+    ..intentAction = b.intentAction
+    ..intentSetAt = _parseOptionalDate(b.intentSetAt)
+    ..revisitAfter = _parseOptionalDate(b.revisitAfter)
     ..embedding = b.embedding != null ? List<double>.from(b.embedding!) : null;
+
+  DateTime? _parseOptionalDate(String? value) =>
+      value == null ? null : DateTime.parse(value);
 
   SessionRecordBackup toSessionBackup(SessionRecord r, String rawUrl) =>
       SessionRecordBackup(
@@ -365,6 +386,7 @@ class BackupService {
     }
 
     try {
+      _validateBackupRecords(decoded, links);
       final backup = BackupData.fromJson(decoded);
       developer.log(
         'Backup valid: v${backup.version}, ${backup.links.length} links, '
@@ -372,6 +394,8 @@ class BackupService {
         name: _tag,
       );
       return backup;
+    } on BackupValidationException {
+      rethrow;
     } catch (e, st) {
       developer.log(
         'BackupData.fromJson failed: $e',
@@ -382,6 +406,143 @@ class BackupService {
       throw BackupValidationException(
         'Could not read backup data. The file may be corrupted.',
       );
+    }
+  }
+
+  void _validateBackupRecords(
+    Map<String, dynamic> decoded,
+    List<dynamic> links,
+  ) {
+    _requireDate(decoded['createdAt'], 'backup creation date');
+
+    final seenUrls = <String>{};
+    for (var index = 0; index < links.length; index++) {
+      final raw = links[index];
+      if (raw is! Map<String, dynamic>) {
+        throw BackupValidationException(
+          'Invalid backup: link ${index + 1} is not an object.',
+        );
+      }
+
+      final rawUrl = raw['rawUrl'];
+      final domain = raw['domain'];
+      final title = raw['title'];
+      if (rawUrl is! String || rawUrl.trim().isEmpty) {
+        throw BackupValidationException(
+          'Invalid backup: link ${index + 1} has no URL.',
+        );
+      }
+      final uri = Uri.tryParse(rawUrl);
+      if (uri == null ||
+          (uri.scheme != 'http' && uri.scheme != 'https') ||
+          uri.host.isEmpty) {
+        throw BackupValidationException(
+          'Invalid backup: link ${index + 1} has an invalid URL.',
+        );
+      }
+      if (!seenUrls.add(rawUrl)) {
+        throw BackupValidationException(
+          'Invalid backup: the same link appears more than once.',
+        );
+      }
+      if (domain is! String || domain.trim().isEmpty) {
+        throw BackupValidationException(
+          'Invalid backup: link ${index + 1} has no domain.',
+        );
+      }
+      if (title is! String || title.trim().isEmpty) {
+        throw BackupValidationException(
+          'Invalid backup: link ${index + 1} has no title.',
+        );
+      }
+
+      _requireDate(raw['savedAt'], 'saved date for link ${index + 1}');
+      for (final field in const [
+        'openedAt',
+        'resurfacedAt',
+        'rediscoverDismissedAt',
+        'intentSetAt',
+        'revisitAfter',
+        'processingUpdatedAt',
+      ]) {
+        final value = raw[field];
+        if (value != null) {
+          _requireDate(value, '$field for link ${index + 1}');
+        }
+      }
+
+      final embedding = raw['embedding'];
+      if (embedding != null &&
+          (embedding is! List ||
+              embedding.any((value) => value is! num || !value.isFinite))) {
+        throw BackupValidationException(
+          'Invalid backup: link ${index + 1} has a damaged embedding.',
+        );
+      }
+
+      final enrichmentJson = raw['enrichmentJson'];
+      if (enrichmentJson != null) {
+        if (enrichmentJson is! String) {
+          throw BackupValidationException(
+            'Invalid backup: link ${index + 1} has invalid enrichment data.',
+          );
+        }
+        try {
+          jsonDecode(enrichmentJson);
+        } catch (_) {
+          throw BackupValidationException(
+            'Invalid backup: link ${index + 1} has damaged enrichment data.',
+          );
+        }
+      }
+    }
+
+    final collections = decoded['collections'];
+    if (collections != null && collections is! List) {
+      throw BackupValidationException(
+        'Invalid backup: collections is not a list.',
+      );
+    }
+    if (collections is List) {
+      final seenCollectionNames = <String>{};
+      for (var index = 0; index < collections.length; index++) {
+        final raw = collections[index];
+        if (raw is! Map<String, dynamic>) {
+          throw BackupValidationException(
+            'Invalid backup: collection ${index + 1} is not an object.',
+          );
+        }
+        final name = raw['name'];
+        if (name is! String || name.trim().isEmpty) {
+          throw BackupValidationException(
+            'Invalid backup: collection ${index + 1} has no name.',
+          );
+        }
+        if (!seenCollectionNames.add(name)) {
+          throw BackupValidationException(
+            'Invalid backup: the collection "$name" appears more than once.',
+          );
+        }
+        _requireDate(
+          raw['createdAt'],
+          'creation date for collection ${index + 1}',
+        );
+        final linkUrls = raw['linkUrls'];
+        if (linkUrls is! List ||
+            linkUrls.any(
+              (value) => value is! String || !seenUrls.contains(value),
+            )) {
+          throw BackupValidationException(
+            'Invalid backup: collection "$name" refers to a missing link.',
+          );
+        }
+      }
+    }
+  }
+
+  void _requireDate(Object? value, String label) {
+    if (value is! String || DateTime.tryParse(value) == null) {
+      throw BackupValidationException('Invalid backup: invalid $label.');
     }
   }
 
@@ -658,6 +819,23 @@ class BackupService {
   SavedUrl _mergeLink(SavedUrl existing, SavedUrlBackup incoming) {
     final incomingSavedAt = DateTime.parse(incoming.savedAt);
     final mergedEmbedding = incoming.embedding ?? existing.embedding;
+    final incomingProcessingUpdatedAt = _parseOptionalDate(
+      incoming.processingUpdatedAt,
+    );
+    final useIncomingProcessing =
+        incoming.processingStatus != null &&
+        (existing.processingStatus == null ||
+            existing.processingUpdatedAt == null ||
+            (incomingProcessingUpdatedAt?.isAfter(
+                  existing.processingUpdatedAt!,
+                ) ??
+                false));
+    final incomingIntentSetAt = _parseOptionalDate(incoming.intentSetAt);
+    final useIncomingIntent =
+        incoming.intentStatus != null &&
+        (existing.intentStatus == null ||
+            existing.intentSetAt == null ||
+            (incomingIntentSetAt?.isAfter(existing.intentSetAt!) ?? false));
 
     return SavedUrl()
       ..id = existing.id
@@ -673,17 +851,46 @@ class BackupService {
       ..userNotes = incoming.userNotes ?? existing.userNotes
       ..summary = incoming.summary ?? existing.summary
       ..enrichmentJson = incoming.enrichmentJson ?? existing.enrichmentJson
+      ..processingStatus = useIncomingProcessing
+          ? incoming.processingStatus
+          : existing.processingStatus
+      ..processingId = useIncomingProcessing
+          ? incoming.processingId
+          : existing.processingId
+      ..processingAttempt = useIncomingProcessing
+          ? incoming.processingAttempt
+          : existing.processingAttempt
+      ..processingUpdatedAt = useIncomingProcessing
+          ? incomingProcessingUpdatedAt
+          : existing.processingUpdatedAt
+      ..processingError = useIncomingProcessing
+          ? incoming.processingError
+          : existing.processingError
       ..savedAt = _earliest(existing.savedAt, incomingSavedAt)
-      ..openedAt =
-          existing.openedAt ??
-          (incoming.openedAt != null
-              ? DateTime.parse(incoming.openedAt!)
-              : null)
-      ..resurfacedAt =
-          existing.resurfacedAt ??
-          (incoming.resurfacedAt != null
-              ? DateTime.parse(incoming.resurfacedAt!)
-              : null)
+      ..openedAt = _latestNullable(
+        existing.openedAt,
+        _parseOptionalDate(incoming.openedAt),
+      )
+      ..resurfacedAt = _latestNullable(
+        existing.resurfacedAt,
+        _parseOptionalDate(incoming.resurfacedAt),
+      )
+      ..rediscoverDismissedAt = _latestNullable(
+        existing.rediscoverDismissedAt,
+        _parseOptionalDate(incoming.rediscoverDismissedAt),
+      )
+      ..intentStatus = useIncomingIntent
+          ? incoming.intentStatus
+          : existing.intentStatus
+      ..intentAction = useIncomingIntent
+          ? incoming.intentAction
+          : existing.intentAction
+      ..intentSetAt = useIncomingIntent
+          ? incomingIntentSetAt
+          : existing.intentSetAt
+      ..revisitAfter = useIncomingIntent
+          ? _parseOptionalDate(incoming.revisitAfter)
+          : existing.revisitAfter
       ..embedding = mergedEmbedding;
   }
 
@@ -693,6 +900,12 @@ class BackupService {
   }
 
   DateTime _earliest(DateTime a, DateTime b) => a.isBefore(b) ? a : b;
+
+  DateTime? _latestNullable(DateTime? a, DateTime? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return a.isAfter(b) ? a : b;
+  }
 
   Future<SettingsBackup> _exportSettings() async {
     final prefs = await SharedPreferences.getInstance();

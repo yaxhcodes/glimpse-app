@@ -35,10 +35,11 @@ class BackupScheduler {
 
   static Future<void> setIntervalHours(int hours) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(
-      BackupPrefs.autoBackupIntervalHoursKey,
-      hours <= 0 ? 0 : hours,
-    );
+    final normalizedHours = hours <= 0 ? 0 : hours;
+    await prefs.setInt(BackupPrefs.autoBackupIntervalHoursKey, normalizedHours);
+    if (normalizedHours == 0) {
+      await prefs.remove(BackupPrefs.lastAutoBackupErrorKey);
+    }
     await reschedule();
   }
 

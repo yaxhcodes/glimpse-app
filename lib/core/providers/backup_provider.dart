@@ -14,8 +14,9 @@ import '../services/backup/backup_storage_service.dart';
 import '../services/backup_prefs.dart';
 import '../services/backup_scheduler.dart';
 
-final backupProvider =
-    StateNotifierProvider<BackupNotifier, BackupState>((ref) {
+final backupProvider = StateNotifierProvider<BackupNotifier, BackupState>((
+  ref,
+) {
   return BackupNotifier(
     ref.read(backupServiceProvider),
     ref.read(backupStorageServiceProvider),
@@ -30,21 +31,21 @@ final backupProvider =
 /// transitions for the create/restore flow).
 final backupStorageLocationProvider =
     FutureProvider.autoDispose<({String? uri, String? label})>((ref) async {
-  ref.watch(_backupStorageTick);
-  final svc = ref.watch(backupStorageServiceProvider);
-  final uri = await svc.currentLocationUri();
-  final label = uri == null ? null : await svc.currentLocationLabel();
-  return (uri: uri, label: label);
-});
+      ref.watch(_backupStorageTick);
+      final svc = ref.watch(backupStorageServiceProvider);
+      final uri = await svc.currentLocationUri();
+      final label = uri == null ? null : await svc.currentLocationLabel();
+      return (uri: uri, label: label);
+    });
 
 /// Lists existing backup files inside the persistent folder, newest
 /// first. Empty when no folder is set or the folder is empty.
 final backupStorageEntriesProvider =
     FutureProvider.autoDispose<List<BackupListEntry>>((ref) async {
-  ref.watch(_backupStorageTick);
-  final svc = ref.watch(backupStorageServiceProvider);
-  return svc.listBackups();
-});
+      ref.watch(_backupStorageTick);
+      final svc = ref.watch(backupStorageServiceProvider);
+      return svc.listBackups();
+    });
 
 final lastBackupDateProvider = FutureProvider<String?>((ref) async {
   final prefs = await SharedPreferences.getInstance();
@@ -56,23 +57,31 @@ class AutoBackupSettings {
   const AutoBackupSettings({
     required this.intervalHours,
     this.lastAutoBackupIso,
+    this.lastAttemptIso,
+    this.lastError,
   });
 
   final int intervalHours;
   final String? lastAutoBackupIso;
+  final String? lastAttemptIso;
+  final String? lastError;
 }
 
 /// Reads automatic backup prefs (interval + last WorkManager success).
 /// Invalidate this after changing the interval.
 final autoBackupSettingsProvider =
     FutureProvider.autoDispose<AutoBackupSettings>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  return AutoBackupSettings(
-    intervalHours:
-        prefs.getInt(BackupPrefs.autoBackupIntervalHoursKey) ?? 0,
-    lastAutoBackupIso: prefs.getString(BackupPrefs.lastAutoBackupDateKey),
-  );
-});
+      final prefs = await SharedPreferences.getInstance();
+      return AutoBackupSettings(
+        intervalHours:
+            prefs.getInt(BackupPrefs.autoBackupIntervalHoursKey) ?? 0,
+        lastAutoBackupIso: prefs.getString(BackupPrefs.lastAutoBackupDateKey),
+        lastAttemptIso: prefs.getString(
+          BackupPrefs.lastAutoBackupAttemptDateKey,
+        ),
+        lastError: prefs.getString(BackupPrefs.lastAutoBackupErrorKey),
+      );
+    });
 
 /// Bumped whenever something about the persistent backup folder changes
 /// (folder picked, folder forgotten, new file written into it). The
@@ -93,12 +102,12 @@ void _bumpStorageTick(Ref ref) {
 /// lookup per link).
 final restoreImpactProvider =
     FutureProvider.family<RestoreImpact?, RestoreMode>((ref, mode) async {
-  final state = ref.watch(backupProvider);
-  final backup = state.previewData;
-  if (backup == null) return null;
-  final service = ref.read(backupServiceProvider);
-  return service.previewImpact(backup, mode);
-});
+      final state = ref.watch(backupProvider);
+      final backup = state.previewData;
+      if (backup == null) return null;
+      final service = ref.read(backupServiceProvider);
+      return service.previewImpact(backup, mode);
+    });
 
 class BackupState {
   final BackupStatus status;
@@ -145,8 +154,8 @@ class BackupNotifier extends StateNotifier<BackupState> {
     this._backupService,
     this._storageService, {
     VoidCallback? onStorageChanged,
-  })  : _onStorageChanged = onStorageChanged,
-        super(const BackupState());
+  }) : _onStorageChanged = onStorageChanged,
+       super(const BackupState());
 
   /// Asks the OS for a folder, persists the grant, and pings any
   /// listeners that the location has changed.
@@ -177,7 +186,9 @@ class BackupNotifier extends StateNotifier<BackupState> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          'glimpse_last_backup_date', DateTime.now().toIso8601String());
+        'glimpse_last_backup_date',
+        DateTime.now().toIso8601String(),
+      );
       _onStorageChanged?.call();
 
       state = BackupState(
@@ -352,10 +363,7 @@ class BackupNotifier extends StateNotifier<BackupState> {
 
     try {
       final backup = await _backupService.validateBackup(content);
-      state = BackupState(
-        status: BackupStatus.previewing,
-        previewData: backup,
-      );
+      state = BackupState(status: BackupStatus.previewing, previewData: backup);
     } on BackupValidationException catch (e) {
       state = BackupState(
         status: BackupStatus.error,
@@ -395,10 +403,7 @@ class BackupNotifier extends StateNotifier<BackupState> {
           );
         },
       );
-      state = BackupState(
-        status: BackupStatus.success,
-        restoredCount: count,
-      );
+      state = BackupState(status: BackupStatus.success, restoredCount: count);
     } catch (e) {
       state = BackupState(
         status: BackupStatus.error,
@@ -417,13 +422,15 @@ class BackupNotifier extends StateNotifier<BackupState> {
   String _userFriendlyExportError(Object error) {
     final msg = error.toString();
 
-    if (msg.contains('ArgumentError') || msg.contains('NaN') ||
+    if (msg.contains('ArgumentError') ||
+        msg.contains('NaN') ||
         msg.contains('Infinity')) {
       return 'Export failed due to invalid data in your library. '
           'Please try again — the system will skip any corrupt values.';
     }
 
-    if (msg.contains('FileSystemException') || msg.contains('writeAsString') ||
+    if (msg.contains('FileSystemException') ||
+        msg.contains('writeAsString') ||
         msg.contains('Permission')) {
       return 'Could not save the backup file. '
           'Please check your device storage.';
