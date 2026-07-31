@@ -27,7 +27,8 @@ class UsageLimitReachedException implements Exception {
 /// Independent usage-tracking service.
 ///
 /// Persists counters locally in [SharedPreferences] and automatically resets
-/// them at the start of a new calendar month. Pro users bypass all limits.
+/// them at the start of a new UTC calendar month. Pro users bypass all limits
+/// while their successful usage continues to be counted.
 ///
 /// When an [AiQuotaService] is supplied, server-metered features (see
 /// [AiQuotaService.serverFeature]) are gated by the worker's monthly quota
@@ -44,9 +45,14 @@ class UsageService {
   static const String _prefix = 'usage_';
   static const String _countSuffix = '_count';
   static const String _lastResetKey = '${_prefix}last_reset';
+  static const String _deviceScopeMigrationPrefix =
+      '${_prefix}device_scope_v2_';
 
   String _countKey(UsageFeature feature) =>
       '$_prefix${feature.name}$_countSuffix';
+
+  String _deviceScopeMigrationKey(UsageFeature feature) =>
+      '$_deviceScopeMigrationPrefix${feature.name}';
 
   /// Server feature key for [feature] when server metering is active, else null.
   String? _serverFeature(UsageFeature feature) =>
@@ -59,19 +65,32 @@ class UsageService {
     await prefs.setInt(_countKey(feature), value);
   }
 
+  Future<int?> _migrationUsage(UsageFeature feature) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_deviceScopeMigrationKey(feature)) ?? false) {
+      return null;
+    }
+    return getUsage(feature);
+  }
+
+  Future<void> _markDeviceScopeMigrated(UsageFeature feature) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_deviceScopeMigrationKey(feature), true);
+  }
+
   /// Checks whether the stored counters belong to the previous month and,
   /// if so, resets every counter to 0 and bumps the reset timestamp.
   Future<void> resetUsageIfNeeded() async {
     final prefs = await SharedPreferences.getInstance();
     final lastResetStr = prefs.getString(_lastResetKey);
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     if (lastResetStr == null) {
       await prefs.setString(_lastResetKey, now.toIso8601String());
       return;
     }
 
-    final lastReset = DateTime.tryParse(lastResetStr);
+    final lastReset = DateTime.tryParse(lastResetStr)?.toUtc();
     if (lastReset == null) {
       await prefs.setString(_lastResetKey, now.toIso8601String());
       return;
@@ -99,16 +118,22 @@ class UsageService {
   /// Increments [feature] by one (resets automatically on month boundary).
   ///
   /// For server-metered features this consumes one unit of the worker's monthly
-  /// quota and mirrors the authoritative count locally. Best-effort: the AI work
-  /// has already happened by the time this is called, so a consume failure falls
-  /// back to a local increment rather than blocking the completed save.
+  /// device quota and mirrors the authoritative count locally. Best-effort: the
+  /// AI work has already happened by the time this is called, so a consume
+  /// failure falls back to a local increment rather than blocking the completed
+  /// save.
   Future<void> incrementUsage(UsageFeature feature) async {
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
       try {
-        final snap = await _aiQuota!.consume(serverFeature);
+        final migrationUsed = await _migrationUsage(feature);
+        final snap = await _aiQuota!.consume(
+          serverFeature,
+          migrationUsed: migrationUsed,
+        );
         if (snap.enforced) {
           await _setLocalCount(feature, snap.used);
+          await _markDeviceScopeMigrated(feature);
           developer.log(
             '${feature.name} consumed server-side: ${snap.used} / ${snap.limit}',
             name: 'UsageService',
@@ -146,9 +171,14 @@ class UsageService {
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
       try {
-        final snap = await _aiQuota!.peek(serverFeature);
+        final migrationUsed = await _migrationUsage(feature);
+        final snap = await _aiQuota!.peek(
+          serverFeature,
+          migrationUsed: migrationUsed,
+        );
         if (snap.enforced) {
           await _setLocalCount(feature, snap.used);
+          await _markDeviceScopeMigrated(feature);
           return snap.reached;
         }
       } catch (e) {
@@ -170,9 +200,14 @@ class UsageService {
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
       try {
-        final snap = await _aiQuota!.peek(serverFeature);
+        final migrationUsed = await _migrationUsage(feature);
+        final snap = await _aiQuota!.peek(
+          serverFeature,
+          migrationUsed: migrationUsed,
+        );
         if (snap.enforced) {
           await _setLocalCount(feature, snap.used);
+          await _markDeviceScopeMigrated(feature);
           return snap.remaining.clamp(0, snap.limit);
         }
       } catch (e) {
@@ -193,7 +228,10 @@ class UsageService {
     for (final feature in UsageFeature.values) {
       await prefs.remove(_countKey(feature));
     }
-    await prefs.setString(_lastResetKey, DateTime.now().toIso8601String());
+    await prefs.setString(
+      _lastResetKey,
+      DateTime.now().toUtc().toIso8601String(),
+    );
     developer.log('All usage counters manually reset', name: 'UsageService');
   }
 
@@ -207,9 +245,14 @@ class UsageService {
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
       try {
-        final snap = await _aiQuota!.peek(serverFeature);
+        final migrationUsed = await _migrationUsage(feature);
+        final snap = await _aiQuota!.peek(
+          serverFeature,
+          migrationUsed: migrationUsed,
+        );
         if (snap.enforced) {
           await _setLocalCount(feature, snap.used);
+          await _markDeviceScopeMigrated(feature);
           if (snap.limit == 0) return false;
           return snap.used >= (snap.limit * 0.8).ceil();
         }

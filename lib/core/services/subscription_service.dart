@@ -15,6 +15,28 @@ import 'supabase_config.dart';
 /// What the user has access to.
 enum SubscriptionTier { free, premium }
 
+enum SubscriptionPurchaseOutcome {
+  success,
+  alreadyPurchased,
+  cancelled,
+  pending,
+  ownedByAnotherAccount,
+  unavailable,
+  failed,
+}
+
+enum SubscriptionRestoreOutcome {
+  success,
+  notFound,
+  ownedByAnotherAccount,
+  unavailable,
+  failed,
+}
+
+const subscriptionOwnershipMessage =
+    'This subscription belongs to another Glimpse account. '
+    'Sign in with the account that originally subscribed.';
+
 /// Features that can be gated.
 enum PremiumFeature { askChat, recap, synthesis, semanticSearch }
 
@@ -89,8 +111,9 @@ class SubscriptionService {
   /// Migrate RevenueCat from the anonymous/per-install fallback ID to the
   /// authenticated Supabase user ID. This prevents customer fragmentation while
   /// preserving existing anonymous purchases through RevenueCat's alias flow.
-  Future<void> logInWithAuthenticatedUser(String userId) async {
-    if (!_configured || userId.isEmpty) return;
+  Future<bool> logInWithAuthenticatedUser(String userId) async {
+    if (userId.isEmpty) return false;
+    if (!_configured) return true;
     try {
       final currentId = await Purchases.appUserID;
       if (currentId == userId) {
@@ -100,7 +123,7 @@ class SubscriptionService {
         );
         _logCustomerInfo('alreadyAuthenticated', info);
         await _syncSubscriptionProfile(info);
-        return;
+        return true;
       }
 
       final result = await Purchases.logIn(userId);
@@ -110,16 +133,17 @@ class SubscriptionService {
 
       final info = await _refreshCustomerInfoForAuthenticatedUser(
         source: 'postAuthenticatedLogin',
-        syncPurchases: Platform.isAndroid,
       );
       _logCustomerInfo('postAuthenticatedLogin', info);
       await _syncSubscriptionProfile(info);
+      return true;
     } catch (e, st) {
       developer.log(
         'RevenueCat: authenticated login failed — $e',
         name: 'Subscription',
         stackTrace: st,
       );
+      return false;
     }
   }
 
@@ -251,18 +275,7 @@ class SubscriptionService {
 
   static Future<CustomerInfo> _refreshCustomerInfoForAuthenticatedUser({
     required String source,
-    bool syncPurchases = false,
   }) async {
-    if (syncPurchases) {
-      try {
-        await Purchases.syncPurchases();
-      } catch (e) {
-        developer.log(
-          'RevenueCat: syncPurchases failed during $source — $e',
-          name: 'Subscription',
-        );
-      }
-    }
     try {
       await Purchases.invalidateCustomerInfoCache();
     } catch (e) {
@@ -338,18 +351,40 @@ class SubscriptionService {
         packages.first;
   }
 
+  static SubscriptionPurchaseOutcome purchaseOutcomeForError(
+    PurchasesErrorCode code,
+  ) {
+    if (code == PurchasesErrorCode.purchaseCancelledError) {
+      return SubscriptionPurchaseOutcome.cancelled;
+    }
+    if (code == PurchasesErrorCode.paymentPendingError) {
+      return SubscriptionPurchaseOutcome.pending;
+    }
+    if (code == PurchasesErrorCode.receiptAlreadyInUseError) {
+      return SubscriptionPurchaseOutcome.ownedByAnotherAccount;
+    }
+    if (code == PurchasesErrorCode.productAlreadyPurchasedError) {
+      return SubscriptionPurchaseOutcome.alreadyPurchased;
+    }
+    return SubscriptionPurchaseOutcome.failed;
+  }
+
+  static SubscriptionRestoreOutcome restoreOutcomeForError(
+    PurchasesErrorCode code,
+  ) {
+    return code == PurchasesErrorCode.receiptAlreadyInUseError
+        ? SubscriptionRestoreOutcome.ownedByAnotherAccount
+        : SubscriptionRestoreOutcome.failed;
+  }
+
   /// Run a native RevenueCat purchase.
-  ///
-  /// Returns `true` when the Play Billing transaction succeeded (or the
-  /// user was already entitled). Returns `false` for cancellation or a
-  /// genuine failure.
   ///
   /// WHY this method no longer pokes at caches, streams, or polls:
   /// that logic belongs to `SubscriptionTierNotifier.refreshAfterPurchase()`.
   /// The UI calls this, then calls `refreshAfterPurchase()`, and Riverpod
   /// state flips to Pro.
-  Future<bool> purchaseRecommendedPackage() async {
-    if (!_configured) return false;
+  Future<SubscriptionPurchaseOutcome> purchaseRecommendedPackage() async {
+    if (!_configured) return SubscriptionPurchaseOutcome.unavailable;
     try {
       final offerings = await Purchases.getOfferings();
       final curId = offerings.current?.identifier ?? 'null';
@@ -373,11 +408,11 @@ class SubscriptionService {
           'RevenueCat: no offering with packages — link products in RC & set a current offering',
           name: 'Subscription',
         );
-        return false;
+        return SubscriptionPurchaseOutcome.unavailable;
       }
 
       final pkg = _preferredPackage(offering);
-      if (pkg == null) return false;
+      if (pkg == null) return SubscriptionPurchaseOutcome.unavailable;
 
       developer.log(
         'RevenueCat: Purchases.purchase start offering=${offering.identifier} '
@@ -401,7 +436,7 @@ class SubscriptionService {
       );
       _logCustomerInfo('afterPurchase', result.customerInfo);
       await _syncSubscriptionProfile(result.customerInfo);
-      return true;
+      return SubscriptionPurchaseOutcome.success;
     } on PlatformException catch (e, st) {
       final code = PurchasesErrorHelper.getErrorCode(e);
       developer.log(
@@ -414,23 +449,14 @@ class SubscriptionService {
         print('[Subscription] purchase error code=$code message=${e.message}');
       }
 
-      if (code == PurchasesErrorCode.purchaseCancelledError) return false;
-      if (code == PurchasesErrorCode.paymentPendingError) return false;
-
-      // "Already subscribed" → the user IS entitled; let refreshAfterPurchase
-      // reconcile the notifier state.
-      if (code == PurchasesErrorCode.productAlreadyPurchasedError ||
-          code == PurchasesErrorCode.receiptAlreadyInUseError) {
-        return true;
-      }
-      return false;
+      return purchaseOutcomeForError(code);
     } catch (e, st) {
       developer.log(
         'RevenueCat: purchase failed — $e',
         name: 'Subscription',
         stackTrace: st,
       );
-      return false;
+      return SubscriptionPurchaseOutcome.failed;
     }
   }
 
@@ -438,17 +464,31 @@ class SubscriptionService {
   /// the server and fires the update listener, which the notifier is
   /// already subscribed to — so the UI updates automatically.
   ///
-  /// Returns the derived tier so the caller can show a snackbar.
-  Future<SubscriptionTier> restorePurchases() async {
-    if (!_configured) return SubscriptionTier.free;
+  Future<SubscriptionRestoreOutcome> restorePurchases() async {
+    if (!_configured) return SubscriptionRestoreOutcome.unavailable;
     try {
       final info = await Purchases.restorePurchases();
       _logCustomerInfo('restorePurchases', info);
       await _syncSubscriptionProfile(info);
-      return tierFromInfo(info);
-    } catch (e) {
-      developer.log('RevenueCat: restore failed — $e', name: 'Subscription');
-      return SubscriptionTier.free;
+      return tierFromInfo(info) == SubscriptionTier.premium
+          ? SubscriptionRestoreOutcome.success
+          : SubscriptionRestoreOutcome.notFound;
+    } on PlatformException catch (e, st) {
+      final code = PurchasesErrorHelper.getErrorCode(e);
+      developer.log(
+        'RevenueCat: restore PlatformException code=$code '
+        'details=${e.details} message=${e.message}',
+        name: 'Subscription',
+        stackTrace: st,
+      );
+      return restoreOutcomeForError(code);
+    } catch (e, st) {
+      developer.log(
+        'RevenueCat: restore failed — $e',
+        name: 'Subscription',
+        stackTrace: st,
+      );
+      return SubscriptionRestoreOutcome.failed;
     }
   }
 
@@ -572,6 +612,7 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
       // Overwrite any AsyncLoading / AsyncError the UI might be showing.
       state = AsyncData(tier);
     }
+
     Purchases.addCustomerInfoUpdateListener(listener);
     _listener = listener;
     ref.onDispose(() {
@@ -617,6 +658,14 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
       );
       return SubscriptionTier.free;
     }
+  }
+
+  void beginAccountSwitch() {
+    state = const AsyncLoading();
+  }
+
+  void failAccountSwitchClosed() {
+    state = const AsyncData(SubscriptionTier.free);
   }
 
   /// Call exactly once after a successful `Purchases.purchase(...)`.

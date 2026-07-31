@@ -15,68 +15,58 @@ import '../../core/services/usage_service.dart';
 ///
 /// Each value provides context-specific copy so the modal feels
 /// intentional and relevant, not generic.
-enum UpgradeFeature {
-  aiTagging,
-  ask,
-  search,
-  semanticSearch,
-  recap,
-  synthesis,
-}
+enum UpgradeFeature { aiTagging, ask, search, semanticSearch, recap, synthesis }
 
 /// Describes what Pro unlocks for each feature.
 extension UpgradeFeatureCopy on UpgradeFeature {
   String get title => switch (this) {
-        UpgradeFeature.aiTagging => 'AI categorization limit reached',
-        UpgradeFeature.ask => 'Ask Glimpse limit reached',
-        UpgradeFeature.search => 'Search limit reached',
-        UpgradeFeature.semanticSearch => 'Semantic search is a Pro feature',
-        UpgradeFeature.recap => 'Weekly Recap is a Pro feature',
-        UpgradeFeature.synthesis => 'Multi-link synthesis is a Pro feature',
-      };
+    UpgradeFeature.aiTagging => 'AI categorization limit reached',
+    UpgradeFeature.ask => 'Ask Glimpse limit reached',
+    UpgradeFeature.search => 'Search limit reached',
+    UpgradeFeature.semanticSearch => 'Semantic search is a Pro feature',
+    UpgradeFeature.recap => 'Weekly Recap is a Pro feature',
+    UpgradeFeature.synthesis => 'Multi-link synthesis is a Pro feature',
+  };
 
   String get description => switch (this) {
-        UpgradeFeature.aiTagging =>
-          'Upgrade to Glimpse Pro for unlimited AI-powered categorization, summaries, and semantic search across everything you save.',
-        UpgradeFeature.ask =>
-          'Upgrade to Glimpse Pro for unlimited conversations with your saved knowledge — and get deeper answers powered by semantic search.',
-        UpgradeFeature.search =>
-          'Upgrade to Glimpse Pro for unlimited searches across your saved links, including meaning-based semantic search.',
-        UpgradeFeature.semanticSearch =>
-          'Semantic search finds results by meaning, not just keywords. Upgrade to Glimpse Pro to unlock it — along with unlimited searches.',
-        UpgradeFeature.recap =>
-          'Weekly Recap distills your recent saves into a short, insightful summary. Upgrade to Glimpse Pro to unlock it.',
-        UpgradeFeature.synthesis =>
-          'Multi-link synthesis connects ideas across your saves into a cohesive narrative. Upgrade to Glimpse Pro to unlock it.',
-      };
+    UpgradeFeature.aiTagging =>
+      'Upgrade to Glimpse Pro for unlimited AI-powered categorization, summaries, and semantic search across everything you save.',
+    UpgradeFeature.ask =>
+      'Upgrade to Glimpse Pro for unlimited conversations with your saved knowledge — and get deeper answers powered by semantic search.',
+    UpgradeFeature.search =>
+      'Upgrade to Glimpse Pro for unlimited searches across your saved links, including meaning-based semantic search.',
+    UpgradeFeature.semanticSearch =>
+      'Semantic search finds results by meaning, not just keywords. Upgrade to Glimpse Pro to unlock it — along with unlimited searches.',
+    UpgradeFeature.recap =>
+      'Weekly Recap distills your recent saves into a short, insightful summary. Upgrade to Glimpse Pro to unlock it.',
+    UpgradeFeature.synthesis =>
+      'Multi-link synthesis connects ideas across your saves into a cohesive narrative. Upgrade to Glimpse Pro to unlock it.',
+  };
 
   String get ctaLabel => switch (this) {
-        UpgradeFeature.aiTagging => 'Upgrade for unlimited AI',
-        UpgradeFeature.ask => 'Upgrade for unlimited queries',
-        UpgradeFeature.search => 'Upgrade for unlimited search',
-        UpgradeFeature.semanticSearch => 'Upgrade for semantic search',
-        UpgradeFeature.recap => 'Upgrade for Weekly Recap',
-        UpgradeFeature.synthesis => 'Upgrade for synthesis',
-      };
+    UpgradeFeature.aiTagging => 'Upgrade for unlimited AI',
+    UpgradeFeature.ask => 'Upgrade for unlimited queries',
+    UpgradeFeature.search => 'Upgrade for unlimited search',
+    UpgradeFeature.semanticSearch => 'Upgrade for semantic search',
+    UpgradeFeature.recap => 'Upgrade for Weekly Recap',
+    UpgradeFeature.synthesis => 'Upgrade for synthesis',
+  };
 
   IconData get icon => switch (this) {
-        UpgradeFeature.aiTagging => Icons.auto_awesome_outlined,
-        UpgradeFeature.ask => Icons.chat_bubble_outline_rounded,
-        UpgradeFeature.search => Icons.search_rounded,
-        UpgradeFeature.semanticSearch => Icons.psychology_outlined,
-        UpgradeFeature.recap => Icons.auto_stories_outlined,
-        UpgradeFeature.synthesis => Icons.merge_type_rounded,
-      };
+    UpgradeFeature.aiTagging => Icons.auto_awesome_outlined,
+    UpgradeFeature.ask => Icons.chat_bubble_outline_rounded,
+    UpgradeFeature.search => Icons.search_rounded,
+    UpgradeFeature.semanticSearch => Icons.psychology_outlined,
+    UpgradeFeature.recap => Icons.auto_stories_outlined,
+    UpgradeFeature.synthesis => Icons.merge_type_rounded,
+  };
 }
 
 /// Shows a premium, minimal upgrade modal.
 ///
 /// Returns `true` if the user completed the purchase (Pro is now active),
 /// `false` if dismissed, and `null` if the dialog couldn't be shown.
-Future<bool?> showUpgradeGate(
-  BuildContext context,
-  UpgradeFeature feature,
-) {
+Future<bool?> showUpgradeGate(BuildContext context, UpgradeFeature feature) {
   return showDialog<bool>(
     context: context,
     builder: (context) => _UpgradeGateDialog(feature: feature),
@@ -101,9 +91,12 @@ Future<bool> checkLimitOrShowGate(
 
   if (!reached) return true;
 
-  developer.log('Limit reached for ${feature.name}, showing upgrade gate',
-      name: 'UpgradeGate');
+  developer.log(
+    'Limit reached for ${feature.name}, showing upgrade gate',
+    name: 'UpgradeGate',
+  );
 
+  if (!context.mounted) return false;
   final upgraded = await showUpgradeGate(context, upgradeFeature);
   if (upgraded == true && context.mounted) {
     // Invalidate usage so counts refresh after purchase
@@ -210,13 +203,25 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
             ),
             child: Column(
               children: [
-                _benefitRow(Icons.category_outlined, 'Unlimited AI categorization'),
+                _benefitRow(
+                  Icons.category_outlined,
+                  'Unlimited AI categorization',
+                ),
                 const SizedBox(height: 8),
-                _benefitRow(Icons.chat_bubble_outline_rounded, 'Unlimited Ask Glimpse queries'),
+                _benefitRow(
+                  Icons.chat_bubble_outline_rounded,
+                  'Unlimited Ask Glimpse queries',
+                ),
                 const SizedBox(height: 8),
-                _benefitRow(Icons.psychology_outlined, 'Semantic search across your library'),
+                _benefitRow(
+                  Icons.psychology_outlined,
+                  'Semantic search across your library',
+                ),
                 const SizedBox(height: 8),
-                _benefitRow(Icons.auto_stories_outlined, 'Weekly Recap & multi-link synthesis'),
+                _benefitRow(
+                  Icons.auto_stories_outlined,
+                  'Weekly Recap & multi-link synthesis',
+                ),
               ],
             ),
           ),
@@ -224,7 +229,9 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _purchasing ? null : () => Navigator.of(context).pop(false),
+          onPressed: _purchasing
+              ? null
+              : () => Navigator.of(context).pop(false),
           child: Text(
             'Maybe later',
             style: textTheme.labelLarge?.copyWith(
@@ -279,22 +286,56 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
     setState(() => _purchasing = true);
     try {
       final service = ref.read(subscriptionServiceProvider);
-      final purchased = await service.purchaseRecommendedPackage();
-      developer.log('Purchase result: $purchased', name: 'UpgradeGate');
+      final outcome = await service.purchaseRecommendedPackage();
+      developer.log('Purchase result: $outcome', name: 'UpgradeGate');
 
-      if (purchased) {
-        await ref.read(subscriptionTierProvider.notifier).refreshAfterPurchase();
-        ref.read(usageRevisionProvider.notifier).state++;
-        if (mounted) {
-          Navigator.of(context).pop(true);
-        }
-      } else {
-        // User cancelled the paywall — navigate to subscription screen
-        // so they can explore options at their own pace.
-        if (mounted) {
+      switch (outcome) {
+        case SubscriptionPurchaseOutcome.success:
+        case SubscriptionPurchaseOutcome.alreadyPurchased:
+          await ref
+              .read(subscriptionTierProvider.notifier)
+              .refreshAfterPurchase();
+          ref.read(usageRevisionProvider.notifier).state++;
+          final entitled =
+              ref.read(subscriptionTierProvider).valueOrNull ==
+              SubscriptionTier.premium;
+          if (mounted && entitled) {
+            Navigator.of(context).pop(true);
+          } else if (mounted) {
+            setState(() => _purchasing = false);
+            _showMessage(
+              outcome == SubscriptionPurchaseOutcome.alreadyPurchased
+                  ? subscriptionOwnershipMessage
+                  : 'The purchase completed, but Pro could not be verified yet. '
+                        'Please try Restore Purchases.',
+            );
+          }
+          return;
+        case SubscriptionPurchaseOutcome.cancelled:
+          if (mounted) {
+            Navigator.of(context).pop(false);
+          }
+          return;
+        case SubscriptionPurchaseOutcome.pending:
+          if (mounted) {
+            setState(() => _purchasing = false);
+          }
+          _showMessage(
+            'Your purchase is pending. Pro will unlock after payment is confirmed.',
+          );
+          return;
+        case SubscriptionPurchaseOutcome.ownedByAnotherAccount:
+          if (mounted) {
+            setState(() => _purchasing = false);
+          }
+          _showMessage(subscriptionOwnershipMessage);
+          return;
+        case SubscriptionPurchaseOutcome.unavailable:
+        case SubscriptionPurchaseOutcome.failed:
+          if (!mounted) return;
           Navigator.of(context).pop(false);
           context.push('/settings/subscription');
-        }
+          return;
       }
     } catch (e, st) {
       developer.log('Purchase error: $e', name: 'UpgradeGate', stackTrace: st);
@@ -302,5 +343,18 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
         Navigator.of(context).pop(false);
       }
     }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 }

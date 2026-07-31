@@ -34,10 +34,11 @@ class AiQuotaSnapshot {
 /// Server-authoritative monthly quota for costly AI features.
 ///
 /// Talks to the Cloudflare Worker `/quota` endpoint, which counts usage per
-/// the verified Supabase account and resets monthly. `X-User-Id` remains only a
-/// secondary installation signal and never owns quota. This source of truth
-/// survives reinstall / "clear app data" —
-/// closing the free-tier farming hole that a purely local counter cannot.
+/// durable installation and resets monthly. The verified Supabase account and
+/// App Check token authorize the request, while `X-User-Id` owns the shared
+/// device allowance. This source of truth survives account switches and, when
+/// the platform durable store restores successfully, reinstall / "clear app
+/// data".
 ///
 /// AI enrichment itself requires the worker, so when the worker is unreachable
 /// (and a peek/consume throws) no AI — and therefore no cost — happens; callers
@@ -49,6 +50,7 @@ class AiQuotaService {
   static final AiQuotaService instance = AiQuotaService();
 
   final AiTransport _transport;
+  static const int _deviceScopeVersion = 2;
 
   /// Maps a [UsageFeature] to its server feature key, or `null` when the
   /// feature is metered purely locally (no server-side cost ceiling yet).
@@ -59,16 +61,26 @@ class AiQuotaService {
   };
 
   /// Reads the current count without consuming (the gate check).
-  Future<AiQuotaSnapshot> peek(String feature) => _call(feature, commit: false);
+  Future<AiQuotaSnapshot> peek(String feature, {int? migrationUsed}) =>
+      _call(feature, commit: false, migrationUsed: migrationUsed);
 
   /// Atomically checks and consumes one unit (called on a successful AI save).
-  Future<AiQuotaSnapshot> consume(String feature) =>
-      _call(feature, commit: true);
+  Future<AiQuotaSnapshot> consume(String feature, {int? migrationUsed}) =>
+      _call(feature, commit: true, migrationUsed: migrationUsed);
 
-  Future<AiQuotaSnapshot> _call(String feature, {required bool commit}) async {
+  Future<AiQuotaSnapshot> _call(
+    String feature, {
+    required bool commit,
+    int? migrationUsed,
+  }) async {
     final json = await _transport.postJson(
       '/quota',
-      body: {'feature': feature, 'commit': commit},
+      body: {
+        'feature': feature,
+        'commit': commit,
+        'scopeVersion': _deviceScopeVersion,
+        'localUsed': ?migrationUsed,
+      },
     );
     return AiQuotaSnapshot(
       used: (json['used'] as num?)?.toInt() ?? 0,

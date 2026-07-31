@@ -113,22 +113,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _requestAccountDeletion() async {
+    final isPro = ref.read(isProUserProvider);
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete account?'),
-        content: const Text(
-          'This removes your Glimpse account metadata. Your on-device library is not uploaded to Supabase.',
+        content: Text(
+          isPro
+              ? 'This removes your Glimpse account metadata but does not cancel '
+                    'store billing. Pro cannot be moved to another Glimpse '
+                    'account, so manage your subscription before deleting. '
+                    'Your on-device library is not uploaded to Supabase.'
+              : 'This removes your Glimpse account metadata. Your on-device '
+                    'library is not uploaded to Supabase.',
         ),
         actions: [
+          if (isPro)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+                context.push('/settings/subscription');
+              },
+              child: const Text('Manage subscription'),
+            ),
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
             child: const Text('Delete account'),
           ),

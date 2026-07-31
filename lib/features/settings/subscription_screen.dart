@@ -197,13 +197,40 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     }
 
     // 1. Native purchase via RevenueCat.
-    final purchased = await service.purchaseRecommendedPackage();
-    if (!purchased) return;
+    final purchaseOutcome = await service.purchaseRecommendedPackage();
+    if (!context.mounted) return;
+    switch (purchaseOutcome) {
+      case SubscriptionPurchaseOutcome.cancelled:
+        return;
+      case SubscriptionPurchaseOutcome.pending:
+        _showSubscriptionMessage(
+          context,
+          'Your purchase is pending. Pro will unlock after payment is confirmed.',
+        );
+        return;
+      case SubscriptionPurchaseOutcome.ownedByAnotherAccount:
+        _showSubscriptionMessage(context, subscriptionOwnershipMessage);
+        return;
+      case SubscriptionPurchaseOutcome.unavailable:
+        _showSubscriptionMessage(
+          context,
+          'Subscriptions are unavailable right now.',
+        );
+        return;
+      case SubscriptionPurchaseOutcome.failed:
+        _showSubscriptionMessage(
+          context,
+          'The purchase could not be completed. Please try again.',
+        );
+        return;
+      case SubscriptionPurchaseOutcome.success:
+      case SubscriptionPurchaseOutcome.alreadyPurchased:
+        break;
+    }
 
-    // 2. Explicit, one-shot post-purchase reconciliation. Authenticated login
-    // also syncs purchases when linking the RevenueCat user, but purchases
-    // still need this immediate cache refresh so the local RC cache does not
-    // serve the pre-purchase "free" payload for up to 5 minutes.
+    // 2. Explicit, one-shot post-purchase reconciliation so the local
+    // RevenueCat cache does not serve the pre-purchase "free" payload for up
+    // to five minutes.
     await ref.read(subscriptionTierProvider.notifier).refreshAfterPurchase();
 
     if (!context.mounted) return;
@@ -228,6 +255,14 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             duration: Duration(seconds: 3),
           ),
         );
+    } else {
+      _showSubscriptionMessage(
+        context,
+        purchaseOutcome == SubscriptionPurchaseOutcome.alreadyPurchased
+            ? subscriptionOwnershipMessage
+            : 'The purchase completed, but Pro could not be verified yet. '
+                  'Please try Restore Purchases.',
+      );
     }
   }
 
@@ -236,22 +271,34 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     // Purchases.restorePurchases() returns fresh CustomerInfo AND fires
     // the update listener, which the notifier is subscribed to — so the
     // Riverpod state updates on its own. No manual refresh required.
-    final tier = await service.restorePurchases();
+    final outcome = await service.restorePurchases();
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              tier == SubscriptionTier.premium
-                  ? 'Purchases restored — welcome back!'
-                  : 'No previous purchases found',
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+      final message = switch (outcome) {
+        SubscriptionRestoreOutcome.success =>
+          'Purchases restored — welcome back!',
+        SubscriptionRestoreOutcome.notFound => 'No previous purchases found',
+        SubscriptionRestoreOutcome.ownedByAnotherAccount =>
+          subscriptionOwnershipMessage,
+        SubscriptionRestoreOutcome.unavailable =>
+          'Subscriptions are unavailable right now.',
+        SubscriptionRestoreOutcome.failed =>
+          'Purchases could not be restored. Please try again.',
+      };
+      _showSubscriptionMessage(context, message);
     }
+  }
+
+  void _showSubscriptionMessage(BuildContext context, String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   Future<void> _openCustomerCenter(BuildContext context, WidgetRef ref) async {
