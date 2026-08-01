@@ -8,10 +8,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/link_preview_service.dart';
 import '../../core/services/summary_trimmer.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/utils/url_extractor.dart';
+import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../collections/share_capture_sheet.dart';
@@ -27,11 +27,7 @@ class AddUrlScreen extends ConsumerStatefulWidget {
   final String? initialUrl;
   final UserCollection? initialCollection;
 
-  const AddUrlScreen({
-    super.key,
-    this.initialUrl,
-    this.initialCollection,
-  });
+  const AddUrlScreen({super.key, this.initialUrl, this.initialCollection});
 
   @override
   ConsumerState<AddUrlScreen> createState() => _AddUrlScreenState();
@@ -40,8 +36,8 @@ class AddUrlScreen extends ConsumerStatefulWidget {
 class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
+  final _notesFocusNode = FocusNode();
   final _formKey = GlobalKey<FormState>();
-  String? _domainPreview;
   String? _clipboardPrefillUrl;
   bool _clipboardPrefilled = false;
   UserCollection? _selectedCollection;
@@ -51,9 +47,9 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
     super.initState();
     _selectedCollection = widget.initialCollection;
     _urlController.addListener(_handleUrlChanged);
+    _notesFocusNode.addListener(_handleNotesFocusChanged);
     if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
       _urlController.text = widget.initialUrl!;
-      _updateDomainPreview();
     } else {
       unawaited(_prefillFromClipboard());
     }
@@ -62,36 +58,24 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   @override
   void dispose() {
     _urlController.removeListener(_handleUrlChanged);
+    _notesFocusNode.removeListener(_handleNotesFocusChanged);
     _urlController.dispose();
     _notesController.dispose();
+    _notesFocusNode.dispose();
     super.dispose();
   }
 
+  void _handleNotesFocusChanged() {
+    setState(() {});
+  }
+
   void _handleUrlChanged() {
-    _updateDomainPreview();
     if (!_clipboardPrefilled) return;
     if (_urlController.text.trim() != _clipboardPrefillUrl) {
       setState(() {
         _clipboardPrefilled = false;
         _clipboardPrefillUrl = null;
       });
-    }
-  }
-
-  void _updateDomainPreview() {
-    final text = _urlController.text.trim();
-    String? preview;
-    if (text.isNotEmpty && LinkPreviewService.isValidUrl(text)) {
-      try {
-        var host = Uri.parse(text).host.toLowerCase();
-        if (host.startsWith('www.')) host = host.substring(4);
-        preview = host;
-      } catch (_) {
-        preview = null;
-      }
-    }
-    if (preview != _domainPreview) {
-      setState(() => _domainPreview = preview);
     }
   }
 
@@ -103,10 +87,11 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
       if (!mounted || extracted.urls.length != 1) return;
 
       final url = extracted.urls.first;
-      _clipboardPrefillUrl = url;
-      _clipboardPrefilled = true;
-      _urlController.text = url;
-      _updateDomainPreview();
+      setState(() {
+        _clipboardPrefillUrl = url;
+        _clipboardPrefilled = true;
+        _urlController.text = url;
+      });
     } catch (_) {
       // Clipboard reads can fail on some Android builds; leave the form empty.
     }
@@ -123,11 +108,14 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
         }
         return;
       }
-      _clipboardPrefilled = false;
-      _clipboardPrefillUrl = null;
-      _urlController.text = extracted.urls.isNotEmpty
-          ? extracted.urls.first
-          : text;
+      if (!mounted) return;
+      setState(() {
+        _clipboardPrefilled = false;
+        _clipboardPrefillUrl = null;
+        _urlController.text = extracted.urls.isNotEmpty
+            ? extracted.urls.first
+            : text;
+      });
     }
   }
 
@@ -184,256 +172,173 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
         state.status == AddUrlStatus.idle ||
         state.status == AddUrlStatus.error ||
         state.status == AddUrlStatus.duplicate;
+    final horizontalPadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+      compactPadding: 20,
+      maxContentWidth: 560,
+    );
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar.large(
-            backgroundColor: colorScheme.surface,
-            foregroundColor: colorScheme.onSurfaceVariant,
-            title: Text(
-              'Capture something worth returning to',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+    return Form(
+      key: _formKey,
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: AppBar(),
+        body: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            8,
+            horizontalPadding,
+            32,
           ),
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Subtitle
-                    Text(
-                      'Add a note if you want. Glimpse will find the context after you capture it.',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Grouped inputs
-                    Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.shadow.withValues(alpha: 0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        children: [
-                          // URL field
-                          TextFormField(
-                            controller: _urlController,
-                            decoration: InputDecoration(
-                              hintText: 'https://example.com',
-                              hintStyle: TextStyle(color: colorScheme.outline),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  Icons.content_paste_rounded,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                tooltip: 'Paste from clipboard',
-                                onPressed: isEnabled
-                                    ? _pasteFromClipboard
-                                    : null,
-                              ),
-                              filled: true,
-                              fillColor: colorScheme.surfaceContainerLow,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: colorScheme.primary,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface,
-                            ),
-                            keyboardType: TextInputType.url,
-                            autocorrect: false,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter a URL';
-                              }
-                              return null;
-                            },
-                            enabled: isEnabled,
-                          ),
-                          const SizedBox(height: 10),
-
-                          _CollectionSelector(
-                            collection: _selectedCollection,
-                            enabled: isEnabled,
-                            onTap: _chooseCollection,
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Note field
-                          TextFormField(
-                            controller: _notesController,
-                            decoration: InputDecoration(
-                              hintText: 'Add a note (optional)',
-                              hintStyle: TextStyle(color: colorScheme.outline),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: colorScheme.primary,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: colorScheme.surfaceContainerLow,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                            ),
-                            maxLines: 2,
-                            enabled: isEnabled,
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Domain preview
-                    if (_domainPreview != null && isEnabled)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Column(
-                          children: [
-                            Text(
-                              'From $_domainPreview',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (_clipboardPrefilled) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                'Detected from clipboard',
-                                style: textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-
-                    // Saving indicator
-                    if (isSaving) ...[
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer.withValues(
-                            alpha: 0.3,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Capturing what caught your eye.',
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    // Error message
-                    if (state.status == AddUrlStatus.error ||
-                        state.status == AddUrlStatus.duplicate) ...[
-                      const SizedBox(height: 8),
-                      _DuplicateSaveNotice(
-                        message: state.status == AddUrlStatus.duplicate
-                            ? 'Already in Glimpse'
-                            : state.errorMessage ??
-                                  'Could not capture this link',
-                        savedUrlId: state.savedUrlId,
-                        isError: state.status == AddUrlStatus.error,
-                      ),
-                    ],
-
-                    const Spacer(),
-
-                    SafeArea(
-                      top: false,
-                      left: false,
-                      right: false,
-                      minimum: const EdgeInsets.only(bottom: 16),
-                      child: FilledButton(
-                        onPressed: isEnabled ? _onSave : null,
-                        style: FilledButton.styleFrom(
-                          elevation: isEnabled ? 2 : 0,
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('Capture'),
-                      ),
-                    ),
-                  ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Capture something worth returning to',
+                style: textTheme.headlineMedium?.copyWith(
+                  color: colorScheme.onSurface,
                 ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Glimpse will find the context after you capture it.',
+                style: textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 32),
+              TextFormField(
+                controller: _urlController,
+                decoration: InputDecoration(
+                  label: const _FieldLabelPill('Link'),
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  hintText: 'https://example.com',
+                  helperText: _clipboardPrefilled
+                      ? 'Detected from clipboard'
+                      : null,
+                  helperStyle: textTheme.labelSmall?.copyWith(
+                    color: colorScheme.primary,
+                  ),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.content_paste_go_rounded),
+                    tooltip: 'Paste from clipboard',
+                    onPressed: isEnabled ? _pasteFromClipboard : null,
+                  ),
+                ),
+                style: textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurface,
+                ),
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a URL';
+                  }
+                  return null;
+                },
+                enabled: isEnabled,
+              ),
+              const SizedBox(height: 16),
+              _CollectionSelector(
+                collection: _selectedCollection,
+                enabled: isEnabled,
+                onTap: _chooseCollection,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _notesController,
+                focusNode: _notesFocusNode,
+                decoration: InputDecoration(
+                  label: _notesFocusNode.hasFocus
+                      ? const _FieldLabelPill('Note (optional)')
+                      : null,
+                  floatingLabelBehavior: _notesFocusNode.hasFocus
+                      ? FloatingLabelBehavior.always
+                      : FloatingLabelBehavior.never,
+                  hintText: _notesFocusNode.hasFocus
+                      ? null
+                      : 'Add a note (optional)',
+                  alignLabelWithHint: true,
+                ),
+                minLines: 3,
+                maxLines: 5,
+                enabled: isEnabled,
+                style: textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              if (state.status == AddUrlStatus.error ||
+                  state.status == AddUrlStatus.duplicate) ...[
+                const SizedBox(height: 20),
+                _DuplicateSaveNotice(
+                  message: state.status == AddUrlStatus.duplicate
+                      ? 'Already in Glimpse'
+                      : state.errorMessage ?? 'Could not capture this link',
+                  savedUrlId: state.savedUrlId,
+                  isError: state.status == AddUrlStatus.error,
+                ),
+              ],
+            ],
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              12,
+              horizontalPadding,
+              16,
+            ),
+            child: FilledButton(
+              onPressed: isEnabled ? _onSave : null,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 160),
+                child: isSaving
+                    ? const Row(
+                        key: ValueKey('saving'),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 10),
+                          Text('Capturing…'),
+                        ],
+                      )
+                    : const Text('Capture', key: ValueKey('capture')),
               ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldLabelPill extends StatelessWidget {
+  const _FieldLabelPill(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Material(
+      color: colorScheme.primary,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Text(
+          label,
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: colorScheme.onPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -454,10 +359,7 @@ class _CollectionSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide.none,
-    );
+    final borderRadius = BorderRadius.circular(20);
 
     return Semantics(
       button: true,
@@ -466,22 +368,14 @@ class _CollectionSelector extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: borderRadius,
           onTap: enabled ? onTap : null,
           child: InputDecorator(
             isEmpty: false,
             decoration: InputDecoration(
-              labelText: 'Collection',
-              filled: true,
-              fillColor: colorScheme.surfaceContainerLow,
-              border: border,
-              enabledBorder: border,
-              disabledBorder: border,
+              label: const _FieldLabelPill('Collection'),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
               enabled: enabled,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
               suffixIcon: Icon(
                 Icons.keyboard_arrow_down_rounded,
                 color: enabled
