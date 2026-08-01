@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'platform_icons.dart';
 import 'source_icon_resolver.dart';
@@ -98,30 +99,78 @@ class MonochromeIcon extends StatelessWidget {
 class SourceIconContainer extends StatelessWidget {
   final SourceIconSpec spec;
   final double containerSize;
+  final Color? accentColor;
+  final String? imageUrl;
+  final bool preferImage;
+  final bool showBackground;
 
   const SourceIconContainer({
     super.key,
     required this.spec,
     this.containerSize = 38,
+    this.accentColor,
+    this.imageUrl,
+    this.preferImage = false,
+    this.showBackground = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final accent = accentColor ?? cs.onSurfaceVariant;
+    final fallback = spec.isAsset
+        ? SvgPicture.asset(
+            spec.assetPath!,
+            width: containerSize * 0.47,
+            height: containerSize * 0.47,
+            colorFilter: ColorFilter.mode(accent, BlendMode.srcIn),
+          )
+        : spec.isGlyph
+        ? PlatformIcon(
+            platform: spec.glyphPlatform!,
+            size: containerSize * 0.47,
+            color: accent,
+          )
+        : Icon(spec.icon, size: containerSize * 0.47, color: accent);
+
     return Container(
       width: containerSize,
       height: containerSize,
       decoration: BoxDecoration(
-        color: cs.secondaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        color: showBackground
+            ? accentColor == null
+                  ? cs.secondaryContainer.withValues(alpha: 0.5)
+                  : accent.withValues(
+                      alpha: Theme.of(context).brightness == Brightness.dark
+                          ? 0.18
+                          : 0.12,
+                    )
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(containerSize * 0.3),
       ),
       child: Center(
-        child: spec.isGlyph
-            ? PlatformIcon(platform: spec.glyphPlatform!, size: containerSize * 0.47)
-            : Icon(
-                spec.icon,
-                size: containerSize * 0.47,
-                color: cs.onSurfaceVariant,
+        child: preferImage && imageUrl != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(containerSize * 0.1),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl!,
+                  width: containerSize * 0.58,
+                  height: containerSize * 0.58,
+                  fit: BoxFit.contain,
+                  errorWidget: (_, _, _) => fallback,
+                ),
+              )
+            : spec.isAsset || spec.isGlyph || imageUrl == null
+            ? fallback
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(containerSize * 0.1),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl!,
+                  width: containerSize * 0.48,
+                  height: containerSize * 0.48,
+                  fit: BoxFit.contain,
+                  errorWidget: (_, _, _) => fallback,
+                ),
               ),
       ),
     );

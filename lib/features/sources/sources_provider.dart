@@ -23,6 +23,7 @@ class SourceCluster {
   final String name;
   final int count;
   final List<String> mostlyAbout;
+  final int themeCount;
   final List<String> memoryStripUrls;
   final int savesThisWeek;
   final DateTime? lastSavedAt;
@@ -34,6 +35,7 @@ class SourceCluster {
     required this.name,
     required this.count,
     required this.mostlyAbout,
+    required this.themeCount,
     required this.memoryStripUrls,
     required this.savesThisWeek,
     this.lastSavedAt,
@@ -77,7 +79,7 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
     }
     final sortedTags = tagCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final mostlyAbout = sortedTags.take(4).map((t) => t.key).toList();
+    final mostlyAbout = sortedTags.take(7).map((t) => t.key).toList();
 
     // Top domain in this source
     final sortedDomains = domainCounts.entries.toList()
@@ -115,6 +117,7 @@ final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
       name: name,
       count: urls.length,
       mostlyAbout: mostlyAbout,
+      themeCount: sortedTags.length,
       memoryStripUrls: strip,
       savesThisWeek: savesThisWeek,
       lastSavedAt: lastSaved,

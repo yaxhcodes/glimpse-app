@@ -452,6 +452,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                   spacing: 4,
                   runSpacing: 4,
                   children: source.mostlyAbout
+                      .take(4)
                       .map((tag) => MonochromePill(tag, compact: true))
                       .toList(),
                 ),

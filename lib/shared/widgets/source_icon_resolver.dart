@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 SourceIconSpec resolveSourceIcon(String name) {
   final lower = name.toLowerCase().trim();
 
+  final brandAsset = _brandAssets[lower];
+  if (brandAsset != null) {
+    return SourceIconSpec.asset(brandAsset);
+  }
+
   if (_hasGlyph(lower)) {
     return SourceIconSpec.glyph(lower);
   }
@@ -109,16 +114,24 @@ SourceIconSpec resolveSourceIcon(String name) {
   }
 
   // Topic categories (semantic)
-  if (lower.contains('tech') || lower.contains('programming') || lower.contains('software')) {
+  if (lower.contains('tech') ||
+      lower.contains('programming') ||
+      lower.contains('software')) {
     return const SourceIconSpec(Icons.computer_outlined, 'Topic');
   }
-  if (lower.contains('design') || lower.contains('ui') || lower.contains('ux')) {
+  if (lower.contains('design') ||
+      lower.contains('ui') ||
+      lower.contains('ux')) {
     return const SourceIconSpec(Icons.brush_outlined, 'Topic');
   }
-  if (lower.contains('ai') || lower.contains('machine learning') || lower.contains('ml')) {
+  if (lower.contains('ai') ||
+      lower.contains('machine learning') ||
+      lower.contains('ml')) {
     return const SourceIconSpec(Icons.network_check_outlined, 'Topic');
   }
-  if (lower.contains('business') || lower.contains('startup') || lower.contains('entrepreneur')) {
+  if (lower.contains('business') ||
+      lower.contains('startup') ||
+      lower.contains('entrepreneur')) {
     return const SourceIconSpec(Icons.rocket_launch_outlined, 'Topic');
   }
   if (lower.contains('science') || lower.contains('research')) {
@@ -130,10 +143,14 @@ SourceIconSpec resolveSourceIcon(String name) {
   if (lower.contains('art') || lower.contains('creative')) {
     return const SourceIconSpec(Icons.color_lens_outlined, 'Topic');
   }
-  if (lower.contains('health') || lower.contains('fitness') || lower.contains('wellness')) {
+  if (lower.contains('health') ||
+      lower.contains('fitness') ||
+      lower.contains('wellness')) {
     return const SourceIconSpec(Icons.favorite_border_outlined, 'Topic');
   }
-  if (lower.contains('finance') || lower.contains('money') || lower.contains('invest')) {
+  if (lower.contains('finance') ||
+      lower.contains('money') ||
+      lower.contains('invest')) {
     return const SourceIconSpec(Icons.account_balance_outlined, 'Topic');
   }
   if (lower.contains('news') || lower.contains('politic')) {
@@ -145,16 +162,22 @@ SourceIconSpec resolveSourceIcon(String name) {
   if (lower.contains('travel') || lower.contains('adventure')) {
     return const SourceIconSpec(Icons.flight_takeoff_outlined, 'Topic');
   }
-  if (lower.contains('food') || lower.contains('cooking') || lower.contains('recipe')) {
+  if (lower.contains('food') ||
+      lower.contains('cooking') ||
+      lower.contains('recipe')) {
     return const SourceIconSpec(Icons.restaurant_outlined, 'Topic');
   }
   if (lower.contains('music') || lower.contains('audio')) {
     return const SourceIconSpec(Icons.headphones_outlined, 'Topic');
   }
-  if (lower.contains('video') || lower.contains('film') || lower.contains('movie')) {
+  if (lower.contains('video') ||
+      lower.contains('film') ||
+      lower.contains('movie')) {
     return const SourceIconSpec(Icons.videocam_outlined, 'Topic');
   }
-  if (lower.contains('book') || lower.contains('read') || lower.contains('literature')) {
+  if (lower.contains('book') ||
+      lower.contains('read') ||
+      lower.contains('literature')) {
     return const SourceIconSpec(Icons.book_outlined, 'Topic');
   }
   if (lower.contains('game') || lower.contains('gaming')) {
@@ -163,22 +186,30 @@ SourceIconSpec resolveSourceIcon(String name) {
   if (lower.contains('sport') || lower.contains('athletic')) {
     return const SourceIconSpec(Icons.sports_outlined, 'Topic');
   }
-  if (lower.contains('photo') || lower.contains('image') || lower.contains('camera')) {
+  if (lower.contains('photo') ||
+      lower.contains('image') ||
+      lower.contains('camera')) {
     return const SourceIconSpec(Icons.photo_camera_outlined, 'Topic');
   }
-  if (lower.contains('marketing') || lower.contains('growth') || lower.contains('seo')) {
+  if (lower.contains('marketing') ||
+      lower.contains('growth') ||
+      lower.contains('seo')) {
     return const SourceIconSpec(Icons.campaign_outlined, 'Topic');
   }
   if (lower.contains('productivity') || lower.contains('efficiency')) {
     return const SourceIconSpec(Icons.check_circle_outline, 'Topic');
   }
-  if (lower.contains('writing') || lower.contains('essay') || lower.contains('blog')) {
+  if (lower.contains('writing') ||
+      lower.contains('essay') ||
+      lower.contains('blog')) {
     return const SourceIconSpec(Icons.create_outlined, 'Topic');
   }
   if (lower.contains('history') || lower.contains('culture')) {
     return const SourceIconSpec(Icons.account_balance_outlined, 'Topic');
   }
-  if (lower.contains('nature') || lower.contains('environment') || lower.contains('climate')) {
+  if (lower.contains('nature') ||
+      lower.contains('environment') ||
+      lower.contains('climate')) {
     return const SourceIconSpec(Icons.forest_outlined, 'Topic');
   }
   if (lower.contains('fashion') || lower.contains('style')) {
@@ -192,9 +223,22 @@ SourceIconSpec resolveSourceIcon(String name) {
 }
 
 const _glyphPlatforms = <String>{
-  'x', 'twitter', 'reddit', 'github', 'youtube',
-  'spotify', 'pinterest', 'instagram', 'linkedin',
-  'medium', 'substack',
+  'twitter',
+  'reddit',
+  'github',
+  'spotify',
+  'linkedin',
+  'medium',
+  'substack',
+};
+
+const _brandAssets = <String, String>{
+  'instagram': 'assets/brands/instagram.svg',
+  'pinterest': 'assets/brands/pinterest.svg',
+  'tiktok': 'assets/brands/tiktok.svg',
+  'x': 'assets/brands/x.svg',
+  'twitter': 'assets/brands/x.svg',
+  'youtube': 'assets/brands/youtube.svg',
 };
 
 bool _hasGlyph(String lower) {
@@ -204,14 +248,23 @@ bool _hasGlyph(String lower) {
 class SourceIconSpec {
   final IconData? icon;
   final String? glyphPlatform;
+  final String? assetPath;
   final String family;
 
   const SourceIconSpec(this.icon, this.family)
-      : glyphPlatform = null;
+    : glyphPlatform = null,
+      assetPath = null;
 
   const SourceIconSpec.glyph(this.glyphPlatform)
-      : icon = null,
-        family = 'Platform';
+    : icon = null,
+      assetPath = null,
+      family = 'Platform';
+
+  const SourceIconSpec.asset(this.assetPath)
+    : icon = null,
+      glyphPlatform = null,
+      family = 'Platform';
 
   bool get isGlyph => glyphPlatform != null;
+  bool get isAsset => assetPath != null;
 }
