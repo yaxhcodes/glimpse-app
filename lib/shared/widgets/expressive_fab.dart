@@ -12,7 +12,7 @@ import '../theme/app_motion.dart';
 /// A [Listener] drives the press so the button's own tap handling is untouched;
 /// the press is abandoned if the pointer travels (a drag/scroll), so it never
 /// sticks pressed.
-class ExpressiveExtendedFab extends StatefulWidget {
+class ExpressiveExtendedFab extends StatelessWidget {
   const ExpressiveExtendedFab({
     super.key,
     required this.onPressed,
@@ -29,10 +29,78 @@ class ExpressiveExtendedFab extends StatefulWidget {
   final double pressedRadius;
 
   @override
-  State<ExpressiveExtendedFab> createState() => _ExpressiveExtendedFabState();
+  Widget build(BuildContext context) {
+    return _ExpressiveFabMotion(
+      idleRadius: idleRadius,
+      pressedRadius: pressedRadius,
+      builder: (radius) => FloatingActionButton.extended(
+        onPressed: onPressed,
+        icon: icon,
+        label: label,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
 }
 
-class _ExpressiveExtendedFabState extends State<ExpressiveExtendedFab>
+/// Regular FAB with the same Material 3 Expressive spring response as
+/// [ExpressiveExtendedFab].
+class ExpressiveFab extends StatelessWidget {
+  const ExpressiveFab({
+    super.key,
+    required this.onPressed,
+    required this.child,
+    this.heroTag,
+    this.tooltip,
+    this.idleRadius = 16,
+    this.pressedRadius = 9,
+  });
+
+  final VoidCallback onPressed;
+  final Widget child;
+  final Object? heroTag;
+  final String? tooltip;
+  final double idleRadius;
+  final double pressedRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ExpressiveFabMotion(
+      idleRadius: idleRadius,
+      pressedRadius: pressedRadius,
+      builder: (radius) => FloatingActionButton(
+        heroTag: heroTag,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        elevation: 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _ExpressiveFabMotion extends StatefulWidget {
+  const _ExpressiveFabMotion({
+    required this.builder,
+    required this.idleRadius,
+    required this.pressedRadius,
+  });
+
+  final Widget Function(double radius) builder;
+  final double idleRadius;
+  final double pressedRadius;
+
+  @override
+  State<_ExpressiveFabMotion> createState() => _ExpressiveFabMotionState();
+}
+
+class _ExpressiveFabMotionState extends State<_ExpressiveFabMotion>
     with SingleTickerProviderStateMixin {
   static const double _slop = 18.0;
 
@@ -91,18 +159,7 @@ class _ExpressiveExtendedFabState extends State<ExpressiveExtendedFab>
           final radius =
               widget.idleRadius +
               (widget.pressedRadius - widget.idleRadius) * clamped;
-          return Transform.scale(
-            scale: scale,
-            child: FloatingActionButton.extended(
-              onPressed: widget.onPressed,
-              icon: widget.icon,
-              label: widget.label,
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(radius),
-              ),
-            ),
-          );
+          return Transform.scale(scale: scale, child: widget.builder(radius));
         },
       ),
     );

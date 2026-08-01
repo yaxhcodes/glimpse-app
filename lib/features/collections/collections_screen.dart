@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/theme/app_icons.dart';
+import '../../shared/widgets/expressive_fab.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import 'collection_card.dart';
 import 'collections_provider.dart';
@@ -154,11 +155,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
         },
       ),
       floatingActionButton: hasCollections
-          ? FloatingActionButton(
+          ? ExpressiveFab(
               heroTag: 'collections-create',
               tooltip: 'New collection',
               onPressed: () => _createCollection(context),
-              elevation: 1,
               child: const AppIcon(AppIcons.addToCollection),
             )
           : null,
