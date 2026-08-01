@@ -274,10 +274,13 @@ class AppTheme {
       visualDensity: VisualDensity.standard,
       appBarTheme: AppBarTheme(
         centerTitle: false,
-        backgroundColor: colorScheme.surface,
+        backgroundColor: colorScheme.surface.withValues(
+          alpha: isDark ? 0.88 : 0.92,
+        ),
         foregroundColor: colorScheme.onSurfaceVariant,
         elevation: 0,
         scrolledUnderElevation: 0.5,
+        surfaceTintColor: Colors.transparent,
         titleTextStyle: appBarTitleStyle,
         iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
         actionsIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
@@ -438,10 +441,10 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 80,
-        elevation: 2,
-        shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
+        elevation: 0,
+        shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        backgroundColor: colorScheme.surfaceContainerLow,
+        backgroundColor: Colors.transparent,
         indicatorColor: colorScheme.secondaryContainer,
         indicatorShape: const StadiumBorder(),
         iconTheme: WidgetStateProperty.resolveWith((states) {

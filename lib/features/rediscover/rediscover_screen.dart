@@ -12,6 +12,7 @@ import '../../core/services/rediscovery_service.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../home/home_provider.dart';
 import 'journey_visual.dart';
@@ -102,8 +103,11 @@ class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
         slivers: [
           SliverAppBar(
             pinned: true,
-            backgroundColor: premiumBackground(context),
+            backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
+            flexibleSpace: AppGlassSurface(
+              backgroundColor: premiumBackground(context),
+            ),
             title: Text(
               'Rediscover',
               style: tt.titleLarge?.copyWith(

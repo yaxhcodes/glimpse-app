@@ -11,6 +11,7 @@ import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/app_glass_surface.dart';
 import '../home/home_screen.dart';
 import '../home/home_provider.dart';
 import '../collections/collections_screen.dart';
@@ -108,6 +109,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
           return Scaffold(
             backgroundColor: cs.surface,
+            extendBody: !usesRail,
             body: usesRail
                 ? Row(
                     children: [
@@ -184,22 +186,28 @@ class _MainShellState extends ConsumerState<MainShell> {
             floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
             bottomNavigationBar: usesRail
                 ? null
-                : NavigationBar(
-                    selectedIndex: _currentIndex,
-                    onDestinationSelected: _selectDestination,
-                    labelBehavior:
-                        NavigationDestinationLabelBehavior.alwaysShow,
-                    destinations: [
-                      for (final destination in _destinations)
-                        NavigationDestination(
-                          icon: AppIcon(destination.icon),
-                          selectedIcon: AppIcon(
-                            destination.icon,
-                            selected: true,
+                : AppGlassSurface(
+                    backgroundColor: cs.surfaceContainerLow,
+                    opacity: Theme.of(context).brightness == Brightness.dark
+                        ? 0.72
+                        : 0.80,
+                    child: NavigationBar(
+                      selectedIndex: _currentIndex,
+                      onDestinationSelected: _selectDestination,
+                      labelBehavior:
+                          NavigationDestinationLabelBehavior.alwaysShow,
+                      destinations: [
+                        for (final destination in _destinations)
+                          NavigationDestination(
+                            icon: AppIcon(destination.icon),
+                            selectedIcon: AppIcon(
+                              destination.icon,
+                              selected: true,
+                            ),
+                            label: destination.label,
                           ),
-                          label: destination.label,
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
           );
         },

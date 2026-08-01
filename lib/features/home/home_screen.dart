@@ -24,6 +24,7 @@ import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/platform_icons.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import '../../core/constants/app_assets.dart';
+import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
@@ -716,7 +717,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   floating: true,
                   snap: true,
                   centerTitle: false,
-                  backgroundColor: theme.colorScheme.surface,
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  flexibleSpace: const AppGlassSurface(),
                   foregroundColor: theme.colorScheme.onSurfaceVariant,
                   leading: selectionState.isActive
                       ? IconButton(

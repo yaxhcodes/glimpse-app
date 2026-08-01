@@ -12,6 +12,7 @@ import '../../core/services/rediscovery_service.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../home/home_provider.dart';
@@ -52,8 +53,9 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
         slivers: [
           SliverAppBar(
             pinned: true,
-            backgroundColor: cs.surface,
+            backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
+            flexibleSpace: const AppGlassSurface(),
             title: Text(
               'Rediscover',
               style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),

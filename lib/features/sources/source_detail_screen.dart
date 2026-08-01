@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
@@ -112,8 +113,9 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
               slivers: [
                 SliverAppBar(
                   pinned: true,
-                  backgroundColor: cs.surface,
+                  backgroundColor: Colors.transparent,
                   surfaceTintColor: Colors.transparent,
+                  flexibleSpace: const AppGlassSurface(),
                   title: selectionState.isActive
                       ? BulkSelectionTitle(count: selectedUrls.length)
                       : Text(
@@ -218,8 +220,9 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
   SliverAppBar _sourceAppBar(BuildContext context) {
     return SliverAppBar(
       pinned: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
+      flexibleSpace: const AppGlassSurface(),
       title: Text(
         sourceName,
         style: Theme.of(

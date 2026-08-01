@@ -22,6 +22,7 @@ import '../../core/services/transcript_enrichment_service.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/category_chip.dart'
     show faviconUrl, platformColors;
 import '../../shared/widgets/content_recommendation_section.dart';
@@ -1870,7 +1871,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         slivers: [
           SliverAppBar(
             pinned: true,
-            backgroundColor: colorScheme.surface,
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            flexibleSpace: const AppGlassSurface(),
             foregroundColor: colorScheme.onSurfaceVariant,
             title: const Text('Details'),
             actions: [
