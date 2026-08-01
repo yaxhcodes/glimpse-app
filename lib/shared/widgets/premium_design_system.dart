@@ -86,11 +86,7 @@ class MonochromeIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
-        child: Icon(
-          icon,
-          size: size,
-          color: cs.onSurfaceVariant,
-        ),
+        child: Icon(icon, size: size, color: cs.onSurfaceVariant),
       ),
     );
   }
@@ -213,21 +209,11 @@ class PremiumSearchBar extends StatelessWidget {
         style: tt.bodyMedium?.copyWith(color: cs.onSurface),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: tt.bodyMedium?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
-          prefixIcon: Icon(
-            Icons.search,
-            size: 20,
-            color: cs.onSurfaceVariant,
-          ),
+          hintStyle: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          prefixIcon: Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
           suffixIcon: onClear != null
               ? IconButton(
-                  icon: Icon(
-                    Icons.close,
-                    size: 18,
-                    color: cs.onSurfaceVariant,
-                  ),
+                  icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
                   onPressed: onClear,
                 )
               : null,
@@ -293,6 +279,9 @@ class SectionTitle extends StatelessWidget {
 class MemoryStrip extends StatelessWidget {
   final List<String> imageUrls;
   final double height;
+  final double overlap;
+  final double gapWidth;
+  final Color? gapColor;
 
   /// Max number of thumbnails to render before collapsing the rest into a
   /// "+N" tile.
@@ -308,7 +297,12 @@ class MemoryStrip extends StatelessWidget {
     this.height = 48,
     this.maxVisible = 4,
     this.totalCount,
-  });
+    this.overlap = 0,
+    this.gapWidth = 0,
+    this.gapColor,
+  }) : assert(height > 0),
+       assert(overlap >= 0),
+       assert(gapWidth >= 0);
 
   @override
   Widget build(BuildContext context) {
@@ -318,35 +312,55 @@ class MemoryStrip extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final visible = imageUrls.take(maxVisible).toList();
     final remaining = (totalCount ?? imageUrls.length) - visible.length;
+    final tileCount = visible.length + (remaining > 0 ? 1 : 0);
+    final effectiveOverlap = overlap.clamp(0, height - 1).toDouble();
+    final tileStep = height - effectiveOverlap;
+    final stripWidth = height + (tileCount - 1) * tileStep;
+    final separatorColor = gapColor ?? cs.surface;
 
     return SizedBox(
       height: height,
-      child: Row(
+      width: stripWidth,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          for (var i = 0; i < visible.length; i++) ...[
-            if (i > 0) const SizedBox(width: 6),
-            _MemoryTile(url: visible[i], size: height),
-          ],
-          if (remaining > 0) ...[
-            const SizedBox(width: 6),
-            Container(
-              width: height,
-              height: height,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(10),
+          for (var i = 0; i < visible.length; i++)
+            Positioned(
+              left: i * tileStep,
+              child: _MemoryTile(
+                url: visible[i],
+                size: height,
+                gapColor: separatorColor,
+                gapWidth: gapWidth,
               ),
-              child: Text(
-                '+$remaining',
-                style: tt.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
+            ),
+          if (remaining > 0)
+            Positioned(
+              left: visible.length * tileStep,
+              child: Container(
+                width: height,
+                height: height,
+                alignment: Alignment.center,
+                foregroundDecoration: BoxDecoration(
+                  border: gapWidth > 0
+                      ? Border.all(color: separatorColor, width: gapWidth)
+                      : null,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '+$remaining',
+                  style: tt.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ),
-          ],
         ],
       ),
     );
@@ -356,8 +370,15 @@ class MemoryStrip extends StatelessWidget {
 class _MemoryTile extends StatelessWidget {
   final String url;
   final double size;
+  final Color gapColor;
+  final double gapWidth;
 
-  const _MemoryTile({required this.url, required this.size});
+  const _MemoryTile({
+    required this.url,
+    required this.size,
+    required this.gapColor,
+    required this.gapWidth,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -369,18 +390,26 @@ class _MemoryTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: _isDark(context) ? 0.25 : 0.08),
+            color: Colors.black.withValues(
+              alpha: _isDark(context) ? 0.25 : 0.08,
+            ),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
         ],
+      ),
+      foregroundDecoration: BoxDecoration(
+        border: gapWidth > 0
+            ? Border.all(color: gapColor, width: gapWidth)
+            : null,
+        borderRadius: BorderRadius.circular(10),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: CachedNetworkImage(
           imageUrl: url,
           fit: BoxFit.cover,
-          errorWidget: (_, __, ___) => Container(
+          errorWidget: (_, _, _) => Container(
             color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
           ),
         ),
@@ -412,14 +441,9 @@ class CinematicRailMetrics {
   factory CinematicRailMetrics.of(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final isTablet = width > 600;
-    final cardWidth = isTablet
-        ? 248.0
-        : (width * 0.62).clamp(212.0, 250.0);
+    final cardWidth = isTablet ? 248.0 : (width * 0.62).clamp(212.0, 250.0);
     final listHeight = cardWidth * 9 / 16 + _textBlock;
-    return CinematicRailMetrics(
-      cardWidth: cardWidth,
-      listHeight: listHeight,
-    );
+    return CinematicRailMetrics(cardWidth: cardWidth, listHeight: listHeight);
   }
 }
 
@@ -450,9 +474,7 @@ class CinematicCard extends StatelessWidget {
     return Card(
       elevation: 0,
       color: cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -469,9 +491,9 @@ class CinematicCard extends StatelessWidget {
                     CachedNetworkImage(
                       imageUrl: imageUrl!,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) =>
+                      placeholder: (_, _) =>
                           ColoredBox(color: cs.surfaceContainerHighest),
-                      errorWidget: (_, __, ___) => Center(
+                      errorWidget: (_, _, _) => Center(
                         child: Icon(
                           Icons.image_outlined,
                           size: 26,

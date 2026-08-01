@@ -75,11 +75,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               if (a.isEmpty != b.isEmpty) return a.isEmpty ? 1 : -1;
               return a.name.toLowerCase().compareTo(b.name.toLowerCase());
             });
-          final topSources =
-              (clusters.where((c) => !c.isEmpty).toList()
-                    ..sort((a, b) => b.count.compareTo(a.count)))
-                  .take(8)
-                  .toList();
+          final topSources = topSourceClusters(clusters);
           final showRail =
               !searching &&
               _filter == _SourceFilter.all &&
@@ -444,6 +440,9 @@ class _KnowledgeClusterCard extends StatelessWidget {
                   imageUrls: source.memoryStripUrls,
                   height: 44,
                   totalCount: source.count,
+                  overlap: 12,
+                  gapWidth: 2,
+                  gapColor: cs.surfaceContainerLow,
                 ),
               ],
               if (source.mostlyAbout.isNotEmpty) ...[

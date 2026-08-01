@@ -12,7 +12,6 @@ import '../../core/config/app_environment.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/pinned_urls_provider.dart';
-import '../../core/providers/source_order_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/services/demo_seed_service.dart';
@@ -337,39 +336,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  List<SourceCluster> _orderedSourceClusters(
-    List<SourceCluster> clusters,
-    List<String> order,
-  ) {
-    final byName = {for (final cluster in clusters) cluster.name: cluster};
-    final ordered = <SourceCluster>[
-      for (final name in order)
-        if (byName[name] != null) byName[name]!,
-    ];
-    final orderedNames = ordered.map((cluster) => cluster.name).toSet();
-    final rest =
-        clusters
-            .where((cluster) => !orderedNames.contains(cluster.name))
-            .toList()
-          ..sort((a, b) => b.count.compareTo(a.count));
-    return [...ordered, ...rest];
-  }
-
-  void _showSourceReorderSheet(List<SourceCluster> clusters) {
-    final initial = clusters.take(10).toList();
-    if (initial.length < 2) return;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => _SourceReorderSheet(
-        initial: initial,
-        onChanged: (names) {
-          ref.read(sourceOrderProvider.notifier).reorder(names);
-        },
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _introFadeTimer?.cancel();
@@ -388,11 +354,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final sourceClusterValues =
         ref.watch(sourceClustersProvider).valueOrNull ??
         const <SourceCluster>[];
-    final sourceOrder = ref.watch(sourceOrderProvider);
-    final sourceClusters = _orderedSourceClusters(
-      sourceClusterValues,
-      sourceOrder,
-    );
+    final sourceClusters = topSourceClusters(sourceClusterValues);
     final addUrlStatus = ref.watch(addUrlProvider.select((s) => s.status));
     final isAddingUrl =
         addUrlStatus != AddUrlStatus.idle &&
@@ -825,106 +787,97 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SliverToBoxAdapter(child: RediscoverySection()),
                 if (sourceClusters.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onLongPress: () =>
-                          _showSourceReorderSheet(sourceClusters),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => context.push('/sources'),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 4,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            'Sources',
-                                            style: theme.textTheme.labelMedium
-                                                ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => context.push('/sources'),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Sources',
+                                          style: theme.textTheme.labelMedium
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                                IconButton(
-                                  onPressed: () => context.push('/sources'),
-                                  tooltip: 'View all sources',
-                                  icon: Icon(
-                                    Icons.chevron_right_rounded,
-                                    size: 20,
-                                    color: theme.colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.48),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(
-                            height: 34,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              clipBehavior: Clip.none,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
                               ),
-                              itemCount: sourceClusters.length.clamp(0, 10),
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(width: 6),
-                              itemBuilder: (context, index) {
-                                final source = sourceClusters[index];
-                                final name = source.name;
-                                final fav =
-                                    faviconUrl(name) ?? source.faviconUrl;
-                                final iconSpec = resolveSourceIcon(name);
-                                return FilterChip(
-                                  showCheckmark: false,
-                                  avatar: _SourceChipAvatar(
-                                    label: name,
-                                    faviconUrl: fav,
-                                    iconSpec: iconSpec,
-                                    size: 14,
-                                  ),
-                                  label: Text(name),
-                                  color: WidgetStatePropertyAll(
-                                    theme.colorScheme.surfaceContainerLow,
-                                  ),
-                                  labelStyle: theme.textTheme.labelSmall
-                                      ?.copyWith(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: 0.1,
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                  backgroundColor:
-                                      theme.colorScheme.surfaceContainerLow,
-                                  side: BorderSide.none,
-                                  selected: false,
-                                  onSelected: (_) => context.push(
-                                    '/sources/${Uri.encodeComponent(name)}',
-                                  ),
-                                );
-                              },
-                            ),
+                              IconButton(
+                                onPressed: () => context.push('/sources'),
+                                tooltip: 'View all sources',
+                                icon: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 20,
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.48),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(
+                          height: 34,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            clipBehavior: Clip.none,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: sourceClusters.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 6),
+                            itemBuilder: (context, index) {
+                              final source = sourceClusters[index];
+                              final name = source.name;
+                              final fav = faviconUrl(name) ?? source.faviconUrl;
+                              final iconSpec = resolveSourceIcon(name);
+                              return FilterChip(
+                                showCheckmark: false,
+                                avatar: _SourceChipAvatar(
+                                  label: name,
+                                  faviconUrl: fav,
+                                  iconSpec: iconSpec,
+                                  size: 14,
+                                ),
+                                label: Text(name),
+                                color: WidgetStatePropertyAll(
+                                  theme.colorScheme.surfaceContainerLow,
+                                ),
+                                labelStyle: theme.textTheme.labelSmall
+                                    ?.copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.1,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                backgroundColor:
+                                    theme.colorScheme.surfaceContainerLow,
+                                side: BorderSide.none,
+                                selected: false,
+                                onSelected: (_) => context.push(
+                                  '/sources/${Uri.encodeComponent(name)}',
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 if (isAddingUrl)
@@ -1099,82 +1052,6 @@ class _DomainInitialAvatar extends StatelessWidget {
           fontSize: size * 0.58,
           fontWeight: FontWeight.w800,
           height: 1,
-        ),
-      ),
-    );
-  }
-}
-
-class _SourceReorderSheet extends StatefulWidget {
-  const _SourceReorderSheet({required this.initial, required this.onChanged});
-
-  final List<SourceCluster> initial;
-  final ValueChanged<List<String>> onChanged;
-
-  @override
-  State<_SourceReorderSheet> createState() => _SourceReorderSheetState();
-}
-
-class _SourceReorderSheetState extends State<_SourceReorderSheet> {
-  late final List<SourceCluster> _items;
-
-  @override
-  void initState() {
-    super.initState();
-    _items = [...widget.initial];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return SafeArea(
-      child: SizedBox(
-        height: 420,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-              child: Text(
-                'Source quick access',
-                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            Expanded(
-              child: ReorderableListView.builder(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                itemCount: _items.length,
-                onReorder: (oldIndex, newIndex) {
-                  setState(() {
-                    if (newIndex > oldIndex) newIndex -= 1;
-                    final item = _items.removeAt(oldIndex);
-                    _items.insert(newIndex, item);
-                  });
-                  widget.onChanged(_items.map((item) => item.name).toList());
-                },
-                itemBuilder: (context, index) {
-                  final source = _items[index];
-                  final iconSpec = resolveSourceIcon(source.name);
-                  return ListTile(
-                    key: ValueKey(source.name),
-                    leading: _SourceChipAvatar(
-                      label: source.name,
-                      faviconUrl: faviconUrl(source.name) ?? source.faviconUrl,
-                      iconSpec: iconSpec,
-                      size: 18,
-                    ),
-                    title: Text(source.name),
-                    subtitle: Text('${source.count} saves'),
-                    trailing: Icon(
-                      Icons.drag_handle_rounded,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
         ),
       ),
     );

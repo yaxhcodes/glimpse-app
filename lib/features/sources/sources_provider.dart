@@ -49,6 +49,24 @@ class SourceCluster {
   bool get isEmpty => count == 0;
 }
 
+const topSourceCount = 5;
+
+/// Returns the most-saved sources in a stable order for shared library surfaces.
+List<SourceCluster> topSourceClusters(
+  Iterable<SourceCluster> clusters, {
+  int limit = topSourceCount,
+}) {
+  if (limit <= 0) return const [];
+
+  final ranked = clusters.where((cluster) => !cluster.isEmpty).toList()
+    ..sort((a, b) {
+      final countComparison = b.count.compareTo(a.count);
+      if (countComparison != 0) return countComparison;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+  return ranked.take(limit).toList(growable: false);
+}
+
 /// Fetches all URLs and builds enriched knowledge-cluster metadata.
 final sourceClustersProvider = FutureProvider<List<SourceCluster>>((ref) async {
   final isar = ref.read(isarServiceProvider);
