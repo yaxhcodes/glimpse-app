@@ -19,6 +19,11 @@ final authServiceProvider = Provider<AuthService>((ref) {
   return SupabaseAuthService.instance;
 });
 
+final subscriptionIdentityServiceProvider =
+    Provider<SubscriptionIdentityService>((ref) {
+      return ref.watch(subscriptionServiceProvider);
+    });
+
 final authControllerProvider = AsyncNotifierProvider<AuthController, AppUser?>(
   AuthController.new,
 );
@@ -46,7 +51,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
 
     final user = await auth.restoreSession();
     if (user != null) {
-      await _linkSubscriptionIdentity(user.id);
+      unawaited(_linkSubscriptionIdentity(user.id));
     }
     return user;
   }
@@ -106,7 +111,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
     _authStateRevision++;
     _beginSubscriptionIdentityChange();
     _linkedSubscriptionUserId = null;
-    SubscriptionService.instance.clearAuthenticatedUser();
+    ref.read(subscriptionIdentityServiceProvider).clearAuthenticatedUser();
     await ref.read(authServiceProvider).signOut();
     state = const AsyncData(null);
   }
@@ -116,7 +121,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
     _beginSubscriptionIdentityChange();
     await ref.read(authServiceProvider).requestAccountDeletion();
     _linkedSubscriptionUserId = null;
-    SubscriptionService.instance.clearAuthenticatedUser();
+    ref.read(subscriptionIdentityServiceProvider).clearAuthenticatedUser();
     state = const AsyncData(null);
   }
 
@@ -125,7 +130,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
     if (user == null) {
       _beginSubscriptionIdentityChange();
       _linkedSubscriptionUserId = null;
-      SubscriptionService.instance.clearAuthenticatedUser();
+      ref.read(subscriptionIdentityServiceProvider).clearAuthenticatedUser();
       state = const AsyncData(null);
       return;
     }
@@ -141,7 +146,8 @@ class AuthController extends AsyncNotifier<AppUser?> {
       if (_linkedSubscriptionUserId == userId) return true;
 
       _beginSubscriptionIdentityChange();
-      final linked = await SubscriptionService.instance
+      final linked = await ref
+          .read(subscriptionIdentityServiceProvider)
           .logInWithAuthenticatedUser(userId);
       if (linked) {
         _linkedSubscriptionUserId = userId;

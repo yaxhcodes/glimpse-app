@@ -85,6 +85,13 @@ class _AppUserId {
   }
 }
 
+/// Auth-facing subset of subscription identity operations.
+abstract interface class SubscriptionIdentityService {
+  Future<bool> logInWithAuthenticatedUser(String userId);
+
+  void clearAuthenticatedUser();
+}
+
 /// Thin wrapper around `Purchases.configure` + purchase/restore/paywall
 /// entry points.
 ///
@@ -97,7 +104,7 @@ class _AppUserId {
 /// happened to listen to the stream. Missed events + extra layer of
 /// indirection = "RC shows Pro, app shows Free". The listener now writes
 /// directly to `state = AsyncData(tier)` on the notifier.
-class SubscriptionService {
+class SubscriptionService implements SubscriptionIdentityService {
   SubscriptionService._();
 
   static final SubscriptionService instance = SubscriptionService._();
@@ -111,6 +118,7 @@ class SubscriptionService {
   /// Migrate RevenueCat from the anonymous/per-install fallback ID to the
   /// authenticated Supabase user ID. This prevents customer fragmentation while
   /// preserving existing anonymous purchases through RevenueCat's alias flow.
+  @override
   Future<bool> logInWithAuthenticatedUser(String userId) async {
     if (userId.isEmpty) return false;
     if (!_configured) return true;
@@ -152,6 +160,7 @@ class SubscriptionService {
   /// anonymous customer and can fragment purchases; the app requires auth
   /// before purchase surfaces, so the next account sign-in will call
   /// `logInWithAuthenticatedUser` again.
+  @override
   void clearAuthenticatedUser() {
     _authenticatedAppUserId = null;
   }
