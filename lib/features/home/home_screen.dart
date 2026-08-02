@@ -356,12 +356,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ref.watch(sourceClustersProvider).valueOrNull ??
         const <SourceCluster>[];
     final sourceClusters = topSourceClusters(sourceClusterValues);
-    final addUrlStatus = ref.watch(addUrlProvider.select((s) => s.status));
-    final isAddingUrl =
-        addUrlStatus != AddUrlStatus.idle &&
-        addUrlStatus != AddUrlStatus.done &&
-        addUrlStatus != AddUrlStatus.duplicate &&
-        addUrlStatus != AddUrlStatus.error;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -431,8 +425,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         data: (urls) {
-          final isEmptyOrCelebrating =
-              ((urls.isEmpty && !isAddingUrl) || _isCelebratingFirstSave);
+          final isEmptyOrCelebrating = urls.isEmpty || _isCelebratingFirstSave;
 
           final child = isEmptyOrCelebrating
               ? _buildEmptyState(context, urls, theme, colorScheme, textTheme)
@@ -444,7 +437,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   simulateFirstSave: simulateFirstSave,
                   forceEmptyLibrary: forceEmptyLibrary,
                   actualUrls: actualUrls,
-                  isAddingUrl: isAddingUrl,
                 );
 
           // Cross-fade the empty→home swap so the first save flows into the
@@ -641,7 +633,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required bool simulateFirstSave,
     required bool forceEmptyLibrary,
     required List<SavedUrl> actualUrls,
-    required bool isAddingUrl,
   }) {
     const selectionScope = 'home';
     final selectionState = ref.watch(bulkSelectionProvider(selectionScope));
@@ -883,8 +874,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                   ),
-                if (isAddingUrl)
-                  const SliverToBoxAdapter(child: UrlCardSkeleton()),
                 for (final section in sections) ...[
                   SliverToBoxAdapter(
                     child: Padding(
