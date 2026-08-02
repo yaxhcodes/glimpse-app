@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/models/url_processing_status.dart';
@@ -304,7 +303,7 @@ class _BrowserEnvironment extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const AppIcon(Symbols.more_vert_rounded, size: 20),
+            const AppIcon(AppIcons.more, size: 20),
           ],
         ),
       ),
@@ -413,7 +412,7 @@ class _ShareEnvironment extends StatelessWidget {
                     child: Row(
                       children: [
                         const AppIcon(
-                          Symbols.link_rounded,
+                          AppIcons.link,
                           size: 18,
                           color: OnboardingPalette.sage,
                         ),
@@ -511,7 +510,7 @@ class _ShareTarget extends StatelessWidget {
                         child: Padding(
                           padding: EdgeInsets.all(3),
                           child: AppIcon(
-                            Symbols.check_rounded,
+                            AppIcons.check,
                             size: 12,
                             color: OnboardingPalette.ink,
                           ),
@@ -695,7 +694,7 @@ class _CompactEnrichmentStep extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: AppIcon(
-              completed ? Symbols.check_rounded : step.icon,
+              completed ? AppIcons.check : step.icon,
               size: 12,
               color: completed ? OnboardingPalette.ink : OnboardingPalette.sage,
             ),
@@ -793,7 +792,7 @@ class _CompactSavedMemoryResult extends StatelessWidget {
           ),
           const SizedBox(width: 7),
           AppIcon(
-            ready ? Symbols.check_circle_rounded : Symbols.auto_awesome_rounded,
+            ready ? AppIcons.checkCircle : AppIcons.sparkle,
             size: 18,
             color: OnboardingPalette.sage,
           ),
@@ -804,23 +803,11 @@ class _CompactSavedMemoryResult extends StatelessWidget {
 }
 
 const _understandingSteps = <({IconData icon, String label, String value})>[
-  (icon: Symbols.link_rounded, label: 'Link received', value: 'kyoto.travel'),
-  (
-    icon: Symbols.image_rounded,
-    label: 'Thumbnail found',
-    value: 'Kyoto at dusk',
-  ),
-  (
-    icon: Symbols.subject_rounded,
-    label: 'Summary written',
-    value: 'Quiet 3-day plan',
-  ),
-  (icon: Symbols.sell_rounded, label: 'Tags created', value: 'Kyoto · autumn'),
-  (
-    icon: Symbols.account_tree_rounded,
-    label: 'Intent understood',
-    value: 'Visit later',
-  ),
+  (icon: AppIcons.link, label: 'Link received', value: 'kyoto.travel'),
+  (icon: AppIcons.image, label: 'Thumbnail found', value: 'Kyoto at dusk'),
+  (icon: AppIcons.text, label: 'Summary written', value: 'Quiet 3-day plan'),
+  (icon: AppIcons.tag, label: 'Tags created', value: 'Kyoto · autumn'),
+  (icon: AppIcons.hierarchy, label: 'Intent understood', value: 'Visit later'),
 ];
 
 int _completedEnrichmentSteps(double progress) {
@@ -842,7 +829,7 @@ class _EnrichmentHeader extends StatelessWidget {
     return Row(
       children: [
         AppIcon(
-          ready ? Symbols.check_circle_rounded : Symbols.auto_awesome_rounded,
+          ready ? AppIcons.checkCircle : AppIcons.sparkle,
           size: 18,
           color: OnboardingPalette.sage,
         ),
@@ -924,7 +911,7 @@ class _EnrichmentStepRow extends StatelessWidget {
                         : null,
                   ),
                   child: AppIcon(
-                    completed ? Symbols.check_rounded : step.icon,
+                    completed ? AppIcons.check : step.icon,
                     size: compact ? 14 : 16,
                     color: completed
                         ? OnboardingPalette.ink
@@ -1116,7 +1103,7 @@ class _CalendarPassage extends StatelessWidget {
                   Row(
                     children: [
                       const AppIcon(
-                        Symbols.calendar_month_rounded,
+                        AppIcons.calendar,
                         size: 18,
                         color: OnboardingPalette.sage,
                       ),
@@ -1322,7 +1309,7 @@ class _RediscoverNotification extends StatelessWidget {
                           Row(
                             children: [
                               const AppIcon(
-                                Symbols.history_rounded,
+                                AppIcons.rediscover,
                                 size: 18,
                                 color: OnboardingPalette.sageDeep,
                               ),
@@ -1395,7 +1382,7 @@ class _OpenedMemory extends StatelessWidget {
                         child: Row(
                           children: [
                             const AppIcon(
-                              Symbols.history_rounded,
+                              AppIcons.rediscover,
                               size: 17,
                               color: OnboardingPalette.sage,
                             ),
@@ -1456,15 +1443,9 @@ class _OpenedMemory extends StatelessWidget {
                         spacing: 7,
                         runSpacing: 7,
                         children: [
-                          _MemoryContextPill(
-                            label: 'Slow travel',
-                          ),
-                          _MemoryContextPill(
-                            label: 'Temple walks',
-                          ),
-                          _MemoryContextPill(
-                            label: 'Gion evenings',
-                          ),
+                          _MemoryContextPill(label: 'Slow travel'),
+                          _MemoryContextPill(label: 'Temple walks'),
+                          _MemoryContextPill(label: 'Gion evenings'),
                         ],
                       ),
                       const SizedBox(height: 15),
@@ -1476,7 +1457,7 @@ class _OpenedMemory extends StatelessWidget {
                       Row(
                         children: [
                           const AppIcon(
-                            Symbols.check_circle_rounded,
+                            AppIcons.checkCircle,
                             size: 18,
                             color: OnboardingPalette.sage,
                           ),
@@ -1589,21 +1570,15 @@ class _CompactOpenedMemory extends StatelessWidget {
                   const Wrap(
                     spacing: 5,
                     children: [
-                      _MemoryContextPill(
-                        label: 'Temples',
-                        compact: true,
-                      ),
-                      _MemoryContextPill(
-                        label: 'Gion nights',
-                        compact: true,
-                      ),
+                      _MemoryContextPill(label: 'Temples', compact: true),
+                      _MemoryContextPill(label: 'Gion nights', compact: true),
                     ],
                   ),
                   const SizedBox(height: 7),
                   Row(
                     children: [
                       const AppIcon(
-                        Symbols.check_circle_rounded,
+                        AppIcons.checkCircle,
                         size: 15,
                         color: OnboardingPalette.sage,
                       ),
@@ -1721,7 +1696,7 @@ class _KyotoArticle extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const AppIcon(
-                      Symbols.ios_share_rounded,
+                      AppIcons.share,
                       size: 22,
                       color: OnboardingPalette.ink,
                       semanticLabel: 'Share this article',

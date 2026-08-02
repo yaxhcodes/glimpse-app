@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../shared/theme/app_icons.dart';
@@ -271,15 +270,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   IconData? get _ctaIcon {
-    if (_finishing || _transitioning) return Symbols.check_rounded;
+    if (_finishing || _transitioning) return AppIcons.check;
     return switch (_chapter) {
-      0 => Symbols.arrow_forward_rounded,
-      1 => Symbols.bookmark_add_rounded,
-      2 => Symbols.history_rounded,
-      _ =>
-        _memoryOpened
-            ? Symbols.arrow_forward_rounded
-            : Symbols.touch_app_rounded,
+      0 => AppIcons.arrowForward,
+      1 => AppIcons.bookmarkAdd,
+      2 => AppIcons.rediscover,
+      _ => _memoryOpened ? AppIcons.arrowForward : AppIcons.tap,
     };
   }
 }
@@ -313,7 +309,7 @@ class _Navigation extends StatelessWidget {
                   ? IconButton(
                       onPressed: backEnabled ? onBack : null,
                       tooltip: 'Previous step',
-                      icon: const AppIcon(Symbols.arrow_back_rounded),
+                      icon: const AppIcon(AppIcons.arrowBack),
                     )
                   : null,
             ),

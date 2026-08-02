@@ -135,9 +135,7 @@ class SettingsTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
-              child:
-                  leading ??
-                  AppIcon(icon!, color: accent, size: 22, weight: 450),
+              child: leading ?? AppIcon(icon!, color: accent, size: 22),
             ),
             const SizedBox(width: 16),
             Expanded(

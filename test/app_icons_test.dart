@@ -14,7 +14,7 @@ void main() {
     expect(destinations, hasLength(4));
   });
 
-  testWidgets('selected navigation icon uses filled heavier treatment', (
+  testWidgets('selected navigation icon uses the matching fill variant', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -32,32 +32,21 @@ void main() {
       ),
     );
 
-    final inactive = tester.widget<RichText>(
+    final inactive = tester.widget<Icon>(
       find.descendant(
         of: find.byKey(const ValueKey('inactive')),
-        matching: find.byType(RichText),
+        matching: find.byType(Icon),
       ),
     );
-    final selected = tester.widget<RichText>(
+    final selected = tester.widget<Icon>(
       find.descendant(
         of: find.byKey(const ValueKey('selected')),
-        matching: find.byType(RichText),
+        matching: find.byType(Icon),
       ),
     );
-    final inactiveAxes = _fontAxes(inactive);
-    final selectedAxes = _fontAxes(selected);
 
-    expect(inactiveAxes['FILL'], 0);
-    expect(inactiveAxes['wght'], 400);
-    expect(selectedAxes['FILL'], 1);
-    expect(selectedAxes['wght'], 550);
+    expect(inactive.icon!.codePoint, selected.icon!.codePoint);
+    expect(inactive.icon!.fontFamily, 'PhosphorRegular');
+    expect(selected.icon!.fontFamily, 'PhosphorFill');
   });
-}
-
-Map<String, double> _fontAxes(RichText text) {
-  final span = text.text as TextSpan;
-  return {
-    for (final variation in span.style!.fontVariations!)
-      variation.axis: variation.value,
-  };
 }

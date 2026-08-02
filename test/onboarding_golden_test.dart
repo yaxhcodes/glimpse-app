@@ -16,11 +16,17 @@ void main() {
   GoogleFonts.config.allowRuntimeFetching = false;
 
   setUpAll(() async {
-    final symbols = FontLoader('GlimpseMaterialSymbolsRounded')
+    final phosphorRegular =
+        FontLoader('packages/phosphor_flutter/PhosphorRegular')..addFont(
+          rootBundle.load('packages/phosphor_flutter/lib/fonts/Phosphor.ttf'),
+        );
+    final phosphorFill = FontLoader('packages/phosphor_flutter/PhosphorFill')
       ..addFont(
-        rootBundle.load('assets/fonts/GlimpseMaterialSymbolsRounded.ttf'),
+        rootBundle.load(
+          'packages/phosphor_flutter/lib/fonts/Phosphor-Fill.ttf',
+        ),
       );
-    await symbols.load();
+    await Future.wait([phosphorRegular.load(), phosphorFill.load()]);
   });
 
   testWidgets('discovery story frame', (tester) async {

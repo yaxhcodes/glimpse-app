@@ -1,7 +1,6 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../shared/theme/app_icons.dart';
@@ -18,34 +17,34 @@ class GuideDetailScreen extends StatelessWidget {
     final steps = isAndroid
         ? const [
             (
-              Symbols.bookmark_rounded,
+              AppIcons.bookmark,
               'Find something worth keeping',
               'A reel, video, article, recipe or any useful link.',
             ),
             (
-              Symbols.ios_share_rounded,
+              AppIcons.share,
               'Tap Share',
               'Use the same Share button you already use in that app.',
             ),
             (
-              Symbols.visibility_rounded,
+              AppIcons.visibility,
               'Choose Glimpse',
               'The link is saved immediately. Glimpse understands it in the background.',
             ),
           ]
         : const [
             (
-              Symbols.bookmark_rounded,
+              AppIcons.bookmark,
               'Find something worth keeping',
               'A video, article, recipe or any useful link.',
             ),
             (
-              Symbols.content_copy_rounded,
+              AppIcons.copy,
               'Copy its link',
               'Use Copy Link from the app or browser you are viewing.',
             ),
             (
-              Symbols.add_link_rounded,
+              AppIcons.addLink,
               'Paste it on Home',
               'Glimpse saves it immediately and understands it in the background.',
             ),
@@ -93,11 +92,7 @@ class GuideDetailScreen extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppIcon(
-                  Symbols.auto_awesome_rounded,
-                  size: 21,
-                  color: cs.primary,
-                ),
+                AppIcon(AppIcons.sparkle, size: 21, color: cs.primary),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(

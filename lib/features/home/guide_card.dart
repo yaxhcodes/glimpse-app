@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../shared/theme/app_icons.dart';
@@ -40,7 +39,7 @@ class GuideCard extends ConsumerWidget {
                   ),
                   alignment: Alignment.center,
                   child: AppIcon(
-                    Symbols.ios_share_rounded,
+                    AppIcons.share,
                     size: 24,
                     color: cs.primary,
                     semanticLabel: 'Share',
@@ -75,7 +74,7 @@ class GuideCard extends ConsumerWidget {
                       ref.read(hasSeenGuideCardProvider.notifier).set(true),
                   tooltip: 'Dismiss guide',
                   icon: AppIcon(
-                    Symbols.close_rounded,
+                    AppIcons.close,
                     size: 19,
                     color: cs.onSecondaryContainer,
                   ),
