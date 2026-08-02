@@ -3319,55 +3319,51 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 9),
-      padding: EdgeInsets.fromLTRB(isQuote ? 13 : 12, 11, 12, 11),
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.22),
-        ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              leadingIcon,
-              size: isQuote || itemType == 'term' ? 18 : 16,
-              color: _recipeAccent(colorScheme),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Text.rich(
+            TextSpan(
               children: [
-                Text(
-                  item.text,
-                  style:
-                      (isClaim
-                              ? theme.textTheme.bodyLarge
-                              : theme.textTheme.bodyMedium)
-                          ?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w500,
-                            height: 1.42,
-                          ),
-                ),
-                if (meta.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    meta,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.35,
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Icon(
+                      leadingIcon,
+                      size: isQuote || itemType == 'term' ? 18 : 16,
+                      color: _recipeAccent(colorScheme),
                     ),
                   ),
-                ],
+                ),
+                TextSpan(text: item.text),
               ],
             ),
+            style:
+                (isClaim
+                        ? theme.textTheme.bodyLarge
+                        : theme.textTheme.bodyMedium)
+                    ?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                      height: 1.42,
+                    ),
           ),
+          if (meta.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              meta,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ],
         ],
       ),
     );
