@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/tag_group.dart' show tagChipColors;
@@ -33,9 +34,13 @@ String? _previewImageUrl(SavedUrl u) {
 // ─── Mindmap atlas ─────────────────────────────────────────────────────────
 
 class _MindmapCanvas extends StatelessWidget {
-  const _MindmapCanvas({required this.themes});
+  const _MindmapCanvas({
+    required this.themes,
+    required this.scrollBottomPadding,
+  });
 
   final List<ClusterTheme> themes;
+  final double scrollBottomPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +49,7 @@ class _MindmapCanvas extends StatelessWidget {
 
     return InterestMapView(
       clusters: clusters,
+      bottomPadding: scrollBottomPadding,
       onClusterTap: (cluster) {
         final theme = _themeById(themes, int.tryParse(cluster.id) ?? -1);
         if (theme == null) return;
@@ -59,10 +65,12 @@ class InterestMapView extends StatelessWidget {
     super.key,
     required this.clusters,
     required this.onClusterTap,
+    this.bottomPadding = 32,
   });
 
   final List<InterestCluster> clusters;
   final ValueChanged<InterestCluster> onClusterTap;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +135,7 @@ class InterestMapView extends StatelessWidget {
               }, childCount: slim.length * 2 - 1),
             ),
           ),
-        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        SliverToBoxAdapter(child: SizedBox(height: bottomPadding)),
       ],
     );
   }
@@ -746,6 +754,12 @@ class MindmapScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final themesAsync = ref.watch(interestClusterThemesProvider);
+    final shellBottomInset =
+        embedded &&
+            !AppLayout.usesNavigationRail(MediaQuery.sizeOf(context).width)
+        ? MediaQuery.paddingOf(context).bottom
+        : 0.0;
+    final scrollBottomPadding = 32.0 + shellBottomInset;
     final subtitle = themesAsync.maybeWhen(
       data: (themes) {
         final clusters = _displayClustersForThemes(themes);
@@ -829,7 +843,10 @@ class MindmapScreen extends ConsumerWidget {
             return const _MindmapEmptyState();
           }
 
-          return _MindmapCanvas(themes: themes);
+          return _MindmapCanvas(
+            themes: themes,
+            scrollBottomPadding: scrollBottomPadding,
+          );
         },
       ),
     );
