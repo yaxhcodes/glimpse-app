@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_fab.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import 'collection_card.dart';
@@ -58,6 +59,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final hasCollections = async.valueOrNull?.isNotEmpty ?? false;
+    final shellBottomInset =
+        widget.embedded &&
+            !AppLayout.usesNavigationRail(MediaQuery.sizeOf(context).width)
+        ? MediaQuery.paddingOf(context).bottom
+        : 0.0;
+    final scrollBottomPadding = 24.0 + shellBottomInset;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -124,7 +131,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     child: _layout == _CollectionsLayout.grid
                         ? GridView.builder(
                             key: const ValueKey('collections-grid'),
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              8,
+                              16,
+                              scrollBottomPadding,
+                            ),
                             gridDelegate:
                                 const SliverGridDelegateWithMaxCrossAxisExtent(
                                   maxCrossAxisExtent: 224,
@@ -139,7 +151,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                           )
                         : ListView.builder(
                             key: const ValueKey('collections-list'),
-                            padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
+                            padding: EdgeInsets.fromLTRB(
+                              0,
+                              8,
+                              0,
+                              scrollBottomPadding,
+                            ),
                             itemCount: collections.length,
                             itemBuilder: (context, i) => ExpressiveTapScale(
                               child: CollectionListCard(
@@ -155,11 +172,14 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
         },
       ),
       floatingActionButton: hasCollections
-          ? ExpressiveFab(
-              heroTag: 'collections-create',
-              tooltip: 'New collection',
-              onPressed: () => _createCollection(context),
-              child: const AppIcon(AppIcons.addToCollection),
+          ? Padding(
+              padding: EdgeInsets.only(bottom: shellBottomInset),
+              child: ExpressiveFab(
+                heroTag: 'collections-create',
+                tooltip: 'New collection',
+                onPressed: () => _createCollection(context),
+                child: const AppIcon(AppIcons.addToCollection),
+              ),
             )
           : null,
     );
