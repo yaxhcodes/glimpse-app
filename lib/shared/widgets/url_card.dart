@@ -3,6 +3,7 @@ import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
@@ -14,6 +15,7 @@ import '../../features/url_detail/url_detail_provider.dart';
 import 'expressive_tap_scale.dart';
 import 'link_card_thumbnail.dart';
 import 'tag_group.dart' show tagChipColors;
+import 'url_processing_presentation.dart';
 
 /// Card widget for displaying a saved URL entry.
 class UrlCard extends ConsumerStatefulWidget {
@@ -94,12 +96,20 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         widget.savedUrl.isProcessingActive ||
         _isRecentlyEnriching(widget.savedUrl);
     final isProcessingFailed = widget.savedUrl.isProcessingFailed;
-    final resolvedTitle = isProcessing
-        ? _processingTitle(displaySourceName)
-        : TitleResolver.resolveDetailTitle(
-            widget.savedUrl,
-            tagFrequency: tagFreq,
-          );
+    final processingPresentation = isProcessing || isProcessingFailed
+        ? UrlProcessingPresentation.fromStatus(
+            _retryingEnrichment
+                ? UrlProcessingStatus.retrying
+                : widget.savedUrl.processingStatus,
+            sourceName: displaySourceName,
+          )
+        : null;
+    final resolvedTitle =
+        processingPresentation?.headline ??
+        TitleResolver.resolveDetailTitle(
+          widget.savedUrl,
+          tagFrequency: tagFreq,
+        );
     final chipData = (isProcessing || isProcessingFailed)
         ? (visible: <String>[], overflow: 0)
         : TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
@@ -107,6 +117,19 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final isRead = widget.savedUrl.openedAt != null;
     final isLight = theme.brightness == Brightness.light;
     final metaStyle = TextStyle(fontSize: 12, color: cs.outline);
+    final baseTitleStyle =
+        (processingPresentation != null ? tt.titleMedium : tt.titleSmall) ??
+        const TextStyle();
+    final cardTitleStyle = baseTitleStyle.copyWith(
+      fontWeight: FontWeight.w600,
+      height: processingPresentation != null ? 1.2 : 1.25,
+      fontSize: processingPresentation == null
+          ? (tt.titleSmall?.fontSize ?? 14) + 0.5
+          : baseTitleStyle.fontSize,
+      color: cs.onSurface,
+    );
+    final shimmerProcessingText =
+        processingPresentation != null && !processingPresentation.failed;
     final selectedFill = Color.alphaBlend(
       cs.primary.withValues(alpha: 0.045),
       UrlCard.listCardFillColor(theme),
@@ -179,20 +202,18 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                               child: AnimatedOpacity(
                                 opacity: (isRead && isLight) ? 0.45 : 1.0,
                                 duration: const Duration(milliseconds: 300),
-                                child: Text(
-                                  resolvedTitle,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: (tt.titleSmall ?? const TextStyle())
-                                      .copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.25,
-                                        fontSize:
-                                            (tt.titleSmall?.fontSize ?? 14) +
-                                            0.5,
-                                        color: cs.onSurface,
+                                child: shimmerProcessingText
+                                    ? _SubtleTextShimmer(
+                                        text: resolvedTitle,
+                                        style: cardTitleStyle,
+                                        maxLines: 3,
+                                      )
+                                    : Text(
+                                        resolvedTitle,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: cardTitleStyle,
                                       ),
-                                ),
                               ),
                             ),
                             if (widget.isPinned) ...[
@@ -220,7 +241,18 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                               style: metaStyle,
                             ),
                             Text(' · ', style: metaStyle),
-                            Text(isRead ? 'Read' : 'Unread', style: metaStyle),
+                            Text(
+                              _retryingEnrichment
+                                  ? 'Retrying'
+                                  : isProcessing
+                                  ? 'Processing'
+                                  : isProcessingFailed
+                                  ? 'Needs attention'
+                                  : isRead
+                                  ? 'Read'
+                                  : 'Unread',
+                              style: metaStyle,
+                            ),
                           ],
                         ),
                         if (chipData.visible.isNotEmpty ||
@@ -276,9 +308,8 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                           ),
                         ] else if (isProcessing || isProcessingFailed) ...[
                           const SizedBox(height: 8),
-                          _EnrichmentProgressPill(
-                            sourceName: displaySourceName,
-                            failed: isProcessingFailed,
+                          _ProcessingStatusPanel(
+                            presentation: processingPresentation!,
                             retrying: _retryingEnrichment,
                             onRetry: isProcessingFailed
                                 ? () => _retryEnrichment()
@@ -323,14 +354,6 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     }
     final noisyTags = {'social', 'instagram', 'youtube', 'tiktok', 'video'};
     return url.tags.any((tag) => noisyTags.contains(tag.trim().toLowerCase()));
-  }
-
-  String _processingTitle(String sourceName) {
-    final source = sourceName.trim().isEmpty ? 'link' : sourceName.trim();
-    if (source.toLowerCase() == 'instagram') return 'Reading Instagram reel';
-    if (source.toLowerCase() == 'youtube') return 'Reading YouTube video';
-    if (source.toLowerCase() == 'tiktok') return 'Reading TikTok video';
-    return 'Reading $source';
   }
 
   Future<void> _retryEnrichment() async {
@@ -406,16 +429,14 @@ class _UrlCardState extends ConsumerState<UrlCard> {
   }
 }
 
-class _EnrichmentProgressPill extends StatelessWidget {
-  const _EnrichmentProgressPill({
-    required this.sourceName,
-    required this.failed,
+class _ProcessingStatusPanel extends StatelessWidget {
+  const _ProcessingStatusPanel({
+    required this.presentation,
     required this.retrying,
     this.onRetry,
   });
 
-  final String sourceName;
-  final bool failed;
+  final UrlProcessingPresentation presentation;
   final bool retrying;
   final VoidCallback? onRetry;
 
@@ -423,72 +444,121 @@ class _EnrichmentProgressPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final label = failed
-        ? 'Couldn\'t finish enrichment'
-        : sourceName.trim().isEmpty
-        ? 'Enriching save'
-        : 'Enriching ${sourceName.trim()} save';
+    final failed = presentation.failed;
+    final accent = failed ? cs.error : cs.primary;
+    final foreground = failed ? cs.onErrorContainer : cs.onSurfaceVariant;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: (failed ? cs.errorContainer : cs.primaryContainer).withValues(
-          alpha: 0.55,
+    return Semantics(
+      liveRegion: true,
+      label: presentation.detail,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),
+        decoration: BoxDecoration(
+          color: (failed ? cs.errorContainer : cs.surfaceContainerHighest)
+              .withValues(alpha: failed ? 0.5 : 0.55),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: accent.withValues(alpha: 0.14)),
         ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: (failed ? cs.error : cs.primary).withValues(alpha: 0.18),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          failed
-              ? Icon(Icons.error_outline_rounded, size: 14, color: cs.error)
-              : SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.8,
-                    color: cs.primary,
-                  ),
-                ),
-          const SizedBox(width: 7),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: failed ? cs.onErrorContainer : cs.onPrimaryContainer,
-                fontWeight: FontWeight.w700,
-                height: 1,
-              ),
-            ),
-          ),
-          if (failed && onRetry != null) ...[
-            const SizedBox(width: 4),
-            TextButton.icon(
-              onPressed: retrying ? null : onRetry,
-              icon: retrying
-                  ? SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: cs.error,
+        child: Row(
+          children: [
+            if (failed) ...[
+              Icon(Icons.error_outline_rounded, size: 15, color: accent),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: failed
+                  ? Text(
+                      presentation.detail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                        letterSpacing: 0.1,
                       ),
                     )
-                  : const Icon(Icons.refresh_rounded, size: 14),
-              label: const Text('Retry'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                foregroundColor: cs.error,
-              ),
+                  : _SubtleTextShimmer(
+                      text: presentation.detail,
+                      style:
+                          theme.textTheme.labelMedium?.copyWith(
+                            color: foreground,
+                            fontWeight: FontWeight.w500,
+                            height: 1.3,
+                            letterSpacing: 0.1,
+                          ) ??
+                          TextStyle(color: foreground),
+                      maxLines: 2,
+                    ),
             ),
+            if (failed && onRetry != null) ...[
+              const SizedBox(width: 4),
+              TextButton(
+                onPressed: retrying ? null : onRetry,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  foregroundColor: accent,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: retrying
+                    ? SizedBox(
+                        width: 13,
+                        height: 13,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: accent,
+                        ),
+                      )
+                    : const Text('Retry'),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
+    );
+  }
+}
+
+class _SubtleTextShimmer extends StatelessWidget {
+  const _SubtleTextShimmer({
+    required this.text,
+    required this.style,
+    required this.maxLines,
+  });
+
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final reduceMotion = media.disableAnimations || media.accessibleNavigation;
+    if (reduceMotion) return _text();
+
+    final theme = Theme.of(context);
+    final textColor = style.color ?? theme.colorScheme.onSurface;
+    final baseColor = Color.alphaBlend(
+      textColor.withValues(alpha: 0.72),
+      theme.colorScheme.surface,
+    );
+
+    return Shimmer.fromColors(
+      period: const Duration(milliseconds: 1800),
+      baseColor: baseColor,
+      highlightColor: textColor,
+      child: _text(style.copyWith(color: Colors.white)),
+    );
+  }
+
+  Widget _text([TextStyle? resolvedStyle]) {
+    return Text(
+      text,
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+      style: resolvedStyle ?? style,
     );
   }
 }
