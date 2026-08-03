@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glimpse/core/database/isar_service.dart';
 import 'package:glimpse/core/models/user_collection.dart';
+import 'package:glimpse/core/providers/service_providers.dart';
 import 'package:glimpse/features/collections/collections_provider.dart';
+import 'package:glimpse/features/collections/collections_preferences_provider.dart';
 import 'package:glimpse/features/collections/collections_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,33 +30,7 @@ void main() {
       return CollectionSummary(collection: collection, linkCount: 0);
     });
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          collectionsSummaryProvider.overrideWith((ref) async => summaries),
-        ],
-        child: MaterialApp(
-          theme: ThemeData(useMaterial3: true),
-          home: Scaffold(
-            extendBody: true,
-            body: const CollectionsScreen(embedded: true),
-            bottomNavigationBar: NavigationBar(
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.collections_outlined),
-                  label: 'Collections',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.search_outlined),
-                  label: 'Search',
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpCollections(tester, summaries, withNavigationBar: true);
 
     final fabRect = tester.getRect(find.byType(FloatingActionButton));
     final navigationRect = tester.getRect(find.byType(NavigationBar));
@@ -61,17 +38,277 @@ void main() {
 
     await tester.drag(find.byType(GridView), const Offset(0, -10000));
     await tester.pumpAndSettle();
-    final lastCollectionRect = tester.getRect(find.text('Collection 20'));
+    final lastCollectionRect = tester.getRect(find.text('Collection 1'));
     expect(lastCollectionRect.bottom, lessThanOrEqualTo(navigationRect.top));
 
-    await tester.tap(find.byIcon(Icons.view_agenda_outlined));
+    await tester.tap(find.byTooltip('Collection options'));
     await tester.pumpAndSettle();
+    await _tapPopupItem(tester, 'List');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('collections-list')), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -10000));
     await tester.pumpAndSettle();
-    final lastListCollectionRect = tester.getRect(find.text('Collection 20'));
+    final lastListCollectionRect = tester.getRect(find.text('Collection 1'));
     expect(
       lastListCollectionRect.bottom,
       lessThanOrEqualTo(navigationRect.top),
     );
   });
+
+  testWidgets('overflow menu uses compact icon-led actions', (tester) async {
+    await _pumpCollections(tester, [
+      _summary(1, 'First'),
+      _summary(2, 'Second'),
+    ]);
+
+    await tester.tap(find.byTooltip('Collection options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('VIEW'), findsNothing);
+    expect(find.text('SORT'), findsNothing);
+    expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.view_list_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.swap_vert_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.schedule_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.sort_by_alpha_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.drag_indicator_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNWidgets(2));
+  });
+
+  testWidgets('long press selects collections and back exits selection', (
+    tester,
+  ) async {
+    final summaries = List.generate(
+      3,
+      (index) => _summary(index + 1, 'Collection ${index + 1}'),
+    );
+    await _pumpCollections(tester, summaries);
+
+    await tester.longPress(find.text('Collection 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Exit selection'), findsOneWidget);
+    expect(find.byTooltip('Edit collection'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.byKey(const ValueKey('collection-selected')), findsOneWidget);
+
+    await tester.tap(find.text('Collection 2'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Edit collection'), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Exit selection'), findsNothing);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+  });
+
+  testWidgets('select all and delete remove only the selected collections', (
+    tester,
+  ) async {
+    final isar = _FakeIsarService();
+    final summaries = List.generate(
+      3,
+      (index) => _summary(index + 1, 'Collection ${index + 1}'),
+    );
+    await _pumpCollections(tester, summaries, isar: isar);
+
+    await tester.longPress(find.text('Collection 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Select all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Delete selected collections'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete 3 collections?'), findsOneWidget);
+    expect(
+      find.text(
+        'Their saved links will stay in your library. Only the collections '
+        'will be removed.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(isar.deletedCollectionIds, {1, 2, 3});
+    expect(find.text('3 collections deleted'), findsOneWidget);
+    expect(find.byTooltip('Exit selection'), findsNothing);
+    await tester.pump(const Duration(seconds: 4));
+  });
+
+  testWidgets('selection moves all source links to an unselected collection', (
+    tester,
+  ) async {
+    final isar = _FakeIsarService()..movedCount = 2;
+    final summaries = [
+      _summary(1, 'Source', urlIds: [10, 11]),
+      _summary(2, 'Target', urlIds: [20]),
+    ];
+    await _pumpCollections(tester, summaries, isar: isar);
+
+    await tester.longPress(find.text('Source'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Move contents'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Move links'), findsOneWidget);
+    expect(
+      find.text(
+        'Move all 2 links from “Source”. The source collection will be deleted '
+        'after the move.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(ListTile, 'Source'), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Target'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ListTile, 'Target'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Move and delete'));
+    await tester.pumpAndSettle();
+
+    expect(isar.movedSourceIds, {1});
+    expect(isar.moveTargetId, 2);
+    expect(
+      find.text('Moved 2 links to Target and deleted the source collection'),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Exit selection'), findsNothing);
+    await tester.pump(const Duration(seconds: 4));
+  });
+
+  testWidgets('overflow menu opens reorder and cancel preserves the view', (
+    tester,
+  ) async {
+    final summaries = [
+      _summary(1, 'First'),
+      _summary(2, 'Second'),
+      _summary(3, 'Third'),
+    ];
+    await _pumpCollections(tester, summaries);
+
+    await tester.tap(find.byTooltip('Collection options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reorder'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ReorderableListView), findsOneWidget);
+    expect(find.text('Drag to set your manual order'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GridView), findsOneWidget);
+  });
+
+  testWidgets('finishing reorder persists the displayed order as manual', (
+    tester,
+  ) async {
+    final summaries = [
+      _summary(1, 'First'),
+      _summary(2, 'Second'),
+      _summary(3, 'Third'),
+    ];
+    await _pumpCollections(tester, summaries);
+
+    await tester.tap(find.byTooltip('Collection options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reorder'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(collectionsSortPrefsKey), 'manual');
+    expect(prefs.getStringList(collectionsManualOrderPrefsKey), [
+      '3',
+      '2',
+      '1',
+    ]);
+  });
+}
+
+Future<void> _tapPopupItem(WidgetTester tester, String label) async {
+  final item = find.ancestor(
+    of: find.text(label),
+    matching: find.byWidgetPredicate(
+      (widget) => widget is PopupMenuItem<dynamic>,
+    ),
+  );
+  await tester.tap(item);
+}
+
+CollectionSummary _summary(int id, String name, {List<int> urlIds = const []}) {
+  final collection = UserCollection()
+    ..id = id
+    ..name = name
+    ..emoji = 'books'
+    ..createdAt = DateTime(2026, 8, id)
+    ..urlIds = urlIds;
+  return CollectionSummary(collection: collection, linkCount: urlIds.length);
+}
+
+Future<void> _pumpCollections(
+  WidgetTester tester,
+  List<CollectionSummary> summaries, {
+  IsarService? isar,
+  bool withNavigationBar = false,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        collectionsSummaryProvider.overrideWith((ref) async => summaries),
+        if (isar != null) isarServiceProvider.overrideWithValue(isar),
+      ],
+      child: MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: withNavigationBar
+            ? Scaffold(
+                extendBody: true,
+                body: const CollectionsScreen(embedded: true),
+                bottomNavigationBar: NavigationBar(
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.collections_outlined),
+                      label: 'Collections',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.search_outlined),
+                      label: 'Search',
+                    ),
+                  ],
+                ),
+              )
+            : const CollectionsScreen(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+class _FakeIsarService implements IsarService {
+  final Set<int> deletedCollectionIds = {};
+  final Set<int> movedSourceIds = {};
+  int? moveTargetId;
+  int movedCount = 0;
+
+  @override
+  Future<void> deleteCollections(Iterable<int> ids) async {
+    deletedCollectionIds.addAll(ids);
+  }
+
+  @override
+  Future<int> moveCollectionsInto({
+    required Iterable<int> sourceCollectionIds,
+    required int targetCollectionId,
+  }) async {
+    movedSourceIds.addAll(sourceCollectionIds);
+    moveTargetId = targetCollectionId;
+    return movedCount;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    throw UnsupportedError('Unexpected Isar call: ${invocation.memberName}');
+  }
 }

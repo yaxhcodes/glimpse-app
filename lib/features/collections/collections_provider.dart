@@ -11,6 +11,7 @@ class CollectionSummary {
     this.lastSavedAt,
     this.lastAddedAt,
     this.visualHint,
+    this.previewUrls = const [],
   });
 
   final UserCollection collection;
@@ -18,6 +19,7 @@ class CollectionSummary {
   final DateTime? lastSavedAt;
   final DateTime? lastAddedAt;
   final String? visualHint;
+  final List<SavedUrl> previewUrls;
 }
 
 final collectionsListProvider =
@@ -36,10 +38,12 @@ final collectionsSummaryProvider =
     DateTime? lastSavedAt;
     DateTime? lastAddedAt;
     String? visualHint;
+    List<SavedUrl> previewUrls = const [];
     if (collection.urlIds.isNotEmpty) {
       final urls = await isar.getUrlsInCollection(collection.id);
       if (urls.isNotEmpty) {
         lastSavedAt = urls.first.savedAt;
+        previewUrls = List<SavedUrl>.unmodifiable(urls.take(3));
         visualHint = urls.take(8).expand((url) {
           return [
             url.category,
@@ -58,6 +62,7 @@ final collectionsSummaryProvider =
         lastSavedAt: lastSavedAt,
         lastAddedAt: lastAddedAt,
         visualHint: visualHint,
+        previewUrls: previewUrls,
       ),
     );
   }

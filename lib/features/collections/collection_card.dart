@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/user_collection.dart';
 import '../../shared/formatting.dart';
 import '../../shared/widgets/url_card.dart';
+import 'collection_thumbnail_preview.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 
@@ -11,9 +13,17 @@ class CollectionCard extends StatefulWidget {
   const CollectionCard({
     super.key,
     required this.summary,
+    this.selectionMode = false,
+    this.isSelected = false,
+    this.onSelectionStart,
+    this.onSelectionToggle,
   });
 
   final CollectionSummary summary;
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback? onSelectionStart;
+  final VoidCallback? onSelectionToggle;
 
   @override
   State<CollectionCard> createState() => _CollectionCardState();
@@ -41,6 +51,7 @@ class _CollectionCardState extends State<CollectionCard> {
 
     return Semantics(
       button: true,
+      selected: widget.isSelected,
       label: semanticParts.join(', '),
       child: AnimatedScale(
         scale: _pressed ? 0.98 : 1,
@@ -49,7 +60,22 @@ class _CollectionCardState extends State<CollectionCard> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => context.push('/collections/${collection.id}'),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              if (widget.selectionMode) {
+                widget.onSelectionToggle?.call();
+              } else {
+                context.push('/collections/${collection.id}');
+              }
+            },
+            onLongPress: () {
+              HapticFeedback.mediumImpact();
+              if (widget.selectionMode) {
+                widget.onSelectionToggle?.call();
+              } else {
+                widget.onSelectionStart?.call();
+              }
+            },
             onTapDown: (_) => setState(() => _pressed = true),
             onTapUp: (_) => setState(() => _pressed = false),
             onTapCancel: () => setState(() => _pressed = false),
@@ -62,8 +88,19 @@ class _CollectionCardState extends State<CollectionCard> {
               curve: Curves.easeOutCubic,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cs.surfaceContainerLow,
+                color: widget.isSelected
+                    ? Color.alphaBlend(
+                        cs.primary.withValues(alpha: 0.06),
+                        cs.surfaceContainerLow,
+                      )
+                    : cs.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(26),
+                border: widget.isSelected
+                    ? Border.all(
+                        color: cs.primary.withValues(alpha: 0.48),
+                        width: 1.5,
+                      )
+                    : null,
                 boxShadow: _focused
                     ? [
                         BoxShadow(
@@ -77,7 +114,20 @@ class _CollectionCardState extends State<CollectionCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CollectionVisual(style: visual, seed: collection.name),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CollectionVisual(style: visual, seed: collection.name),
+                      if (widget.selectionMode)
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: _CollectionSelectionBadge(
+                            selected: widget.isSelected,
+                          ),
+                        ),
+                    ],
+                  ),
                   const Spacer(),
                   Text(
                     collection.name,
@@ -137,9 +187,17 @@ class CollectionListCard extends StatefulWidget {
   const CollectionListCard({
     super.key,
     required this.summary,
+    this.selectionMode = false,
+    this.isSelected = false,
+    this.onSelectionStart,
+    this.onSelectionToggle,
   });
 
   final CollectionSummary summary;
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback? onSelectionStart;
+  final VoidCallback? onSelectionToggle;
 
   @override
   State<CollectionListCard> createState() => _CollectionListCardState();
@@ -157,12 +215,28 @@ class _CollectionListCardState extends State<CollectionListCard> {
     final tt = Theme.of(context).textTheme;
     final visual = _resolveSummaryVisual(widget.summary);
     final linkText = formatLinkCount(widget.summary.linkCount);
+    final description = collection.description?.trim();
+    final subtitleText = description == null || description.isEmpty
+        ? linkText
+        : description;
     final latestSaveText = _latestSaveText(widget.summary);
+    final selectedFill = Color.alphaBlend(
+      cs.primary.withValues(alpha: 0.045),
+      UrlCard.listCardFillColor(theme),
+    );
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: widget.isSelected
+          ? BorderSide(color: cs.primary.withValues(alpha: 0.48), width: 1.5)
+          : BorderSide.none,
+    );
 
     return Semantics(
       button: true,
+      selected: widget.isSelected,
       label: [
         collection.name,
+        if (description != null && description.isNotEmpty) description,
         linkText,
         if (widget.summary.lastAddedAt != null)
           'last added ${formatRelativeTime(widget.summary.lastAddedAt!)}',
@@ -174,14 +248,33 @@ class _CollectionListCardState extends State<CollectionListCard> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           child: Material(
-            color: UrlCard.listCardFillColor(theme),
-            elevation: 0,
-            shadowColor: Colors.transparent,
+            color: widget.isSelected
+                ? selectedFill
+                : UrlCard.listCardFillColor(theme),
+            elevation: widget.isSelected ? 2 : 0,
+            shadowColor: widget.isSelected
+                ? cs.shadow.withValues(alpha: 0.18)
+                : Colors.transparent,
             surfaceTintColor: Colors.transparent,
-            shape: UrlCard.listCardShape(theme, radius: 14),
+            shape: shape,
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: () => context.push('/collections/${collection.id}'),
+              onTap: () {
+                HapticFeedback.lightImpact();
+                if (widget.selectionMode) {
+                  widget.onSelectionToggle?.call();
+                } else {
+                  context.push('/collections/${collection.id}');
+                }
+              },
+              onLongPress: () {
+                HapticFeedback.mediumImpact();
+                if (widget.selectionMode) {
+                  widget.onSelectionToggle?.call();
+                } else {
+                  widget.onSelectionStart?.call();
+                }
+              },
               onTapDown: (_) => setState(() => _pressed = true),
               onTapUp: (_) => setState(() => _pressed = false),
               onTapCancel: () => setState(() => _pressed = false),
@@ -192,11 +285,24 @@ class _CollectionListCardState extends State<CollectionListCard> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CollectionVisual(
-                      style: visual,
-                      seed: collection.name,
-                      size: 64,
-                      iconSize: 28,
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CollectionVisual(
+                          style: visual,
+                          seed: collection.name,
+                          size: 64,
+                          iconSize: 28,
+                        ),
+                        if (widget.selectionMode)
+                          Positioned(
+                            top: -5,
+                            right: -5,
+                            child: _CollectionSelectionBadge(
+                              selected: widget.isSelected,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -216,11 +322,13 @@ class _CollectionListCardState extends State<CollectionListCard> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            linkText,
+                            subtitleText,
                             style: TextStyle(
                               fontSize: 12,
                               color: cs.onSurfaceVariant,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           if (latestSaveText != null) ...[
                             const SizedBox(height: 3),
@@ -228,8 +336,9 @@ class _CollectionListCardState extends State<CollectionListCard> {
                               latestSaveText,
                               style: TextStyle(
                                 fontSize: 12,
-                                color:
-                                    cs.onSurfaceVariant.withValues(alpha: 0.78),
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.78,
+                                ),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -238,12 +347,18 @@ class _CollectionListCardState extends State<CollectionListCard> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 22,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                    ),
+                    if (widget.summary.previewUrls.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      ExcludeSemantics(
+                        child: CollectionThumbnailPreview(
+                          key: ValueKey(
+                            'collection-thumbnail-preview-${collection.id}',
+                          ),
+                          previewUrls: widget.summary.previewUrls,
+                          linkCount: widget.summary.linkCount,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -265,11 +380,48 @@ class _CollectionListCardState extends State<CollectionListCard> {
   }
 }
 
+class _CollectionSelectionBadge extends StatelessWidget {
+  const _CollectionSelectionBadge({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      key: ValueKey(selected ? 'collection-selected' : 'collection-unselected'),
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOutCubic,
+      width: 27,
+      height: 27,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? cs.primary : cs.surface,
+        border: Border.all(
+          color: selected ? cs.primary : cs.outline,
+          width: selected ? 0 : 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.14),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: selected
+          ? Icon(Icons.check_rounded, size: 18, color: cs.onPrimary)
+          : null,
+    );
+  }
+}
+
 CollectionVisualStyle _resolveSummaryVisual(CollectionSummary summary) {
   final collection = summary.collection;
   final storedKey = collection.emoji.trim().toLowerCase();
-  final key =
-      storedKey == CollectionVisualStyle.fallback.key ? null : collection.emoji;
+  final key = storedKey == CollectionVisualStyle.fallback.key
+      ? null
+      : collection.emoji;
   return resolveCollectionVisualStyle(
     key,
     name: collection.name,

@@ -2,6 +2,8 @@ import 'package:isar/isar.dart';
 
 part 'user_collection.g.dart';
 
+const int maxCollectionDescriptionLength = 160;
+
 @collection
 class UserCollection {
   Id id = Isar.autoIncrement;

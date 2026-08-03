@@ -95,8 +95,10 @@ class IsarService {
     final cutoff = DateTime.now().subtract(_engagementRetention);
     if (count <= _maxEngagementEvents) {
       // Cheap path: only drop anything past the retention window.
-      final stale =
-          await isar.engagementEvents.filter().atLessThan(cutoff).count();
+      final stale = await isar.engagementEvents
+          .filter()
+          .atLessThan(cutoff)
+          .count();
       if (stale == 0) return;
     }
     await isar.writeTxn(() async {
@@ -108,14 +110,15 @@ class IsarService {
             .sortByAt()
             .limit(remaining - _maxEngagementEvents)
             .findAll();
-        await isar.engagementEvents
-            .deleteAll(oldest.map((e) => e.id).toList());
+        await isar.engagementEvents.deleteAll(oldest.map((e) => e.id).toList());
       }
     });
   }
 
   /// Most recent events first — the input to the affinity profile (later phase).
-  Future<List<EngagementEvent>> recentEvents({int limit = _maxEngagementEvents}) async {
+  Future<List<EngagementEvent>> recentEvents({
+    int limit = _maxEngagementEvents,
+  }) async {
     final isar = await _db;
     return isar.engagementEvents.where().sortByAtDesc().limit(limit).findAll();
   }
@@ -849,7 +852,9 @@ class IsarService {
     });
     // Only a dismiss (non-null) is a negative signal; restore is not logged.
     if (when != null && changed != null) {
-      unawaited(logEvent(type: EngagementEventType.cardDismissed, url: changed));
+      unawaited(
+        logEvent(type: EngagementEventType.cardDismissed, url: changed),
+      );
     }
   }
 
@@ -1139,10 +1144,124 @@ class IsarService {
     }
   }
 
-  Future<void> deleteCollection(int id) async {
+  /// Moves every URL from [sourceCollectionIds] into [targetCollectionId],
+  /// then deletes the source collections.
+  ///
+  /// Duplicate URL memberships are collapsed in the target. The membership
+  /// transfer and source deletion happen in a single database transaction.
+  Future<int> moveCollectionsInto({
+    required Iterable<int> sourceCollectionIds,
+    required int targetCollectionId,
+  }) async {
+    final sourceIds = sourceCollectionIds
+        .where((id) => id != targetCollectionId)
+        .toSet()
+        .toList(growable: false);
+    if (sourceIds.isEmpty) return 0;
+
     final isar = await _db;
-    await isar.writeTxn(() => isar.userCollections.delete(id));
-    await _removeCollectionAddedAtPrefix(id);
+    final existingSourceIds = <int>[];
+    final newlyAddedIds = <int>[];
+    final movedCount = await isar.writeTxn(() async {
+      final target = await isar.userCollections.get(targetCollectionId);
+      if (target == null) {
+        throw StateError('Target collection $targetCollectionId not found');
+      }
+
+      final targetIds = target.urlIds.toSet();
+      final movedIds = <int>{};
+      for (final sourceId in sourceIds) {
+        final source = await isar.userCollections.get(sourceId);
+        if (source == null) continue;
+        existingSourceIds.add(sourceId);
+        movedIds.addAll(source.urlIds);
+        for (final urlId in source.urlIds) {
+          if (targetIds.add(urlId)) newlyAddedIds.add(urlId);
+        }
+      }
+
+      target.urlIds = [...target.urlIds, ...newlyAddedIds];
+      await isar.userCollections.put(target);
+      await isar.userCollections.deleteAll(existingSourceIds);
+      return movedIds.length;
+    });
+
+    for (final sourceId in existingSourceIds) {
+      await _removeCollectionAddedAtPrefix(sourceId);
+    }
+    await _setMovedCollectionAddedAt(targetCollectionId, newlyAddedIds);
+    return movedCount;
+  }
+
+  /// Moves the requested [urlIds] from one collection to another.
+  ///
+  /// Both collections remain in place, and duplicate membership in the target
+  /// is collapsed. Membership changes happen in one database transaction.
+  Future<int> moveUrlsBetweenCollections({
+    required int sourceCollectionId,
+    required int targetCollectionId,
+    required Iterable<int> urlIds,
+  }) async {
+    if (sourceCollectionId == targetCollectionId) return 0;
+    final requestedIds = urlIds.toSet();
+    if (requestedIds.isEmpty) return 0;
+
+    final isar = await _db;
+    final movedIds = <int>[];
+    final newlyAddedIds = <int>[];
+    final movedCount = await isar.writeTxn(() async {
+      final source = await isar.userCollections.get(sourceCollectionId);
+      if (source == null) {
+        throw StateError('Source collection $sourceCollectionId not found');
+      }
+      final target = await isar.userCollections.get(targetCollectionId);
+      if (target == null) {
+        throw StateError('Target collection $targetCollectionId not found');
+      }
+
+      movedIds.addAll(source.urlIds.where(requestedIds.contains));
+      if (movedIds.isEmpty) return 0;
+      source.urlIds = source.urlIds
+          .where((id) => !requestedIds.contains(id))
+          .toList();
+      final targetIds = target.urlIds.toSet();
+      for (final urlId in movedIds) {
+        if (targetIds.add(urlId)) newlyAddedIds.add(urlId);
+      }
+      target.urlIds = [...target.urlIds, ...newlyAddedIds];
+      await isar.userCollections.putAll([source, target]);
+      return movedIds.length;
+    });
+
+    for (final urlId in movedIds) {
+      await _removeCollectionAddedAt(sourceCollectionId, urlId);
+    }
+    await _setMovedCollectionAddedAt(targetCollectionId, newlyAddedIds);
+    return movedCount;
+  }
+
+  Future<void> _setMovedCollectionAddedAt(
+    int targetCollectionId,
+    List<int> newlyAddedIds,
+  ) async {
+    final movedAt = DateTime.now();
+    for (final urlId in newlyAddedIds) {
+      await _setCollectionAddedAt(targetCollectionId, urlId, movedAt);
+    }
+  }
+
+  Future<void> deleteCollection(int id) async {
+    await deleteCollections([id]);
+  }
+
+  Future<void> deleteCollections(Iterable<int> ids) async {
+    final collectionIds = ids.toSet().toList(growable: false);
+    if (collectionIds.isEmpty) return;
+    final isar = await _db;
+    await isar.writeTxn(() => isar.userCollections.deleteAll(collectionIds));
+    for (final id in collectionIds) {
+      await _removeCollectionAddedAtPrefix(id);
+    }
   }
 
   Future<void> updateCollection(UserCollection collection) async {

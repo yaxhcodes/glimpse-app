@@ -47,11 +47,13 @@ class _ExpressiveTapScaleState extends State<ExpressiveTapScale>
 
   @override
   void dispose() {
+    _downPosition = null;
     _controller.dispose();
     super.dispose();
   }
 
   void _press() {
+    if (!mounted) return;
     _controller.animateTo(
       widget.pressedScale,
       duration: AppMotion.short,
@@ -60,7 +62,7 @@ class _ExpressiveTapScaleState extends State<ExpressiveTapScale>
   }
 
   void _release() {
-    if (_downPosition == null) return;
+    if (!mounted || _downPosition == null) return;
     _downPosition = null;
     _controller.animateWith(
       SpringSimulation(AppMotion.springExpressive, _controller.value, 1.0, 0.0),

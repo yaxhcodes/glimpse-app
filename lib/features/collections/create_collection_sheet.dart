@@ -9,6 +9,7 @@ import 'collections_provider.dart';
 
 Future<UserCollection?> showCreateCollectionSheet(
   BuildContext context, {
+  UserCollection? collection,
   String? initialName,
   String? initialDescription,
   CollectionVisualStyle? initialVisual,
@@ -20,6 +21,7 @@ Future<UserCollection?> showCreateCollectionSheet(
     showDragHandle: false,
     backgroundColor: Colors.transparent,
     builder: (_) => CreateCollectionSheet(
+      collection: collection,
       initialName: initialName,
       initialDescription: initialDescription,
       initialVisual: initialVisual,
@@ -30,11 +32,13 @@ Future<UserCollection?> showCreateCollectionSheet(
 class CreateCollectionSheet extends ConsumerStatefulWidget {
   const CreateCollectionSheet({
     super.key,
+    this.collection,
     this.initialName,
     this.initialDescription,
     this.initialVisual,
   });
 
+  final UserCollection? collection;
   final String? initialName;
   final String? initialDescription;
   final CollectionVisualStyle? initialVisual;
@@ -53,9 +57,13 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialName ?? '');
+    _nameController = TextEditingController(
+      text: widget.collection?.name ?? widget.initialName ?? '',
+    );
     _descriptionController = TextEditingController(
-      text: widget.initialDescription ?? '',
+      text: _limitDescription(
+        widget.collection?.description ?? widget.initialDescription ?? '',
+      ),
     );
   }
 
@@ -66,7 +74,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
     super.dispose();
   }
 
-  Future<void> _create() async {
+  Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       setState(() => _nameError = 'Name your collection');
@@ -76,7 +84,9 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
     final isar = ref.read(isarServiceProvider);
     final existing = await isar.getAllCollections();
     final duplicate = existing.any(
-      (collection) => collection.name.trim().toLowerCase() == name.toLowerCase(),
+      (collection) =>
+          collection.id != widget.collection?.id &&
+          collection.name.trim().toLowerCase() == name.toLowerCase(),
     );
     if (duplicate) {
       setState(() => _nameError = 'A collection with this name already exists');
@@ -89,19 +99,46 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
     });
 
     try {
-      final description = _descriptionController.text.trim();
-      final collection = await isar.createCollection(
-        name: name,
-        emoji: _currentVisual.key,
-        description: description.isEmpty ? null : description,
-      );
+      final description = _limitDescription(_descriptionController.text).trim();
+      final original = widget.collection;
+      final collection = original == null
+          ? await isar.createCollection(
+              name: name,
+              emoji: _currentVisual.key,
+              description: description.isEmpty ? null : description,
+            )
+          : await _updateCollection(
+              original,
+              name: name,
+              description: description,
+            );
       ref.invalidate(collectionsListProvider);
       ref.invalidate(collectionsSummaryProvider);
+      ref.invalidate(collectionMetaProvider(collection.id));
       HapticFeedback.lightImpact();
       if (mounted) Navigator.pop(context, collection);
     } finally {
       if (mounted) setState(() => _creating = false);
     }
+  }
+
+  Future<UserCollection> _updateCollection(
+    UserCollection original, {
+    required String name,
+    required String description,
+  }) async {
+    final updated = UserCollection()
+      ..id = original.id
+      ..name = name
+      ..emoji = _currentVisual.key
+      ..description = description.isEmpty ? null : description
+      ..createdAt = original.createdAt
+      ..urlIds = [...original.urlIds]
+      ..urlAddedAts = original.urlAddedAts == null
+          ? null
+          : [...original.urlAddedAts!];
+    await ref.read(isarServiceProvider).updateCollection(updated);
+    return updated;
   }
 
   @override
@@ -110,6 +147,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
     final cs = theme.colorScheme;
     final tt = theme.textTheme;
     final visual = _currentVisual;
+    final isEditing = widget.collection != null;
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 220),
@@ -119,9 +157,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border(
-            top: BorderSide(color: cs.outlineVariant),
-          ),
+          border: Border(top: BorderSide(color: cs.outlineVariant)),
         ),
         child: SafeArea(
           top: false,
@@ -155,7 +191,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'New collection',
+                            isEditing ? 'Edit collection' : 'New collection',
                             style: tt.titleLarge?.copyWith(
                               color: cs.onSurface,
                               fontWeight: FontWeight.w600,
@@ -163,7 +199,9 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Create a focused space for saved ideas.',
+                            isEditing
+                                ? 'Refine this saved space.'
+                                : 'Create a focused space for saved ideas.',
                             style: tt.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),
@@ -173,8 +211,9 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                     ),
                     IconButton(
                       tooltip: 'Close',
-                      onPressed:
-                          _creating ? null : () => Navigator.pop(context),
+                      onPressed: _creating
+                          ? null
+                          : () => Navigator.pop(context),
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ],
@@ -199,6 +238,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                   controller: _descriptionController,
                   minLines: 2,
                   maxLines: 4,
+                  maxLength: maxCollectionDescriptionLength,
                   textCapitalization: TextCapitalization.sentences,
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
@@ -211,15 +251,16 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed:
-                            _creating ? null : () => Navigator.pop(context),
+                        onPressed: _creating
+                            ? null
+                            : () => Navigator.pop(context),
                         child: const Text('Cancel'),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: _creating ? null : _create,
+                        onPressed: _creating ? null : _submit,
                         child: _creating
                             ? SizedBox(
                                 width: 18,
@@ -229,7 +270,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                                   color: cs.onPrimary,
                                 ),
                               )
-                            : const Text('Create'),
+                            : Text(isEditing ? 'Save' : 'Create'),
                       ),
                     ),
                   ],
@@ -249,6 +290,14 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
       description: _descriptionController.text,
     );
     if (resolved != CollectionVisualStyle.fallback) return resolved;
+    final collection = widget.collection;
+    if (collection != null) return resolveCollectionVisual(collection);
     return widget.initialVisual ?? resolved;
   }
+}
+
+String _limitDescription(String value) {
+  return LengthLimitingTextInputFormatter(maxCollectionDescriptionLength)
+      .formatEditUpdate(const TextEditingValue(), TextEditingValue(text: value))
+      .text;
 }

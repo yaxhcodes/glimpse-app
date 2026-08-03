@@ -75,14 +75,19 @@ class _MainShellState extends ConsumerState<MainShell> {
     final urlsAsync = ref.watch(displayedUrlsProvider);
     final hasLinks = (urlsAsync.valueOrNull?.length ?? 0) > 0;
     final homeSelection = ref.watch(bulkSelectionProvider('home'));
+    final collectionsSelection = ref.watch(
+      bulkSelectionProvider('collections'),
+    );
     final searchSelection = ref.watch(bulkSelectionProvider('search'));
     final currentSelectionScope = switch (_currentIndex) {
       0 => 'home',
+      1 => 'collections',
       _searchTabIndex => 'search',
       _ => null,
     };
     final hasActiveSelection = switch (_currentIndex) {
       0 => homeSelection.isActive,
+      1 => collectionsSelection.isActive,
       _searchTabIndex => searchSelection.isActive,
       _ => false,
     };

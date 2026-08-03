@@ -42,6 +42,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
     required this.visibleUrls,
     required this.onDone,
     this.onViewPinned,
+    this.onMoveToCollection,
   });
 
   final String scope;
@@ -49,6 +50,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
   final List<SavedUrl> visibleUrls;
   final VoidCallback onDone;
   final VoidCallback? onViewPinned;
+  final Future<void> Function()? onMoveToCollection;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -86,7 +88,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
           enabled: selectedUrls.isNotEmpty,
           tooltip: 'More selection actions',
           icon: const Icon(Icons.more_vert_rounded),
-          onSelected: (action) {
+          onSelected: (action) async {
             switch (action) {
               case _BulkSelectionMenuAction.addToCollection:
                 showAddManyToCollectionSheet(
@@ -94,6 +96,9 @@ class BulkSelectionActionButtons extends ConsumerWidget {
                   selectedUrls,
                   onCompleted: onDone,
                 );
+                break;
+              case _BulkSelectionMenuAction.moveToCollection:
+                await onMoveToCollection?.call();
                 break;
               case _BulkSelectionMenuAction.pin:
                 _pinSelected(context, ref, selectedUrls, onDone, onViewPinned);
@@ -111,6 +116,14 @@ class BulkSelectionActionButtons extends ConsumerWidget {
                 title: Text('Add to collection'),
               ),
             ),
+            if (onMoveToCollection != null)
+              const PopupMenuItem(
+                value: _BulkSelectionMenuAction.moveToCollection,
+                child: ListTile(
+                  leading: Icon(Icons.drive_file_move_outline),
+                  title: Text('Move to collection'),
+                ),
+              ),
             PopupMenuItem(
               value: _BulkSelectionMenuAction.pin,
               child: ListTile(
@@ -132,7 +145,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
   }
 }
 
-enum _BulkSelectionMenuAction { addToCollection, pin, delete }
+enum _BulkSelectionMenuAction { addToCollection, moveToCollection, pin, delete }
 
 String _readActionLabel(List<SavedUrl> urls) {
   if (urls.isEmpty) return 'Mark read';

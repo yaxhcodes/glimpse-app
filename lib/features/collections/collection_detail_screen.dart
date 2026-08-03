@@ -8,11 +8,14 @@ import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
 import '../../shared/theme/app_icons.dart';
+import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../add_url/add_url_screen.dart';
-import 'collection_visual.dart';
 import 'collections_provider.dart';
+import 'collections_preferences_provider.dart';
+import 'create_collection_sheet.dart';
+import 'move_collection_contents_sheet.dart';
 
 class CollectionDetailScreen extends ConsumerStatefulWidget {
   const CollectionDetailScreen({super.key, required this.collectionId});
@@ -46,6 +49,7 @@ class _CollectionDetailScreenState
       data: (c) => c?.name ?? 'Collection',
       orElse: () => 'Collection',
     );
+    final description = collection?.description?.trim();
 
     return PopScope(
       canPop: !selectionState.isActive,
@@ -66,13 +70,26 @@ class _CollectionDetailScreenState
               : null,
           title: selectionState.isActive
               ? BulkSelectionTitle(count: selectedUrls.length)
-              : Text(title),
+              : _CollectionDetailTitle(
+                  title: title,
+                  description: description == null || description.isEmpty
+                      ? null
+                      : description,
+                ),
           actions: selectionState.isActive
               ? [
                   BulkSelectionActionButtons(
                     scope: selectionScope,
                     selectedUrls: selectedUrls,
                     visibleUrls: visibleUrls,
+                    onMoveToCollection: collection == null
+                        ? null
+                        : () => _moveSelectedUrls(
+                            context,
+                            collection,
+                            selectedUrls,
+                            selectionNotifier,
+                          ),
                     onDone: () {
                       selectionNotifier.clear();
                       ref.invalidate(
@@ -96,8 +113,8 @@ class _CollectionDetailScreenState
                   ),
                   IconButton(
                     icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Rename',
-                    onPressed: () => _rename(context, metaAsync.valueOrNull),
+                    tooltip: 'Edit collection',
+                    onPressed: () => _edit(context, metaAsync.valueOrNull),
                   ),
                   PopupMenuButton<String>(
                     onSelected: (value) async {
@@ -160,15 +177,75 @@ class _CollectionDetailScreenState
                   onChanged: () {
                     ref.invalidate(collectionUrlsProvider(widget.collectionId));
                   },
-                  onTap: () => context.push(
-                    '/url/${url.id}',
-                    extra: allIds,
-                  ),
+                  onTap: () => context.push('/url/${url.id}', extra: allIds),
                 );
               },
             );
           },
         ),
+      ),
+    );
+  }
+
+  Future<void> _moveSelectedUrls(
+    BuildContext context,
+    UserCollection source,
+    List<SavedUrl> selectedUrls,
+    BulkSelectionNotifier selectionNotifier,
+  ) async {
+    final collections = await ref.read(collectionsSummaryProvider.future);
+    final targets = collections
+        .where((summary) => summary.collection.id != source.id)
+        .toList(growable: false);
+    if (!context.mounted) return;
+    if (targets.isEmpty) {
+      showAutoDismissSnackBar(
+        context,
+        const SnackBar(
+          content: Text('Create another collection before moving links'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    final target = await showMoveUrlsToCollectionSheet(
+      context,
+      sourceCollectionName: source.name,
+      selectedCount: selectedUrls.length,
+      targets: targets,
+    );
+    if (target == null || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final movedCount = await ref
+        .read(isarServiceProvider)
+        .moveUrlsBetweenCollections(
+          sourceCollectionId: source.id,
+          targetCollectionId: target.id,
+          urlIds: selectedUrls.map((url) => url.id),
+        );
+    selectionNotifier.clear();
+    ref.invalidate(collectionsListProvider);
+    ref.invalidate(collectionsSummaryProvider);
+    ref.invalidate(collectionMetaProvider(source.id));
+    ref.invalidate(collectionUrlsProvider(source.id));
+    ref.invalidate(collectionMetaProvider(target.id));
+    ref.invalidate(collectionUrlsProvider(target.id));
+    if (!context.mounted) return;
+
+    showAutoDismissSnackBarVia(
+      messenger,
+      SnackBar(
+        content: Text(
+          movedCount == 0
+              ? 'No links moved'
+              : 'Moved $movedCount ${movedCount == 1 ? 'link' : 'links'} to '
+                    '${target.name}',
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -195,6 +272,9 @@ class _CollectionDetailScreenState
     );
     if (ok == true && context.mounted) {
       await ref.read(isarServiceProvider).deleteCollection(widget.collectionId);
+      await ref.read(collectionsPreferencesProvider.notifier).removeCollections(
+        [widget.collectionId],
+      );
       ref.invalidate(collectionsListProvider);
       ref.invalidate(collectionsSummaryProvider);
       ref.invalidate(collectionMetaProvider(widget.collectionId));
@@ -203,55 +283,46 @@ class _CollectionDetailScreenState
     }
   }
 
-  Future<void> _rename(BuildContext context, dynamic collection) async {
+  Future<void> _edit(BuildContext context, UserCollection? collection) async {
     if (collection == null) return;
-    final controller = TextEditingController(text: collection.name);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Rename collection'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            hintText: 'Collection name',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Save'),
+    final updated = await showCreateCollectionSheet(
+      context,
+      collection: collection,
+    );
+    if (updated == null) return;
+    ref.invalidate(collectionsListProvider);
+    ref.invalidate(collectionsSummaryProvider);
+    ref.invalidate(collectionMetaProvider(widget.collectionId));
+  }
+}
+
+class _CollectionDetailTitle extends StatelessWidget {
+  const _CollectionDetailTitle({required this.title, this.description});
+
+  final String title;
+  final String? description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        if (description != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            description!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
-      ),
+      ],
     );
-    if (result != null && result.isNotEmpty && context.mounted) {
-      final visual = resolveCollectionVisualStyle(
-        null,
-        name: result,
-        description: collection.description,
-      );
-      await ref
-          .read(isarServiceProvider)
-          .updateCollection(
-            UserCollection()
-              ..id = collection.id
-              ..name = result
-              ..emoji = visual.key
-              ..description = collection.description
-              ..createdAt = collection.createdAt
-              ..urlIds = collection.urlIds,
-          );
-      ref.invalidate(collectionsListProvider);
-      ref.invalidate(collectionsSummaryProvider);
-      ref.invalidate(collectionMetaProvider(widget.collectionId));
-    }
-    controller.dispose();
   }
 }
