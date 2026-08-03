@@ -36,6 +36,7 @@ import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
 import '../search/search_provider.dart';
 import 'detail_expansion_section.dart';
+import 'notable_term_grid.dart';
 import 'url_detail_provider.dart';
 
 class UrlDetailScreen extends ConsumerStatefulWidget {
@@ -3590,6 +3591,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }) {
     final displayItems = items.take(8).toList();
     final title = _notableItemsSectionTitle(displayItems);
+    final useCompactGrid = shouldUseCompactTermGrid(displayItems);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3607,12 +3609,25 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           ),
         ],
         const SizedBox(height: 10),
-        for (final item in displayItems)
-          _buildNotableItemRow(
-            item: item,
-            theme: theme,
-            colorScheme: colorScheme,
-          ),
+        if (useCompactGrid)
+          NotableTermGrid(
+            children: [
+              for (final item in displayItems)
+                _buildNotableItemRow(
+                  item: item,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                  compact: true,
+                ),
+            ],
+          )
+        else
+          for (final item in displayItems)
+            _buildNotableItemRow(
+              item: item,
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
       ],
     );
   }
@@ -3637,6 +3652,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required EnrichedNotableItem item,
     required ThemeData theme,
     required ColorScheme colorScheme,
+    bool compact = false,
   }) {
     final itemType = item.type.toLowerCase();
     final isQuote = itemType == 'quote';
@@ -3658,8 +3674,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ].join(' · ');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 9),
+      margin: EdgeInsets.only(bottom: compact ? 0 : 9),
       padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+      constraints: compact ? const BoxConstraints(minHeight: 68) : null,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
         borderRadius: BorderRadius.circular(12),
