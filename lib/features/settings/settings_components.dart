@@ -135,7 +135,9 @@ class SettingsTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
-              child: leading ?? AppIcon(icon!, color: accent, size: 22),
+              child:
+                  leading ??
+                  AppIcon(icon!, color: accent, size: 22, filled: true),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -245,18 +247,18 @@ WidgetStateProperty<Icon?> settingsSwitchThumbIcon() {
   });
 }
 
-/// A curated, palette-harmonious set of chip accents so icons feel colorful
-/// (Android 16) without turning into a random rainbow against the warm theme.
+/// Muted, palette-harmonious chip accents that remain distinct without
+/// competing with the settings content.
 class SettingsAccents {
   const SettingsAccents._();
 
-  static const Color violet = Color(0xFF7C5CFF);
-  static const Color teal = Color(0xFF1FA39B);
-  static const Color amber = Color(0xFFE8973A);
-  static const Color rose = Color(0xFFE5577B);
-  static const Color gold = Color(0xFFC9A227);
-  static const Color blue = Color(0xFF3A7BE8);
-  static const Color green = Color(0xFF3FA34D);
-  static const Color indigo = Color(0xFF5566C9);
-  static const Color slate = Color(0xFF6B7280);
+  static const Color violet = Color(0xFF917EDD);
+  static const Color teal = Color(0xFF3B8783);
+  static const Color amber = Color(0xFFB17E48);
+  static const Color rose = Color(0xFFC7758A);
+  static const Color gold = Color(0xFFA79049);
+  static const Color blue = Color(0xFF5F84C3);
+  static const Color green = Color(0xFF548E5C);
+  static const Color indigo = Color(0xFF6D77B1);
+  static const Color slate = Color(0xFF6F737C);
 }

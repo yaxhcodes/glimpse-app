@@ -51,9 +51,27 @@ extension SwipeActionTypeInfo on SwipeActionType {
     };
   }
 
+  IconData get filledIcon {
+    return switch (this) {
+      SwipeActionType.delete => Icons.delete_rounded,
+      SwipeActionType.toggleRead => Icons.mark_email_read_rounded,
+      SwipeActionType.addToCollection => AppIcons.filledVariant(
+        AppIcons.addToCollection,
+      ),
+      SwipeActionType.pin => Icons.push_pin_rounded,
+      SwipeActionType.askGlimpse => Icons.auto_awesome_rounded,
+      SwipeActionType.share => Icons.share_rounded,
+      SwipeActionType.none => Icons.block_rounded,
+    };
+  }
+
   /// Renders the action glyph. Ask Glimpse uses the brand mark instead of a
   /// stock icon so it reads as a first-class, premium action everywhere.
-  Widget iconWidget({required Color color, double size = 22}) {
+  Widget iconWidget({
+    required Color color,
+    double size = 22,
+    bool filled = false,
+  }) {
     if (this == SwipeActionType.askGlimpse) {
       return SvgPicture.asset(
         'assets/glimpse.svg',
@@ -62,7 +80,7 @@ extension SwipeActionTypeInfo on SwipeActionType {
         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
       );
     }
-    return Icon(icon, size: size, color: color);
+    return Icon(filled ? filledIcon : icon, size: size, color: color);
   }
 
   /// Muted, desaturated accents that read clearly during a swipe without

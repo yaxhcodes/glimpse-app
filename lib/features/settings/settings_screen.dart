@@ -579,6 +579,7 @@ class _SwipeActionsGroup extends ConsumerWidget {
           leading: prefs.leftSwipeAction.iconWidget(
             color: SettingsAccents.rose,
             size: 22,
+            filled: true,
           ),
           iconColor: SettingsAccents.rose,
           title: 'Left swipe',
@@ -597,6 +598,7 @@ class _SwipeActionsGroup extends ConsumerWidget {
           leading: prefs.rightSwipeAction.iconWidget(
             color: SettingsAccents.teal,
             size: 22,
+            filled: true,
           ),
           iconColor: SettingsAccents.teal,
           title: 'Right swipe',
@@ -698,7 +700,11 @@ class _SwipeActionOption extends StatelessWidget {
             SizedBox(
               width: 24,
               child: Center(
-                child: action.iconWidget(color: iconColor, size: 22),
+                child: action.iconWidget(
+                  color: iconColor,
+                  size: 22,
+                  filled: true,
+                ),
               ),
             ),
             const SizedBox(width: 16),

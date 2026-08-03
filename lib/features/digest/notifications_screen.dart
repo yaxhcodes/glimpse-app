@@ -500,18 +500,13 @@ class CuratedNotificationListTile extends StatelessWidget {
                           ? 8
                           : (contextLine.isNotEmpty ? 10 : 11),
                     ),
-                    Row(
-                      children: [
-                        for (var i = 0; i < stripUrls.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 6),
-                          CuratedNotificationThumbStripItem(
-                            url: stripUrls[i],
-                            size: 50,
-                            squareRadius: 9,
-                            emphasized: true,
-                          ),
-                        ],
-                      ],
+                    CuratedNotificationThumbStack(
+                      urls: stripUrls,
+                      size: 50,
+                      overlap: 14,
+                      squareRadius: 9,
+                      gapWidth: 2,
+                      gapColor: cardColor,
                     ),
                     const SizedBox(height: 18),
                     Divider(

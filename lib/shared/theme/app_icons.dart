@@ -53,16 +53,34 @@ abstract final class AppIcons {
   static const tap = PhosphorIconsRegular.handTap;
   static const visibility = PhosphorIconsRegular.eye;
 
-  static final _selectedVariants = <IconData, IconData>{
+  static final _filledVariants = <IconData, IconData>{
     home: PhosphorIconsFill.houseSimple,
     collections: PhosphorIconsFill.cardsThree,
     interests: PhosphorIconsFill.circlesThreePlus,
     search: PhosphorIconsFill.magnifyingGlass,
+    notifications: PhosphorIconsFill.bellRinging,
+    settings: PhosphorIconsFill.gearSix,
+    addToCollection: PhosphorIconsFill.folderSimplePlus,
+    appearance: PhosphorIconsFill.palette,
+    privacy: PhosphorIconsFill.shieldCheck,
+    backup: PhosphorIconsFill.cloudArrowUp,
+    clearData: PhosphorIconsFill.trashSimple,
+    about: PhosphorIconsFill.info,
+    logout: PhosphorIconsFill.signOut,
+    deleteAccount: PhosphorIconsFill.userMinus,
+    automaticTheme: PhosphorIconsFill.circleHalfTilt,
+    lightTheme: PhosphorIconsFill.sun,
+    darkTheme: PhosphorIconsFill.moon,
+    amoledTheme: PhosphorIconsFill.circleHalf,
+    terms: PhosphorIconsFill.scroll,
+    help: PhosphorIconsFill.question,
   };
 
-  static IconData selectedVariant(IconData icon) {
-    return _selectedVariants[icon] ?? icon;
+  static IconData filledVariant(IconData icon) {
+    return _filledVariants[icon] ?? icon;
   }
+
+  static IconData selectedVariant(IconData icon) => filledVariant(icon);
 }
 
 class AppIcon extends StatelessWidget {
@@ -71,6 +89,7 @@ class AppIcon extends StatelessWidget {
     super.key,
     this.color,
     this.size,
+    this.filled = false,
     this.selected = false,
     this.semanticLabel,
   }) : assert(
@@ -81,13 +100,18 @@ class AppIcon extends StatelessWidget {
   final IconData icon;
   final Color? color;
   final double? size;
+  final bool filled;
   final bool selected;
   final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     return Icon(
-      selected ? AppIcons.selectedVariant(icon) : icon,
+      selected
+          ? AppIcons.selectedVariant(icon)
+          : filled
+          ? AppIcons.filledVariant(icon)
+          : icon,
       color: color,
       size: size,
       semanticLabel: semanticLabel,

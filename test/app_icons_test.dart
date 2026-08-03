@@ -49,4 +49,28 @@ void main() {
     expect(inactive.icon!.fontFamily, 'PhosphorRegular');
     expect(selected.icon!.fontFamily, 'PhosphorFill');
   });
+
+  testWidgets('filled icon uses the matching fill variant', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AppIcon(AppIcons.privacy, key: ValueKey('filled'), filled: true),
+      ),
+    );
+
+    final filled = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const ValueKey('filled')),
+        matching: find.byType(Icon),
+      ),
+    );
+
+    expect(filled.icon!.fontFamily, 'PhosphorFill');
+  });
+
+  test('filled collection action uses the Phosphor fill family', () {
+    expect(
+      AppIcons.filledVariant(AppIcons.addToCollection).fontFamily,
+      'PhosphorFill',
+    );
+  });
 }

@@ -32,9 +32,9 @@ class CuratedNotificationHero extends StatelessWidget {
     switch (spec.visualMode) {
       case NotificationVisualMode.neutralPlaceholder:
         child = ColoredBox(
-          color:
-              Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.72),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
           child: Center(
             child: LinkCardThumbnail.tagLetterPlaceholder(
               url,
@@ -53,14 +53,15 @@ class CuratedNotificationHero extends StatelessWidget {
               child: CachedNetworkImage(
                 imageUrl: spec.networkUrl!,
                 fit: BoxFit.cover,
-                httpHeaders: NotificationPreviewSpec.instagramCdnHeadersFor(spec.networkUrl),
-                memCacheHeight:
-                    (MediaQuery.devicePixelRatioOf(context) * 400).round(),
+                httpHeaders: NotificationPreviewSpec.instagramCdnHeadersFor(
+                  spec.networkUrl,
+                ),
+                memCacheHeight: (MediaQuery.devicePixelRatioOf(context) * 400)
+                    .round(),
                 errorWidget: (context, error, stackTrace) => ColoredBox(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHighest
-                      .withValues(alpha: 0.72),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
                   child: Center(
                     child: LinkCardThumbnail.tagLetterPlaceholder(
                       url,
@@ -87,8 +88,8 @@ class CuratedNotificationHero extends StatelessWidget {
                         colors: [
                           cs.scrim.withValues(alpha: 0.0),
                           cs.scrim.withValues(
-                            alpha: Theme.of(context).brightness ==
-                                    Brightness.dark
+                            alpha:
+                                Theme.of(context).brightness == Brightness.dark
                                 ? 0.28
                                 : 0.14,
                           ),
@@ -119,10 +120,7 @@ class CuratedNotificationHero extends StatelessWidget {
     } else {
       framed = ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: child,
-        ),
+        child: AspectRatio(aspectRatio: 16 / 9, child: child),
       );
     }
 
@@ -131,10 +129,7 @@ class CuratedNotificationHero extends StatelessWidget {
 }
 
 class _UnreadCornerDot extends StatelessWidget {
-  const _UnreadCornerDot({
-    required this.visible,
-    required this.color,
-  });
+  const _UnreadCornerDot({required this.visible, required this.color});
 
   final bool visible;
   final Color color;
@@ -192,6 +187,61 @@ class _UnreadCornerDot extends StatelessWidget {
   }
 }
 
+/// Overlapping notification thumbnails with a surface-colored separator between
+/// layers so each preview remains distinct.
+class CuratedNotificationThumbStack extends StatelessWidget {
+  const CuratedNotificationThumbStack({
+    super.key,
+    required this.urls,
+    this.size = 50,
+    this.overlap = 14,
+    this.squareRadius = 9,
+    this.gapWidth = 2,
+    this.gapColor,
+  }) : assert(size > 0),
+       assert(overlap >= 0),
+       assert(gapWidth >= 0);
+
+  final List<SavedUrl> urls;
+  final double size;
+  final double overlap;
+  final double squareRadius;
+  final double gapWidth;
+  final Color? gapColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (urls.isEmpty) return const SizedBox.shrink();
+
+    final effectiveOverlap = overlap.clamp(0, size - 1).toDouble();
+    final tileStep = size - effectiveOverlap;
+    final stackWidth = size + (urls.length - 1) * tileStep;
+    final separatorColor = gapColor ?? Theme.of(context).colorScheme.surface;
+
+    return SizedBox(
+      width: stackWidth,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var i = 0; i < urls.length; i++)
+            Positioned(
+              left: i * tileStep,
+              child: CuratedNotificationThumbStripItem(
+                url: urls[i],
+                size: size,
+                squareRadius: squareRadius,
+                emphasized: true,
+                overlayGapWidth: gapWidth,
+                overlayGapColor: separatorColor,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Small rounded square strip cell (consistent with heroes where applicable).
 class CuratedNotificationThumbStripItem extends StatelessWidget {
   const CuratedNotificationThumbStripItem({
@@ -200,7 +250,9 @@ class CuratedNotificationThumbStripItem extends StatelessWidget {
     this.size = 48,
     this.squareRadius = 8,
     this.emphasized = false,
-  });
+    this.overlayGapWidth = 0,
+    this.overlayGapColor,
+  }) : assert(overlayGapWidth >= 0);
 
   final SavedUrl url;
   final double size;
@@ -208,6 +260,10 @@ class CuratedNotificationThumbStripItem extends StatelessWidget {
 
   /// Border + light shadow for hub list strips (feels like content, not chrome).
   final bool emphasized;
+
+  /// Surface-colored separator used when this tile overlaps another preview.
+  final double overlayGapWidth;
+  final Color? overlayGapColor;
 
   @override
   Widget build(BuildContext context) {
@@ -221,14 +277,16 @@ class CuratedNotificationThumbStripItem extends StatelessWidget {
           fit: BoxFit.cover,
           width: size,
           height: size,
-          httpHeaders: NotificationPreviewSpec.instagramCdnHeadersFor(spec.networkUrl),
+          httpHeaders: NotificationPreviewSpec.instagramCdnHeadersFor(
+            spec.networkUrl,
+          ),
           errorWidget: (context, error, stackTrace) =>
               LinkCardThumbnail.tagLetterPlaceholder(
-            url,
-            context,
-            size: size,
-            borderRadius: squareRadius,
-          ),
+                url,
+                context,
+                size: size,
+                borderRadius: squareRadius,
+              ),
         );
       case NotificationVisualMode.neutralPlaceholder:
         core = LinkCardThumbnail.tagLetterPlaceholder(
@@ -244,23 +302,32 @@ class CuratedNotificationThumbStripItem extends StatelessWidget {
       child: SizedBox(width: size, height: size, child: core),
     );
 
-    if (!emphasized) return inner;
+    if (!emphasized && overlayGapWidth == 0) return inner;
 
     final cs = Theme.of(context).colorScheme;
+    final hasOverlayGap = overlayGapWidth > 0;
     return Container(
-      decoration: BoxDecoration(
+      foregroundDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(squareRadius),
         border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.48),
+          color: hasOverlayGap
+              ? overlayGapColor ?? cs.surface
+              : cs.outlineVariant.withValues(alpha: 0.48),
+          width: hasOverlayGap ? overlayGapWidth : 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.09),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-            spreadRadius: -1,
-          ),
-        ],
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(squareRadius),
+        boxShadow: emphasized
+            ? [
+                BoxShadow(
+                  color: cs.shadow.withValues(alpha: 0.09),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                  spreadRadius: -1,
+                ),
+              ]
+            : null,
       ),
       child: inner,
     );
