@@ -14,6 +14,7 @@ import '../services/category_resolver.dart';
 import '../services/category_taxonomy.dart';
 import '../services/session_tracking_service.dart';
 import '../services/memory_intent_resolver.dart';
+import '../services/saved_notes_codec.dart';
 import '../services/source_membership.dart';
 
 /// Service handling all local database operations via Isar.
@@ -26,13 +27,32 @@ class IsarService {
 
   Future<Isar> _openDb() async {
     final existing = Isar.getInstance();
-    if (existing != null && existing.isOpen) return existing;
+    final isar = existing != null && existing.isOpen
+        ? existing
+        : await _openNewInstance();
+    await _migrateLegacyAskNotes(isar);
+    return isar;
+  }
+
+  Future<Isar> _openNewInstance() async {
     final dir = await getApplicationDocumentsDirectory();
     return Isar.open([
       SavedUrlSchema,
       UserCollectionSchema,
       EngagementEventSchema,
     ], directory: dir.path);
+  }
+
+  Future<void> _migrateLegacyAskNotes(Isar isar) async {
+    final candidates = await isar.savedUrls
+        .filter()
+        .userNotesContains('## Ask Glimpse')
+        .findAll();
+    final changed = candidates
+        .where(SavedNotesCodec.migrateLegacyAskNotes)
+        .toList();
+    if (changed.isEmpty) return;
+    await isar.writeTxn(() => isar.savedUrls.putAll(changed));
   }
 
   /// Await the database so it's ready before the first frame.
@@ -43,6 +63,17 @@ class IsarService {
   Future<int> saveUrl(SavedUrl url) async {
     final isar = await _db;
     return isar.writeTxn(() => isar.savedUrls.put(url));
+  }
+
+  Future<bool> mutateUrl(int id, void Function(SavedUrl url) mutate) async {
+    final isar = await _db;
+    return isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(id);
+      if (url == null) return false;
+      mutate(url);
+      await isar.savedUrls.put(url);
+      return true;
+    });
   }
 
   // --------------- ENGAGEMENT EVENT LOG (#4 Phase 1) ---------------
@@ -419,6 +450,7 @@ class IsarService {
       url.category,
       ...url.effectiveCategories,
       url.userNotes ?? '',
+      ...url.askNotes.expand((note) => [note.question, note.body]),
     ].join(' ').toLowerCase();
   }
 
@@ -599,7 +631,7 @@ class IsarService {
   }
 
   /// Simple keyword search (LIKE-style) for Phase 1.
-  /// Searches title, description, summary, tags, categories, domain, rawUrl, and userNotes.
+  /// Searches saved content, personal notes, and kept Ask Glimpse answers.
   Future<List<SavedUrl>> searchUrls(String query) async {
     final isar = await _db;
     final lowerQuery = query.toLowerCase();
@@ -622,6 +654,13 @@ class IsarService {
         .domainContains(lowerQuery, caseSensitive: false)
         .or()
         .userNotesContains(lowerQuery, caseSensitive: false)
+        .or()
+        .askNotesElement(
+          (query) => query
+              .questionContains(lowerQuery, caseSensitive: false)
+              .or()
+              .bodyContains(lowerQuery, caseSensitive: false),
+        )
         .or()
         .enrichmentJsonContains(lowerQuery, caseSensitive: false)
         .sortBySavedAtDesc()

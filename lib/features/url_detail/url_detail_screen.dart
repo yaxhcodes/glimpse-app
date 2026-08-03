@@ -28,6 +28,7 @@ import '../../shared/widgets/category_chip.dart'
 import '../../shared/widgets/content_recommendation_section.dart';
 import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../shared/widgets/metadata_pill.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/tag_group.dart';
@@ -342,27 +343,40 @@ class _DetailMetadata {
   bool get hasSocialRow => hasStats || creatorUsername != null;
 }
 
-class _GlimpseSavedNote {
-  const _GlimpseSavedNote({required this.answer, this.asked, this.question});
+enum _NoteSaveStatus { idle, saving, saved, failed }
 
-  final String answer;
-  final String? asked;
-  final String? question;
-}
+enum _AskNoteAction { copy, delete }
 
-class _GlimpseSavedNoteCard extends StatelessWidget {
-  const _GlimpseSavedNoteCard({
+class _SavedAskNoteCard extends StatefulWidget {
+  const _SavedAskNoteCard({
+    super.key,
     required this.note,
     required this.theme,
     required this.colorScheme,
+    required this.onCopy,
+    required this.onDelete,
   });
 
-  final _GlimpseSavedNote note;
+  final SavedAskNote note;
   final ThemeData theme;
   final ColorScheme colorScheme;
+  final VoidCallback onCopy;
+  final VoidCallback onDelete;
+
+  @override
+  State<_SavedAskNoteCard> createState() => _SavedAskNoteCardState();
+}
+
+class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
+    final note = widget.note;
+    final theme = widget.theme;
+    final colorScheme = widget.colorScheme;
+    final canExpand =
+        note.body.length > 240 || '\n'.allMatches(note.body).length >= 5;
     final accent = Color.alphaBlend(
       colorScheme.primary.withValues(alpha: 0.42),
       colorScheme.onSurfaceVariant,
@@ -372,8 +386,8 @@ class _GlimpseSavedNoteCard extends StatelessWidget {
       colorScheme.surfaceContainerHighest,
     );
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: mutedSurface,
         borderRadius: BorderRadius.circular(12),
@@ -398,9 +412,9 @@ class _GlimpseSavedNoteCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if ((note.asked ?? '').isNotEmpty)
+              if (note.createdAt != null)
                 Text(
-                  note.asked!,
+                  _formatAskNoteDate(note.createdAt!),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1,
@@ -408,10 +422,10 @@ class _GlimpseSavedNoteCard extends StatelessWidget {
                 ),
             ],
           ),
-          if ((note.question ?? '').isNotEmpty) ...[
+          if (note.question.trim().isNotEmpty) ...[
             const SizedBox(height: 9),
             Text(
-              note.question!,
+              note.question,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
@@ -419,20 +433,87 @@ class _GlimpseSavedNoteCard extends StatelessWidget {
               ),
             ),
           ],
-          if (note.answer.isNotEmpty) ...[
+          if (note.body.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(
-              note.answer,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface,
-                height: 1.45,
-              ),
+            LightweightMarkdownText(
+              text: note.body,
+              maxLines: canExpand && !_expanded ? 5 : null,
+              selectable: _expanded || !canExpand,
+              baseStyle:
+                  theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    height: 1.45,
+                  ) ??
+                  const TextStyle(),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (canExpand)
+                  TextButton(
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(40, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(_expanded ? 'Show less' : 'Show more'),
+                  ),
+                const Spacer(),
+                PopupMenuButton<_AskNoteAction>(
+                  tooltip: 'Ask note actions',
+                  onSelected: (action) {
+                    switch (action) {
+                      case _AskNoteAction.copy:
+                        widget.onCopy();
+                      case _AskNoteAction.delete:
+                        widget.onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _AskNoteAction.copy,
+                      child: Text('Copy answer'),
+                    ),
+                    PopupMenuItem(
+                      value: _AskNoteAction.delete,
+                      child: Text('Delete'),
+                    ),
+                  ],
+                  icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                ),
+              ],
             ),
           ],
         ],
       ),
     );
   }
+
+  String _formatAskNoteDate(DateTime value) {
+    final now = DateTime.now();
+    final local = value.toLocal();
+    if (now.year == local.year &&
+        now.month == local.month &&
+        now.day == local.day) {
+      return 'Today';
+    }
+    return '${_monthName(local.month)} ${local.day}';
+  }
+
+  String _monthName(int month) => const [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ][month - 1];
 }
 
 class _NoteSuggestionChip extends StatelessWidget {
@@ -1014,6 +1095,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   final PageController _mediaPageController = PageController();
   final FocusNode _notesFocusNode = FocusNode();
   bool _notesEdited = false;
+  bool _notesEditing = false;
+  bool _showAllAskNotes = false;
+  _NoteSaveStatus _noteSaveStatus = _NoteSaveStatus.idle;
   bool _showExactSavedDate = false;
   bool _retryingEnrichment = false;
   int _mediaPageIndex = 0;
@@ -1035,6 +1119,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (oldWidget.urlId != widget.urlId) {
       _showExactSavedDate = false;
       _localNotesOverride = null;
+      _notesEditing = false;
+      _showAllAskNotes = false;
+      _noteSaveStatus = _NoteSaveStatus.idle;
       _localIntentActionOverride = null;
       _loadedRecipeStateId = null;
       _checkedIngredientKeys = {};
@@ -1081,6 +1168,27 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _notesTimer?.cancel();
       _autoSaveNotes();
     }
+  }
+
+  void _beginEditingNotes() {
+    setState(() {
+      _notesEditing = true;
+      _noteSaveStatus = _NoteSaveStatus.idle;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _notesFocusNode.requestFocus();
+    });
+  }
+
+  Future<void> _finishEditingNotes() async {
+    _notesTimer?.cancel();
+    if (_notesEdited) {
+      final saved = await _persistNotes(showConfirmation: false);
+      if (!saved) return;
+    }
+    if (!mounted) return;
+    _notesFocusNode.unfocus();
+    setState(() => _notesEditing = false);
   }
 
   void _showAddToCollection(SavedUrl url) {
@@ -1140,44 +1248,53 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
-  Future<void> _saveNotes() async {
+  Future<bool> _persistNotes({required bool showConfirmation}) async {
+    final snapshot = _notesController.text;
+    if (mounted) {
+      setState(() => _noteSaveStatus = _NoteSaveStatus.saving);
+    }
     final success = await ref
         .read(urlDetailNotifierProvider.notifier)
-        .updateNotes(widget.urlId, _notesController.text);
+        .updateNotes(widget.urlId, snapshot);
     if (success && mounted) {
       setState(() {
-        _localNotesOverride = _notesController.text;
-        _notesEdited = false;
+        _localNotesOverride = snapshot;
+        final unchanged = _notesController.text == snapshot;
+        _notesEdited = !unchanged;
+        _noteSaveStatus = unchanged
+            ? _NoteSaveStatus.saved
+            : _NoteSaveStatus.idle;
       });
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('Notes saved'),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
-        );
+      ref.invalidate(urlStreamProvider);
+      if (showConfirmation) _showSnack('Note saved');
+      if (_notesEdited) _scheduleNotesAutosave();
+      return true;
     }
+    if (mounted) {
+      setState(() => _noteSaveStatus = _NoteSaveStatus.failed);
+    }
+    return false;
+  }
+
+  Future<void> _saveNotes() async {
+    _notesTimer?.cancel();
+    await _persistNotes(showConfirmation: true);
   }
 
   /// Persists notes without invalidating [urlDetailProvider] — a refetch shows
   /// loading and replaces the whole body, which disposed the field and dropped focus.
   Future<void> _autoSaveNotes() async {
-    final success = await ref
-        .read(urlDetailNotifierProvider.notifier)
-        .updateNotes(widget.urlId, _notesController.text);
-    if (success && mounted) {
-      setState(() {
-        _localNotesOverride = _notesController.text;
-        _notesEdited = false;
-      });
-    }
+    await _persistNotes(showConfirmation: false);
   }
 
   void _scheduleNotesAutosave() {
     if (!_notesEdited) {
-      setState(() => _notesEdited = true);
+      setState(() {
+        _notesEdited = true;
+        _noteSaveStatus = _NoteSaveStatus.idle;
+      });
+    } else if (_noteSaveStatus != _NoteSaveStatus.idle) {
+      setState(() => _noteSaveStatus = _NoteSaveStatus.idle);
     }
     _notesTimer?.cancel();
     _notesTimer = Timer(const Duration(milliseconds: 1500), _autoSaveNotes);
@@ -1228,7 +1345,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final alreadySet = _effectiveIntentAction(url) == classified.action;
 
     if (alreadySet) {
-      // Toggle the intent back off (leaves any note text in place).
+      // Toggle the intent back off without changing the user's note.
       await isar.clearIntent(widget.urlId);
       if (!mounted) return;
       setState(() => _localIntentActionOverride = '');
@@ -1245,8 +1362,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     if (!mounted) return;
     setState(() => _localIntentActionOverride = classified.action);
-    // Record the user's decision in their notes too, without stealing focus.
-    _appendNoteLine(suggestion, focus: false);
     _showSnack(
       classified.kind == IntentKind.done
           ? 'Marked as done — moved to Done'
@@ -2154,6 +2269,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                 ],
 
+                const SizedBox(height: 20),
+                _buildNotesSection(
+                  url: url,
+                  suggestions: noteSuggestions,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                ),
+
                 ..._buildEnrichmentSections(
                   url: url,
                   live: live,
@@ -2169,42 +2292,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   onTap: _openTagSearch,
                   onLongPress: (tag) => _showTagMenu(url, tag),
                   accent: _recipeAccent(colorScheme),
-                ),
-
-                // ── Notes ───────────────────────────────────────────────────
-                const SizedBox(height: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        SectionHeader(
-                          title: 'Your Notes',
-                          accent: _recipeAccent(colorScheme),
-                        ),
-                        const Spacer(),
-                        if (_notesEdited)
-                          TextButton(
-                            onPressed: _saveNotes,
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                            ),
-                            child: const Text('Save'),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _buildNotesComposer(theme: theme, colorScheme: colorScheme),
-                    if (noteSuggestions.isNotEmpty)
-                      _buildNoteQuickAdd(
-                        url: url,
-                        suggestions: noteSuggestions,
-                        theme: theme,
-                        colorScheme: colorScheme,
-                      ),
-                  ],
                 ),
               ],
             ),
@@ -2584,63 +2671,316 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
-  Widget _buildNotesComposer({
+  Widget _buildNotesSection({
+    required SavedUrl url,
+    required List<String> suggestions,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final glimpseNotes = _parseGlimpseNoteBlocks(_notesController.text);
+    final personalNote = (_localNotesOverride ?? url.userNotes ?? '').trim();
+    final askNotes = url.askNotes.reversed.toList()
+      ..sort((a, b) {
+        final aAt = a.createdAt;
+        final bAt = b.createdAt;
+        if (aAt == null && bAt == null) return 0;
+        if (aAt == null) return 1;
+        if (bAt == null) return -1;
+        return bAt.compareTo(aAt);
+      });
+    final hasContent = personalNote.isNotEmpty || askNotes.isNotEmpty;
+
+    if (!hasContent && !_notesEditing) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: _beginEditingNotes,
+          icon: const Icon(Icons.note_add_outlined, size: 18),
+          label: const Text('Add a note'),
+          style: TextButton.styleFrom(
+            foregroundColor: colorScheme.onSurfaceVariant,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+        ),
+      );
+    }
+
+    final visibleAskNotes = _showAllAskNotes
+        ? askNotes
+        : askNotes.take(2).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (glimpseNotes.isNotEmpty) ...[
-          ...glimpseNotes.map(
-            (note) => _GlimpseSavedNoteCard(
+        SectionHeader(title: 'Notes', accent: _recipeAccent(colorScheme)),
+        const SizedBox(height: 8),
+        if (_notesEditing)
+          _buildPersonalNoteEditor(
+            url: url,
+            suggestions: suggestions,
+            theme: theme,
+            colorScheme: colorScheme,
+          )
+        else if (personalNote.isNotEmpty)
+          _buildPersonalNoteReader(
+            personalNote,
+            theme: theme,
+            colorScheme: colorScheme,
+          )
+        else
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _beginEditingNotes,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add your note'),
+            ),
+          ),
+        if (visibleAskNotes.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          ...visibleAskNotes.map(
+            (note) => _SavedAskNoteCard(
+              key: ValueKey(note.id),
               note: note,
               theme: theme,
               colorScheme: colorScheme,
+              onCopy: () => _copyAskNote(note),
+              onDelete: () => _confirmDeleteAskNote(note),
             ),
           ),
-          const SizedBox(height: 6),
+          if (askNotes.length > 2)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () =>
+                    setState(() => _showAllAskNotes = !_showAllAskNotes),
+                child: Text(
+                  _showAllAskNotes
+                      ? 'Show less'
+                      : 'Show all ${askNotes.length}',
+                ),
+              ),
+            ),
         ],
-        Container(
-          constraints: const BoxConstraints(maxHeight: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: TextField(
-            controller: _notesController,
-            focusNode: _notesFocusNode,
-            minLines: 2,
-            maxLines: 8,
-            keyboardType: TextInputType.multiline,
-            cursorColor: _recipeAccent(colorScheme),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              height: 1.5,
-              color: colorScheme.onSurface,
-            ),
-            // Soft rounded surface provides the shape; keep the field itself
-            // borderless so the themed outline pill doesn't reappear.
-            decoration: InputDecoration(
-              hintText: 'What stood out to you?',
-              hintStyle: TextStyle(color: colorScheme.outline),
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-            ),
-            onChanged: (_) => _scheduleNotesAutosave(),
-          ),
-        ),
       ],
     );
   }
 
-  /// Quick-add chips that live *inside* the Your Notes section (under the
-  /// composer) rather than as a separate "Suggested Actions" block — a light
-  /// inline label keeps them feeling like part of note-taking.
+  void _copyAskNote(SavedAskNote note) {
+    Clipboard.setData(ClipboardData(text: note.body));
+    _showSnack('Answer copied');
+  }
+
+  Future<void> _confirmDeleteAskNote(SavedAskNote note) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Ask note?'),
+        content: const Text(
+          'This removes the saved answer from this link. Your own note is not affected.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final deleted = await ref
+        .read(urlDetailNotifierProvider.notifier)
+        .deleteAskNote(widget.urlId, note.id);
+    if (!mounted) return;
+    if (deleted) {
+      ref.invalidate(urlStreamProvider);
+      _showSnack('Ask note deleted');
+    } else {
+      _showSnack('Could not delete Ask note');
+    }
+  }
+
+  Widget _buildPersonalNoteReader(
+    String note, {
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Your note',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _beginEditingNotes,
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit'),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(40, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            note,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.5,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonalNoteEditor({
+    required SavedUrl url,
+    required List<String> suggestions,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          constraints: const BoxConstraints(maxHeight: 160),
+          padding: const EdgeInsets.fromLTRB(14, 8, 10, 10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Your note',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _noteSaveStatus == _NoteSaveStatus.saving
+                        ? null
+                        : _finishEditingNotes,
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(40, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text('Done'),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _notesController,
+                  focusNode: _notesFocusNode,
+                  minLines: 2,
+                  maxLines: 8,
+                  keyboardType: TextInputType.multiline,
+                  cursorColor: _recipeAccent(colorScheme),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    height: 1.5,
+                    color: colorScheme.onSurface,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'What stood out to you?',
+                    hintStyle: TextStyle(color: colorScheme.outline),
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                  ),
+                  onChanged: (_) => _scheduleNotesAutosave(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        _buildNoteSaveStatus(theme, colorScheme),
+        if (suggestions.isNotEmpty)
+          _buildNoteQuickAdd(
+            url: url,
+            suggestions: suggestions,
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildNoteSaveStatus(ThemeData theme, ColorScheme colorScheme) {
+    final status = switch (_noteSaveStatus) {
+      _NoteSaveStatus.idle => null,
+      _NoteSaveStatus.saving => 'Saving…',
+      _NoteSaveStatus.saved => 'Saved',
+      _NoteSaveStatus.failed => 'Couldn\'t save',
+    };
+    if (status == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4),
+      child: Row(
+        children: [
+          Icon(
+            _noteSaveStatus == _NoteSaveStatus.failed
+                ? Icons.error_outline_rounded
+                : _noteSaveStatus == _NoteSaveStatus.saved
+                ? Icons.check_rounded
+                : Icons.sync_rounded,
+            size: 14,
+            color: _noteSaveStatus == _NoteSaveStatus.failed
+                ? colorScheme.error
+                : colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            status,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: _noteSaveStatus == _NoteSaveStatus.failed
+                  ? colorScheme.error
+                  : colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (_noteSaveStatus == _NoteSaveStatus.failed) ...[
+            const SizedBox(width: 4),
+            TextButton(
+              onPressed: _saveNotes,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(40, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Quick-add chips stay inside edit mode. Intent chips update Rediscover
+  /// state; only note-class suggestions add editable personal text.
   Widget _buildNoteQuickAdd({
     required SavedUrl url,
     required List<String> suggestions,
@@ -4214,36 +4554,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         ],
       ),
     );
-  }
-
-  List<_GlimpseSavedNote> _parseGlimpseNoteBlocks(String raw) {
-    final blocks = <_GlimpseSavedNote>[];
-    final matches = RegExp(
-      r'(?:^|\n)## Ask Glimpse\n([\s\S]*?)(?=\n## Ask Glimpse\n|$)',
-    ).allMatches(raw);
-    for (final match in matches) {
-      final block = match.group(1)?.trim() ?? '';
-      if (block.isEmpty) continue;
-      final lines = block.split('\n').map((line) => line.trimRight()).toList();
-      String? asked;
-      String? question;
-      final body = <String>[];
-      for (final line in lines) {
-        if (line.startsWith('Asked:')) {
-          asked = line.substring('Asked:'.length).trim();
-        } else if (line.startsWith('Question:')) {
-          question = line.substring('Question:'.length).trim();
-        } else {
-          body.add(line);
-        }
-      }
-      final answer = body.join('\n').trim();
-      if ((question ?? '').isEmpty && answer.isEmpty) continue;
-      blocks.add(
-        _GlimpseSavedNote(asked: asked, question: question, answer: answer),
-      );
-    }
-    return blocks.reversed.take(3).toList();
   }
 
   Widget _buildMentionRow({

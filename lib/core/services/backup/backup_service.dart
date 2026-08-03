@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../database/isar_service.dart';
 import '../../models/saved_url.dart';
+import '../saved_notes_codec.dart';
 import '../../services/session_tracking_service.dart';
 import 'backup_models.dart';
 
@@ -38,6 +39,17 @@ class BackupService {
       categories: List<String>.from(url.categories),
       tags: List<String>.from(url.tags),
       userNotes: url.userNotes,
+      askNotes: url.askNotes
+          .map(
+            (note) => SavedAskNoteBackup(
+              id: note.id,
+              sourceMessageId: note.sourceMessageId,
+              question: note.question,
+              body: note.body,
+              createdAt: note.createdAt?.toIso8601String(),
+            ),
+          )
+          .toList(),
       summary: url.summary,
       enrichmentJson: url.enrichmentJson,
       processingStatus: url.processingStatus,
@@ -84,33 +96,55 @@ class BackupService {
     return sanitized.isEmpty ? null : sanitized;
   }
 
-  SavedUrl fromBackup(SavedUrlBackup b) => SavedUrl()
-    ..rawUrl = b.rawUrl
-    ..domain = b.domain
-    ..title = b.title
-    ..description = b.description
-    ..thumbnailUrl = b.thumbnailUrl
-    ..category = b.category
-    ..categoryEmoji = b.categoryEmoji
-    ..categories = List<String>.from(b.categories)
-    ..tags = List<String>.from(b.tags)
-    ..userNotes = b.userNotes
-    ..summary = b.summary
-    ..enrichmentJson = b.enrichmentJson
-    ..processingStatus = b.processingStatus
-    ..processingId = b.processingId
-    ..processingAttempt = b.processingAttempt
-    ..processingUpdatedAt = _parseOptionalDate(b.processingUpdatedAt)
-    ..processingError = b.processingError
-    ..savedAt = DateTime.parse(b.savedAt)
-    ..openedAt = _parseOptionalDate(b.openedAt)
-    ..resurfacedAt = _parseOptionalDate(b.resurfacedAt)
-    ..rediscoverDismissedAt = _parseOptionalDate(b.rediscoverDismissedAt)
-    ..intentStatus = b.intentStatus
-    ..intentAction = b.intentAction
-    ..intentSetAt = _parseOptionalDate(b.intentSetAt)
-    ..revisitAfter = _parseOptionalDate(b.revisitAfter)
-    ..embedding = b.embedding != null ? List<double>.from(b.embedding!) : null;
+  SavedUrl fromBackup(SavedUrlBackup b) {
+    final url = SavedUrl()
+      ..rawUrl = b.rawUrl
+      ..domain = b.domain
+      ..title = b.title
+      ..description = b.description
+      ..thumbnailUrl = b.thumbnailUrl
+      ..category = b.category
+      ..categoryEmoji = b.categoryEmoji
+      ..categories = List<String>.from(b.categories)
+      ..tags = List<String>.from(b.tags)
+      ..userNotes = b.userNotes
+      ..askNotes = b.askNotes
+          .map(
+            (note) => SavedAskNote()
+              ..id = note.id
+              ..sourceMessageId = note.sourceMessageId
+              ..question = note.question
+              ..body = note.body
+              ..createdAt = _parseOptionalDate(note.createdAt),
+          )
+          .where(
+            (note) =>
+                note.id.isNotEmpty &&
+                note.question.trim().isNotEmpty &&
+                note.body.trim().isNotEmpty,
+          )
+          .toList()
+      ..summary = b.summary
+      ..enrichmentJson = b.enrichmentJson
+      ..processingStatus = b.processingStatus
+      ..processingId = b.processingId
+      ..processingAttempt = b.processingAttempt
+      ..processingUpdatedAt = _parseOptionalDate(b.processingUpdatedAt)
+      ..processingError = b.processingError
+      ..savedAt = DateTime.parse(b.savedAt)
+      ..openedAt = _parseOptionalDate(b.openedAt)
+      ..resurfacedAt = _parseOptionalDate(b.resurfacedAt)
+      ..rediscoverDismissedAt = _parseOptionalDate(b.rediscoverDismissedAt)
+      ..intentStatus = b.intentStatus
+      ..intentAction = b.intentAction
+      ..intentSetAt = _parseOptionalDate(b.intentSetAt)
+      ..revisitAfter = _parseOptionalDate(b.revisitAfter)
+      ..embedding = b.embedding != null
+          ? List<double>.from(b.embedding!)
+          : null;
+    SavedNotesCodec.migrateLegacyAskNotes(url);
+    return url;
+  }
 
   DateTime? _parseOptionalDate(String? value) =>
       value == null ? null : DateTime.parse(value);
@@ -817,6 +851,7 @@ class BackupService {
   }
 
   SavedUrl _mergeLink(SavedUrl existing, SavedUrlBackup incoming) {
+    final normalizedIncoming = fromBackup(incoming);
     final incomingSavedAt = DateTime.parse(incoming.savedAt);
     final mergedEmbedding = incoming.embedding ?? existing.embedding;
     final incomingProcessingUpdatedAt = _parseOptionalDate(
@@ -848,7 +883,11 @@ class BackupService {
       ..categoryEmoji = existing.categoryEmoji
       ..categories = _mergeLists(existing.categories, incoming.categories)
       ..tags = _mergeLists(existing.tags, incoming.tags)
-      ..userNotes = incoming.userNotes ?? existing.userNotes
+      ..userNotes = normalizedIncoming.userNotes ?? existing.userNotes
+      ..askNotes = SavedNotesCodec.mergeAskNotes(
+        existing.askNotes,
+        normalizedIncoming.askNotes,
+      )
       ..summary = incoming.summary ?? existing.summary
       ..enrichmentJson = incoming.enrichmentJson ?? existing.enrichmentJson
       ..processingStatus = useIncomingProcessing

@@ -17,138 +17,144 @@ const SavedUrlSchema = CollectionSchema(
   name: r'SavedUrl',
   id: -157001970381558071,
   properties: {
-    r'categories': PropertySchema(
+    r'askNotes': PropertySchema(
       id: 0,
+      name: r'askNotes',
+      type: IsarType.objectList,
+      target: r'SavedAskNote',
+    ),
+    r'categories': PropertySchema(
+      id: 1,
       name: r'categories',
       type: IsarType.stringList,
     ),
     r'category': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'category',
       type: IsarType.string,
     ),
     r'categoryEmoji': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'categoryEmoji',
       type: IsarType.string,
     ),
     r'description': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'description',
       type: IsarType.string,
     ),
     r'domain': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'domain',
       type: IsarType.string,
     ),
     r'effectiveCategories': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'effectiveCategories',
       type: IsarType.stringList,
     ),
     r'embedding': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'embedding',
       type: IsarType.doubleList,
     ),
     r'enrichmentJson': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'enrichmentJson',
       type: IsarType.string,
     ),
     r'intentAction': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'intentAction',
       type: IsarType.string,
     ),
     r'intentSetAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'intentSetAt',
       type: IsarType.dateTime,
     ),
     r'intentStatus': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'intentStatus',
       type: IsarType.string,
     ),
     r'openedAt': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'openedAt',
       type: IsarType.dateTime,
     ),
     r'processingAttempt': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'processingAttempt',
       type: IsarType.long,
     ),
     r'processingError': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'processingError',
       type: IsarType.string,
     ),
     r'processingId': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'processingId',
       type: IsarType.string,
     ),
     r'processingStatus': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'processingStatus',
       type: IsarType.string,
     ),
     r'processingUpdatedAt': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'processingUpdatedAt',
       type: IsarType.dateTime,
     ),
     r'rawUrl': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'rawUrl',
       type: IsarType.string,
     ),
     r'rediscoverDismissedAt': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'rediscoverDismissedAt',
       type: IsarType.dateTime,
     ),
     r'resurfacedAt': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'resurfacedAt',
       type: IsarType.dateTime,
     ),
     r'revisitAfter': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'revisitAfter',
       type: IsarType.dateTime,
     ),
     r'savedAt': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -213,7 +219,7 @@ const SavedUrlSchema = CollectionSchema(
     )
   },
   links: {},
-  embeddedSchemas: {},
+  embeddedSchemas: {r'SavedAskNote': SavedAskNoteSchema},
   getId: _savedUrlGetId,
   getLinks: _savedUrlGetLinks,
   attach: _savedUrlAttach,
@@ -226,6 +232,14 @@ int _savedUrlEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.askNotes.length * 3;
+  {
+    final offsets = allOffsets[SavedAskNote]!;
+    for (var i = 0; i < object.askNotes.length; i++) {
+      final value = object.askNotes[i];
+      bytesCount += SavedAskNoteSchema.estimateSize(value, offsets, allOffsets);
+    }
+  }
   bytesCount += 3 + object.categories.length * 3;
   {
     for (var i = 0; i < object.categories.length; i++) {
@@ -322,33 +336,39 @@ void _savedUrlSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeStringList(offsets[0], object.categories);
-  writer.writeString(offsets[1], object.category);
-  writer.writeString(offsets[2], object.categoryEmoji);
-  writer.writeString(offsets[3], object.description);
-  writer.writeString(offsets[4], object.domain);
-  writer.writeStringList(offsets[5], object.effectiveCategories);
-  writer.writeDoubleList(offsets[6], object.embedding);
-  writer.writeString(offsets[7], object.enrichmentJson);
-  writer.writeString(offsets[8], object.intentAction);
-  writer.writeDateTime(offsets[9], object.intentSetAt);
-  writer.writeString(offsets[10], object.intentStatus);
-  writer.writeDateTime(offsets[11], object.openedAt);
-  writer.writeLong(offsets[12], object.processingAttempt);
-  writer.writeString(offsets[13], object.processingError);
-  writer.writeString(offsets[14], object.processingId);
-  writer.writeString(offsets[15], object.processingStatus);
-  writer.writeDateTime(offsets[16], object.processingUpdatedAt);
-  writer.writeString(offsets[17], object.rawUrl);
-  writer.writeDateTime(offsets[18], object.rediscoverDismissedAt);
-  writer.writeDateTime(offsets[19], object.resurfacedAt);
-  writer.writeDateTime(offsets[20], object.revisitAfter);
-  writer.writeDateTime(offsets[21], object.savedAt);
-  writer.writeString(offsets[22], object.summary);
-  writer.writeStringList(offsets[23], object.tags);
-  writer.writeString(offsets[24], object.thumbnailUrl);
-  writer.writeString(offsets[25], object.title);
-  writer.writeString(offsets[26], object.userNotes);
+  writer.writeObjectList<SavedAskNote>(
+    offsets[0],
+    allOffsets,
+    SavedAskNoteSchema.serialize,
+    object.askNotes,
+  );
+  writer.writeStringList(offsets[1], object.categories);
+  writer.writeString(offsets[2], object.category);
+  writer.writeString(offsets[3], object.categoryEmoji);
+  writer.writeString(offsets[4], object.description);
+  writer.writeString(offsets[5], object.domain);
+  writer.writeStringList(offsets[6], object.effectiveCategories);
+  writer.writeDoubleList(offsets[7], object.embedding);
+  writer.writeString(offsets[8], object.enrichmentJson);
+  writer.writeString(offsets[9], object.intentAction);
+  writer.writeDateTime(offsets[10], object.intentSetAt);
+  writer.writeString(offsets[11], object.intentStatus);
+  writer.writeDateTime(offsets[12], object.openedAt);
+  writer.writeLong(offsets[13], object.processingAttempt);
+  writer.writeString(offsets[14], object.processingError);
+  writer.writeString(offsets[15], object.processingId);
+  writer.writeString(offsets[16], object.processingStatus);
+  writer.writeDateTime(offsets[17], object.processingUpdatedAt);
+  writer.writeString(offsets[18], object.rawUrl);
+  writer.writeDateTime(offsets[19], object.rediscoverDismissedAt);
+  writer.writeDateTime(offsets[20], object.resurfacedAt);
+  writer.writeDateTime(offsets[21], object.revisitAfter);
+  writer.writeDateTime(offsets[22], object.savedAt);
+  writer.writeString(offsets[23], object.summary);
+  writer.writeStringList(offsets[24], object.tags);
+  writer.writeString(offsets[25], object.thumbnailUrl);
+  writer.writeString(offsets[26], object.title);
+  writer.writeString(offsets[27], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -358,33 +378,40 @@ SavedUrl _savedUrlDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = SavedUrl();
-  object.categories = reader.readStringList(offsets[0]) ?? [];
-  object.category = reader.readString(offsets[1]);
-  object.categoryEmoji = reader.readString(offsets[2]);
-  object.description = reader.readString(offsets[3]);
-  object.domain = reader.readString(offsets[4]);
-  object.embedding = reader.readDoubleList(offsets[6]);
-  object.enrichmentJson = reader.readStringOrNull(offsets[7]);
+  object.askNotes = reader.readObjectList<SavedAskNote>(
+        offsets[0],
+        SavedAskNoteSchema.deserialize,
+        allOffsets,
+        SavedAskNote(),
+      ) ??
+      [];
+  object.categories = reader.readStringList(offsets[1]) ?? [];
+  object.category = reader.readString(offsets[2]);
+  object.categoryEmoji = reader.readString(offsets[3]);
+  object.description = reader.readString(offsets[4]);
+  object.domain = reader.readString(offsets[5]);
+  object.embedding = reader.readDoubleList(offsets[7]);
+  object.enrichmentJson = reader.readStringOrNull(offsets[8]);
   object.id = id;
-  object.intentAction = reader.readStringOrNull(offsets[8]);
-  object.intentSetAt = reader.readDateTimeOrNull(offsets[9]);
-  object.intentStatus = reader.readStringOrNull(offsets[10]);
-  object.openedAt = reader.readDateTimeOrNull(offsets[11]);
-  object.processingAttempt = reader.readLongOrNull(offsets[12]);
-  object.processingError = reader.readStringOrNull(offsets[13]);
-  object.processingId = reader.readStringOrNull(offsets[14]);
-  object.processingStatus = reader.readStringOrNull(offsets[15]);
-  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[16]);
-  object.rawUrl = reader.readString(offsets[17]);
-  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[18]);
-  object.resurfacedAt = reader.readDateTimeOrNull(offsets[19]);
-  object.revisitAfter = reader.readDateTimeOrNull(offsets[20]);
-  object.savedAt = reader.readDateTime(offsets[21]);
-  object.summary = reader.readStringOrNull(offsets[22]);
-  object.tags = reader.readStringList(offsets[23]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[24]);
-  object.title = reader.readString(offsets[25]);
-  object.userNotes = reader.readStringOrNull(offsets[26]);
+  object.intentAction = reader.readStringOrNull(offsets[9]);
+  object.intentSetAt = reader.readDateTimeOrNull(offsets[10]);
+  object.intentStatus = reader.readStringOrNull(offsets[11]);
+  object.openedAt = reader.readDateTimeOrNull(offsets[12]);
+  object.processingAttempt = reader.readLongOrNull(offsets[13]);
+  object.processingError = reader.readStringOrNull(offsets[14]);
+  object.processingId = reader.readStringOrNull(offsets[15]);
+  object.processingStatus = reader.readStringOrNull(offsets[16]);
+  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[17]);
+  object.rawUrl = reader.readString(offsets[18]);
+  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[19]);
+  object.resurfacedAt = reader.readDateTimeOrNull(offsets[20]);
+  object.revisitAfter = reader.readDateTimeOrNull(offsets[21]);
+  object.savedAt = reader.readDateTime(offsets[22]);
+  object.summary = reader.readStringOrNull(offsets[23]);
+  object.tags = reader.readStringList(offsets[24]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[25]);
+  object.title = reader.readString(offsets[26]);
+  object.userNotes = reader.readStringOrNull(offsets[27]);
   return object;
 }
 
@@ -396,9 +423,15 @@ P _savedUrlDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readObjectList<SavedAskNote>(
+            offset,
+            SavedAskNoteSchema.deserialize,
+            allOffsets,
+            SavedAskNote(),
+          ) ??
+          []) as P;
     case 1:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 2:
       return (reader.readString(offset)) as P;
     case 3:
@@ -406,48 +439,50 @@ P _savedUrlDeserializeProp<P>(
     case 4:
       return (reader.readString(offset)) as P;
     case 5:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readString(offset)) as P;
     case 6:
-      return (reader.readDoubleList(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleList(offset)) as P;
     case 8:
       return (reader.readStringOrNull(offset)) as P;
     case 9:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 10:
-      return (reader.readStringOrNull(offset)) as P;
-    case 11:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 12:
-      return (reader.readLongOrNull(offset)) as P;
-    case 13:
+    case 11:
       return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 13:
+      return (reader.readLongOrNull(offset)) as P;
     case 14:
       return (reader.readStringOrNull(offset)) as P;
     case 15:
       return (reader.readStringOrNull(offset)) as P;
     case 16:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 17:
-      return (reader.readString(offset)) as P;
-    case 18:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 18:
+      return (reader.readString(offset)) as P;
     case 19:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 20:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 21:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 22:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 23:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 24:
       return (reader.readStringOrNull(offset)) as P;
+    case 24:
+      return (reader.readStringList(offset) ?? []) as P;
     case 25:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 26:
+      return (reader.readString(offset)) as P;
+    case 27:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -842,6 +877,92 @@ extension SavedUrlQueryWhere on QueryBuilder<SavedUrl, SavedUrl, QWhereClause> {
 
 extension SavedUrlQueryFilter
     on QueryBuilder<SavedUrl, SavedUrl, QFilterCondition> {
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> askNotesLengthEqualTo(
+      int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'askNotes',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> askNotesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'askNotes',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> askNotesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'askNotes',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      askNotesLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'askNotes',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      askNotesLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'askNotes',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> askNotesLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'askNotes',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
       categoriesElementEqualTo(
     String value, {
@@ -4434,7 +4555,14 @@ extension SavedUrlQueryFilter
 }
 
 extension SavedUrlQueryObject
-    on QueryBuilder<SavedUrl, SavedUrl, QFilterCondition> {}
+    on QueryBuilder<SavedUrl, SavedUrl, QFilterCondition> {
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> askNotesElement(
+      FilterQuery<SavedAskNote> q) {
+    return QueryBuilder.apply(this, (query) {
+      return query.object(q, r'askNotes');
+    });
+  }
+}
 
 extension SavedUrlQueryLinks
     on QueryBuilder<SavedUrl, SavedUrl, QFilterCondition> {}
@@ -5205,6 +5333,13 @@ extension SavedUrlQueryProperty
     });
   }
 
+  QueryBuilder<SavedUrl, List<SavedAskNote>, QQueryOperations>
+      askNotesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'askNotes');
+    });
+  }
+
   QueryBuilder<SavedUrl, List<String>, QQueryOperations> categoriesProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'categories');
@@ -5370,3 +5505,749 @@ extension SavedUrlQueryProperty
     });
   }
 }
+
+// **************************************************************************
+// IsarEmbeddedGenerator
+// **************************************************************************
+
+// coverage:ignore-file
+// ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
+
+const SavedAskNoteSchema = Schema(
+  name: r'SavedAskNote',
+  id: -6635258813739158306,
+  properties: {
+    r'body': PropertySchema(
+      id: 0,
+      name: r'body',
+      type: IsarType.string,
+    ),
+    r'createdAt': PropertySchema(
+      id: 1,
+      name: r'createdAt',
+      type: IsarType.dateTime,
+    ),
+    r'id': PropertySchema(
+      id: 2,
+      name: r'id',
+      type: IsarType.string,
+    ),
+    r'question': PropertySchema(
+      id: 3,
+      name: r'question',
+      type: IsarType.string,
+    ),
+    r'sourceMessageId': PropertySchema(
+      id: 4,
+      name: r'sourceMessageId',
+      type: IsarType.string,
+    )
+  },
+  estimateSize: _savedAskNoteEstimateSize,
+  serialize: _savedAskNoteSerialize,
+  deserialize: _savedAskNoteDeserialize,
+  deserializeProp: _savedAskNoteDeserializeProp,
+);
+
+int _savedAskNoteEstimateSize(
+  SavedAskNote object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  bytesCount += 3 + object.body.length * 3;
+  bytesCount += 3 + object.id.length * 3;
+  bytesCount += 3 + object.question.length * 3;
+  {
+    final value = object.sourceMessageId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  return bytesCount;
+}
+
+void _savedAskNoteSerialize(
+  SavedAskNote object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeString(offsets[0], object.body);
+  writer.writeDateTime(offsets[1], object.createdAt);
+  writer.writeString(offsets[2], object.id);
+  writer.writeString(offsets[3], object.question);
+  writer.writeString(offsets[4], object.sourceMessageId);
+}
+
+SavedAskNote _savedAskNoteDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = SavedAskNote();
+  object.body = reader.readString(offsets[0]);
+  object.createdAt = reader.readDateTimeOrNull(offsets[1]);
+  object.id = reader.readString(offsets[2]);
+  object.question = reader.readString(offsets[3]);
+  object.sourceMessageId = reader.readStringOrNull(offsets[4]);
+  return object;
+}
+
+P _savedAskNoteDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readString(offset)) as P;
+    case 1:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 2:
+      return (reader.readString(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readStringOrNull(offset)) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+extension SavedAskNoteQueryFilter
+    on QueryBuilder<SavedAskNote, SavedAskNote, QFilterCondition> {
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> bodyEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'body',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      bodyGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'body',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> bodyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'body',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> bodyBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'body',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      bodyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'body',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> bodyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'body',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> bodyContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'body',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> bodyMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'body',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      bodyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'body',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      bodyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'body',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      createdAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'createdAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      createdAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'createdAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      createdAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      createdAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      createdAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      createdAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'createdAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'id',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'id',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'id',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'id',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'id',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'id',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'id',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition> idIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      idIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'id',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'question',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'question',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'question',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'question',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'question',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'question',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'question',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'question',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'question',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      questionIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'question',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'sourceMessageId',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'sourceMessageId',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sourceMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'sourceMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'sourceMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'sourceMessageId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'sourceMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'sourceMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'sourceMessageId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'sourceMessageId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sourceMessageId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedAskNote, SavedAskNote, QAfterFilterCondition>
+      sourceMessageIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'sourceMessageId',
+        value: '',
+      ));
+    });
+  }
+}
+
+extension SavedAskNoteQueryObject
+    on QueryBuilder<SavedAskNote, SavedAskNote, QFilterCondition> {}

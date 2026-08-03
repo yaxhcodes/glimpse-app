@@ -15,6 +15,7 @@ import '../services/enrichment_service.dart';
 import '../services/gemini_service.dart';
 import '../services/link_preview_service.dart';
 import '../services/recipe_nutrition_service.dart';
+import '../services/saved_notes_service.dart';
 import '../services/transcript_enrichment_service.dart';
 import '../services/entitlement_service.dart';
 import 'usage_providers.dart';
@@ -22,6 +23,10 @@ import 'usage_providers.dart';
 /// Global provider for the Isar database service.
 final isarServiceProvider = Provider<IsarService>((ref) {
   return IsarService();
+});
+
+final savedNotesServiceProvider = Provider<SavedNotesService>((ref) {
+  return SavedNotesService(ref.read(isarServiceProvider));
 });
 
 /// Global provider for the backup service.

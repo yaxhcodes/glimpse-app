@@ -39,18 +39,36 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
   Future<bool> updateNotes(int id, String notes) async {
     state = const AsyncLoading();
     try {
-      final isarService = _ref.read(isarServiceProvider);
-      final url = await isarService.getUrlById(id);
-      if (url == null) {
+      final updated = await _ref
+          .read(savedNotesServiceProvider)
+          .updatePersonalNote(id, notes);
+      if (!updated) {
         state = AsyncError('URL not found', StackTrace.current);
         return false;
       }
-      url.userNotes = notes;
-      await isarService.updateUrl(url);
       state = const AsyncData(null);
       return true;
     } catch (e, stack) {
       state = AsyncError(e, stack);
+      return false;
+    }
+  }
+
+  Future<bool> deleteAskNote(int urlId, String noteId) async {
+    state = const AsyncLoading();
+    try {
+      final updated = await _ref
+          .read(savedNotesServiceProvider)
+          .deleteAskNote(urlId, noteId);
+      if (!updated) {
+        state = AsyncError('URL not found', StackTrace.current);
+        return false;
+      }
+      state = const AsyncData(null);
+      _ref.invalidate(urlDetailProvider(urlId));
+      return true;
+    } catch (error, stack) {
+      state = AsyncError(error, stack);
       return false;
     }
   }

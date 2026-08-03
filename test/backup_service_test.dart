@@ -9,7 +9,7 @@ import 'package:glimpse/core/services/backup/backup_service.dart';
 void main() {
   final service = BackupService(isarService: _UnusedIsarService());
 
-  test('version 2 round-trip preserves current saved-link state', () {
+  test('version 3 round-trip preserves current saved-link state', () {
     final savedAt = DateTime.utc(2026, 7, 1);
     final processingUpdatedAt = DateTime.utc(2026, 7, 2);
     final dismissedAt = DateTime.utc(2026, 7, 3);
@@ -35,12 +35,20 @@ void main() {
       ..intentStatus = 'queued'
       ..intentAction = 'read_later'
       ..intentSetAt = intentSetAt
-      ..revisitAfter = revisitAfter;
+      ..revisitAfter = revisitAfter
+      ..askNotes = [
+        SavedAskNote()
+          ..id = 'ask-1'
+          ..sourceMessageId = 'message-1'
+          ..question = 'Why did this matter?'
+          ..body = 'Because it explains the tradeoff clearly.'
+          ..createdAt = DateTime.utc(2026, 7, 5),
+      ];
 
     final json = service.toBackup(original).toJson();
     final restored = service.fromBackup(SavedUrlBackup.fromJson(json));
 
-    expect(BackupData.currentVersion, 2);
+    expect(BackupData.currentVersion, 3);
     expect(restored.processingStatus, original.processingStatus);
     expect(restored.processingId, original.processingId);
     expect(restored.processingAttempt, original.processingAttempt);
@@ -51,6 +59,10 @@ void main() {
     expect(restored.intentAction, original.intentAction);
     expect(restored.intentSetAt, intentSetAt);
     expect(restored.revisitAfter, revisitAfter);
+    expect(restored.askNotes, hasLength(1));
+    expect(restored.askNotes.single.id, 'ask-1');
+    expect(restored.askNotes.single.sourceMessageId, 'message-1');
+    expect(restored.askNotes.single.question, 'Why did this matter?');
   });
 
   test(

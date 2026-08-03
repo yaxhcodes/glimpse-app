@@ -212,7 +212,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           if (url.openedAt == null) return false;
       }
 
-      final hasNotes = (url.userNotes ?? '').trim().isNotEmpty;
+      final hasNotes = url.hasNotes;
       switch (filters.notes) {
         case SearchNotesFilter.all:
           break;

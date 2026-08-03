@@ -565,7 +565,6 @@ class AskNotifier extends StateNotifier<AskState> {
     List<SavedUrl>? preloadedSources,
     String? originalQuestion,
     bool usePreloadedAsContext = false,
-    int? saveAnswerToUrlId,
   }) async {
     if (question.trim().isEmpty) return;
     final previousMessages = state.messages;
@@ -624,7 +623,6 @@ class AskNotifier extends StateNotifier<AskState> {
         await _answerWithFixedContext(
           question: question,
           contextUrls: preloadedSources,
-          saveAnswerToUrlId: saveAnswerToUrlId,
           usageService: usageService,
           gemini: gemini,
           previousMessages: previousMessages,
@@ -854,7 +852,6 @@ class AskNotifier extends StateNotifier<AskState> {
     required UsageService usageService,
     required GeminiService gemini,
     required List<ChatMessage> previousMessages,
-    int? saveAnswerToUrlId,
   }) async {
     final recentHistory = _recentConversationHistory(previousMessages);
 
@@ -888,15 +885,6 @@ class AskNotifier extends StateNotifier<AskState> {
     await usageService.incrementUsage(UsageFeature.ask);
     _ref.read(usageRevisionProvider.notifier).state++;
 
-    if (saveAnswerToUrlId != null) {
-      await _appendAskNote(
-        urlId: saveAnswerToUrlId,
-        question: question,
-        answer: answer.intro,
-        sections: sections,
-      );
-    }
-
     _addBotMessage(
       answer.intro,
       sources: sources.isEmpty ? contextUrls.take(1).toList() : sources,
@@ -906,47 +894,13 @@ class AskNotifier extends StateNotifier<AskState> {
       confidence: answer.confidence,
       answerType: answer.answerType,
       originalQuestion: question,
-      canSaveAsNote:
-          saveAnswerToUrlId == null &&
-          AskAnswerActionPolicy.canSaveAnswer(
-            question: question,
-            answerType: answer.answerType,
-            confidence: answer.confidence,
-            sourceCount: sources.isEmpty ? contextUrls.length : sources.length,
-          ),
-      noteSaved: saveAnswerToUrlId != null,
+      canSaveAsNote: AskAnswerActionPolicy.canSaveAnswer(
+        question: question,
+        answerType: answer.answerType,
+        confidence: answer.confidence,
+        sourceCount: sources.isEmpty ? contextUrls.length : sources.length,
+      ),
     );
-  }
-
-  Future<void> _appendAskNote({
-    required int urlId,
-    required String question,
-    required String answer,
-    required List<ChatMessageSection> sections,
-  }) async {
-    final isarService = _ref.read(isarServiceProvider);
-    final url = await isarService.getUrlById(urlId);
-    if (url == null) return;
-
-    final existing = url.userNotes?.trimRight() ?? '';
-    final details = sections
-        .map((section) => '${section.heading}: ${section.summary}')
-        .where((line) => line.trim().isNotEmpty)
-        .join('\n');
-    final timestamp = DateTime.now();
-    final block = [
-      '## Ask Glimpse',
-      'Asked: ${_formatNoteTimestamp(timestamp)}',
-      'Question: ${question.trim()}',
-      '',
-      answer.trim(),
-      if (details.isNotEmpty) '',
-      if (details.isNotEmpty) details,
-    ].join('\n');
-
-    url.userNotes = existing.isEmpty ? block : '$existing\n\n$block';
-    await isarService.updateUrl(url);
-    _ref.invalidate(urlStreamProvider);
   }
 
   Future<bool> saveAnswerAsNote(String messageId) async {
@@ -970,17 +924,31 @@ class AskNotifier extends StateNotifier<AskState> {
       uniqueSources[source.id] = source;
     }
 
+    var allSaved = true;
+    final notesService = _ref.read(savedNotesServiceProvider);
     for (final source in uniqueSources.values) {
       final sectionsForSource = message.sections
           .where((section) => section.source.id == source.id)
           .toList();
-      await _appendAskNote(
+      final details = sectionsForSource
+          .map((section) => '${section.heading}\n${section.summary}')
+          .where((line) => line.trim().isNotEmpty)
+          .join('\n\n');
+      final body = [
+        message.text.trim(),
+        if (details.isNotEmpty) details,
+      ].join('\n\n');
+      final saved = await notesService.saveAskNote(
         urlId: source.id,
+        sourceMessageId: message.id,
         question: question,
-        answer: message.text,
-        sections: sectionsForSource,
+        body: body,
       );
+      allSaved = allSaved && saved;
     }
+
+    if (!allSaved) return false;
+    _ref.invalidate(urlStreamProvider);
 
     state = state.copyWith(
       messages: [
@@ -1000,12 +968,6 @@ class AskNotifier extends StateNotifier<AskState> {
       }
     }
     return null;
-  }
-
-  String _formatNoteTimestamp(DateTime when) {
-    String two(int value) => value.toString().padLeft(2, '0');
-    return '${when.year}-${two(when.month)}-${two(when.day)} '
-        '${two(when.hour)}:${two(when.minute)}';
   }
 
   Future<List<SavedUrl>> _fallbackContext(String question) async {
@@ -1031,7 +993,6 @@ class AskNotifier extends StateNotifier<AskState> {
     ChatAnswerConfidence confidence = ChatAnswerConfidence.medium,
     ChatAnswerType answerType = ChatAnswerType.direct,
     bool canSaveAsNote = false,
-    bool noteSaved = false,
   }) {
     final citedSources = <int, SavedUrl>{};
     for (final source in sources) {
@@ -1057,7 +1018,6 @@ class AskNotifier extends StateNotifier<AskState> {
           confidence: confidence,
           answerType: answerType,
           canSaveAsNote: canSaveAsNote && citedSources.isNotEmpty,
-          noteSaved: noteSaved,
         ),
       ],
       isLoading: false,

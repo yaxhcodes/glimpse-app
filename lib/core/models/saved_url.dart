@@ -33,6 +33,11 @@ class SavedUrl {
 
   String? userNotes;
 
+  /// Ask Glimpse answers the user explicitly chose to keep with this save.
+  /// Kept separate from [userNotes] so AI-authored context is never exposed in
+  /// the personal note editor.
+  List<SavedAskNote> askNotes = [];
+
   /// AI-generated 2–3 sentence summary of the page content.
   String? summary;
 
@@ -102,6 +107,44 @@ class SavedUrl {
   @ignore
   String? saveSessionId;
 
+  @ignore
+  bool get hasPersonalNote => userNotes?.trim().isNotEmpty ?? false;
+
+  @ignore
+  bool get hasNotes => hasPersonalNote || askNotes.isNotEmpty;
+
+  @ignore
+  SavedAskNote? get latestAskNote {
+    if (askNotes.isEmpty) return null;
+    var latest = askNotes.first;
+    for (final note in askNotes.skip(1)) {
+      final noteAt = note.createdAt;
+      final latestAt = latest.createdAt;
+      if (noteAt != null && (latestAt == null || noteAt.isAfter(latestAt))) {
+        latest = note;
+      } else if (noteAt == null && latestAt == null) {
+        latest = note;
+      }
+    }
+    return latest;
+  }
+
+  @ignore
+  String? get notePreview {
+    final personal = userNotes
+        ?.split('\n')
+        .map((line) => line.trim())
+        .firstWhere((line) => line.isNotEmpty, orElse: () => '');
+    if (personal != null && personal.isNotEmpty) {
+      return personal.replaceAll(RegExp(r'\s+'), ' ');
+    }
+    final question = latestAskNote?.question.trim() ?? '';
+    return question.isEmpty ? null : 'Asked: $question';
+  }
+
+  @ignore
+  bool get notePreviewIsAsk => !hasPersonalNote && latestAskNote != null;
+
   List<String> get effectiveCategories {
     final values = <String>[];
     for (final item in categories) {
@@ -164,4 +207,16 @@ class SavedUrl {
   bool get isProcessingReady =>
       UrlProcessingStatus.isSuccessfulTerminal(processingStatus) ||
       hasPresentableEnrichment;
+}
+
+@embedded
+class SavedAskNote {
+  String id = '';
+
+  /// The chat message that produced this note. Null for migrated legacy notes.
+  String? sourceMessageId;
+
+  String question = '';
+  String body = '';
+  DateTime? createdAt;
 }

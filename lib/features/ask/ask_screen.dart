@@ -14,6 +14,7 @@ import '../../core/providers/user_display_name_provider.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/widgets/usage_badge.dart';
+import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
@@ -107,9 +108,6 @@ class _AskScreenState extends ConsumerState<AskScreen> {
           originalQuestion: originalQuestion,
           usePreloadedAsContext:
               preloadedSources == null && contextualSource != null,
-          saveAnswerToUrlId: preloadedSources == null
-              ? contextualSource?.id
-              : null,
         );
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
@@ -332,12 +330,16 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                                       final saved = await ref
                                           .read(askProvider.notifier)
                                           .saveAnswerAsNote(msg.id);
-                                      if (!context.mounted || !saved) return;
+                                      if (!context.mounted) return;
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Saved to notes'),
+                                        SnackBar(
+                                          content: Text(
+                                            saved
+                                                ? 'Saved to notes'
+                                                : 'Could not save. Try again.',
+                                          ),
                                           behavior: SnackBarBehavior.floating,
                                         ),
                                       );
@@ -952,7 +954,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                   bottomRight: Radius.circular(20),
                 ),
               ),
-              child: _AssistantRichText(
+              child: LightweightMarkdownText(
                 text: _introComplete ? _intro : _displayedIntro,
                 baseStyle:
                     textTheme.bodyLarge?.copyWith(
@@ -1018,8 +1020,8 @@ class _AssistantBlockState extends State<_AssistantBlock> {
           if ((widget.message.action != ChatAction.none &&
                   !_actionConsumed &&
                   _chipVisible) ||
-              (widget.onSaveAnswerToNotesTap != null &&
-                  _saveActionVisible)) ...[
+              ((widget.onSaveAnswerToNotesTap != null && _saveActionVisible) ||
+                  widget.message.noteSaved)) ...[
             const SizedBox(height: 10),
             AnimatedOpacity(
               opacity: 1,
@@ -1053,8 +1055,15 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                       _saveActionVisible)
                     _AssistantUtilityAction(
                       icon: Icons.note_add_outlined,
-                      label: 'Save answer',
+                      label: widget.message.sources.length == 1
+                          ? 'Save to this save'
+                          : 'Save to ${widget.message.sources.length} saves',
                       onTap: widget.onSaveAnswerToNotesTap!,
+                    ),
+                  if (widget.message.noteSaved)
+                    const _AssistantUtilityAction(
+                      icon: Icons.check_rounded,
+                      label: 'Saved',
                     ),
                 ],
               ),
@@ -1095,12 +1104,12 @@ class _AssistantUtilityAction extends StatelessWidget {
   const _AssistantUtilityAction({
     required this.icon,
     required this.label,
-    required this.onTap,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final Future<void> Function() onTap;
+  final Future<void> Function()? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1118,127 +1127,6 @@ class _AssistantUtilityAction extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-  }
-}
-
-/// A deliberately small Markdown renderer for model prose. Ask only needs
-/// headings, bullets and emphasis; keeping this local avoids turning arbitrary
-/// model output into a full HTML-capable document surface.
-class _AssistantRichText extends StatelessWidget {
-  const _AssistantRichText({
-    required this.text,
-    required this.baseStyle,
-    this.selectable = true,
-  });
-
-  final String text;
-  final TextStyle baseStyle;
-  final bool selectable;
-
-  @override
-  Widget build(BuildContext context) {
-    final blocks = <Widget>[];
-    for (final rawLine in text.split('\n')) {
-      final line = rawLine.trimRight();
-      if (line.trim().isEmpty) {
-        if (blocks.isNotEmpty) blocks.add(const SizedBox(height: 10));
-        continue;
-      }
-
-      final heading = RegExp(
-        r'^#{1,6}(?:\s+|$)(.*)$',
-      ).firstMatch(line.trimLeft());
-      final bullet = RegExp(r'^\s*[-*](?:\s+|$)(.*)$').firstMatch(line);
-      if (heading != null) {
-        blocks.add(
-          Padding(
-            padding: EdgeInsets.only(top: blocks.isEmpty ? 0 : 8, bottom: 2),
-            child: _richLine(
-              TextSpan(
-                style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-                children: _inlineSpans(heading.group(1)!, baseStyle),
-              ),
-            ),
-          ),
-        );
-      } else if (bullet != null) {
-        blocks.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 1, right: 9),
-                  child: Text('•', style: baseStyle),
-                ),
-                Expanded(
-                  child: _richLine(
-                    TextSpan(
-                      style: baseStyle,
-                      children: _inlineSpans(bullet.group(1)!, baseStyle),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        blocks.add(
-          _richLine(
-            TextSpan(style: baseStyle, children: _inlineSpans(line, baseStyle)),
-          ),
-        );
-      }
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: blocks,
-    );
-  }
-
-  Widget _richLine(TextSpan span) {
-    return selectable ? SelectableText.rich(span) : Text.rich(span);
-  }
-
-  static List<InlineSpan> _inlineSpans(String text, TextStyle baseStyle) {
-    final spans = <InlineSpan>[];
-    final emphasis = RegExp(r'\*\*(.+?)\*\*');
-    var cursor = 0;
-    for (final match in emphasis.allMatches(text)) {
-      if (match.start > cursor) {
-        spans.add(TextSpan(text: text.substring(cursor, match.start)));
-      }
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-        ),
-      );
-      cursor = match.end;
-    }
-    if (cursor < text.length) {
-      final remaining = text.substring(cursor);
-      final openEmphasis = remaining.indexOf('**');
-      if (openEmphasis >= 0) {
-        if (openEmphasis > 0) {
-          spans.add(TextSpan(text: remaining.substring(0, openEmphasis)));
-        }
-        spans.add(
-          TextSpan(
-            text: remaining.substring(openEmphasis + 2),
-            style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-          ),
-        );
-      } else {
-        final safeText = remaining.endsWith('*')
-            ? remaining.substring(0, remaining.length - 1)
-            : remaining;
-        if (safeText.isNotEmpty) spans.add(TextSpan(text: safeText));
-      }
-    }
-    return spans;
   }
 }
 

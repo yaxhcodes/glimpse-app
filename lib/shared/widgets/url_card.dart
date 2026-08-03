@@ -113,6 +113,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final chipData = (isProcessing || isProcessingFailed)
         ? (visible: <String>[], overflow: 0)
         : TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
+    final notePreview = widget.savedUrl.notePreview;
 
     final isRead = widget.savedUrl.openedAt != null;
     final isLight = theme.brightness == Brightness.light;
@@ -255,6 +256,37 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             ),
                           ],
                         ),
+                        if (notePreview != null) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                widget.savedUrl.notePreviewIsAsk
+                                    ? Icons.auto_awesome_rounded
+                                    : Icons.sticky_note_2_outlined,
+                                size: 13,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.72,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  notePreview,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    fontSize: 11.5,
+                                    height: 1.25,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.82,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (chipData.visible.isNotEmpty ||
                             chipData.overflow > 0) ...[
                           const SizedBox(height: 6),

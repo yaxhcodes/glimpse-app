@@ -1,5 +1,5 @@
 class BackupData {
-  static const int currentVersion = 2;
+  static const int currentVersion = 3;
 
   final int version;
   final String createdAt;
@@ -73,6 +73,7 @@ class SavedUrlBackup {
   final List<String> categories;
   final List<String> tags;
   final String? userNotes;
+  final List<SavedAskNoteBackup> askNotes;
   final String? summary;
   final String? enrichmentJson;
   final String? processingStatus;
@@ -101,6 +102,7 @@ class SavedUrlBackup {
     required this.categories,
     required this.tags,
     this.userNotes,
+    this.askNotes = const [],
     this.summary,
     this.enrichmentJson,
     this.processingStatus,
@@ -133,6 +135,8 @@ class SavedUrlBackup {
       'categories': categories,
       'tags': tags,
       if (userNotes != null) 'userNotes': userNotes,
+      if (askNotes.isNotEmpty)
+        'askNotes': askNotes.map((note) => note.toJson()).toList(),
       if (summary != null) 'summary': summary,
       if (enrichmentJson != null) 'enrichmentJson': enrichmentJson,
       if (processingStatus != null) 'processingStatus': processingStatus,
@@ -187,6 +191,12 @@ class SavedUrlBackup {
         (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
         [],
     userNotes: json['userNotes'] as String?,
+    askNotes:
+        (json['askNotes'] as List<dynamic>?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(SavedAskNoteBackup.fromJson)
+            .toList() ??
+        const [],
     summary: json['summary'] as String?,
     enrichmentJson: json['enrichmentJson'] as String?,
     processingStatus: json['processingStatus'] as String?,
@@ -208,6 +218,40 @@ class SavedUrlBackup {
           .toList(),
     ),
   );
+}
+
+class SavedAskNoteBackup {
+  const SavedAskNoteBackup({
+    required this.id,
+    this.sourceMessageId,
+    required this.question,
+    required this.body,
+    this.createdAt,
+  });
+
+  final String id;
+  final String? sourceMessageId;
+  final String question;
+  final String body;
+  final String? createdAt;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    if (sourceMessageId != null) 'sourceMessageId': sourceMessageId,
+    'question': question,
+    'body': body,
+    if (createdAt != null) 'createdAt': createdAt,
+  };
+
+  factory SavedAskNoteBackup.fromJson(Map<String, dynamic> json) {
+    return SavedAskNoteBackup(
+      id: (json['id'] as String?) ?? '',
+      sourceMessageId: json['sourceMessageId'] as String?,
+      question: (json['question'] as String?) ?? '',
+      body: (json['body'] as String?) ?? '',
+      createdAt: json['createdAt'] as String?,
+    );
+  }
 }
 
 class UserCollectionBackup {
