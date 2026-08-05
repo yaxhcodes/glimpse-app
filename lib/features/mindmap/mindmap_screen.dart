@@ -76,6 +76,10 @@ class InterestMapView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (clusters.isEmpty) return const _MindmapEmptyState();
 
+    final horizontalPadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+      compactPadding: 20,
+    );
     final heroCluster = clusters.first;
     final mediumEnd = clusters.length < 5 ? clusters.length : 5;
     final medium = clusters.length <= 1
@@ -88,7 +92,12 @@ class InterestMapView extends StatelessWidget {
     return CustomScrollView(
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            16,
+            horizontalPadding,
+            0,
+          ),
           sliver: SliverList(
             delegate: SliverChildListDelegate.fixed([
               _SectionEyebrow('Top signal'),
@@ -98,7 +107,7 @@ class InterestMapView extends StatelessWidget {
                 onTap: () => onClusterTap(heroCluster),
               ),
               if (medium.isNotEmpty) ...[
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
                 _SectionEyebrow('Growing interests'),
               ],
             ]),
@@ -106,14 +115,19 @@ class InterestMapView extends StatelessWidget {
         ),
         if (medium.isNotEmpty)
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             sliver: SliverToBoxAdapter(
               child: _MasonryClusterGrid(items: medium, onOpen: onClusterTap),
             ),
           ),
         if (slim.isNotEmpty)
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              28,
+              horizontalPadding,
+              0,
+            ),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
                 _SectionEyebrow('Quieter interests'),
@@ -122,7 +136,12 @@ class InterestMapView extends StatelessWidget {
           ),
         if (slim.isNotEmpty)
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              0,
+              horizontalPadding,
+              24,
+            ),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 if (index.isOdd) return const SizedBox(height: 8);
@@ -428,13 +447,14 @@ class _SectionEyebrow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
           color: cs.onSurface,
-          fontWeight: FontWeight.w700,
-          height: 1.18,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          height: 1.2,
         ),
       ),
     );
@@ -754,6 +774,10 @@ class MindmapScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final themesAsync = ref.watch(interestClusterThemesProvider);
+    final horizontalPadding = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+      compactPadding: 20,
+    );
     final shellBottomInset =
         embedded &&
             !AppLayout.usesNavigationRail(MediaQuery.sizeOf(context).width)
@@ -776,15 +800,17 @@ class MindmapScreen extends ConsumerWidget {
       backgroundColor: cs.surface,
       appBar: AppBar(
         automaticallyImplyLeading: !embedded,
-        titleSpacing: 20,
+        titleSpacing: embedded ? horizontalPadding : 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Interests',
-              style: tt.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
+              style: tt.headlineSmall?.copyWith(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                height: 1.15,
                 color: cs.onSurface,
               ),
             ),
@@ -792,7 +818,7 @@ class MindmapScreen extends ConsumerWidget {
               subtitle,
               style: tt.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
-                fontSize: 12,
+                fontSize: 13,
               ),
             ),
           ],

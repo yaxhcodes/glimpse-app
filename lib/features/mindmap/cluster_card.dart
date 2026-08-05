@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/widgets/expressive_tap_scale.dart';
-import '../../shared/widgets/tag_group.dart' show tagChipColors;
 import 'cluster_pattern.dart';
 
 class InterestCluster {
@@ -30,24 +29,9 @@ enum ClusterCardTier { hero, medium, slim }
 /// [InterestMapView] can estimate column heights with the exact same value the
 /// card renders at — keeping the staggered Pinterest layout aligned.
 double mediumClusterTileHeight(InterestCluster cluster) {
-  double height;
-  final saves = cluster.saveCount;
-  if (saves >= 24) {
-    height = 222;
-  } else if (saves >= 18) {
-    height = 210;
-  } else if (saves >= 13) {
-    height = 198;
-  } else if (saves >= 9) {
-    height = 186;
-  } else if (saves >= 6) {
-    height = 176;
-  } else {
-    height = 166;
-  }
-  // A second chip row needs a little more room — and adds organic variation.
-  if (cluster.subtopics.length >= 2) height += 8;
-  return height;
+  if (cluster.saveCount >= 13) return 200;
+  if (cluster.saveCount >= 7) return 184;
+  return 168;
 }
 
 /// A quiet tone drawn from the Material palette — gives each card a faint,
@@ -92,14 +76,15 @@ class ClusterCard extends StatelessWidget {
         tile = _InterestTile(
           cluster: cluster,
           onTap: onTap,
-          height: 184,
+          height: 176,
           radius: 24,
-          titleStyle: tt.headlineMedium?.copyWith(
+          titleStyle: tt.titleLarge?.copyWith(
+            fontSize: 22,
             fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            height: 1.04,
+            letterSpacing: -0.2,
+            height: 1.12,
           ),
-          chipLimit: 3,
+          chipLimit: 2,
           isHero: true,
         );
       case ClusterCardTier.medium:
@@ -108,12 +93,12 @@ class ClusterCard extends StatelessWidget {
           cluster: cluster,
           onTap: onTap,
           height: height,
-          radius: 22,
-          titleStyle: tt.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-            fontSize: height >= 198 ? 18 : 15,
-            height: 1.15,
+          radius: 20,
+          titleStyle: tt.titleSmall?.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
+            height: 1.2,
           ),
           chipLimit: 2,
           isHero: false,
@@ -154,17 +139,25 @@ class _InterestTile extends StatelessWidget {
       label: cluster.label,
       subtopics: cluster.subtopics,
     );
-    final patternOpacity = isLight ? 0.095 : 0.105;
+    final patternOpacity = isHero
+        ? (isLight ? 0.092 : 0.102)
+        : (isLight ? 0.066 : 0.072);
+    final tintOpacity = isHero
+        ? (isLight ? 0.04 : 0.055)
+        : (isLight ? 0.02 : 0.03);
+    final useCompactVerticalRhythm =
+        !isHero && MediaQuery.textScalerOf(context).scale(1) > 1.15;
     final subtopics = cluster.subtopics.take(chipLimit).toList();
-    final titleLines = isHero ? 2 : 3;
+    final surface = cs.surfaceContainerLow;
 
     return Semantics(
       button: true,
       label: '${cluster.label}, ${cluster.saveCount} saves',
       child: Material(
-        // Plain app surface — same as the Collections grid cards.
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(radius),
+        color: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -175,6 +168,23 @@ class _InterestTile extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                      colors: [
+                        Color.alphaBlend(
+                          tone.withValues(alpha: tintOpacity),
+                          surface,
+                        ),
+                        surface,
+                        surface,
+                      ],
+                      stops: const [0, 0.58, 1],
+                    ),
+                  ),
+                ),
                 // A subtle full-bleed texture that hints at the topic, fading
                 // out before the text.
                 Positioned.fill(
@@ -182,7 +192,7 @@ class _InterestTile extends StatelessWidget {
                     painter: ClusterPatternPainter(
                       selection: pattern,
                       tone: tone,
-                      surface: cs.surfaceContainerLow,
+                      surface: surface,
                       baseOpacity: patternOpacity,
                       contentSafeRegion: isHero
                           ? _heroPatternSafeRegion
@@ -192,7 +202,9 @@ class _InterestTile extends StatelessWidget {
                 ),
                 Padding(
                   padding: isHero
-                      ? const EdgeInsets.fromLTRB(18, 16, 18, 17)
+                      ? const EdgeInsets.fromLTRB(20, 18, 20, 18)
+                      : useCompactVerticalRhythm
+                      ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
                       : const EdgeInsets.fromLTRB(16, 16, 16, 17),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,21 +212,22 @@ class _InterestTile extends StatelessWidget {
                       const Spacer(),
                       Text(
                         cluster.label,
-                        maxLines: titleLines,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: titleStyle?.copyWith(color: cs.onSurface),
                       ),
-                      const SizedBox(height: 5),
+                      SizedBox(height: useCompactVerticalRhythm ? 3 : 5),
                       Text(
                         _saveText(cluster.saveCount),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: tt.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
+                          fontSize: 13,
                         ),
                       ),
                       if (subtopics.isNotEmpty) ...[
-                        const SizedBox(height: 10),
+                        SizedBox(height: useCompactVerticalRhythm ? 7 : 10),
                         Wrap(
                           spacing: 6,
                           runSpacing: 6,
@@ -330,26 +343,36 @@ class _TileChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final chip = tagChipColors(cs);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 152),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: chip.background,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            label,
-            maxLines: 1,
-            softWrap: false,
-            style: tt.labelSmall?.copyWith(
-              color: chip.foreground,
-              fontWeight: FontWeight.w600,
-              fontSize: 11,
+    final isLight = cs.brightness == Brightness.light;
+    final background = cs.onSurfaceVariant.withValues(
+      alpha: isLight ? 0.075 : 0.11,
+    );
+    final foreground = cs.onSurfaceVariant.withValues(
+      alpha: isLight ? 0.78 : 0.82,
+    );
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.15,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 152),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              style: tt.labelSmall?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w500,
+                fontSize: 10.5,
+                letterSpacing: 0.1,
+              ),
             ),
           ),
         ),
