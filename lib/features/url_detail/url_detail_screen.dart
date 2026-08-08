@@ -36,6 +36,7 @@ import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
 import '../search/search_provider.dart';
 import 'detail_expansion_section.dart';
+import 'notable_item_card.dart';
 import 'notable_term_grid.dart';
 import 'url_detail_provider.dart';
 
@@ -3164,26 +3165,20 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     }
 
     // Only show key takeaways when there's no recipe (recipe handles its own steps).
-    final showContentSteps = _shouldShowKeyTakeaways(url, live);
+    final showContentSteps = _shouldShowKeyTakeaways(live);
     if (showContentSteps) {
       sections.addAll([
         const SizedBox(height: 18),
         _buildContentStepsSection(
-          steps: live.steps.take(5).toList(),
+          steps: live.steps,
           theme: theme,
           colorScheme: colorScheme,
         ),
       ]);
     }
 
-    final structuredMentionTypes = live.mentions
-        .map((mention) => _mentionSectionKey(mention.type))
-        .where((type) => type != 'person' && type != 'other')
-        .toSet();
     final showContentSections =
-        live.contentSections.isNotEmpty &&
-        recipe?.hasUsefulContent != true &&
-        structuredMentionTypes.isEmpty;
+        live.contentSections.isNotEmpty && recipe?.hasUsefulContent != true;
     if (showContentSections) {
       sections.addAll([
         const SizedBox(height: 18),
@@ -3265,6 +3260,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   static const _mentionSectionOrder = [
     'movie',
     'book',
+    'game',
+    'music',
+    'tool',
     'product',
     'app',
     'person',
@@ -3278,6 +3276,26 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (lower == 'show' || lower == 'anime' || lower == 'documentary') {
       return 'movie';
     }
+    if (lower == 'video_game' || lower == 'mobile_game') return 'game';
+    if ({
+      'song',
+      'track',
+      'album',
+      'artist',
+      'band',
+      'musician',
+    }.contains(lower)) {
+      return 'music';
+    }
+    if ({
+      'website',
+      'service',
+      'platform',
+      'software',
+      'repository',
+    }.contains(lower)) {
+      return 'tool';
+    }
     return 'other';
   }
 
@@ -3285,6 +3303,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return switch (type) {
       'movie' => 'Worth watching',
       'book' => 'Worth reading',
+      'game' => 'Games mentioned',
+      'music' => 'Music mentioned',
+      'tool' => 'Tools mentioned',
       'product' => 'Worth a look',
       'app' => 'Apps to try',
       'person' => 'People mentioned',
@@ -3293,7 +3314,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     };
   }
 
-  bool _shouldShowKeyTakeaways(SavedUrl url, TranscriptEnrichmentResult live) {
+  bool _shouldShowKeyTakeaways(TranscriptEnrichmentResult live) {
     if (live.steps.isEmpty) return false;
     // Suppress key takeaways when recipe exists AND has its own steps
     // (live.steps are used as fallback inside the recipe block instead).
@@ -3307,45 +3328,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       return false;
     }
 
-    final mentionTypes = live.mentions
-        .map((mention) => _mentionSectionKey(mention.type))
-        .where((type) => type != 'person' && type != 'other')
-        .toSet();
-    // When the save has real extracted entities (places/movies/books/products),
-    // those entity cards carry the content — a separate formal "Key Takeaways"
-    // list on top reads like a museum placard and duplicates them. Reserve
-    // takeaways for genuine how-to/insight content with no entities.
-    if (mentionTypes.isNotEmpty) return false;
-    final text = [
-      url.title,
-      url.category,
-      url.summary ?? '',
-      url.description,
-      ...url.tags,
-      live.meaningfulTitle,
-      live.category,
-      live.summary,
-      ...live.tags,
-    ].join(' ').toLowerCase();
-
-    final learningContent = _hasAny(text, const [
-      'tutorial',
-      'how to',
-      'how-to',
-      'guide',
-      'explainer',
-      'lesson',
-      'learn',
-      'framework',
-      'principle',
-      'strategy',
-      'educational',
-      'workflow',
-      'steps',
-    ]);
-
-    if (learningContent) return true;
-    return live.steps.length >= 3;
+    return true;
   }
 
   Color _sectionAccent(String type, ColorScheme colorScheme) {
@@ -3589,7 +3572,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final displayItems = items.take(8).toList();
+    final displayItems = items;
     final title = _notableItemsSectionTitle(displayItems);
     final useCompactGrid = shouldUseCompactTermGrid(displayItems);
     return Column(
@@ -3613,21 +3596,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           NotableTermGrid(
             children: [
               for (final item in displayItems)
-                _buildNotableItemRow(
+                NotableItemCard(
                   item: item,
-                  theme: theme,
-                  colorScheme: colorScheme,
+                  accent: _recipeAccent(colorScheme),
                   compact: true,
                 ),
             ],
           )
         else
           for (final item in displayItems)
-            _buildNotableItemRow(
-              item: item,
-              theme: theme,
-              colorScheme: colorScheme,
-            ),
+            NotableItemCard(item: item, accent: _recipeAccent(colorScheme)),
       ],
     );
   }
@@ -3646,84 +3624,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       if (type == 'term') return 'Terms mentioned';
     }
     return 'Notable details';
-  }
-
-  Widget _buildNotableItemRow({
-    required EnrichedNotableItem item,
-    required ThemeData theme,
-    required ColorScheme colorScheme,
-    bool compact = false,
-  }) {
-    final itemType = item.type.toLowerCase();
-    final isQuote = itemType == 'quote';
-    final isClaim = itemType == 'claim';
-    final leadingIcon = itemType == 'term'
-        ? AppIcons.termMentioned
-        : isQuote
-        ? Icons.format_quote_rounded
-        : isClaim
-        ? Icons.lightbulb_outline_rounded
-        : Icons.bookmark_border_rounded;
-    final attribution = item.attribution?.trim() ?? '';
-    final label = item.label?.trim() ?? '';
-    final why = item.whyImportant?.trim() ?? '';
-    final meta = [
-      if (!isQuote && label.isNotEmpty && label != item.text) label,
-      if (attribution.isNotEmpty) attribution,
-      if (why.isNotEmpty) why,
-    ].join(' · ');
-
-    return Container(
-      margin: EdgeInsets.only(bottom: compact ? 0 : 9),
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
-      constraints: compact ? const BoxConstraints(minHeight: 68) : null,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text.rich(
-            TextSpan(
-              children: [
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Icon(
-                      leadingIcon,
-                      size: isQuote || itemType == 'term' ? 18 : 16,
-                      color: _recipeAccent(colorScheme),
-                    ),
-                  ),
-                ),
-                TextSpan(text: item.text),
-              ],
-            ),
-            style:
-                (isClaim
-                        ? theme.textTheme.bodyLarge
-                        : theme.textTheme.bodyMedium)
-                    ?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                      height: 1.42,
-                    ),
-          ),
-          if (meta.isNotEmpty) ...[
-            const SizedBox(height: 5),
-            Text(
-              meta,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                height: 1.35,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
   }
 
   Widget _buildRecipeSection({
@@ -4587,6 +4487,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     // them — show a compact location pin tile instead (matches a travel guide).
     final isPlace = mention.type.toLowerCase() == 'place';
     final isPerson = mention.type.toLowerCase() == 'person';
+    final usesCompactIcon =
+        !isPerson &&
+        !isPlace &&
+        mention.type.toLowerCase() != 'movie' &&
+        mention.type.toLowerCase() != 'book';
     final accent = _recipeAccent(colorScheme);
 
     return Material(
@@ -4618,6 +4523,20 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                   child: Icon(
                     Icons.location_on_outlined,
+                    size: 22,
+                    color: accent,
+                  ),
+                )
+              else if (usesCompactIcon)
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _mentionIcon(mention.type),
                     size: 22,
                     color: accent,
                   ),
@@ -4760,6 +4679,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return '';
   }
 
+  IconData _mentionIcon(String rawType) {
+    return switch (_mentionSectionKey(rawType)) {
+      'game' => Icons.sports_esports_outlined,
+      'music' => Icons.music_note_rounded,
+      'tool' || 'app' => Icons.apps_rounded,
+      'product' => Icons.shopping_bag_outlined,
+      _ => Icons.bookmark_border_rounded,
+    };
+  }
+
   String _cleanMentionReason(String? raw) {
     final reason = raw?.trim() ?? '';
     if (reason.isEmpty) return '';
@@ -4780,6 +4709,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       'book' => 'book',
       'place' => 'place',
       'product' => 'product',
+      'game' => 'game',
+      'music' => 'music',
+      'tool' => 'tool',
+      'app' => 'app',
       _ => '',
     };
     final query = [

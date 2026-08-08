@@ -250,7 +250,6 @@ class TranscriptEnrichmentResult {
   }
 
   static TranscriptEnrichmentResult? fromJson(Map<String, dynamic> json) {
-    final mentions = json['mentions'];
     return TranscriptEnrichmentResult(
       schemaVersion:
           TranscriptEnrichmentService._extractPositiveInt(
@@ -272,18 +271,7 @@ class TranscriptEnrichmentResult {
             json['content_description'],
       ),
       steps: TranscriptEnrichmentService._extractContentSteps(json),
-      mentions: mentions is List
-          ? mentions
-                .map(
-                  (item) => item is Map
-                      ? EnrichedMention.fromJson(
-                          Map<String, dynamic>.from(item),
-                        )
-                      : null,
-                )
-                .whereType<EnrichedMention>()
-                .toList()
-          : const [],
+      mentions: TranscriptEnrichmentService._extractMentions(json),
       notableItems: TranscriptEnrichmentService._extractNotableItems(json),
       contentSections: TranscriptEnrichmentService._extractContentSections(
         json,
@@ -1076,10 +1064,10 @@ class EnrichedMention {
 
   static EnrichedMention fromJson(Map<String, dynamic> json) {
     return EnrichedMention(
-      title: TranscriptEnrichmentService._cleanText(json['title']),
-      type: TranscriptEnrichmentService._cleanText(json['type']).isEmpty
-          ? 'other'
-          : TranscriptEnrichmentService._cleanText(json['type']).toLowerCase(),
+      title: TranscriptEnrichmentService._cleanText(
+        json['title'] ?? json['name'],
+      ),
+      type: TranscriptEnrichmentService._normalizeMentionType(json['type']),
       year: TranscriptEnrichmentService._cleanNullableText(json['year']),
       whyMentioned: TranscriptEnrichmentService._cleanNullableText(
         json['why_mentioned'],
@@ -1513,6 +1501,17 @@ class TranscriptEnrichmentService {
 
   static List<EnrichedMention> _extractMentions(Map<String, dynamic> data) {
     final byKey = <String, EnrichedMention>{};
+    final mentions = data['mentions'];
+    if (mentions is List) {
+      for (final item in mentions) {
+        if (item is! Map) continue;
+        final mention = EnrichedMention.fromJson(
+          Map<String, dynamic>.from(item),
+        );
+        if (mention.title.isEmpty) continue;
+        byKey[_mentionKey(mention.title)] = mention;
+      }
+    }
     final books = data['books'];
     if (books is List) {
       for (final item in books) {
@@ -1578,15 +1577,7 @@ class TranscriptEnrichmentService {
     if (entities is List) {
       for (final item in entities) {
         if (item is! Map) continue;
-        final type = _cleanText(item['type']).toLowerCase();
-        if (type != 'movie' &&
-            type != 'book' &&
-            type != 'place' &&
-            type != 'product' &&
-            type != 'app' &&
-            type != 'person') {
-          continue;
-        }
+        final type = _normalizeMentionType(item['type']);
         final title = _cleanText(item['name'] ?? item['title']);
         if (title.isEmpty) continue;
         final key = _mentionKey(title);
@@ -1603,6 +1594,38 @@ class TranscriptEnrichmentService {
       }
     }
     return byKey.values.take(20).toList();
+  }
+
+  static String _normalizeMentionType(Object? raw) {
+    final type = _cleanText(raw).toLowerCase().replaceAll('-', '_');
+    return switch (type) {
+      'movie' ||
+      'film' ||
+      'show' ||
+      'series' ||
+      'anime' ||
+      'documentary' => 'movie',
+      'book' || 'novel' => 'book',
+      'place' || 'location' || 'destination' => 'place',
+      'product' => 'product',
+      'app' || 'application' => 'app',
+      'person' || 'creator' || 'author' => 'person',
+      'game' || 'video_game' || 'mobile_game' => 'game',
+      'music' ||
+      'song' ||
+      'track' ||
+      'album' ||
+      'artist' ||
+      'band' ||
+      'musician' => 'music',
+      'tool' ||
+      'website' ||
+      'service' ||
+      'platform' ||
+      'software' ||
+      'repository' => 'tool',
+      _ => 'other',
+    };
   }
 
   static List<String> _extractStringList(Object? raw) {

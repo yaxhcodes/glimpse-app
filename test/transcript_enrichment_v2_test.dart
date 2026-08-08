@@ -73,6 +73,44 @@ void main() {
       expect(result.steps.single.title, 'One older takeaway.');
     });
 
+    test('preserves useful game, music, and tool entities', () {
+      final result = TranscriptEnrichmentResult.fromJson({
+        'meaningful_title': 'Offline game recommendations',
+        'summary': 'Games and services worth remembering.',
+        'category': 'Gaming',
+        'tags': ['offline games'],
+        'entities': [
+          {
+            'name': 'Oxenfree',
+            'type': 'mobile_game',
+            'why_mentioned': 'A narrative game available through Netflix.',
+          },
+          {
+            'name': 'From the Sky',
+            'type': 'song',
+            'why_mentioned': 'A Gojira track.',
+          },
+          {
+            'name': 'Just Join IT',
+            'type': 'platform',
+            'why_mentioned': 'A client-finding platform in Poland.',
+          },
+        ],
+      });
+
+      expect(result!.mentions.map((mention) => mention.type), [
+        'game',
+        'music',
+        'tool',
+      ]);
+      expect(
+        TranscriptEnrichmentResult.fromJson(
+          result.toJson(),
+        )!.mentions.map((mention) => mention.title),
+        ['Oxenfree', 'From the Sky', 'Just Join IT'],
+      );
+    });
+
     test('deduplicates malformed section content', () {
       final result = TranscriptEnrichmentResult.fromJson({
         'meaningful_title': 'Structured save',
