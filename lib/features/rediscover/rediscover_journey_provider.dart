@@ -13,6 +13,7 @@ import '../home/home_provider.dart';
 import '../mindmap/cluster_theme.dart';
 import '../mindmap/interest_clusters_provider.dart';
 import 'rediscover_provider.dart';
+import 'rediscover_topic_evidence.dart';
 
 enum RediscoverJourneyKind {
   continueLearning,
@@ -686,31 +687,53 @@ String _bestTopicForNarrative(RediscoverJourney journey, List<SavedUrl> urls) {
 
 String _narrativeTitleFor(String topic, List<SavedUrl> urls) {
   final text = _combinedJourneyText(urls).toLowerCase();
-  if (_containsAny(text, const ['free will', 'determinism', 'agency'])) {
-    return 'Free Will';
+  if (_hasSharedUrlEvidence(urls, const [
+    'free will',
+    'determinism',
+    'agency',
+  ])) {
+    return 'Understanding Free Will';
   }
-  if (_containsAny(text, const ['non-dual', 'non dual', 'advaita'])) {
+  if (_hasSharedUrlEvidence(urls, const ['non-dual', 'non dual', 'advaita'])) {
     return 'Non-Dual Philosophy';
   }
-  if (_containsAny(text, const ['ai consciousness', 'machine consciousness'])) {
+  if (_hasSharedUrlEvidence(urls, const [
+    'ai consciousness',
+    'machine consciousness',
+  ])) {
     return 'AI & Consciousness';
   }
-  if (_containsAny(text, const ['consciousness'])) {
+  if (_hasSharedUrlEvidence(urls, const ['consciousness', 'awareness'])) {
     final hasAi = _containsAny(text, const ['ai', 'llm', 'machine']);
     return hasAi ? 'AI & Consciousness' : 'Consciousness Questions';
   }
-  if (_containsAny(text, const ['argument', 'rhetoric', 'debate', 'fallacy'])) {
+  if (_hasSharedUrlEvidence(urls, const [
+    'argument',
+    'rhetoric',
+    'debate',
+    'fallacy',
+  ])) {
     return 'Rhetoric & Debate';
   }
-  if (_containsAny(text, const ['book', 'reading list', 'novel'])) {
-    return topic.toLowerCase().contains('book') ? topic : '$topic Reading';
+  if (_hasSharedUrlEvidence(urls, const [
+    'book',
+    'reading',
+    'novel',
+    'essay',
+  ])) {
+    final lowerTopic = topic.toLowerCase();
+    if (lowerTopic.contains('recommendation')) {
+      return 'Reading Recommendations';
+    }
+    return lowerTopic.contains('book') || lowerTopic.contains('reading')
+        ? topic
+        : '$topic Reading';
   }
   return _trimTitle(topic);
 }
 
 String _contentNounFor(List<SavedUrl> urls) {
-  final text = _combinedJourneyText(urls).toLowerCase();
-  final hasRecipeEvidence = _containsAny(text, const [
+  final hasRecipeEvidence = _hasSharedUrlEvidence(urls, const [
     'ingredient',
     'ingredients',
     'cook ',
@@ -721,19 +744,29 @@ String _contentNounFor(List<SavedUrl> urls) {
     'meal',
   ]);
   if (hasRecipeEvidence) return urls.length == 1 ? 'recipe' : 'recipes';
-  if (_containsAny(text, const ['book', 'reading list', 'novel'])) {
+  if (_hasSharedUrlEvidence(urls, const ['book', 'reading list', 'novel'])) {
     return urls.length == 1 ? 'reading pick' : 'reading picks';
   }
-  if (_containsAny(text, const ['movie', 'film', 'series', 'anime'])) {
+  if (_hasSharedUrlEvidence(urls, const ['movie', 'film', 'series', 'anime'])) {
     return urls.length == 1 ? 'watch pick' : 'watch picks';
   }
-  if (_containsAny(text, const ['repo', 'github', 'api', 'flutter', 'code'])) {
+  if (_hasSharedUrlEvidence(urls, const [
+    'repo',
+    'github',
+    'api',
+    'flutter',
+    'code',
+  ])) {
     return urls.length == 1 ? 'technical save' : 'technical saves';
   }
-  if (_containsAny(text, const ['instagram', 'reel', 'video'])) {
+  if (_hasSharedUrlEvidence(urls, const ['instagram', 'reel', 'video'])) {
     return urls.length == 1 ? 'reel' : 'reels';
   }
   return urls.length == 1 ? 'save' : 'saves';
+}
+
+bool _hasSharedUrlEvidence(List<SavedUrl> urls, List<String> needles) {
+  return RediscoverTopicEvidence.hasSharedTerms(urls, needles);
 }
 
 String _hookLineFor(String topic, String contentNoun) {

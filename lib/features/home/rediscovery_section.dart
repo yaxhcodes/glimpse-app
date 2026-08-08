@@ -305,15 +305,11 @@ class _RediscoverJourneyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final memory = RediscoverMemory.fromJourney(journey);
-    final title = journey.title.trim().isNotEmpty
-        ? journey.title
-        : memory.homeCopy.title;
-    final supportingText = journey.hookLine ?? memory.homeCopy.subtitle;
 
     return RediscoverArtworkCard(
       journey: journey,
-      title: title,
-      supportingText: supportingText,
+      title: memory.homeCopy.title,
+      supportingText: memory.homeCopy.subtitle,
       metadata: _metadataLine(memory),
       height: height,
     );

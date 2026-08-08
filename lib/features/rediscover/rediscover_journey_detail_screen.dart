@@ -185,10 +185,6 @@ class _JourneyHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = memory.journey.title.trim().isNotEmpty
-        ? memory.journey.title
-        : memory.rediscoverCopy.title;
-    final subtitle = memory.journey.hookLine ?? memory.rediscoverCopy.subtitle;
     final total = memory.saveCount;
     final unopened = memory.unopenedCount;
     final metadata = unopened == total
@@ -201,8 +197,8 @@ class _JourneyHero extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
       child: RediscoverArtworkCard(
         journey: memory.journey,
-        title: title,
-        supportingText: subtitle,
+        title: memory.rediscoverCopy.title,
+        supportingText: memory.rediscoverCopy.subtitle,
         metadata: metadata,
         height: 232,
         hero: true,

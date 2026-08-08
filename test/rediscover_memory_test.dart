@@ -181,6 +181,60 @@ void main() {
     }
   });
 
+  testWidgets('compact artwork cards balance titles without orphaned words', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 260));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final journey = RediscoverJourney(
+      kind: RediscoverJourneyKind.becauseYouSaved,
+      title: 'High-Protein Vegetarian Meals',
+      subtitle: 'Ideas on nutrition and fitness.',
+      icon: Icons.restaurant_rounded,
+      items: const [],
+      signal: 70,
+      topicAnchor: 'vegetarian meals',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 296,
+              child: RediscoverArtworkCard(
+                journey: journey,
+                title: journey.title,
+                supportingText: journey.subtitle,
+                metadata: '4 waiting · 1w ago',
+                height: 196,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final title = tester.widget<Text>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text && widget.data?.contains('High-Protein') == true,
+      ),
+    );
+    expect(title.data, 'High-Protein\nVegetarian Meals');
+    expect(title.style?.fontSize, 23);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is SizedBox && widget.height == 5,
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   test('RediscoverMemory fully describes a resurfacing candidate', () {
     final first = _url(
       id: 7,
@@ -218,15 +272,18 @@ void main() {
     expect(memory.id, 'forgottenGems:protein-recipes:7-9');
     expect(memory.topicKey, 'protein recipes');
     expect(memory.topicLabel, 'Protein Recipes');
-    expect(memory.what, 'High-Protein Breakfasts');
+    expect(memory.what, 'High-Protein Recipes');
     expect(memory.copyIdentity.primary, memory.what);
     expect(
       memory.copyIdentity.secondaryDescription,
-      contains('cook high-protein breakfasts'),
+      contains('cooking high-protein recipes'),
     );
-    expect(memory.copyIdentity.reasonForToday, contains('collecting recipes'));
+    expect(
+      memory.copyIdentity.reasonForToday,
+      contains('collecting high-protein recipes'),
+    );
     expect(memory.copyIdentity.suggestedNextStep, contains(first.title));
-    expect(memory.semanticIntent.label, 'High-Protein Breakfasts');
+    expect(memory.semanticIntent.label, 'High-Protein Recipes');
     expect(
       memory.semanticIntent.journeyType,
       RediscoverSemanticJourneyType.cooking,
@@ -241,8 +298,11 @@ void main() {
     expect(memory.homeCopy.body, memory.whyNow);
     expect(memory.rediscoverCopy.body, contains(memory.whyItMatters));
     expect(memory.rediscoverCopy.actionLabel, contains(first.title));
-    expect(memory.notificationCopy.title, contains('High-Protein Breakfasts'));
-    expect(memory.notificationCopy.body, contains('collecting recipes'));
+    expect(memory.notificationCopy.title, contains('High-Protein Recipes'));
+    expect(
+      memory.notificationCopy.body,
+      contains('collecting high-protein recipes'),
+    );
     expect(memory.what, isNot(contains('waiting for you')));
     expect(memory.what, isNot(contains('curiosity')));
     expect(memory.what, isNot(contains('Flavor Pattern')));
@@ -526,7 +586,7 @@ void main() {
     final titles = journeys.map((journey) => journey.title).toSet();
     expect(journeys, hasLength(2));
     expect(titles, hasLength(2));
-    expect(titles, contains('Free Will'));
+    expect(titles, contains('Understanding Free Will'));
     expect(titles, contains('AI & Consciousness'));
     for (final journey in journeys) {
       final hook = journey.hookLine ?? '';
@@ -621,7 +681,145 @@ void main() {
       memory.copyIdentity.secondaryDescription.toLowerCase(),
       isNot(contains('cook')),
     );
+    expect(memory.homeCopy.subtitle.toLowerCase(), isNot(contains('recipe')));
   });
+
+  test('reading recommendations use natural noun order', () {
+    final journey = RediscoverJourney(
+      kind: RediscoverJourneyKind.becauseYouSaved,
+      title: 'Recommendation Reading',
+      subtitle: '3 saves worth reopening',
+      icon: Icons.menu_book_rounded,
+      items: [
+        _item(
+          _url(
+            id: 801,
+            title: 'Modern Fiction Recommendations',
+            category: 'Books & Literature',
+            tags: const ['reading', 'recommendation', 'modern fiction'],
+          ),
+        ),
+        _item(
+          _url(
+            id: 802,
+            title: 'Books Worth Reading This Year',
+            category: 'Books & Literature',
+            tags: const ['reading', 'recommendations', 'literary fiction'],
+          ),
+        ),
+        _item(
+          _url(
+            id: 803,
+            title: 'A Thoughtful Reading List',
+            category: 'Books & Literature',
+            tags: const ['reading list', 'recommendation', 'essays'],
+          ),
+        ),
+      ],
+      signal: 74,
+      topicAnchor: 'recommendation reading',
+    );
+
+    final memory = RediscoverMemory.fromJourney(journey);
+
+    expect(memory.homeCopy.title, 'Reading Recommendations');
+    expect(memory.homeCopy.title, isNot('Recommendation Reading'));
+    expect(
+      memory.semanticIntent.journeyType,
+      RediscoverSemanticJourneyType.collecting,
+    );
+    expect(memory.homeCopy.subtitle, startsWith('Reading picks'));
+  });
+
+  test('cooking identity completes adjective-only topics', () {
+    final journey = RediscoverJourney(
+      kind: RediscoverJourneyKind.continueLearning,
+      title: 'Vegetarian',
+      subtitle: '3 saves you recently added to',
+      icon: Icons.restaurant_rounded,
+      items: [
+        _item(
+          _url(
+            id: 811,
+            title: 'Weeknight Chickpea Curry',
+            tags: const ['vegetarian', 'recipe', 'weeknight'],
+          ),
+        ),
+        _item(
+          _url(
+            id: 812,
+            title: 'Quick Paneer Dinner',
+            tags: const ['vegetarian', 'recipe', 'weeknight'],
+          ),
+        ),
+        _item(
+          _url(
+            id: 813,
+            title: 'Lentil Meals for Busy Days',
+            tags: const ['vegetarian', 'recipe', 'meal prep'],
+          ),
+        ),
+      ],
+      signal: 82,
+      topicAnchor: 'vegetarian',
+    );
+
+    final memory = RediscoverMemory.fromJourney(journey);
+
+    expect(memory.homeCopy.title, 'Vegetarian Recipes');
+    expect(memory.homeCopy.title, isNot('Vegetarian'));
+    expect(memory.homeCopy.subtitle, startsWith('Recipes'));
+    expect(
+      memory.homeCopy.subtitle.toLowerCase(),
+      isNot(contains('recipes on')),
+    );
+  });
+
+  test(
+    'philosophy cards use supporting concepts instead of content formats',
+    () {
+      final journey = RediscoverJourney(
+        kind: RediscoverJourneyKind.forgottenGems,
+        title: 'Free Will',
+        subtitle: '3 saves you set aside a while ago',
+        icon: Icons.psychology_alt_rounded,
+        items: [
+          _item(
+            _url(
+              id: 821,
+              title: 'Free Will and Determinism',
+              category: 'Philosophy',
+              tags: const ['free will', 'determinism', 'mindset'],
+            ),
+          ),
+          _item(
+            _url(
+              id: 822,
+              title: 'Agency and Moral Choice',
+              category: 'Philosophy',
+              tags: const ['agency', 'determinism', 'mindset'],
+            ),
+          ),
+          _item(
+            _url(
+              id: 823,
+              title: 'A Recipe for Thinking About Choice',
+              category: 'Philosophy',
+              tags: const ['free will', 'agency', 'mindset', 'recipe'],
+            ),
+          ),
+        ],
+        signal: 76,
+        topicAnchor: 'mindset',
+      );
+
+      final memory = RediscoverMemory.fromJourney(journey);
+
+      expect(memory.homeCopy.title, 'Understanding Free Will');
+      expect(memory.homeCopy.subtitle, 'Ideas on mindset and determinism.');
+      expect(memory.homeCopy.subtitle.toLowerCase(), isNot(contains('recipe')));
+    },
+  );
 
   test('recap builder creates daily, weekly and monthly memory recaps', () {
     final now = DateTime(2026, 7, 7, 10);

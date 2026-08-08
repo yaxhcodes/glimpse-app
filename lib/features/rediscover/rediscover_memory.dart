@@ -3,6 +3,7 @@ import '../../core/services/memory_intent_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import 'rediscover_journey_provider.dart';
+import 'rediscover_topic_evidence.dart';
 
 enum RediscoverMemoryEmotion {
   recognition,
@@ -233,8 +234,12 @@ class RediscoverMemory {
       openedCount: openedCount,
     );
     final topicLabel = metadata.topicLabel;
-    final personality = _personalityFor(journey, topicLabel, primaryTitle);
+    final personality = _personalityFor(journey, topicLabel);
     final semanticIntent = _semanticIntentFor(journey, topicLabel: topicLabel);
+    final cardSubtitle = _cardSubtitleFor(
+      journey,
+      semanticIntent: semanticIntent,
+    );
     final copyIdentity = _copyIdentityFor(
       journey,
       topicLabel: topicLabel,
@@ -266,12 +271,14 @@ class RediscoverMemory {
       homeCopy: _homeCopyFor(
         journey,
         title: what,
+        subtitle: cardSubtitle,
         whyNow: whyNow,
         action: action,
       ),
       rediscoverCopy: _rediscoverCopyFor(
         journey,
         title: what,
+        subtitle: cardSubtitle,
         whyItMatters: whyItMatters,
         whyNow: whyNow,
         action: action,
@@ -301,7 +308,7 @@ class RediscoverMemory {
     required RediscoverMemoryPersonality personality,
     required RediscoverSemanticIntent semanticIntent,
   }) {
-    final domain = _domainFor(journey, topicLabel, primaryTitle);
+    final domain = _domainFor(journey, topicLabel);
     return RediscoverMemoryIdentity(
       primary: semanticIntent.label,
       secondaryDescription: _secondaryDescriptionFor(
@@ -346,11 +353,8 @@ class RediscoverMemory {
     final primaryIntent = _dominantKey(intentCounts);
     final journeyType = _journeyTypeFor(
       primaryIntent,
-      domain: _domainFor(
-        journey,
-        topicLabel,
-        urls.isEmpty ? null : urls.first.title,
-      ),
+      journey: journey,
+      domain: _domainFor(journey, topicLabel),
       text: text,
     );
     final labelResult = _semanticLabelFor(
@@ -394,7 +398,7 @@ class RediscoverMemory {
     ].join(' ').toLowerCase();
   }
 
-  static List<String> _rankedTags(List<SavedUrl> urls) {
+  static List<String> _rankedTags(List<SavedUrl> urls, {int minimumCount = 1}) {
     final counts = <String, int>{};
     for (final url in urls) {
       for (final tag in TagNoiseFilter.filterTags(url.tags)) {
@@ -408,7 +412,10 @@ class RediscoverMemory {
         if (byCount != 0) return byCount;
         return b.key.length.compareTo(a.key.length);
       });
-    return ranked.map((entry) => entry.key).toList();
+    return ranked
+        .where((entry) => entry.value >= minimumCount)
+        .map((entry) => entry.key)
+        .toList();
   }
 
   static String? _dominantKey(Map<String, int> counts) {
@@ -424,10 +431,11 @@ class RediscoverMemory {
 
   static RediscoverSemanticJourneyType _journeyTypeFor(
     String? primaryIntent, {
+    required RediscoverJourney journey,
     required _MemoryDomain domain,
     required String text,
   }) {
-    return switch (primaryIntent) {
+    final intentType = switch (primaryIntent) {
       'cook' => RediscoverSemanticJourneyType.cooking,
       'visit' => RediscoverSemanticJourneyType.planning,
       'build' => RediscoverSemanticJourneyType.building,
@@ -440,19 +448,45 @@ class RediscoverMemory {
       'health_change' => RediscoverSemanticJourneyType.improving,
       'career_move' => RediscoverSemanticJourneyType.improving,
       'learn' => RediscoverSemanticJourneyType.learning,
-      _ => switch (domain) {
-        _MemoryDomain.cooking => RediscoverSemanticJourneyType.cooking,
-        _MemoryDomain.building => RediscoverSemanticJourneyType.building,
-        _MemoryDomain.travel => RediscoverSemanticJourneyType.planning,
-        _MemoryDomain.watchlist => RediscoverSemanticJourneyType.watching,
-        _MemoryDomain.fitness => RediscoverSemanticJourneyType.improving,
-        _MemoryDomain.philosophy => RediscoverSemanticJourneyType.learning,
-        _MemoryDomain.nature =>
-          _containsAny(text, const ['farm', 'garden'])
-              ? RediscoverSemanticJourneyType.planning
-              : RediscoverSemanticJourneyType.learning,
-        _ => RediscoverSemanticJourneyType.researching,
-      },
+      _ => null,
+    };
+    if (intentType != null) return intentType;
+
+    if (_hasSharedEvidence(journey, const [
+      'free will',
+      'free-will',
+      'determinism',
+      'consciousness',
+      'stoic',
+      'philosophy',
+    ])) {
+      return RediscoverSemanticJourneyType.learning;
+    }
+    if (_hasSharedEvidence(journey, const [
+      'book recommendation',
+      'book recommendations',
+      'reading recommendation',
+      'reading recommendations',
+      'reading list',
+    ])) {
+      return RediscoverSemanticJourneyType.collecting;
+    }
+
+    return switch (domain) {
+      _MemoryDomain.cooking => RediscoverSemanticJourneyType.cooking,
+      _MemoryDomain.building => RediscoverSemanticJourneyType.building,
+      _MemoryDomain.travel => RediscoverSemanticJourneyType.planning,
+      _MemoryDomain.watchlist =>
+        _containsAny(text, const ['book', 'reading', 'novel', 'essay'])
+            ? RediscoverSemanticJourneyType.collecting
+            : RediscoverSemanticJourneyType.watching,
+      _MemoryDomain.fitness => RediscoverSemanticJourneyType.improving,
+      _MemoryDomain.philosophy => RediscoverSemanticJourneyType.learning,
+      _MemoryDomain.nature =>
+        _containsAny(text, const ['farm', 'garden'])
+            ? RediscoverSemanticJourneyType.planning
+            : RediscoverSemanticJourneyType.learning,
+      _ => RediscoverSemanticJourneyType.researching,
     };
   }
 
@@ -475,14 +509,18 @@ class RediscoverMemory {
       );
     }
 
-    if (_containsAny(text, const ['high protein', 'protein recipes'])) {
-      if (text.contains('breakfast')) {
+    if (_hasSharedEvidence(journey, const [
+      'high protein',
+      'high-protein',
+      'protein recipe',
+    ])) {
+      if (_hasSharedEvidence(journey, const ['breakfast'])) {
         return result('High-Protein Breakfasts', 0.92, [
           'high protein',
           'breakfast',
         ]);
       }
-      if (_containsAny(text, const [
+      if (_hasSharedEvidence(journey, const [
         'vegetarian',
         'paneer',
         'soya',
@@ -495,51 +533,62 @@ class RediscoverMemory {
       }
       return result('High-Protein Recipes', 0.86, ['high protein']);
     }
-    if (_containsAny(text, const ['healthy', 'salad']) &&
-        _containsAny(text, const ['dinner', 'recipe', 'meal'])) {
+    if (_hasSharedEvidence(journey, const ['healthy', 'salad']) &&
+        _hasSharedEvidence(journey, const ['dinner', 'recipe', 'meal'])) {
       return result('Healthy Dinner Recipes', 0.84, ['healthy', 'recipe']);
     }
-    if (_containsAny(text, const ['free will', 'free-will'])) {
+    if (_hasSharedEvidence(journey, const [
+      'free will',
+      'free-will',
+      'determinism',
+      'agency',
+    ])) {
       return result('Understanding Free Will', 0.92, ['free will']);
     }
-    if (text.contains('consciousness')) {
+    if (_hasSharedEvidence(journey, const ['consciousness', 'awareness'])) {
       return result('Understanding Consciousness', 0.88, ['consciousness']);
     }
-    if (_containsAny(text, const ['stoic', 'marcus aurelius'])) {
+    if (_hasSharedEvidence(journey, const ['stoic', 'marcus aurelius'])) {
       return result('Stoic Principles', 0.86, ['stoicism']);
     }
-    if (_containsAny(text, const ['hindu', 'gita', 'vedic'])) {
+    if (_hasSharedEvidence(journey, const ['hindu', 'gita', 'vedic'])) {
       return result('Hindu Philosophy', 0.84, ['hindu philosophy']);
     }
-    if (_containsAny(text, const ['himalaya', 'himachal', 'ladakh']) &&
-        _containsAny(text, const ['trek', 'travel', 'route'])) {
+    if (_hasSharedEvidence(journey, const ['himalaya', 'himachal', 'ladakh']) &&
+        _hasSharedEvidence(journey, const ['trek', 'travel', 'route'])) {
       return result('Himalayan Treks', 0.9, ['himalaya', 'trek']);
     }
-    if (text.contains('manga')) {
+    if (_hasSharedEvidence(journey, const ['manga'])) {
       return result('Manga To Read', 0.88, ['manga']);
     }
-    if (_containsAny(text, const ['movie', 'film', 'netflix'])) {
+    if (_hasSharedEvidence(journey, const ['movie', 'film', 'netflix'])) {
       return result('Movies To Watch', 0.84, ['movies']);
     }
-    if (text.contains('anime')) {
+    if (_hasSharedEvidence(journey, const ['anime'])) {
       return result('Anime To Watch', 0.84, ['anime']);
     }
-    if (_containsAny(text, const ['wildlife photography', 'photography'])) {
+    if (_hasSharedEvidence(journey, const [
+      'wildlife photography',
+      'photography',
+    ])) {
       return result('Wildlife Photography', 0.9, ['wildlife photography']);
     }
-    if (text.contains('wildlife')) {
+    if (_hasSharedEvidence(journey, const ['wildlife'])) {
       return result('Wildlife Notes', 0.82, ['wildlife']);
     }
-    if (_containsAny(text, const ['natural farming', 'permaculture'])) {
+    if (_hasSharedEvidence(journey, const [
+      'natural farming',
+      'permaculture',
+    ])) {
       return result('Natural Farming', 0.9, ['natural farming']);
     }
-    if (_containsAny(text, const ['crispr', 'plant biotechnology'])) {
+    if (_hasSharedEvidence(journey, const ['crispr', 'plant biotechnology'])) {
       return result('Plant Biotechnology', 0.88, ['plant biotechnology']);
     }
-    if (_containsAny(text, const ['flutter', 'riverpod'])) {
+    if (_hasSharedEvidence(journey, const ['flutter', 'riverpod'])) {
       return result('Flutter Development Notes', 0.88, ['flutter']);
     }
-    if (_containsAny(text, const [
+    if (_hasSharedEvidence(journey, const [
       'llm',
       'genai',
       'ai agent',
@@ -547,8 +596,28 @@ class RediscoverMemory {
     ])) {
       return result('AI Engineering Notes', 0.88, ['AI engineering']);
     }
-    if (_containsAny(text, const ['startup', 'founder', 'y combinator'])) {
+    if (_hasSharedEvidence(journey, const [
+      'startup',
+      'founder',
+      'y combinator',
+    ])) {
       return result('Startup Reading', 0.86, ['startup']);
+    }
+    if (_hasSharedEvidence(journey, const [
+          'book',
+          'reading',
+          'novel',
+          'essay',
+        ]) &&
+        _hasSharedEvidence(journey, const [
+          'recommendation',
+          'recommendations',
+          'reading list',
+        ])) {
+      return result('Reading Recommendations', 0.86, [
+        'reading',
+        'recommendations',
+      ]);
     }
 
     final meaningfulTag = tags.isEmpty ? null : tags.first;
@@ -567,29 +636,47 @@ class RediscoverMemory {
     String concept,
     RediscoverSemanticJourneyType journeyType,
   ) {
-    final lower = concept.toLowerCase();
+    final normalized = _normalizeConceptPhrase(concept);
+    final lower = normalized.toLowerCase();
     if (lower.endsWith('recipes') ||
         lower.endsWith('meals') ||
         lower.endsWith('notes') ||
         lower.endsWith('treks') ||
-        lower.endsWith('photography')) {
-      return concept;
+        lower.endsWith('photography') ||
+        lower.endsWith('recommendations') ||
+        lower.endsWith('reading') ||
+        lower.endsWith('list')) {
+      return normalized;
     }
     return switch (journeyType) {
       RediscoverSemanticJourneyType.cooking =>
-        lower.contains('recipe') ? concept : '$concept Recipes',
-      RediscoverSemanticJourneyType.watching => '$concept To Watch',
+        lower.contains('recipe') ? normalized : '$normalized Recipes',
+      RediscoverSemanticJourneyType.watching => '$normalized To Watch',
       RediscoverSemanticJourneyType.collecting =>
-        lower.contains('book') ? concept : '$concept List',
-      RediscoverSemanticJourneyType.building => '$concept Notes',
-      RediscoverSemanticJourneyType.planning => concept,
-      RediscoverSemanticJourneyType.improving => concept,
-      RediscoverSemanticJourneyType.practicing => concept,
+        lower.contains('book') ? normalized : '$normalized List',
+      RediscoverSemanticJourneyType.building => '$normalized Notes',
+      RediscoverSemanticJourneyType.planning => normalized,
+      RediscoverSemanticJourneyType.improving => normalized,
+      RediscoverSemanticJourneyType.practicing => normalized,
       RediscoverSemanticJourneyType.learning =>
-        lower.startsWith('understanding') ? concept : 'Understanding $concept',
-      RediscoverSemanticJourneyType.researching => concept,
-      RediscoverSemanticJourneyType.revisiting => concept,
+        lower.startsWith('understanding')
+            ? normalized
+            : 'Understanding $normalized',
+      RediscoverSemanticJourneyType.researching => normalized,
+      RediscoverSemanticJourneyType.revisiting => normalized,
     };
+  }
+
+  static String _normalizeConceptPhrase(String concept) {
+    final clean = concept.trim();
+    final lower = clean.toLowerCase();
+    if (lower == 'recommendation reading' ||
+        lower == 'recommendations reading' ||
+        lower == 'reading recommendation') {
+      return 'Reading Recommendations';
+    }
+    if (lower == 'recommendation') return 'Recommendations';
+    return clean;
   }
 
   static String _clearTopicLabel(
@@ -604,18 +691,18 @@ class RediscoverMemory {
     String label,
     RediscoverSemanticJourneyType journeyType,
   ) {
-    final lower = _lowerFirst(label);
+    final lower = _semanticSubject(label);
     return switch (journeyType) {
-      RediscoverSemanticJourneyType.cooking => 'cook $lower',
-      RediscoverSemanticJourneyType.planning => 'plan around $lower',
-      RediscoverSemanticJourneyType.building => 'build with $lower',
-      RediscoverSemanticJourneyType.watching => 'choose what to watch',
-      RediscoverSemanticJourneyType.collecting => 'keep a useful $lower',
-      RediscoverSemanticJourneyType.practicing => 'try $lower',
-      RediscoverSemanticJourneyType.improving => 'improve $lower',
-      RediscoverSemanticJourneyType.learning => 'understand $lower',
-      RediscoverSemanticJourneyType.researching => 'research $lower',
-      RediscoverSemanticJourneyType.revisiting => 'return to $lower',
+      RediscoverSemanticJourneyType.cooking => 'cooking $lower',
+      RediscoverSemanticJourneyType.planning => 'planning around $lower',
+      RediscoverSemanticJourneyType.building => 'building with $lower',
+      RediscoverSemanticJourneyType.watching => 'choosing what to watch',
+      RediscoverSemanticJourneyType.collecting => 'saving $lower for later',
+      RediscoverSemanticJourneyType.practicing => 'practicing $lower',
+      RediscoverSemanticJourneyType.improving => 'improving $lower',
+      RediscoverSemanticJourneyType.learning => 'understanding $lower',
+      RediscoverSemanticJourneyType.researching => 'researching $lower',
+      RediscoverSemanticJourneyType.revisiting => 'returning to $lower',
     };
   }
 
@@ -624,10 +711,9 @@ class RediscoverMemory {
     RediscoverSemanticJourneyType journeyType,
     RediscoverJourneyKind kind,
   ) {
-    final lower = _lowerFirst(label);
+    final lower = _semanticSubject(label);
     final base = switch (journeyType) {
-      RediscoverSemanticJourneyType.cooking =>
-        'You were collecting recipes for $lower.',
+      RediscoverSemanticJourneyType.cooking => 'You were collecting $lower.',
       RediscoverSemanticJourneyType.planning =>
         'You were comparing options around $lower.',
       RediscoverSemanticJourneyType.building =>
@@ -656,6 +742,126 @@ class RediscoverMemory {
     return base;
   }
 
+  static String _semanticSubject(String label) {
+    var subject = _lowerFirst(label);
+    const prefixes = ['understanding ', 'learning about '];
+    for (final prefix in prefixes) {
+      if (subject.startsWith(prefix)) {
+        subject = subject.substring(prefix.length);
+        break;
+      }
+    }
+    return subject;
+  }
+
+  static String _cardSubtitleFor(
+    RediscoverJourney journey, {
+    required RediscoverSemanticIntent semanticIntent,
+  }) {
+    final concepts = _supportingConcepts(journey, semanticIntent.label);
+    final details = _readableConcepts(concepts);
+    if (details.isNotEmpty) {
+      return switch (semanticIntent.journeyType) {
+        RediscoverSemanticJourneyType.cooking => 'Recipes featuring $details.',
+        RediscoverSemanticJourneyType.planning =>
+          'Ideas for planning around $details.',
+        RediscoverSemanticJourneyType.building =>
+          'Technical notes on $details.',
+        RediscoverSemanticJourneyType.watching =>
+          'Watch picks shaped around $details.',
+        RediscoverSemanticJourneyType.collecting =>
+          'Reading picks on $details.',
+        RediscoverSemanticJourneyType.practicing =>
+          'Ways to practice $details.',
+        RediscoverSemanticJourneyType.improving =>
+          'Practical ideas around $details.',
+        RediscoverSemanticJourneyType.learning => 'Ideas on $details.',
+        RediscoverSemanticJourneyType.researching =>
+          'Perspectives on $details.',
+        RediscoverSemanticJourneyType.revisiting =>
+          'Saves connected by $details.',
+      };
+    }
+
+    return switch (semanticIntent.journeyType) {
+      RediscoverSemanticJourneyType.cooking => 'Recipes you saved to try.',
+      RediscoverSemanticJourneyType.planning =>
+        'Options and ideas worth comparing.',
+      RediscoverSemanticJourneyType.building =>
+        'Technical references worth reopening.',
+      RediscoverSemanticJourneyType.watching =>
+        'Watch picks you set aside for later.',
+      RediscoverSemanticJourneyType.collecting =>
+        'Reading picks worth returning to.',
+      RediscoverSemanticJourneyType.practicing =>
+        'Practical steps worth trying.',
+      RediscoverSemanticJourneyType.improving =>
+        'Useful ideas worth another look.',
+      RediscoverSemanticJourneyType.learning =>
+        'Questions and explanations worth revisiting.',
+      RediscoverSemanticJourneyType.researching =>
+        'Perspectives worth comparing again.',
+      RediscoverSemanticJourneyType.revisiting =>
+        'Related saves worth reopening.',
+    };
+  }
+
+  static List<String> _supportingConcepts(
+    RediscoverJourney journey,
+    String title,
+  ) {
+    final titleWords = _conceptWords(title);
+    final concepts = <String>[];
+    for (final tag in _rankedTags(
+      journey.items.map((item) => item.url).toList(),
+      minimumCount: journey.items.length == 1 ? 1 : 2,
+    )) {
+      final concept = _normalizeConceptPhrase(_topicTitle(tag));
+      final words = _conceptWords(concept);
+      if (words.isEmpty || words.every(titleWords.contains)) continue;
+      if (_genericSupportingConcepts.contains(concept.toLowerCase())) continue;
+      concepts.add(_sentenceConcept(concept));
+      if (concepts.length == 2) break;
+    }
+    return concepts;
+  }
+
+  static Set<String> _conceptWords(String value) {
+    return value
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((word) => word.length > 2)
+        .toSet();
+  }
+
+  static String _sentenceConcept(String value) {
+    return value
+        .split(' ')
+        .map((word) {
+          if (word.length <= 3 && word == word.toUpperCase()) return word;
+          return word.toLowerCase();
+        })
+        .join(' ');
+  }
+
+  static String _readableConcepts(List<String> concepts) {
+    return switch (concepts.length) {
+      0 => '',
+      1 => concepts.first,
+      _ => '${concepts.first} and ${concepts[1]}',
+    };
+  }
+
+  static bool _hasSharedEvidence(
+    RediscoverJourney journey,
+    List<String> needles,
+  ) {
+    return RediscoverTopicEvidence.hasSharedTerms(
+      journey.items.map((item) => item.url),
+      needles,
+    );
+  }
+
   static RediscoverMemoryEmotion _emotionFor(RediscoverJourney journey) {
     return switch (journey.kind) {
       RediscoverJourneyKind.continueLearning =>
@@ -673,12 +879,13 @@ class RediscoverMemory {
   static RediscoverMemoryCopy _homeCopyFor(
     RediscoverJourney journey, {
     required String title,
+    required String subtitle,
     required String whyNow,
     required String action,
   }) {
     return RediscoverMemoryCopy(
       title: title,
-      subtitle: journey.subtitle,
+      subtitle: subtitle,
       body: whyNow,
       actionLabel: action,
     );
@@ -687,6 +894,7 @@ class RediscoverMemory {
   static RediscoverMemoryCopy _rediscoverCopyFor(
     RediscoverJourney journey, {
     required String title,
+    required String subtitle,
     required String whyItMatters,
     required String whyNow,
     required String action,
@@ -698,7 +906,7 @@ class RediscoverMemory {
         : '$action: $primaryTitle';
     return RediscoverMemoryCopy(
       title: title,
-      subtitle: journey.subtitle,
+      subtitle: subtitle,
       body: '$whyNow $whyItMatters',
       actionLabel: startLine,
     );
@@ -740,9 +948,8 @@ class RediscoverMemory {
   static RediscoverMemoryPersonality _personalityFor(
     RediscoverJourney journey,
     String topicLabel,
-    String? primaryTitle,
   ) {
-    final domain = _domainFor(journey, topicLabel, primaryTitle);
+    final domain = _domainFor(journey, topicLabel);
     if (journey.kind == RediscoverJourneyKind.memoryGoal) {
       return domain == _MemoryDomain.cooking
           ? RediscoverMemoryPersonality.practical
@@ -777,25 +984,18 @@ class RediscoverMemory {
   static _MemoryDomain _domainFor(
     RediscoverJourney journey,
     String topicLabel,
-    String? primaryTitle,
   ) {
-    final text = [
-      topicLabel,
-      primaryTitle ?? '',
-      journey.title,
-      for (final item in journey.items.take(6)) ...[
-        item.url.title,
-        item.url.description,
-        item.url.category,
-        item.url.categories.join(' '),
-        item.url.tags.join(' '),
-      ],
-    ].join(' ').toLowerCase();
+    final topicText = [topicLabel, journey.title].join(' ').toLowerCase();
 
-    if (_hasFoodSubjectMatter(text)) {
+    bool hasDomainEvidence(List<String> needles) {
+      return _containsAny(topicText, needles) ||
+          _hasSharedEvidence(journey, needles);
+    }
+
+    if (_hasFoodSubjectMatter(topicText) || _hasSharedFoodEvidence(journey)) {
       return _MemoryDomain.cooking;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'code',
       'programming',
       'developer',
@@ -809,17 +1009,20 @@ class RediscoverMemory {
     ])) {
       return _MemoryDomain.building;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'philosophy',
       'stoic',
       'gita',
       'meaning',
       'wisdom',
       'question',
+      'free will',
+      'determinism',
+      'consciousness',
     ])) {
       return _MemoryDomain.philosophy;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'travel',
       'trip',
       'trek',
@@ -830,7 +1033,7 @@ class RediscoverMemory {
     ])) {
       return _MemoryDomain.travel;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'farm',
       'garden',
       'wildlife',
@@ -840,7 +1043,7 @@ class RediscoverMemory {
     ])) {
       return _MemoryDomain.nature;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'fitness',
       'workout',
       'protein',
@@ -850,7 +1053,7 @@ class RediscoverMemory {
     ])) {
       return _MemoryDomain.fitness;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'photo',
       'camera',
       'music',
@@ -861,7 +1064,7 @@ class RediscoverMemory {
     ])) {
       return _MemoryDomain.creative;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'learn',
       'course',
       'study',
@@ -871,7 +1074,7 @@ class RediscoverMemory {
     ])) {
       return _MemoryDomain.learning;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'money',
       'finance',
       'invest',
@@ -880,7 +1083,7 @@ class RediscoverMemory {
     ])) {
       return _MemoryDomain.money;
     }
-    if (_containsAny(text, const [
+    if (hasDomainEvidence(const [
       'movie',
       'documentary',
       'series',
@@ -891,6 +1094,13 @@ class RediscoverMemory {
       return _MemoryDomain.watchlist;
     }
     return _MemoryDomain.general;
+  }
+
+  static bool _hasSharedFoodEvidence(RediscoverJourney journey) {
+    return RediscoverTopicEvidence.hasSharedMatch(
+      journey.items.map((item) => item.url),
+      _hasFoodSubjectMatter,
+    );
   }
 
   static String _secondaryDescriptionFor(
@@ -988,10 +1198,31 @@ class RediscoverMemory {
     'recipe',
     'recipes',
     'recommendations',
+    'recommendation',
     'reference',
     'science',
     'technology',
     'travel',
+  };
+
+  static const _genericSupportingConcepts = {
+    'article',
+    'articles',
+    'book',
+    'books',
+    'content',
+    'guide',
+    'guides',
+    'idea',
+    'ideas',
+    'note',
+    'notes',
+    'recommendation',
+    'recommendations',
+    'recipe',
+    'recipes',
+    'save',
+    'saves',
   };
 
   static String _domainNoun(_MemoryDomain domain, {required bool plural}) {

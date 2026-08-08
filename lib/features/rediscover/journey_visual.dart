@@ -238,6 +238,14 @@ class _ArtworkTypography extends StatelessWidget {
         supportingText.trim().isNotEmpty && textScale <= (hero ? 1.65 : 1.5);
     final showMetadata =
         metadata.trim().isNotEmpty && textScale <= (hero ? 1.4 : 1.3);
+    final titleStyle = AppTypography.editorial(
+      hero ? textTheme.headlineMedium : textTheme.headlineSmall,
+      color: primaryText,
+      fontSize: hero ? 30 : 23,
+      fontWeight: FontWeight.w600,
+      height: 1.02,
+      letterSpacing: -0.2,
+    ).copyWith(shadows: shadows);
 
     return Align(
       alignment: Alignment.bottomLeft,
@@ -245,21 +253,27 @@ class _ArtworkTypography extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            maxLines: hero && textScale <= 1.3 ? 3 : 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.editorial(
-              hero ? textTheme.headlineMedium : textTheme.headlineSmall,
-              color: primaryText,
-              fontSize: hero ? 30 : 24,
-              fontWeight: FontWeight.w600,
-              height: 1.02,
-              letterSpacing: -0.2,
-            ).copyWith(shadows: shadows),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final displayTitle = hero
+                  ? title
+                  : _balancedTwoLineTitle(
+                      title: title,
+                      style: titleStyle,
+                      maxWidth: constraints.maxWidth,
+                      textScaler: MediaQuery.textScalerOf(context),
+                      textDirection: Directionality.of(context),
+                    );
+              return Text(
+                displayTitle,
+                maxLines: hero && textScale <= 1.3 ? 3 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
+              );
+            },
           ),
           if (showSupporting) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: hero ? 8 : 5),
             Text(
               supportingText,
               maxLines: hero ? 2 : 1,
@@ -293,6 +307,47 @@ class _ArtworkTypography extends StatelessWidget {
       ),
     );
   }
+}
+
+String _balancedTwoLineTitle({
+  required String title,
+  required TextStyle style,
+  required double maxWidth,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+}) {
+  final clean = title.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final words = clean.split(' ');
+  if (words.length < 3 || !maxWidth.isFinite || maxWidth <= 0) return clean;
+
+  double measuredWidth(String text) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 1,
+      textDirection: textDirection,
+      textScaler: textScaler,
+    )..layout();
+    return painter.width;
+  }
+
+  if (measuredWidth(clean) <= maxWidth) return clean;
+
+  String? best;
+  var bestImbalance = double.infinity;
+  for (var split = 1; split < words.length; split += 1) {
+    final firstLine = words.take(split).join(' ');
+    final secondLine = words.skip(split).join(' ');
+    final firstWidth = measuredWidth(firstLine);
+    final secondWidth = measuredWidth(secondLine);
+    if (firstWidth > maxWidth || secondWidth > maxWidth) continue;
+
+    final imbalance = (firstWidth - secondWidth).abs();
+    if (imbalance < bestImbalance) {
+      best = '$firstLine\n$secondLine';
+      bestImbalance = imbalance;
+    }
+  }
+  return best ?? clean;
 }
 
 const _darkTextShadows = [

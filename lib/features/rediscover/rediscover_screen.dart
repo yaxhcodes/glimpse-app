@@ -552,15 +552,11 @@ class _MemoryJourneyCard extends StatelessWidget {
       journey,
       tagFrequency: tagFrequency,
     );
-    final title = journey.title.trim().isNotEmpty
-        ? journey.title
-        : memory.rediscoverCopy.title;
-    final hook = journey.hookLine ?? memory.rediscoverCopy.body;
 
     return RediscoverArtworkCard(
       journey: journey,
-      title: title,
-      supportingText: hook,
+      title: memory.rediscoverCopy.title,
+      supportingText: memory.rediscoverCopy.subtitle,
       metadata: _metadataLine(memory),
       height: 196,
       onTap: onTap,
