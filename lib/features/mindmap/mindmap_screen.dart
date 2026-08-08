@@ -14,6 +14,7 @@ import '../../shared/widgets/tag_group.dart' show tagChipColors;
 import '../home/home_provider.dart';
 import 'cluster_card.dart';
 import 'cluster_theme.dart';
+import 'interest_cluster_service.dart' show interestThemeMergeKey;
 import 'interest_clusters_provider.dart';
 import 'title_cleaner.dart';
 
@@ -184,7 +185,29 @@ List<InterestCluster> _displayClustersForThemes(List<ClusterTheme> themes) {
           coverImageUrl: null,
           accentColor: theme.accentColor,
         ),
-  ].take(12).toList();
+  ].take(18).toList();
+}
+
+String _interestMapSubtitle(List<ClusterTheme> themes) {
+  final clusters = _displayClustersForThemes(themes);
+  final totalSaveCount = {
+    for (final theme in themes)
+      for (final url in theme.urls) url.id,
+  }.length;
+  final groupedSaveCount = clusters.fold<int>(
+    0,
+    (sum, cluster) => sum + cluster.saveCount,
+  );
+  if (clusters.isEmpty && totalSaveCount > 0) {
+    return 'No patterns yet · $totalSaveCount saves scanned';
+  }
+
+  final patternNoun = clusters.length == 1 ? 'pattern' : 'patterns';
+  if (groupedSaveCount == totalSaveCount) {
+    return '${clusters.length} $patternNoun · $totalSaveCount saves';
+  }
+  return '${clusters.length} $patternNoun · '
+      '$groupedSaveCount of $totalSaveCount saves grouped';
 }
 
 class _MasonryClusterGrid extends StatelessWidget {
@@ -259,8 +282,8 @@ class _MasonryColumn extends StatelessWidget {
 List<ClusterTheme> _mergeThemesForDisplay(List<ClusterTheme> themes) {
   final groups = <String, List<ClusterTheme>>{};
   for (final theme in themes) {
-    final key = theme.label.trim().toLowerCase();
-    if (key.isEmpty) continue;
+    if (theme.label.trim().isEmpty) continue;
+    final key = interestThemeMergeKey(theme);
     groups.putIfAbsent(key, () => <ClusterTheme>[]).add(theme);
   }
 
@@ -785,14 +808,7 @@ class MindmapScreen extends ConsumerWidget {
         : 0.0;
     final scrollBottomPadding = 32.0 + shellBottomInset;
     final subtitle = themesAsync.maybeWhen(
-      data: (themes) {
-        final clusters = _displayClustersForThemes(themes);
-        final saveCount = clusters.fold<int>(
-          0,
-          (sum, cluster) => sum + cluster.saveCount,
-        );
-        return '${clusters.length} patterns · $saveCount saves';
-      },
+      data: _interestMapSubtitle,
       orElse: () => 'Learning what keeps your attention',
     );
 

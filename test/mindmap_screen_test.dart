@@ -142,6 +142,29 @@ void main() {
     expect(compact.top, greaterThan(medium.bottom));
   });
 
+  testWidgets('header distinguishes grouped saves from total saves scanned', (
+    tester,
+  ) async {
+    final themes = [
+      ClusterTheme(
+        index: 0,
+        label: 'Recurring Topic',
+        summary: '',
+        urls: [_savedUrl(1), _savedUrl(2), _savedUrl(3)],
+      ),
+      ClusterTheme(
+        index: 1,
+        label: 'One-off Topic',
+        summary: '',
+        urls: [_savedUrl(4)],
+      ),
+    ];
+
+    await _pumpInterests(tester, themes: themes);
+
+    expect(find.text('1 pattern · 3 of 4 saves grouped'), findsOneWidget);
+  });
+
   testWidgets('AMOLED interests overview', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(400, 800);

@@ -50,11 +50,13 @@ String _intentJson({
   required String primaryIntent,
   required String why,
   String? lifeArea,
+  String? location,
 }) {
   return jsonEncode({
     'memory_intent': {
       'primary_intent': primaryIntent,
       'life_area': lifeArea,
+      'location': location,
       'why_saved_hypothesis': why,
     },
   });
@@ -513,6 +515,201 @@ void main() {
     expect(
       journeys.single.items.map((item) => item.url.id).toSet(),
       hasLength(6),
+    );
+  });
+
+  test('movie journeys exclude film analysis saved for learning', () {
+    final analysis = _url(
+      id: 41,
+      title: 'Bollywood · Demographic Coding and Bias',
+      category: 'Society',
+      tags: const ['bollywood', 'sociology', 'movie recommendations'],
+      enrichmentJson: _intentJson(
+        primaryIntent: 'learn',
+        why: 'Understand demographic coding and bias in popular cinema.',
+      ),
+    );
+    final movies = List.generate(3, (index) {
+      return _url(
+        id: 50 + index,
+        title: 'Movie Recommendations ${index + 1}',
+        category: 'Entertainment',
+        tags: const ['films', 'watchlist'],
+        enrichmentJson: _intentJson(
+          primaryIntent: 'watch_later',
+          why: 'Keep these films for a future movie night.',
+        ),
+      );
+    });
+
+    final journeys = buildRediscoverJourneys(
+      liveUrls: [analysis, ...movies],
+      clusters: [
+        ClusterTheme(
+          index: 0,
+          label: 'Movie Recommendations',
+          summary: '',
+          urls: [analysis, ...movies],
+        ),
+      ],
+      profile: AffinityProfile.empty,
+    );
+
+    expect(journeys, hasLength(1));
+    expect(journeys.single.items.map((item) => item.url), movies);
+    expect(
+      journeys.single.items.map((item) => item.url),
+      isNot(contains(analysis)),
+    );
+  });
+
+  test('keeps only one rediscover journey per resolved movie subject', () {
+    List<SavedUrl> movieSet(int start, String genre) {
+      return List.generate(3, (index) {
+        return _url(
+          id: start + index,
+          title: '$genre Movie Recommendations ${index + 1}',
+          category: 'Entertainment',
+          tags: [genre.toLowerCase(), 'films', 'watchlist'],
+          enrichmentJson: _intentJson(
+            primaryIntent: 'watch_later',
+            why: 'Save these films for later.',
+          ),
+          embedding: [start.toDouble(), index / 100],
+        );
+      });
+    }
+
+    final horror = movieSet(70, 'Horror');
+    final drama = movieSet(80, 'Drama');
+    final journeys = buildRediscoverJourneys(
+      liveUrls: [...horror, ...drama],
+      clusters: [
+        ClusterTheme(
+          index: 0,
+          label: 'Horror Films',
+          summary: '',
+          urls: horror,
+        ),
+        ClusterTheme(index: 1, label: 'Drama Films', summary: '', urls: drama),
+      ],
+      profile: AffinityProfile.empty,
+    );
+
+    expect(journeys, hasLength(1));
+    expect(
+      RediscoverMemory.fromJourney(journeys.single).rediscoverCopy.title,
+      'Movies To Watch',
+    );
+  });
+
+  test('film vocabulary alone does not create a movies-to-watch memory', () {
+    final analyses = [
+      _url(
+        id: 91,
+        title: 'Bollywood · Demographic Coding and Bias',
+        category: 'Society',
+        tags: const ['film', 'sociology', 'movie recommendations'],
+        enrichmentJson: _intentJson(
+          primaryIntent: 'learn',
+          why: 'Study demographic coding in cinema.',
+        ),
+      ),
+      _url(
+        id: 92,
+        title: 'Cinema · Representation and Social Class',
+        category: 'Society',
+        tags: const ['film', 'media studies', 'movie recommendations'],
+        enrichmentJson: _intentJson(
+          primaryIntent: 'learn',
+          why: 'Understand representation in film.',
+        ),
+      ),
+    ];
+    final memory = RediscoverMemory.fromJourney(
+      RediscoverJourney(
+        kind: RediscoverJourneyKind.continueLearning,
+        title: 'Film and Society',
+        subtitle: '2 saves',
+        icon: Icons.school_rounded,
+        items: analyses.map(_item).toList(),
+        signal: 70,
+      ),
+    );
+
+    expect(memory.rediscoverCopy.title, isNot('Movies To Watch'));
+  });
+
+  test('country context does not contaminate a travel journey', () {
+    final fraud = _url(
+      id: 93,
+      title: 'Financial Fraud Prevention · Indian Banking Security',
+      category: 'Finance',
+      tags: const ['banking', 'scam', 'security', 'india'],
+      enrichmentJson: _intentJson(
+        primaryIntent: 'learn',
+        why: 'Understand fraud prevention in Indian banking.',
+        location: 'India',
+      ),
+    );
+    final travel = [
+      _url(
+        id: 94,
+        title: 'Hikers Inn Cafe · Georgia',
+        category: 'Travel',
+        tags: const ['travel', 'destination', 'georgia'],
+        enrichmentJson: _intentJson(
+          primaryIntent: 'visit',
+          why: 'Remember this cafe for a Georgia trip.',
+          location: 'Georgia',
+        ),
+      ),
+      _url(
+        id: 95,
+        title: 'Tuk Tuk Expedition · Kenya Journey',
+        category: 'Travel',
+        tags: const ['expedition', 'kenya', 'travel'],
+        enrichmentJson: _intentJson(
+          primaryIntent: 'visit',
+          why: 'Consider this Kenya expedition.',
+          location: 'Kenya',
+        ),
+      ),
+      _url(
+        id: 96,
+        title: 'Ancient Temples · Must-Visit Historical Sites',
+        category: 'Travel',
+        tags: const ['temples', 'india', 'historical sites'],
+        enrichmentJson: _intentJson(
+          primaryIntent: 'visit',
+          why: 'Keep these temples for a future trip.',
+          location: 'India',
+        ),
+      ),
+    ];
+
+    final journeys = buildRediscoverJourneys(
+      liveUrls: [fraud, ...travel],
+      clusters: [
+        ClusterTheme(
+          index: 0,
+          label: 'India',
+          summary: '',
+          urls: [fraud, ...travel],
+        ),
+      ],
+      profile: AffinityProfile.empty,
+    );
+
+    expect(journeys, hasLength(1));
+    expect(journeys.single.items.map((item) => item.url), travel);
+    expect(
+      journeys.single.items.map((item) => item.url),
+      isNot(contains(fraud)),
+    );
+    expect(
+      RediscoverMemory.fromJourney(journeys.single).rediscoverCopy.title,
+      isNot('India'),
     );
   });
 

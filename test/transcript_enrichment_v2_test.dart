@@ -95,5 +95,26 @@ void main() {
       expect(result!.contentSections, hasLength(1));
       expect(result.contentSections.single.points, ['Keep this point.']);
     });
+
+    test('does not turn film analysis into a movie recommendation', () {
+      final isRecommendation = hasMovieRecommendationIntentForEnrichment({
+        'meaningful_title': 'Bollywood · Demographic Coding and Bias',
+        'summary':
+            'An analysis of how social groups are represented in popular film.',
+        'memory_intent': {'primary_intent': 'learn'},
+      }, hasMovieMentions: true);
+
+      expect(isRecommendation, isFalse);
+    });
+
+    test('recognizes an actual movie watchlist from structured intent', () {
+      final isRecommendation = hasMovieRecommendationIntentForEnrichment({
+        'meaningful_title': 'Indonesian Horror Films',
+        'summary': 'Three unsettling films for a future movie night.',
+        'memory_intent': {'primary_intent': 'watch_later'},
+      }, hasMovieMentions: true);
+
+      expect(isRecommendation, isTrue);
+    });
   });
 }

@@ -9,13 +9,14 @@ import '../../core/database/isar_service.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/category_taxonomy.dart';
 import '../../core/services/gemini_service.dart';
+import '../../core/services/saved_url_subject_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import 'cluster_theme.dart';
 
 /// Persisted cluster snapshot — bump version to invalidate stale caches.
-const kInterestClustersJsonKey = 'glimpse_clusters_v15';
-const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v15';
+const kInterestClustersJsonKey = 'glimpse_clusters_v17';
+const kInterestClusterUrlCountKey = 'glimpse_cluster_url_count_v17';
 
 /// How many URLs must change before we force a full rebuild.
 const _clusterRebuildThreshold = 5;
@@ -241,7 +242,7 @@ List<SubClusterTheme> _trekSubClustersForUrls(List<SavedUrl> urls) {
 String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
   final text = _textForUrls(urls);
   final scores = <String, int>{
-    'Nutrition & Wellness': _keywordScore(text, [
+    'Nutrition & Wellness': _keywordRuleScore(urls, [
       'nutrition',
       'nutritional',
       'nutrient',
@@ -260,7 +261,7 @@ String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
       'sabja',
       'seeds',
     ]),
-    'AI Agents': _keywordScore(text, [
+    'AI Agents': _keywordRuleScore(urls, [
       'agent',
       'genai',
       'openai',
@@ -271,7 +272,7 @@ String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
       'ai engineer',
       'aimaxing',
     ]),
-    'Dev Tools & OSS': _keywordScore(text, [
+    'Dev Tools & OSS': _keywordRuleScore(urls, [
       'github',
       'repo',
       'oss',
@@ -286,24 +287,28 @@ String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
       'cybersecurity',
       'software engineering',
     ]),
-    'Website Growth': _keywordScore(text, [
+    'Website Growth': _keywordRuleScore(urls, [
       'seo',
       'search console',
       'website optimization',
-      'traffic',
-      'conversion',
-      'growth',
-      'revenue',
+      'website traffic',
+      'organic search',
+      'conversion rate',
+      'landing page',
+      'web analytics',
+      'domain authority',
     ]),
-    'Startup Building': _keywordScore(text, [
+    'Startup Building': _keywordRuleScore(urls, [
       'startup',
       'founder',
       'first 100 users',
-      'credits',
-      'money',
+      'product market fit',
+      'customer acquisition',
+      'startup credits',
+      'cloud credits',
       'saas',
     ]),
-    'Design Systems': _keywordScore(text, [
+    'Design Systems': _keywordRuleScore(urls, [
       'design system',
       'ui tools',
       'patterns',
@@ -313,13 +318,13 @@ String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
       'designiti',
       'design inspiration',
     ]),
-    'Typography Tools': _keywordScore(text, [
+    'Typography Tools': _keywordRuleScore(urls, [
       'font',
       'fontjoy',
       'typography',
       'typeface',
     ]),
-    'Modern Agriculture': _keywordScore(text, [
+    'Modern Agriculture': _keywordRuleScore(urls, [
       'agriculture',
       'farming',
       'farm',
@@ -340,7 +345,13 @@ String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
 
   final ranked = scores.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
-  if (ranked.isNotEmpty && ranked.first.value >= 2) {
+  final proportionalSupport = (urls.length * 0.4).ceil();
+  final minimumSupport = urls.length == 1
+      ? 2
+      : proportionalSupport < 2
+      ? 2
+      : proportionalSupport;
+  if (ranked.isNotEmpty && ranked.first.value >= minimumSupport) {
     return ranked.first.key;
   }
 
@@ -351,18 +362,21 @@ String? _ruleBasedTopicLabel(List<SavedUrl> urls) {
 String debugHeuristicLabelForInterest(List<SavedUrl> urls) =>
     _heuristicLabelForUrls(urls);
 
-int _keywordScore(String text, List<String> keywords) {
-  var score = 0;
-  for (final keyword in keywords) {
-    var start = 0;
-    while (true) {
-      final index = text.indexOf(keyword, start);
-      if (index < 0) break;
-      score++;
-      start = index + keyword.length;
+int _keywordRuleScore(List<SavedUrl> urls, List<String> keywords) {
+  if (urls.length == 1) {
+    final text = _evidenceTextForUrl(urls.single);
+    return keywords.where((keyword) {
+      return _containsAnyWholePhrase(text, [keyword]);
+    }).length;
+  }
+
+  var support = 0;
+  for (final url in urls) {
+    if (_containsAnyWholePhrase(_evidenceTextForUrl(url), keywords)) {
+      support++;
     }
   }
-  return score;
+  return support;
 }
 
 Map<String, int> _topicCountsForUrls(List<SavedUrl> urls) {
@@ -433,6 +447,15 @@ String _canonicalThemeKey(ClusterTheme theme) {
   return _heuristicLabelForUrls(theme.urls).trim().toLowerCase();
 }
 
+/// Stable grouping key for themes that may be combined after clustering.
+///
+/// The broad category is part of the key because label generation is not a
+/// semantic boundary. Two unrelated clusters can receive the same short label,
+/// especially when a noisy tag is repeated across imported social saves.
+String interestThemeMergeKey(ClusterTheme theme) {
+  return '${_canonicalThemeKey(theme)}\u0000${_dominantBroadCategory(theme.urls)}';
+}
+
 List<SubClusterTheme> _mergeSubClusters(List<SubClusterTheme> subClusters) {
   final byKey = <String, List<SavedUrl>>{};
   for (final sub in subClusters) {
@@ -462,7 +485,7 @@ List<SubClusterTheme> _mergeSubClusters(List<SubClusterTheme> subClusters) {
 List<ClusterTheme> _mergeDuplicateThemes(List<ClusterTheme> themes) {
   final grouped = <String, List<ClusterTheme>>{};
   for (final theme in themes) {
-    grouped.putIfAbsent(_canonicalThemeKey(theme), () => []).add(theme);
+    grouped.putIfAbsent(interestThemeMergeKey(theme), () => []).add(theme);
   }
 
   final merged = <ClusterTheme>[];
@@ -479,7 +502,10 @@ List<ClusterTheme> _mergeDuplicateThemes(List<ClusterTheme> themes) {
     }
 
     final urls = urlsById.values.toList();
-    final label = _heuristicLabelForUrls(urls, fallback: group.first.label);
+    final originalLabel = group.first.label.trim();
+    final label = _isWeakClusterLabel(originalLabel)
+        ? _heuristicLabelForUrls(urls, fallback: originalLabel)
+        : originalLabel;
     final subClusters = label == 'Treks' || _isTrekLike(urls, label)
         ? _trekSubClustersForUrls(urls)
         : _mergeSubClusters(allSubs);
@@ -601,12 +627,13 @@ String _dominantBroadCategory(List<SavedUrl> urls) {
   return best;
 }
 
-/// Merges themes that share a label (e.g. food promoted out of two parents),
-/// preserving the label rather than re-deriving it, then re-indexes by size.
+/// Merges themes that share a label and broad topic (e.g. food promoted out of
+/// two parents), preserving the label rather than re-deriving it, then
+/// re-indexes by size.
 List<ClusterTheme> _mergeThemesByLabel(List<ClusterTheme> themes) {
   final byKey = <String, List<ClusterTheme>>{};
   for (final theme in themes) {
-    byKey.putIfAbsent(theme.label.trim().toLowerCase(), () => []).add(theme);
+    byKey.putIfAbsent(interestThemeMergeKey(theme), () => []).add(theme);
   }
 
   final merged = <ClusterTheme>[];
@@ -646,6 +673,103 @@ List<ClusterTheme> _mergeThemesByLabel(List<ClusterTheme> themes) {
       subClusters: theme.subClusters,
     );
   });
+}
+
+/// Reassembles embedding fragments around durable structured subjects.
+///
+/// Embeddings are intentionally strict and commonly leave two or three saves
+/// about the same subject in separate singleton clusters. Enrichment already
+/// contains better evidence for those durable interests, so repeated subjects
+/// are combined here while unclassified saves retain their embedding cluster.
+List<ClusterTheme> _aggregateResolvedSubjects(List<ClusterTheme> themes) {
+  final urlsBySubject = <String, Map<int, SavedUrl>>{};
+  final subjectByKey = <String, SavedUrlSubject>{};
+  final sourceThemesBySubject = <String, Set<ClusterTheme>>{};
+
+  for (final theme in themes) {
+    for (final url in theme.urls) {
+      final subject = SavedUrlSubjectResolver.resolve(url);
+      if (subject == null) continue;
+      urlsBySubject.putIfAbsent(subject.key, () => <int, SavedUrl>{})[url.id] =
+          url;
+      subjectByKey[subject.key] = subject;
+      sourceThemesBySubject
+          .putIfAbsent(subject.key, () => <ClusterTheme>{})
+          .add(theme);
+    }
+  }
+
+  final activeKeys = {
+    for (final entry in urlsBySubject.entries)
+      if (entry.value.length >= 3) entry.key,
+  };
+  if (activeKeys.isEmpty) return themes;
+
+  final rebuilt = <ClusterTheme>[];
+  for (final theme in themes) {
+    final remaining = theme.urls.where((url) {
+      final subject = SavedUrlSubjectResolver.resolve(url);
+      return subject == null || !activeKeys.contains(subject.key);
+    }).toList();
+    if (remaining.isEmpty) continue;
+
+    final label = remaining.length == theme.urls.length
+        ? theme.label
+        : _heuristicLabelForUrls(remaining, fallback: theme.label);
+    rebuilt.add(
+      ClusterTheme(
+        index: rebuilt.length,
+        label: label,
+        summary: _heuristicSummaryForUrls(remaining, label),
+        urls: remaining,
+        subClusters: remaining.length == theme.urls.length
+            ? theme.subClusters
+            : const [],
+      ),
+    );
+  }
+
+  for (final key in activeKeys) {
+    final urls = urlsBySubject[key]!.values.toList();
+    final sources = sourceThemesBySubject[key]!;
+    final sourceCanKeepItsLabel =
+        sources.length == 1 &&
+        sources.single.urls.every(
+          (url) => SavedUrlSubjectResolver.resolve(url)?.key == key,
+        );
+    final label =
+        sourceCanKeepItsLabel && !_isWeakClusterLabel(sources.single.label)
+        ? sources.single.label
+        : subjectByKey[key]!.label;
+    rebuilt.add(
+      ClusterTheme(
+        index: rebuilt.length,
+        label: label,
+        summary: _heuristicSummaryForUrls(urls, label),
+        urls: urls,
+        subClusters: const [],
+      ),
+    );
+  }
+
+  rebuilt.sort((a, b) => b.urls.length.compareTo(a.urls.length));
+  return List<ClusterTheme>.generate(rebuilt.length, (index) {
+    final theme = rebuilt[index];
+    return ClusterTheme(
+      index: index,
+      label: theme.label,
+      summary: theme.summary,
+      urls: theme.urls,
+      subClusters: theme.subClusters,
+    );
+  });
+}
+
+@visibleForTesting
+List<ClusterTheme> debugFinalizeInterestThemes(List<ClusterTheme> themes) {
+  return _aggregateResolvedSubjects(
+    _promoteForeignSubClusters(_mergeDuplicateThemes(themes)),
+  );
 }
 
 // ─── Heuristic (no-Gemini) theme builders ────────────────────────────────────
@@ -789,17 +913,17 @@ Future<void> _writeClusterCache(
   List<ClusterTheme> themes,
 ) async {
   final payload = <String, dynamic>{
-    'version': 9,
+    'version': 11,
     'themes': themes.map((t) {
       return {
         'label': t.label,
         'summary': t.summary,
-        'ids': t.urls.map((u) => u.id).toList(),
+        'urls': t.urls.map((u) => u.rawUrl).toList(),
         'subClusters': t.subClusters.map((s) {
           return {
             'label': s.label,
             'summary': s.summary,
-            'ids': s.urls.map((u) => u.id).toList(),
+            'urls': s.urls.map((u) => u.rawUrl).toList(),
           };
         }).toList(),
       };
@@ -848,9 +972,9 @@ Future<List<ClusterTheme>?> tryHydrateClustersFromPrefs({
 
     // Reject caches from old schema versions.
     final version = decoded['version'] as int? ?? 0;
-    if (version < 9) {
+    if (version < 11) {
       developer.log(
-        'Cluster cache version $version < 9 — rebuilding.',
+        'Cluster cache version $version < 11 — rebuilding.',
         name: 'Mindmap',
       );
       return null;
@@ -859,21 +983,31 @@ Future<List<ClusterTheme>?> tryHydrateClustersFromPrefs({
     final list = decoded['themes'] as List<dynamic>?;
     if (list == null || list.isEmpty) return null;
 
-    final byId = {for (final u in embeddedUrls) u.id: u};
+    final byRawUrl = {for (final u in embeddedUrls) u.rawUrl: u};
     final out = <ClusterTheme>[];
 
     for (var i = 0; i < list.length; i++) {
       final m = list[i] as Map<String, dynamic>;
-      final ids = (m['ids'] as List<dynamic>).map((e) => e as int).toList();
-      final urls = ids.map((id) => byId[id]).whereType<SavedUrl>().toList();
+      final rawUrls = (m['urls'] as List<dynamic>)
+          .map((value) => value.toString())
+          .toList();
+      final urls = rawUrls
+          .map((rawUrl) => byRawUrl[rawUrl])
+          .whereType<SavedUrl>()
+          .toList();
       if (urls.isEmpty) continue;
 
       final rawSubs = m['subClusters'] as List<dynamic>? ?? const [];
       final subClusters = <SubClusterTheme>[];
       for (final rs in rawSubs) {
         final sm = rs as Map<String, dynamic>;
-        final sIds = (sm['ids'] as List<dynamic>).map((e) => e as int).toList();
-        final sUrls = sIds.map((id) => byId[id]).whereType<SavedUrl>().toList();
+        final subRawUrls = (sm['urls'] as List<dynamic>)
+            .map((value) => value.toString())
+            .toList();
+        final sUrls = subRawUrls
+            .map((rawUrl) => byRawUrl[rawUrl])
+            .whereType<SavedUrl>()
+            .toList();
         if (sUrls.isEmpty) continue;
         subClusters.add(
           SubClusterTheme(
@@ -895,11 +1029,56 @@ Future<List<ClusterTheme>?> tryHydrateClustersFromPrefs({
       );
     }
 
+    final coveredRawUrls = {
+      for (final theme in out)
+        for (final url in theme.urls) url.rawUrl,
+    };
+    final uncovered = embeddedUrls
+        .where((url) => !coveredRawUrls.contains(url.rawUrl))
+        .toList();
+    if (uncovered.length >= _clusterRebuildThreshold) {
+      developer.log(
+        'Cluster cache covers only ${coveredRawUrls.length} of '
+        '$currentEmbeddedCount embedded URLs — rebuilding.',
+        name: 'Mindmap',
+      );
+      return null;
+    }
+
+    final hydrated = _aggregateResolvedSubjects(
+      uncovered.isEmpty
+          ? out
+          : _mergeDuplicateThemes([
+              ...out,
+              for (var i = 0; i < uncovered.length; i++)
+                _singletonClusterTheme([uncovered[i]], out.length + i),
+            ]),
+    );
+
+    final hydratedCoverage = {
+      for (final theme in hydrated)
+        for (final url in theme.urls) url.rawUrl,
+    };
+    if (hydratedCoverage.length != currentEmbeddedCount) {
+      developer.log(
+        'Cluster cache coverage is inconsistent '
+        '(${hydratedCoverage.length}/$currentEmbeddedCount) — rebuilding.',
+        name: 'Mindmap',
+      );
+      return null;
+    }
+
+    // Keep the persisted snapshot/count as the last full-build baseline. Small
+    // additions are attached locally, but persisting them here would reset the
+    // change counter on every save and prevent the five-save rebuild threshold
+    // from ever being reached.
+
     developer.log(
-      'Hydrated ${out.length} clusters from cache (${out.where((t) => t.hasSubClusters).length} with sub-clusters).',
+      'Hydrated ${hydrated.length} clusters from cache '
+      '(${hydrated.where((t) => t.hasSubClusters).length} with sub-clusters).',
       name: 'Mindmap',
     );
-    return out.isEmpty ? null : out;
+    return hydrated.isEmpty ? null : hydrated;
   } catch (e, stack) {
     developer.log(
       'Failed to hydrate cluster cache: $e',
@@ -1211,6 +1390,7 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
 
   themes = _mergeDuplicateThemes(themes);
   themes = _promoteForeignSubClusters(themes);
+  themes = _aggregateResolvedSubjects(themes);
 
   await _writeClusterCache(prefs, urls.length, themes);
   developer.log(

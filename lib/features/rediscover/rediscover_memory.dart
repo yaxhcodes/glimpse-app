@@ -561,11 +561,13 @@ class RediscoverMemory {
     if (_hasSharedEvidence(journey, const ['manga'])) {
       return result('Manga To Read', 0.88, ['manga']);
     }
-    if (_hasSharedEvidence(journey, const ['movie', 'film', 'netflix'])) {
-      return result('Movies To Watch', 0.84, ['movies']);
-    }
     if (_hasSharedEvidence(journey, const ['anime'])) {
       return result('Anime To Watch', 0.84, ['anime']);
+    }
+    if (RediscoverTopicEvidence.hasSharedMovieWatchRecommendations(
+      journey.items.map((item) => item.url),
+    )) {
+      return result('Movies To Watch', 0.9, ['movie watch intent']);
     }
     if (_hasSharedEvidence(journey, const [
       'wildlife photography',

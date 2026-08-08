@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/affinity_profile.dart';
+import '../../core/services/saved_url_subject_resolver.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/theme/app_icons.dart';
@@ -270,9 +271,16 @@ List<RediscoverJourney> buildRediscoverJourneys({
 List<RediscoverJourney> _dedupeJourneys(List<RediscoverJourney> journeys) {
   final kept = <RediscoverJourney>[];
   final seenTitleFamilies = <String>{};
+  final seenSubjectFamilies = <String>{};
   for (final j in journeys) {
     final titleKey = _titleFamilyKey(j.title);
     if (seenTitleFamilies.contains(titleKey)) continue;
+    final subject = j.kind == RediscoverJourneyKind.onThisDay
+        ? null
+        : SavedUrlSubjectResolver.dominantSubject(
+            j.items.map((item) => item.url),
+          );
+    if (subject != null && seenSubjectFamilies.contains(subject.key)) continue;
     final ids = j.items.map((i) => i.url.id).toSet();
     final overlapsKept =
         ids.isNotEmpty &&
@@ -282,6 +290,7 @@ List<RediscoverJourney> _dedupeJourneys(List<RediscoverJourney> journeys) {
         });
     if (overlapsKept) continue;
     seenTitleFamilies.add(titleKey);
+    if (subject != null) seenSubjectFamilies.add(subject.key);
     kept.add(j);
   }
   return kept;
@@ -300,6 +309,15 @@ List<ClusterTheme> _consolidateClusterThemes(List<ClusterTheme> clusters) {
     for (var j = i + 1; j < clusters.length; j += 1) {
       if (consumed.contains(j)) continue;
       final next = clusters[j];
+      final currentSubject = SavedUrlSubjectResolver.dominantSubject(
+        current.urls,
+      );
+      final nextSubject = SavedUrlSubjectResolver.dominantSubject(next.urls);
+      if (currentSubject != null &&
+          nextSubject != null &&
+          currentSubject.key != nextSubject.key) {
+        continue;
+      }
       final similarity = _cosineSimilarity(
         currentCentroid,
         _clusterCentroid(next.urls),
@@ -377,7 +395,7 @@ List<RediscoverJourney> _clusterJourneys(
 
     // Restrict to the cluster's on-theme core so outliers the clusterer lumped
     // into the tail (e.g. a film save inside a food cluster) don't show up.
-    final core = _onThemeCore(members);
+    final core = SavedUrlSubjectResolver.coherentCore(_onThemeCore(members));
     if (core.length < 3) continue;
 
     final unopened = core.where((u) => u.openedAt == null).length;

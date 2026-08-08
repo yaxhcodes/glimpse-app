@@ -7,6 +7,34 @@ import 'ai/ai_transport.dart';
 import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
 
+bool hasMovieRecommendationIntentForEnrichment(
+  Map<String, dynamic> data, {
+  required bool hasMovieMentions,
+}) {
+  final rawIntent = data['memory_intent'];
+  final primaryIntent = rawIntent is Map
+      ? TextCleaner.cleanLoose(rawIntent['primary_intent']).toLowerCase()
+      : TextCleaner.cleanLoose(data['primary_intent']).toLowerCase();
+  final recommendationText = [
+    data['meaningful_title'],
+    data['summary'],
+    if (data['topics'] is List) ...(data['topics'] as List),
+  ].map(TextCleaner.cleanLoose).join(' ').toLowerCase();
+  final hasMovieSubject = RegExp(
+    r'\b(movie|movies|film|films|cinema)\b',
+  ).hasMatch(recommendationText);
+  if (primaryIntent == 'watch_later') {
+    return hasMovieMentions || hasMovieSubject;
+  }
+  final hasExplicitRecommendation = RegExp(
+    r'\b(movie|movies|film|films|cinema)\b.{0,40}'
+    r'\b(recommend|recommendation|recommendations|watchlist|must watch|to watch)\b|'
+    r'\b(recommend|recommendation|recommendations|watchlist|must watch|to watch)\b'
+    r'.{0,40}\b(movie|movies|film|films|cinema)\b',
+  ).hasMatch(recommendationText);
+  return hasMovieMentions && hasExplicitRecommendation;
+}
+
 class TranscriptEnrichmentResult {
   const TranscriptEnrichmentResult({
     this.schemaVersion = 1,
@@ -1618,9 +1646,10 @@ class TranscriptEnrichmentService {
       }
     }
 
-    if (hasMovieMentions ||
-        haystack.contains('movie') ||
-        haystack.contains('film')) {
+    if (hasMovieRecommendationIntentForEnrichment(
+      data,
+      hasMovieMentions: hasMovieMentions,
+    )) {
       add('movie recommendations');
       if (haystack.contains('sci-fi') || haystack.contains('science fiction')) {
         add('sci-fi movies');
