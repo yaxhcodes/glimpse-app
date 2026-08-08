@@ -11,7 +11,6 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/title_resolver.dart';
-import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
@@ -28,7 +27,6 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final visual = visualForJourney(context, journey);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final tagFrequency = ref.watch(tagOccurrenceMapProvider);
@@ -61,9 +59,7 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
               style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
-          SliverToBoxAdapter(
-            child: _JourneyHero(memory: memory, visual: visual),
-          ),
+          SliverToBoxAdapter(child: _JourneyHero(memory: memory)),
           SliverToBoxAdapter(child: _JourneyTimeline(journey: journey)),
           SliverToBoxAdapter(child: _MemoryReasoning(memory: memory)),
           if (revisit.isNotEmpty)
@@ -183,127 +179,34 @@ class _MemoryReasoning extends StatelessWidget {
 }
 
 class _JourneyHero extends StatelessWidget {
-  const _JourneyHero({required this.memory, required this.visual});
+  const _JourneyHero({required this.memory});
 
   final RediscoverMemory memory;
-  final JourneyVisual visual;
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
     final title = memory.journey.title.trim().isNotEmpty
         ? memory.journey.title
         : memory.rediscoverCopy.title;
     final subtitle = memory.journey.hookLine ?? memory.rediscoverCopy.subtitle;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final iconWashOpacity = isDark ? 0.22 : 0.32;
-    const height = 232.0;
-    const iconSize = height * 1.02;
-    return Container(
-      height: height,
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: visual.colors,
-        ),
-      ),
-      child: Stack(
-        children: [
-          // Fused category glyph: oversized, accent-tinted, bleeding off the
-          // top-left and fading diagonally — same language as the home card.
-          Positioned(
-            left: -iconSize * 0.15,
-            top: -iconSize * 0.22,
-            child: Opacity(
-              opacity: iconWashOpacity,
-              child: ShaderMask(
-                shaderCallback: (bounds) {
-                  return LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      visual.accentColor.withValues(alpha: 1),
-                      visual.accentColor.withValues(alpha: 0),
-                    ],
-                    stops: const [0.08, 0.70],
-                  ).createShader(bounds);
-                },
-                blendMode: BlendMode.dstIn,
-                child: Icon(
-                  visual.icon,
-                  size: iconSize,
-                  color: visual.accentColor,
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: CustomPaint(
-              painter: JourneyMotifPainter(
-                motif: visual.motif,
-                color: visual.motifColor,
-                variant: memory.id.hashCode,
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: visual.overlayColors,
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Spacer(),
-                Text(
-                  visual.eyebrow,
-                  style: tt.labelSmall?.copyWith(
-                    color: visual.mutedForeground.withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  title,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.editorial(
-                    tt.headlineSmall,
-                    color: visual.foreground,
-                    fontWeight: FontWeight.w700,
-                    height: 1.04,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.bodyMedium?.copyWith(
-                    color: visual.mutedForeground,
-                    fontWeight: FontWeight.w600,
-                    height: 1.28,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+    final total = memory.saveCount;
+    final unopened = memory.unopenedCount;
+    final metadata = unopened == total
+        ? 'All unopened'
+        : unopened == 0
+        ? 'All reopened'
+        : '$unopened unopened';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+      child: RediscoverArtworkCard(
+        journey: memory.journey,
+        title: title,
+        supportingText: subtitle,
+        metadata: metadata,
+        height: 232,
+        hero: true,
+        borderRadius: 28,
       ),
     );
   }

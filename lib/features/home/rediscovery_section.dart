@@ -11,7 +11,6 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/theme/app_icons.dart';
-import '../../shared/theme/app_typography.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_journey_provider.dart';
 import '../rediscover/rediscover_memory.dart';
@@ -42,8 +41,7 @@ class RediscoverySection extends ConsumerWidget {
         // balanced from compact phones up through tablets.
         const hPad = 16.0;
         final cardWidth = isTablet ? 320.0 : (size.width - hPad * 2) * 0.80;
-        final cardHeight =
-            (cardWidth / 1.7).clamp(168.0, 196.0) + 24.0;
+        final cardHeight = (cardWidth / 1.7).clamp(168.0, 196.0) + 24.0;
         final previewCount = isTablet
             ? journeys.length
             : journeys.length.clamp(0, 4);
@@ -299,148 +297,35 @@ class _RediscoverTip extends StatelessWidget {
 }
 
 class _RediscoverJourneyCard extends StatelessWidget {
-  const _RediscoverJourneyCard({
-    required this.journey,
-    required this.height,
-  });
+  const _RediscoverJourneyCard({required this.journey, required this.height});
 
   final RediscoverJourney journey;
   final double height;
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
     final memory = RediscoverMemory.fromJourney(journey);
-    final visual = visualForJourney(context, journey);
     final title = journey.title.trim().isNotEmpty
         ? journey.title
         : memory.homeCopy.title;
-    final hook = journey.hookLine ?? _metadataLine(memory);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Light mode needs a touch more presence for the wash to register.
-    final iconWashOpacity = isDark ? 0.28 : 0.40;
-    // The fused glyph scales with the card so the bleed stays proportional.
-    final iconSize = height * 1.04;
+    final supportingText = journey.hookLine ?? memory.homeCopy.subtitle;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: visual.colors,
-        ),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Fused category icon: oversized, accent-tinted, bleeding off the
-          // top-left corner and fading diagonally into the gradient. No
-          // chip or frame — the glyph itself is the texture.
-          Positioned(
-            left: -iconSize * 0.16,
-            top: -iconSize * 0.24,
-            child: Opacity(
-              opacity: iconWashOpacity,
-              child: ShaderMask(
-                shaderCallback: (bounds) {
-                  return LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      visual.accentColor.withValues(alpha: 1),
-                      visual.accentColor.withValues(alpha: 0),
-                    ],
-                    stops: const [0.08, 0.70],
-                  ).createShader(bounds);
-                },
-                blendMode: BlendMode.dstIn,
-                child: Icon(
-                  visual.icon,
-                  size: iconSize,
-                  color: visual.accentColor,
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: CustomPaint(
-              painter: JourneyMotifPainter(
-                motif: visual.motif,
-                color: visual.motifColor,
-                variant: journey.title.hashCode,
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: visual.overlayColors,
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Spacer(),
-                Text(
-                  visual.eyebrow,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.labelSmall?.copyWith(
-                    color: visual.mutedForeground.withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                    fontSize: 10,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.editorial(
-                    tt.titleLarge,
-                    color: visual.foreground,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    height: 1.14,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                Text(
-                  hook,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.labelMedium?.copyWith(
-                    color: visual.mutedForeground.withValues(alpha: 0.8),
-                    fontWeight: FontWeight.w500,
-                    fontSize: 11,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return RediscoverArtworkCard(
+      journey: journey,
+      title: title,
+      supportingText: supportingText,
+      metadata: _metadataLine(memory),
+      height: height,
     );
   }
 
   String _metadataLine(RediscoverMemory memory) {
-    final n = memory.saveCount;
     final dates = [
       for (final item in memory.journey.items)
         item.url.openedAt ?? item.url.resurfacedAt ?? item.url.savedAt,
     ]..sort((a, b) => b.compareTo(a));
     final opened = dates.isEmpty ? 'recently' : _timeAgo(dates.first);
-    return '$n ${n == 1 ? 'save' : 'saves'} · ${memory.waitingLabel} · $opened';
+    return '${memory.waitingLabel} · $opened';
   }
 
   String _timeAgo(DateTime date) {

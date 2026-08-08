@@ -548,113 +548,32 @@ class _MemoryJourneyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
     final memory = RediscoverMemory.fromJourney(
       journey,
       tagFrequency: tagFrequency,
     );
-    final visual = visualForJourney(context, memory.journey);
     final title = journey.title.trim().isNotEmpty
         ? journey.title
         : memory.rediscoverCopy.title;
-    final eyebrow = (journey.categoryLabel ?? visual.eyebrow).toUpperCase();
     final hook = journey.hookLine ?? memory.rediscoverCopy.body;
 
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(18),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: visual.colors,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  visual.icon,
-                  color: visual.foreground.withValues(alpha: 0.88),
-                  size: 25,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      eyebrow,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                        fontSize: 10,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.editorial(
-                        tt.titleMedium,
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w700,
-                        height: 1.12,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      hook,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _MemoryMetaPill(_metadataLine(memory)),
-                        const Spacer(),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 18,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return RediscoverArtworkCard(
+      journey: journey,
+      title: title,
+      supportingText: hook,
+      metadata: _metadataLine(memory),
+      height: 196,
+      onTap: onTap,
     );
   }
 
   String _metadataLine(RediscoverMemory memory) {
     final total = memory.saveCount;
     final unopened = memory.unopenedCount;
-    if (unopened == total) return '$total saves · all unopened';
-    return '$total saves · $unopened unopened';
+    if (total == 0) return '';
+    if (unopened == total) return 'All unopened';
+    if (unopened == 0) return 'All reopened';
+    return '$unopened unopened';
   }
 }
 
@@ -772,32 +691,6 @@ class _TodaySlotTile extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(color: cs.surfaceContainerHighest),
       child: Icon(slot.icon, color: cs.onSurfaceVariant, size: 22),
-    );
-  }
-}
-
-class _MemoryMetaPill extends StatelessWidget {
-  const _MemoryMetaPill(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: cs.secondaryContainer.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: tt.labelSmall?.copyWith(
-          color: cs.onSecondaryContainer,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

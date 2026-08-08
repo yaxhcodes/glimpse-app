@@ -1,11 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/url_processing_status.dart';
 import 'package:glimpse/core/services/affinity_profile.dart';
 import 'package:glimpse/features/mindmap/cluster_theme.dart';
+import 'package:glimpse/features/rediscover/journey_visual.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory_prefs.dart';
@@ -63,6 +65,122 @@ RediscoveryItem _item(SavedUrl url) {
 }
 
 void main() {
+  test('journey topics map across the complete artwork library', () {
+    const expectations = {
+      'AI agents': RediscoverArtworkTheme.software,
+      'Botanical ecology': RediscoverArtworkTheme.nature,
+      'Weekend travel': RediscoverArtworkTheme.travel,
+      'High-protein recipes': RediscoverArtworkTheme.food,
+      'Stoic philosophy': RediscoverArtworkTheme.philosophy,
+      'Startup marketing': RediscoverArtworkTheme.business,
+      'Cell biology': RediscoverArtworkTheme.science,
+      'Ancient architecture': RediscoverArtworkTheme.history,
+      'Literary essays': RediscoverArtworkTheme.books,
+      'Long-term investing': RediscoverArtworkTheme.finance,
+      'Portrait photography': RediscoverArtworkTheme.photography,
+      'Strength training': RediscoverArtworkTheme.fitness,
+      'Music albums': RediscoverArtworkTheme.music,
+      'Anime watchlist': RediscoverArtworkTheme.film,
+      'Graphic design': RediscoverArtworkTheme.design,
+      'Interior decor': RediscoverArtworkTheme.home,
+      'Personal fashion': RediscoverArtworkTheme.fashion,
+      'Things I like': RediscoverArtworkTheme.general,
+    };
+
+    for (final entry in expectations.entries) {
+      final journey = RediscoverJourney(
+        kind: RediscoverJourneyKind.becauseYouSaved,
+        title: entry.key,
+        subtitle: 'Test subtitle',
+        icon: Icons.bookmark_rounded,
+        items: const [],
+        signal: 50,
+        topicAnchor: entry.key,
+      );
+
+      expect(artworkThemeForJourney(journey), entry.value, reason: entry.key);
+    }
+  });
+
+  test('all Rediscover artwork assets are bundled', () async {
+    for (final theme in RediscoverArtworkTheme.values) {
+      final data = await rootBundle.load(theme.assetPath);
+      expect(data.lengthInBytes, greaterThan(0), reason: theme.name);
+    }
+  });
+
+  testWidgets('artwork cards fit compact light and dark layouts', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 260));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final items = [
+      _item(_url(id: 1, title: 'First save', savedAt: DateTime(2025, 12, 1))),
+      _item(_url(id: 2, title: 'Second save', savedAt: DateTime(2026, 2, 1))),
+      _item(_url(id: 3, title: 'Third save', savedAt: DateTime(2026, 4, 1))),
+    ];
+    const topics = ['AI agents', 'Weekend travel', 'High-protein recipes'];
+
+    for (final brightness in Brightness.values) {
+      for (final textScale in [1.2, 1.6, 2.0]) {
+        for (final topic in topics) {
+          final journey = RediscoverJourney(
+            kind: RediscoverJourneyKind.becauseYouSaved,
+            title: 'Building reliable systems for everyday use',
+            subtitle: 'A compact set of saves worth returning to',
+            icon: Icons.bookmark_rounded,
+            items: items,
+            signal: 72,
+            topicAnchor: topic,
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(
+                useMaterial3: true,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: const Color(0xFF6750A4),
+                  brightness: brightness,
+                ),
+              ),
+              home: MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(360, 260),
+                  textScaler: TextScaler.linear(textScale),
+                ),
+                child: Scaffold(
+                  body: Center(
+                    child: SizedBox(
+                      width: 296,
+                      child: RediscoverArtworkCard(
+                        journey: journey,
+                        title: journey.title,
+                        supportingText: journey.subtitle,
+                        metadata: '3 saves · 2 unopened · 4mo ago',
+                        height: 196,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+
+          expect(
+            tester.takeException(),
+            isNull,
+            reason:
+                '$topic should fit in $brightness mode at ${textScale}x text',
+          );
+          expect(find.text('A PATTERN IN YOUR SAVES'), findsNothing);
+          expect(find.text('WORTH ANOTHER LOOK'), findsNothing);
+        }
+      }
+    }
+  });
+
   test('RediscoverMemory fully describes a resurfacing candidate', () {
     final first = _url(
       id: 7,
@@ -410,6 +528,12 @@ void main() {
     expect(titles, hasLength(2));
     expect(titles, contains('Free Will'));
     expect(titles, contains('AI & Consciousness'));
+    for (final journey in journeys) {
+      final hook = journey.hookLine ?? '';
+      expect(hook, isNotEmpty);
+      expect(hook.toLowerCase(), isNot(contains('unopened')));
+      expect(RegExp(r'^\d+\s').hasMatch(hook), isFalse);
+    }
   });
 
   test('journey detail narrative summarizes contents without pasting summaries', () {

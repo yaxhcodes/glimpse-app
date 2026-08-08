@@ -616,7 +616,7 @@ _narrativeFor(RediscoverJourney journey) {
   final title = _narrativeTitleFor(topic, urls);
   final contentNoun = _contentNounFor(urls);
   final hookLine = _withoutRepeatedTitle(
-    _hookLineFor(title, topic, contentNoun, journey),
+    _hookLineFor(topic, contentNoun),
     recommended?.title,
   );
   final narrative = _withoutRepeatedTitle(
@@ -736,26 +736,14 @@ String _contentNounFor(List<SavedUrl> urls) {
   return urls.length == 1 ? 'save' : 'saves';
 }
 
-String _hookLineFor(
-  String title,
-  String topic,
-  String contentNoun,
-  RediscoverJourney journey,
-) {
-  final count = journey.items.length;
-  final waiting = journey.items
-      .where((item) => item.url.openedAt == null)
-      .length;
-  final prefix = switch (journey.kind) {
-    RediscoverJourneyKind.continueLearning => 'Keep going with',
-    RediscoverJourneyKind.forgottenGems => 'Reopen',
-    RediscoverJourneyKind.neverOpened => 'Start with',
-    RediscoverJourneyKind.onThisDay => 'Return to',
-    RediscoverJourneyKind.memoryGoal => 'Use',
-    RediscoverJourneyKind.becauseYouSaved => 'Pick up',
-  };
-  if (waiting == count) return '$count unopened $contentNoun on $topic.';
-  return '$prefix $title through $count connected $contentNoun.';
+String _hookLineFor(String topic, String contentNoun) {
+  final noun = contentNoun.trim();
+  if (noun.isEmpty) return '';
+
+  final sentenceNoun = '${noun[0].toUpperCase()}${noun.substring(1)}';
+  final trimmedTopic = topic.trim();
+  if (trimmedTopic.isEmpty) return '$sentenceNoun worth revisiting.';
+  return '$sentenceNoun on $trimmedTopic.';
 }
 
 String _detailNarrativeFor(List<SavedUrl> urls) {
