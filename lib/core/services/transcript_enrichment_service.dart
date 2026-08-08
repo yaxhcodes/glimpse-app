@@ -1096,6 +1096,13 @@ class EnrichedNotableItem {
 
   bool get hasUsefulContent => text.trim().isNotEmpty;
 
+  bool get isMusicItem {
+    final descriptor = '${type.trim()} ${label?.trim() ?? ''}'.toLowerCase();
+    return RegExp(
+      r'\b(song|track|album|music|artist|band)\b',
+    ).hasMatch(descriptor);
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'text': text,

@@ -8,10 +8,13 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/music_provider.dart';
+import '../../core/providers/music_provider_preference_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/category_taxonomy.dart';
 import '../../core/services/intent_classifier.dart';
+import '../../core/services/music_destination_service.dart';
 import '../../core/services/recipe_state_service.dart';
 import '../../core/services/saved_media_resolver.dart';
 import '../../core/services/summary_rewriter.dart';
@@ -30,6 +33,7 @@ import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../shared/widgets/metadata_pill.dart';
+import '../../shared/widgets/music_provider_sheet.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/tag_group.dart';
 import '../collections/add_to_collection_sheet.dart';
@@ -42,11 +46,13 @@ import 'url_detail_provider.dart';
 
 class UrlDetailScreen extends ConsumerStatefulWidget {
   final int urlId;
+  final bool isActive;
   final ValueChanged<bool>? onMediaPointerActiveChanged;
 
   const UrlDetailScreen({
     super.key,
     required this.urlId,
+    this.isActive = true,
     this.onMediaPointerActiveChanged,
   });
 
@@ -75,6 +81,7 @@ class UrlDetailPagerScreen extends StatefulWidget {
 
 class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   late final PageController _pageController;
+  late int _currentIndex;
 
   // Drag tracking for custom horizontal-swipe detection.
   double _dragStartX = 0;
@@ -89,6 +96,7 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
   }
 
@@ -174,6 +182,10 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
       excludeFromSemantics: true,
       child: PageView.builder(
         controller: _pageController,
+        onPageChanged: (index) {
+          if (_currentIndex == index) return;
+          setState(() => _currentIndex = index);
+        },
         // Let our GestureDetector drive paging; disable built-in page physics
         // so there's no double-handling and no scroll-axis fight.
         physics: const NeverScrollableScrollPhysics(),
@@ -183,6 +195,7 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
             child: UrlDetailScreen(
               key: ValueKey(widget.urlIds[index]),
               urlId: widget.urlIds[index],
+              isActive: index == _currentIndex,
               onMediaPointerActiveChanged: (active) {
                 if (_mediaPointerActive == active) return;
                 setState(() => _mediaPointerActive = active);
@@ -1114,6 +1127,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _recipeStateLoading = false;
   Set<String> _checkedIngredientKeys = {};
   List<ShoppingListItem> _shoppingList = const [];
+  final Set<int> _musicPromptAttemptedUrlIds = {};
+  bool _musicProviderSheetOpen = false;
 
   @override
   void didUpdateWidget(covariant UrlDetailScreen oldWidget) {
@@ -1226,6 +1241,88 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       }
     } catch (_) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _scheduleMusicProviderPrompt(
+    TranscriptEnrichmentResult? enrichment,
+    MusicProviderPreferenceState preference,
+  ) {
+    if (!widget.isActive ||
+        !preference.isLoaded ||
+        preference.provider != null ||
+        enrichment == null ||
+        !enrichment.notableItems.any((item) => item.isMusicItem) ||
+        !_musicPromptAttemptedUrlIds.add(widget.urlId)) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (!widget.isActive) {
+        _musicPromptAttemptedUrlIds.remove(widget.urlId);
+        return;
+      }
+      await _chooseMusicProvider();
+    });
+  }
+
+  Future<MusicProvider?> _chooseMusicProvider() async {
+    if (_musicProviderSheetOpen || !mounted) return null;
+    _musicProviderSheetOpen = true;
+    try {
+      final current = ref.read(musicProviderPreferenceProvider).provider;
+      final selected = await showMusicProviderSheet(context, selected: current);
+      if (selected != null && mounted) {
+        await ref
+            .read(musicProviderPreferenceProvider.notifier)
+            .setProvider(selected);
+      }
+      return selected;
+    } finally {
+      _musicProviderSheetOpen = false;
+    }
+  }
+
+  Future<void> _openMusicItem(EnrichedNotableItem item) async {
+    final preferenceNotifier = ref.read(
+      musicProviderPreferenceProvider.notifier,
+    );
+    await preferenceNotifier.ensureLoaded();
+    if (!mounted) return;
+
+    var provider = ref.read(musicProviderPreferenceProvider).provider;
+    provider ??= await _chooseMusicProvider();
+    if (provider == null || !mounted) return;
+
+    final locale = Localizations.maybeLocaleOf(context);
+    final uri = MusicDestinationService.searchUri(
+      provider: provider,
+      title: item.text,
+      artist: item.attribution,
+      countryCode: locale?.countryCode,
+    );
+    final launched = await _launchExternalUri(uri);
+    if (!launched && mounted) {
+      _showSnack("Couldn't open ${provider.label}");
+    }
+  }
+
+  Future<bool> _launchExternalUri(Uri uri) async {
+    try {
+      if (await launchUrl(
+        uri,
+        mode: LaunchMode.externalNonBrowserApplication,
+      )) {
+        return true;
+      }
+    } catch (_) {
+      // Fall through to the provider's web experience.
+    }
+    try {
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      return false;
     }
   }
 
@@ -1976,6 +2073,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   Widget build(BuildContext context) {
     final urlAsync = ref.watch(urlDetailProvider(widget.urlId));
     final tagFreq = ref.watch(tagOccurrenceMapProvider);
+    final musicPreference = ref.watch(musicProviderPreferenceProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -2123,7 +2221,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               child: Center(child: Text('URL not found')),
             )
           else
-            _buildBody(url, theme, colorScheme, tagFreq),
+            _buildBody(url, theme, colorScheme, tagFreq, musicPreference),
         ],
       ),
     );
@@ -2134,11 +2232,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ThemeData theme,
     ColorScheme colorScheme,
     Map<String, int> tagFreq,
+    MusicProviderPreferenceState musicPreference,
   ) {
     if (!_notesEdited && !_notesFocusNode.hasFocus) {
       _notesController.text = _localNotesOverride ?? url.userNotes ?? '';
     }
     final live = _savedEnrichment(url);
+    _scheduleMusicProviderPrompt(live, musicPreference);
     final metadata = _extractDetailMetadata(
       description: url.description,
       creator: live?.creator,
@@ -3600,12 +3700,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   item: item,
                   accent: _recipeAccent(colorScheme),
                   compact: true,
+                  onTap: item.isMusicItem ? () => _openMusicItem(item) : null,
                 ),
             ],
           )
         else
           for (final item in displayItems)
-            NotableItemCard(item: item, accent: _recipeAccent(colorScheme)),
+            NotableItemCard(
+              item: item,
+              accent: _recipeAccent(colorScheme),
+              onTap: item.isMusicItem ? () => _openMusicItem(item) : null,
+            ),
       ],
     );
   }

@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_environment.dart';
 import '../../core/models/app_user.dart';
+import '../../core/models/music_provider.dart';
+import '../../core/providers/music_provider_preference_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
@@ -27,6 +29,7 @@ import '../../core/services/tag_analyzer.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/music_provider_sheet.dart';
 import 'settings_components.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -38,6 +41,17 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isDeletingAccount = false;
+
+  Future<void> _chooseMusicProvider() async {
+    final notifier = ref.read(musicProviderPreferenceProvider.notifier);
+    await notifier.ensureLoaded();
+    if (!mounted) return;
+    final current = ref.read(musicProviderPreferenceProvider).provider;
+    final selected = await showMusicProviderSheet(context, selected: current);
+    if (selected != null && mounted) {
+      await notifier.setProvider(selected);
+    }
+  }
 
   Future<void> _clearData() async {
     final confirmed = await showDialog<bool>(
@@ -189,6 +203,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final authState = ref.watch(authControllerProvider);
     final accountUser = authState.valueOrNull;
     final isPro = ref.watch(isProUserProvider);
+    final musicPreference = ref.watch(musicProviderPreferenceProvider);
     final aiSaveRemaining = ref.watch(
       remainingUsageProvider(UsageFeature.aiSave),
     );
@@ -273,6 +288,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: 'Look & Feel',
                       subtitle: 'Theme and accent color',
                       onTap: () => context.push('/settings/look-and-feel'),
+                    ),
+                    SettingsTile(
+                      icon: AppIcons.musicProvider,
+                      iconColor: SettingsAccents.rose,
+                      title: 'Music app',
+                      subtitle: musicPreference.isLoaded
+                          ? musicPreference.provider?.label ??
+                                'Choose where songs open'
+                          : 'Loading preference',
+                      onTap: _chooseMusicProvider,
                     ),
                   ],
                 ),
