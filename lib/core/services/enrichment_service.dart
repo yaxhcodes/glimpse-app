@@ -1350,6 +1350,8 @@ class EnrichmentService {
       'centroid_similarity': validation.similarity,
       'centroid_sample_size': validation.centroidSampleSize,
       'similarity_floor': DomainCentroidService.similarityFloor,
+      'correction_similarity_floor':
+          DomainCentroidService.correctionSimilarityFloor,
       'correction_margin': DomainCentroidService.correctionMargin,
       if (validation.suggestedCategory != null)
         'suggested_category': validation.suggestedCategory,
@@ -1456,6 +1458,8 @@ class EnrichmentService {
         'similarity': validation.similarity,
         'centroid_sample_size': validation.centroidSampleSize,
         'similarity_floor': DomainCentroidService.similarityFloor,
+        'correction_similarity_floor':
+            DomainCentroidService.correctionSimilarityFloor,
         'correction_margin': DomainCentroidService.correctionMargin,
         if (validation.suggestedCategory != null)
           'suggested_category': validation.suggestedCategory,

@@ -316,8 +316,8 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       _trackRouteOpen();
       final isar = ref.read(isarServiceProvider);
 
-      // One-time local cleanup of stale auto-inferred categories (e.g. the
-      // bogus "Design" tag on food saves). No network / AI cost.
+      // One-time local cleanup of stale inferred categories and unsafe legacy
+      // centroid corrections. No network / AI cost.
       unawaited(() async {
         final repaired = await CategoryRepairService(
           isarService: isar,

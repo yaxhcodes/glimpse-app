@@ -10,6 +10,7 @@ void main() {
     required String category,
     required List<double> embedding,
     double confidence = 0.9,
+    bool centroidValidated = false,
   }) {
     return SavedUrl()
       ..id = id
@@ -26,6 +27,11 @@ void main() {
       ..enrichmentJson = jsonEncode({
         'category': category,
         'category_confidence': confidence,
+        if (centroidValidated)
+          'category_validation': {
+            'method': 'embedding_centroid',
+            'suggested_category': category,
+          },
       });
   }
 
@@ -122,5 +128,61 @@ void main() {
 
     expect(result.isReliable, isFalse);
     expect(result.centroidSampleSize, 0);
+  });
+
+  test('does not train on categories assigned by centroid correction', () {
+    final service = DomainCentroidService(null);
+    service.rebuildCentroidsFromUrls([
+      for (var i = 0; i < 5; i += 1)
+        url(
+          id: i,
+          category: 'Health',
+          embedding: [1, 0],
+          centroidValidated: true,
+        ),
+    ]);
+
+    final result = service.validateCached(
+      claimedCategory: 'Health',
+      saveEmbedding: [1, 0],
+    );
+
+    expect(result.isReliable, isFalse);
+    expect(result.centroidSampleSize, 0);
+  });
+
+  test('does not let an established category capture a cold category', () {
+    final service = DomainCentroidService(null);
+    service.rebuildCentroidsFromUrls([
+      for (var i = 0; i < 5; i += 1)
+        url(id: i, category: 'Health', embedding: [1, 0]),
+      url(id: 10, category: 'Education', embedding: [0, 1]),
+    ]);
+
+    final result = service.validateCached(
+      claimedCategory: 'Education',
+      saveEmbedding: [1, 0],
+    );
+
+    expect(result.isReliable, isFalse);
+    expect(result.suggestedCategory, isNull);
+  });
+
+  test('does not auto-correct from a moderate semantic match', () {
+    final service = DomainCentroidService(null);
+    service.rebuildCentroidsFromUrls([
+      for (var i = 0; i < 5; i += 1)
+        url(id: i, category: 'Health', embedding: [1, 0, 0]),
+      for (var i = 0; i < 5; i += 1)
+        url(id: 10 + i, category: 'Education', embedding: [0, 1, 0]),
+    ]);
+
+    final result = service.validateCached(
+      claimedCategory: 'Education',
+      saveEmbedding: [0.70, 0.50, 0.509901951],
+    );
+
+    expect(result.isReliable, isTrue);
+    expect(result.suggestedCategory, isNull);
   });
 }

@@ -33,6 +33,7 @@ class DomainCentroidService {
   static const minSampleSizeForReliableCentroid = 5;
   static const similarityFloor = 0.5;
   static const highConfidenceFloor = 0.75;
+  static const correctionSimilarityFloor = 0.75;
   static const correctionMargin = 0.08;
 
   final Map<String, List<double>> _centroidCache = {};
@@ -60,7 +61,7 @@ class DomainCentroidService {
         tags: url.tags,
       ).name;
       if (category == 'Other') continue;
-      if (_categoryConfidence(url) < highConfidenceFloor) continue;
+      if (!_isEligibleCentroidSeed(url)) continue;
       byCategory.putIfAbsent(category, () => <List<double>>[]).add(embedding);
     }
 
@@ -119,20 +120,23 @@ class DomainCentroidService {
     }
 
     final normalizedSave = _normalize(saveEmbedding);
+    final isReliable = sampleSize >= minSampleSizeForReliableCentroid;
     final claimedSimilarity =
         centroid == null || saveEmbedding.length != centroid.length
         ? 0.0
         : _cosineSimilarity(centroid, normalizedSave);
-    final suggested = _bestCorrectionCandidate(
-      normalizedSave,
-      claimedCategory: normalizedCategory,
-      claimedSimilarity: claimedSimilarity,
-    );
+    final suggested = isReliable
+        ? _bestCorrectionCandidate(
+            normalizedSave,
+            claimedCategory: normalizedCategory,
+            claimedSimilarity: claimedSimilarity,
+          )
+        : null;
 
     return DomainCentroidResult(
       similarity: claimedSimilarity,
       centroidSampleSize: sampleSize,
-      isReliable: sampleSize >= minSampleSizeForReliableCentroid,
+      isReliable: isReliable,
       suggestedCategory: suggested?.category,
       suggestedSimilarity: suggested?.similarity ?? 0,
       suggestedSampleSize: suggested?.sampleSize ?? 0,
@@ -153,7 +157,7 @@ class DomainCentroidService {
       final centroid = entry.value;
       if (centroid.length != normalizedSave.length) continue;
       final similarity = _cosineSimilarity(centroid, normalizedSave);
-      if (similarity < similarityFloor) continue;
+      if (similarity < correctionSimilarityFloor) continue;
       if (similarity < claimedSimilarity + correctionMargin) continue;
       if (best == null || similarity > best.similarity) {
         best = _CorrectionCandidate(
@@ -166,23 +170,27 @@ class DomainCentroidService {
     return best;
   }
 
-  static double _categoryConfidence(SavedUrl url) {
+  static bool _isEligibleCentroidSeed(SavedUrl url) {
     final raw = url.enrichmentJson;
-    if (raw == null || raw.trim().isEmpty) return 0;
+    if (raw == null || raw.trim().isEmpty) return false;
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! Map) return 0;
+      if (decoded is! Map) return false;
+      if (decoded['category_validation'] is Map) return false;
       final value =
           decoded['category_confidence'] ??
           decoded['domain_confidence'] ??
           decoded['confidence'];
-      if (value is num) return value.toDouble().clamp(0, 1).toDouble();
-      if (value is String) {
-        return (double.tryParse(value) ?? 0).clamp(0, 1).toDouble();
+      if (value is num) {
+        return value.toDouble().clamp(0, 1).toDouble() >= highConfidenceFloor;
       }
-      return 0;
+      if (value is String) {
+        return (double.tryParse(value) ?? 0).clamp(0, 1).toDouble() >=
+            highConfidenceFloor;
+      }
+      return false;
     } catch (_) {
-      return 0;
+      return false;
     }
   }
 
