@@ -80,6 +80,18 @@ class LibraryPreferencesNotifier
       updated.toList(growable: false)..sort(),
     );
   }
+
+  Future<void> unhide(String key, {String? provisionalKey}) async {
+    final updated = {...state.hiddenEntityKeys}
+      ..remove(key)
+      ..remove(provisionalKey);
+    state = state.copyWith(hiddenEntityKeys: Set.unmodifiable(updated));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      libraryHiddenEntityKeysPrefsKey,
+      updated.toList(growable: false)..sort(),
+    );
+  }
 }
 
 final libraryPreferencesProvider =
@@ -168,6 +180,12 @@ class LibraryBackfillState {
   final LibraryBackfillIssue? issue;
 
   double get progress => total == 0 ? 0 : completed / total;
+
+  bool get canRetry =>
+      !isRunning &&
+      failed > 0 &&
+      (issue == LibraryBackfillIssue.connection ||
+          issue == LibraryBackfillIssue.partial);
 }
 
 enum LibraryBackfillIssue { serviceUnavailable, connection, partial }
@@ -250,12 +268,12 @@ class LibraryBackfillNotifier extends StateNotifier<LibraryBackfillState> {
           completed++;
         }
       } catch (error, stackTrace) {
-        final resolverUnavailable = _isResolverUnavailable(error);
-        failed += resolverUnavailable
+        final permanentFailure = _isPermanentFailure(error);
+        failed += permanentFailure
             ? pending.length - completed - failed
             : batch.length;
         lastError = error.toString();
-        issue = resolverUnavailable
+        issue = permanentFailure
             ? LibraryBackfillIssue.serviceUnavailable
             : LibraryBackfillIssue.connection;
         developer.log(
@@ -264,7 +282,7 @@ class LibraryBackfillNotifier extends StateNotifier<LibraryBackfillState> {
           error: error,
           stackTrace: stackTrace,
         );
-        if (resolverUnavailable) {
+        if (permanentFailure) {
           transientFailures.clear();
           break;
         }
@@ -334,9 +352,8 @@ class LibraryBackfillNotifier extends StateNotifier<LibraryBackfillState> {
         error == 'upstream_unavailable';
   }
 
-  bool _isResolverUnavailable(Object error) {
-    return error is AiTransportException &&
-        (error.statusCode == 404 || error.statusCode == 405);
+  bool _isPermanentFailure(Object error) {
+    return error is AiTransportException && !error.isRetryable;
   }
 
   Future<void> _persistResolvedEntity(

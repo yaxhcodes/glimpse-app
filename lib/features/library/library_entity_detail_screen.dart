@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'library_entity.dart';
 import 'library_places_map.dart';
 import 'library_provider.dart';
+import 'library_status_picker.dart';
 import 'library_widgets.dart';
 
 class LibraryEntityDetailScreen extends ConsumerWidget {
@@ -35,29 +36,53 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
         }
         return _EntityDetail(
           entity: entity,
-          onStatusChanged: (status) async {
-            try {
-              await ref
-                  .read(libraryEntityActionsProvider)
-                  .setStatus(entity, status);
-            } catch (_) {
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Could not update this Library item.'),
-                ),
-              );
-            }
-          },
-          onHide: () async {
-            await ref
-                .read(libraryPreferencesProvider.notifier)
-                .hide(entity.key, provisionalKey: entity.provisionalKey);
-            if (context.mounted) context.pop();
-          },
+          onStatusChanged: (status) => _setStatus(context, ref, entity, status),
+          onHide: () => _hideWithUndo(context, ref, entity),
         );
       },
     );
+  }
+
+  Future<void> _setStatus(
+    BuildContext context,
+    WidgetRef ref,
+    LibraryEntity entity,
+    LibraryItemStatus status,
+  ) async {
+    try {
+      await ref.read(libraryEntityActionsProvider).setStatus(entity, status);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update this Library item.')),
+      );
+    }
+  }
+
+  Future<void> _hideWithUndo(
+    BuildContext context,
+    WidgetRef ref,
+    LibraryEntity entity,
+  ) async {
+    final preferences = ref.read(libraryPreferencesProvider.notifier);
+    final messenger = ScaffoldMessenger.of(context);
+    await preferences.hide(entity.key, provisionalKey: entity.provisionalKey);
+    if (!context.mounted) return;
+    context.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${entity.title} hidden from Library'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => preferences.unhide(
+              entity.key,
+              provisionalKey: entity.provisionalKey,
+            ),
+          ),
+        ),
+      );
   }
 }
 
@@ -74,7 +99,6 @@ class _EntityDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final reasons = entity.sources
         .map((source) => source.mention.whyMentioned?.trim() ?? '')
         .where((reason) => reason.isNotEmpty)
@@ -84,6 +108,7 @@ class _EntityDetail extends StatelessWidget {
       appBar: AppBar(
         actions: [
           PopupMenuButton<String>(
+            tooltip: 'Library item options',
             onSelected: (value) {
               if (value == 'hide') onHide();
             },
@@ -111,20 +136,16 @@ class _EntityDetail extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _EntityHero(entity: entity),
-                      const SizedBox(height: 24),
-                      Text(
-                        entity.title,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.4,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      _EntityMetadata(entity: entity),
-                      if (entity.genres.isNotEmpty) ...[
-                        const SizedBox(height: 18),
+                      if (entity.kind == LibraryEntityKind.place)
+                        _PlaceHeader(entity: entity)
+                      else
+                        _MediaHeader(
+                          entity: entity,
+                          onStatusChanged: onStatusChanged,
+                        ),
+                      if (entity.kind == LibraryEntityKind.place &&
+                          entity.genres.isNotEmpty) ...[
+                        const SizedBox(height: 20),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -134,77 +155,12 @@ class _EntityDetail extends StatelessWidget {
                           ],
                         ),
                       ],
-                      if (entity.kind != LibraryEntityKind.place) ...[
-                        const SizedBox(height: 24),
-                        _LibraryStatusCard(
-                          entity: entity,
-                          onChanged: onStatusChanged,
-                        ),
-                      ],
                       if (reasons.isNotEmpty) ...[
-                        const SizedBox(height: 30),
-                        Text(
-                          reasons.length == 1
-                              ? 'Why it mattered'
-                              : 'Why it mattered',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 10),
-                        for (final reason in reasons)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Text(
-                              reason,
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                    height: 1.45,
-                                  ),
-                            ),
-                          ),
+                        const SizedBox(height: 24),
+                        _WhyItMattered(reasons: reasons),
                       ],
                       const SizedBox(height: 20),
-                      Card(
-                        elevation: 0,
-                        color: cs.surfaceContainerLow,
-                        clipBehavior: Clip.antiAlias,
-                        child: Theme(
-                          data: Theme.of(
-                            context,
-                          ).copyWith(dividerColor: Colors.transparent),
-                          child: ExpansionTile(
-                            shape: const RoundedRectangleBorder(
-                              side: BorderSide.none,
-                            ),
-                            collapsedShape: const RoundedRectangleBorder(
-                              side: BorderSide.none,
-                            ),
-                            leading: const Icon(Icons.link_rounded),
-                            title: const Text('Found in your saves'),
-                            subtitle: Text(
-                              '${entity.sources.length} ${entity.sources.length == 1 ? 'save' : 'saves'}',
-                            ),
-                            children: [
-                              for (final source in entity.sources)
-                                ListTile(
-                                  dense: true,
-                                  title: Text(
-                                    source.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(source.domain),
-                                  trailing: const Icon(
-                                    Icons.chevron_right_rounded,
-                                  ),
-                                  onTap: () =>
-                                      context.push('/url/${source.urlId}'),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      _SourceSaves(entity: entity),
                     ],
                   ),
                 ),
@@ -217,185 +173,147 @@ class _EntityDetail extends StatelessWidget {
   }
 }
 
-class _LibraryStatusCard extends StatelessWidget {
-  const _LibraryStatusCard({required this.entity, required this.onChanged});
+class _MediaHeader extends StatelessWidget {
+  const _MediaHeader({required this.entity, required this.onStatusChanged});
 
   final LibraryEntity entity;
-  final Future<void> Function(LibraryItemStatus status) onChanged;
+  final Future<void> Function(LibraryItemStatus status) onStatusChanged;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final status = entity.status;
-    final listName = entity.kind == LibraryEntityKind.book
-        ? 'Reading list'
-        : 'Watchlist';
-    final statusLabel = status.labelFor(entity.kind);
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(22),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _chooseStatus(context),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: cs.secondaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _statusIcon(status),
-                  color: cs.onSecondaryContainer,
+    final tt = Theme.of(context).textTheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final artworkWidth = constraints.maxWidth < 360 ? 112.0 : 132.0;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: artworkWidth,
+              child: AspectRatio(
+                aspectRatio: 0.68,
+                child: Hero(
+                  tag: 'library-artwork-${entity.key}',
+                  child: LibraryArtwork(
+                    entity: entity,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      listName,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entity.title,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.08,
+                      letterSpacing: -0.3,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      status == LibraryItemStatus.unlisted
-                          ? 'Add to your ${listName.toLowerCase()}'
-                          : statusLabel,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _metadata(entity),
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  if (entity.genres.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final genre in entity.genres)
+                          LibraryGenreChip(label: genre),
+                      ],
                     ),
                   ],
-                ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => _chooseStatus(context),
+                      icon: Icon(libraryStatusIcon(entity.status, entity.kind)),
+                      label: Text(
+                        entity.status == LibraryItemStatus.unlisted
+                            ? entity.kind == LibraryEntityKind.book
+                                  ? 'Add to your reading list'
+                                  : 'Add to your watchlist'
+                            : entity.status.labelFor(entity.kind),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const Icon(Icons.expand_more_rounded),
-            ],
-          ),
-        ),
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Future<void> _chooseStatus(BuildContext context) async {
-    final selected = await showModalBottomSheet<LibraryItemStatus>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  entity.kind == LibraryEntityKind.book
-                      ? 'Reading status'
-                      : 'Watch status',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-            for (final status in LibraryItemStatus.values.skip(1))
-              ListTile(
-                leading: Icon(_statusIcon(status)),
-                title: Text(status.labelFor(entity.kind)),
-                trailing: entity.status == status
-                    ? const Icon(Icons.check_rounded)
-                    : null,
-                onTap: () => Navigator.pop(context, status),
-              ),
-            if (entity.status != LibraryItemStatus.unlisted) ...[
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.playlist_remove_rounded),
-                title: Text(
-                  entity.kind == LibraryEntityKind.book
-                      ? 'Remove from reading list'
-                      : 'Remove from watchlist',
-                ),
-                onTap: () => Navigator.pop(context, LibraryItemStatus.unlisted),
-              ),
-            ],
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
+    final selected = await showLibraryStatusPicker(context, entity: entity);
     if (selected == null || selected == entity.status) return;
-    await onChanged(selected);
+    await onStatusChanged(selected);
   }
-
-  IconData _statusIcon(LibraryItemStatus status) => switch (status) {
-    LibraryItemStatus.unlisted => Icons.playlist_add_rounded,
-    LibraryItemStatus.planning => Icons.bookmark_add_outlined,
-    LibraryItemStatus.active =>
-      entity.kind == LibraryEntityKind.book
-          ? Icons.auto_stories_rounded
-          : Icons.play_circle_outline_rounded,
-    LibraryItemStatus.dropped => Icons.remove_circle_outline_rounded,
-    LibraryItemStatus.completed => Icons.check_circle_outline_rounded,
-  };
 }
 
-class _EntityHero extends StatelessWidget {
-  const _EntityHero({required this.entity});
+class _PlaceHeader extends StatelessWidget {
+  const _PlaceHeader({required this.entity});
 
   final LibraryEntity entity;
 
   @override
   Widget build(BuildContext context) {
-    if (entity.kind == LibraryEntityKind.place) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: 300,
-            child: LibraryPlacesMap(
-              entities: [entity],
-              selectedKey: entity.key,
-              onEntityTapped: (_) {},
-              borderRadius: BorderRadius.circular(26),
-            ),
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 220,
+          child: LibraryPlacesMap(
+            entities: [entity],
+            selectedKey: entity.key,
+            onEntityTapped: (_) {},
+            borderRadius: BorderRadius.circular(24),
+            showFitAllControl: false,
           ),
-          if (entity.mention.hasCoordinates) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
+        ),
+        const SizedBox(height: 18),
+        Text(
+          entity.title,
+          style: tt.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _metadata(entity),
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
+            if (entity.mention.hasCoordinates)
+              FilledButton.tonalIcon(
                 onPressed: () => _openInMaps(entity),
                 icon: const Icon(Icons.open_in_new_rounded),
                 label: const Text('Open in Maps'),
               ),
-            ),
           ],
-        ],
-      );
-    }
-    return Center(
-      child: SizedBox(
-        width: 220,
-        child: AspectRatio(
-          aspectRatio: 0.68,
-          child: Hero(
-            tag: 'library-artwork-${entity.key}',
-            child: LibraryArtwork(
-              entity: entity,
-              borderRadius: BorderRadius.circular(24),
-            ),
-          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -411,36 +329,107 @@ class _EntityHero extends StatelessWidget {
   }
 }
 
-class _EntityMetadata extends StatelessWidget {
-  const _EntityMetadata({required this.entity});
+class _WhyItMattered extends StatelessWidget {
+  const _WhyItMattered({required this.reasons});
+
+  final List<String> reasons;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Why it mattered',
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            for (var index = 0; index < reasons.length; index++) ...[
+              if (index > 0) const SizedBox(height: 8),
+              Text(
+                reasons[index],
+                style: tt.bodyLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.42,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceSaves extends StatelessWidget {
+  const _SourceSaves({required this.entity});
 
   final LibraryEntity entity;
 
   @override
   Widget build(BuildContext context) {
-    final values = switch (entity.kind) {
-      LibraryEntityKind.book => [entity.mention.creator, entity.mention.year],
-      LibraryEntityKind.movie => [
-        entity.mention.year,
-        _titleCase(entity.mention.subtype),
-      ],
-      LibraryEntityKind.place => [entity.mention.city, entity.mention.country],
-    };
-    final label = values
-        .whereType<String>()
-        .where((value) => value.trim().isNotEmpty)
-        .join(' · ');
-    return Text(
-      label.isEmpty ? entity.kind.singularLabel : label,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          shape: const RoundedRectangleBorder(side: BorderSide.none),
+          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+          leading: const Icon(Icons.link_rounded),
+          title: const Text('Found in your saves'),
+          subtitle: Text(
+            '${entity.sources.length} ${entity.sources.length == 1 ? 'save' : 'saves'}',
+          ),
+          children: [
+            for (final source in entity.sources)
+              ListTile(
+                dense: true,
+                title: Text(
+                  source.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(source.domain),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/url/${source.urlId}'),
+              ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  String? _titleCase(String? value) {
-    final text = value?.trim() ?? '';
-    if (text.isEmpty) return null;
-    return '${text[0].toUpperCase()}${text.substring(1)}';
-  }
+String _metadata(LibraryEntity entity) {
+  final values = switch (entity.kind) {
+    LibraryEntityKind.book => [entity.mention.creator, entity.mention.year],
+    LibraryEntityKind.movie => [
+      entity.mention.year,
+      _titleCase(entity.mention.subtype),
+    ],
+    LibraryEntityKind.place => [entity.mention.city, entity.mention.country],
+  };
+  final label = values
+      .whereType<String>()
+      .where((value) => value.trim().isNotEmpty)
+      .join(' · ');
+  return label.isEmpty ? entity.kind.singularLabel : label;
+}
+
+String? _titleCase(String? value) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) return null;
+  return '${text[0].toUpperCase()}${text.substring(1)}';
 }

@@ -5,7 +5,26 @@ import 'package:go_router/go_router.dart';
 import '../../shared/theme/app_layout.dart';
 import 'library_entity.dart';
 import 'library_provider.dart';
+import 'library_status_picker.dart';
 import 'library_widgets.dart';
+
+enum LibrarySortOrder { discovered, title, year, status }
+
+extension on LibrarySortOrder {
+  String get label => switch (this) {
+    LibrarySortOrder.discovered => 'Recently discovered',
+    LibrarySortOrder.title => 'Title A–Z',
+    LibrarySortOrder.year => 'Year newest',
+    LibrarySortOrder.status => 'Status',
+  };
+
+  IconData get icon => switch (this) {
+    LibrarySortOrder.discovered => Icons.schedule_rounded,
+    LibrarySortOrder.title => Icons.sort_by_alpha_rounded,
+    LibrarySortOrder.year => Icons.calendar_today_rounded,
+    LibrarySortOrder.status => Icons.playlist_add_check_rounded,
+  };
+}
 
 class LibraryBrowserScreen extends ConsumerStatefulWidget {
   const LibraryBrowserScreen({super.key, required this.kind});
@@ -22,6 +41,10 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
   String _query = '';
   String? _selectedGenre;
   LibraryItemStatus? _selectedStatus;
+  LibrarySortOrder _sortOrder = LibrarySortOrder.discovered;
+
+  int get _activeFilterCount =>
+      (_selectedGenre == null ? 0 : 1) + (_selectedStatus == null ? 0 : 1);
 
   @override
   void dispose() {
@@ -33,229 +56,135 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
   Widget build(BuildContext context) {
     final async = ref.watch(librarySnapshotProvider);
     final cs = Theme.of(context).colorScheme;
+    final appBarEntities =
+        async.asData?.value.ofKind(widget.kind) ?? const <LibraryEntity>[];
+    final appBarGenres = _sortedGenres(appBarEntities);
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: AppBar(title: Text(widget.kind.label)),
+      appBar: AppBar(
+        title: Text(widget.kind.label),
+        actions: [
+          _LibraryOptionsMenu(
+            kind: widget.kind,
+            activeFilterCount: _activeFilterCount,
+            sortOrder: _sortOrder,
+            onFilterSelected: () => _showFilters(appBarGenres),
+            onSortSelected: (value) => setState(() => _sortOrder = value),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => const Center(child: Text('Could not open Library')),
         data: (snapshot) {
           final all = snapshot.ofKind(widget.kind);
-          final genreCounts = <String, int>{};
-          for (final entity in all) {
-            for (final genre in entity.genres) {
-              genreCounts.update(
-                genre,
-                (count) => count + 1,
-                ifAbsent: () => 1,
-              );
-            }
-          }
-          final genres = genreCounts.keys.toList()
-            ..sort((a, b) {
-              if (a == 'Other') return 1;
-              if (b == 'Other') return -1;
-              return a.compareTo(b);
-            });
-          final statusCounts = <LibraryItemStatus, int>{
-            for (final status in LibraryItemStatus.values.skip(1))
-              status: all.where((entity) => entity.status == status).length,
-          };
-          final visible = all
-              .where((entity) {
-                final query = _query.trim().toLowerCase();
-                final matchesQuery =
-                    query.isEmpty ||
-                    entity.title.toLowerCase().contains(query) ||
-                    (entity.mention.creator ?? '').toLowerCase().contains(
-                      query,
-                    );
-                final matchesGenre =
-                    _selectedGenre == null ||
-                    entity.genres.contains(_selectedGenre);
-                final matchesStatus =
-                    _selectedStatus == null || entity.status == _selectedStatus;
-                return matchesQuery && matchesGenre && matchesStatus;
-              })
-              .toList(growable: false);
+          final visible = _visibleEntities(all);
+          final horizontal = AppLayout.pageHorizontalPadding(
+            MediaQuery.sizeOf(context).width,
+            compactPadding: 16,
+          );
           return CustomScrollView(
+            key: PageStorageKey('library-${widget.kind.name}-browser'),
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppLayout.pageHorizontalPadding(
-                      MediaQuery.sizeOf(context).width,
-                      compactPadding: 16,
-                    ),
-                    12,
-                    AppLayout.pageHorizontalPadding(
-                      MediaQuery.sizeOf(context).width,
-                      compactPadding: 16,
-                    ),
-                    8,
-                  ),
-                  child: SearchBar(
-                    controller: _searchController,
-                    hintText: 'Search ${widget.kind.label.toLowerCase()}',
-                    leading: const Icon(Icons.search_rounded),
-                    trailing: [
-                      if (_query.isNotEmpty)
-                        IconButton(
-                          tooltip: 'Clear search',
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _query = '');
-                          },
-                          icon: const Icon(Icons.close_rounded),
+                  padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: 52,
+                        child: SearchBar(
+                          controller: _searchController,
+                          hintText: 'Search ${widget.kind.label.toLowerCase()}',
+                          leading: const Icon(Icons.search_rounded),
+                          trailing: [
+                            if (_query.isNotEmpty)
+                              IconButton(
+                                tooltip: 'Clear search',
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _query = '');
+                                },
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                          ],
+                          onChanged: (value) => setState(() => _query = value),
                         ),
-                    ],
-                    onChanged: (value) => setState(() => _query = value),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 2),
-                  child: Text(
-                    widget.kind == LibraryEntityKind.book
-                        ? 'Reading list'
-                        : 'Watchlist',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 58,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 7,
-                    ),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: LibraryItemStatus.values.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final status = index == 0
-                          ? null
-                          : LibraryItemStatus.values[index];
-                      return FilterChip(
-                        selected: _selectedStatus == status,
-                        showCheckmark: false,
-                        avatar: Icon(
-                          status == null
-                              ? Icons.apps_rounded
-                              : _statusIcon(status),
-                          size: 18,
-                        ),
-                        label: _GenreFilterLabel(
-                          label: status?.labelFor(widget.kind) ?? 'All',
-                          count: status == null
-                              ? all.length
-                              : statusCounts[status] ?? 0,
-                        ),
-                        onSelected: (_) =>
-                            setState(() => _selectedStatus = status),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              if (genres.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 2),
-                    child: Text(
-                      'Browse by genre',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
                       ),
-                    ),
-                  ),
-                ),
-              if (genres.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 58,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 7,
-                      ),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: genres.length + 1,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final genre = index == 0 ? null : genres[index - 1];
-                        return FilterChip(
-                          selected: _selectedGenre == genre,
-                          showCheckmark: false,
-                          avatar: genre == null
-                              ? const Icon(Icons.apps_rounded, size: 18)
-                              : null,
-                          label: _GenreFilterLabel(
-                            label: genre ?? 'All',
-                            count: genre == null
-                                ? all.length
-                                : genreCounts[genre] ?? 0,
+                      if (_activeFilterCount > 0) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            if (_selectedStatus case final status?)
+                              InputChip(
+                                label: Text(status.labelFor(widget.kind)),
+                                onDeleted: () =>
+                                    setState(() => _selectedStatus = null),
+                              ),
+                            if (_selectedGenre case final genre?)
+                              InputChip(
+                                label: Text(genre),
+                                onDeleted: () =>
+                                    setState(() => _selectedGenre = null),
+                              ),
+                            TextButton(
+                              onPressed: _clearFilters,
+                              child: const Text('Clear all'),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _sortOrder.label,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
                           ),
-                          onSelected: (_) =>
-                              setState(() => _selectedGenre = genre),
-                        );
-                      },
-                    ),
+                          Text(
+                            '${visible.length} ${visible.length == 1 ? 'item' : 'items'}',
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
+              ),
               if (visible.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: _NoResults(
-                    hasFilters:
-                        _query.isNotEmpty ||
-                        _selectedGenre != null ||
-                        _selectedStatus != null,
+                    hasFilters: _query.isNotEmpty || _activeFilterCount > 0,
+                    onClear: () {
+                      _searchController.clear();
+                      setState(() {
+                        _query = '';
+                        _selectedGenre = null;
+                        _selectedStatus = null;
+                      });
+                    },
                   ),
                 )
               else
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                    child: Text(
-                      _query.isNotEmpty
-                          ? '${visible.length} ${visible.length == 1 ? 'result' : 'results'}'
-                          : _resultsHeading(widget.kind),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              if (visible.isNotEmpty)
                 SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppLayout.pageHorizontalPadding(
-                      MediaQuery.sizeOf(context).width,
-                      compactPadding: 16,
-                    ),
-                    10,
-                    AppLayout.pageHorizontalPadding(
-                      MediaQuery.sizeOf(context).width,
-                      compactPadding: 16,
-                    ),
-                    32,
-                  ),
+                  padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 32),
                   sliver: SliverGrid.builder(
                     itemCount: visible.length,
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 210,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 22,
-                          childAspectRatio: 0.54,
+                          maxCrossAxisExtent: 190,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 18,
+                          childAspectRatio: 0.52,
                         ),
                     itemBuilder: (context, index) {
                       final entity = visible[index];
@@ -264,6 +193,9 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                         onTap: () => context.push(
                           '/library/entity/${Uri.encodeComponent(entity.key)}',
                         ),
+                        onStatusSelected: (status) =>
+                            _setStatus(entity, status),
+                        onStatusMenuRequested: () => _showStatusPicker(entity),
                       );
                     },
                   ),
@@ -275,54 +207,370 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
     );
   }
 
-  String _resultsHeading(LibraryEntityKind kind) {
-    final status = _selectedStatus?.labelFor(kind);
-    if (status != null && _selectedGenre != null) {
-      return '$status · $_selectedGenre';
+  Map<String, int> _genreCounts(List<LibraryEntity> entities) {
+    final counts = <String, int>{};
+    for (final entity in entities) {
+      for (final genre in entity.genres) {
+        counts.update(genre, (count) => count + 1, ifAbsent: () => 1);
+      }
     }
-    return status ?? _selectedGenre ?? 'Recently discovered';
+    return counts;
   }
 
-  IconData _statusIcon(LibraryItemStatus status) => switch (status) {
-    LibraryItemStatus.unlisted => Icons.playlist_remove_rounded,
-    LibraryItemStatus.planning => Icons.bookmark_add_outlined,
-    LibraryItemStatus.active =>
-      widget.kind == LibraryEntityKind.book
-          ? Icons.auto_stories_rounded
-          : Icons.play_circle_outline_rounded,
-    LibraryItemStatus.dropped => Icons.remove_circle_outline_rounded,
-    LibraryItemStatus.completed => Icons.check_circle_outline_rounded,
+  List<String> _sortedGenres(List<LibraryEntity> entities) =>
+      _sortGenreNames(_genreCounts(entities).keys);
+
+  List<String> _sortGenreNames(Iterable<String> genres) =>
+      genres.toList()..sort((a, b) {
+        if (a == 'Other') return 1;
+        if (b == 'Other') return -1;
+        return a.compareTo(b);
+      });
+
+  List<LibraryEntity> _visibleEntities(List<LibraryEntity> all) {
+    final query = _query.trim().toLowerCase();
+    final visible = all
+        .where((entity) {
+          final matchesQuery =
+              query.isEmpty ||
+              entity.title.toLowerCase().contains(query) ||
+              (entity.mention.creator ?? '').toLowerCase().contains(query) ||
+              (entity.mention.year ?? '').contains(query);
+          final matchesGenre =
+              _selectedGenre == null || entity.genres.contains(_selectedGenre);
+          final matchesStatus =
+              _selectedStatus == null || entity.status == _selectedStatus;
+          return matchesQuery && matchesGenre && matchesStatus;
+        })
+        .toList(growable: false);
+    visible.sort((a, b) {
+      final primary = switch (_sortOrder) {
+        LibrarySortOrder.discovered => b.discoveredAt.compareTo(a.discoveredAt),
+        LibrarySortOrder.title => a.title.toLowerCase().compareTo(
+          b.title.toLowerCase(),
+        ),
+        LibrarySortOrder.year => _yearOf(b).compareTo(_yearOf(a)),
+        LibrarySortOrder.status => _statusRank(
+          a.status,
+        ).compareTo(_statusRank(b.status)),
+      };
+      return primary != 0 ? primary : b.discoveredAt.compareTo(a.discoveredAt);
+    });
+    return visible;
+  }
+
+  int _yearOf(LibraryEntity entity) =>
+      int.tryParse(entity.mention.year ?? '') ?? -1;
+
+  int _statusRank(LibraryItemStatus status) => switch (status) {
+    LibraryItemStatus.planning => 0,
+    LibraryItemStatus.active => 1,
+    LibraryItemStatus.dropped => 2,
+    LibraryItemStatus.completed => 3,
+    LibraryItemStatus.unlisted => 4,
+  };
+
+  Future<void> _showFilters(List<String> genres) async {
+    final selected = await showModalBottomSheet<_BrowserFilters>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (context) => _LibraryFilterSheet(
+        kind: widget.kind,
+        genres: genres,
+        initial: _BrowserFilters(
+          status: _selectedStatus,
+          genre: _selectedGenre,
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _selectedStatus = selected.status;
+      _selectedGenre = selected.genre;
+    });
+  }
+
+  Future<void> _showStatusPicker(LibraryEntity entity) async {
+    final selected = await showLibraryStatusPicker(context, entity: entity);
+    if (selected == null || selected == entity.status || !mounted) return;
+    await _setStatus(entity, selected);
+  }
+
+  Future<void> _setStatus(
+    LibraryEntity entity,
+    LibraryItemStatus selected,
+  ) async {
+    if (selected == entity.status) return;
+    try {
+      await ref.read(libraryEntityActionsProvider).setStatus(entity, selected);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update this Library item.')),
+      );
+    }
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedGenre = null;
+      _selectedStatus = null;
+    });
+  }
+}
+
+enum _LibraryMenuAction { filters, discovered, title, year, status }
+
+extension on _LibraryMenuAction {
+  LibrarySortOrder? get sortOrder => switch (this) {
+    _LibraryMenuAction.filters => null,
+    _LibraryMenuAction.discovered => LibrarySortOrder.discovered,
+    _LibraryMenuAction.title => LibrarySortOrder.title,
+    _LibraryMenuAction.year => LibrarySortOrder.year,
+    _LibraryMenuAction.status => LibrarySortOrder.status,
   };
 }
 
-class _GenreFilterLabel extends StatelessWidget {
-  const _GenreFilterLabel({required this.label, required this.count});
+_LibraryMenuAction _menuActionForSortOrder(LibrarySortOrder order) =>
+    switch (order) {
+      LibrarySortOrder.discovered => _LibraryMenuAction.discovered,
+      LibrarySortOrder.title => _LibraryMenuAction.title,
+      LibrarySortOrder.year => _LibraryMenuAction.year,
+      LibrarySortOrder.status => _LibraryMenuAction.status,
+    };
 
-  final String label;
-  final int count;
+class _LibraryOptionsMenu extends StatelessWidget {
+  const _LibraryOptionsMenu({
+    required this.kind,
+    required this.activeFilterCount,
+    required this.sortOrder,
+    required this.onFilterSelected,
+    required this.onSortSelected,
+  });
+
+  final LibraryEntityKind kind;
+  final int activeFilterCount;
+  final LibrarySortOrder sortOrder;
+  final VoidCallback onFilterSelected;
+  final ValueChanged<LibrarySortOrder> onSortSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label),
-        const SizedBox(width: 7),
-        Text(
-          '$count',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+    return PopupMenuButton<_LibraryMenuAction>(
+      tooltip: '${kind.label} options',
+      icon: Badge.count(
+        count: activeFilterCount,
+        isLabelVisible: activeFilterCount > 0,
+        child: const Icon(Icons.more_vert_rounded),
+      ),
+      initialValue: _menuActionForSortOrder(sortOrder),
+      onSelected: (action) {
+        final selectedSort = action.sortOrder;
+        if (selectedSort == null) {
+          onFilterSelected();
+        } else {
+          onSortSelected(selectedSort);
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _LibraryMenuAction.filters,
+          padding: EdgeInsets.zero,
+          child: _LibraryMenuRow(
+            icon: Icons.tune_rounded,
+            label: 'Filters',
+            selected: activeFilterCount > 0,
           ),
         ),
+        const PopupMenuDivider(),
+        for (final option in LibrarySortOrder.values)
+          PopupMenuItem(
+            value: _menuActionForSortOrder(option),
+            padding: EdgeInsets.zero,
+            child: _LibraryMenuRow(
+              icon: option.icon,
+              label: option.label,
+              selected: option == sortOrder,
+            ),
+          ),
       ],
     );
   }
 }
 
+class _LibraryMenuRow extends StatelessWidget {
+  const _LibraryMenuRow({
+    required this.icon,
+    required this.label,
+    required this.selected,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: cs.onSurfaceVariant),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label)),
+          if (selected) ...[
+            const SizedBox(width: 12),
+            Icon(Icons.check_rounded, size: 20, color: cs.primary),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BrowserFilters {
+  const _BrowserFilters({this.status, this.genre});
+
+  final LibraryItemStatus? status;
+  final String? genre;
+}
+
+class _LibraryFilterSheet extends StatefulWidget {
+  const _LibraryFilterSheet({
+    required this.kind,
+    required this.genres,
+    required this.initial,
+  });
+
+  final LibraryEntityKind kind;
+  final List<String> genres;
+  final _BrowserFilters initial;
+
+  @override
+  State<_LibraryFilterSheet> createState() => _LibraryFilterSheetState();
+}
+
+class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
+  LibraryItemStatus? _status;
+  String? _genre;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.initial.status;
+    _genre = widget.initial.genre;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return FractionallySizedBox(
+      heightFactor: 0.78,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + bottom),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Filter ${widget.kind.label}',
+                    style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => setState(() {
+                    _status = null;
+                    _genre = null;
+                  }),
+                  child: const Text('Reset'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.kind == LibraryEntityKind.book
+                  ? 'Reading status'
+                  : 'Watch status',
+              style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Any status'),
+                  selected: _status == null,
+                  onSelected: (_) => setState(() => _status = null),
+                ),
+                for (final status in LibraryItemStatus.values.skip(1))
+                  ChoiceChip(
+                    avatar: Icon(
+                      libraryStatusIcon(status, widget.kind),
+                      size: 18,
+                    ),
+                    label: Text(status.labelFor(widget.kind)),
+                    selected: _status == status,
+                    onSelected: (_) => setState(() => _status = status),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Genre',
+              style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All genres'),
+                      selected: _genre == null,
+                      onSelected: (_) => setState(() => _genre = null),
+                    ),
+                    for (final genre in widget.genres)
+                      ChoiceChip(
+                        label: Text(genre),
+                        selected: _genre == genre,
+                        onSelected: (_) => setState(() => _genre = genre),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(
+                  context,
+                  _BrowserFilters(status: _status, genre: _genre),
+                ),
+                child: const Text('Show items'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _NoResults extends StatelessWidget {
-  const _NoResults({required this.hasFilters});
+  const _NoResults({required this.hasFilters, required this.onClear});
 
   final bool hasFilters;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -330,14 +578,29 @@ class _NoResults extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Text(
-          hasFilters
-              ? 'Nothing matches these filters.'
-              : 'Nothing recognized here yet.',
-          textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off_rounded,
+              size: 44,
+              color: cs.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              hasFilters
+                  ? 'Nothing matches these filters.'
+                  : 'Nothing recognized here yet.',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            if (hasFilters) ...[
+              const SizedBox(height: 12),
+              TextButton(onPressed: onClear, child: const Text('Clear search')),
+            ],
+          ],
         ),
       ),
     );

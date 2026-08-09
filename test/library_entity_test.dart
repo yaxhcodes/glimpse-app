@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/features/library/library_entity.dart';
+import 'package:glimpse/features/library/library_provider.dart';
 
 void main() {
   group('LibraryIndex', () {
@@ -204,6 +205,30 @@ void main() {
     expect(
       LibraryItemStatus.completed.labelFor(LibraryEntityKind.movie),
       'Watched',
+    );
+  });
+
+  test('only offers manual backfill retry for transient failures', () {
+    expect(
+      const LibraryBackfillState(
+        failed: 2,
+        issue: LibraryBackfillIssue.connection,
+      ).canRetry,
+      isTrue,
+    );
+    expect(
+      const LibraryBackfillState(
+        failed: 2,
+        issue: LibraryBackfillIssue.partial,
+      ).canRetry,
+      isTrue,
+    );
+    expect(
+      const LibraryBackfillState(
+        failed: 2,
+        issue: LibraryBackfillIssue.serviceUnavailable,
+      ).canRetry,
+      isFalse,
     );
   });
 }

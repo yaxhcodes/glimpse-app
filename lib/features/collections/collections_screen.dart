@@ -55,7 +55,12 @@ class _CollectionsLibrarySwitchState extends State<_CollectionsLibrarySwitch>
     super.didUpdateWidget(oldWidget);
     if (widget.mode != oldWidget.mode &&
         _controller.index != widget.mode.index) {
-      _controller.animateTo(widget.mode.index);
+      final media = MediaQuery.of(context);
+      if (media.disableAnimations || media.accessibleNavigation) {
+        _controller.index = widget.mode.index;
+      } else {
+        _controller.animateTo(widget.mode.index);
+      }
     }
   }
 
@@ -68,42 +73,30 @@ class _CollectionsLibrarySwitchState extends State<_CollectionsLibrarySwitch>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-      child: Material(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(24),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: TabBar(
-            controller: _controller,
-            indicator: ShapeDecoration(
-              color: cs.secondaryContainer,
-              shape: const StadiumBorder(),
+    return Material(
+      color: cs.surface,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: TabBar(
+          controller: _controller,
+          indicatorSize: TabBarIndicatorSize.label,
+          dividerColor: Colors.transparent,
+          labelColor: cs.primary,
+          unselectedLabelColor: cs.onSurfaceVariant,
+          labelStyle: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          unselectedLabelStyle: Theme.of(context).textTheme.labelLarge,
+          splashBorderRadius: BorderRadius.circular(16),
+          onTap: (index) =>
+              widget.onChanged(CollectionsSurfaceMode.values[index]),
+          tabs: const [
+            _MaterialModeTab(icon: Icons.folder_rounded, label: 'Collections'),
+            _MaterialModeTab(
+              icon: Icons.auto_stories_rounded,
+              label: 'Library',
             ),
-            indicatorSize: TabBarIndicatorSize.tab,
-            dividerColor: Colors.transparent,
-            labelColor: cs.onSecondaryContainer,
-            unselectedLabelColor: cs.onSurfaceVariant,
-            labelStyle: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-            unselectedLabelStyle: Theme.of(context).textTheme.labelLarge,
-            splashBorderRadius: BorderRadius.circular(20),
-            onTap: (index) =>
-                widget.onChanged(CollectionsSurfaceMode.values[index]),
-            tabs: const [
-              _MaterialModeTab(
-                icon: Icons.folder_rounded,
-                label: 'Collections',
-              ),
-              _MaterialModeTab(
-                icon: Icons.auto_stories_rounded,
-                label: 'Library',
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -119,10 +112,17 @@ class _MaterialModeTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: 44,
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [Icon(icon, size: 21), const SizedBox(width: 9), Text(label)],
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
       ),
     );
   }
@@ -208,27 +208,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
               : null,
           title: selectionState.isActive
               ? BulkSelectionTitle(count: selectedCollections.length)
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      showLibrary ? 'Library' : 'Collections',
-                      style: tt.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      showLibrary
-                          ? 'Things discovered in your saves'
-                          : 'Your saved spaces',
-                      style: tt.labelMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+              : Text(
+                  'Collections',
+                  style: tt.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
                 ),
           actions: selectionState.isActive
               ? [
@@ -292,149 +277,131 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     ),
                   if (!showLibrary && hasCollections) const SizedBox(width: 8),
                 ],
+          bottom: selectionState.isActive
+              ? null
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(48),
+                  child: _CollectionsLibrarySwitch(
+                    mode: libraryPreferences.mode,
+                    onChanged: (mode) => ref
+                        .read(libraryPreferencesProvider.notifier)
+                        .setMode(mode),
+                  ),
+                ),
         ),
-        body: Column(
-          children: [
-            if (!selectionState.isActive)
-              _CollectionsLibrarySwitch(
-                mode: libraryPreferences.mode,
-                onChanged: (mode) =>
-                    ref.read(libraryPreferencesProvider.notifier).setMode(mode),
-              ),
-            Expanded(
-              child: showLibrary
-                  ? LibraryHome(bottomPadding: scrollBottomPadding)
-                  : async.when(
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Center(child: Text('$e')),
-                      data: (rawCollections) {
-                        _scheduleCollectionStateSync(
-                          rawCollections,
-                          preferences,
-                          preferencesNotifier,
-                          selectionNotifier,
-                        );
-                        final collections = preferences.sortSummaries(
-                          rawCollections,
-                        );
-                        if (collections.isEmpty) {
-                          return _CollectionsEmptyState(
-                            colorScheme: cs,
-                            textTheme: tt,
-                            onCreate: () => _createCollection(context),
-                          );
-                        }
-                        return DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                cs.surface,
-                                cs.surfaceContainerLow.withValues(alpha: 0.42),
-                              ],
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 180),
-                                  switchInCurve: Curves.easeOutCubic,
-                                  switchOutCurve: Curves.easeOutCubic,
-                                  child:
-                                      preferences.layout ==
-                                          CollectionsLayout.grid
-                                      ? GridView.builder(
-                                          key: const ValueKey(
-                                            'collections-grid',
-                                          ),
-                                          padding: EdgeInsets.fromLTRB(
-                                            16,
-                                            8,
-                                            16,
-                                            scrollBottomPadding,
-                                          ),
-                                          gridDelegate:
-                                              const SliverGridDelegateWithMaxCrossAxisExtent(
-                                                maxCrossAxisExtent: 224,
-                                                crossAxisSpacing: 12,
-                                                mainAxisSpacing: 12,
-                                                childAspectRatio: 0.96,
-                                              ),
-                                          itemCount: collections.length,
-                                          itemBuilder: (context, i) {
-                                            final summary = collections[i];
-                                            final id = summary.collection.id;
-                                            return ExpressiveTapScale(
-                                              child: CollectionCard(
-                                                key: ValueKey(
-                                                  'collection-card-$id',
-                                                ),
-                                                summary: summary,
-                                                selectionMode:
-                                                    selectionState.isActive,
-                                                isSelected: selectionState
-                                                    .isSelected(id),
-                                                onSelectionStart: () =>
-                                                    selectionNotifier.startWith(
-                                                      id,
-                                                    ),
-                                                onSelectionToggle: () =>
-                                                    selectionNotifier.toggle(
-                                                      id,
-                                                    ),
-                                              ),
-                                            );
-                                          },
-                                        )
-                                      : ListView.builder(
-                                          key: const ValueKey(
-                                            'collections-list',
-                                          ),
-                                          padding: EdgeInsets.fromLTRB(
-                                            0,
-                                            8,
-                                            0,
-                                            scrollBottomPadding,
-                                          ),
-                                          itemCount: collections.length,
-                                          itemBuilder: (context, i) {
-                                            final summary = collections[i];
-                                            final id = summary.collection.id;
-                                            return ExpressiveTapScale(
-                                              child: CollectionListCard(
-                                                key: ValueKey(
-                                                  'collection-list-card-$id',
-                                                ),
-                                                summary: summary,
-                                                selectionMode:
-                                                    selectionState.isActive,
-                                                isSelected: selectionState
-                                                    .isSelected(id),
-                                                onSelectionStart: () =>
-                                                    selectionNotifier.startWith(
-                                                      id,
-                                                    ),
-                                                onSelectionToggle: () =>
-                                                    selectionNotifier.toggle(
-                                                      id,
-                                                    ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+        body: showLibrary
+            ? LibraryHome(bottomPadding: scrollBottomPadding)
+            : async.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('$e')),
+                data: (rawCollections) {
+                  _scheduleCollectionStateSync(
+                    rawCollections,
+                    preferences,
+                    preferencesNotifier,
+                    selectionNotifier,
+                  );
+                  final collections = preferences.sortSummaries(rawCollections);
+                  if (collections.isEmpty) {
+                    return _CollectionsEmptyState(
+                      colorScheme: cs,
+                      textTheme: tt,
+                      onCreate: () => _createCollection(context),
+                    );
+                  }
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          cs.surface,
+                          cs.surfaceContainerLow.withValues(alpha: 0.42),
+                        ],
+                      ),
                     ),
-            ),
-          ],
-        ),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 180),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeOutCubic,
+                            child: preferences.layout == CollectionsLayout.grid
+                                ? GridView.builder(
+                                    key: const ValueKey('collections-grid'),
+                                    padding: EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      scrollBottomPadding,
+                                    ),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                                          maxCrossAxisExtent: 224,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 12,
+                                          childAspectRatio: 0.96,
+                                        ),
+                                    itemCount: collections.length,
+                                    itemBuilder: (context, i) {
+                                      final summary = collections[i];
+                                      final id = summary.collection.id;
+                                      return ExpressiveTapScale(
+                                        child: CollectionCard(
+                                          key: ValueKey('collection-card-$id'),
+                                          summary: summary,
+                                          selectionMode:
+                                              selectionState.isActive,
+                                          isSelected: selectionState.isSelected(
+                                            id,
+                                          ),
+                                          onSelectionStart: () =>
+                                              selectionNotifier.startWith(id),
+                                          onSelectionToggle: () =>
+                                              selectionNotifier.toggle(id),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : ListView.builder(
+                                    key: const ValueKey('collections-list'),
+                                    padding: EdgeInsets.fromLTRB(
+                                      0,
+                                      8,
+                                      0,
+                                      scrollBottomPadding,
+                                    ),
+                                    itemCount: collections.length,
+                                    itemBuilder: (context, i) {
+                                      final summary = collections[i];
+                                      final id = summary.collection.id;
+                                      return ExpressiveTapScale(
+                                        child: CollectionListCard(
+                                          key: ValueKey(
+                                            'collection-list-card-$id',
+                                          ),
+                                          summary: summary,
+                                          selectionMode:
+                                              selectionState.isActive,
+                                          isSelected: selectionState.isSelected(
+                                            id,
+                                          ),
+                                          onSelectionStart: () =>
+                                              selectionNotifier.startWith(id),
+                                          onSelectionToggle: () =>
+                                              selectionNotifier.toggle(id),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
         floatingActionButton:
             !showLibrary && hasCollections && !selectionState.isActive
             ? Padding(

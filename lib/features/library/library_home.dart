@@ -57,7 +57,7 @@ class _LibraryHomeState extends ConsumerState<LibraryHome> {
           slivers: [
             if (backfill.isRunning || backfill.failed > 0)
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 4),
+                padding: EdgeInsets.fromLTRB(horizontal, 6, horizontal, 0),
                 sliver: SliverToBoxAdapter(
                   child: _BackfillStatus(
                     state: backfill,
@@ -70,48 +70,15 @@ class _LibraryHomeState extends ConsumerState<LibraryHome> {
             SliverPadding(
               padding: EdgeInsets.fromLTRB(
                 horizontal,
-                12,
+                14,
                 horizontal,
                 widget.bottomPadding,
               ),
-              sliver: SliverLayoutBuilder(
-                builder: (context, constraints) {
-                  final columns = constraints.crossAxisExtent >= 800 ? 3 : 1;
-                  if (columns == 1) {
-                    return SliverList.separated(
-                      itemCount: LibraryEntityKind.values.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 14),
-                      itemBuilder: (context, index) {
-                        final kind = LibraryEntityKind.values[index];
-                        return SizedBox(
-                          height: 330,
-                          child: _LibraryDestinationCard(
-                            kind: kind,
-                            entities: snapshot.ofKind(kind),
-                            onTap: () => _openKind(context, kind),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                  return SliverGrid.builder(
-                    itemCount: LibraryEntityKind.values.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 0.88,
-                    ),
-                    itemBuilder: (context, index) {
-                      final kind = LibraryEntityKind.values[index];
-                      return _LibraryDestinationCard(
-                        kind: kind,
-                        entities: snapshot.ofKind(kind),
-                        onTap: () => _openKind(context, kind),
-                      );
-                    },
-                  );
-                },
+              sliver: SliverToBoxAdapter(
+                child: _LibraryDashboard(
+                  snapshot: snapshot,
+                  onOpen: (kind) => _openKind(context, kind),
+                ),
               ),
             ),
           ],
@@ -155,21 +122,130 @@ class _LibraryHomeState extends ConsumerState<LibraryHome> {
   }
 }
 
-class _LibraryDestinationCard extends StatelessWidget {
-  const _LibraryDestinationCard({
-    required this.kind,
-    required this.entities,
-    required this.onTap,
-  });
+class _LibraryDashboard extends StatelessWidget {
+  const _LibraryDashboard({required this.snapshot, required this.onOpen});
 
-  final LibraryEntityKind kind;
-  final List<LibraryEntity> entities;
-  final VoidCallback onTap;
+  final LibrarySnapshot snapshot;
+  final ValueChanged<LibraryEntityKind> onOpen;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your Library',
+                    style: tt.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.25,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Things discovered in your saves',
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '${snapshot.entities.length} ${snapshot.entities.length == 1 ? 'item' : 'items'}',
+              style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final expanded = constraints.maxWidth >= AppLayout.mediumWidth;
+            if (expanded) {
+              return SizedBox(
+                height: 246,
+                child: Row(
+                  children: [
+                    for (final kind in LibraryEntityKind.values) ...[
+                      Expanded(
+                        child: _LibraryDestinationCard(
+                          kind: kind,
+                          entities: snapshot.ofKind(kind),
+                          onTap: () => onOpen(kind),
+                        ),
+                      ),
+                      if (kind != LibraryEntityKind.place)
+                        const SizedBox(width: 14),
+                    ],
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: [
+                SizedBox(
+                  height: 224,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _LibraryDestinationCard(
+                          kind: LibraryEntityKind.book,
+                          entities: snapshot.ofKind(LibraryEntityKind.book),
+                          onTap: () => onOpen(LibraryEntityKind.book),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _LibraryDestinationCard(
+                          kind: LibraryEntityKind.movie,
+                          entities: snapshot.ofKind(LibraryEntityKind.movie),
+                          onTap: () => onOpen(LibraryEntityKind.movie),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 166,
+                  child: _LibraryDestinationCard(
+                    kind: LibraryEntityKind.place,
+                    entities: snapshot.ofKind(LibraryEntityKind.place),
+                    onTap: () => onOpen(LibraryEntityKind.place),
+                    horizontal: true,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _LibraryDestinationCard extends StatelessWidget {
+  const _LibraryDestinationCard({
+    required this.kind,
+    required this.entities,
+    required this.onTap,
+    this.horizontal = false,
+  });
+
+  final LibraryEntityKind kind;
+  final List<LibraryEntity> entities;
+  final VoidCallback onTap;
+  final bool horizontal;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final noun = switch (kind) {
       LibraryEntityKind.book => entities.length == 1 ? 'book' : 'books',
       LibraryEntityKind.movie => entities.length == 1 ? 'movie' : 'movies',
@@ -185,51 +261,37 @@ class _LibraryDestinationCard extends StatelessWidget {
         child: InkWell(
           onTap: entities.isEmpty ? null : onTap,
           child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: kind == LibraryEntityKind.place
-                      ? _PlacesPreview(entities: entities)
-                      : _ArtworkMosaic(entities: entities),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            kind.label,
-                            style: tt.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            entities.isEmpty
-                                ? 'Nothing recognized yet'
-                                : '${entities.length} $noun',
-                            style: tt.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+            padding: const EdgeInsets.all(14),
+            child: horizontal
+                ? Row(
+                    children: [
+                      Expanded(child: _PlacesPreview(entities: entities)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _DestinationLabel(
+                          kind: kind,
+                          count: entities.length,
+                          noun: noun,
+                        ),
                       ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      color: entities.isEmpty
-                          ? cs.onSurface.withValues(alpha: 0.3)
-                          : cs.primary,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: kind == LibraryEntityKind.place
+                            ? _PlacesPreview(entities: entities)
+                            : _EditorialArtworkPreview(entities: entities),
+                      ),
+                      const SizedBox(height: 12),
+                      _DestinationLabel(
+                        kind: kind,
+                        count: entities.length,
+                        noun: noun,
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),
@@ -237,8 +299,59 @@ class _LibraryDestinationCard extends StatelessWidget {
   }
 }
 
-class _ArtworkMosaic extends StatelessWidget {
-  const _ArtworkMosaic({required this.entities});
+class _DestinationLabel extends StatelessWidget {
+  const _DestinationLabel({
+    required this.kind,
+    required this.count,
+    required this.noun,
+  });
+
+  final LibraryEntityKind kind;
+  final int count;
+  final String noun;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                kind.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                count == 0 ? 'Nothing recognized yet' : '$count $noun',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+        Icon(
+          Icons.arrow_forward_rounded,
+          size: 22,
+          color: count == 0 ? cs.onSurface.withValues(alpha: 0.28) : cs.primary,
+        ),
+      ],
+    );
+  }
+}
+
+class _EditorialArtworkPreview extends StatelessWidget {
+  const _EditorialArtworkPreview({required this.entities});
 
   final List<LibraryEntity> entities;
 
@@ -250,33 +363,46 @@ class _ArtworkMosaic extends StatelessWidget {
         label: 'Recognized titles will gather here',
       );
     }
-    final preview = entities.take(3).toList(growable: false);
+    final preview = entities
+        .where((entity) => (entity.artworkUrl ?? '').trim().isNotEmpty)
+        .take(2)
+        .toList(growable: false);
+    if (preview.isEmpty) {
+      return _DestinationPlaceholder(
+        icon: Icons.auto_awesome_mosaic_rounded,
+        label: '${entities.length} recognized',
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         return Stack(
           alignment: Alignment.center,
           children: [
-            for (var index = 0; index < preview.length; index++)
+            if (preview.length > 1)
               Transform.translate(
-                offset: Offset(
-                  (index - (preview.length - 1) / 2) * width * 0.2,
-                  0,
-                ),
-                child: Transform.rotate(
-                  angle: (index - (preview.length - 1) / 2) * 0.07,
-                  child: SizedBox(
-                    width: width * 0.42,
-                    child: AspectRatio(
-                      aspectRatio: 0.68,
-                      child: LibraryArtwork(
-                        entity: preview[index],
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                offset: Offset(width * 0.12, 0),
+                child: Opacity(
+                  opacity: 0.48,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.58,
+                    child: LibraryArtwork(
+                      entity: preview[1],
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
+            Transform.translate(
+              offset: Offset(preview.length > 1 ? -width * 0.08 : 0, 0),
+              child: FractionallySizedBox(
+                widthFactor: 0.62,
+                child: LibraryArtwork(
+                  entity: preview.first,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -419,68 +545,58 @@ class _BackfillStatus extends StatelessWidget {
     final serviceUnavailable =
         state.issue == LibraryBackfillIssue.serviceUnavailable;
     final title = state.isRunning
-        ? 'Organizing Library details'
+        ? 'Adding details'
         : serviceUnavailable
         ? 'Extra details are temporarily unavailable'
         : '${state.failed} ${state.failed == 1 ? 'item' : 'items'} couldn’t be refreshed';
     final supportingText = state.isRunning
-        ? 'Your books and movies are already available.'
+        ? '${state.completed.clamp(0, state.total)} of ${state.total}'
         : serviceUnavailable
-        ? 'Your Library still works with details already saved on this device.'
-        : 'Check your connection and try again.';
-    return Material(
-      color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (state.isRunning)
-              const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else
-              Icon(
-                serviceUnavailable
-                    ? Icons.info_outline_rounded
-                    : Icons.cloud_off_rounded,
-                size: 22,
-                color: cs.onSurfaceVariant,
-              ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        ? 'Saved details remain available'
+        : '${state.failed} waiting to retry';
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          if (state.isRunning)
+            const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(
+              serviceUnavailable
+                  ? Icons.info_outline_rounded
+                  : Icons.cloud_off_rounded,
+              size: 20,
+              color: cs.onSurfaceVariant,
+            ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                text: title,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
                 children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w600,
+                  TextSpan(
+                    text: ' · $supportingText',
+                    style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    supportingText,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            if (!state.isRunning && state.failed > 0 && !serviceUnavailable)
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: FilledButton.tonal(
-                  onPressed: onRetry,
-                  child: const Text('Retry'),
-                ),
-              ),
-          ],
-        ),
+          ),
+          if (state.canRetry)
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
       ),
     );
   }

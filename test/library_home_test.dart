@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:glimpse/core/providers/analytics_provider.dart';
 import 'package:glimpse/core/services/analytics_service.dart';
 import 'package:glimpse/core/services/transcript_enrichment_service.dart';
@@ -10,6 +11,7 @@ import 'package:glimpse/features/library/library_home.dart';
 import 'package:glimpse/features/library/library_places_screen.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 import 'package:glimpse/features/library/library_widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('shows the compact-phone empty state', (tester) async {
@@ -144,6 +146,8 @@ void main() {
         title: 'Piranesi',
         type: 'book',
         creator: 'Susanna Clarke',
+        year: '2020',
+        genres: ['Fiction'],
       ),
     );
     final actions = _FakeLibraryEntityActions();
@@ -164,6 +168,15 @@ void main() {
     await tester.pump();
 
     expect(find.text('Add to your reading list'), findsOneWidget);
+    final metadataTop = tester
+        .getTopLeft(find.text('Susanna Clarke · 2020').last)
+        .dy;
+    final genreTop = tester.getTopLeft(find.text('Fiction')).dy;
+    final statusTop = tester
+        .getTopLeft(find.text('Add to your reading list'))
+        .dy;
+    expect(genreTop, greaterThan(metadataTop));
+    expect(genreTop, lessThan(statusTop));
     final expansion = tester.widget<ExpansionTile>(find.byType(ExpansionTile));
     expect(
       (expansion.shape! as RoundedRectangleBorder).side.style,
@@ -177,6 +190,86 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(actions.lastStatus, LibraryItemStatus.active);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('hides a Library item and restores it with Snackbar Undo', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final entity = _entity(
+      key: 'hide-undo',
+      kind: LibraryEntityKind.movie,
+      mention: const EnrichedMention(
+        title: 'Perfect Days',
+        type: 'movie',
+        year: '2023',
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        librarySnapshotProvider.overrideWith(
+          (ref) => Stream.value(LibrarySnapshot(entities: [entity])),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () => context.push('/detail'),
+                child: const Text('Open detail'),
+              ),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/detail',
+          builder: (context, state) =>
+              LibraryEntityDetailScreen(entityKey: entity.key),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          theme: ThemeData(useMaterial3: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open detail'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Library item options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hide from Library'));
+    await tester.pumpAndSettle();
+
+    expect(
+      container
+          .read(libraryPreferencesProvider)
+          .hiddenEntityKeys
+          .contains(entity.key),
+      isTrue,
+    );
+    expect(find.text('Perfect Days hidden from Library'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(
+      container
+          .read(libraryPreferencesProvider)
+          .hiddenEntityKeys
+          .contains(entity.key),
+      isFalse,
+    );
     expect(tester.takeException(), isNull);
   });
 }

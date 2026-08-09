@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'library_entity.dart';
+import 'library_radial_status_menu.dart';
 
 class LibraryArtwork extends StatelessWidget {
   const LibraryArtwork({
@@ -42,10 +43,14 @@ class LibraryEntityTile extends StatelessWidget {
     super.key,
     required this.entity,
     required this.onTap,
+    required this.onStatusSelected,
+    required this.onStatusMenuRequested,
   });
 
   final LibraryEntity entity;
   final VoidCallback onTap;
+  final ValueChanged<LibraryItemStatus> onStatusSelected;
+  final VoidCallback onStatusMenuRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -56,47 +61,46 @@ class LibraryEntityTile extends StatelessWidget {
         entity.mention.creator!,
       if ((entity.mention.year ?? '').trim().isNotEmpty) entity.mention.year!,
     ].join(' · ');
-    return Semantics(
-      button: true,
-      label: '${entity.kind.singularLabel}: ${entity.title}',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: AspectRatio(
-                aspectRatio: 0.68,
-                child: Hero(
+    Widget content({required bool useHero}) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: useHero
+              ? Hero(
                   tag: 'library-artwork-${entity.key}',
                   child: LibraryArtwork(entity: entity),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              entity.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: tt.titleSmall?.copyWith(
-                color: cs.onSurface,
-                fontWeight: FontWeight.w600,
-                height: 1.18,
-              ),
-            ),
-            if (metadata.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                metadata,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ],
-          ],
+                )
+              : LibraryArtwork(entity: entity),
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          entity.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: tt.titleSmall?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w700,
+            height: 1.18,
+          ),
+        ),
+        if (metadata.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            metadata,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ],
+    );
+    return LibraryRadialStatusTarget(
+      entity: entity,
+      onTap: onTap,
+      onStatusSelected: onStatusSelected,
+      onStatusMenuRequested: onStatusMenuRequested,
+      preview: content(useHero: false),
+      child: content(useHero: true),
     );
   }
 }

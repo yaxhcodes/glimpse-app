@@ -3,10 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/database/isar_service.dart';
 import 'package:glimpse/core/models/user_collection.dart';
+import 'package:glimpse/core/providers/analytics_provider.dart';
 import 'package:glimpse/core/providers/service_providers.dart';
+import 'package:glimpse/core/services/analytics_service.dart';
 import 'package:glimpse/features/collections/collections_provider.dart';
 import 'package:glimpse/features/collections/collections_preferences_provider.dart';
 import 'package:glimpse/features/collections/collections_screen.dart';
+import 'package:glimpse/features/library/library_entity.dart';
+import 'package:glimpse/features/library/library_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -73,6 +77,27 @@ void main() {
     expect(find.byIcon(Icons.sort_by_alpha_rounded), findsOneWidget);
     expect(find.byIcon(Icons.drag_indicator_rounded), findsOneWidget);
     expect(find.byIcon(Icons.check_rounded), findsNWidgets(2));
+  });
+
+  testWidgets('compact mode tabs persist Library selection', (tester) async {
+    await _pumpCollections(tester, [_summary(1, 'Reading')]);
+
+    expect(find.byType(TabBar), findsOneWidget);
+    expect(find.byKey(const ValueKey('collections-grid')), findsOneWidget);
+    await tester.tap(find.text('Library'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your Library will build itself'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(librarySurfaceModePrefsKey), 'library');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpCollections(tester, [_summary(1, 'Reading')]);
+    expect(find.text('Your Library will build itself'), findsOneWidget);
+
+    await tester.tap(find.text('Collections').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('collections-grid')), findsOneWidget);
   });
 
   testWidgets('long press selects collections and back exits selection', (
@@ -257,7 +282,11 @@ Future<void> _pumpCollections(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        analyticsServiceProvider.overrideWithValue(_FakeAnalytics()),
         collectionsSummaryProvider.overrideWith((ref) async => summaries),
+        librarySnapshotProvider.overrideWith(
+          (ref) => Stream.value(const LibrarySnapshot(entities: [])),
+        ),
         if (isar != null) isarServiceProvider.overrideWithValue(isar),
       ],
       child: MaterialApp(
@@ -284,6 +313,32 @@ Future<void> _pumpCollections(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _FakeAnalytics implements AnalyticsService {
+  @override
+  String get sessionId => 'test';
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<void> flush() async {}
+
+  @override
+  Future<void> handleLifecycleState(AppLifecycleState state) async {}
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<void> trackEvent(
+    AnalyticsEvent event, {
+    AnalyticsScreen? screen,
+  }) async {}
+
+  @override
+  Future<void> trackScreen(AnalyticsScreen screen) async {}
 }
 
 class _FakeIsarService implements IsarService {
