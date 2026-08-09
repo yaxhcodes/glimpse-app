@@ -10,6 +10,8 @@ import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/expressive_fab.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
+import '../library/library_home.dart';
+import '../library/library_provider.dart';
 import 'collection_card.dart';
 import 'collection_reorder_sheet.dart';
 import 'collections_provider.dart';
@@ -24,6 +26,106 @@ enum _CollectionsMenuAction {
   sortNewest,
   sortName,
   reorder,
+}
+
+class _CollectionsLibrarySwitch extends StatefulWidget {
+  const _CollectionsLibrarySwitch({
+    required this.mode,
+    required this.onChanged,
+  });
+
+  final CollectionsSurfaceMode mode;
+  final ValueChanged<CollectionsSurfaceMode> onChanged;
+
+  @override
+  State<_CollectionsLibrarySwitch> createState() =>
+      _CollectionsLibrarySwitchState();
+}
+
+class _CollectionsLibrarySwitchState extends State<_CollectionsLibrarySwitch>
+    with SingleTickerProviderStateMixin {
+  late final TabController _controller = TabController(
+    length: CollectionsSurfaceMode.values.length,
+    vsync: this,
+    initialIndex: widget.mode.index,
+  );
+
+  @override
+  void didUpdateWidget(covariant _CollectionsLibrarySwitch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.mode != oldWidget.mode &&
+        _controller.index != widget.mode.index) {
+      _controller.animateTo(widget.mode.index);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      child: Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: TabBar(
+            controller: _controller,
+            indicator: ShapeDecoration(
+              color: cs.secondaryContainer,
+              shape: const StadiumBorder(),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: cs.onSecondaryContainer,
+            unselectedLabelColor: cs.onSurfaceVariant,
+            labelStyle: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            unselectedLabelStyle: Theme.of(context).textTheme.labelLarge,
+            splashBorderRadius: BorderRadius.circular(20),
+            onTap: (index) =>
+                widget.onChanged(CollectionsSurfaceMode.values[index]),
+            tabs: const [
+              _MaterialModeTab(
+                icon: Icons.folder_rounded,
+                label: 'Collections',
+              ),
+              _MaterialModeTab(
+                icon: Icons.auto_stories_rounded,
+                label: 'Library',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialModeTab extends StatelessWidget {
+  const _MaterialModeTab({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [Icon(icon, size: 21), const SizedBox(width: 9), Text(label)],
+      ),
+    );
+  }
 }
 
 class CollectionsScreen extends ConsumerStatefulWidget {
@@ -52,6 +154,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final selectionNotifier = ref.read(
       bulkSelectionProvider(_selectionScope).notifier,
     );
+    final libraryPreferences = ref.watch(libraryPreferencesProvider);
+    final showLibrary =
+        !selectionState.isActive &&
+        libraryPreferences.mode == CollectionsSurfaceMode.library;
     final loadedCollections = async.valueOrNull ?? const <CollectionSummary>[];
     final orderedCollections = preferences.sortSummaries(loadedCollections);
     final selectedCollections = orderedCollections
@@ -106,7 +212,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Collections',
+                      showLibrary ? 'Library' : 'Collections',
                       style: tt.titleLarge?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: cs.onSurface,
@@ -114,7 +220,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Your saved spaces',
+                      showLibrary
+                          ? 'Things discovered in your saves'
+                          : 'Your saved spaces',
                       style: tt.labelMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontWeight: FontWeight.w500,
@@ -171,7 +279,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   ),
                 ]
               : [
-                  if (hasCollections)
+                  if (!showLibrary && hasCollections)
                     _CollectionsOptionsMenu(
                       preferences: preferences,
                       canReorder: loadedCollections.length > 1,
@@ -182,113 +290,153 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                         preferencesNotifier,
                       ),
                     ),
-                  if (hasCollections) const SizedBox(width: 8),
+                  if (!showLibrary && hasCollections) const SizedBox(width: 8),
                 ],
         ),
-        body: async.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
-          data: (rawCollections) {
-            _scheduleCollectionStateSync(
-              rawCollections,
-              preferences,
-              preferencesNotifier,
-              selectionNotifier,
-            );
-            final collections = preferences.sortSummaries(rawCollections);
-            if (collections.isEmpty) {
-              return _CollectionsEmptyState(
-                colorScheme: cs,
-                textTheme: tt,
-                onCreate: () => _createCollection(context),
-              );
-            }
-            return DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    cs.surface,
-                    cs.surfaceContainerLow.withValues(alpha: 0.42),
-                  ],
-                ),
+        body: Column(
+          children: [
+            if (!selectionState.isActive)
+              _CollectionsLibrarySwitch(
+                mode: libraryPreferences.mode,
+                onChanged: (mode) =>
+                    ref.read(libraryPreferencesProvider.notifier).setMode(mode),
               ),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeOutCubic,
-                      child: preferences.layout == CollectionsLayout.grid
-                          ? GridView.builder(
-                              key: const ValueKey('collections-grid'),
-                              padding: EdgeInsets.fromLTRB(
-                                16,
-                                8,
-                                16,
-                                scrollBottomPadding,
-                              ),
-                              gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 224,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    childAspectRatio: 0.96,
-                                  ),
-                              itemCount: collections.length,
-                              itemBuilder: (context, i) {
-                                final summary = collections[i];
-                                final id = summary.collection.id;
-                                return ExpressiveTapScale(
-                                  child: CollectionCard(
-                                    key: ValueKey('collection-card-$id'),
-                                    summary: summary,
-                                    selectionMode: selectionState.isActive,
-                                    isSelected: selectionState.isSelected(id),
-                                    onSelectionStart: () =>
-                                        selectionNotifier.startWith(id),
-                                    onSelectionToggle: () =>
-                                        selectionNotifier.toggle(id),
-                                  ),
-                                );
-                              },
-                            )
-                          : ListView.builder(
-                              key: const ValueKey('collections-list'),
-                              padding: EdgeInsets.fromLTRB(
-                                0,
-                                8,
-                                0,
-                                scrollBottomPadding,
-                              ),
-                              itemCount: collections.length,
-                              itemBuilder: (context, i) {
-                                final summary = collections[i];
-                                final id = summary.collection.id;
-                                return ExpressiveTapScale(
-                                  child: CollectionListCard(
-                                    key: ValueKey('collection-list-card-$id'),
-                                    summary: summary,
-                                    selectionMode: selectionState.isActive,
-                                    isSelected: selectionState.isSelected(id),
-                                    onSelectionStart: () =>
-                                        selectionNotifier.startWith(id),
-                                    onSelectionToggle: () =>
-                                        selectionNotifier.toggle(id),
-                                  ),
-                                );
-                              },
+            Expanded(
+              child: showLibrary
+                  ? LibraryHome(bottomPadding: scrollBottomPadding)
+                  : async.when(
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Center(child: Text('$e')),
+                      data: (rawCollections) {
+                        _scheduleCollectionStateSync(
+                          rawCollections,
+                          preferences,
+                          preferencesNotifier,
+                          selectionNotifier,
+                        );
+                        final collections = preferences.sortSummaries(
+                          rawCollections,
+                        );
+                        if (collections.isEmpty) {
+                          return _CollectionsEmptyState(
+                            colorScheme: cs,
+                            textTheme: tt,
+                            onCreate: () => _createCollection(context),
+                          );
+                        }
+                        return DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                cs.surface,
+                                cs.surfaceContainerLow.withValues(alpha: 0.42),
+                              ],
                             ),
+                          ),
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 180),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeOutCubic,
+                                  child:
+                                      preferences.layout ==
+                                          CollectionsLayout.grid
+                                      ? GridView.builder(
+                                          key: const ValueKey(
+                                            'collections-grid',
+                                          ),
+                                          padding: EdgeInsets.fromLTRB(
+                                            16,
+                                            8,
+                                            16,
+                                            scrollBottomPadding,
+                                          ),
+                                          gridDelegate:
+                                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                                                maxCrossAxisExtent: 224,
+                                                crossAxisSpacing: 12,
+                                                mainAxisSpacing: 12,
+                                                childAspectRatio: 0.96,
+                                              ),
+                                          itemCount: collections.length,
+                                          itemBuilder: (context, i) {
+                                            final summary = collections[i];
+                                            final id = summary.collection.id;
+                                            return ExpressiveTapScale(
+                                              child: CollectionCard(
+                                                key: ValueKey(
+                                                  'collection-card-$id',
+                                                ),
+                                                summary: summary,
+                                                selectionMode:
+                                                    selectionState.isActive,
+                                                isSelected: selectionState
+                                                    .isSelected(id),
+                                                onSelectionStart: () =>
+                                                    selectionNotifier.startWith(
+                                                      id,
+                                                    ),
+                                                onSelectionToggle: () =>
+                                                    selectionNotifier.toggle(
+                                                      id,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                        )
+                                      : ListView.builder(
+                                          key: const ValueKey(
+                                            'collections-list',
+                                          ),
+                                          padding: EdgeInsets.fromLTRB(
+                                            0,
+                                            8,
+                                            0,
+                                            scrollBottomPadding,
+                                          ),
+                                          itemCount: collections.length,
+                                          itemBuilder: (context, i) {
+                                            final summary = collections[i];
+                                            final id = summary.collection.id;
+                                            return ExpressiveTapScale(
+                                              child: CollectionListCard(
+                                                key: ValueKey(
+                                                  'collection-list-card-$id',
+                                                ),
+                                                summary: summary,
+                                                selectionMode:
+                                                    selectionState.isActive,
+                                                isSelected: selectionState
+                                                    .isSelected(id),
+                                                onSelectionStart: () =>
+                                                    selectionNotifier.startWith(
+                                                      id,
+                                                    ),
+                                                onSelectionToggle: () =>
+                                                    selectionNotifier.toggle(
+                                                      id,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+            ),
+          ],
         ),
-        floatingActionButton: hasCollections && !selectionState.isActive
+        floatingActionButton:
+            !showLibrary && hasCollections && !selectionState.isActive
             ? Padding(
                 padding: EdgeInsets.only(bottom: shellBottomInset),
                 child: ExpressiveFab(

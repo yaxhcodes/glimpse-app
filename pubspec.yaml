@@ -73,6 +73,9 @@ dependencies:
   # Image caching (persists to disk so images are instant after first load)
   cached_network_image: ^3.3.1
 
+  # Automatic Library — interactive place maps
+  maplibre_gl: ^0.26.0
+
   # JSON Serialization
   json_annotation: ^4.9.0
   freezed_annotation: ^2.4.0

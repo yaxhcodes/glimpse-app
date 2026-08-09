@@ -141,6 +141,17 @@ class AiTransport {
     Duration timeout = const Duration(seconds: 180),
   }) => postJson('/enrich-url', body: body, timeout: timeout);
 
+  /// Resolves already-extracted books, movies, and places against deterministic
+  /// catalogs. This route never invokes a model or consumes an AI allowance.
+  Future<Map<String, dynamic>> postLibraryEntities({
+    required List<Map<String, dynamic>> entities,
+    Duration timeout = const Duration(seconds: 45),
+  }) => postJson(
+    '/resolve-library-entities',
+    body: {'entities': entities},
+    timeout: timeout,
+  );
+
   Future<dynamic> _post(
     String path, {
     required Map<String, dynamic> body,

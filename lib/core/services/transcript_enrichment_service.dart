@@ -1041,39 +1041,166 @@ class EnrichedMention {
   const EnrichedMention({
     required this.title,
     required this.type,
+    this.subtype,
+    this.creator,
     this.year,
     this.whyMentioned,
     this.posterUrl,
+    this.genres = const [],
+    this.rawGenres = const [],
+    this.catalogId,
+    this.catalogSource,
+    this.city,
+    this.country,
+    this.latitude,
+    this.longitude,
+    this.matchConfidence,
+    this.libraryStatus,
   });
 
   final String title;
   final String type;
+  final String? subtype;
+  final String? creator;
   final String? year;
   final String? whyMentioned;
   final String? posterUrl;
+  final List<String> genres;
+  final List<String> rawGenres;
+  final String? catalogId;
+  final String? catalogSource;
+  final String? city;
+  final String? country;
+  final double? latitude;
+  final double? longitude;
+  final double? matchConfidence;
+  final String? libraryStatus;
+
+  String? get artworkUrl => posterUrl;
+
+  bool get hasCoordinates =>
+      latitude != null &&
+      longitude != null &&
+      latitude!.isFinite &&
+      longitude!.isFinite &&
+      latitude! >= -90 &&
+      latitude! <= 90 &&
+      longitude! >= -180 &&
+      longitude! <= 180;
+
+  EnrichedMention copyWith({
+    String? title,
+    String? type,
+    String? subtype,
+    String? creator,
+    String? year,
+    String? whyMentioned,
+    String? posterUrl,
+    List<String>? genres,
+    List<String>? rawGenres,
+    String? catalogId,
+    String? catalogSource,
+    String? city,
+    String? country,
+    double? latitude,
+    double? longitude,
+    double? matchConfidence,
+    String? libraryStatus,
+  }) {
+    return EnrichedMention(
+      title: title ?? this.title,
+      type: type ?? this.type,
+      subtype: subtype ?? this.subtype,
+      creator: creator ?? this.creator,
+      year: year ?? this.year,
+      whyMentioned: whyMentioned ?? this.whyMentioned,
+      posterUrl: posterUrl ?? this.posterUrl,
+      genres: genres ?? this.genres,
+      rawGenres: rawGenres ?? this.rawGenres,
+      catalogId: catalogId ?? this.catalogId,
+      catalogSource: catalogSource ?? this.catalogSource,
+      city: city ?? this.city,
+      country: country ?? this.country,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      matchConfidence: matchConfidence ?? this.matchConfidence,
+      libraryStatus: libraryStatus ?? this.libraryStatus,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
       'title': title,
       'type': type,
+      'subtype': subtype,
+      'creator': creator,
       'year': year,
       'why_mentioned': whyMentioned,
       'poster_url': posterUrl,
+      'genres': genres,
+      'raw_genres': rawGenres,
+      'catalog_id': catalogId,
+      'catalog_source': catalogSource,
+      'city': city,
+      'country': country,
+      'latitude': latitude,
+      'longitude': longitude,
+      'match_confidence': matchConfidence,
+      'user_library_status': libraryStatus,
     };
   }
 
   static EnrichedMention fromJson(Map<String, dynamic> json) {
+    final rawType = TranscriptEnrichmentService._cleanText(json['type']);
+    final normalizedType = TranscriptEnrichmentService._normalizeMentionType(
+      rawType,
+    );
     return EnrichedMention(
       title: TranscriptEnrichmentService._cleanText(
         json['title'] ?? json['name'],
       ),
-      type: TranscriptEnrichmentService._normalizeMentionType(json['type']),
+      type: normalizedType,
+      subtype: TranscriptEnrichmentService._cleanNullableText(
+        json['subtype'] ?? (normalizedType == rawType ? null : rawType),
+      ),
+      creator: TranscriptEnrichmentService._cleanNullableText(
+        json['creator'] ?? json['author'] ?? json['artist'],
+      ),
       year: TranscriptEnrichmentService._cleanNullableText(json['year']),
       whyMentioned: TranscriptEnrichmentService._cleanNullableText(
-        json['why_mentioned'],
+        json['why_mentioned'] ?? json['reason'] ?? json['description'],
       ),
       posterUrl: TranscriptEnrichmentService._cleanNullableText(
-        json['poster_url'],
+        json['poster_url'] ??
+            json['cover_url'] ??
+            json['artwork_url'] ??
+            json['image_url'],
+      ),
+      genres: TranscriptEnrichmentService._extractGenreList(
+        json['genres'] ?? json['genre'],
+      ),
+      rawGenres: TranscriptEnrichmentService._extractGenreList(
+        json['raw_genres'] ?? json['rawGenres'],
+      ),
+      catalogId: TranscriptEnrichmentService._cleanNullableText(
+        json['catalog_id'] ?? json['catalogId'] ?? json['provider_id'],
+      ),
+      catalogSource: TranscriptEnrichmentService._cleanNullableText(
+        json['catalog_source'] ?? json['catalogSource'] ?? json['provider'],
+      ),
+      city: TranscriptEnrichmentService._cleanNullableText(json['city']),
+      country: TranscriptEnrichmentService._cleanNullableText(json['country']),
+      latitude: TranscriptEnrichmentService._toDouble(
+        json['latitude'] ?? json['lat'],
+      ),
+      longitude: TranscriptEnrichmentService._toDouble(
+        json['longitude'] ?? json['lon'] ?? json['lng'],
+      ),
+      matchConfidence: TranscriptEnrichmentService._toDouble(
+        json['match_confidence'] ?? json['matchConfidence'],
+      ),
+      libraryStatus: TranscriptEnrichmentService._cleanNullableText(
+        json['user_library_status'] ?? json['userLibraryStatus'],
       ),
     );
   }
@@ -1516,7 +1643,7 @@ class TranscriptEnrichmentService {
           Map<String, dynamic>.from(item),
         );
         if (mention.title.isEmpty) continue;
-        byKey[_mentionKey(mention.title)] = mention;
+        byKey[_mentionIdentityKey(mention.type, mention.title)] = mention;
       }
     }
     final books = data['books'];
@@ -1525,13 +1652,36 @@ class TranscriptEnrichmentService {
         if (item is! Map) continue;
         final title = _cleanText(item['title']);
         if (title.isEmpty) continue;
-        byKey[_mentionKey(title)] = EnrichedMention(
-          title: title,
-          type: 'book',
-          whyMentioned: _cleanNullableText(
-            item['why_mentioned'] ?? item['reason'] ?? item['description'],
+        byKey.putIfAbsent(
+          _mentionIdentityKey('book', title),
+          () => EnrichedMention(
+            title: title,
+            type: 'book',
+            subtype: 'book',
+            creator: _cleanNullableText(item['author'] ?? item['creator']),
+            year: _cleanNullableText(
+              item['year'] ?? item['first_publish_year'],
+            ),
+            whyMentioned: _cleanNullableText(
+              item['why_mentioned'] ?? item['reason'] ?? item['description'],
+            ),
+            posterUrl: _cleanNullableText(
+              item['cover_url'] ?? item['coverUrl'],
+            ),
+            genres: _extractGenreList(item['genres'] ?? item['genre']),
+            rawGenres: _extractGenreList(
+              item['raw_genres'] ?? item['rawGenres'] ?? item['subjects'],
+            ),
+            catalogId: _cleanNullableText(
+              item['catalog_id'] ?? item['catalogId'] ?? item['work_id'],
+            ),
+            catalogSource: _cleanNullableText(
+              item['catalog_source'] ?? item['catalogSource'],
+            ),
+            matchConfidence: _toDouble(
+              item['match_confidence'] ?? item['matchConfidence'],
+            ),
           ),
-          posterUrl: _cleanNullableText(item['cover_url'] ?? item['coverUrl']),
         );
       }
     }
@@ -1541,15 +1691,34 @@ class TranscriptEnrichmentService {
         if (item is! Map) continue;
         final title = _cleanText(item['title']);
         if (title.isEmpty) continue;
-        byKey[_mentionKey(title)] = EnrichedMention(
-          title: title,
-          type: 'movie',
-          year: _cleanNullableText(item['year']),
-          whyMentioned: _cleanNullableText(
-            item['why_mentioned'] ?? item['reason'] ?? item['description'],
-          ),
-          posterUrl: _cleanNullableText(
-            item['poster_url'] ?? item['posterUrl'],
+        final subtype = _cleanNullableText(item['subtype'] ?? item['type']);
+        byKey.putIfAbsent(
+          _mentionIdentityKey('movie', title),
+          () => EnrichedMention(
+            title: title,
+            type: 'movie',
+            subtype: subtype ?? 'movie',
+            creator: _cleanNullableText(item['creator'] ?? item['director']),
+            year: _cleanNullableText(item['year']),
+            whyMentioned: _cleanNullableText(
+              item['why_mentioned'] ?? item['reason'] ?? item['description'],
+            ),
+            posterUrl: _cleanNullableText(
+              item['poster_url'] ?? item['posterUrl'],
+            ),
+            genres: _extractGenreList(item['genres'] ?? item['genre']),
+            rawGenres: _extractGenreList(
+              item['raw_genres'] ?? item['rawGenres'],
+            ),
+            catalogId: _cleanNullableText(
+              item['catalog_id'] ?? item['catalogId'] ?? item['tmdb_id'],
+            ),
+            catalogSource: _cleanNullableText(
+              item['catalog_source'] ?? item['catalogSource'],
+            ),
+            matchConfidence: _toDouble(
+              item['match_confidence'] ?? item['matchConfidence'],
+            ),
           ),
         );
       }
@@ -1565,10 +1734,26 @@ class TranscriptEnrichmentService {
           _cleanText(item['country']),
         ].where((part) => part.isNotEmpty).join(', ');
         byKey.putIfAbsent(
-          _mentionKey(title),
+          _mentionIdentityKey('place', title),
           () => EnrichedMention(
             title: title,
             type: 'place',
+            subtype: 'place',
+            city: _cleanNullableText(item['city']),
+            country: _cleanNullableText(item['country']),
+            latitude: _toDouble(item['latitude'] ?? item['lat']),
+            longitude: _toDouble(
+              item['longitude'] ?? item['lon'] ?? item['lng'],
+            ),
+            catalogId: _cleanNullableText(
+              item['catalog_id'] ?? item['catalogId'] ?? item['place_id'],
+            ),
+            catalogSource: _cleanNullableText(
+              item['catalog_source'] ?? item['catalogSource'],
+            ),
+            matchConfidence: _toDouble(
+              item['match_confidence'] ?? item['matchConfidence'],
+            ),
             whyMentioned:
                 _cleanNullableText(
                   item['why_mentioned'] ??
@@ -1587,16 +1772,14 @@ class TranscriptEnrichmentService {
         final type = _normalizeMentionType(item['type']);
         final title = _cleanText(item['name'] ?? item['title']);
         if (title.isEmpty) continue;
-        final key = _mentionKey(title);
+        final key = _mentionIdentityKey(type, title);
         byKey.putIfAbsent(
           key,
-          () => EnrichedMention(
-            title: title,
-            type: type,
-            whyMentioned: _cleanNullableText(
-              item['why_mentioned'] ?? item['reason'],
-            ),
-          ),
+          () => EnrichedMention.fromJson({
+            ...Map<String, dynamic>.from(item),
+            'title': title,
+            'type': type,
+          }),
         );
       }
     }
@@ -1641,6 +1824,23 @@ class TranscriptEnrichmentService {
         .map((item) => _cleanText(item))
         .where((item) => item.isNotEmpty)
         .toList();
+  }
+
+  static List<String> _extractGenreList(Object? raw) {
+    final values = raw is List
+        ? raw
+        : raw is String
+        ? raw.split(RegExp(r'[,;/|]'))
+        : const <Object?>[];
+    final seen = <String>{};
+    final genres = <String>[];
+    for (final value in values) {
+      final cleaned = _cleanText(value);
+      if (cleaned.isEmpty) continue;
+      final key = cleaned.toLowerCase();
+      if (seen.add(key)) genres.add(cleaned);
+    }
+    return genres.take(12).toList(growable: false);
   }
 
   static String _contentTypeFromJson(Map<String, dynamic> json) {
@@ -1784,6 +1984,9 @@ class TranscriptEnrichmentService {
   static String _mentionKey(String value) {
     return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
   }
+
+  static String _mentionIdentityKey(String type, String title) =>
+      '${_normalizeMentionType(type)}:${_mentionKey(title)}';
 
   static Future<TranscriptEnrichmentResult?> _readPersisted(
     String rawUrl,

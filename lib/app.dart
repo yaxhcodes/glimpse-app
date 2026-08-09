@@ -38,6 +38,10 @@ import 'features/collections/collections_provider.dart';
 import 'features/collections/collections_screen.dart';
 import 'features/collections/create_collection_screen.dart';
 import 'features/collections/share_capture_sheet.dart';
+import 'features/library/library_browser_screen.dart';
+import 'features/library/library_entity.dart';
+import 'features/library/library_entity_detail_screen.dart';
+import 'features/library/library_places_screen.dart';
 import 'features/digest/digest_screen.dart';
 import 'features/digest/notification_detail_screen.dart';
 import 'features/digest/notifications_screen.dart';
@@ -143,6 +147,26 @@ final _router = GoRouter(
         final id = int.parse(state.pathParameters['id']!);
         return CollectionDetailScreen(collectionId: id);
       },
+    ),
+    GoRoute(
+      path: '/library/books',
+      builder: (context, state) =>
+          const LibraryBrowserScreen(kind: LibraryEntityKind.book),
+    ),
+    GoRoute(
+      path: '/library/movies',
+      builder: (context, state) =>
+          const LibraryBrowserScreen(kind: LibraryEntityKind.movie),
+    ),
+    GoRoute(
+      path: '/library/places',
+      builder: (context, state) => const LibraryPlacesScreen(),
+    ),
+    GoRoute(
+      path: '/library/entity/:key',
+      builder: (context, state) => LibraryEntityDetailScreen(
+        entityKey: Uri.decodeComponent(state.pathParameters['key']!),
+      ),
     ),
     GoRoute(
       path: '/url/:id',
@@ -399,9 +423,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (extracted.urls.isEmpty) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(
-        _handleSharedUrls(extracted.urls),
-      );
+      unawaited(_handleSharedUrls(extracted.urls));
     });
   }
 
@@ -634,9 +656,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           pendingSharedUrls.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          unawaited(
-            _handleSharedUrls(pendingSharedUrls),
-          );
+          unawaited(_handleSharedUrls(pendingSharedUrls));
         });
       }
       if (!wasSignedIn || !isSignedOut) return;

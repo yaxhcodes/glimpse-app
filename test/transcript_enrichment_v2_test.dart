@@ -73,6 +73,93 @@ void main() {
       expect(result.steps.single.title, 'One older takeaway.');
     });
 
+    test('preserves schema v3 catalog metadata through a round trip', () {
+      final result = TranscriptEnrichmentResult.fromJson({
+        'schema_version': 3,
+        'meaningful_title': 'A reading list',
+        'summary': 'Books worth returning to.',
+        'category': 'Books',
+        'tags': ['reading'],
+        'mentions': [
+          {
+            'title': 'The Left Hand of Darkness',
+            'type': 'book',
+            'subtype': 'novel',
+            'creator': 'Ursula K. Le Guin',
+            'year': '1969',
+            'genres': ['Science Fiction'],
+            'raw_genres': ['Science fiction'],
+            'artwork_url': 'https://covers.example/left-hand.jpg',
+            'catalog_id': 'OL20532W',
+            'catalog_source': 'open_library',
+            'match_confidence': 0.97,
+            'user_library_status': 'active',
+          },
+          {
+            'title': 'Kyoto',
+            'type': 'place',
+            'city': 'Kyoto',
+            'country': 'Japan',
+            'latitude': 35.0116,
+            'longitude': 135.7681,
+          },
+        ],
+      });
+
+      final roundTrip = TranscriptEnrichmentResult.fromJson(result!.toJson())!;
+      final book = roundTrip.mentions.first;
+      final place = roundTrip.mentions.last;
+
+      expect(roundTrip.schemaVersion, 3);
+      expect(book.creator, 'Ursula K. Le Guin');
+      expect(book.genres, ['Science Fiction']);
+      expect(book.catalogId, 'OL20532W');
+      expect(book.artworkUrl, 'https://covers.example/left-hand.jpg');
+      expect(book.matchConfidence, 0.97);
+      expect(book.libraryStatus, 'active');
+      expect(place.city, 'Kyoto');
+      expect(place.latitude, closeTo(35.0116, 0.00001));
+      expect(place.longitude, closeTo(135.7681, 0.00001));
+    });
+
+    test('continues to parse legacy top-level entity arrays', () {
+      final result = TranscriptEnrichmentResult.fromJson({
+        'schema_version': 2,
+        'meaningful_title': 'Legacy recommendations',
+        'summary': 'Older structured entities.',
+        'category': 'Books',
+        'tags': ['books'],
+        'books': [
+          {
+            'title': 'Piranesi',
+            'author': 'Susanna Clarke',
+            'genre': 'Fantasy',
+            'cover_url': 'https://covers.example/piranesi.jpg',
+          },
+        ],
+        'movies': [
+          {
+            'title': 'Arrival',
+            'year': '2016',
+            'type': 'movie',
+            'poster_url': 'https://posters.example/arrival.jpg',
+          },
+        ],
+        'places': [
+          {'name': 'Louvre Museum', 'city': 'Paris', 'country': 'France'},
+        ],
+      });
+
+      expect(result!.mentions.map((mention) => mention.type), [
+        'book',
+        'movie',
+        'place',
+      ]);
+      expect(result.mentions.first.creator, 'Susanna Clarke');
+      expect(result.mentions[1].subtype, 'movie');
+      expect(result.mentions.last.city, 'Paris');
+    });
+
     test('preserves useful game, music, and tool entities', () {
       final result = TranscriptEnrichmentResult.fromJson({
         'meaningful_title': 'Offline game recommendations',

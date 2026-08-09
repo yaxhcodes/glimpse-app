@@ -966,6 +966,12 @@ class BackupService {
         prefs,
         'has_shown_first_save_celebration',
       ),
+      collectionsSurfaceMode: _readString(
+        prefs,
+        'glimpse_collections_surface_mode',
+      ),
+      hiddenLibraryEntityKeys:
+          prefs.getStringList('glimpse_library_hidden_entity_keys') ?? const [],
     );
   }
 
@@ -1059,6 +1065,16 @@ class BackupService {
       if (settings.digestEnabled != null) {
         await prefs.setBool('digest_enabled', settings.digestEnabled!);
       }
+      if (settings.collectionsSurfaceMode != null) {
+        await prefs.setString(
+          'glimpse_collections_surface_mode',
+          settings.collectionsSurfaceMode!,
+        );
+      }
+      await prefs.setStringList(
+        'glimpse_library_hidden_entity_keys',
+        settings.hiddenLibraryEntityKeys,
+      );
     } else {
       if (settings.userDisplayName != null &&
           (prefs.getString('glimpse_user_display_name') ?? '').isEmpty) {
@@ -1066,6 +1082,15 @@ class BackupService {
           'glimpse_user_display_name',
           settings.userDisplayName!,
         );
+      }
+      if (settings.hiddenLibraryEntityKeys.isNotEmpty) {
+        final current =
+            prefs.getStringList('glimpse_library_hidden_entity_keys') ?? [];
+        final merged = {
+          ...current,
+          ...settings.hiddenLibraryEntityKeys,
+        }.toList()..sort();
+        await prefs.setStringList('glimpse_library_hidden_entity_keys', merged);
       }
     }
 

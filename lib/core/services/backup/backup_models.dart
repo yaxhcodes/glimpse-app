@@ -330,6 +330,8 @@ class SettingsBackup {
   final bool? hasSeenOnboarding;
   final bool? hasSeenShareTip;
   final bool? hasShownFirstSaveCelebration;
+  final String? collectionsSurfaceMode;
+  final List<String> hiddenLibraryEntityKeys;
 
   SettingsBackup({
     this.themeMode,
@@ -343,6 +345,8 @@ class SettingsBackup {
     this.hasSeenOnboarding,
     this.hasSeenShareTip,
     this.hasShownFirstSaveCelebration,
+    this.collectionsSurfaceMode,
+    this.hiddenLibraryEntityKeys = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -358,6 +362,10 @@ class SettingsBackup {
     if (hasSeenShareTip != null) 'hasSeenShareTip': hasSeenShareTip,
     if (hasShownFirstSaveCelebration != null)
       'hasShownFirstSaveCelebration': hasShownFirstSaveCelebration,
+    if (collectionsSurfaceMode != null)
+      'collectionsSurfaceMode': collectionsSurfaceMode,
+    if (hiddenLibraryEntityKeys.isNotEmpty)
+      'hiddenLibraryEntityKeys': hiddenLibraryEntityKeys,
   };
 
   factory SettingsBackup.fromJson(Map<String, dynamic> json) => SettingsBackup(
@@ -372,6 +380,13 @@ class SettingsBackup {
     hasSeenOnboarding: json['hasSeenOnboarding'] as bool?,
     hasSeenShareTip: json['hasSeenShareTip'] as bool?,
     hasShownFirstSaveCelebration: json['hasShownFirstSaveCelebration'] as bool?,
+    collectionsSurfaceMode: json['collectionsSurfaceMode'] as String?,
+    hiddenLibraryEntityKeys:
+        (json['hiddenLibraryEntityKeys'] as List<dynamic>?)
+            ?.map((value) => value.toString())
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false) ??
+        const [],
   );
 }
 
