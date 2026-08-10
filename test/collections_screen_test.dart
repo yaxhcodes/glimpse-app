@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:glimpse/core/database/isar_service.dart';
 import 'package:glimpse/core/models/user_collection.dart';
 import 'package:glimpse/core/providers/analytics_provider.dart';
@@ -10,6 +11,7 @@ import 'package:glimpse/features/collections/collections_provider.dart';
 import 'package:glimpse/features/collections/collections_preferences_provider.dart';
 import 'package:glimpse/features/collections/collections_screen.dart';
 import 'package:glimpse/features/library/library_entity.dart';
+import 'package:glimpse/features/library/library_home.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,7 +42,10 @@ void main() {
     final navigationRect = tester.getRect(find.byType(NavigationBar));
     expect(fabRect.bottom, lessThanOrEqualTo(navigationRect.top));
 
-    await tester.drag(find.byType(GridView), const Offset(0, -10000));
+    await tester.drag(
+      find.byKey(const ValueKey('collections-grid')),
+      const Offset(0, -10000),
+    );
     await tester.pumpAndSettle();
     final lastCollectionRect = tester.getRect(find.text('Collection 1'));
     expect(lastCollectionRect.bottom, lessThanOrEqualTo(navigationRect.top));
@@ -50,7 +55,10 @@ void main() {
     await _tapPopupItem(tester, 'List');
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('collections-list')), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -10000));
+    await tester.drag(
+      find.byKey(const ValueKey('collections-list')),
+      const Offset(0, -10000),
+    );
     await tester.pumpAndSettle();
     final lastListCollectionRect = tester.getRect(find.text('Collection 1'));
     expect(
@@ -79,25 +87,65 @@ void main() {
     expect(find.byIcon(Icons.check_rounded), findsNWidgets(2));
   });
 
-  testWidgets('compact mode tabs persist Library selection', (tester) async {
+  testWidgets('Library gateway opens a dedicated screen without repetition', (
+    tester,
+  ) async {
     await _pumpCollections(tester, [_summary(1, 'Reading')]);
 
-    expect(find.byType(TabBar), findsOneWidget);
+    expect(find.byKey(const ValueKey('library-gateway-card')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('collections-library-switch')),
+      findsNothing,
+    );
+    expect(find.byType(TabBar), findsNothing);
     expect(find.byKey(const ValueKey('collections-grid')), findsOneWidget);
-    await tester.tap(find.text('Library'));
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('collections-surface-title')))
+          .data,
+      'Collections',
+    );
+    expect(find.byTooltip('Collection options'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('library-gateway-card')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Your Library will build itself'), findsOneWidget);
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString(librarySurfaceModePrefsKey), 'library');
+    expect(find.text('Library'), findsOneWidget);
+    expect(find.text('It builds as you save'), findsOneWidget);
+    expect(find.text('Your Library'), findsNothing);
+    expect(find.byKey(const ValueKey('library-gateway-card')), findsNothing);
+    expect(find.byTooltip('Collection options'), findsNothing);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await _pumpCollections(tester, [_summary(1, 'Reading')]);
-    expect(find.text('Your Library will build itself'), findsOneWidget);
-
-    await tester.tap(find.text('Collections').last);
+    await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('collections-grid')), findsOneWidget);
+    expect(find.byTooltip('Collection options'), findsOneWidget);
+  });
+
+  testWidgets('Library gateway handles narrow dark layouts and large text', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await _pumpCollections(
+      tester,
+      const [],
+      brightness: Brightness.dark,
+      textScaler: const TextScaler.linear(2),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('library-gateway-card'))).width,
+      288,
+    );
+    expect(
+      find.byKey(const ValueKey('collections-library-switch')),
+      findsNothing,
+    );
   });
 
   testWidgets('long press selects collections and back exits selection', (
@@ -223,7 +271,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Cancel'));
     await tester.pumpAndSettle();
-    expect(find.byType(GridView), findsOneWidget);
+    expect(find.byKey(const ValueKey('collections-grid')), findsOneWidget);
   });
 
   testWidgets('finishing reorder persists the displayed order as manual', (
@@ -278,7 +326,38 @@ Future<void> _pumpCollections(
   List<CollectionSummary> summaries, {
   IsarService? isar,
   bool withNavigationBar = false,
+  Brightness brightness = Brightness.light,
+  TextScaler textScaler = TextScaler.noScaling,
 }) async {
+  final home = withNavigationBar
+      ? Scaffold(
+          extendBody: true,
+          body: const CollectionsScreen(embedded: true),
+          bottomNavigationBar: NavigationBar(
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.collections_outlined),
+                label: 'Collections',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.search_outlined),
+                label: 'Search',
+              ),
+            ],
+          ),
+        )
+      : const CollectionsScreen();
+  final router = GoRouter(
+    routes: [
+      GoRoute(path: '/', builder: (context, state) => home),
+      GoRoute(
+        path: '/library',
+        builder: (context, state) => const LibraryScreen(),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -289,26 +368,13 @@ Future<void> _pumpCollections(
         ),
         if (isar != null) isarServiceProvider.overrideWithValue(isar),
       ],
-      child: MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        home: withNavigationBar
-            ? Scaffold(
-                extendBody: true,
-                body: const CollectionsScreen(embedded: true),
-                bottomNavigationBar: NavigationBar(
-                  destinations: const [
-                    NavigationDestination(
-                      icon: Icon(Icons.collections_outlined),
-                      label: 'Collections',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.search_outlined),
-                      label: 'Search',
-                    ),
-                  ],
-                ),
-              )
-            : const CollectionsScreen(),
+      child: MaterialApp.router(
+        theme: ThemeData(useMaterial3: true, brightness: brightness),
+        routerConfig: router,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+          child: child!,
+        ),
       ),
     ),
   );

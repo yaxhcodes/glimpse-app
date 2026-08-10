@@ -12,31 +12,16 @@ import '../../core/services/analytics_service.dart';
 import '../../core/services/transcript_enrichment_service.dart';
 import 'library_entity.dart';
 
-const librarySurfaceModePrefsKey = 'glimpse_collections_surface_mode';
 const libraryHiddenEntityKeysPrefsKey = 'glimpse_library_hidden_entity_keys';
 
-enum CollectionsSurfaceMode { collections, library }
-
 class LibraryPreferencesState {
-  const LibraryPreferencesState({
-    this.mode = CollectionsSurfaceMode.collections,
-    this.hiddenEntityKeys = const {},
-    this.isLoaded = false,
-  });
+  const LibraryPreferencesState({this.hiddenEntityKeys = const {}});
 
-  final CollectionsSurfaceMode mode;
   final Set<String> hiddenEntityKeys;
-  final bool isLoaded;
 
-  LibraryPreferencesState copyWith({
-    CollectionsSurfaceMode? mode,
-    Set<String>? hiddenEntityKeys,
-    bool? isLoaded,
-  }) {
+  LibraryPreferencesState copyWith({Set<String>? hiddenEntityKeys}) {
     return LibraryPreferencesState(
-      mode: mode ?? this.mode,
       hiddenEntityKeys: hiddenEntityKeys ?? this.hiddenEntityKeys,
-      isLoaded: isLoaded ?? this.isLoaded,
     );
   }
 }
@@ -49,22 +34,8 @@ class LibraryPreferencesNotifier
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final rawMode = prefs.getString(librarySurfaceModePrefsKey);
     final hidden = prefs.getStringList(libraryHiddenEntityKeysPrefsKey) ?? [];
-    state = LibraryPreferencesState(
-      mode: rawMode == CollectionsSurfaceMode.library.name
-          ? CollectionsSurfaceMode.library
-          : CollectionsSurfaceMode.collections,
-      hiddenEntityKeys: Set.unmodifiable(hidden),
-      isLoaded: true,
-    );
-  }
-
-  Future<void> setMode(CollectionsSurfaceMode mode) async {
-    if (state.mode == mode) return;
-    state = state.copyWith(mode: mode);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(librarySurfaceModePrefsKey, mode.name);
+    state = LibraryPreferencesState(hiddenEntityKeys: Set.unmodifiable(hidden));
   }
 
   Future<void> hide(String key, {String? provisionalKey}) async {

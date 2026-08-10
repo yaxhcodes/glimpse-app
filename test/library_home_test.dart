@@ -22,7 +22,7 @@ void main() {
     await tester.pumpWidget(_app(const LibrarySnapshot(entities: [])));
     await tester.pump();
 
-    expect(find.text('Your Library will build itself'), findsOneWidget);
+    expect(find.text('It builds as you save'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -70,6 +70,8 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 250));
 
+    expect(find.text('Found in your saves'), findsOneWidget);
+    expect(find.text('Your Library'), findsNothing);
     expect(find.text('Books'), findsOneWidget);
     expect(find.text('12 books'), findsOneWidget);
     expect(find.text('4 places'), findsOneWidget);
@@ -127,10 +129,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.dragFrom(
-      const Offset(400, 500),
-      const Offset(0, -360),
-    );
+    await tester.dragFrom(const Offset(400, 500), const Offset(0, -360));
     await tester.pumpAndSettle();
 
     expect(find.text('A tiny ramen shop'), findsOneWidget);

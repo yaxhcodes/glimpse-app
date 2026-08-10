@@ -10,8 +10,9 @@ import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/expressive_fab.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
-import '../library/library_home.dart';
+import '../library/library_entity.dart';
 import '../library/library_provider.dart';
+import '../library/library_widgets.dart';
 import 'collection_card.dart';
 import 'collection_reorder_sheet.dart';
 import 'collections_provider.dart';
@@ -26,106 +27,6 @@ enum _CollectionsMenuAction {
   sortNewest,
   sortName,
   reorder,
-}
-
-class _CollectionsLibrarySwitch extends StatefulWidget {
-  const _CollectionsLibrarySwitch({
-    required this.mode,
-    required this.onChanged,
-  });
-
-  final CollectionsSurfaceMode mode;
-  final ValueChanged<CollectionsSurfaceMode> onChanged;
-
-  @override
-  State<_CollectionsLibrarySwitch> createState() =>
-      _CollectionsLibrarySwitchState();
-}
-
-class _CollectionsLibrarySwitchState extends State<_CollectionsLibrarySwitch>
-    with SingleTickerProviderStateMixin {
-  late final TabController _controller = TabController(
-    length: CollectionsSurfaceMode.values.length,
-    vsync: this,
-    initialIndex: widget.mode.index,
-  );
-
-  @override
-  void didUpdateWidget(covariant _CollectionsLibrarySwitch oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.mode != oldWidget.mode &&
-        _controller.index != widget.mode.index) {
-      final media = MediaQuery.of(context);
-      if (media.disableAnimations || media.accessibleNavigation) {
-        _controller.index = widget.mode.index;
-      } else {
-        _controller.animateTo(widget.mode.index);
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: TabBar(
-          controller: _controller,
-          indicatorSize: TabBarIndicatorSize.label,
-          dividerColor: Colors.transparent,
-          labelColor: cs.primary,
-          unselectedLabelColor: cs.onSurfaceVariant,
-          labelStyle: Theme.of(
-            context,
-          ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          unselectedLabelStyle: Theme.of(context).textTheme.labelLarge,
-          splashBorderRadius: BorderRadius.circular(16),
-          onTap: (index) =>
-              widget.onChanged(CollectionsSurfaceMode.values[index]),
-          tabs: const [
-            _MaterialModeTab(icon: Icons.folder_rounded, label: 'Collections'),
-            _MaterialModeTab(
-              icon: Icons.auto_stories_rounded,
-              label: 'Library',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MaterialModeTab extends StatelessWidget {
-  const _MaterialModeTab({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 7),
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class CollectionsScreen extends ConsumerStatefulWidget {
@@ -154,10 +55,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final selectionNotifier = ref.read(
       bulkSelectionProvider(_selectionScope).notifier,
     );
-    final libraryPreferences = ref.watch(libraryPreferencesProvider);
-    final showLibrary =
-        !selectionState.isActive &&
-        libraryPreferences.mode == CollectionsSurfaceMode.library;
+    final librarySnapshot = ref.watch(librarySnapshotProvider).valueOrNull;
     final loadedCollections = async.valueOrNull ?? const <CollectionSummary>[];
     final orderedCollections = preferences.sortSummaries(loadedCollections);
     final selectedCollections = orderedCollections
@@ -210,6 +108,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
               ? BulkSelectionTitle(count: selectedCollections.length)
               : Text(
                   'Collections',
+                  key: const ValueKey('collections-surface-title'),
                   style: tt.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: cs.onSurface,
@@ -264,7 +163,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   ),
                 ]
               : [
-                  if (!showLibrary && hasCollections)
+                  if (hasCollections)
                     _CollectionsOptionsMenu(
                       preferences: preferences,
                       canReorder: loadedCollections.length > 1,
@@ -275,135 +174,142 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                         preferencesNotifier,
                       ),
                     ),
-                  if (!showLibrary && hasCollections) const SizedBox(width: 8),
+                  if (hasCollections) const SizedBox(width: 8),
                 ],
-          bottom: selectionState.isActive
-              ? null
-              : PreferredSize(
-                  preferredSize: const Size.fromHeight(48),
-                  child: _CollectionsLibrarySwitch(
-                    mode: libraryPreferences.mode,
-                    onChanged: (mode) => ref
-                        .read(libraryPreferencesProvider.notifier)
-                        .setMode(mode),
-                  ),
-                ),
         ),
-        body: showLibrary
-            ? LibraryHome(bottomPadding: scrollBottomPadding)
-            : async.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('$e')),
-                data: (rawCollections) {
-                  _scheduleCollectionStateSync(
-                    rawCollections,
-                    preferences,
-                    preferencesNotifier,
-                    selectionNotifier,
-                  );
-                  final collections = preferences.sortSummaries(rawCollections);
-                  if (collections.isEmpty) {
-                    return _CollectionsEmptyState(
+        body: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('$e')),
+          data: (rawCollections) {
+            _scheduleCollectionStateSync(
+              rawCollections,
+              preferences,
+              preferencesNotifier,
+              selectionNotifier,
+            );
+            final collections = preferences.sortSummaries(rawCollections);
+            if (collections.isEmpty) {
+              return CustomScrollView(
+                key: const ValueKey('collections-empty'),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _LibraryGatewayCard(
+                        entities: librarySnapshot?.entities ?? const [],
+                        enabled: !selectionState.isActive,
+                        onTap: () => context.push('/library'),
+                      ),
+                    ),
+                  ),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _CollectionsEmptyState(
                       colorScheme: cs,
                       textTheme: tt,
                       onCreate: () => _createCollection(context),
-                    );
-                  }
-                  return DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          cs.surface,
-                          cs.surfaceContainerLow.withValues(alpha: 0.42),
-                        ],
+                    ),
+                  ),
+                ],
+              );
+            }
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    cs.surface,
+                    cs.surfaceContainerLow.withValues(alpha: 0.42),
+                  ],
+                ),
+              ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeOutCubic,
+                child: CustomScrollView(
+                  key: ValueKey(
+                    preferences.layout == CollectionsLayout.grid
+                        ? 'collections-grid'
+                        : 'collections-list',
+                  ),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      sliver: SliverToBoxAdapter(
+                        child: _LibraryGatewayCard(
+                          entities: librarySnapshot?.entities ?? const [],
+                          enabled: !selectionState.isActive,
+                          onTap: () => context.push('/library'),
+                        ),
                       ),
                     ),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 180),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeOutCubic,
-                            child: preferences.layout == CollectionsLayout.grid
-                                ? GridView.builder(
-                                    key: const ValueKey('collections-grid'),
-                                    padding: EdgeInsets.fromLTRB(
-                                      16,
-                                      8,
-                                      16,
-                                      scrollBottomPadding,
-                                    ),
-                                    gridDelegate:
-                                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                                          maxCrossAxisExtent: 224,
-                                          crossAxisSpacing: 12,
-                                          mainAxisSpacing: 12,
-                                          childAspectRatio: 0.96,
-                                        ),
-                                    itemCount: collections.length,
-                                    itemBuilder: (context, i) {
-                                      final summary = collections[i];
-                                      final id = summary.collection.id;
-                                      return ExpressiveTapScale(
-                                        child: CollectionCard(
-                                          key: ValueKey('collection-card-$id'),
-                                          summary: summary,
-                                          selectionMode:
-                                              selectionState.isActive,
-                                          isSelected: selectionState.isSelected(
-                                            id,
-                                          ),
-                                          onSelectionStart: () =>
-                                              selectionNotifier.startWith(id),
-                                          onSelectionToggle: () =>
-                                              selectionNotifier.toggle(id),
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : ListView.builder(
-                                    key: const ValueKey('collections-list'),
-                                    padding: EdgeInsets.fromLTRB(
-                                      0,
-                                      8,
-                                      0,
-                                      scrollBottomPadding,
-                                    ),
-                                    itemCount: collections.length,
-                                    itemBuilder: (context, i) {
-                                      final summary = collections[i];
-                                      final id = summary.collection.id;
-                                      return ExpressiveTapScale(
-                                        child: CollectionListCard(
-                                          key: ValueKey(
-                                            'collection-list-card-$id',
-                                          ),
-                                          summary: summary,
-                                          selectionMode:
-                                              selectionState.isActive,
-                                          isSelected: selectionState.isSelected(
-                                            id,
-                                          ),
-                                          onSelectionStart: () =>
-                                              selectionNotifier.startWith(id),
-                                          onSelectionToggle: () =>
-                                              selectionNotifier.toggle(id),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
+                    if (preferences.layout == CollectionsLayout.grid)
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          0,
+                          16,
+                          scrollBottomPadding,
                         ),
-                      ],
-                    ),
-                  );
-                },
+                        sliver: SliverGrid.builder(
+                          gridDelegate:
+                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 224,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 0.96,
+                              ),
+                          itemCount: collections.length,
+                          itemBuilder: (context, i) {
+                            final summary = collections[i];
+                            final id = summary.collection.id;
+                            return ExpressiveTapScale(
+                              child: CollectionCard(
+                                key: ValueKey('collection-card-$id'),
+                                summary: summary,
+                                selectionMode: selectionState.isActive,
+                                isSelected: selectionState.isSelected(id),
+                                onSelectionStart: () =>
+                                    selectionNotifier.startWith(id),
+                                onSelectionToggle: () =>
+                                    selectionNotifier.toggle(id),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: EdgeInsets.only(bottom: scrollBottomPadding),
+                        sliver: SliverList.builder(
+                          itemCount: collections.length,
+                          itemBuilder: (context, i) {
+                            final summary = collections[i];
+                            final id = summary.collection.id;
+                            return ExpressiveTapScale(
+                              child: CollectionListCard(
+                                key: ValueKey('collection-list-card-$id'),
+                                summary: summary,
+                                selectionMode: selectionState.isActive,
+                                isSelected: selectionState.isSelected(id),
+                                onSelectionStart: () =>
+                                    selectionNotifier.startWith(id),
+                                onSelectionToggle: () =>
+                                    selectionNotifier.toggle(id),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
               ),
-        floatingActionButton:
-            !showLibrary && hasCollections && !selectionState.isActive
+            );
+          },
+        ),
+        floatingActionButton: hasCollections && !selectionState.isActive
             ? Padding(
                 padding: EdgeInsets.only(bottom: shellBottomInset),
                 child: ExpressiveFab(
@@ -609,6 +515,206 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     ref.invalidate(collectionsListProvider);
     ref.invalidate(collectionsSummaryProvider);
     context.push('/collections/${collection.id}');
+  }
+}
+
+class _LibraryGatewayCard extends StatelessWidget {
+  const _LibraryGatewayCard({
+    required this.entities,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final List<LibraryEntity> entities;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final artworkEntities = entities
+        .where((entity) => (entity.artworkUrl ?? '').trim().isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+    final itemLabel = entities.isEmpty
+        ? 'Builds quietly as you save'
+        : '${entities.length} ${entities.length == 1 ? 'item' : 'items'}';
+
+    return Semantics(
+      button: enabled,
+      label:
+          'Library, books, movies, and places found in your saves, $itemLabel',
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 160),
+        opacity: enabled ? 1 : 0.55,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.alphaBlend(
+                  cs.secondaryContainer.withValues(alpha: 0.52),
+                  cs.surfaceContainerLow,
+                ),
+                cs.surfaceContainerLow,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: const ValueKey('library-gateway-card'),
+              onTap: enabled ? onTap : null,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final useStackedLayout =
+                      constraints.maxWidth < 300 ||
+                      MediaQuery.textScalerOf(context).scale(1) > 1.4;
+                  final details = _LibraryGatewayDetails(itemLabel: itemLabel);
+                  final artwork = SizedBox(
+                    width: useStackedLayout ? 148 : 112,
+                    height: 86,
+                    child: _LibraryGatewayArtwork(entities: artworkEntities),
+                  );
+                  final arrow = Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 22,
+                    color: cs.onSurfaceVariant,
+                  );
+
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+                    child: useStackedLayout
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: details),
+                                  const SizedBox(width: 12),
+                                  arrow,
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: artwork,
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(child: details),
+                              const SizedBox(width: 12),
+                              artwork,
+                              const SizedBox(width: 4),
+                              arrow,
+                            ],
+                          ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LibraryGatewayDetails extends StatelessWidget {
+  const _LibraryGatewayDetails({required this.itemLabel});
+
+  final String itemLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Library',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: tt.titleMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          'Books, movies & places found in your saves',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: tt.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          itemLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: tt.labelSmall?.copyWith(
+            color: cs.onSurfaceVariant.withValues(alpha: 0.82),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LibraryGatewayArtwork extends StatelessWidget {
+  const _LibraryGatewayArtwork({required this.entities});
+
+  final List<LibraryEntity> entities;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if (entities.isEmpty) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Icon(
+          Icons.auto_awesome_mosaic_rounded,
+          size: 34,
+          color: cs.onSurfaceVariant,
+        ),
+      );
+    }
+
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        for (var index = 0; index < entities.length; index++)
+          Positioned(
+            left: 5 + index * 22,
+            top: index.isOdd ? 2 : 7,
+            width: 56,
+            height: 76,
+            child: Transform.rotate(
+              angle: (index - (entities.length - 1) / 2) * 0.055,
+              child: LibraryArtwork(
+                entity: entities[index],
+                borderRadius: BorderRadius.circular(11),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 

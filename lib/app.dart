@@ -42,6 +42,7 @@ import 'features/collections/share_capture_sheet.dart';
 import 'features/library/library_browser_screen.dart';
 import 'features/library/library_entity.dart';
 import 'features/library/library_entity_detail_screen.dart';
+import 'features/library/library_home.dart';
 import 'features/library/library_places_screen.dart';
 import 'features/library/place_itinerary_editor_screen.dart';
 import 'features/digest/digest_screen.dart';
@@ -149,6 +150,10 @@ final _router = GoRouter(
         final id = int.parse(state.pathParameters['id']!);
         return CollectionDetailScreen(collectionId: id);
       },
+    ),
+    GoRoute(
+      path: '/library',
+      builder: (context, state) => const LibraryScreen(),
     ),
     GoRoute(
       path: '/library/books',

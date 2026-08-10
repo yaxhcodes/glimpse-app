@@ -11,6 +11,18 @@ import 'library_entity.dart';
 import 'library_provider.dart';
 import 'library_widgets.dart';
 
+class LibraryScreen extends StatelessWidget {
+  const LibraryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Library')),
+      body: const LibraryHome(),
+    );
+  }
+}
+
 class LibraryHome extends ConsumerStatefulWidget {
   const LibraryHome({super.key, this.bottomPadding = 24});
 
@@ -135,33 +147,20 @@ class _LibraryDashboard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Your Library',
-                    style: tt.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.25,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Things discovered in your saves',
-                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              '${snapshot.entities.length} ${snapshot.entities.length == 1 ? 'item' : 'items'}',
-              style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
-            ),
-          ],
+        Text(
+          'Found in your saves',
+          style: tt.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.25,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          'Recognized and organized by type',
+          style: tt.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+            height: 1.35,
+          ),
         ),
         const SizedBox(height: 16),
         LayoutBuilder(
@@ -617,7 +616,7 @@ class _LibraryEmptyState extends StatelessWidget {
             Icon(Icons.auto_awesome_rounded, size: 64, color: cs.primary),
             const SizedBox(height: 20),
             Text(
-              'Your Library will build itself',
+              'It builds as you save',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
