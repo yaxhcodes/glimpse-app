@@ -7,9 +7,45 @@ import 'package:glimpse/core/services/backup/backup_models.dart';
 import 'package:glimpse/core/services/backup/backup_service.dart';
 
 void main() {
+  test('version 4 backup data round-trips place itineraries', () {
+    final backup = BackupData(
+      createdAt: DateTime(2026, 8, 10).toIso8601String(),
+      appVersion: '1.0.0',
+      links: const [],
+      collections: const [],
+      placeItineraries: [
+        PlaceItineraryBackup(
+          name: 'A day in Kyoto',
+          areaKey: 'kyoto|japan',
+          areaTitle: 'Kyoto',
+          country: 'Japan',
+          createdAt: DateTime(2026, 8, 10).toIso8601String(),
+          updatedAt: DateTime(2026, 8, 10).toIso8601String(),
+          stops: const [
+            PlaceItineraryStopBackup(
+              entityKey: 'place:1',
+              provisionalKey: 'place:kinkakuji|kyoto|japan',
+              title: 'Kinkaku-ji',
+              latitude: 35.0394,
+              longitude: 135.7292,
+            ),
+          ],
+        ),
+      ],
+      saveSessions: const [],
+      settings: SettingsBackup(),
+    );
+
+    final restored = BackupData.fromJson(backup.toJson());
+
+    expect(restored.version, 4);
+    expect(restored.placeItineraries.single.name, 'A day in Kyoto');
+    expect(restored.placeItineraries.single.stops.single.title, 'Kinkaku-ji');
+  });
+
   final service = BackupService(isarService: _UnusedIsarService());
 
-  test('version 3 round-trip preserves current saved-link state', () {
+  test('current-version round-trip preserves current saved-link state', () {
     final savedAt = DateTime.utc(2026, 7, 1);
     final processingUpdatedAt = DateTime.utc(2026, 7, 2);
     final dismissedAt = DateTime.utc(2026, 7, 3);
@@ -48,7 +84,7 @@ void main() {
     final json = service.toBackup(original).toJson();
     final restored = service.fromBackup(SavedUrlBackup.fromJson(json));
 
-    expect(BackupData.currentVersion, 3);
+    expect(BackupData.currentVersion, 4);
     expect(restored.processingStatus, original.processingStatus);
     expect(restored.processingId, original.processingId);
     expect(restored.processingAttempt, original.processingAttempt);

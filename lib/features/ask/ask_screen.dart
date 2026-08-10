@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/place_itinerary.dart';
+import '../../core/providers/analytics_provider.dart';
 import '../../core/models/user_collection.dart';
 import '../../core/providers/user_display_name_provider.dart';
 import '../../core/services/usage_service.dart';
@@ -19,11 +22,16 @@ import '../../core/database/isar_service.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/gemini_service.dart' show ChatAnswerType;
+import '../../core/services/analytics_service.dart';
 import '../../core/services/title_resolver.dart';
 import '../home/home_provider.dart';
 import '../collections/collection_visual.dart';
 import '../collections/collections_provider.dart';
 import '../collections/create_collection_sheet.dart';
+import '../library/library_entity.dart';
+import '../library/library_provider.dart';
+import '../library/place_itinerary_provider.dart';
+import 'ask_itinerary_builder.dart';
 import 'ask_empty_suggestions_provider.dart';
 import 'ask_greeting_service.dart';
 import 'ask_provider.dart';
@@ -36,10 +44,16 @@ const int _kAssistantHapticCharacterStep = 32;
 final Set<String> _completedAssistantAnimationIds = <String>{};
 
 class AskScreen extends ConsumerStatefulWidget {
-  const AskScreen({super.key, this.embedded = false, this.initialSource});
+  const AskScreen({
+    super.key,
+    this.embedded = false,
+    this.initialSource,
+    this.initialPrompt,
+  });
 
   final bool embedded;
   final SavedUrl? initialSource;
+  final String? initialPrompt;
 
   @override
   ConsumerState<AskScreen> createState() => _AskScreenState();
@@ -61,11 +75,19 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   void initState() {
     super.initState();
     _attachedSource = widget.initialSource;
-    if (widget.initialSource != null) {
+    if (widget.initialSource != null ||
+        widget.initialPrompt?.trim().isNotEmpty == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _clearedForInitialSource) return;
         _clearedForInitialSource = true;
         ref.read(askProvider.notifier).clearHistory();
+        final prompt = widget.initialPrompt?.trim() ?? '';
+        if (prompt.isNotEmpty) {
+          _controller.value = TextEditingValue(
+            text: prompt,
+            selection: TextSelection.collapsed(offset: prompt.length),
+          );
+        }
         _focusNode.requestFocus();
       });
     }
@@ -147,6 +169,67 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       preloadedSources: sources,
       originalQuestion: originalQuestion,
     );
+  }
+
+  Future<bool> _saveItineraryFromAnswer(ChatMessage message) async {
+    try {
+      final snapshot = await ref.read(librarySnapshotProvider.future);
+      final draft = AskItineraryBuilder.fromMessage(message, snapshot);
+      if (draft == null) {
+        _showItineraryMessage(
+          'This answer does not cite any saved places to add to a plan.',
+        );
+        return false;
+      }
+
+      final now = DateTime.now();
+      final itinerary = PlaceItinerary()
+        ..name = draft.name
+        ..areaKey = draft.areaKey
+        ..areaTitle = draft.areaTitle
+        ..country = draft.country
+        ..createdAt = now
+        ..updatedAt = now
+        ..stops = draft.entities
+            .map(itineraryStopFromEntity)
+            .toList(growable: false);
+      final id = await ref.read(placeItineraryActionsProvider).save(itinerary);
+
+      var statusFailures = 0;
+      for (final entity in draft.entities) {
+        if (entity.status != LibraryItemStatus.unlisted) continue;
+        try {
+          await ref
+              .read(libraryEntityActionsProvider)
+              .setStatus(entity, LibraryItemStatus.planning);
+        } catch (_) {
+          statusFailures++;
+        }
+      }
+      unawaited(
+        ref
+            .read(analyticsServiceProvider)
+            .trackEvent(AnalyticsEvent.placeItineraryCreated),
+      );
+      if (!mounted) return true;
+      if (statusFailures > 0) {
+        _showItineraryMessage(
+          'Itinerary saved. $statusFailures ${statusFailures == 1 ? 'place was' : 'places were'} not marked Want to visit.',
+        );
+      }
+      context.push('/library/places/itinerary/$id');
+      return true;
+    } catch (_) {
+      _showItineraryMessage('Could not save this itinerary. Try again.');
+      return false;
+    }
+  }
+
+  void _showItineraryMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showSaveToCollectionSheet(
@@ -354,6 +437,10 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                                       msg.sources,
                                       msg.originalQuestion ?? msg.text,
                                     )
+                                  : null,
+                              onSaveItineraryTap:
+                                  msg.action == ChatAction.saveItinerary
+                                  ? () => _saveItineraryFromAnswer(msg)
                                   : null,
                               onSaveToCollectionTap:
                                   msg.action == ChatAction.saveToCollection
@@ -588,6 +675,7 @@ class _ChatTurn extends StatelessWidget {
     this.onSaveAnswerToNotesTap,
     this.onSynthesizeTap,
     this.onBuildPlanTap,
+    this.onSaveItineraryTap,
     this.onSaveToCollectionTap,
   });
 
@@ -601,6 +689,7 @@ class _ChatTurn extends StatelessWidget {
   final Future<void> Function()? onSaveAnswerToNotesTap;
   final VoidCallback? onSynthesizeTap;
   final VoidCallback? onBuildPlanTap;
+  final Future<bool> Function()? onSaveItineraryTap;
   final VoidCallback? onSaveToCollectionTap;
 
   @override
@@ -619,6 +708,7 @@ class _ChatTurn extends StatelessWidget {
       onSaveAnswerToNotesTap: onSaveAnswerToNotesTap,
       onSynthesizeTap: onSynthesizeTap,
       onBuildPlanTap: onBuildPlanTap,
+      onSaveItineraryTap: onSaveItineraryTap,
       onSaveToCollectionTap: onSaveToCollectionTap,
     );
   }
@@ -719,6 +809,7 @@ class _AssistantBlock extends StatefulWidget {
     this.onSaveAnswerToNotesTap,
     this.onSynthesizeTap,
     this.onBuildPlanTap,
+    this.onSaveItineraryTap,
     this.onSaveToCollectionTap,
   });
 
@@ -732,6 +823,7 @@ class _AssistantBlock extends StatefulWidget {
   final Future<void> Function()? onSaveAnswerToNotesTap;
   final VoidCallback? onSynthesizeTap;
   final VoidCallback? onBuildPlanTap;
+  final Future<bool> Function()? onSaveItineraryTap;
   final VoidCallback? onSaveToCollectionTap;
 
   @override
@@ -1036,7 +1128,12 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                       _chipVisible)
                     _ChatActionChip(
                       action: widget.message.action,
-                      onTap: () {
+                      onTap: () async {
+                        if (widget.message.action == ChatAction.saveItinerary) {
+                          final saved =
+                              await widget.onSaveItineraryTap?.call() ?? false;
+                          if (!saved || !mounted) return;
+                        }
                         setState(() => _actionConsumed = true);
                         widget.onActionConsumed?.call();
                         switch (widget.message.action) {
@@ -1046,6 +1143,8 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                             widget.onSynthesizeTap?.call();
                           case ChatAction.buildPlan:
                             widget.onBuildPlanTap?.call();
+                          case ChatAction.saveItinerary:
+                            break;
                           case ChatAction.none:
                             break;
                         }
@@ -1942,6 +2041,10 @@ class _ChatActionChip extends StatelessWidget {
       ChatAction.buildPlan => (
         Icons.calendar_today_outlined,
         'Build a plan from these',
+      ),
+      ChatAction.saveItinerary => (
+        Icons.route_rounded,
+        'Save as editable itinerary',
       ),
       ChatAction.none => (null, ''),
     };

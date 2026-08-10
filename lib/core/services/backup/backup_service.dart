@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../database/isar_service.dart';
+import '../../models/place_itinerary.dart';
 import '../../models/saved_url.dart';
 import '../saved_notes_codec.dart';
 import '../../services/session_tracking_service.dart';
@@ -171,6 +172,13 @@ class BackupService {
     final collections = await _isarService.getAllCollections();
     developer.log('Loaded ${collections.length} collections', name: _tag);
 
+    developer.log('Loading place itineraries from Isar...', name: _tag);
+    final placeItineraries = await _isarService.getAllPlaceItineraries();
+    developer.log(
+      'Loaded ${placeItineraries.length} place itineraries',
+      name: _tag,
+    );
+
     developer.log('Loading session records...', name: _tag);
     final sessionService = SessionTrackingService();
     final sessionRecords = await sessionService.readAll();
@@ -210,6 +218,40 @@ class BackupService {
         )
         .toList();
 
+    final itineraryBackups = placeItineraries
+        .map(
+          (itinerary) => PlaceItineraryBackup(
+            name: itinerary.name,
+            areaKey: itinerary.areaKey,
+            areaTitle: itinerary.areaTitle,
+            country: itinerary.country,
+            date: itinerary.date?.toIso8601String(),
+            createdAt: itinerary.createdAt.toIso8601String(),
+            updatedAt: itinerary.updatedAt.toIso8601String(),
+            stops: itinerary.stops
+                .map(
+                  (stop) => PlaceItineraryStopBackup(
+                    entityKey: stop.entityKey,
+                    provisionalKey: stop.provisionalKey,
+                    catalogId: stop.catalogId,
+                    catalogSource: stop.catalogSource,
+                    sourceUrls: stop.sourceUrlIds
+                        .map((id) => urlMap[id])
+                        .whereType<String>()
+                        .toList(growable: false),
+                    title: stop.title,
+                    city: stop.city,
+                    country: stop.country,
+                    latitude: stop.latitude,
+                    longitude: stop.longitude,
+                    imageUrl: stop.imageUrl,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        )
+        .toList(growable: false);
+
     final sessionBackups = sessionRecords
         .map((r) {
           final rawUrl = urlById[r.urlId]?.rawUrl ?? '';
@@ -233,6 +275,7 @@ class BackupService {
       device: device,
       links: linkBackups,
       collections: collectionBackups,
+      placeItineraries: itineraryBackups,
       saveSessions: sessionBackups,
       settings: settings,
     );
@@ -572,6 +615,49 @@ class BackupService {
         }
       }
     }
+
+    final itineraries = decoded['placeItineraries'];
+    if (itineraries != null && itineraries is! List) {
+      throw BackupValidationException(
+        'Invalid backup: place itineraries is not a list.',
+      );
+    }
+    if (itineraries is List) {
+      for (var index = 0; index < itineraries.length; index++) {
+        final raw = itineraries[index];
+        if (raw is! Map<String, dynamic>) {
+          throw BackupValidationException(
+            'Invalid backup: itinerary ${index + 1} is not an object.',
+          );
+        }
+        final name = raw['name'];
+        if (name is! String || name.trim().isEmpty) {
+          throw BackupValidationException(
+            'Invalid backup: itinerary ${index + 1} has no name.',
+          );
+        }
+        _requireDate(raw['createdAt'], 'itinerary creation date');
+        _requireDate(raw['updatedAt'], 'itinerary update date');
+        if (raw['date'] != null) {
+          _requireDate(raw['date'], 'itinerary date');
+        }
+        final stops = raw['stops'];
+        if (stops is! List || stops.isEmpty) {
+          throw BackupValidationException(
+            'Invalid backup: itinerary "$name" has no stops.',
+          );
+        }
+        for (final stop in stops) {
+          if (stop is! Map<String, dynamic> ||
+              stop['title'] is! String ||
+              (stop['title'] as String).trim().isEmpty) {
+            throw BackupValidationException(
+              'Invalid backup: itinerary "$name" has a damaged stop.',
+            );
+          }
+        }
+      }
+    }
   }
 
   void _requireDate(Object? value, String label) {
@@ -687,7 +773,10 @@ class BackupService {
     final existingCollections = await _isarService.getAllCollections();
     final existingByName = {for (final c in existingCollections) c.name: c};
 
-    final totalOps = backup.links.length + backup.collections.length;
+    final totalOps =
+        backup.links.length +
+        backup.collections.length +
+        backup.placeItineraries.length;
     var completed = 0;
 
     final urlIdByRawUrl = <String, int>{};
@@ -753,6 +842,24 @@ class BackupService {
       onProgress?.call(completed / (totalOps > 0 ? totalOps : 1));
     }
 
+    final existingItineraries = await _isarService.getAllPlaceItineraries();
+    final existingByIdentity = {
+      for (final itinerary in existingItineraries)
+        _itineraryIdentity(itinerary.name, itinerary.areaKey): itinerary,
+    };
+    for (final itineraryBackup in backup.placeItineraries) {
+      final itinerary = _itineraryFromBackup(itineraryBackup, urlIdByRawUrl);
+      final existing =
+          existingByIdentity[_itineraryIdentity(
+            itinerary.name,
+            itinerary.areaKey,
+          )];
+      if (existing != null) itinerary.id = existing.id;
+      await _isarService.savePlaceItinerary(itinerary);
+      completed++;
+      onProgress?.call(completed / (totalOps > 0 ? totalOps : 1));
+    }
+
     if (backup.saveSessions.isNotEmpty) {
       final sessionService = SessionTrackingService();
       final existingSessionIds = await sessionService.allSessionIds();
@@ -789,7 +896,10 @@ class BackupService {
     BackupData backup, {
     void Function(double progress)? onProgress,
   }) async {
-    final totalOps = backup.links.length + backup.collections.length;
+    final totalOps =
+        backup.links.length +
+        backup.collections.length +
+        backup.placeItineraries.length;
     var completed = 0;
 
     final urlIdByRawUrl = <String, int>{};
@@ -827,6 +937,14 @@ class BackupService {
       onProgress?.call(completed / (totalOps > 0 ? totalOps : 1));
     }
 
+    for (final itineraryBackup in backup.placeItineraries) {
+      await _isarService.savePlaceItinerary(
+        _itineraryFromBackup(itineraryBackup, urlIdByRawUrl),
+      );
+      completed++;
+      onProgress?.call(completed / (totalOps > 0 ? totalOps : 1));
+    }
+
     if (backup.saveSessions.isNotEmpty) {
       final sessionService = SessionTrackingService();
       final records = <SessionRecord>[];
@@ -849,6 +967,42 @@ class BackupService {
 
     return backup.links.length;
   }
+
+  PlaceItinerary _itineraryFromBackup(
+    PlaceItineraryBackup backup,
+    Map<String, int> urlIdByRawUrl,
+  ) {
+    return PlaceItinerary()
+      ..name = backup.name.trim()
+      ..areaKey = backup.areaKey
+      ..areaTitle = backup.areaTitle
+      ..country = backup.country
+      ..date = _parseOptionalDate(backup.date)
+      ..createdAt = DateTime.parse(backup.createdAt)
+      ..updatedAt = DateTime.parse(backup.updatedAt)
+      ..stops = backup.stops
+          .map(
+            (stop) => PlaceItineraryStop()
+              ..entityKey = stop.entityKey
+              ..provisionalKey = stop.provisionalKey
+              ..catalogId = stop.catalogId
+              ..catalogSource = stop.catalogSource
+              ..sourceUrlIds = stop.sourceUrls
+                  .map((url) => urlIdByRawUrl[url])
+                  .whereType<int>()
+                  .toList(growable: false)
+              ..title = stop.title
+              ..city = stop.city
+              ..country = stop.country
+              ..latitude = stop.latitude
+              ..longitude = stop.longitude
+              ..imageUrl = stop.imageUrl,
+          )
+          .toList(growable: false);
+  }
+
+  String _itineraryIdentity(String name, String? areaKey) =>
+      '${name.trim().toLowerCase()}|${areaKey?.trim().toLowerCase() ?? ''}';
 
   SavedUrl _mergeLink(SavedUrl existing, SavedUrlBackup incoming) {
     final normalizedIncoming = fromBackup(incoming);

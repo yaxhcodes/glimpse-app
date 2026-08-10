@@ -1,5 +1,5 @@
 class BackupData {
-  static const int currentVersion = 3;
+  static const int currentVersion = 4;
 
   final int version;
   final String createdAt;
@@ -7,6 +7,7 @@ class BackupData {
   final String? device;
   final List<SavedUrlBackup> links;
   final List<UserCollectionBackup> collections;
+  final List<PlaceItineraryBackup> placeItineraries;
   final List<SessionRecordBackup> saveSessions;
   final SettingsBackup settings;
 
@@ -17,6 +18,7 @@ class BackupData {
     this.device,
     required this.links,
     required this.collections,
+    this.placeItineraries = const [],
     required this.saveSessions,
     required this.settings,
   });
@@ -28,6 +30,8 @@ class BackupData {
     if (device != null) 'device': device,
     'links': links.map((e) => e.toJson()).toList(),
     'collections': collections.map((e) => e.toJson()).toList(),
+    if (placeItineraries.isNotEmpty)
+      'placeItineraries': placeItineraries.map((e) => e.toJson()).toList(),
     'saveSessions': saveSessions.map((e) => e.toJson()).toList(),
     'settings': settings.toJson(),
   };
@@ -49,6 +53,12 @@ class BackupData {
             )
             .toList() ??
         [],
+    placeItineraries:
+        (json['placeItineraries'] as List<dynamic>?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(PlaceItineraryBackup.fromJson)
+            .toList() ??
+        const [],
     saveSessions:
         (json['saveSessions'] as List<dynamic>?)
             ?.map(
@@ -290,6 +300,121 @@ class UserCollectionBackup {
                 .toList() ??
             [],
       );
+}
+
+class PlaceItineraryBackup {
+  const PlaceItineraryBackup({
+    required this.name,
+    this.areaKey,
+    this.areaTitle,
+    this.country,
+    this.date,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.stops,
+  });
+
+  final String name;
+  final String? areaKey;
+  final String? areaTitle;
+  final String? country;
+  final String? date;
+  final String createdAt;
+  final String updatedAt;
+  final List<PlaceItineraryStopBackup> stops;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    if (areaKey != null) 'areaKey': areaKey,
+    if (areaTitle != null) 'areaTitle': areaTitle,
+    if (country != null) 'country': country,
+    if (date != null) 'date': date,
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
+    'stops': stops.map((stop) => stop.toJson()).toList(),
+  };
+
+  factory PlaceItineraryBackup.fromJson(Map<String, dynamic> json) {
+    return PlaceItineraryBackup(
+      name: json['name'] as String? ?? '',
+      areaKey: json['areaKey'] as String?,
+      areaTitle: json['areaTitle'] as String?,
+      country: json['country'] as String?,
+      date: json['date'] as String?,
+      createdAt:
+          json['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+      updatedAt:
+          json['updatedAt'] as String? ?? DateTime.now().toIso8601String(),
+      stops:
+          (json['stops'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(PlaceItineraryStopBackup.fromJson)
+              .toList() ??
+          const [],
+    );
+  }
+}
+
+class PlaceItineraryStopBackup {
+  const PlaceItineraryStopBackup({
+    required this.entityKey,
+    required this.provisionalKey,
+    this.catalogId,
+    this.catalogSource,
+    this.sourceUrls = const [],
+    required this.title,
+    this.city,
+    this.country,
+    this.latitude,
+    this.longitude,
+    this.imageUrl,
+  });
+
+  final String entityKey;
+  final String provisionalKey;
+  final String? catalogId;
+  final String? catalogSource;
+  final List<String> sourceUrls;
+  final String title;
+  final String? city;
+  final String? country;
+  final double? latitude;
+  final double? longitude;
+  final String? imageUrl;
+
+  Map<String, dynamic> toJson() => {
+    'entityKey': entityKey,
+    'provisionalKey': provisionalKey,
+    if (catalogId != null) 'catalogId': catalogId,
+    if (catalogSource != null) 'catalogSource': catalogSource,
+    if (sourceUrls.isNotEmpty) 'sourceUrls': sourceUrls,
+    'title': title,
+    if (city != null) 'city': city,
+    if (country != null) 'country': country,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+    if (imageUrl != null) 'imageUrl': imageUrl,
+  };
+
+  factory PlaceItineraryStopBackup.fromJson(Map<String, dynamic> json) {
+    return PlaceItineraryStopBackup(
+      entityKey: json['entityKey'] as String? ?? '',
+      provisionalKey: json['provisionalKey'] as String? ?? '',
+      catalogId: json['catalogId'] as String?,
+      catalogSource: json['catalogSource'] as String?,
+      sourceUrls:
+          (json['sourceUrls'] as List<dynamic>?)
+              ?.map((value) => value.toString())
+              .toList(growable: false) ??
+          const [],
+      title: json['title'] as String? ?? '',
+      city: json['city'] as String?,
+      country: json['country'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      imageUrl: json['imageUrl'] as String?,
+    );
+  }
 }
 
 class SessionRecordBackup {

@@ -19,6 +19,7 @@ class LibraryPlacesMap extends StatefulWidget {
     this.showAttribution = true,
     this.attributionBottom = 6,
     this.bottomObstructionFraction,
+    this.avoidTopSystemUi = false,
   });
 
   final List<LibraryEntity> entities;
@@ -29,6 +30,7 @@ class LibraryPlacesMap extends StatefulWidget {
   final bool showAttribution;
   final double attributionBottom;
   final ValueListenable<double>? bottomObstructionFraction;
+  final bool avoidTopSystemUi;
 
   @override
   State<LibraryPlacesMap> createState() => _LibraryPlacesMapState();
@@ -41,8 +43,12 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
   static const _clusterCountLayerId = 'glimpse-library-place-counts';
   static const _placeLayerId = 'glimpse-library-place-pins';
   static const _selectedLayerId = 'glimpse-library-selected-pin';
+  static const _selectedLabelLayerId = 'glimpse-library-selected-label';
   static const _mapStyleOverride = String.fromEnvironment(
     'LIBRARY_MAP_STYLE_URL',
+  );
+  static const _darkMapStyleOverride = String.fromEnvironment(
+    'LIBRARY_MAP_DARK_STYLE_URL',
   );
 
   MapLibreMapController? _controller;
@@ -50,14 +56,18 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
   bool _timedOut = false;
   Timer? _loadTimer;
   Timer? _obstructionTimer;
+  Brightness? _brightness;
 
   List<LibraryEntity> get _mapped => widget.entities
       .where((entity) => entity.mention.hasCoordinates)
       .toList(growable: false);
 
-  String get _styleUrl => _mapStyleOverride.isNotEmpty
-      ? _mapStyleOverride
-      : '${AiProxyConfig.baseUrl}/library-map/style.json';
+  String _styleUrl(Brightness brightness) => resolveLibraryMapStyleUrl(
+    brightness: brightness,
+    baseUrl: AiProxyConfig.baseUrl,
+    lightOverride: _mapStyleOverride,
+    darkOverride: _darkMapStyleOverride,
+  );
 
   @override
   void initState() {
@@ -66,6 +76,17 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
       if (mounted && !_styleLoaded) setState(() => _timedOut = true);
     });
     widget.bottomObstructionFraction?.addListener(_handleObstructionChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextBrightness = Theme.of(context).brightness;
+    final previousBrightness = _brightness;
+    _brightness = nextBrightness;
+    if (previousBrightness != null && previousBrightness != nextBrightness) {
+      unawaited(_reloadStyle(nextBrightness));
+    }
   }
 
   @override
@@ -84,9 +105,26 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
         unawaited(_focus(widget.selectedKey!));
       }
     }
-    if (_styleLoaded && oldWidget.entities != widget.entities) {
-      unawaited(_replaceSource());
+    if (_styleLoaded && !_sameEntities(oldWidget.entities, widget.entities)) {
+      unawaited(_replaceSourceAndFit());
     }
+  }
+
+  bool _sameEntities(
+    List<LibraryEntity> previous,
+    List<LibraryEntity> current,
+  ) {
+    if (previous.length != current.length) return false;
+    for (var index = 0; index < previous.length; index++) {
+      final before = previous[index];
+      final after = current[index];
+      if (before.key != after.key ||
+          before.mention.latitude != after.mention.latitude ||
+          before.mention.longitude != after.mention.longitude) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @override
@@ -117,7 +155,7 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
         fit: StackFit.expand,
         children: [
           MapLibreMap(
-            styleString: _styleUrl,
+            styleString: _styleUrl(Theme.of(context).brightness),
             initialCameraPosition: CameraPosition(
               target: LatLng(
                 _mapped.first.mention.latitude!,
@@ -139,7 +177,9 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
             const Positioned.fill(child: _MapFallback()),
           if (widget.showFitAllControl && _mapped.length > 1)
             Positioned(
-              top: 12,
+              top: widget.avoidTopSystemUi
+                  ? MediaQuery.paddingOf(context).top + kToolbarHeight + 8
+                  : 12,
               right: 12,
               child: IconButton.filledTonal(
                 tooltip: 'Fit all places',
@@ -223,6 +263,20 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
         enableInteraction: true,
       );
       await controller.addSymbolLayer(
+        _selectedSourceId,
+        _selectedLabelLayerId,
+        SymbolLayerProperties(
+          textField: const ['get', 'title'],
+          textColor: _colorHex(colorScheme.onSurface),
+          textSize: 12,
+          textHaloColor: _colorHex(colorScheme.surface),
+          textHaloWidth: 2,
+          textOffset: const [0, 1.7],
+          textAnchor: 'top',
+          textAllowOverlap: true,
+        ),
+      );
+      await controller.addSymbolLayer(
         _sourceId,
         _clusterCountLayerId,
         const SymbolLayerProperties(
@@ -271,6 +325,22 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
     }
   }
 
+  Future<void> _reloadStyle(Brightness brightness) async {
+    final controller = _controller;
+    if (controller == null) return;
+    _loadTimer?.cancel();
+    _loadTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted && !_styleLoaded) setState(() => _timedOut = true);
+    });
+    _styleLoaded = false;
+    _timedOut = false;
+    try {
+      await controller.setStyle(_styleUrl(brightness));
+    } catch (_) {
+      if (mounted) setState(() => _timedOut = true);
+    }
+  }
+
   Future<void> _replaceSource() async {
     final controller = _controller;
     if (controller == null) return;
@@ -280,6 +350,11 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
     } catch (_) {
       return;
     }
+  }
+
+  Future<void> _replaceSourceAndFit() async {
+    await _replaceSource();
+    await _fitAll();
   }
 
   Map<String, dynamic> _geoJson() => {
@@ -374,7 +449,7 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
           northeast: LatLng(maxLat, maxLon),
         ),
         left: 48,
-        top: 48,
+        top: _topCameraPadding,
         right: 48,
         bottom: 48 + _bottomObstruction,
       ),
@@ -408,7 +483,7 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
           ),
         ),
         left: 32,
-        top: 32,
+        top: _topCameraPadding,
         right: 32,
         bottom: 32 + obstruction,
       ),
@@ -422,12 +497,38 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
     return height * fraction.clamp(0, 0.9);
   }
 
+  double get _topCameraPadding => widget.avoidTopSystemUi
+      ? MediaQuery.paddingOf(context).top + kToolbarHeight + 24
+      : 48;
+
   Duration _motionDuration(Duration duration) {
     final media = MediaQuery.of(context);
     return media.disableAnimations || media.accessibleNavigation
         ? Duration.zero
         : duration;
   }
+}
+
+@visibleForTesting
+String resolveLibraryMapStyleUrl({
+  required Brightness brightness,
+  required String baseUrl,
+  String lightOverride = '',
+  String darkOverride = '',
+}) {
+  if (brightness == Brightness.dark && darkOverride.trim().isNotEmpty) {
+    return darkOverride.trim();
+  }
+  if (lightOverride.trim().isNotEmpty) return lightOverride.trim();
+  final endpoint = Uri.parse('$baseUrl/library-map/style.json');
+  return endpoint
+      .replace(
+        queryParameters: {
+          ...endpoint.queryParameters,
+          'theme': brightness == Brightness.dark ? 'dark' : 'light',
+        },
+      )
+      .toString();
 }
 
 String _colorHex(Color color) {

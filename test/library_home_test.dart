@@ -127,12 +127,14 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Unmapped places'), findsOneWidget);
-    expect(find.text('A tiny ramen shop'), findsOneWidget);
-    expect(
-      find.text('Kept visible without guessing a location.'),
-      findsOneWidget,
+    await tester.dragFrom(
+      const Offset(400, 500),
+      const Offset(0, -360),
     );
+    await tester.pumpAndSettle();
+
+    expect(find.text('A tiny ramen shop'), findsOneWidget);
+    expect(find.textContaining('Location unavailable'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

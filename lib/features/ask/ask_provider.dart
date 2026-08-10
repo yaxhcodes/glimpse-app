@@ -93,7 +93,7 @@ class ChatMessageSection {
   });
 }
 
-enum ChatAction { saveToCollection, synthesize, buildPlan, none }
+enum ChatAction { saveToCollection, synthesize, buildPlan, saveItinerary, none }
 
 /// Feature that hit a usage limit (for UI upgrade gate display).
 enum UsageLimitHit { ask, search, aiSave }
@@ -782,6 +782,16 @@ class AskNotifier extends StateNotifier<AskState> {
     if (response.sections.isEmpty) return ChatAction.none;
 
     final q = userQuestion.toLowerCase();
+    final asksForTravelPlan =
+        q.contains('itinerary') ||
+        q.contains('day trip') ||
+        q.contains('travel plan') ||
+        q.contains('trip plan') ||
+        q.contains('route through') ||
+        q.contains('places to visit') ||
+        q.contains('day in ');
+    if (asksForTravelPlan) return ChatAction.saveItinerary;
+
     if (q.contains('plan') ||
         q.contains('build') ||
         q.contains('project') ||

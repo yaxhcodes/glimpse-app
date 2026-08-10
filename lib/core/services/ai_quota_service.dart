@@ -79,7 +79,9 @@ class AiQuotaService {
         'feature': feature,
         'commit': commit,
         'scopeVersion': _deviceScopeVersion,
-        'localUsed': ?migrationUsed,
+        // build_runner's pinned analyzer cannot parse null-aware map entries.
+        // ignore: use_null_aware_elements
+        if (migrationUsed != null) 'localUsed': migrationUsed,
       },
     );
     return AiQuotaSnapshot(

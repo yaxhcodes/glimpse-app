@@ -10,15 +10,22 @@ class LibraryArtwork extends StatelessWidget {
     required this.entity,
     this.borderRadius = const BorderRadius.all(Radius.circular(18)),
     this.fit = BoxFit.cover,
+    this.imageUrlOverride,
   });
 
   final LibraryEntity entity;
   final BorderRadius borderRadius;
   final BoxFit fit;
+  final String? imageUrlOverride;
 
   @override
   Widget build(BuildContext context) {
-    final artwork = entity.artworkUrl?.trim() ?? '';
+    final artwork =
+        imageUrlOverride?.trim() ??
+        (entity.kind == LibraryEntityKind.place
+            ? entity.placeImageUrl?.trim()
+            : entity.artworkUrl?.trim()) ??
+        '';
     final fallback = _ArtworkFallback(entity: entity);
     return ClipRRect(
       borderRadius: borderRadius,
@@ -153,6 +160,9 @@ class _ArtworkFallback extends StatelessWidget {
       if (creator.isNotEmpty) creator,
       if (year.isNotEmpty) year,
     ].join(' · ');
+    if (entity.kind == LibraryEntityKind.place) {
+      return const _PlaceArtworkFallback();
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact =
@@ -237,4 +247,67 @@ class _ArtworkFallback extends StatelessWidget {
       },
     );
   }
+}
+
+class _PlaceArtworkFallback extends StatelessWidget {
+  const _PlaceArtworkFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return CustomPaint(
+      painter: _PlaceFallbackPainter(
+        background: cs.surfaceContainerHigh,
+        road: cs.outlineVariant.withValues(alpha: 0.68),
+        pin: cs.onSurfaceVariant.withValues(alpha: 0.72),
+      ),
+      child: const Center(child: Icon(Icons.place_rounded, size: 30)),
+    );
+  }
+}
+
+class _PlaceFallbackPainter extends CustomPainter {
+  const _PlaceFallbackPainter({
+    required this.background,
+    required this.road,
+    required this.pin,
+  });
+
+  final Color background;
+  final Color road;
+  final Color pin;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = background);
+    final paint = Paint()
+      ..color = road
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    for (var index = 0; index < 4; index++) {
+      final y = size.height * (0.18 + index * 0.24);
+      final path = Path()
+        ..moveTo(-8, y)
+        ..cubicTo(
+          size.width * 0.26,
+          y - size.height * 0.18,
+          size.width * 0.72,
+          y + size.height * 0.17,
+          size.width + 8,
+          y - size.height * 0.05,
+        );
+      canvas.drawPath(path, paint);
+    }
+    canvas.drawCircle(
+      Offset(size.width * 0.78, size.height * 0.2),
+      3,
+      Paint()..color = pin,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlaceFallbackPainter oldDelegate) =>
+      oldDelegate.background != background ||
+      oldDelegate.road != road ||
+      oldDelegate.pin != pin;
 }

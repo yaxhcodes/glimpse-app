@@ -1,13 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../core/providers/analytics_provider.dart';
+import '../../core/services/analytics_service.dart';
 import 'library_entity.dart';
 import 'library_places_map.dart';
+import 'library_places_model.dart';
 import 'library_provider.dart';
 import 'library_status_picker.dart';
 import 'library_widgets.dart';
+import 'place_itinerary_editor_screen.dart';
 
 class LibraryEntityDetailScreen extends ConsumerWidget {
   const LibraryEntityDetailScreen({super.key, required this.entityKey});
@@ -51,6 +58,13 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
   ) async {
     try {
       await ref.read(libraryEntityActionsProvider).setStatus(entity, status);
+      if (entity.kind == LibraryEntityKind.place) {
+        unawaited(
+          ref
+              .read(analyticsServiceProvider)
+              .trackEvent(AnalyticsEvent.libraryPlaceStatusChanged),
+        );
+      }
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -137,7 +151,10 @@ class _EntityDetail extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (entity.kind == LibraryEntityKind.place)
-                        _PlaceHeader(entity: entity)
+                        _PlaceHeader(
+                          entity: entity,
+                          onStatusChanged: onStatusChanged,
+                        )
                       else
                         _MediaHeader(
                           entity: entity,
@@ -267,9 +284,10 @@ class _MediaHeader extends StatelessWidget {
 }
 
 class _PlaceHeader extends StatelessWidget {
-  const _PlaceHeader({required this.entity});
+  const _PlaceHeader({required this.entity, required this.onStatusChanged});
 
   final LibraryEntity entity;
+  final Future<void> Function(LibraryItemStatus status) onStatusChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -279,16 +297,11 @@ class _PlaceHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 220,
-          child: LibraryPlacesMap(
-            entities: [entity],
-            selectedKey: entity.key,
-            onEntityTapped: (_) {},
-            borderRadius: BorderRadius.circular(24),
-            showFitAllControl: false,
-          ),
+          height: 248,
+          width: double.infinity,
+          child: _PlaceDetailHero(entity: entity),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 22),
         Text(
           entity.title,
           style: tt.headlineSmall?.copyWith(
@@ -296,24 +309,74 @@ class _PlaceHeader extends StatelessWidget {
             letterSpacing: -0.3,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 7),
+        Text(
+          _metadata(entity),
+          style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilterChip(
+              avatar: const Icon(Icons.bookmark_add_outlined, size: 18),
+              label: const Text('Want to visit'),
+              selected: entity.status == LibraryItemStatus.planning,
+              side: BorderSide.none,
+              onSelected: (selected) => onStatusChanged(
+                selected
+                    ? LibraryItemStatus.planning
+                    : LibraryItemStatus.unlisted,
+              ),
+            ),
+            FilterChip(
+              avatar: const Icon(Icons.check_circle_outline_rounded, size: 18),
+              label: const Text('Visited'),
+              selected: entity.status == LibraryItemStatus.completed,
+              side: BorderSide.none,
+              onSelected: (selected) => onStatusChanged(
+                selected
+                    ? LibraryItemStatus.completed
+                    : LibraryItemStatus.unlisted,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
         Row(
           children: [
             Expanded(
-              child: Text(
-                _metadata(entity),
-                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              child: FilledButton.icon(
+                onPressed: () => _planVisit(context),
+                icon: const Icon(Icons.route_rounded),
+                label: const Text('Plan a visit'),
               ),
             ),
-            if (entity.mention.hasCoordinates)
+            if (entity.mention.hasCoordinates) ...[
+              const SizedBox(width: 10),
               FilledButton.tonalIcon(
                 onPressed: () => _openInMaps(entity),
-                icon: const Icon(Icons.open_in_new_rounded),
-                label: const Text('Open in Maps'),
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('Maps'),
               ),
+            ],
           ],
         ),
       ],
+    );
+  }
+
+  void _planVisit(BuildContext context) {
+    final area = PlaceAreaIndex.build([entity]).single;
+    context.push(
+      '/library/places/itinerary/new',
+      extra: PlaceItineraryDraft(
+        areaKey: area.key,
+        areaTitle: area.title,
+        country: area.subtitle,
+        focusedEntityKey: entity.key,
+      ),
     );
   }
 
@@ -326,6 +389,45 @@ class _PlaceHeader extends StatelessWidget {
       'query': '$latitude,$longitude',
     });
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+class _PlaceDetailHero extends StatelessWidget {
+  const _PlaceDetailHero({required this.entity});
+
+  final LibraryEntity entity;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = entity.placeImageUrl?.trim() ?? '';
+    final map = LibraryPlacesMap(
+      entities: [entity],
+      selectedKey: entity.key,
+      onEntityTapped: (_) {},
+      borderRadius: BorderRadius.circular(24),
+      showFitAllControl: false,
+    );
+    if (imageUrl.isEmpty) return map;
+    final cs = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        fadeInDuration: const Duration(milliseconds: 180),
+        placeholder: (_, _) => ColoredBox(
+          color: cs.surfaceContainerHigh,
+          child: Center(
+            child: Icon(
+              Icons.landscape_outlined,
+              size: 42,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        errorWidget: (_, _, _) => map,
+      ),
+    );
   }
 }
 

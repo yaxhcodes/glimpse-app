@@ -27,6 +27,7 @@ import 'core/services/category_repair_service.dart';
 import 'core/models/saved_url.dart';
 import 'core/models/user_collection.dart';
 import 'features/ask/ask_empty_suggestions_provider.dart';
+import 'features/ask/ask_launch_request.dart';
 import 'features/home/home_provider.dart';
 import 'features/shell/main_shell.dart';
 import 'features/mindmap/interest_clusters_provider.dart';
@@ -42,6 +43,7 @@ import 'features/library/library_browser_screen.dart';
 import 'features/library/library_entity.dart';
 import 'features/library/library_entity_detail_screen.dart';
 import 'features/library/library_places_screen.dart';
+import 'features/library/place_itinerary_editor_screen.dart';
 import 'features/digest/digest_screen.dart';
 import 'features/digest/notification_detail_screen.dart';
 import 'features/digest/notifications_screen.dart';
@@ -163,6 +165,18 @@ final _router = GoRouter(
       builder: (context, state) => const LibraryPlacesScreen(),
     ),
     GoRoute(
+      path: '/library/places/itinerary/new',
+      builder: (context, state) => PlaceItineraryEditorScreen(
+        draft: state.extra as PlaceItineraryDraft?,
+      ),
+    ),
+    GoRoute(
+      path: '/library/places/itinerary/:id',
+      builder: (context, state) => PlaceItineraryEditorScreen(
+        itineraryId: int.parse(state.pathParameters['id']!),
+      ),
+    ),
+    GoRoute(
       path: '/library/entity/:key',
       builder: (context, state) => LibraryEntityDetailScreen(
         entityKey: Uri.decodeComponent(state.pathParameters['key']!),
@@ -216,8 +230,12 @@ final _router = GoRouter(
     GoRoute(
       path: '/ask',
       builder: (context, state) {
-        final source = state.extra is SavedUrl ? state.extra as SavedUrl : null;
-        return AskScreen(initialSource: source);
+        final extra = state.extra;
+        final request = extra is AskLaunchRequest ? extra : null;
+        return AskScreen(
+          initialSource: request?.source ?? (extra is SavedUrl ? extra : null),
+          initialPrompt: request?.initialPrompt,
+        );
       },
     ),
     GoRoute(

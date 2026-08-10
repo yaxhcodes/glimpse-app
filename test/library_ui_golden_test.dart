@@ -9,8 +9,11 @@ import 'package:glimpse/features/library/library_browser_screen.dart';
 import 'package:glimpse/features/library/library_entity.dart';
 import 'package:glimpse/features/library/library_entity_detail_screen.dart';
 import 'package:glimpse/features/library/library_home.dart';
+import 'package:glimpse/features/library/library_places_screen.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 import 'package:glimpse/features/library/library_widgets.dart';
+import 'package:glimpse/features/library/place_itinerary_editor_screen.dart';
+import 'package:glimpse/features/library/place_itinerary_provider.dart';
 import 'package:glimpse/shared/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -58,7 +61,53 @@ void main() {
       );
       await _expectGolden(tester, 'goldens/library_detail_${layout.name}.png');
     });
+
+    testWidgets('Library places ${layout.name}', (tester) async {
+      await _pumpGolden(
+        tester,
+        layout: layout,
+        snapshot: LibrarySnapshot(entities: _unmappedPlaceFixtures()),
+        child: const LibraryPlacesScreen(),
+      );
+      await _expectGolden(tester, 'goldens/library_places_${layout.name}.png');
+    });
   }
+
+  testWidgets('Library places expanded compactDark', (tester) async {
+    await _pumpGolden(
+      tester,
+      layout: _GoldenLayout.compactDark,
+      snapshot: LibrarySnapshot(entities: _unmappedPlaceFixtures()),
+      child: const LibraryPlacesScreen(),
+    );
+    await tester.dragFrom(const Offset(195, 770), const Offset(0, -440));
+    await tester.pumpAndSettle();
+    await _expectGolden(
+      tester,
+      'goldens/library_places_expanded_compactDark.png',
+    );
+  });
+
+  testWidgets('Place itinerary editor compactDark', (tester) async {
+    final places = _itineraryPlaceFixtures();
+    await _pumpGolden(
+      tester,
+      layout: _GoldenLayout.compactDark,
+      snapshot: LibrarySnapshot(entities: places),
+      child: const PlaceItineraryEditorScreen(
+        draft: PlaceItineraryDraft(
+          areaKey: 'new delhi|india',
+          areaTitle: 'New Delhi',
+          country: 'India',
+          focusedEntityKey: 'place-parliament',
+        ),
+      ),
+    );
+    await _expectGolden(
+      tester,
+      'goldens/place_itinerary_editor_compactDark.png',
+    );
+  });
 
   testWidgets('Library radial status compactDark', (tester) async {
     await _pumpGolden(
@@ -123,6 +172,7 @@ Future<void> _pumpGolden(
       overrides: [
         analyticsServiceProvider.overrideWithValue(_FakeAnalytics()),
         librarySnapshotProvider.overrideWith((ref) => Stream.value(snapshot)),
+        placeItinerariesProvider.overrideWith((ref) => Stream.value(const [])),
       ],
       child: RepaintBoundary(
         key: _goldenBoundaryKey,
@@ -204,6 +254,59 @@ List<LibraryEntity> _fixtures() => [
     latitude: 28.6271,
     longitude: 77.2166,
     discoveredAt: DateTime(2026, 8, 1),
+  ),
+];
+
+List<LibraryEntity> _unmappedPlaceFixtures() => [
+  _entity(
+    key: 'place-kinkakuji',
+    kind: LibraryEntityKind.place,
+    title: 'Kinkaku-ji',
+    city: 'Kyoto',
+    country: 'Japan',
+    status: LibraryItemStatus.planning,
+    discoveredAt: DateTime(2026, 8, 8),
+  ),
+  _entity(
+    key: 'place-philosophers-path',
+    kind: LibraryEntityKind.place,
+    title: "Philosopher's Path",
+    city: 'Kyoto',
+    country: 'Japan',
+    discoveredAt: DateTime(2026, 8, 7),
+  ),
+  _entity(
+    key: 'place-skógafoss',
+    kind: LibraryEntityKind.place,
+    title: 'Skógafoss',
+    country: 'Iceland',
+    status: LibraryItemStatus.completed,
+    discoveredAt: DateTime(2026, 8, 5),
+  ),
+];
+
+List<LibraryEntity> _itineraryPlaceFixtures() => [
+  _entity(
+    key: 'place-parliament',
+    kind: LibraryEntityKind.place,
+    title: 'Parliament House',
+    city: 'New Delhi',
+    country: 'India',
+    latitude: 28.6172,
+    longitude: 77.2081,
+    status: LibraryItemStatus.planning,
+    discoveredAt: DateTime(2026, 8, 8),
+  ),
+  _entity(
+    key: 'place-jantar-mantar',
+    kind: LibraryEntityKind.place,
+    title: 'Jantar Mantar Astronomical Observatory',
+    city: 'New Delhi',
+    country: 'India',
+    latitude: 28.6271,
+    longitude: 77.2166,
+    status: LibraryItemStatus.planning,
+    discoveredAt: DateTime(2026, 8, 7),
   ),
 ];
 

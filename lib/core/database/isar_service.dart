@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/engagement_event.dart';
+import '../models/place_itinerary.dart';
 import '../models/saved_url.dart';
 import '../services/link_preview_service.dart';
 import '../models/user_collection.dart';
@@ -40,6 +41,7 @@ class IsarService {
       SavedUrlSchema,
       UserCollectionSchema,
       EngagementEventSchema,
+      PlaceItinerarySchema,
     ], directory: dir.path);
   }
 
@@ -1094,6 +1096,35 @@ class IsarService {
     return isar.userCollections.where().sortByCreatedAtDesc().findAll();
   }
 
+  // --------------- PLACE ITINERARIES ---------------
+
+  Future<List<PlaceItinerary>> getAllPlaceItineraries() async {
+    final isar = await _db;
+    return isar.placeItinerarys.where().sortByUpdatedAtDesc().findAll();
+  }
+
+  Stream<List<PlaceItinerary>> watchPlaceItineraries() async* {
+    final isar = await _db;
+    yield* isar.placeItinerarys.where().sortByUpdatedAtDesc().watch(
+      fireImmediately: true,
+    );
+  }
+
+  Future<PlaceItinerary?> getPlaceItinerary(int id) async {
+    final isar = await _db;
+    return isar.placeItinerarys.get(id);
+  }
+
+  Future<int> savePlaceItinerary(PlaceItinerary itinerary) async {
+    final isar = await _db;
+    return isar.writeTxn(() => isar.placeItinerarys.put(itinerary));
+  }
+
+  Future<void> deletePlaceItinerary(int id) async {
+    final isar = await _db;
+    await isar.writeTxn(() => isar.placeItinerarys.delete(id));
+  }
+
   Future<UserCollection?> getCollectionById(int id) async {
     final isar = await _db;
     return isar.userCollections.get(id);
@@ -1432,6 +1463,7 @@ class IsarService {
     await isar.writeTxn(() async {
       await isar.savedUrls.clear();
       await isar.userCollections.clear();
+      await isar.placeItinerarys.clear();
     });
     await SessionTrackingService().clear();
   }

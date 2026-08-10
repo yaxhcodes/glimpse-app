@@ -54,6 +54,7 @@ class LibrarySourceReference {
     required this.savedAt,
     required this.provisionalKey,
     required this.mention,
+    this.thumbnailUrl,
   });
 
   final int urlId;
@@ -62,6 +63,7 @@ class LibrarySourceReference {
   final DateTime savedAt;
   final String provisionalKey;
   final EnrichedMention mention;
+  final String? thumbnailUrl;
 }
 
 class LibraryEntity {
@@ -83,6 +85,16 @@ class LibraryEntity {
 
   String get title => mention.title;
   String? get artworkUrl => mention.artworkUrl;
+  String? get placeImageUrl {
+    final exactArtwork = mention.artworkUrl?.trim() ?? '';
+    if (exactArtwork.isNotEmpty) return exactArtwork;
+    for (final source in sources) {
+      final thumbnail = source.thumbnailUrl?.trim() ?? '';
+      if (thumbnail.isNotEmpty) return thumbnail;
+    }
+    return null;
+  }
+
   List<String> get genres => mention.genres;
   LibraryItemStatus get status =>
       LibraryItemStatusX.fromStorage(mention.libraryStatus);
@@ -194,6 +206,7 @@ class LibraryIndex {
                 savedAt: url.savedAt,
                 provisionalKey: provisional,
                 mention: mention,
+                thumbnailUrl: url.thumbnailUrl,
               ),
             ),
           );

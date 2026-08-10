@@ -38,6 +38,10 @@ import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/tag_group.dart';
 import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
+import '../library/library_entity.dart';
+import '../library/library_places_model.dart';
+import '../library/library_provider.dart';
+import '../library/place_itinerary_editor_screen.dart';
 import '../search/search_provider.dart';
 import 'detail_expansion_section.dart';
 import 'notable_item_card.dart';
@@ -1434,6 +1438,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   /// on-device intent signal that Rediscovery and notifications read; every
   /// other chip keeps the original behaviour of appending text to the notes.
   Future<void> _handleSuggestionTap(String suggestion, SavedUrl url) async {
+    if (suggestion == 'Plan Itinerary') {
+      await _openItineraryForSave(url);
+      return;
+    }
     final classified = IntentClassifier.classify(suggestion);
     if (classified.kind == IntentKind.note) {
       _appendNoteLine(suggestion);
@@ -1466,6 +1474,38 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           ? 'Marked as done — moved to Done'
           : 'Saved — we\'ll bring this back for you',
     );
+  }
+
+  Future<void> _openItineraryForSave(SavedUrl url) async {
+    try {
+      final snapshot = await ref.read(librarySnapshotProvider.future);
+      final places = snapshot
+          .ofKind(LibraryEntityKind.place)
+          .where(
+            (entity) => entity.sources.any((source) => source.urlId == url.id),
+          )
+          .toList(growable: false);
+      if (!mounted) return;
+      if (places.isEmpty) {
+        context.push('/library/places');
+        return;
+      }
+      final focused = places.first;
+      final area = PlaceAreaIndex.build(places).firstWhere(
+        (candidate) => candidate.key == PlaceAreaIndex.keyFor(focused),
+      );
+      context.push(
+        '/library/places/itinerary/new',
+        extra: PlaceItineraryDraft(
+          areaKey: area.key,
+          areaTitle: area.title,
+          country: area.subtitle,
+          focusedEntityKey: focused.key,
+        ),
+      );
+    } catch (_) {
+      if (mounted) context.push('/library/places');
+    }
   }
 
   void _showSnack(String message) {
@@ -5057,20 +5097,28 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       ];
     }
 
-    if (mentionTypes.contains('place') ||
-        _hasAny(text, const [
-          'travel',
-          'trek',
-          'route',
-          'hike',
-          'trip',
-          'itinerary',
-          'hotel',
-          'restaurant',
-          'destination',
-        ])) {
+    if (mentionTypes.contains('place')) {
       return const [
         'Plan Itinerary',
+        'Check Best Season',
+        'Save Route',
+        'Share With Someone',
+      ];
+    }
+
+    if (_hasAny(text, const [
+      'travel',
+      'trek',
+      'route',
+      'hike',
+      'trip',
+      'itinerary',
+      'hotel',
+      'restaurant',
+      'destination',
+    ])) {
+      return const [
+        'Revisit Later',
         'Check Best Season',
         'Save Route',
         'Share With Someone',
