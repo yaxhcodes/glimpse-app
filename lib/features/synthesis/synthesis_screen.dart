@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/title_resolver.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../home/home_provider.dart';
 import 'synthesis_provider.dart';
@@ -15,7 +16,6 @@ class SynthesisScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SynthesisScreen> createState() => _SynthesisScreenState();
 }
-
 class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
   final _questionController = TextEditingController();
 
@@ -105,7 +105,7 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: ExpressiveLoadingIndicator(size: 18),
                     )
                   : const Icon(Icons.auto_awesome),
               label:

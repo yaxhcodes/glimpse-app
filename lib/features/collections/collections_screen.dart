@@ -9,6 +9,7 @@ import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/expressive_fab.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../library/library_entity.dart';
 import '../library/library_provider.dart';
@@ -178,7 +179,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 ],
         ),
         body: async.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: ExpressiveLoadingIndicator()),
           error: (e, _) => Center(child: Text('$e')),
           data: (rawCollections) {
             _scheduleCollectionStateSync(

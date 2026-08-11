@@ -20,43 +20,43 @@ import 'core/services/supabase_auth_service.dart';
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-  await AppEnvironment.initPackageInfo();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  // Pre-initialise Isar so the DB is ready before the first frame.
+  // Package metadata and the local database are independent native calls.
+  // Starting them together shortens the native-splash critical path.
   final isarService = IsarService();
-  await isarService.ensureInitialized();
+  await Future.wait([
+    AppEnvironment.initPackageInfo(),
+    isarService.ensureInitialized(),
+  ]);
 
   // Resolve the onboarding decision before the first frame so the root screen
   // renders correctly without a flash. New installs (empty library) see
   // onboarding; existing installs are left untouched.
-  final hasSeenOnboarding = await OnboardingBootstrap.resolveHasSeenOnboarding(
+  final onboardingFuture = OnboardingBootstrap.resolveHasSeenOnboarding(
     isarService,
   );
 
-  // App attestation protects the no-login AI proxy without putting any
-  // shared secret in the Flutter client.
+  // Generate/load the persistent proxy identity while the local onboarding
+  // decision is being resolved. Both must finish before providers are built.
+  final userIdFuture = AiProxyConfig.initUserId();
+  final hasSeenOnboarding = await onboardingFuture;
+  await userIdFuture;
+
+  // These SDKs are independent once environment and proxy identity are ready.
+  // Initialize them concurrently instead of serially blocking the first frame.
   debugPrint('[Startup] Initializing App Check');
-  await AppAttestationService.initialize();
+  await Future.wait([
+    AppAttestationService.initialize(),
+    SupabaseAuthService.initializeSupabaseClient(),
+    SubscriptionService.init(),
+    Workmanager().initialize(digestCallbackDispatcher),
+  ]);
   debugPrint(
     '[Startup] App Check ready=${AppAttestationService.isAvailable} '
     'error=${AppAttestationService.initError}',
   );
 
-  // Generate or load the persistent AI proxy user ID before any
-  // service reads AiProxyConfig.enabled. This must complete before
-  // GeminiService / EmbeddingService are constructed.
-  await AiProxyConfig.initUserId();
-
-  // Supabase is used only for auth, account metadata, subscription identity,
-  // and anonymous product analytics. User content remains local in Isar.
-  await SupabaseAuthService.initializeSupabaseClient();
-
-  // Initialise RevenueCat SDK. Never throws — falls back to free tier
-  // if the platform key is missing or configure() fails.
-  await SubscriptionService.init();
-
-  await Workmanager().initialize(digestCallbackDispatcher);
   unawaited(BackupScheduler.reschedule());
 
   FlutterNativeSplash.remove();

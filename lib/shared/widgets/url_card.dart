@@ -13,6 +13,7 @@ import '../../core/services/title_resolver.dart';
 import '../../features/home/home_provider.dart';
 import '../../features/url_detail/url_detail_provider.dart';
 import 'expressive_tap_scale.dart';
+import 'expressive_loading_indicator.dart';
 import 'link_card_thumbnail.dart';
 import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
@@ -538,8 +539,8 @@ class _ProcessingStatusPanel extends StatelessWidget {
                     ? SizedBox(
                         width: 13,
                         height: 13,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                        child: ExpressiveLoadingIndicator(
+                          size: 13,
                           color: accent,
                         ),
                       )

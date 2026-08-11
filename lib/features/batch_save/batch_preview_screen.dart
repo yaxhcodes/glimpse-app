@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'batch_save_models.dart';
 import 'batch_save_provider.dart';
 
@@ -67,8 +68,8 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
                       SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                        child: ExpressiveLoadingIndicator(
+                          size: 18,
                           color: cs.primary,
                         ),
                       ),
@@ -240,8 +241,8 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
                     SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
+                      child: ExpressiveLoadingIndicator(
+                        size: 20,
                         color: cs.primary,
                       ),
                     ),
@@ -274,8 +275,8 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
                     SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
+                      child: ExpressiveLoadingIndicator(
+                        size: 20,
                         color: cs.primary,
                       ),
                     ),
@@ -590,8 +591,8 @@ class _Placeholder extends StatelessWidget {
               child: SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
+                child: ExpressiveLoadingIndicator(
+                  size: 18,
                   color: cs.primary.withValues(alpha: 0.5),
                 ),
               ),
@@ -600,7 +601,6 @@ class _Placeholder extends StatelessWidget {
     );
   }
 }
-
 class _ShimmerLine extends StatelessWidget {
   final double width;
   final ColorScheme cs;

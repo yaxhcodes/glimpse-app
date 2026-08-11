@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'library_entity.dart';
 import 'library_places_map.dart';
 import 'library_places_model.dart';
@@ -26,7 +27,7 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
     final snapshot = ref.watch(librarySnapshotProvider);
     return snapshot.when(
       loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+          const Scaffold(body: Center(child: ExpressiveLoadingIndicator())),
       error: (error, _) => Scaffold(
         appBar: AppBar(),
         body: Center(child: Text('$error')),

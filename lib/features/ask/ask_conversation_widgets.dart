@@ -1270,8 +1270,8 @@ class _ComposerBar extends StatelessWidget {
                               child: SizedBox(
                                 width: 24,
                                 height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                child: ExpressiveLoadingIndicator(
+                                  size: 24,
                                   color: colorScheme.onPrimary,
                                 ),
                               ),
@@ -1608,10 +1608,7 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
             Padding(
               padding: const EdgeInsets.all(20),
               child: Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: cs.primary,
-                ),
+                child: ExpressiveLoadingIndicator(size: 32, color: cs.primary),
               ),
             )
           else

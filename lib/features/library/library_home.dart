@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'library_entity.dart';
 import 'library_provider.dart';
 import 'library_widgets.dart';
@@ -53,7 +54,7 @@ class _LibraryHomeState extends ConsumerState<LibraryHome> {
     final async = ref.watch(librarySnapshotProvider);
     final backfill = ref.watch(libraryBackfillProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: ExpressiveLoadingIndicator()),
       error: (_, _) => const _LibraryErrorState(),
       data: (snapshot) {
         _scheduleBackfill(snapshot);
@@ -560,7 +561,7 @@ class _BackfillStatus extends StatelessWidget {
           if (state.isRunning)
             const SizedBox.square(
               dimension: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: ExpressiveLoadingIndicator(size: 16),
             )
           else
             Icon(

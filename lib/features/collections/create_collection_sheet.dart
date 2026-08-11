@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 
@@ -265,8 +266,8 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                             ? SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                child: ExpressiveLoadingIndicator(
+                                  size: 18,
                                   color: cs.onPrimary,
                                 ),
                               )

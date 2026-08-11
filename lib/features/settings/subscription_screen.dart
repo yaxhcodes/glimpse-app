@@ -11,6 +11,7 @@ import '../../core/services/analytics_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
@@ -52,7 +53,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ),
       ),
       body: tierAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: ExpressiveLoadingIndicator()),
         error: (_, _) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,

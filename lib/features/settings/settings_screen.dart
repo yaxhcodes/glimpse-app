@@ -30,6 +30,7 @@ import '../../core/services/usage_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/music_provider_sheet.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -387,7 +388,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       trailing: _isDeletingAccount
                           ? const SizedBox.square(
                               dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: ExpressiveLoadingIndicator(size: 20),
                             )
                           : null,
                       onTap: _isDeletingAccount
@@ -1184,8 +1185,8 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
                     ? SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                        child: ExpressiveLoadingIndicator(
+                          size: 16,
                           color: cs.onPrimary,
                         ),
                       )

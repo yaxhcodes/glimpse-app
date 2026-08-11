@@ -30,6 +30,7 @@ import '../../shared/widgets/category_chip.dart'
     show faviconUrl, platformColors;
 import '../../shared/widgets/content_recommendation_section.dart';
 import '../../shared/widgets/creator_profile_link.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../shared/widgets/metadata_pill.dart';
@@ -1746,8 +1747,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 ? SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
+                    child: ExpressiveLoadingIndicator(
+                      size: 14,
                       color: colorScheme.error,
                     ),
                   )

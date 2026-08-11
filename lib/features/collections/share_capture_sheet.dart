@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
@@ -172,8 +173,8 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
                 SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
+                  child: ExpressiveLoadingIndicator(
+                    size: 16,
                     color: colors.primary,
                   ),
                 ),
@@ -295,7 +296,7 @@ class _CollectionPickerSheet extends ConsumerWidget {
             collections.when(
               loading: () => const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: ExpressiveLoadingIndicator()),
               ),
               error: (_, _) => const Padding(
                 padding: EdgeInsets.all(16),

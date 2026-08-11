@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'library_entity.dart';
 import 'library_provider.dart';
 import 'library_status_picker.dart';
@@ -75,7 +76,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
         ],
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: ExpressiveLoadingIndicator()),
         error: (_, _) => const Center(child: Text('Could not open Library')),
         data: (snapshot) {
           final all = snapshot.ofKind(widget.kind);

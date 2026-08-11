@@ -7,6 +7,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/notifications/curated_notification_media.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/url_card.dart';
 import '../home/home_provider.dart';
 
@@ -29,7 +30,6 @@ class NotificationDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<NotificationDetailScreen> createState() =>
       _NotificationDetailScreenState();
 }
-
 class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScreen>
     with SingleTickerProviderStateMixin {
   List<SavedUrl> _urls = [];
@@ -211,7 +211,7 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: ExpressiveLoadingIndicator())
           : _urls.isEmpty
               ? Center(
                   child: Padding(

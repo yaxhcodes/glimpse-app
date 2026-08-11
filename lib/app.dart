@@ -74,6 +74,7 @@ import 'core/services/analytics_service.dart';
 import 'core/services/url_save_notifications.dart';
 import 'core/utils/url_extractor.dart';
 import 'shared/widgets/app_snackbar.dart';
+import 'shared/widgets/expressive_loading_indicator.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
 
@@ -861,7 +862,7 @@ class _StartupProgress extends StatelessWidget {
         child: SizedBox(
           width: 28,
           height: 28,
-          child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.primary),
+          child: ExpressiveLoadingIndicator(size: 28, color: cs.primary),
         ),
       ),
     );

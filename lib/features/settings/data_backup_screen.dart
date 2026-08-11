@@ -13,6 +13,7 @@ import '../../core/services/backup/backup_models.dart';
 import '../../core/services/backup/backup_service.dart';
 import '../../core/services/backup_scheduler.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 
 /// Mihon-inspired Data & Backup screen.
 ///
@@ -193,8 +194,8 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                             ? SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                child: ExpressiveLoadingIndicator(
+                                  size: 18,
                                   color: cs.primary,
                                 ),
                               )
@@ -628,8 +629,8 @@ class _AutoBackupSection extends ConsumerWidget {
       loading: () => SizedBox(
         height: 48,
         child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
+          child: ExpressiveLoadingIndicator(
+            size: 32,
             color: Theme.of(context).colorScheme.primary,
           ),
         ),
@@ -734,8 +735,8 @@ class _DualBackupActions extends StatelessWidget {
                 ? SizedBox(
                     width: 22,
                     height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
+                    child: ExpressiveLoadingIndicator(
+                      size: 22,
                       color: cs.primary,
                     ),
                   )
@@ -750,8 +751,8 @@ class _DualBackupActions extends StatelessWidget {
                 ? SizedBox(
                     width: 22,
                     height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
+                    child: ExpressiveLoadingIndicator(
+                      size: 22,
                       color: cs.primary,
                     ),
                   )

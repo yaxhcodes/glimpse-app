@@ -9,6 +9,7 @@ import '../../core/models/place_itinerary.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'library_entity.dart';
 import 'library_places_map.dart';
 import 'library_places_model.dart';
@@ -79,7 +80,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
         ],
       ),
       body: snapshot.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: ExpressiveLoadingIndicator()),
         error: (_, _) => const Center(child: Text('Could not open Places')),
         data: (data) {
           final places = data.ofKind(LibraryEntityKind.place);

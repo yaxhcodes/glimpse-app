@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import 'recap_provider.dart';
 
@@ -10,7 +11,6 @@ class RecapScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<RecapScreen> createState() => _RecapScreenState();
 }
-
 class _RecapScreenState extends ConsumerState<RecapScreen> {
   @override
   void initState() {
@@ -44,7 +44,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           ),
           if (state.isLoading)
             const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: ExpressiveLoadingIndicator()),
             )
 else if (state.error != null)
             SliverFillRemaining(

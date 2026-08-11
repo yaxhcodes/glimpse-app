@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,166 +22,170 @@ class RediscoverySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(rediscoverJourneysProvider);
-    final resurfaced =
-        ref.watch(recentlyResurfacedProvider).valueOrNull ?? const [];
-    return async.when(
-      skipLoadingOnReload: true,
-      data: (journeys) {
-        if (journeys.isEmpty && resurfaced.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        final cs = Theme.of(context).colorScheme;
-        final tt = Theme.of(context).textTheme;
-        final seenTip = ref.watch(hasSeenRediscoverTipProvider);
-        final size = MediaQuery.sizeOf(context);
-        final isTablet = size.width > 600;
-        // Proportional sizing: the card width is a fixed share of the viewport
-        // (leaving a peek of the next card to signal the row scrolls), and the
-        // height is derived from a locked aspect ratio and clamped so it stays
-        // balanced from compact phones up through tablets.
-        const hPad = 16.0;
-        final cardWidth = isTablet ? 320.0 : (size.width - hPad * 2) * 0.80;
-        final cardHeight = (cardWidth / 1.7).clamp(168.0, 196.0) + 24.0;
-        final previewCount = isTablet
-            ? journeys.length
-            : journeys.length.clamp(0, 4);
+    final journeysAsync = ref.watch(rediscoverJourneysProvider);
+    final resurfacedAsync = ref.watch(recentlyResurfacedProvider);
+    final journeys = journeysAsync.valueOrNull ?? const <RediscoverJourney>[];
+    final resurfaced = resurfacedAsync.valueOrNull ?? const <RediscoveryItem>[];
+    if (journeys.isEmpty && resurfaced.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!seenTip)
-                _RediscoverTip(
-                  onDismiss: () =>
-                      ref.read(hasSeenRediscoverTipProvider.notifier).set(true),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
-                child: InkWell(
-                  onTap: () => context.push('/rediscover'),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 0,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Rediscover',
-                                style: tt.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: cs.onSurface,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                'Worth picking back up',
-                                style: tt.labelSmall?.copyWith(
-                                  fontSize: 10,
-                                  color: cs.onSurfaceVariant,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final seenTip = ref.watch(hasSeenRediscoverTipProvider);
+    final size = MediaQuery.sizeOf(context);
+    final isTablet = size.width > 600;
+    // Proportional sizing: the card width is a fixed share of the viewport
+    // (leaving a peek of the next card to signal the row scrolls), and the
+    // height is derived from a locked aspect ratio and clamped so it stays
+    // balanced from compact phones up through tablets.
+    const hPad = 16.0;
+    final cardWidth = isTablet ? 320.0 : (size.width - hPad * 2) * 0.80;
+    final cardHeight = (cardWidth / 1.7).clamp(168.0, 196.0) + 24.0;
+    final previewCount = isTablet
+        ? journeys.length
+        : journeys.length.clamp(0, 4);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!seenTip)
+            _RediscoverTip(
+              onDismiss: () =>
+                  ref.read(hasSeenRediscoverTipProvider.notifier).set(true),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
+            child: InkWell(
+              onTap: () => context.push('/rediscover'),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rediscover',
+                            style: tt.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                              letterSpacing: 0,
+                            ),
                           ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 20,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
+                          const SizedBox(height: 1),
+                          Text(
+                            'Worth picking back up',
+                            style: tt.labelSmall?.copyWith(
+                              fontSize: 10,
+                              color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
               ),
-              if (resurfaced.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                  child: _RecentMemoryTile(
-                    item: resurfaced.first,
-                    onTap: () =>
-                        _openResurfaced(context, ref, resurfaced.first.url),
-                  ),
-                ),
-              if (previewCount > 0)
-                SizedBox(
-                  height: cardHeight + 8,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: CarouselView(
-                      itemExtent: cardWidth + 12,
-                      shrinkExtent: 0,
-                      itemSnapping: true,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 4,
-                      ),
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      itemClipBehavior: Clip.antiAlias,
-                      onTap: (i) {
-                        unawaited(
-                          ref
-                              .read(isarServiceProvider)
-                              .logEvent(
-                                type: EngagementEventType.clusterVisit,
-                                clusterLabel:
-                                    journeys[i].topicAnchor ??
-                                    journeys[i].title,
-                              ),
-                        );
-                        context.push('/rediscover/journey', extra: journeys[i]);
-                      },
-                      children: [
-                        for (var i = 0; i < previewCount; i++)
-                          _RediscoverJourneyCard(
-                            journey: journeys[i],
-                            height: cardHeight,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
+          if (resurfaced.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+              child: _RecentMemoryTile(
+                item: resurfaced.first,
+                onTap: () =>
+                    _openResurfaced(context, ref, resurfaced.first.url),
+              ),
+            ),
+          if (previewCount > 0)
+            SizedBox(
+              height: cardHeight + 8,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: CarouselView(
+                  itemExtent: cardWidth + 12,
+                  shrinkExtent: 0,
+                  itemSnapping: true,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  itemClipBehavior: Clip.antiAlias,
+                  onTap: (i) {
+                    unawaited(
+                      ref
+                          .read(isarServiceProvider)
+                          .logEvent(
+                            type: EngagementEventType.clusterVisit,
+                            clusterLabel:
+                                journeys[i].topicAnchor ?? journeys[i].title,
+                          ),
+                    );
+                    context.push('/rediscover/journey', extra: journeys[i]);
+                  },
+                  children: [
+                    for (var i = 0; i < previewCount; i++)
+                      _RediscoverJourneyCard(
+                        journey: journeys[i],
+                        height: cardHeight,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  Future<void> _openResurfaced(
-    BuildContext context,
-    WidgetRef ref,
+  void _openResurfaced(BuildContext context, WidgetRef ref, SavedUrl url) {
+    final service = RediscoveryService(ref.read(isarServiceProvider));
+    final container = ProviderScope.containerOf(context, listen: false);
+    unawaited(context.push('/url/${url.id}'));
+    unawaited(_recordResurfacedOpen(container, service, url));
+  }
+
+  Future<void> _recordResurfacedOpen(
+    ProviderContainer container,
+    RediscoveryService service,
     SavedUrl url,
   ) async {
-    final service = RediscoveryService(ref.read(isarServiceProvider));
-    await service.markResurfaced(url.id);
-    await service.markOpened(url.id);
+    try {
+      await service.markResurfaced(url.id);
+      await service.markOpened(url.id);
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to record a resurfaced save open.',
+        name: 'RediscoverySection',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
     unawaited(
-      ref
+      container
           .read(isarServiceProvider)
           .logEvent(type: EngagementEventType.cardOpened, url: url),
     );
-    ref.invalidate(recentlyResurfacedProvider);
-    ref.invalidate(rediscoverJourneysProvider);
-    if (context.mounted) {
-      context.push('/url/${url.id}');
-    }
+    container.invalidate(recentlyResurfacedProvider);
+    container.invalidate(rediscoverJourneysProvider);
   }
 }
 

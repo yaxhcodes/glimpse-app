@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/backup_provider.dart';
 import '../../core/services/backup/backup_models.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 
 class BackupPreviewScreen extends ConsumerStatefulWidget {
   const BackupPreviewScreen({super.key});
@@ -11,7 +12,6 @@ class BackupPreviewScreen extends ConsumerStatefulWidget {
   ConsumerState<BackupPreviewScreen> createState() =>
       _BackupPreviewScreenState();
 }
-
 class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
   RestoreMode _restoreMode = RestoreMode.merge;
 
@@ -381,7 +381,7 @@ class _RestoreImpactSummary extends ConsumerWidget {
             SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+              child: ExpressiveLoadingIndicator(size: 14, color: cs.primary),
             ),
             const SizedBox(width: 10),
             Text(

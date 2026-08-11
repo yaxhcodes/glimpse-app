@@ -89,14 +89,17 @@ final rediscoverJourneysProvider = FutureProvider<List<RediscoverJourney>>((
   final urls = await _liveRediscoverUrls(ref);
   if (urls.length < 3) return const [];
 
-  final profile = await ref.watch(affinityProfileProvider.future);
-  final clusters = await ref.watch(interestClusterThemesProvider.future);
-  final relatedItems = (await ref.watch(
-    relatedSavesProvider.future,
-  )).items.take(8).toList();
-  final anniversaries = (await ref.watch(
-    onThisDayProvider.future,
-  )).take(8).toList();
+  // These inputs are independent. Start them together so Home is not blocked
+  // by four sequential database/scoring passes before Rediscover can render.
+  final profileFuture = ref.watch(affinityProfileProvider.future);
+  final clustersFuture = ref.watch(interestClusterThemesProvider.future);
+  final relatedItemsFuture = ref.watch(relatedSavesProvider.future);
+  final anniversariesFuture = ref.watch(onThisDayProvider.future);
+
+  final profile = await profileFuture;
+  final clusters = await clustersFuture;
+  final relatedItems = (await relatedItemsFuture).items.take(8).toList();
+  final anniversaries = (await anniversariesFuture).take(8).toList();
 
   return buildRediscoverJourneys(
     liveUrls: urls,

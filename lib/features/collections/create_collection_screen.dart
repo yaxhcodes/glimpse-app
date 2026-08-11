@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
 
@@ -13,7 +14,8 @@ class CreateCollectionScreen extends ConsumerStatefulWidget {
       _CreateCollectionScreenState();
 }
 
-class _CreateCollectionScreenState extends ConsumerState<CreateCollectionScreen> {
+class _CreateCollectionScreenState
+    extends ConsumerState<CreateCollectionScreen> {
   bool _opened = false;
 
   @override
@@ -40,7 +42,7 @@ class _CreateCollectionScreenState extends ConsumerState<CreateCollectionScreen>
 
     return Scaffold(
       backgroundColor: cs.surface,
-      body: const Center(child: CircularProgressIndicator()),
+      body: const Center(child: ExpressiveLoadingIndicator()),
     );
   }
 }

@@ -11,6 +11,7 @@ import '../../core/constants/app_assets.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/dev_auth_service.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key, this.isOnboardingEntry = false});
@@ -601,8 +602,8 @@ class _AccountHintButton extends StatelessWidget {
                       SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                        child: ExpressiveLoadingIndicator(
+                          size: 18,
                           color: cs.surface,
                         ),
                       ),
@@ -649,8 +650,8 @@ class _AuthPillButton extends StatelessWidget {
               ? SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
+                  child: ExpressiveLoadingIndicator(
+                    size: 18,
                     color: cs.onSurface,
                   ),
                 )

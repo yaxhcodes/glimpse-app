@@ -13,6 +13,7 @@ import '../../core/services/title_resolver.dart';
 import '../../core/utils/url_extractor.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/link_card_thumbnail.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../collections/share_capture_sheet.dart';
 import 'add_url_provider.dart';
@@ -301,7 +302,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                         children: [
                           SizedBox.square(
                             dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: ExpressiveLoadingIndicator(size: 18),
                           ),
                           SizedBox(width: 10),
                           Text('Capturing…'),

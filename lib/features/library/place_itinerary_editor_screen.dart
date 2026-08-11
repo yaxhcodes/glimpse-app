@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/place_itinerary.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../ask/ask_launch_request.dart';
 import 'library_entity.dart';
 import 'library_places_model.dart';
@@ -69,7 +70,7 @@ class _PlaceItineraryEditorScreenState
     final itinerariesAsync = ref.watch(placeItinerariesProvider);
     return snapshotAsync.when(
       loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+          const Scaffold(body: Center(child: ExpressiveLoadingIndicator())),
       error: (_, _) =>
           const Scaffold(body: Center(child: Text('Could not open this plan'))),
       data: (snapshot) {
@@ -82,7 +83,7 @@ class _PlaceItineraryEditorScreenState
           if (widget.itineraryId != null && itinerary == null) {
             if (itinerariesAsync.isLoading) {
               return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+                body: Center(child: ExpressiveLoadingIndicator()),
               );
             }
             return const Scaffold(

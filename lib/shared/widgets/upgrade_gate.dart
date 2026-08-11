@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app.dart' show rootNavigatorKey;
 import 'app_snackbar.dart';
+import 'expressive_loading_indicator.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
@@ -251,8 +252,8 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
               ? SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
+                  child: ExpressiveLoadingIndicator(
+                    size: 18,
                     color: colorScheme.onPrimary,
                   ),
                 )

@@ -14,6 +14,7 @@ import '../../shared/widgets/notifications/notification_type_style.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
 import '../../shared/widgets/premium_swipe_card.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -108,7 +109,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         title: const Text('Notifications'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: ExpressiveLoadingIndicator())
           : _history.isEmpty
           ? _EmptyNotifications(theme: theme)
           : ListView.builder(

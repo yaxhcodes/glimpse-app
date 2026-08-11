@@ -7,6 +7,7 @@ import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/app_snackbar.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../home/home_provider.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
@@ -96,7 +97,10 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
             Text('Add to collection', style: theme.textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              TitleResolver.resolveDetailTitle(widget.url, tagFrequency: tagFreq),
+              TitleResolver.resolveDetailTitle(
+                widget.url,
+                tagFrequency: tagFreq,
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -107,7 +111,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
             collectionsAsync.when(
               loading: () => const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: ExpressiveLoadingIndicator()),
               ),
               error: (e, _) => Text('Could not load collections: $e'),
               data: (collections) {
@@ -162,10 +166,8 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                                 add: value == true,
                               ),
                             ),
-                            onTap: () => _setCollectionMembership(
-                              c,
-                              add: !inCollection,
-                            ),
+                            onTap: () =>
+                                _setCollectionMembership(c, add: !inCollection),
                           );
                         },
                       ),
@@ -225,7 +227,7 @@ class AddManyToCollectionSheet extends ConsumerWidget {
             collectionsAsync.when(
               loading: () => const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: ExpressiveLoadingIndicator()),
               ),
               error: (e, _) => Text('Could not load collections: $e'),
               data: (collections) {

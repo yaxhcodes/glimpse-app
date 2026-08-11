@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../shared/widgets/category_chip.dart'
     show faviconUrl, platformColors;
 import '../../shared/widgets/app_glass_surface.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import 'sources_provider.dart';
@@ -226,7 +227,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               title: const Text('Sources'),
             ),
             const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: ExpressiveLoadingIndicator()),
             ),
           ],
         ),

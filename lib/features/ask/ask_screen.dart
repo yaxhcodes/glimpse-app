@@ -31,6 +31,7 @@ import '../collections/create_collection_sheet.dart';
 import '../library/library_entity.dart';
 import '../library/library_provider.dart';
 import '../library/place_itinerary_provider.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'ask_itinerary_builder.dart';
 import 'ask_empty_suggestions_provider.dart';
 import 'ask_greeting_service.dart';

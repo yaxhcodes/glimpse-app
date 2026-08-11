@@ -10,6 +10,7 @@ import '../../core/providers/swipe_preferences_provider.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../add_url/add_url_screen.dart';
 import 'collections_provider.dart';
@@ -138,7 +139,7 @@ class _CollectionDetailScreenState
                 ],
         ),
         body: urlsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: ExpressiveLoadingIndicator()),
           error: (e, _) => Center(child: Text('$e')),
           data: (urls) {
             if (urls.isEmpty) {
