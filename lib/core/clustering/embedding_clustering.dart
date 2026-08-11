@@ -195,7 +195,9 @@ const double kMaxSubClusterDominanceRatio = 0.85;
 
 List<double> _normalise(List<double> v) {
   double norm = 0;
-  for (final x in v) norm += x * x;
+  for (final x in v) {
+    norm += x * x;
+  }
   norm = sqrt(norm);
   if (norm == 0) return v;
   return v.map((x) => x / norm).toList();

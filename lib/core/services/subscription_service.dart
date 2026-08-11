@@ -212,7 +212,7 @@ class SubscriptionService implements SubscriptionIdentityService {
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print(
+        developer.log(
           '[Subscription] configured appUserId=$resolvedAppUserId '
           'key=${_obfuscate(key)} entitlement="${RevenueCatConfig.entitlementId}"',
         );
@@ -252,7 +252,7 @@ class SubscriptionService implements SubscriptionIdentityService {
       name: 'Subscription',
     );
     if (kDebugMode) {
-      print(
+      developer.log(
         '[Subscription] $source — entitlements.active=$activeIds '
         'activeSubscriptions=$subs '
         '(lookingFor="${RevenueCatConfig.entitlementId}")',
@@ -408,7 +408,10 @@ class SubscriptionService implements SubscriptionIdentityService {
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print('[Subscription] offerings current="$curId" packageIds=$pkgIds');
+        developer.log(
+          '[Subscription] offerings current="$curId" packageIds=$pkgIds',
+          name: 'Subscription',
+        );
       }
 
       final offering = _offeringWithPackages(offerings);
@@ -429,7 +432,7 @@ class SubscriptionService implements SubscriptionIdentityService {
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print(
+        developer.log(
           '[Subscription] Purchases.purchase → package=${pkg.identifier} '
           'product=${pkg.storeProduct.identifier}',
         );
@@ -455,7 +458,10 @@ class SubscriptionService implements SubscriptionIdentityService {
         stackTrace: st,
       );
       if (kDebugMode) {
-        print('[Subscription] purchase error code=$code message=${e.message}');
+        developer.log(
+          '[Subscription] purchase error code=$code message=${e.message}',
+          name: 'Subscription',
+        );
       }
 
       return purchaseOutcomeForError(code);
@@ -613,7 +619,7 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
       );
       unawaited(SubscriptionService._syncSubscriptionProfile(info));
       if (kDebugMode) {
-        print(
+        developer.log(
           '[Subscription] notifier listener → $tier '
           '(active=${info.entitlements.active.keys.toList()})',
         );
@@ -654,7 +660,7 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print(
+        developer.log(
           '[Subscription] notifier build (cached) → $tier '
           '(active=${info.entitlements.active.keys.toList()})',
         );
@@ -718,7 +724,7 @@ class SubscriptionTierNotifier extends AsyncNotifier<SubscriptionTier> {
         name: 'Subscription',
       );
       if (kDebugMode) {
-        print(
+        developer.log(
           '[Subscription] refreshAfterPurchase → $tier '
           '(active=${info.entitlements.active.keys.toList()})',
         );

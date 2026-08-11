@@ -7,7 +7,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('TimeBucket mapping', () {
-    Future<TimeBucket> _bucketAt(int hour, [int minute = 0]) async {
+    Future<TimeBucket> bucketAt(int hour, [int minute = 0]) async {
       final service = AskGreetingService(
         now: DateTime(2024, 1, 1, hour, minute),
         store: MemoryGreetingStore(),
@@ -17,38 +17,38 @@ void main() {
     }
 
     test('lateNight covers 00:00–04:59', () async {
-      expect(await _bucketAt(0), TimeBucket.lateNight);
-      expect(await _bucketAt(4, 59), TimeBucket.lateNight);
+      expect(await bucketAt(0), TimeBucket.lateNight);
+      expect(await bucketAt(4, 59), TimeBucket.lateNight);
     });
 
     test('earlyMorning covers 05:00–07:59', () async {
-      expect(await _bucketAt(5), TimeBucket.earlyMorning);
-      expect(await _bucketAt(7, 59), TimeBucket.earlyMorning);
+      expect(await bucketAt(5), TimeBucket.earlyMorning);
+      expect(await bucketAt(7, 59), TimeBucket.earlyMorning);
     });
 
     test('morning covers 08:00–11:59', () async {
-      expect(await _bucketAt(8), TimeBucket.morning);
-      expect(await _bucketAt(11, 59), TimeBucket.morning);
+      expect(await bucketAt(8), TimeBucket.morning);
+      expect(await bucketAt(11, 59), TimeBucket.morning);
     });
 
     test('afternoon covers 12:00–15:59', () async {
-      expect(await _bucketAt(12), TimeBucket.afternoon);
-      expect(await _bucketAt(15, 59), TimeBucket.afternoon);
+      expect(await bucketAt(12), TimeBucket.afternoon);
+      expect(await bucketAt(15, 59), TimeBucket.afternoon);
     });
 
     test('evening covers 16:00–18:59', () async {
-      expect(await _bucketAt(16), TimeBucket.evening);
-      expect(await _bucketAt(18, 59), TimeBucket.evening);
+      expect(await bucketAt(16), TimeBucket.evening);
+      expect(await bucketAt(18, 59), TimeBucket.evening);
     });
 
     test('night covers 19:00–22:29', () async {
-      expect(await _bucketAt(19), TimeBucket.night);
-      expect(await _bucketAt(22, 29), TimeBucket.night);
+      expect(await bucketAt(19), TimeBucket.night);
+      expect(await bucketAt(22, 29), TimeBucket.night);
     });
 
     test('lateNight covers 22:30–23:59', () async {
-      expect(await _bucketAt(22, 30), TimeBucket.lateNight);
-      expect(await _bucketAt(23, 59), TimeBucket.lateNight);
+      expect(await bucketAt(22, 30), TimeBucket.lateNight);
+      expect(await bucketAt(23, 59), TimeBucket.lateNight);
     });
   });
 
@@ -72,10 +72,7 @@ void main() {
         random: Random(1), // seed: picks eligible greeting + nextDouble < 0.35
         store: store,
       );
-      final greeting = await service.build(
-        savedUrlCount: 5,
-        userName: 'Alex',
-      );
+      final greeting = await service.build(savedUrlCount: 5, userName: 'Alex');
       expect(greeting.line, contains('Alex'));
       expect(greeting.line, endsWith('.'));
     });
@@ -86,10 +83,7 @@ void main() {
         random: Random(42),
         store: MemoryGreetingStore(),
       );
-      final greeting = await service.build(
-        savedUrlCount: 5,
-        userName: 'Alex',
-      );
+      final greeting = await service.build(savedUrlCount: 5, userName: 'Alex');
       expect(greeting.phase, TimeBucket.lateNight);
       expect(greeting.line, isNot(contains('Alex')));
     });
@@ -137,10 +131,7 @@ void main() {
         random: Random(0),
         store: store,
       );
-      final greeting = await service.build(
-        savedUrlCount: 5,
-        userName: 'Alex',
-      );
+      final greeting = await service.build(savedUrlCount: 5, userName: 'Alex');
       expect(greeting.context, UserContext.active);
       expect(greeting.line, isNot(contains('Alex')));
     });

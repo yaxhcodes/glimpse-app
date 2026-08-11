@@ -173,6 +173,102 @@ void main() {
         ]),
       );
     });
+
+    test(
+      'incremental cache stays equivalent and skips unrelated reparsing',
+      () {
+        final provisional = _saved(
+          id: 1,
+          mention: {
+            'title': 'Dune',
+            'type': 'book',
+            'creator': 'Frank Herbert',
+          },
+        );
+        final resolved = _saved(
+          id: 2,
+          mention: {
+            'title': 'Dune',
+            'type': 'book',
+            'creator': 'Frank Herbert',
+            'catalog_id': 'OL893415W',
+            'catalog_source': 'open_library',
+          },
+        );
+        final malformed = _saved(
+          id: 3,
+          mention: {'title': 'Ignored', 'type': 'book'},
+        )..enrichmentJson = '{malformed';
+        final urls = [provisional, resolved, malformed];
+        final cache = LibraryIndexCache();
+
+        final first = cache.build(urls);
+        expect(_snapshotShape(first), _snapshotShape(LibraryIndex.build(urls)));
+        expect(cache.parsedUrlCount, 3);
+
+        final unchanged = cache.build(urls);
+        expect(identical(unchanged, first), isTrue);
+        expect(cache.parsedUrlCount, 3);
+
+        provisional.openedAt = DateTime(2026, 8, 11);
+        final unrelatedUpdate = cache.build(urls);
+        expect(identical(unrelatedUpdate, first), isTrue);
+        expect(cache.parsedUrlCount, 3);
+
+        provisional.tags = const ['science fiction'];
+        final relevantUpdate = cache.build(urls);
+        expect(cache.parsedUrlCount, 4);
+        expect(
+          _snapshotShape(relevantUpdate),
+          _snapshotShape(LibraryIndex.build(urls)),
+        );
+
+        final hidden = cache.build(
+          urls,
+          hiddenKeys: {relevantUpdate.entities.single.key},
+        );
+        expect(hidden.entities, isEmpty);
+        expect(cache.parsedUrlCount, 4);
+
+        final afterDelete = cache.build([provisional]);
+        expect(
+          _snapshotShape(afterDelete),
+          _snapshotShape(LibraryIndex.build([provisional])),
+        );
+      },
+    );
+
+    test('large cache updates only reparse relevant changed URLs', () {
+      final urls = [
+        for (var id = 1; id <= 500; id++)
+          _saved(
+            id: id,
+            mention: {
+              'title': 'Book $id',
+              'type': 'book',
+              'creator': 'Author ${id % 25}',
+            },
+          ),
+      ];
+      final cache = LibraryIndexCache();
+
+      final first = cache.build(urls);
+      expect(cache.parsedUrlCount, 500);
+      expect(_snapshotShape(first), _snapshotShape(LibraryIndex.build(urls)));
+
+      urls[249].openedAt = DateTime(2026, 8, 11);
+      final unrelatedUpdate = cache.build(urls);
+      expect(identical(unrelatedUpdate, first), isTrue);
+      expect(cache.parsedUrlCount, 500);
+
+      urls[249].tags = const ['classic'];
+      final relevantUpdate = cache.build(urls);
+      expect(cache.parsedUrlCount, 501);
+      expect(
+        _snapshotShape(relevantUpdate),
+        _snapshotShape(LibraryIndex.build(urls)),
+      );
+    });
   });
 
   test('normalizes provider genres into a deterministic taxonomy', () {
@@ -231,6 +327,29 @@ void main() {
       isFalse,
     );
   });
+}
+
+List<Map<String, Object?>> _snapshotShape(LibrarySnapshot snapshot) {
+  return snapshot.entities.map((entity) {
+    return <String, Object?>{
+      'key': entity.key,
+      'provisionalKey': entity.provisionalKey,
+      'kind': entity.kind.name,
+      'mention': entity.mention.toJson(),
+      'discoveredAt': entity.discoveredAt.toIso8601String(),
+      'sources': entity.sources.map((source) {
+        return <String, Object?>{
+          'urlId': source.urlId,
+          'title': source.title,
+          'domain': source.domain,
+          'savedAt': source.savedAt.toIso8601String(),
+          'provisionalKey': source.provisionalKey,
+          'mention': source.mention.toJson(),
+          'thumbnailUrl': source.thumbnailUrl,
+        };
+      }).toList(),
+    };
+  }).toList();
 }
 
 SavedUrl _saved({

@@ -179,45 +179,58 @@ class LibraryIndex {
   }) {
     final candidates = <_LibraryCandidate>[];
     for (final url in urls) {
-      final raw = url.enrichmentJson;
-      if (raw == null || raw.trim().isEmpty) continue;
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is! Map) continue;
-        final result = TranscriptEnrichmentResult.fromJson(
-          Map<String, dynamic>.from(decoded),
-        );
-        if (result == null) continue;
-        for (final mention in result.mentions) {
-          final kind = kindForMention(mention);
-          if (kind == null || !_isV1Subtype(kind, mention.subtype)) continue;
-          final provisional = provisionalKeyFor(kind, mention);
-          if (provisional.isEmpty) continue;
-          candidates.add(
-            _LibraryCandidate(
-              kind: kind,
-              mention: mention,
-              provisionalKey: provisional,
-              genreSignals: _localGenreSignals(url, mention),
-              source: LibrarySourceReference(
-                urlId: url.id,
-                title: url.title,
-                domain: url.domain,
-                savedAt: url.savedAt,
-                provisionalKey: provisional,
-                mention: mention,
-                thumbnailUrl: url.thumbnailUrl,
-              ),
-            ),
-          );
-        }
-      } on FormatException {
-        continue;
-      } on TypeError {
-        continue;
-      }
+      candidates.addAll(_candidatesForUrl(url));
     }
 
+    return _buildFromCandidates(candidates, hiddenKeys: hiddenKeys);
+  }
+
+  static List<_LibraryCandidate> _candidatesForUrl(SavedUrl url) {
+    final raw = url.enrichmentJson;
+    if (raw == null || raw.trim().isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const [];
+      final result = TranscriptEnrichmentResult.fromJson(
+        Map<String, dynamic>.from(decoded),
+      );
+      if (result == null) return const [];
+      final candidates = <_LibraryCandidate>[];
+      for (final mention in result.mentions) {
+        final kind = kindForMention(mention);
+        if (kind == null || !_isV1Subtype(kind, mention.subtype)) continue;
+        final provisional = provisionalKeyFor(kind, mention);
+        if (provisional.isEmpty) continue;
+        candidates.add(
+          _LibraryCandidate(
+            kind: kind,
+            mention: mention,
+            provisionalKey: provisional,
+            genreSignals: _localGenreSignals(url, mention),
+            source: LibrarySourceReference(
+              urlId: url.id,
+              title: url.title,
+              domain: url.domain,
+              savedAt: url.savedAt,
+              provisionalKey: provisional,
+              mention: mention,
+              thumbnailUrl: url.thumbnailUrl,
+            ),
+          ),
+        );
+      }
+      return List.unmodifiable(candidates);
+    } on FormatException {
+      return const [];
+    } on TypeError {
+      return const [];
+    }
+  }
+
+  static LibrarySnapshot _buildFromCandidates(
+    Iterable<_LibraryCandidate> candidates, {
+    required Set<String> hiddenKeys,
+  }) {
     final catalogKeysByProvisional = <String, Set<String>>{};
     for (final candidate in candidates) {
       final catalogKey = canonicalCatalogKey(candidate.kind, candidate.mention);
@@ -323,6 +336,149 @@ class LibraryIndex {
 
   static String _normalized(String value) =>
       value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+}
+
+/// Incremental front-end for [LibraryIndex].
+///
+/// Isar emits the complete URL list whenever any saved item changes. This
+/// cache keeps parsed Library candidates per URL and only reparses records
+/// whose Library-relevant fields changed. Grouping remains delegated to the
+/// same pure implementation used by [LibraryIndex.build].
+class LibraryIndexCache {
+  final Map<int, _LibraryCacheEntry> _entries = {};
+  List<int> _lastUrlIds = const [];
+  Set<String> _lastHiddenKeys = const {};
+  LibrarySnapshot? _snapshot;
+  int _parsedUrlCount = 0;
+
+  int get parsedUrlCount => _parsedUrlCount;
+
+  LibrarySnapshot build(
+    Iterable<SavedUrl> urls, {
+    Set<String> hiddenKeys = const {},
+  }) {
+    final orderedUrls = urls.toList(growable: false);
+    final seenIds = <int>{};
+    var candidatesChanged = false;
+
+    for (final url in orderedUrls) {
+      seenIds.add(url.id);
+      final fingerprint = _LibraryUrlFingerprint.fromUrl(url);
+      final cached = _entries[url.id];
+      if (cached != null && cached.fingerprint == fingerprint) continue;
+      _entries[url.id] = _LibraryCacheEntry(
+        fingerprint: fingerprint,
+        candidates: LibraryIndex._candidatesForUrl(url),
+      );
+      _parsedUrlCount++;
+      candidatesChanged = true;
+    }
+
+    final removedIds = _entries.keys
+        .where((id) => !seenIds.contains(id))
+        .toList(growable: false);
+    if (removedIds.isNotEmpty) {
+      for (final id in removedIds) {
+        _entries.remove(id);
+      }
+      candidatesChanged = true;
+    }
+
+    final orderedIds = orderedUrls.map((url) => url.id).toList(growable: false);
+    final orderChanged = !_listEquals(orderedIds, _lastUrlIds);
+    final hiddenChanged = !_setEquals(hiddenKeys, _lastHiddenKeys);
+    if (!candidatesChanged && !orderChanged && !hiddenChanged) {
+      return _snapshot ?? const LibrarySnapshot(entities: []);
+    }
+
+    final candidates = <_LibraryCandidate>[];
+    for (final url in orderedUrls) {
+      candidates.addAll(_entries[url.id]?.candidates ?? const []);
+    }
+    _lastUrlIds = List.unmodifiable(orderedIds);
+    _lastHiddenKeys = Set.unmodifiable(hiddenKeys);
+    return _snapshot = LibraryIndex._buildFromCandidates(
+      candidates,
+      hiddenKeys: hiddenKeys,
+    );
+  }
+}
+
+class _LibraryCacheEntry {
+  const _LibraryCacheEntry({
+    required this.fingerprint,
+    required this.candidates,
+  });
+
+  final _LibraryUrlFingerprint fingerprint;
+  final List<_LibraryCandidate> candidates;
+}
+
+class _LibraryUrlFingerprint {
+  _LibraryUrlFingerprint.fromUrl(SavedUrl url)
+    : enrichmentJson = url.enrichmentJson,
+      title = url.title,
+      description = url.description,
+      summary = url.summary,
+      domain = url.domain,
+      thumbnailUrl = url.thumbnailUrl,
+      category = url.category,
+      categories = List.unmodifiable(url.categories),
+      tags = List.unmodifiable(url.tags),
+      savedAt = url.savedAt;
+
+  final String? enrichmentJson;
+  final String title;
+  final String description;
+  final String? summary;
+  final String domain;
+  final String? thumbnailUrl;
+  final String category;
+  final List<String> categories;
+  final List<String> tags;
+  final DateTime savedAt;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _LibraryUrlFingerprint &&
+        other.enrichmentJson == enrichmentJson &&
+        other.title == title &&
+        other.description == description &&
+        other.summary == summary &&
+        other.domain == domain &&
+        other.thumbnailUrl == thumbnailUrl &&
+        other.category == category &&
+        _listEquals(other.categories, categories) &&
+        _listEquals(other.tags, tags) &&
+        other.savedAt == savedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    enrichmentJson,
+    title,
+    description,
+    summary,
+    domain,
+    thumbnailUrl,
+    category,
+    Object.hashAll(categories),
+    Object.hashAll(tags),
+    savedAt,
+  );
+}
+
+bool _listEquals<T>(List<T> first, List<T> second) {
+  if (identical(first, second)) return true;
+  if (first.length != second.length) return false;
+  for (var index = 0; index < first.length; index++) {
+    if (first[index] != second[index]) return false;
+  }
+  return true;
+}
+
+bool _setEquals<T>(Set<T> first, Set<T> second) {
+  return first.length == second.length && first.containsAll(second);
 }
 
 class LibraryGenreNormalizer {

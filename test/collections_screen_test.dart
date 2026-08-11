@@ -364,7 +364,7 @@ Future<void> _pumpCollections(
         analyticsServiceProvider.overrideWithValue(_FakeAnalytics()),
         collectionsSummaryProvider.overrideWith((ref) async => summaries),
         librarySnapshotProvider.overrideWith(
-          (ref) => Stream.value(const LibrarySnapshot(entities: [])),
+          (ref) => const AsyncValue.data(LibrarySnapshot(entities: [])),
         ),
         if (isar != null) isarServiceProvider.overrideWithValue(isar),
       ],

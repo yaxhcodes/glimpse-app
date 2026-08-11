@@ -22,22 +22,22 @@ class ShoppingListItem {
   final bool isChecked;
 
   /// Additional recipe sources merged into this item (name + title pairs).
-  final List<_MergedSource> mergedSources;
+  final List<RecipeMergedSource> mergedSources;
 
   /// Combined quantity label when multiple recipes contributed (e.g. "6 cloves").
   final String? mergedQuantityLabel;
 
   /// All recipe titles contributing to this ingredient (primary + merged).
-  List<String> get allRecipeTitles => [
-        recipeTitle,
-        ...mergedSources.map((s) => s.recipeTitle),
-      ].toSet().toList();
+  List<String> get allRecipeTitles => {
+    recipeTitle,
+    ...mergedSources.map((source) => source.recipeTitle),
+  }.toList();
 
   bool get isMerged => mergedSources.isNotEmpty;
 
   ShoppingListItem copyWith({
     bool? isChecked,
-    List<_MergedSource>? mergedSources,
+    List<RecipeMergedSource>? mergedSources,
     String? mergedQuantityLabel,
   }) {
     return ShoppingListItem(
@@ -52,16 +52,16 @@ class ShoppingListItem {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'recipe_id': recipeId,
-        'recipe_title': recipeTitle,
-        'ingredient': ingredient.toJson(),
-        'is_checked': isChecked,
-        if (mergedSources.isNotEmpty)
-          'merged_sources': mergedSources.map((s) => s.toJson()).toList(),
-        if (mergedQuantityLabel != null)
-          'merged_quantity_label': mergedQuantityLabel,
-      };
+    'id': id,
+    'recipe_id': recipeId,
+    'recipe_title': recipeTitle,
+    'ingredient': ingredient.toJson(),
+    'is_checked': isChecked,
+    if (mergedSources.isNotEmpty)
+      'merged_sources': mergedSources.map((s) => s.toJson()).toList(),
+    if (mergedQuantityLabel != null)
+      'merged_quantity_label': mergedQuantityLabel,
+  };
 
   static ShoppingListItem? fromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -81,10 +81,10 @@ class ShoppingListItem {
     final rawMerged = json['merged_sources'];
     final mergedSources = rawMerged is List
         ? rawMerged
-            .map(_MergedSource.fromJson)
-            .whereType<_MergedSource>()
-            .toList()
-        : const <_MergedSource>[];
+              .map(RecipeMergedSource.fromJson)
+              .whereType<RecipeMergedSource>()
+              .toList()
+        : const <RecipeMergedSource>[];
     return ShoppingListItem(
       id: id,
       recipeId: (json['recipe_id'] as num?)?.toInt() ?? 0,
@@ -97,25 +97,29 @@ class ShoppingListItem {
   }
 }
 
-class _MergedSource {
-  const _MergedSource({required this.recipeId, required this.recipeTitle, this.quantityLabel});
+class RecipeMergedSource {
+  const RecipeMergedSource({
+    required this.recipeId,
+    required this.recipeTitle,
+    this.quantityLabel,
+  });
 
   final int recipeId;
   final String recipeTitle;
   final String? quantityLabel;
 
   Map<String, dynamic> toJson() => {
-        'recipe_id': recipeId,
-        'recipe_title': recipeTitle,
-        if (quantityLabel != null) 'quantity_label': quantityLabel,
-      };
+    'recipe_id': recipeId,
+    'recipe_title': recipeTitle,
+    if (quantityLabel != null) 'quantity_label': quantityLabel,
+  };
 
-  static _MergedSource? fromJson(Object? raw) {
+  static RecipeMergedSource? fromJson(Object? raw) {
     if (raw is! Map) return null;
     final json = Map<String, dynamic>.from(raw);
     final title = json['recipe_title']?.toString().trim() ?? '';
     if (title.isEmpty) return null;
-    return _MergedSource(
+    return RecipeMergedSource(
       recipeId: (json['recipe_id'] as num?)?.toInt() ?? 0,
       recipeTitle: title,
       quantityLabel: json['quantity_label']?.toString().trim(),
@@ -135,10 +139,7 @@ class RecipeStateService {
     return RecipeStateService._(await SharedPreferences.getInstance());
   }
 
-  static String ingredientKey(
-    EnrichedRecipeIngredient ingredient,
-    int index,
-  ) {
+  static String ingredientKey(EnrichedRecipeIngredient ingredient, int index) {
     final normalized = ingredient.displayText
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
@@ -258,7 +259,7 @@ class RecipeStateService {
             existing.mergedQuantityLabel ?? existing.ingredient.amountLabel,
             incomingQty,
           );
-          final newSource = _MergedSource(
+          final newSource = RecipeMergedSource(
             recipeId: recipeId,
             recipeTitle: recipeTitle,
             quantityLabel: incomingQty.isEmpty ? null : incomingQty,

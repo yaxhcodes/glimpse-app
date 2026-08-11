@@ -118,7 +118,7 @@ void main() {
       ProviderScope(
         overrides: [
           librarySnapshotProvider.overrideWith(
-            (ref) => Stream.value(LibrarySnapshot(entities: [place])),
+            (ref) => AsyncValue.data(LibrarySnapshot(entities: [place])),
           ),
         ],
         child: MaterialApp(
@@ -156,7 +156,7 @@ void main() {
       ProviderScope(
         overrides: [
           librarySnapshotProvider.overrideWith(
-            (ref) => Stream.value(LibrarySnapshot(entities: [entity])),
+            (ref) => AsyncValue.data(LibrarySnapshot(entities: [entity])),
           ),
           libraryEntityActionsProvider.overrideWithValue(actions),
         ],
@@ -210,7 +210,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         librarySnapshotProvider.overrideWith(
-          (ref) => Stream.value(LibrarySnapshot(entities: [entity])),
+          (ref) => AsyncValue.data(LibrarySnapshot(entities: [entity])),
         ),
       ],
     );
@@ -279,7 +279,7 @@ Widget _app(LibrarySnapshot snapshot, {ThemeData? theme}) {
   return ProviderScope(
     overrides: [
       analyticsServiceProvider.overrideWithValue(_FakeAnalytics()),
-      librarySnapshotProvider.overrideWith((ref) => Stream.value(snapshot)),
+      librarySnapshotProvider.overrideWith((ref) => AsyncValue.data(snapshot)),
     ],
     child: MaterialApp(
       theme: theme ?? ThemeData(useMaterial3: true),

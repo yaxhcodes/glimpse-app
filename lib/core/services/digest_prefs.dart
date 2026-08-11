@@ -79,9 +79,9 @@ class DigestPrefs {
       'topic': topic,
       'type': type,
       'read': false,
-      if (notifId != null) 'notifId': notifId,
-      if (body != null) 'body': body,
-      if (sig != null) 'sig': sig,
+      'notifId': ?notifId,
+      'body': ?body,
+      'sig': ?sig,
     });
     if (history.length > 50) history.removeRange(50, history.length);
     await p.setString(_historyKey, jsonEncode(history));

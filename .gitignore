@@ -1,5 +1,7 @@
 # Local installers / binaries (GitHub 100MB limit; never commit)
 assets/**/*.exe
+*.apk
+*.aab
 
 # Miscellaneous
 *.class
@@ -9,6 +11,8 @@ assets/**/*.exe
 .DS_Store
 .atom/
 .build/
+**/.gradle/
+**/build/
 .buildlog/
 .history
 .svn/
@@ -36,7 +40,6 @@ glimpse-enrichment-backend/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
 /coverage/
 
 # Symbolication related

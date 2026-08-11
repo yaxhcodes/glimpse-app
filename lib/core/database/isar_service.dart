@@ -1382,14 +1382,29 @@ class IsarService {
   Future<DateTime?> getLatestCollectionAddedAt(
     UserCollection collection,
   ) async {
-    DateTime? latest;
-    for (final urlId in collection.urlIds) {
-      final value = await _getCollectionAddedAt(collection.id, urlId);
-      if (value != null && (latest == null || value.isAfter(latest))) {
-        latest = value;
+    final values = await getLatestCollectionAddedAts([collection]);
+    return values[collection.id];
+  }
+
+  Future<Map<int, DateTime?>> getLatestCollectionAddedAts(
+    Iterable<UserCollection> collections,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final result = <int, DateTime?>{};
+    for (final collection in collections) {
+      DateTime? latest;
+      for (final urlId in collection.urlIds) {
+        final raw = prefs.getString(
+          _collectionAddedAtKey(collection.id, urlId),
+        );
+        final value = raw == null ? null : DateTime.tryParse(raw);
+        if (value != null && (latest == null || value.isAfter(latest))) {
+          latest = value;
+        }
       }
+      result[collection.id] = latest;
     }
-    return latest;
+    return Map.unmodifiable(result);
   }
 
   Future<void> _setCollectionAddedAt(
@@ -1402,13 +1417,6 @@ class IsarService {
       _collectionAddedAtKey(collectionId, urlId),
       value.toIso8601String(),
     );
-  }
-
-  Future<DateTime?> _getCollectionAddedAt(int collectionId, int urlId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_collectionAddedAtKey(collectionId, urlId));
-    if (raw == null) return null;
-    return DateTime.tryParse(raw);
   }
 
   Future<void> _removeCollectionAddedAt(int collectionId, int urlId) async {

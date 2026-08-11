@@ -28,8 +28,7 @@ class _ShareCaptureSheet extends ConsumerStatefulWidget {
   const _ShareCaptureSheet();
 
   @override
-  ConsumerState<_ShareCaptureSheet> createState() =>
-      _ShareCaptureSheetState();
+  ConsumerState<_ShareCaptureSheet> createState() => _ShareCaptureSheetState();
 }
 
 class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
@@ -86,9 +85,7 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
   Future<void> _useDefaultCollection() async {
     if (_choosingCollection || !mounted) return;
     var collection = _defaultCollection;
-    if (collection == null) {
-      collection = await _defaultCollectionFuture;
-    }
+    collection ??= await _defaultCollectionFuture;
     if (!mounted || _choosingCollection) return;
     Navigator.of(context).pop(collection);
   }
@@ -98,19 +95,19 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
     setState(() => _choosingCollection = true);
     await _defaultCollectionFuture;
     if (!mounted) return;
-    final selected = _hasCollections == false
-        ? await showCreateCollectionSheet(context)
-        : await showCollectionPickerSheet(context);
+    final UserCollection? selected;
+    if (_hasCollections == false) {
+      selected = await showCreateCollectionSheet(context);
+    } else {
+      selected = await showCollectionPickerSheet(context);
+    }
     if (!mounted) return;
     if (selected != null) {
       Navigator.of(context).pop(selected);
       return;
     }
     setState(() => _choosingCollection = false);
-    _autoSaveTimer = Timer(
-      const Duration(seconds: 1),
-      _useDefaultCollection,
-    );
+    _autoSaveTimer = Timer(const Duration(seconds: 1), _useDefaultCollection);
   }
 
   @override
@@ -199,9 +196,9 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
 }
 
 Future<UserCollection?> showCollectionPickerSheet(BuildContext context) {
-  return _showCollectionPickerSheet(context).then(
-    (selection) => selection?.collection,
-  );
+  return _showCollectionPickerSheet(
+    context,
+  ).then((selection) => selection?.collection);
 }
 
 class CollectionPickerSelection {
@@ -283,7 +280,10 @@ class _CollectionPickerSheet extends ConsumerWidget {
                 ),
                 title: const Text('No Collection'),
                 trailing: selectedCollectionId == null
-                    ? Icon(Icons.check_rounded, color: theme.colorScheme.primary)
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: theme.colorScheme.primary,
+                      )
                     : null,
                 onTap: () => Navigator.of(
                   context,

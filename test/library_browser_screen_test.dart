@@ -202,7 +202,7 @@ Widget _browserApp(
   return ProviderScope(
     overrides: [
       librarySnapshotProvider.overrideWith(
-        (ref) => Stream.value(LibrarySnapshot(entities: entities)),
+        (ref) => AsyncValue.data(LibrarySnapshot(entities: entities)),
       ),
       if (actions != null)
         libraryEntityActionsProvider.overrideWithValue(actions),

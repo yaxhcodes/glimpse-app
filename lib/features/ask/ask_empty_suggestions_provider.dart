@@ -91,8 +91,9 @@ List<AskSuggestionChipData> _chipsFromClusterThemesHeuristic(
 }
 
 List<AskSuggestionChipData> _heuristicChipsFromRecent(List<SavedUrl> recent) {
-  if (recent.isEmpty)
+  if (recent.isEmpty) {
     return List<AskSuggestionChipData>.of(kAskOnboardingSuggestionChips);
+  }
   final fromUrls = recent.take(3).map((u) {
     final short = u.title.length > 28
         ? '${u.title.substring(0, 28)}…'

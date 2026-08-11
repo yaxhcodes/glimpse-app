@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 import '../config/app_environment.dart';
@@ -22,7 +24,10 @@ class UsageLimits {
   static int getLimit(UsageFeature feature) {
     final limit = _isDev ? _devLimit(feature) : _prodLimit(feature);
     if (kDebugMode) {
-      print('[UsageLimits] limit for ${feature.name}: $limit (dev: $_isDev)');
+      developer.log(
+        'Limit for ${feature.name}: $limit (dev: $_isDev)',
+        name: 'UsageLimits',
+      );
     }
     return limit;
   }

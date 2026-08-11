@@ -171,7 +171,9 @@ Future<void> _pumpGolden(
     ProviderScope(
       overrides: [
         analyticsServiceProvider.overrideWithValue(_FakeAnalytics()),
-        librarySnapshotProvider.overrideWith((ref) => Stream.value(snapshot)),
+        librarySnapshotProvider.overrideWith(
+          (ref) => AsyncValue.data(snapshot),
+        ),
         placeItinerariesProvider.overrideWith((ref) => Stream.value(const [])),
       ],
       child: RepaintBoundary(

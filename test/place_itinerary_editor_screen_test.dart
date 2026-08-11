@@ -20,7 +20,7 @@ void main() {
         overrides: [
           librarySnapshotProvider.overrideWith(
             (ref) =>
-                Stream.value(LibrarySnapshot(entities: [focused, planned])),
+                AsyncValue.data(LibrarySnapshot(entities: [focused, planned])),
           ),
           placeItinerariesProvider.overrideWith(
             (ref) => Stream.value(const []),

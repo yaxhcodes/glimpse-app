@@ -10,6 +10,7 @@ import '../../core/providers/analytics_provider.dart';
 import '../../core/services/ai/ai_transport.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/transcript_enrichment_service.dart';
+import '../home/home_provider.dart';
 import 'library_entity.dart';
 
 const libraryHiddenEntityKeysPrefsKey = 'glimpse_library_hidden_entity_keys';
@@ -70,15 +71,27 @@ final libraryPreferencesProvider =
       (ref) => LibraryPreferencesNotifier(),
     );
 
-final librarySnapshotProvider = StreamProvider<LibrarySnapshot>((ref) {
-  final isar = ref.watch(isarServiceProvider);
+final _libraryIndexCacheProvider = Provider<LibraryIndexCache>(
+  (ref) => LibraryIndexCache(),
+);
+
+final librarySnapshotProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
   final hidden = ref.watch(
     libraryPreferencesProvider.select((state) => state.hiddenEntityKeys),
   );
-  return isar.watchAllUrls().map(
-    (urls) => LibraryIndex.build(urls, hiddenKeys: hidden),
-  );
+  final cache = ref.watch(_libraryIndexCacheProvider);
+  return ref
+      .watch(urlStreamProvider)
+      .whenData((urls) => cache.build(urls, hiddenKeys: hidden));
 });
+
+Future<LibrarySnapshot> loadLibrarySnapshot(WidgetRef ref) async {
+  final current = ref.read(librarySnapshotProvider).valueOrNull;
+  if (current != null) return current;
+  final urls = await ref.read(urlStreamProvider.future);
+  final hidden = ref.read(libraryPreferencesProvider).hiddenEntityKeys;
+  return ref.read(_libraryIndexCacheProvider).build(urls, hiddenKeys: hidden);
+}
 
 class LibraryEntityActions {
   const LibraryEntityActions(this._ref);
