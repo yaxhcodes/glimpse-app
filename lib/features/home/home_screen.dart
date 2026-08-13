@@ -26,7 +26,6 @@ import '../../shared/widgets/source_icon_resolver.dart';
 import '../../core/constants/app_assets.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/app_snackbar.dart';
-import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/theme/app_icons.dart';
 import '../add_url/add_url_provider.dart';
@@ -34,6 +33,7 @@ import '../sources/sources_provider.dart';
 import 'home_provider.dart';
 import 'rediscovery_section.dart';
 import 'guide_card.dart';
+import 'home_loading_skeleton.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +57,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _inputErrorText;
   Timer? _resetTimer;
   Timer? _introFadeTimer;
+  Timer? _deferredDiscoveryTimer;
+  bool _deferredDiscoveryScheduled = false;
+  bool _deferredDiscoveryReady = false;
 
   // First-save celebration state
   bool _isCelebratingFirstSave = false;
@@ -71,6 +74,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _refreshUnreadBadge();
     _urlInputController.addListener(_onInputChanged);
     _checkClipboard();
+  }
+
+  void _scheduleDeferredDiscoveryAfterContentFrame() {
+    if (_deferredDiscoveryScheduled) return;
+    _deferredDiscoveryScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _deferredDiscoveryTimer = Timer(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        setState(() => _deferredDiscoveryReady = true);
+      });
+    });
   }
 
   void _onInputChanged() {
@@ -340,6 +355,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _introFadeTimer?.cancel();
+    _deferredDiscoveryTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _urlInputController.removeListener(_onInputChanged);
@@ -352,9 +368,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final urlsAsync = ref.watch(displayedUrlsProvider);
+    if (urlsAsync.valueOrNull != null) {
+      _scheduleDeferredDiscoveryAfterContentFrame();
+    }
+    final sourceClustersAsync = _deferredDiscoveryReady
+        ? ref.watch(sourceClustersProvider)
+        : null;
     final sourceClusterValues =
-        ref.watch(sourceClustersProvider).valueOrNull ??
-        const <SourceCluster>[];
+        sourceClustersAsync?.valueOrNull ?? const <SourceCluster>[];
     final sourceClusters = topSourceClusters(sourceClusterValues);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -386,7 +407,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: urlsAsync.when(
-        loading: () => const LoadingIndicator(message: 'Loading your URLs...'),
+        loading: () => const HomeLoadingSkeleton(),
         error: (err, stack) => Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -437,6 +458,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   simulateFirstSave: simulateFirstSave,
                   forceEmptyLibrary: forceEmptyLibrary,
                   actualUrls: actualUrls,
+                  showSourcesSkeleton:
+                      !_deferredDiscoveryReady ||
+                      (sourceClustersAsync?.isLoading ?? false),
                 );
 
           // Cross-fade the empty→home swap so the first save flows into the
@@ -633,6 +657,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required bool simulateFirstSave,
     required bool forceEmptyLibrary,
     required List<SavedUrl> actualUrls,
+    required bool showSourcesSkeleton,
   }) {
     const selectionScope = 'home';
     final selectionState = ref.watch(bulkSelectionProvider(selectionScope));
@@ -778,7 +803,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 if (!simulateFirstSave &&
                     !forceEmptyLibrary &&
                     actualUrls.isNotEmpty)
-                  const SliverToBoxAdapter(child: RediscoverySection()),
+                  SliverToBoxAdapter(
+                    child: RediscoverySection(
+                      loadJourneys: _deferredDiscoveryReady,
+                    ),
+                  ),
                 if (sourceClusters.isNotEmpty)
                   SliverToBoxAdapter(
                     child: Column(
@@ -872,6 +901,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                if (sourceClusters.isEmpty &&
+                    showSourcesSkeleton &&
+                    actualUrls.isNotEmpty)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
+                      child: HomeSourcesSkeleton(),
                     ),
                   ),
                 for (final section in sections) ...[

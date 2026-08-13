@@ -21,6 +21,7 @@ class AppAttestationService {
   );
 
   static bool _initialized = false;
+  static Future<void>? _initialization;
   static Object? _initError;
   static String? _lastTokenError;
 
@@ -30,7 +31,15 @@ class AppAttestationService {
 
   static Future<void> initialize() async {
     if (_initialized || _initError != null) return;
+    final inProgress = _initialization;
+    if (inProgress != null) return inProgress;
 
+    final initialization = _initialize();
+    _initialization = initialization;
+    await initialization;
+  }
+
+  static Future<void> _initialize() async {
     try {
       await Firebase.initializeApp(
         options: AppEnvironment.isDevContext
@@ -66,6 +75,7 @@ class AppAttestationService {
   }
 
   static Future<String?> getToken({bool forceRefresh = false}) async {
+    await initialize();
     if (!_initialized) {
       _debugLog(
         'App Check token skipped: not initialized'

@@ -114,42 +114,53 @@ class RediscoverArtworkCard extends StatelessWidget {
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: radius,
           clipBehavior: Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                visual.assetPath,
-                fit: BoxFit.cover,
-                alignment: visual.alignment,
-                cacheWidth: 1200,
-                filterQuality: FilterQuality.medium,
-                gaplessPlayback: true,
-                excludeFromSemantics: true,
-                errorBuilder: (context, error, stackTrace) => ColoredBox(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                ),
-              ),
-              const _ArtworkScrim(),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onTap,
-                  splashColor: Colors.white.withValues(alpha: 0.12),
-                  highlightColor: Colors.white.withValues(alpha: 0.06),
-                  child: Padding(
-                    padding: hero
-                        ? const EdgeInsets.fromLTRB(22, 20, 22, 22)
-                        : const EdgeInsets.fromLTRB(18, 16, 18, 18),
-                    child: _ArtworkTypography(
-                      title: title,
-                      supportingText: supportingText,
-                      metadata: metadata,
-                      hero: hero,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final logicalWidth = constraints.hasBoundedWidth
+                  ? constraints.maxWidth
+                  : MediaQuery.sizeOf(context).width;
+              final decodedWidth =
+                  (logicalWidth * MediaQuery.devicePixelRatioOf(context))
+                      .ceil()
+                      .clamp(1, 1600);
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    visual.assetPath,
+                    fit: BoxFit.cover,
+                    alignment: visual.alignment,
+                    cacheWidth: decodedWidth,
+                    filterQuality: FilterQuality.medium,
+                    gaplessPlayback: true,
+                    excludeFromSemantics: true,
+                    errorBuilder: (context, error, stackTrace) => ColoredBox(
+                      color: Theme.of(context).colorScheme.primaryContainer,
                     ),
                   ),
-                ),
-              ),
-            ],
+                  const _ArtworkScrim(),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onTap,
+                      splashColor: Colors.white.withValues(alpha: 0.12),
+                      highlightColor: Colors.white.withValues(alpha: 0.06),
+                      child: Padding(
+                        padding: hero
+                            ? const EdgeInsets.fromLTRB(22, 20, 22, 22)
+                            : const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                        child: _ArtworkTypography(
+                          title: title,
+                          supportingText: supportingText,
+                          metadata: metadata,
+                          hero: hero,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -18,8 +19,8 @@ import 'features/onboarding/onboarding_screen.dart';
 import 'features/home/guide_detail_screen.dart';
 import 'core/services/backup/backup_intent_service.dart';
 import 'core/services/backup/backup_models.dart';
+import 'core/services/app_update_service.dart';
 import 'core/services/digest_notifications.dart';
-import 'core/services/digest_scheduler.dart';
 import 'core/services/notification_router.dart';
 import 'core/services/tag_analyzer.dart';
 import 'core/services/embedding_backfill_service.dart';
@@ -315,8 +316,12 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   StreamSubscription<String>? _backupIntentSub;
   StreamSubscription<void>? _appUpdateReadySub;
   final BackupIntentService _backupIntentService = BackupIntentService();
+  Timer? _analyticsStartupTimer;
+  Timer? _maintenanceStartupTimer;
+  Timer? _appUpdateStartupTimer;
   List<String>? _pendingSharedUrls;
   bool _processingSharedUrls = false;
+  bool _hasCompletedInitialResume = false;
   String? _lastTrackedLocation;
 
   @override
@@ -324,10 +329,6 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _router.routerDelegate.addListener(_trackRouteOpen);
-    unawaited(ref.read(analyticsServiceProvider).initialize());
-
-    // Record peak-hour histogram on cold start.
-    unawaited(TagAnalyzer.recordAppOpen());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(
@@ -337,7 +338,6 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           },
         ),
       );
-      unawaited(DigestScheduler.reschedule());
     });
 
     // Handle intent that launched the app (cold start)
@@ -356,39 +356,54 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     _appUpdateReadySub = appUpdateService.flexibleUpdateReady.listen((_) {
       _showAppUpdateReadyPrompt();
     });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scheduleNonCriticalStartupWork(appUpdateService);
+    });
+  }
+
+  void _scheduleNonCriticalStartupWork(AppUpdateService appUpdateService) {
+    _analyticsStartupTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      unawaited(ref.read(analyticsServiceProvider).initialize());
+      unawaited(TagAnalyzer.recordAppOpen());
+      _trackRouteOpen();
+    });
+
+    _maintenanceStartupTimer = Timer(const Duration(seconds: 6), () {
+      if (!mounted) return;
+      unawaited(_runDeferredLocalMaintenance());
+    });
+
+    _appUpdateStartupTimer = Timer(const Duration(seconds: 10), () {
+      if (!mounted) return;
       unawaited(appUpdateService.checkForUpdateOnLaunch());
     });
+  }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _trackRouteOpen();
-      final isar = ref.read(isarServiceProvider);
+  Future<void> _runDeferredLocalMaintenance() async {
+    final isar = ref.read(isarServiceProvider);
+    final repaired = await CategoryRepairService(
+      isarService: isar,
+    ).repairIfNeeded();
+    if (!mounted) return;
+    if (repaired > 0) {
+      ref.invalidate(urlStreamProvider);
+      ref.invalidate(interestClusterThemesProvider);
+    }
 
-      // One-time local cleanup of stale inferred categories and unsafe legacy
-      // centroid corrections. No network / AI cost.
-      unawaited(() async {
-        final repaired = await CategoryRepairService(
-          isarService: isar,
-        ).repairIfNeeded();
-        if (repaired <= 0) return;
-        ref.invalidate(urlStreamProvider);
-        ref.invalidate(interestClusterThemesProvider);
-      }());
-
-      final embedding = ref.read(embeddingServiceProvider);
-      if (embedding == null) return;
-      final backfill = EmbeddingBackfillService(
-        isarService: isar,
-        embeddingService: embedding,
-      );
-      unawaited(() async {
-        final n = await backfill.backfillIfNeeded();
-        if (n <= 0) return;
-        ref.invalidate(urlStreamProvider);
-        ref.invalidate(interestClusterThemesProvider);
-        ref.invalidate(askEmptySuggestionsProvider);
-      }());
-    });
+    final embedding = ref.read(embeddingServiceProvider);
+    if (embedding == null) return;
+    final backfill = EmbeddingBackfillService(
+      isarService: isar,
+      embeddingService: embedding,
+    );
+    final backfilled = await backfill.backfillIfNeeded();
+    if (!mounted || backfilled <= 0) return;
+    ref.invalidate(urlStreamProvider);
+    ref.invalidate(interestClusterThemesProvider);
+    ref.invalidate(askEmptySuggestionsProvider);
   }
 
   Future<void> _handleBackupFile(String path) async {
@@ -599,6 +614,10 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     unawaited(ref.read(analyticsServiceProvider).handleLifecycleState(state));
     if (state == AppLifecycleState.resumed) {
+      if (!_hasCompletedInitialResume) {
+        _hasCompletedInitialResume = true;
+        return;
+      }
       unawaited(TagAnalyzer.recordAppOpen());
       unawaited(ref.read(appUpdateServiceProvider).checkForUpdateOnResume());
       // No subscription re-sync on resume:
@@ -618,6 +637,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     _shareIntentSub.cancel();
     _backupIntentSub?.cancel();
     _appUpdateReadySub?.cancel();
+    _analyticsStartupTimer?.cancel();
+    _maintenanceStartupTimer?.cancel();
+    _appUpdateStartupTimer?.cancel();
     unawaited(_backupIntentService.dispose());
     super.dispose();
   }
@@ -815,13 +837,37 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 /// Root screen selector: shows guided onboarding for new users, then routes to
 /// authentication or the main app. Watches [hasSeenOnboardingProvider] so the
 /// next destination appears as soon as onboarding is recorded.
-class _RootGate extends ConsumerWidget {
+class _RootGate extends ConsumerStatefulWidget {
   const _RootGate();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RootGate> createState() => _RootGateState();
+}
+
+class _RootGateState extends ConsumerState<_RootGate> {
+  bool _splashRemovalScheduled = false;
+
+  void _removeSplashAfterDestinationFrame() {
+    if (_splashRemovalScheduled) return;
+    _splashRemovalScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        FlutterNativeSplash.remove();
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
+    final destinationReady = !hasSeenOnboarding || !authState.isLoading;
+    if (destinationReady) {
+      _removeSplashAfterDestinationFrame();
+    }
     final child = !hasSeenOnboarding
         ? const OnboardingScreen(key: ValueKey('onboarding'))
         : authState.when(

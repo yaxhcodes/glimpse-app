@@ -12,21 +12,34 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/rediscovery_service.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/theme/app_icons.dart';
+import '../../shared/widgets/skeleton.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_journey_provider.dart';
 import '../rediscover/rediscover_memory.dart';
 import '../rediscover/rediscover_provider.dart';
 
 class RediscoverySection extends ConsumerWidget {
-  const RediscoverySection({super.key});
+  const RediscoverySection({super.key, this.loadJourneys = true});
+
+  final bool loadJourneys;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final journeysAsync = ref.watch(rediscoverJourneysProvider);
+    final journeysAsync = loadJourneys
+        ? ref.watch(rediscoverJourneysProvider)
+        : null;
     final resurfacedAsync = ref.watch(recentlyResurfacedProvider);
-    final journeys = journeysAsync.valueOrNull ?? const <RediscoverJourney>[];
+    final journeys = journeysAsync?.valueOrNull ?? const <RediscoverJourney>[];
     final resurfaced = resurfacedAsync.valueOrNull ?? const <RediscoveryItem>[];
-    if (journeys.isEmpty && resurfaced.isEmpty) {
+    final journeysPending =
+        !loadJourneys || (journeysAsync?.isLoading ?? false);
+    final resurfacedPending = resurfacedAsync.isLoading;
+    final showJourneySkeleton = journeys.isEmpty && journeysPending;
+    final showResurfacedSkeleton = resurfaced.isEmpty && resurfacedPending;
+    if (journeys.isEmpty &&
+        resurfaced.isEmpty &&
+        !showJourneySkeleton &&
+        !showResurfacedSkeleton) {
       return const SizedBox.shrink();
     }
 
@@ -109,45 +122,73 @@ class RediscoverySection extends ConsumerWidget {
                     _openResurfaced(context, ref, resurfaced.first.url),
               ),
             ),
-          if (previewCount > 0)
+          if (showResurfacedSkeleton)
+            const Padding(
+              key: ValueKey('rediscover-resurfaced-skeleton'),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 10),
+              child: SkeletonShimmer(
+                child: SkeletonBox(
+                  width: double.infinity,
+                  height: 58,
+                  borderRadius: 16,
+                ),
+              ),
+            ),
+          if (previewCount > 0 || showJourneySkeleton)
             SizedBox(
               height: cardHeight + 8,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: CarouselView(
-                  itemExtent: cardWidth + 12,
-                  shrinkExtent: 0,
-                  itemSnapping: true,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 4,
-                  ),
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  itemClipBehavior: Clip.antiAlias,
-                  onTap: (i) {
-                    unawaited(
-                      ref
-                          .read(isarServiceProvider)
-                          .logEvent(
-                            type: EngagementEventType.clusterVisit,
-                            clusterLabel:
-                                journeys[i].topicAnchor ?? journeys[i].title,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: previewCount > 0
+                    ? Padding(
+                        key: const ValueKey('rediscover-journey-carousel'),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: CarouselView(
+                          itemExtent: cardWidth + 12,
+                          shrinkExtent: 0,
+                          itemSnapping: true,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
                           ),
-                    );
-                    context.push('/rediscover/journey', extra: journeys[i]);
-                  },
-                  children: [
-                    for (var i = 0; i < previewCount; i++)
-                      _RediscoverJourneyCard(
-                        journey: journeys[i],
-                        height: cardHeight,
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          itemClipBehavior: Clip.antiAlias,
+                          onTap: (i) {
+                            unawaited(
+                              ref
+                                  .read(isarServiceProvider)
+                                  .logEvent(
+                                    type: EngagementEventType.clusterVisit,
+                                    clusterLabel:
+                                        journeys[i].topicAnchor ??
+                                        journeys[i].title,
+                                  ),
+                            );
+                            context.push(
+                              '/rediscover/journey',
+                              extra: journeys[i],
+                            );
+                          },
+                          children: [
+                            for (var i = 0; i < previewCount; i++)
+                              _RediscoverJourneyCard(
+                                journey: journeys[i],
+                                height: cardHeight,
+                              ),
+                          ],
+                        ),
+                      )
+                    : _RediscoverJourneySkeleton(
+                        key: const ValueKey('rediscover-journey-skeleton'),
+                        cardWidth: cardWidth,
+                        cardHeight: cardHeight,
                       ),
-                  ],
-                ),
               ),
             ),
         ],
@@ -186,6 +227,45 @@ class RediscoverySection extends ConsumerWidget {
     );
     container.invalidate(recentlyResurfacedProvider);
     container.invalidate(rediscoverJourneysProvider);
+  }
+}
+
+class _RediscoverJourneySkeleton extends StatelessWidget {
+  const _RediscoverJourneySkeleton({
+    super.key,
+    required this.cardWidth,
+    required this.cardHeight,
+  });
+
+  final double cardWidth;
+  final double cardHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 0, 4),
+      child: ClipRect(
+        child: SkeletonShimmer(
+          child: Row(
+            children: [
+              SkeletonBox(
+                width: cardWidth,
+                height: cardHeight,
+                borderRadius: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SkeletonBox(
+                  width: double.infinity,
+                  height: cardHeight,
+                  borderRadius: 24,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

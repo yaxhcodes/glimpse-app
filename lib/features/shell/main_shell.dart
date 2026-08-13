@@ -46,17 +46,33 @@ class _MainShellState extends ConsumerState<MainShell> {
     SearchScreen(embedded: true),
   ];
 
+  final Set<int> _loadedTabIndexes = {0};
+  Timer? _initialAnalyticsTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(
-        ref.read(analyticsServiceProvider).trackScreen(AnalyticsScreen.home),
-      );
+      if (!mounted) return;
+      _initialAnalyticsTimer = Timer(const Duration(seconds: 3), () {
+        if (!mounted || _currentIndex != 0) return;
+        unawaited(
+          ref.read(analyticsServiceProvider).trackScreen(AnalyticsScreen.home),
+        );
+      });
       final request = ref.read(searchShellQueryRequestProvider);
       if (!mounted || request == null) return;
-      setState(() => _currentIndex = _searchTabIndex);
+      setState(() {
+        _loadedTabIndexes.add(_searchTabIndex);
+        _currentIndex = _searchTabIndex;
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    _initialAnalyticsTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -67,7 +83,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     ) {
       if (next == null) return;
       if (_currentIndex == _searchTabIndex) return;
-      setState(() => _currentIndex = _searchTabIndex);
+      setState(() {
+        _loadedTabIndexes.add(_searchTabIndex);
+        _currentIndex = _searchTabIndex;
+      });
     });
 
     final tt = Theme.of(context).textTheme;
@@ -221,7 +240,15 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 
   Widget _buildShellContent({required bool constrainWidth}) {
-    final content = IndexedStack(index: _currentIndex, children: _screens);
+    final content = IndexedStack(
+      index: _currentIndex,
+      children: [
+        for (var index = 0; index < _screens.length; index += 1)
+          _loadedTabIndexes.contains(index)
+              ? _screens[index]
+              : const SizedBox.shrink(),
+      ],
+    );
     if (!constrainWidth) return content;
     return Center(
       child: ConstrainedBox(
@@ -238,7 +265,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     final wasAlreadyHome = _currentIndex == 0 && index == 0;
     final wasAlreadySearch =
         _currentIndex == _searchTabIndex && index == _searchTabIndex;
-    setState(() => _currentIndex = index);
+    setState(() {
+      _loadedTabIndexes.add(index);
+      _currentIndex = index;
+    });
     unawaited(
       ref.read(analyticsServiceProvider).trackScreen(_screenForIndex(index)),
     );

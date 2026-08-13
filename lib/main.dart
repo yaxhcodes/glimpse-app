@@ -15,6 +15,7 @@ import 'core/providers/service_providers.dart';
 import 'features/onboarding/onboarding_bootstrap.dart';
 import 'core/services/ai/app_attestation_service.dart';
 import 'core/services/ai_proxy_config.dart';
+import 'core/services/digest_scheduler.dart';
 import 'core/services/subscription_service.dart';
 import 'core/services/supabase_auth_service.dart';
 
@@ -22,12 +23,14 @@ void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  // Package metadata and the local database are independent native calls.
-  // Starting them together shortens the native-splash critical path.
+  // Only services required to choose the first screen belong on the native
+  // splash path. Everything else starts after Flutter has painted once.
   final isarService = IsarService();
   await Future.wait([
     AppEnvironment.initPackageInfo(),
     isarService.ensureInitialized(),
+    AiProxyConfig.initUserId(),
+    SupabaseAuthService.initializeSupabaseClient(),
   ]);
 
   // Resolve the onboarding decision before the first frame so the root screen
@@ -37,29 +40,7 @@ void main() async {
     isarService,
   );
 
-  // Generate/load the persistent proxy identity while the local onboarding
-  // decision is being resolved. Both must finish before providers are built.
-  final userIdFuture = AiProxyConfig.initUserId();
   final hasSeenOnboarding = await onboardingFuture;
-  await userIdFuture;
-
-  // These SDKs are independent once environment and proxy identity are ready.
-  // Initialize them concurrently instead of serially blocking the first frame.
-  debugPrint('[Startup] Initializing App Check');
-  await Future.wait([
-    AppAttestationService.initialize(),
-    SupabaseAuthService.initializeSupabaseClient(),
-    SubscriptionService.init(),
-    Workmanager().initialize(digestCallbackDispatcher),
-  ]);
-  debugPrint(
-    '[Startup] App Check ready=${AppAttestationService.isAvailable} '
-    'error=${AppAttestationService.initError}',
-  );
-
-  unawaited(BackupScheduler.reschedule());
-
-  FlutterNativeSplash.remove();
 
   runApp(
     ProviderScope(
@@ -72,4 +53,37 @@ void main() async {
       child: const GlimpseApp(),
     ),
   );
+
+  // Delaying SDKs that are irrelevant to capture lets a cold share intent
+  // reach the compact save sheet without competing with billing or background
+  // workers. The root gate removes the native splash only after the first
+  // destination screen has completed a frame.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(_initializeDeferredServices());
+  });
+}
+
+Future<void> _initializeDeferredServices() async {
+  await Future<void>.delayed(const Duration(milliseconds: 750));
+
+  unawaited(AppAttestationService.initialize());
+
+  await SubscriptionService.init();
+  final currentUser = SupabaseAuthService.instance.currentUser;
+  if (currentUser != null) {
+    await SubscriptionService.instance.logInWithAuthenticatedUser(
+      currentUser.id,
+    );
+  }
+
+  try {
+    await Workmanager().initialize(digestCallbackDispatcher);
+    await Future.wait([
+      DigestScheduler.ensureScheduled(),
+      BackupScheduler.ensureScheduled(),
+    ]);
+  } catch (error, stackTrace) {
+    debugPrint('[Startup] Deferred background services failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 }

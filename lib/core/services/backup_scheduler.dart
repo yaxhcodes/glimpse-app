@@ -43,6 +43,29 @@ class BackupScheduler {
     await reschedule();
   }
 
+  /// Restore a missing periodic registration without replacing an existing
+  /// worker during app launch.
+  static Future<void> ensureScheduled() async {
+    if (!Platform.isAndroid) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final hours = prefs.getInt(BackupPrefs.autoBackupIntervalHoursKey) ?? 0;
+    if (hours <= 0) {
+      await Workmanager().cancelByUniqueName(_uniqueName);
+      return;
+    }
+
+    final storage = BackupStorageService();
+    if (!await storage.hasLocation()) return;
+
+    await Workmanager().registerPeriodicTask(
+      _uniqueName,
+      taskName,
+      frequency: Duration(hours: hours),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    );
+  }
+
   /// Re-read prefs and register or cancel the periodic task.
   static Future<void> reschedule() async {
     await Workmanager().cancelByUniqueName(_uniqueName);

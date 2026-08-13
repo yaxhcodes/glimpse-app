@@ -15,26 +15,44 @@ class DigestScheduler {
   static const _taskUniqueName = 'glimpse_notif_daily';
   static const taskName = 'notifTask';
 
-  /// Cancel pending work and schedule the next run.
-  /// Called on app start and whenever settings change.
-  static Future<void> reschedule() async {
-    final workmanager = Workmanager();
+  /// Make sure a future digest exists without replacing work that is already
+  /// queued or running. App startup uses this path so opening Glimpse cannot
+  /// cancel a due worker after it has paid the cost of starting Flutter.
+  static Future<void> ensureScheduled() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(DigestPrefs.digestEnabledKey) ?? true;
+    if (!enabled) {
+      await _cancel();
+      return;
+    }
+
+    final delay = await _nextDelay();
     try {
-      await workmanager.cancelByUniqueName(_taskUniqueName);
+      await Workmanager().registerOneOffTask(
+        _taskUniqueName,
+        taskName,
+        initialDelay: delay,
+        existingWorkPolicy: ExistingWorkPolicy.keep,
+      );
     } on UnimplementedError catch (error) {
       developer.log(
         'Digest scheduling unavailable: $error',
         name: 'DigestScheduler',
       );
-      return;
     }
+  }
+
+  /// Cancel pending work and schedule the next run.
+  /// Called when notification settings change.
+  static Future<void> reschedule() async {
+    await _cancel();
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(DigestPrefs.digestEnabledKey) ?? true)) return;
 
     final delay = await _nextDelay();
 
     try {
-      await workmanager.registerOneOffTask(
+      await Workmanager().registerOneOffTask(
         _taskUniqueName,
         taskName,
         initialDelay: delay,
@@ -62,6 +80,17 @@ class DigestScheduler {
         initialDelay: delay,
         existingWorkPolicy: ExistingWorkPolicy.replace,
       );
+    } on UnimplementedError catch (error) {
+      developer.log(
+        'Digest scheduling unavailable: $error',
+        name: 'DigestScheduler',
+      );
+    }
+  }
+
+  static Future<void> _cancel() async {
+    try {
+      await Workmanager().cancelByUniqueName(_taskUniqueName);
     } on UnimplementedError catch (error) {
       developer.log(
         'Digest scheduling unavailable: $error',
