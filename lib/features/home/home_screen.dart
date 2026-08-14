@@ -826,7 +826,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
                           child: Row(
                             children: [
                               Expanded(

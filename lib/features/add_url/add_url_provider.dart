@@ -16,14 +16,16 @@ import '../../core/services/domain_categorizer.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/enrichment_service.dart';
 import '../../core/services/link_preview_service.dart';
+import '../../core/services/rediscover_utility_profile.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/url_save_notifications.dart';
 import '../../core/services/url_processing_observer.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../collections/collections_provider.dart';
 import '../home/home_provider.dart';
-import '../rediscover/rediscover_memory_prefs.dart';
+import '../rediscover/rediscover_daily_set.dart';
 import '../rediscover/rediscover_provider.dart';
+import '../rediscover/rediscover_topic_pulse_provider.dart';
 
 /// State for the Add URL flow.
 enum AddUrlStatus {
@@ -494,32 +496,19 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
 
   Future<List<int>> _surfaceSimilarOlderSaves(int sourceId) async {
     final isarService = _ref.read(isarServiceProvider);
-    final source = await isarService.getUrlById(sourceId);
-    final embedding = source?.embedding;
-    if (source == null || embedding == null || embedding.isEmpty) {
-      return const [];
-    }
-
-    final scored = await isarService.semanticSearchScored(
-      embedding,
-      limit: 8,
-      minScore: 0.72,
+    final pulse = await detectAndPersistTopicPulseForSave(
+      isar: isarService,
+      sourceId: sourceId,
     );
-    final related = <int>[];
-    for (final entry in scored) {
-      final candidate = entry.key;
-      if (candidate.id == source.id) continue;
-      if (!candidate.savedAt.isBefore(source.savedAt)) continue;
-      if (candidate.isDone || candidate.rediscoverDismissedAt != null) continue;
-      related.add(candidate.id);
-      await isarService.updateResurfacedAt(candidate.id, DateTime.now());
-      if (related.length >= 3) break;
-    }
-    await RediscoverMemoryPrefs.saveRelatedSaves(
-      sourceId: source.id,
-      relatedIds: related,
+    if (pulse == null) return const [];
+    await RediscoverUtilityProfileStore.recordTopicSave(
+      pulse.topicKey,
+      at: pulse.detectedAt,
     );
-    return related;
+    _ref.invalidate(rediscoverUtilityProfileProvider);
+    _ref.invalidate(rediscoverTopicPulsesProvider);
+    _ref.invalidate(rediscoverDailySetProvider);
+    return pulse.archiveSaveIds.take(3).toList();
   }
 
   Future<bool> _addToCollection({

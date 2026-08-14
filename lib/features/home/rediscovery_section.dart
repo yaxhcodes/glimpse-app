@@ -1,22 +1,17 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/models/engagement_event.dart';
-import '../../core/models/saved_url.dart';
 import '../../core/providers/dev_simulation_providers.dart';
-import '../../core/providers/service_providers.dart';
-import '../../core/services/rediscovery_service.dart';
-import '../../core/services/title_resolver.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../rediscover/journey_visual.dart';
+import '../rediscover/rediscover_daily_set.dart';
 import '../rediscover/rediscover_journey_provider.dart';
 import '../rediscover/rediscover_memory.dart';
-import '../rediscover/rediscover_provider.dart';
+import '../rediscover/rediscover_open_context.dart';
 
 class RediscoverySection extends ConsumerWidget {
   const RediscoverySection({super.key, this.loadJourneys = true});
@@ -25,22 +20,31 @@ class RediscoverySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final journeysAsync = loadJourneys
-        ? ref.watch(rediscoverJourneysProvider)
+    final dailySetAsync = loadJourneys
+        ? ref.watch(rediscoverDailySetProvider)
         : null;
-    final resurfacedAsync = ref.watch(recentlyResurfacedProvider);
-    final journeys = journeysAsync?.valueOrNull ?? const <RediscoverJourney>[];
-    final resurfaced = resurfacedAsync.valueOrNull ?? const <RediscoveryItem>[];
-    final journeysPending =
-        !loadJourneys || (journeysAsync?.isLoading ?? false);
-    final resurfacedPending = resurfacedAsync.isLoading;
-    final showJourneySkeleton = journeys.isEmpty && journeysPending;
-    final showResurfacedSkeleton = resurfaced.isEmpty && resurfacedPending;
-    if (journeys.isEmpty &&
-        resurfaced.isEmpty &&
-        !showJourneySkeleton &&
-        !showResurfacedSkeleton) {
+    final memories =
+        dailySetAsync?.valueOrNull?.memories ?? const <RediscoverMemory>[];
+    final dailySetPending =
+        !loadJourneys || (dailySetAsync?.isLoading ?? false);
+    final showJourneySkeleton = memories.isEmpty && dailySetPending;
+    if (memories.isEmpty && !showJourneySkeleton) {
       return const SizedBox.shrink();
+    }
+    if (memories.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final controller = ref.read(rediscoverDailySetControllerProvider);
+        for (var index = 0; index < memories.length; index++) {
+          unawaited(
+            markRediscoverMemoryShown(
+              controller,
+              memories[index],
+              surface: RediscoverSurface.home,
+              position: index,
+            ),
+          );
+        }
+      });
     }
 
     final cs = Theme.of(context).colorScheme;
@@ -56,11 +60,11 @@ class RediscoverySection extends ConsumerWidget {
     final cardWidth = isTablet ? 320.0 : (size.width - hPad * 2) * 0.80;
     final cardHeight = (cardWidth / 1.7).clamp(168.0, 196.0) + 24.0;
     final previewCount = isTablet
-        ? journeys.length
-        : journeys.length.clamp(0, 4);
+        ? memories.length
+        : memories.length.clamp(0, 3);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -113,27 +117,6 @@ class RediscoverySection extends ConsumerWidget {
               ),
             ),
           ),
-          if (resurfaced.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-              child: _RecentMemoryTile(
-                item: resurfaced.first,
-                onTap: () =>
-                    _openResurfaced(context, ref, resurfaced.first.url),
-              ),
-            ),
-          if (showResurfacedSkeleton)
-            const Padding(
-              key: ValueKey('rediscover-resurfaced-skeleton'),
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 10),
-              child: SkeletonShimmer(
-                child: SkeletonBox(
-                  width: double.infinity,
-                  height: 58,
-                  borderRadius: 16,
-                ),
-              ),
-            ),
           if (previewCount > 0 || showJourneySkeleton)
             SizedBox(
               height: cardHeight + 8,
@@ -160,25 +143,34 @@ class RediscoverySection extends ConsumerWidget {
                           ),
                           itemClipBehavior: Clip.antiAlias,
                           onTap: (i) {
+                            final memory = memories[i];
+                            final controller = ref.read(
+                              rediscoverDailySetControllerProvider,
+                            );
+                            final openContext = RediscoverOpenContext.forMemory(
+                              memory,
+                              surface: RediscoverSurface.home,
+                              position: i,
+                            );
                             unawaited(
-                              ref
-                                  .read(isarServiceProvider)
-                                  .logEvent(
-                                    type: EngagementEventType.clusterVisit,
-                                    clusterLabel:
-                                        journeys[i].topicAnchor ??
-                                        journeys[i].title,
-                                  ),
+                              markRediscoverMemoryOpened(
+                                controller,
+                                memory,
+                                openContext: openContext,
+                              ),
                             );
                             context.push(
                               '/rediscover/journey',
-                              extra: journeys[i],
+                              extra: RediscoverJourneyRouteArgs(
+                                journey: memory.journey,
+                                openContext: openContext,
+                              ),
                             );
                           },
                           children: [
                             for (var i = 0; i < previewCount; i++)
                               _RediscoverJourneyCard(
-                                journey: journeys[i],
+                                memory: memories[i],
                                 height: cardHeight,
                               ),
                           ],
@@ -194,39 +186,6 @@ class RediscoverySection extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  void _openResurfaced(BuildContext context, WidgetRef ref, SavedUrl url) {
-    final service = RediscoveryService(ref.read(isarServiceProvider));
-    final container = ProviderScope.containerOf(context, listen: false);
-    unawaited(context.push('/url/${url.id}'));
-    unawaited(_recordResurfacedOpen(container, service, url));
-  }
-
-  Future<void> _recordResurfacedOpen(
-    ProviderContainer container,
-    RediscoveryService service,
-    SavedUrl url,
-  ) async {
-    try {
-      await service.markResurfaced(url.id);
-      await service.markOpened(url.id);
-    } catch (error, stackTrace) {
-      developer.log(
-        'Failed to record a resurfaced save open.',
-        name: 'RediscoverySection',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return;
-    }
-    unawaited(
-      container
-          .read(isarServiceProvider)
-          .logEvent(type: EngagementEventType.cardOpened, url: url),
-    );
-    container.invalidate(recentlyResurfacedProvider);
-    container.invalidate(rediscoverJourneysProvider);
   }
 }
 
@@ -269,78 +228,6 @@ class _RediscoverJourneySkeleton extends StatelessWidget {
   }
 }
 
-class _RecentMemoryTile extends StatelessWidget {
-  const _RecentMemoryTile({required this.item, required this.onTap});
-
-  final RediscoveryItem item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: cs.secondaryContainer.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.history_rounded,
-                  size: 20,
-                  color: cs.onSecondaryContainer,
-                ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Back in view',
-                      style: tt.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      TitleResolver.resolveDetailTitle(item.url),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.bodyMedium?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 21,
-                color: cs.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// One-time explainer shown the first time the Rediscover row appears.
 class _RediscoverTip extends StatelessWidget {
   const _RediscoverTip({required this.onDismiss});
@@ -365,7 +252,7 @@ class _RediscoverTip extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Rediscover surfaces related saves when the timing feels right.',
+              'Rediscover chooses a few memories worth returning to each day.',
               style: tt.bodySmall?.copyWith(color: cs.onSurface, height: 1.3),
             ),
           ),
@@ -382,17 +269,15 @@ class _RediscoverTip extends StatelessWidget {
 }
 
 class _RediscoverJourneyCard extends StatelessWidget {
-  const _RediscoverJourneyCard({required this.journey, required this.height});
+  const _RediscoverJourneyCard({required this.memory, required this.height});
 
-  final RediscoverJourney journey;
+  final RediscoverMemory memory;
   final double height;
 
   @override
   Widget build(BuildContext context) {
-    final memory = RediscoverMemory.fromJourney(journey);
-
     return RediscoverArtworkCard(
-      journey: journey,
+      journey: memory.journey,
       title: memory.homeCopy.title,
       supportingText: memory.homeCopy.subtitle,
       metadata: _metadataLine(memory),
@@ -401,6 +286,9 @@ class _RediscoverJourneyCard extends StatelessWidget {
   }
 
   String _metadataLine(RediscoverMemory memory) {
+    if (memory.journey.kind == RediscoverJourneyKind.returningTopic) {
+      return 'Back in view · ${memory.waitingLabel}';
+    }
     final dates = [
       for (final item in memory.journey.items)
         item.url.openedAt ?? item.url.resurfacedAt ?? item.url.savedAt,

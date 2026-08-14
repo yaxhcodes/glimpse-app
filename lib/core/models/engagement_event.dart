@@ -21,6 +21,10 @@ enum EngagementEventType {
   notifOpened,
   notifDismissed,
   intentSet,
+  rediscoverQueued,
+  rediscoverCompleted,
+  noteAdded,
+  collectionAdded,
 }
 
 /// A single on-device behavior event — the raw fuel for the affinity model
@@ -51,6 +55,17 @@ class EngagementEvent {
 
   /// Notification trigger type, for notif* events.
   String? triggerType;
+
+  /// Optional Rediscover attribution. These fields identify the memory and
+  /// selection context without copying titles, URLs, summaries, or vectors.
+  String? memoryId;
+  String? topicKey;
+  String? surface;
+  int? position;
+  String? reasonCode;
+  String? confidenceTier;
+  String? algorithmVersion;
+  String? exposureId;
 
   /// Local hour 0–23 at event time, for the notification timing model.
   late int hourLocal;

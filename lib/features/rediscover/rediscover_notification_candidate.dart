@@ -13,10 +13,10 @@ class RediscoverNotificationReason {
   final double points;
 
   Map<String, Object> toJson() => {
-        'code': code,
-        'label': label,
-        'points': points,
-      };
+    'code': code,
+    'label': label,
+    'points': points,
+  };
 }
 
 class RediscoverNotificationCandidate {
@@ -48,11 +48,7 @@ class RediscoverNotificationCandidate {
     void add(String code, String label, double points) {
       if (points == 0) return;
       reasons.add(
-        RediscoverNotificationReason(
-          code: code,
-          label: label,
-          points: points,
-        ),
+        RediscoverNotificationReason(code: code, label: label, points: points),
       );
     }
 
@@ -84,6 +80,9 @@ class RediscoverNotificationCandidate {
     }
 
     switch (metadata.kind) {
+      case RediscoverJourneyKind.returningTopic:
+        add('topic_return', 'recent save reactivated an older topic', 12);
+        break;
       case RediscoverJourneyKind.continueLearning:
         add('topic_momentum', 'high engagement topic', 12);
         break;
@@ -109,8 +108,7 @@ class RediscoverNotificationCandidate {
     if (_looksCookingRelated(topic) && hour >= 16 && hour <= 21) {
       add('cooking_evening', 'cooking-related evening context', 10);
     }
-    if (now.weekday == DateTime.saturday ||
-        now.weekday == DateTime.sunday) {
+    if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) {
       add('weekend_timing', 'weekend timing', 5);
     }
 
@@ -130,10 +128,7 @@ class RediscoverNotificationCandidate {
       }
     }
 
-    final score = reasons.fold<double>(
-      0,
-      (sum, reason) => sum + reason.points,
-    );
+    final score = reasons.fold<double>(0, (sum, reason) => sum + reason.points);
     return RediscoverNotificationCandidate(
       memory: memory,
       score: score,

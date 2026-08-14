@@ -10,6 +10,7 @@ class BackupData {
   final List<PlaceItineraryBackup> placeItineraries;
   final List<SessionRecordBackup> saveSessions;
   final SettingsBackup settings;
+  final Map<String, dynamic>? rediscoverProfile;
 
   BackupData({
     this.version = currentVersion,
@@ -21,6 +22,7 @@ class BackupData {
     this.placeItineraries = const [],
     required this.saveSessions,
     required this.settings,
+    this.rediscoverProfile,
   });
 
   Map<String, dynamic> toJson() => {
@@ -34,6 +36,7 @@ class BackupData {
       'placeItineraries': placeItineraries.map((e) => e.toJson()).toList(),
     'saveSessions': saveSessions.map((e) => e.toJson()).toList(),
     'settings': settings.toJson(),
+    if (rediscoverProfile != null) 'rediscoverProfile': rediscoverProfile,
   };
 
   factory BackupData.fromJson(Map<String, dynamic> json) => BackupData(
@@ -69,6 +72,9 @@ class BackupData {
     settings: SettingsBackup.fromJson(
       json['settings'] as Map<String, dynamic>? ?? {},
     ),
+    rediscoverProfile: json['rediscoverProfile'] is Map
+        ? Map<String, dynamic>.from(json['rediscoverProfile'] as Map)
+        : null,
   );
 }
 

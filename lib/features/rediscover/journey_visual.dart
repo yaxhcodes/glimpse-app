@@ -600,6 +600,7 @@ RediscoverArtworkTheme? _artworkThemeForText(String text) {
 
 String _eyebrowFor(RediscoverJourneyKind kind) {
   return switch (kind) {
+    RediscoverJourneyKind.returningTopic => 'Back in view',
     RediscoverJourneyKind.continueLearning => 'Continue learning',
     RediscoverJourneyKind.forgottenGems => 'Worth another look',
     RediscoverJourneyKind.neverOpened => 'Still waiting',

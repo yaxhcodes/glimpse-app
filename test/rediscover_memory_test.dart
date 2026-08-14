@@ -8,6 +8,7 @@ import 'package:glimpse/core/models/url_processing_status.dart';
 import 'package:glimpse/core/services/affinity_profile.dart';
 import 'package:glimpse/features/mindmap/cluster_theme.dart';
 import 'package:glimpse/features/rediscover/journey_visual.dart';
+import 'package:glimpse/features/rediscover/rediscover_daily_set.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory_prefs.dart';
@@ -26,6 +27,10 @@ SavedUrl _url({
   String? summary,
   String? enrichmentJson,
   List<double>? embedding,
+  DateTime? revisitAfter,
+  DateTime? rediscoverDismissedAt,
+  String processingStatus = UrlProcessingStatus.ready,
+  String? thumbnailUrl,
 }) {
   return SavedUrl()
     ..id = id
@@ -34,6 +39,7 @@ SavedUrl _url({
     ..title = title
     ..description = ''
     ..summary = summary
+    ..thumbnailUrl = thumbnailUrl
     ..category = category
     ..categoryEmoji = ''
     ..categories = [category]
@@ -41,7 +47,9 @@ SavedUrl _url({
     ..savedAt = savedAt ?? DateTime(2026, 6, 1)
     ..openedAt = openedAt
     ..intentStatus = intentStatus
-    ..processingStatus = UrlProcessingStatus.ready
+    ..processingStatus = processingStatus
+    ..revisitAfter = revisitAfter
+    ..rediscoverDismissedAt = rediscoverDismissedAt
     ..embedding = embedding
     ..enrichmentJson = enrichmentJson;
 }
@@ -1073,6 +1081,201 @@ void main() {
           .title,
       contains('Technology'),
     );
+  });
+
+  test('daily set prioritizes due intent and deduplicates every save', () {
+    final now = DateTime(2026, 8, 14, 10);
+    final due = _url(
+      id: 901,
+      title: 'Queued architecture note',
+      intentStatus: 'queued',
+      revisitAfter: now.subtract(const Duration(hours: 2)),
+      tags: const ['flutter', 'architecture'],
+    );
+    final shared = _url(
+      id: 902,
+      title: 'Shared state patterns',
+      tags: const ['flutter', 'architecture'],
+    );
+    final firstOnly = _url(
+      id: 903,
+      title: 'Riverpod lifecycle',
+      tags: const ['flutter', 'architecture'],
+    );
+    final secondOnly = _url(
+      id: 904,
+      title: 'Offline sync',
+      tags: const ['offline', 'sync'],
+    );
+    final secondTail = _url(
+      id: 905,
+      title: 'Conflict resolution',
+      tags: const ['offline', 'sync'],
+    );
+    final third = [
+      _url(
+        id: 906,
+        title: 'Strength plan',
+        tags: const ['strength', 'fitness'],
+      ),
+      _url(
+        id: 907,
+        title: 'Recovery plan',
+        tags: const ['strength', 'fitness'],
+      ),
+      _url(
+        id: 908,
+        title: 'Mobility plan',
+        tags: const ['strength', 'fitness'],
+      ),
+    ];
+    final journeys = [
+      RediscoverJourney(
+        kind: RediscoverJourneyKind.continueLearning,
+        title: 'Flutter architecture',
+        subtitle: '3 saves',
+        icon: Icons.code_rounded,
+        items: [due, shared, firstOnly].map(_item).toList(),
+        signal: 50,
+        topicAnchor: 'flutter architecture',
+      ),
+      RediscoverJourney(
+        kind: RediscoverJourneyKind.becauseYouSaved,
+        title: 'Offline systems',
+        subtitle: '3 saves',
+        icon: Icons.sync_rounded,
+        items: [shared, secondOnly, secondTail].map(_item).toList(),
+        signal: 90,
+        topicAnchor: 'offline systems',
+      ),
+      RediscoverJourney(
+        kind: RediscoverJourneyKind.becauseYouSaved,
+        title: 'Strength training',
+        subtitle: '3 saves',
+        icon: Icons.fitness_center_rounded,
+        items: third.map(_item).toList(),
+        signal: 80,
+        topicAnchor: 'strength training',
+      ),
+    ];
+
+    final daily = buildRediscoverDailyMemories(
+      journeys: journeys,
+      liveUrls: [due, shared, firstOnly, secondOnly, secondTail, ...third],
+      now: now,
+    );
+    final ids = daily
+        .expand((memory) => memory.journey.items)
+        .map((item) => item.url.id)
+        .toList();
+
+    expect(daily, hasLength(3));
+    expect(daily.first.journey.items.map((item) => item.url.id), contains(901));
+    expect(ids.toSet(), hasLength(ids.length));
+  });
+
+  test(
+    'daily set permits a due single but chooses silence for weak singles',
+    () {
+      final now = DateTime(2026, 8, 14, 10);
+      final due = _url(
+        id: 920,
+        title: 'Read this today',
+        intentStatus: 'queued',
+        revisitAfter: now.subtract(const Duration(minutes: 5)),
+      );
+      final weak = _url(
+        id: 921,
+        title: 'Unenriched old save',
+        savedAt: now.subtract(const Duration(days: 80)),
+        summary: null,
+        enrichmentJson: null,
+      );
+
+      final dueSet = buildRediscoverDailyMemories(
+        journeys: const [],
+        liveUrls: [due, weak],
+        now: now,
+      );
+      final quietSet = buildRediscoverDailyMemories(
+        journeys: const [],
+        liveUrls: [weak],
+        now: now,
+      );
+
+      expect(dueSet, hasLength(1));
+      expect(dueSet.single.primaryUrl?.id, 920);
+      expect(quietSet, isEmpty);
+    },
+  );
+
+  test('daily lifecycle prefs honor exact and topic cooldowns', () async {
+    final now = DateTime(2026, 8, 14, 10);
+    SharedPreferences.setMockInitialValues({});
+
+    await RediscoverMemoryPrefs.snoozeMemory(
+      'memory-1',
+      until: now.add(const Duration(days: 7)),
+    );
+    await RediscoverMemoryPrefs.suppressTopic(
+      'Flutter Architecture',
+      until: now.add(const Duration(days: 14)),
+    );
+
+    expect(
+      await RediscoverMemoryPrefs.isMemorySnoozed('memory-1', now: now),
+      isTrue,
+    );
+    expect(
+      await RediscoverMemoryPrefs.isMemorySnoozed(
+        'memory-1',
+        now: now.add(const Duration(days: 8)),
+      ),
+      isFalse,
+    );
+    expect(
+      await RediscoverMemoryPrefs.isTopicSuppressed(
+        ' flutter   architecture ',
+        now: now,
+      ),
+      isTrue,
+    );
+    expect(
+      await RediscoverMemoryPrefs.markMemoryShownOnce(
+        memoryId: 'memory-1',
+        dateKey: '2026-08-14',
+      ),
+      isTrue,
+    );
+    expect(
+      await RediscoverMemoryPrefs.markMemoryShownOnce(
+        memoryId: 'memory-1',
+        dateKey: '2026-08-14',
+      ),
+      isFalse,
+    );
+  });
+
+  test('daily set persistence preserves order per local date', () async {
+    SharedPreferences.setMockInitialValues({});
+    const dateKey = '2026-08-14';
+    await RediscoverMemoryPrefs.saveDailySet(dateKey, const [
+      {
+        'id': 'first',
+        'itemIds': [3, 1],
+      },
+      {
+        'id': 'second',
+        'itemIds': [8, 5],
+      },
+    ]);
+
+    final restored = await RediscoverMemoryPrefs.loadDailySet(dateKey);
+
+    expect(await RediscoverMemoryPrefs.hasDailySet(dateKey), isTrue);
+    expect(await RediscoverMemoryPrefs.hasDailySet('2026-08-15'), isFalse);
+    expect(restored.map((entry) => entry['id']), ['first', 'second']);
+    expect(restored.first['itemIds'], [3, 1]);
   });
 
   test('recap seen-state suppresses unchanged recaps only', () async {

@@ -17,6 +17,7 @@ import 'rediscover_provider.dart';
 import 'rediscover_topic_evidence.dart';
 
 enum RediscoverJourneyKind {
+  returningTopic,
   continueLearning,
   forgottenGems,
   neverOpened,
@@ -63,6 +64,11 @@ class RediscoverJourney {
     this.narrative,
     this.recommendedFirstSaveId,
     this.topicAnchor,
+    this.stableTopicKey,
+    this.triggerSaveId,
+    this.triggerTitle,
+    this.topicPulseConfidence,
+    this.topicPulseDetectedAt,
   });
 
   final RediscoverJourneyKind kind;
@@ -81,6 +87,11 @@ class RediscoverJourney {
   /// a varied phrase that doesn't literally contain the topic). Null for
   /// non-topic journeys (e.g. on-this-day).
   final String? topicAnchor;
+  final String? stableTopicKey;
+  final int? triggerSaveId;
+  final String? triggerTitle;
+  final String? topicPulseConfidence;
+  final DateTime? topicPulseDetectedAt;
 }
 
 final rediscoverJourneysProvider = FutureProvider<List<RediscoverJourney>>((
@@ -482,12 +493,14 @@ RediscoverJourneyKind _framingFor(List<SavedUrl> core, DateTime now) {
 }
 
 double _framingBase(RediscoverJourneyKind framing) => switch (framing) {
+  RediscoverJourneyKind.returningTopic => 92.0,
   RediscoverJourneyKind.continueLearning => 84.0,
   RediscoverJourneyKind.forgottenGems => 64.0,
   _ => 74.0,
 };
 
 IconData _framingIcon(RediscoverJourneyKind framing) => switch (framing) {
+  RediscoverJourneyKind.returningTopic => Icons.history_toggle_off_rounded,
   RediscoverJourneyKind.continueLearning => Icons.playlist_play_rounded,
   RediscoverJourneyKind.forgottenGems => Icons.diamond_outlined,
   _ => AppIcons.rediscover,
@@ -496,6 +509,8 @@ IconData _framingIcon(RediscoverJourneyKind framing) => switch (framing) {
 String _framingSubtitle(RediscoverJourneyKind framing, int n, bool hasQueued) {
   if (hasQueued) return '$n saves, including ones you queued';
   return switch (framing) {
+    RediscoverJourneyKind.returningTopic =>
+      '$n earlier saves connected to today',
     RediscoverJourneyKind.continueLearning => '$n saves you recently added to',
     RediscoverJourneyKind.forgottenGems => '$n saves you set aside a while ago',
     _ => '$n saves worth reopening',
@@ -1046,6 +1061,7 @@ String _framedTitle(RediscoverJourneyKind framing, String topic) {
   final t = _titleCase(topic);
   switch (framing) {
     case RediscoverJourneyKind.continueLearning:
+    case RediscoverJourneyKind.returningTopic:
       return 'Keep going on $t';
     case RediscoverJourneyKind.forgottenGems:
       return 'You set $t aside';

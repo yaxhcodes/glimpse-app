@@ -14,9 +14,10 @@ import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
 
 class AddToCollectionSheet extends ConsumerStatefulWidget {
-  const AddToCollectionSheet({super.key, required this.url});
+  const AddToCollectionSheet({super.key, required this.url, this.onAdded});
 
   final SavedUrl url;
+  final VoidCallback? onAdded;
 
   @override
   ConsumerState<AddToCollectionSheet> createState() =>
@@ -25,9 +26,13 @@ class AddToCollectionSheet extends ConsumerStatefulWidget {
 
 class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
   Future<void> _createCollection() {
-    return _createCollectionAndAddUrls(context, ref, [
-      widget.url,
-    ], openCollection: true);
+    return _createCollectionAndAddUrls(
+      context,
+      ref,
+      [widget.url],
+      openCollection: true,
+      onCompleted: widget.onAdded,
+    );
   }
 
   Future<void> _setCollectionMembership(
@@ -42,6 +47,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
         collectionId: collection.id,
         urlId: widget.url.id,
       );
+      widget.onAdded?.call();
     } else {
       await isar.removeUrlFromCollection(
         collectionId: collection.id,
@@ -183,12 +189,16 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
   }
 }
 
-void showAddToCollectionSheet(BuildContext context, SavedUrl url) {
+void showAddToCollectionSheet(
+  BuildContext context,
+  SavedUrl url, {
+  VoidCallback? onAdded,
+}) {
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (_) => AddToCollectionSheet(url: url),
+    builder: (_) => AddToCollectionSheet(url: url, onAdded: onAdded),
   );
 }
 

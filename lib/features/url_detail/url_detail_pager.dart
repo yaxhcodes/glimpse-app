@@ -8,11 +8,13 @@ class UrlDetailPagerScreen extends StatefulWidget {
 
   /// Index of the URL that was tapped — this page is shown first.
   final int initialIndex;
+  final RediscoverOpenContext? rediscoverContext;
 
   const UrlDetailPagerScreen({
     super.key,
     required this.urlIds,
     required this.initialIndex,
+    this.rediscoverContext,
   });
 
   @override
@@ -135,6 +137,7 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
             child: UrlDetailScreen(
               key: ValueKey(widget.urlIds[index]),
               urlId: widget.urlIds[index],
+              rediscoverContext: widget.rediscoverContext,
               isActive: index == _currentIndex,
               onMediaPointerActiveChanged: (active) {
                 if (_mediaPointerActive == active) return;

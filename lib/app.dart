@@ -66,6 +66,9 @@ import 'features/recap/recap_screen.dart';
 import 'features/synthesis/synthesis_screen.dart';
 import 'features/rediscover/rediscover_journey_detail_screen.dart';
 import 'features/rediscover/rediscover_journey_provider.dart';
+import 'features/rediscover/rediscover_open_context.dart';
+import 'features/rediscover/rediscover_provider.dart';
+import 'features/rediscover/rediscover_recap_detail_screen.dart';
 import 'features/rediscover/rediscover_screen.dart';
 import 'features/sources/archive_screen.dart';
 import 'features/sources/source_detail_screen.dart';
@@ -195,17 +198,24 @@ final _router = GoRouter(
       path: '/url/:id',
       builder: (context, state) {
         final id = int.parse(state.pathParameters['id']!);
-        final siblings = state.extra is List<int>
-            ? state.extra as List<int>
+        final args = state.extra is UrlDetailRouteArgs
+            ? state.extra as UrlDetailRouteArgs
             : null;
+        final siblings =
+            args?.siblingIds ??
+            (state.extra is List<int> ? state.extra as List<int> : null);
         if (siblings != null && siblings.length > 1) {
           final index = siblings.indexOf(id);
           return UrlDetailPagerScreen(
             urlIds: siblings,
             initialIndex: index < 0 ? 0 : index,
+            rediscoverContext: args?.rediscoverContext,
           );
         }
-        return UrlDetailScreen(urlId: id);
+        return UrlDetailScreen(
+          urlId: id,
+          rediscoverContext: args?.rediscoverContext,
+        );
       },
     ),
     GoRoute(
@@ -277,11 +287,29 @@ final _router = GoRouter(
     GoRoute(
       path: '/rediscover/journey',
       builder: (context, state) {
-        final journey = state.extra is RediscoverJourney
-            ? state.extra as RediscoverJourney
+        final args = state.extra is RediscoverJourneyRouteArgs
+            ? state.extra as RediscoverJourneyRouteArgs
             : null;
+        final journey =
+            args?.journey ??
+            (state.extra is RediscoverJourney
+                ? state.extra as RediscoverJourney
+                : null);
         if (journey == null) return const RediscoverScreen();
-        return RediscoverJourneyDetailScreen(journey: journey);
+        return RediscoverJourneyDetailScreen(
+          journey: journey,
+          openContext: args?.openContext,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/rediscover/recap',
+      builder: (context, state) {
+        final recap = state.extra is RediscoverRecap
+            ? state.extra as RediscoverRecap
+            : null;
+        if (recap == null) return const RediscoverScreen();
+        return RediscoverRecapDetailScreen(recap: recap);
       },
     ),
     GoRoute(

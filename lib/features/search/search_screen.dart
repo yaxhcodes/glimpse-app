@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/engagement_event.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/usage_service.dart';
@@ -278,6 +279,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     SearchResult result, {
     List<int> siblingIds = const [],
   }) async {
+    await ref
+        .read(isarServiceProvider)
+        .logEvent(
+          type: EngagementEventType.searchHit,
+          url: result.url,
+          query: _controller.text.trim(),
+        );
     await ref
         .read(isarServiceProvider)
         .updateOpenedAt(result.url.id, DateTime.now());

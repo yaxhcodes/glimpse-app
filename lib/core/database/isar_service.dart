@@ -15,6 +15,7 @@ import '../services/category_resolver.dart';
 import '../services/category_taxonomy.dart';
 import '../services/session_tracking_service.dart';
 import '../services/memory_intent_resolver.dart';
+import '../services/rediscover_utility_profile.dart';
 import '../services/saved_notes_codec.dart';
 import '../services/source_membership.dart';
 
@@ -98,6 +99,14 @@ class IsarService {
     String? query,
     String? clusterLabel,
     String? triggerType,
+    String? memoryId,
+    String? topicKey,
+    String? surface,
+    int? position,
+    String? reasonCode,
+    String? confidenceTier,
+    String? algorithmVersion,
+    String? exposureId,
   }) async {
     try {
       final isar = await _db;
@@ -109,7 +118,15 @@ class IsarService {
         ..urlId = url?.id
         ..query = query
         ..clusterLabel = clusterLabel
-        ..triggerType = triggerType;
+        ..triggerType = triggerType
+        ..memoryId = memoryId
+        ..topicKey = topicKey
+        ..surface = surface
+        ..position = position
+        ..reasonCode = reasonCode
+        ..confidenceTier = confidenceTier
+        ..algorithmVersion = algorithmVersion
+        ..exposureId = exposureId;
       if (url != null) {
         event.source = CategoryResolver.displaySourceName(
           rawUrl: url.rawUrl,
@@ -124,9 +141,15 @@ class IsarService {
         }
       }
       await isar.writeTxn(() => isar.engagementEvents.put(event));
+      // Update compact lifetime learning before raw history can be pruned.
+      try {
+        await RediscoverUtilityProfileStore.record(event);
+      } catch (error, stackTrace) {
+        debugPrint('Rediscover utility update failed: $error\n$stackTrace');
+      }
       await _pruneEngagementEvents(isar);
-    } catch (_) {
-      // Swallow — behavioral logging is never allowed to surface to the user.
+    } catch (error, stackTrace) {
+      debugPrint('Engagement event logging failed: $error\n$stackTrace');
     }
   }
 
@@ -1687,6 +1710,7 @@ class IsarService {
     await isar.writeTxn(() async {
       await isar.savedUrls.clear();
       await isar.userCollections.clear();
+      await isar.engagementEvents.clear();
       await isar.placeItinerarys.clear();
     });
     _canonicalUrlToId = null;
@@ -1699,6 +1723,7 @@ class IsarService {
       }
     }
     await SessionTrackingService().clear();
+    await RediscoverUtilityProfileStore.clear();
   }
 
   // --------------- STREAM ---------------

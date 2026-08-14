@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/engagement_event.dart';
 import '../../core/models/music_provider.dart';
 import '../../core/providers/music_provider_preference_provider.dart';
 import '../../core/providers/service_providers.dart';
@@ -16,6 +17,7 @@ import '../../core/services/category_taxonomy.dart';
 import '../../core/services/intent_classifier.dart';
 import '../../core/services/music_destination_service.dart';
 import '../../core/services/recipe_state_service.dart';
+import '../../core/services/rediscover_utility_profile.dart';
 import '../../core/services/saved_media_resolver.dart';
 import '../../core/services/summary_rewriter.dart';
 import '../../core/services/tag_noise_filter.dart';
@@ -45,6 +47,7 @@ import '../library/library_places_model.dart';
 import '../library/library_provider.dart';
 import '../library/place_itinerary_editor_screen.dart';
 import '../search/search_provider.dart';
+import '../rediscover/rediscover_open_context.dart';
 import 'detail_expansion_section.dart';
 import 'notable_item_card.dart';
 import 'notable_term_grid.dart';
@@ -57,12 +60,14 @@ class UrlDetailScreen extends ConsumerStatefulWidget {
   final int urlId;
   final bool isActive;
   final ValueChanged<bool>? onMediaPointerActiveChanged;
+  final RediscoverOpenContext? rediscoverContext;
 
   const UrlDetailScreen({
     super.key,
     required this.urlId,
     this.isActive = true,
     this.onMediaPointerActiveChanged,
+    this.rediscoverContext,
   });
 
   @override
@@ -379,6 +384,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   List<ShoppingListItem> _shoppingList = const [];
   final Set<int> _musicPromptAttemptedUrlIds = {};
   bool _musicProviderSheetOpen = false;
+  bool? _hadNoteWhenOpened;
+  bool _noteOutcomeRecorded = false;
 
   @override
   void didUpdateWidget(covariant UrlDetailScreen oldWidget) {
@@ -390,6 +397,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _showAllAskNotes = false;
       _noteSaveStatus = _NoteSaveStatus.idle;
       _localIntentActionOverride = null;
+      _hadNoteWhenOpened = null;
+      _noteOutcomeRecorded = false;
       _loadedRecipeStateId = null;
       _checkedIngredientKeys = {};
       _mediaPageIndex = 0;
@@ -459,7 +468,44 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   void _showAddToCollection(SavedUrl url) {
-    showAddToCollectionSheet(context, url);
+    showAddToCollectionSheet(
+      context,
+      url,
+      onAdded: () =>
+          _logRediscoverOutcome(EngagementEventType.collectionAdded, url),
+    );
+  }
+
+  RediscoverOpenContext? get _activeRediscoverContext {
+    final attribution = widget.rediscoverContext;
+    if (attribution == null || !attribution.isValidAt(DateTime.now())) {
+      return null;
+    }
+    return attribution;
+  }
+
+  Future<void> _logRediscoverOutcome(
+    EngagementEventType type,
+    SavedUrl url,
+  ) async {
+    final attribution = _activeRediscoverContext;
+    if (attribution == null) return;
+    await ref
+        .read(isarServiceProvider)
+        .logEvent(
+          type: type,
+          url: url,
+          clusterLabel: attribution.topicKey,
+          memoryId: attribution.memoryId,
+          topicKey: attribution.topicKey,
+          surface: attribution.surface.name,
+          position: attribution.position,
+          reasonCode: attribution.reasonCode.name,
+          confidenceTier: attribution.confidenceTier,
+          algorithmVersion: attribution.algorithmVersion,
+          exposureId: attribution.exposureId,
+        );
+    ref.invalidate(rediscoverUtilityProfileProvider);
   }
 
   void _copyUrlToClipboard(String raw) {
@@ -615,6 +661,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             : _NoteSaveStatus.idle;
       });
       ref.invalidate(urlStreamProvider);
+      if (!_noteOutcomeRecorded &&
+          _hadNoteWhenOpened == false &&
+          snapshot.trim().isNotEmpty) {
+        final url = ref.read(urlDetailProvider(widget.urlId)).valueOrNull;
+        if (url != null) {
+          _noteOutcomeRecorded = true;
+          unawaited(_logRediscoverOutcome(EngagementEventType.noteAdded, url));
+        }
+      }
       if (showConfirmation) _showSnack('Note saved');
       if (_notesEdited) _scheduleNotesAutosave();
       return true;
@@ -712,6 +767,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       status: status,
       action: classified.action,
       revisitAfter: classified.revisitAfter,
+    );
+    await _logRediscoverOutcome(
+      classified.kind == IntentKind.done
+          ? EngagementEventType.rediscoverCompleted
+          : EngagementEventType.rediscoverQueued,
+      url,
     );
     if (!mounted) return;
     setState(() => _localIntentActionOverride = classified.action);
@@ -1342,6 +1403,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final colorScheme = theme.colorScheme;
 
     final url = urlAsync.valueOrNull;
+    if (url != null) {
+      _hadNoteWhenOpened ??= (url.userNotes ?? '').trim().isNotEmpty;
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.surface,

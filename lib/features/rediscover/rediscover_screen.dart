@@ -5,222 +5,226 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/models/engagement_event.dart';
-import '../../core/models/saved_url.dart';
-import '../../core/providers/service_providers.dart';
-import '../../core/services/rediscovery_service.dart';
-import '../../core/services/title_resolver.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/premium_design_system.dart';
-import '../home/home_provider.dart';
 import 'journey_visual.dart';
+import 'rediscover_daily_set.dart';
 import 'rediscover_journey_provider.dart';
-import 'rediscover_memory_prefs.dart';
 import 'rediscover_memory.dart';
+import 'rediscover_memory_prefs.dart';
+import 'rediscover_open_context.dart';
 import 'rediscover_provider.dart';
 
-class RediscoverScreen extends ConsumerStatefulWidget {
+class RediscoverScreen extends ConsumerWidget {
   const RediscoverScreen({super.key});
 
   @override
-  ConsumerState<RediscoverScreen> createState() => _RediscoverScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tt = Theme.of(context).textTheme;
+    final statsAsync = ref.watch(rediscoveryStatsProvider);
+    final dailySetAsync = ref.watch(rediscoverDailySetProvider);
+    final recapsAsync = ref.watch(rediscoverRecapsProvider);
+    final memories = dailySetAsync.valueOrNull?.memories;
+    if (memories != null && memories.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final controller = ref.read(rediscoverDailySetControllerProvider);
+        for (var index = 0; index < memories.length; index++) {
+          unawaited(
+            markRediscoverMemoryShown(
+              controller,
+              memories[index],
+              surface: RediscoverSurface.rediscover,
+              position: index,
+            ),
+          );
+        }
+      });
+    }
 
-class _RediscoverScreenState extends ConsumerState<RediscoverScreen> {
-  void _openJourney(RediscoverJourney journey) {
-    HapticFeedback.lightImpact();
-    unawaited(
-      ref
-          .read(isarServiceProvider)
-          .logEvent(
-            type: EngagementEventType.clusterVisit,
-            clusterLabel: journey.topicAnchor ?? journey.title,
-          ),
+    return Scaffold(
+      backgroundColor: premiumBackground(context),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(rediscoverDailySetProvider);
+          ref.invalidate(rediscoverRecapsProvider);
+          ref.invalidate(rediscoveryStatsProvider);
+          await ref.read(rediscoverDailySetProvider.future);
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              flexibleSpace: AppGlassSurface(
+                backgroundColor: premiumBackground(context),
+              ),
+              title: Text(
+                'Rediscover',
+                style: tt.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(child: _IntentHeader(statsAsync: statsAsync)),
+            dailySetAsync.when(
+              skipLoadingOnReload: true,
+              data: (set) => set.memories.isEmpty
+                  ? const SliverToBoxAdapter(child: _NoMemoriesToday())
+                  : _DailyMemorySection(
+                      memories: set.memories,
+                      onOpen: (memory, position) =>
+                          _openMemory(context, ref, memory, position),
+                      onSnooze: (memory, position) =>
+                          _snooze(context, ref, memory, position),
+                      onLessLikeThis: (memory, position) =>
+                          _lessLikeThis(context, ref, memory, position),
+                    ),
+              loading: () =>
+                  const SliverToBoxAdapter(child: _DailySetSkeleton()),
+              error: (_, _) =>
+                  const SliverToBoxAdapter(child: _NoMemoriesToday()),
+            ),
+            recapsAsync.when(
+              skipLoadingOnReload: true,
+              data: (recaps) => _RecapSection(
+                recaps: recaps
+                    .where(
+                      (recap) => recap.cadence != RediscoverRecapCadence.daily,
+                    )
+                    .toList(),
+                onOpen: (recap) => _openRecap(context, ref, recap),
+              ),
+              loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+              error: (_, _) =>
+                  const SliverToBoxAdapter(child: SizedBox.shrink()),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 48)),
+          ],
+        ),
+      ),
     );
-    context.push('/rediscover/journey', extra: journey);
   }
 
-  Future<void> _openUrl(SavedUrl url) async {
+  void _openMemory(
+    BuildContext context,
+    WidgetRef ref,
+    RediscoverMemory memory,
+    int position,
+  ) {
     HapticFeedback.lightImpact();
-    final service = RediscoveryService(ref.read(isarServiceProvider));
-    await service.markResurfaced(url.id);
-    await service.markOpened(url.id);
-    unawaited(
-      ref
-          .read(isarServiceProvider)
-          .logEvent(type: EngagementEventType.cardOpened, url: url),
+    final controller = ref.read(rediscoverDailySetControllerProvider);
+    final openContext = RediscoverOpenContext.forMemory(
+      memory,
+      surface: RediscoverSurface.rediscover,
+      position: position,
     );
-    ref.invalidate(todaysPicksProvider);
-    ref.invalidate(revisitQueueProvider);
-    ref.invalidate(relatedSavesProvider);
-    ref.invalidate(recentlyResurfacedProvider);
-    ref.invalidate(rediscoverTodayProvider);
-    ref.invalidate(rediscoverJourneysProvider);
-    if (mounted) {
-      context.push('/url/${url.id}');
-    }
+    unawaited(
+      markRediscoverMemoryOpened(controller, memory, openContext: openContext),
+    );
+    context.push(
+      '/rediscover/journey',
+      extra: RediscoverJourneyRouteArgs(
+        journey: memory.journey,
+        openContext: openContext,
+      ),
+    );
   }
 
-  void _openTodaySlot(RediscoverTodaySlot slot) {
-    final journey = slot.journey;
-    if (journey != null) {
-      _openJourney(journey);
-      return;
-    }
-    final url = slot.item?.url;
-    if (url != null) {
-      unawaited(_openUrl(url));
-    }
+  Future<void> _snooze(
+    BuildContext context,
+    WidgetRef ref,
+    RediscoverMemory memory,
+    int position,
+  ) async {
+    HapticFeedback.selectionClick();
+    final controller = ref.read(rediscoverDailySetControllerProvider);
+    await snoozeRediscoverMemory(
+      controller,
+      memory,
+      openContext: RediscoverOpenContext.forMemory(
+        memory,
+        surface: RediscoverSurface.rediscover,
+        position: position,
+      ),
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Hidden for 7 days'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
-  Future<void> _openRecap(RediscoverRecap recap) async {
+  Future<void> _lessLikeThis(
+    BuildContext context,
+    WidgetRef ref,
+    RediscoverMemory memory,
+    int position,
+  ) async {
+    HapticFeedback.selectionClick();
+    final controller = ref.read(rediscoverDailySetControllerProvider);
+    await suppressRediscoverTopic(
+      controller,
+      memory,
+      openContext: RediscoverOpenContext.forMemory(
+        memory,
+        surface: RediscoverSurface.rediscover,
+        position: position,
+      ),
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('You’ll see less like this'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  Future<void> _openRecap(
+    BuildContext context,
+    WidgetRef ref,
+    RediscoverRecap recap,
+  ) async {
+    HapticFeedback.lightImpact();
     await RediscoverMemoryPrefs.markRecapSeen(
       cadence: recap.cadence.name,
       itemIds: recap.items.map((item) => item.url.id).toList(),
     );
     ref.invalidate(rediscoverRecapsProvider);
-    final first = recap.items.firstOrNull?.url;
-    if (first != null) {
-      await _openUrl(first);
+    if (context.mounted) {
+      context.push('/rediscover/recap', extra: recap);
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final tagFreq = ref.watch(tagOccurrenceMapProvider);
-    final statsAsync = ref.watch(rediscoveryStatsProvider);
-    final todayAsync = ref.watch(rediscoverTodayProvider);
-    final recapsAsync = ref.watch(rediscoverRecapsProvider);
-    final resurfacedAsync = ref.watch(recentlyResurfacedProvider);
-    final journeysAsync = ref.watch(rediscoverJourneysProvider);
-
-    return Scaffold(
-      backgroundColor: premiumBackground(context),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            flexibleSpace: AppGlassSurface(
-              backgroundColor: premiumBackground(context),
-            ),
-            title: Text(
-              'Rediscover',
-              style: tt.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(child: _IntentHeader(statsAsync: statsAsync)),
-          todayAsync.when(
-            skipLoadingOnReload: true,
-            data: (slots) => slots.isEmpty
-                ? const SliverToBoxAdapter(child: SizedBox.shrink())
-                : SliverToBoxAdapter(
-                    child: _TodaySection(slots: slots, onTap: _openTodaySlot),
-                  ),
-            loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-            error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          ),
-          resurfacedAsync.when(
-            skipLoadingOnReload: true,
-            data: (items) => items.isEmpty
-                ? const SliverToBoxAdapter(child: SizedBox.shrink())
-                : _MemoryItemSection(
-                    title: 'Recently resurfaced',
-                    items: items,
-                    onOpen: (url) => unawaited(_openUrl(url)),
-                  ),
-            loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-            error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          ),
-          recapsAsync.when(
-            skipLoadingOnReload: true,
-            data: (recaps) => _RecapSection(
-              recaps: recaps
-                  .where(
-                    (recap) => recap.cadence != RediscoverRecapCadence.daily,
-                  )
-                  .toList(),
-              onOpen: (recap) => unawaited(_openRecap(recap)),
-            ),
-            loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-            error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          ),
-          journeysAsync.when(
-            skipLoadingOnReload: true,
-            data: (journeys) {
-              if (journeys.isEmpty) {
-                return const SliverToBoxAdapter(child: _NoMemoriesYet());
-              }
-              return SliverMainAxisGroup(
-                slivers: [
-                  const SliverToBoxAdapter(
-                    child: _SectionHeader(
-                      title: 'Related saves',
-                      subtitle:
-                          'Older saves connected to what you keep capturing.',
-                    ),
-                  ),
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final journey = journeys[index];
-                      return Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          16,
-                          index == 0 ? 8 : 6,
-                          16,
-                          index == journeys.length - 1 ? 14 : 6,
-                        ),
-                        child: _MemoryJourneyCard(
-                          journey: journey,
-                          tagFrequency: tagFreq,
-                          onTap: () => _openJourney(journey),
-                        ),
-                      );
-                    }, childCount: journeys.length),
-                  ),
-                ],
-              );
-            },
-            loading: () => const SliverToBoxAdapter(child: _JourneySkeleton()),
-            error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 48)),
-        ],
-      ),
-    );
   }
 }
 
 class _IntentHeader extends StatelessWidget {
-  final AsyncValue<RediscoveryStats> statsAsync;
-
   const _IntentHeader({required this.statsAsync});
+
+  final AsyncValue<RediscoveryStats> statsAsync;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final stats = statsAsync.valueOrNull;
-    final unopened = stats?.unopened ?? 0;
-
-    final headline = unopened > 0
-        ? 'A few memories worth using'
-        : 'The quiet saves are still here';
-
+    final unopened = statsAsync.valueOrNull?.unopened ?? 0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            headline,
+            'A few memories worth using',
             style: AppTypography.editorial(
               tt.titleSmall,
               fontWeight: FontWeight.w700,
@@ -231,7 +235,7 @@ class _IntentHeader extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             unopened > 0
-                ? "$unopened unopened saves, brought back when they can help."
+                ? 'Chosen from $unopened unopened saves and what matters now.'
                 : 'Chosen from what you saved, opened, and left for later.',
             style: tt.labelSmall?.copyWith(
               color: cs.onSurfaceVariant,
@@ -244,6 +248,149 @@ class _IntentHeader extends StatelessWidget {
   }
 }
 
+class _DailyMemorySection extends StatelessWidget {
+  const _DailyMemorySection({
+    required this.memories,
+    required this.onOpen,
+    required this.onSnooze,
+    required this.onLessLikeThis,
+  });
+
+  final List<RediscoverMemory> memories;
+  final void Function(RediscoverMemory, int) onOpen;
+  final void Function(RediscoverMemory, int) onSnooze;
+  final void Function(RediscoverMemory, int) onLessLikeThis;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverMainAxisGroup(
+      slivers: [
+        const SliverToBoxAdapter(
+          child: _SectionHeader(
+            title: 'Today',
+            subtitle: 'A stable set for today — no endless feed.',
+          ),
+        ),
+        SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final memory = memories[index];
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                index == 0 ? 8 : 6,
+                16,
+                index == memories.length - 1 ? 12 : 6,
+              ),
+              child: _DailyMemoryCard(
+                memory: memory,
+                primary: index == 0,
+                onOpen: () => onOpen(memory, index),
+                onSnooze: () => onSnooze(memory, index),
+                onLessLikeThis: () => onLessLikeThis(memory, index),
+              ),
+            );
+          }, childCount: memories.length),
+        ),
+      ],
+    );
+  }
+}
+
+enum _MemoryMenuAction { snooze, lessLikeThis }
+
+class _DailyMemoryCard extends StatelessWidget {
+  const _DailyMemoryCard({
+    required this.memory,
+    required this.primary,
+    required this.onOpen,
+    required this.onSnooze,
+    required this.onLessLikeThis,
+  });
+
+  final RediscoverMemory memory;
+  final bool primary;
+  final VoidCallback onOpen;
+  final VoidCallback onSnooze;
+  final VoidCallback onLessLikeThis;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Stack(
+      children: [
+        RediscoverArtworkCard(
+          journey: memory.journey,
+          title: memory.rediscoverCopy.title,
+          supportingText: memory.copyIdentity.reasonForToday,
+          metadata: _metadata(memory),
+          height: primary ? 220 : 182,
+          onTap: onOpen,
+        ),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Material(
+            color: cs.surface.withValues(alpha: 0.82),
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: PopupMenuButton<_MemoryMenuAction>(
+              tooltip: 'Rediscover options',
+              icon: Icon(Icons.more_horiz_rounded, color: cs.onSurface),
+              onSelected: (action) {
+                switch (action) {
+                  case _MemoryMenuAction.snooze:
+                    onSnooze();
+                  case _MemoryMenuAction.lessLikeThis:
+                    onLessLikeThis();
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: _MemoryMenuAction.snooze,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.schedule_rounded),
+                    title: Text('Not now'),
+                    subtitle: Text('Hide for 7 days'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _MemoryMenuAction.lessLikeThis,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.thumb_down_alt_outlined),
+                    title: Text('Less like this'),
+                    subtitle: Text('Reduce similar topics'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _metadata(RediscoverMemory memory) {
+    final queued = memory.journey.items.any((item) => item.url.isQueued);
+    if (queued) {
+      return 'Queued · ${memory.saveCount} ${_saveWord(memory.saveCount)}';
+    }
+    if (memory.journey.kind == RediscoverJourneyKind.forgottenGems) {
+      return 'Forgotten gem · ${memory.saveCount} ${_saveWord(memory.saveCount)}';
+    }
+    if (memory.journey.kind == RediscoverJourneyKind.returningTopic) {
+      return 'Back in view · ${memory.saveCount} ${_saveWord(memory.saveCount)}';
+    }
+    if (memory.journey.kind == RediscoverJourneyKind.onThisDay) {
+      return 'From your past · ${memory.saveCount} ${_saveWord(memory.saveCount)}';
+    }
+    return '${memory.saveCount} ${_saveWord(memory.saveCount)} · ${memory.waitingLabel}';
+  }
+
+  String _saveWord(int count) => count == 1 ? 'save' : 'saves';
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title, this.subtitle});
 
@@ -254,7 +401,6 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final subtitle = this.subtitle;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
       child: Column(
@@ -270,7 +416,7 @@ class _SectionHeader extends StatelessWidget {
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(
-              subtitle,
+              subtitle!,
               style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
           ],
@@ -296,7 +442,7 @@ class _RecapSection extends StatelessWidget {
         const SliverToBoxAdapter(
           child: _SectionHeader(
             title: 'Recaps',
-            subtitle: 'Weekly and monthly memory checks from your own saves.',
+            subtitle: 'Weekly and monthly patterns from your own saves.',
           ),
         ),
         SliverList(
@@ -309,10 +455,7 @@ class _RecapSection extends StatelessWidget {
                 16,
                 index == recaps.length - 1 ? 8 : 6,
               ),
-              child: _RecapCard(
-                recap: recap,
-                onTap: recap.items.isEmpty ? null : () => onOpen(recap),
-              ),
+              child: _RecapCard(recap: recap, onTap: () => onOpen(recap)),
             );
           }, childCount: recaps.length),
         ),
@@ -325,18 +468,17 @@ class _RecapCard extends StatelessWidget {
   const _RecapCard({required this.recap, required this.onTap});
 
   final RediscoverRecap recap;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final label = switch (recap.cadence) {
-      RediscoverRecapCadence.daily => 'Daily memory',
+      RediscoverRecapCadence.daily => 'Daily recap',
       RediscoverRecapCadence.weekly => 'Weekly recap',
       RediscoverRecapCadence.monthly => 'Monthly recap',
     };
-
     return Material(
       color: cs.surfaceContainerLow,
       borderRadius: BorderRadius.circular(18),
@@ -344,355 +486,60 @@ class _RecapCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label.toUpperCase(),
-                style: tt.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                  fontSize: 10,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                recap.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.editorial(
-                  tt.titleMedium,
-                  color: cs.onSurface,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                recap.subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 12),
-              for (final item in recap.items.take(3))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.bookmark_border_rounded,
-                        size: 16,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Text(
-                          TitleResolver.resolveDetailTitle(item.url),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.labelMedium?.copyWith(
-                            color: cs.onSurface,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MemoryItemSection extends StatelessWidget {
-  const _MemoryItemSection({
-    required this.title,
-    required this.items,
-    required this.onOpen,
-  });
-
-  final String title;
-  final List<RediscoveryItem> items;
-  final ValueChanged<SavedUrl> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverToBoxAdapter(
-          child: _SectionHeader(
-            title: title,
-            subtitle:
-                'Saves brought back by duplicates, timing, or new context.',
-          ),
-        ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate((context, index) {
-            final item = items[index];
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                index == 0 ? 8 : 5,
-                16,
-                index == items.length - 1 ? 8 : 5,
-              ),
-              child: _MemoryItemTile(item: item, onTap: () => onOpen(item.url)),
-            );
-          }, childCount: items.length),
-        ),
-      ],
-    );
-  }
-}
-
-class _MemoryItemTile extends StatelessWidget {
-  const _MemoryItemTile({required this.item, required this.onTap});
-
-  final RediscoveryItem item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final thumb = item.url.thumbnailUrl;
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.fromLTRB(16, 14, 14, 15),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 46,
-                  height: 46,
-                  child: thumb?.trim().isNotEmpty == true
-                      ? Image.network(
-                          thumb!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _fallbackIcon(cs),
-                        )
-                      : _fallbackIcon(cs),
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      TitleResolver.resolveDetailTitle(item.url),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.bodyMedium?.copyWith(
-                        color: cs.onSurface,
+                      label.toUpperCase(),
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                         fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                        fontSize: 10,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 6),
                     Text(
-                      '${item.reason} · ${item.timeAgo}',
-                      maxLines: 1,
+                      recap.title,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                      style: AppTypography.editorial(
+                        tt.titleMedium,
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${recap.subtitle} · ${recap.items.length} saves',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        height: 1.35,
+                      ),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: cs.onSurfaceVariant,
-                size: 22,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _fallbackIcon(ColorScheme cs) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: cs.surfaceContainerHighest),
-      child: AppIcon(AppIcons.rediscover, color: cs.onSurfaceVariant, size: 21),
-    );
-  }
-}
-
-class _MemoryJourneyCard extends StatelessWidget {
-  const _MemoryJourneyCard({
-    required this.journey,
-    required this.tagFrequency,
-    required this.onTap,
-  });
-
-  final RediscoverJourney journey;
-  final Map<String, int> tagFrequency;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final memory = RediscoverMemory.fromJourney(
-      journey,
-      tagFrequency: tagFrequency,
-    );
-
-    return RediscoverArtworkCard(
-      journey: journey,
-      title: memory.rediscoverCopy.title,
-      supportingText: memory.rediscoverCopy.subtitle,
-      metadata: _metadataLine(memory),
-      height: 196,
-      onTap: onTap,
-    );
-  }
-
-  String _metadataLine(RediscoverMemory memory) {
-    final total = memory.saveCount;
-    final unopened = memory.unopenedCount;
-    if (total == 0) return '';
-    if (unopened == total) return 'All unopened';
-    if (unopened == 0) return 'All reopened';
-    return '$unopened unopened';
-  }
-}
-
-class _TodaySection extends StatelessWidget {
-  const _TodaySection({required this.slots, required this.onTap});
-
-  final List<RediscoverTodaySlot> slots;
-  final ValueChanged<RediscoverTodaySlot> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Today',
-            style: tt.titleMedium?.copyWith(
-              color: cs.onSurface,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          for (final slot in slots)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _TodaySlotTile(slot: slot, onTap: () => onTap(slot)),
-            ),
-          Divider(height: 18, color: cs.outlineVariant.withValues(alpha: 0.5)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TodaySlotTile extends StatelessWidget {
-  const _TodaySlotTile({required this.slot, required this.onTap});
-
-  final RediscoverTodaySlot slot;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final thumb = slot.item?.url.thumbnailUrl;
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 46,
-                  height: 46,
-                  child: thumb?.trim().isNotEmpty == true
-                      ? Image.network(
-                          thumb!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _slotIcon(cs),
-                        )
-                      : _slotIcon(cs),
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      slot.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.labelMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      slot.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: tt.bodyMedium?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: cs.onSurfaceVariant,
-                size: 22,
-              ),
+              Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
             ],
           ),
         ),
       ),
     );
   }
-
-  Widget _slotIcon(ColorScheme cs) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: cs.surfaceContainerHighest),
-      child: Icon(slot.icon, color: cs.onSurfaceVariant, size: 22),
-    );
-  }
 }
 
-class _NoMemoriesYet extends StatelessWidget {
-  const _NoMemoriesYet();
+class _NoMemoriesToday extends StatelessWidget {
+  const _NoMemoriesToday();
 
   @override
   Widget build(BuildContext context) {
@@ -717,7 +564,7 @@ class _NoMemoriesYet extends StatelessWidget {
             ),
             const SizedBox(height: 5),
             Text(
-              'When a saved thread becomes worth returning to, it will appear here.',
+              'Rediscover will stay quiet until a save is genuinely worth bringing back.',
               textAlign: TextAlign.center,
               style: tt.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -731,19 +578,19 @@ class _NoMemoriesYet extends StatelessWidget {
   }
 }
 
-class _JourneySkeleton extends StatelessWidget {
-  const _JourneySkeleton();
+class _DailySetSkeleton extends StatelessWidget {
+  const _DailySetSkeleton();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
       child: Container(
-        height: 284,
+        height: 220,
         decoration: BoxDecoration(
           color: cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(24),
         ),
       ),
     );

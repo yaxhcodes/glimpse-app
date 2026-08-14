@@ -2,23 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/features/home/rediscovery_section.dart';
-import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
-import 'package:glimpse/features/rediscover/rediscover_provider.dart';
+import 'package:glimpse/features/rediscover/rediscover_daily_set.dart';
 
 void main() {
   testWidgets('home fast path does not start journey generation', (
     tester,
   ) async {
-    var journeyBuilds = 0;
+    var dailySetBuilds = 0;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          rediscoverJourneysProvider.overrideWith((ref) async {
-            journeyBuilds++;
-            return const [];
+          rediscoverDailySetProvider.overrideWith((ref) async {
+            dailySetBuilds++;
+            return RediscoverDailySet(
+              localDate: DateTime(2026, 8, 14),
+              memories: const [],
+            );
           }),
-          recentlyResurfacedProvider.overrideWith((ref) async => const []),
         ],
         child: const MaterialApp(
           home: Scaffold(body: RediscoverySection(loadJourneys: false)),
@@ -27,7 +28,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(journeyBuilds, 0);
+    expect(dailySetBuilds, 0);
     expect(
       find.byKey(const ValueKey('rediscover-journey-skeleton')),
       findsOneWidget,
@@ -43,23 +44,25 @@ void main() {
   testWidgets('journey generation starts when the deferred path is enabled', (
     tester,
   ) async {
-    var journeyBuilds = 0;
+    var dailySetBuilds = 0;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          rediscoverJourneysProvider.overrideWith((ref) async {
-            journeyBuilds++;
-            return const [];
+          rediscoverDailySetProvider.overrideWith((ref) async {
+            dailySetBuilds++;
+            return RediscoverDailySet(
+              localDate: DateTime(2026, 8, 14),
+              memories: const [],
+            );
           }),
-          recentlyResurfacedProvider.overrideWith((ref) async => const []),
         ],
         child: const MaterialApp(home: Scaffold(body: RediscoverySection())),
       ),
     );
     await tester.pump();
 
-    expect(journeyBuilds, 1);
+    expect(dailySetBuilds, 1);
     expect(
       find.byKey(const ValueKey('rediscover-journey-skeleton')),
       findsNothing,

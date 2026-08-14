@@ -13,6 +13,7 @@ import '../../models/place_itinerary.dart';
 import '../../models/saved_url.dart';
 import '../saved_notes_codec.dart';
 import '../../services/session_tracking_service.dart';
+import '../../services/rediscover_utility_profile.dart';
 import 'backup_models.dart';
 
 class BackupService {
@@ -265,6 +266,7 @@ class BackupService {
 
     developer.log('Exporting settings...', name: _tag);
     final settings = await _exportSettings();
+    final rediscoverProfile = await RediscoverUtilityProfileStore.load();
 
     final packageInfo = await PackageInfo.fromPlatform();
     final device =
@@ -280,6 +282,7 @@ class BackupService {
       placeItineraries: itineraryBackups,
       saveSessions: sessionBackups,
       settings: settings,
+      rediscoverProfile: rediscoverProfile.toBackupJson(),
     );
 
     developer.log('Encoding JSON...', name: _tag);
@@ -757,6 +760,15 @@ class BackupService {
     void Function(double progress)? onProgress,
   }) async {
     developer.log('Replace mode: clearing existing data...', name: _tag);
+    final incomingProfile = RediscoverUtilityProfile.fromBackupJson(
+      backup.rediscoverProfile,
+    );
+    final retainedProfile = incomingProfile == null
+        ? null
+        : RediscoverUtilityProfile.merge(
+            await RediscoverUtilityProfileStore.load(),
+            incomingProfile,
+          );
     await _isarService.deleteAll();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('glimpse_pinned_url_ids');
@@ -764,7 +776,11 @@ class BackupService {
     final sessionService = SessionTrackingService();
     await sessionService.clear();
 
-    return _writeBackupData(backup, onProgress: onProgress);
+    final count = await _writeBackupData(backup, onProgress: onProgress);
+    if (retainedProfile != null) {
+      await RediscoverUtilityProfileStore.save(retainedProfile);
+    }
+    return count;
   }
 
   Future<int> _mergeRestore(
@@ -893,6 +909,10 @@ class BackupService {
     }
 
     await _importSettings(backup.settings, merge: true);
+    await RediscoverUtilityProfileStore.import(
+      backup.rediscoverProfile,
+      merge: true,
+    );
 
     return backup.links.length;
   }
@@ -969,6 +989,10 @@ class BackupService {
     }
 
     await _importSettings(backup.settings, merge: false);
+    await RediscoverUtilityProfileStore.import(
+      backup.rediscoverProfile,
+      merge: false,
+    );
 
     return backup.links.length;
   }

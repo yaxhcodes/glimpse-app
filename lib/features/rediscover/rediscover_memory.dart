@@ -223,12 +223,13 @@ class RediscoverMemory {
         .where((item) => item.url.openedAt == null)
         .length;
     final openedCount = saveCount - unopenedCount;
-    final topicKey = (journey.topicAnchor ?? journey.title).trim();
+    final displayTopic = (journey.topicAnchor ?? journey.title).trim();
+    final topicKey = (journey.stableTopicKey ?? displayTopic).trim();
     final emotion = _emotionFor(journey);
     final metadata = _metadataFor(
       journey,
       topicKey: topicKey,
-      topicLabel: _topicTitle(topicKey),
+      topicLabel: _topicTitle(displayTopic),
       saveCount: saveCount,
       unopenedCount: unopenedCount,
       openedCount: openedCount,
@@ -866,6 +867,8 @@ class RediscoverMemory {
 
   static RediscoverMemoryEmotion _emotionFor(RediscoverJourney journey) {
     return switch (journey.kind) {
+      RediscoverJourneyKind.returningTopic =>
+        RediscoverMemoryEmotion.recognition,
       RediscoverJourneyKind.continueLearning =>
         RediscoverMemoryEmotion.momentum,
       RediscoverJourneyKind.forgottenGems =>
@@ -1134,6 +1137,7 @@ class RediscoverMemory {
   }) {
     final summary = semanticIntent.behaviorSummary;
     return switch (journey.kind) {
+      RediscoverJourneyKind.returningTopic => _returningTopicReason(journey),
       RediscoverJourneyKind.continueLearning => summary,
       RediscoverJourneyKind.forgottenGems =>
         '$summary You had left this aside.',
@@ -1348,8 +1352,18 @@ class RediscoverMemory {
     return [
       journey.kind.name,
       topicKey.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-'),
+      if (journey.triggerSaveId != null) 'trigger-${journey.triggerSaveId}',
       ids.take(4).join('-'),
     ].where((part) => part.isNotEmpty).join(':');
+  }
+
+  static String _returningTopicReason(RediscoverJourney journey) {
+    final topic = _topicTitle(journey.topicAnchor ?? journey.title);
+    final triggerTitle = journey.triggerTitle?.trim();
+    if (triggerTitle == null || triggerTitle.isEmpty) {
+      return 'A new $topic save brought these earlier saves back into view.';
+    }
+    return 'Your new save, “$triggerTitle,” brought these earlier $topic saves back into view.';
   }
 
   static String _topicTitle(String value) {
