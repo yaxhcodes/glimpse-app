@@ -1,3 +1,5 @@
+// ignore_for_file: use_null_aware_elements
+
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -79,9 +81,9 @@ class DigestPrefs {
       'topic': topic,
       'type': type,
       'read': false,
-      'notifId': ?notifId,
-      'body': ?body,
-      'sig': ?sig,
+      if (notifId != null) 'notifId': notifId,
+      if (body != null) 'body': body,
+      if (sig != null) 'sig': sig,
     });
     if (history.length > 50) history.removeRange(50, history.length);
     await p.setString(_historyKey, jsonEncode(history));

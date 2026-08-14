@@ -69,6 +69,11 @@ class SavedUrl {
 
   late DateTime savedAt;
 
+  /// When this save was moved to Bin. Null means it is part of the active
+  /// library. Nullable fields keep existing databases migration-free.
+  @Index()
+  DateTime? deletedAt;
+
   /// When the user first opened the link from the app (null = never opened).
   DateTime? openedAt;
 
@@ -167,6 +172,9 @@ class SavedUrl {
   /// all Rediscovery + notification surfaces.
   @ignore
   bool get isDone => intentStatus == 'done';
+
+  @ignore
+  bool get isInBin => deletedAt != null;
 
   /// User explicitly intends to come back ("Watch/Read/Revisit Later", etc.).
   @ignore

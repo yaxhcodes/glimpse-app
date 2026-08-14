@@ -42,9 +42,9 @@ class DemoSeedService {
   Future<int> seed() async {
     final existing = await demoId();
     if (existing != null) {
-      final savedDemo = await _isar.getUrlById(existing);
+      final savedDemo = await _isar.getAnyUrlById(existing);
       if (savedDemo?.rawUrl == demoRawUrl) return existing;
-      if (savedDemo != null) await _isar.deleteUrl(existing);
+      if (savedDemo != null) await _isar.deleteUrlPermanently(existing);
     }
 
     final id = await _isar.saveUrl(buildPreview());
@@ -58,7 +58,7 @@ class DemoSeedService {
     final prefs = await SharedPreferences.getInstance();
     final id = prefs.getInt(_demoIdKey);
     if (id == null) return;
-    await _isar.deleteUrl(id);
+    await _isar.deleteUrlPermanently(id);
     await prefs.remove(_demoIdKey);
   }
 

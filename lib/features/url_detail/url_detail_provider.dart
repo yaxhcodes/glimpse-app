@@ -17,24 +17,11 @@ final urlDetailProvider = FutureProvider.autoDispose.family<SavedUrl?, int>((
   return isarService.getUrlById(id);
 });
 
-/// Notifier for delete / update actions on a URL.
+/// Notifier for update actions on a URL.
 class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
 
   UrlDetailNotifier(this._ref) : super(const AsyncData(null));
-
-  Future<bool> deleteUrl(int id) async {
-    state = const AsyncLoading();
-    try {
-      final isarService = _ref.read(isarServiceProvider);
-      await isarService.deleteUrl(id);
-      state = const AsyncData(null);
-      return true;
-    } catch (e, stack) {
-      state = AsyncError(e, stack);
-      return false;
-    }
-  }
 
   Future<bool> updateNotes(int id, String notes) async {
     state = const AsyncLoading();

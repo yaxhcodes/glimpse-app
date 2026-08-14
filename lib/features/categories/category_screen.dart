@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/models/saved_url.dart';
 import '../../core/providers/bulk_selection_provider.dart';
+import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/category_order_provider.dart';
 import '../../features/home/home_provider.dart';
+import '../../features/collections/collections_provider.dart';
+import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
@@ -19,36 +23,39 @@ class CategoryScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     String name,
-    int count,
+    List<SavedUrl> urls,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Delete "$name"?'),
-        content: Text(
-          'This will permanently delete all $count ${count == 1 ? 'URL' : 'URLs'} in this category.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-              foregroundColor: Theme.of(ctx).colorScheme.onError,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    await ref.read(isarServiceProvider).deleteUrlsByCategory(name);
+    final ids = urls.map((url) => url.id).toList(growable: false);
+    final pinned = ref
+        .read(pinnedUrlsProvider)
+        .where(ids.contains)
+        .toList(growable: false);
+    final isar = ref.read(isarServiceProvider);
+    await isar.moveUrlsToBin(ids);
+    await ref.read(pinnedUrlsProvider.notifier).unpinAll(pinned);
     ref.read(categoryOrderProvider.notifier).remove(name);
     ref.invalidate(categoriesProvider);
-    if (context.mounted) context.pop();
+    ref.invalidate(collectionsSummaryProvider);
+    if (!context.mounted) return;
+    showAutoDismissSnackBar(
+      context,
+      SnackBar(
+        content: const Text('Moved to Bin'),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            await isar.restoreUrlsFromBin(ids);
+            for (final id in pinned) {
+              await ref.read(pinnedUrlsProvider.notifier).pin(id);
+            }
+            ref.invalidate(categoriesProvider);
+            ref.invalidate(collectionsSummaryProvider);
+          },
+        ),
+      ),
+    );
+    context.pop();
   }
 
   @override
@@ -149,7 +156,7 @@ class CategoryScreen extends ConsumerWidget {
                                 context,
                                 ref,
                                 categoryName,
-                                urls.length,
+                                urls,
                               ),
                             ),
                         ],

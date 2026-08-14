@@ -13,6 +13,7 @@ import 'core/providers/analytics_provider.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/providers/backup_provider.dart';
 import 'core/providers/dev_simulation_providers.dart';
+import 'core/providers/pinned_urls_provider.dart';
 import 'core/providers/service_providers.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
@@ -52,6 +53,7 @@ import 'features/digest/notifications_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/url_detail/url_detail_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/settings/bin_screen.dart';
 import 'features/settings/look_and_feel_screen.dart';
 import 'features/settings/about_screen.dart';
 import 'features/settings/privacy_screen.dart';
@@ -231,6 +233,10 @@ final _router = GoRouter(
       builder: (context, state) => const DataBackupScreen(),
     ),
     GoRoute(
+      path: '/settings/bin',
+      builder: (context, state) => const BinScreen(),
+    ),
+    GoRoute(
       path: '/settings/data-backup/preview',
       builder: (context, state) => const BackupPreviewScreen(),
     ),
@@ -384,6 +390,11 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
   Future<void> _runDeferredLocalMaintenance() async {
     final isar = ref.read(isarServiceProvider);
+    final purgedIds = await isar.purgeExpiredBinItems();
+    if (!mounted) return;
+    if (purgedIds.isNotEmpty) {
+      await ref.read(pinnedUrlsProvider.notifier).unpinAll(purgedIds);
+    }
     final repaired = await CategoryRepairService(
       isarService: isar,
     ).repairIfNeeded();

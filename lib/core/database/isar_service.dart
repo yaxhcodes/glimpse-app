@@ -20,6 +20,8 @@ import '../services/source_membership.dart';
 
 /// Service handling all local database operations via Isar.
 class IsarService {
+  static const binRetention = Duration(days: 30);
+
   late Future<Isar> _db;
 
   IsarService() {
@@ -158,7 +160,21 @@ class IsarService {
 
   // --------------- READ ---------------
 
+  static List<SavedUrl> _activeUrls(Iterable<SavedUrl> urls) =>
+      urls.where((url) => !url.isInBin).toList(growable: false);
+
   Future<List<SavedUrl>> getAllUrls() async {
+    final isar = await _db;
+    return isar.savedUrls
+        .filter()
+        .deletedAtIsNull()
+        .sortBySavedAtDesc()
+        .findAll();
+  }
+
+  /// Every URL, including recoverable Bin items. Reserved for backup,
+  /// duplicate resolution, and maintenance paths.
+  Future<List<SavedUrl>> getAllUrlsIncludingBin() async {
     final isar = await _db;
     return isar.savedUrls.where().sortBySavedAtDesc().findAll();
   }
@@ -166,9 +182,12 @@ class IsarService {
   /// Most recently saved URLs first (for Ask personal suggestions, etc.).
   Future<List<SavedUrl>> getRecentUrls({int limit = 15}) async {
     final isar = await _db;
-    final all = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
-    if (all.length <= limit) return all;
-    return all.take(limit).toList();
+    return isar.savedUrls
+        .filter()
+        .deletedAtIsNull()
+        .sortBySavedAtDesc()
+        .limit(limit)
+        .findAll();
   }
 
   /// URLs that have a non-empty embedding (for semantic clustering / mind map).
@@ -192,7 +211,7 @@ class IsarService {
     for (final u in emptyEmb) {
       byId[u.id] = u;
     }
-    final combined = byId.values.toList();
+    final combined = byId.values.where((url) => !url.isInBin).toList();
     combined.sort((a, b) => b.savedAt.compareTo(a.savedAt));
     return combined;
   }
@@ -215,6 +234,12 @@ class IsarService {
 
   Future<SavedUrl?> getUrlById(int id) async {
     final isar = await _db;
+    final url = await isar.savedUrls.get(id);
+    return url == null || url.isInBin ? null : url;
+  }
+
+  Future<SavedUrl?> getAnyUrlById(int id) async {
+    final isar = await _db;
     return isar.savedUrls.get(id);
   }
 
@@ -227,7 +252,7 @@ class IsarService {
     final out = <int, SavedUrl>{};
     for (var i = 0; i < list.length; i++) {
       final u = rows[i];
-      if (u != null) out[list[i]] = u;
+      if (u != null && !u.isInBin) out[list[i]] = u;
     }
     return out;
   }
@@ -243,7 +268,12 @@ class IsarService {
     final allUrls = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
     // "Done" saves are archived — excluded from the main library views.
     return allUrls
-        .where((url) => !url.isDone && SourceMembership.contains(url, category))
+        .where(
+          (url) =>
+              !url.isInBin &&
+              !url.isDone &&
+              SourceMembership.contains(url, category),
+        )
         .toList();
   }
 
@@ -254,7 +284,7 @@ class IsarService {
 
     final Map<String, Map<String, dynamic>> categoryMap = {};
     for (final url in allUrls) {
-      if (url.isDone) continue; // archived saves don't count toward categories
+      if (url.isInBin || url.isDone) continue;
       for (final category in url.effectiveCategories) {
         final interest = CategoryTaxonomy.normalize(
           category: category,
@@ -584,11 +614,11 @@ class IsarService {
     Set<int> candidateIds,
   ) async {
     if (candidateIds.isEmpty) {
-      return isar.savedUrls.where().findAll();
+      return _activeUrls(await isar.savedUrls.where().findAll());
     }
     final ordered = candidateIds.toList()..sort();
     final rows = await isar.savedUrls.getAll(ordered);
-    return rows.whereType<SavedUrl>().toList();
+    return rows.whereType<SavedUrl>().where((url) => !url.isInBin).toList();
   }
 
   Future<List<MapEntry<SavedUrl, double>>> _rankedKeywordSearch(
@@ -606,7 +636,7 @@ class IsarService {
     var urls = await _loadUrlsForSearch(isar, candidateIds);
 
     if (urls.isEmpty && candidateIds.isNotEmpty) {
-      urls = await isar.savedUrls.where().findAll();
+      urls = _activeUrls(await isar.savedUrls.where().findAll());
     }
 
     List<MapEntry<SavedUrl, double>> scoreBatch(List<SavedUrl> list) {
@@ -620,7 +650,7 @@ class IsarService {
 
     var scored = scoreBatch(urls);
     if (scored.isEmpty && candidateIds.isNotEmpty) {
-      urls = await isar.savedUrls.where().findAll();
+      urls = _activeUrls(await isar.savedUrls.where().findAll());
       scored = scoreBatch(urls);
     }
 
@@ -637,7 +667,7 @@ class IsarService {
   Future<List<SavedUrl>> searchUrls(String query) async {
     final isar = await _db;
     final lowerQuery = query.toLowerCase();
-    return isar.savedUrls
+    final matches = await isar.savedUrls
         .filter()
         .titleContains(lowerQuery, caseSensitive: false)
         .or()
@@ -667,6 +697,7 @@ class IsarService {
         .enrichmentJsonContains(lowerQuery, caseSensitive: false)
         .sortBySavedAtDesc()
         .findAll();
+    return _activeUrls(matches);
   }
 
   /// Check if a URL already exists in the database.
@@ -735,8 +766,7 @@ class IsarService {
     double threshold = 0.88,
   }) async {
     if (embedding.isEmpty) return 0;
-    final isar = await _db;
-    final all = await isar.savedUrls.where().findAll();
+    final all = await getAllUrls();
 
     final embeddings = <List<double>>[];
     for (final u in all) {
@@ -774,8 +804,7 @@ class IsarService {
     double minScore = 0.0,
   }) async {
     if (queryEmbedding.isEmpty) return const [];
-    final isar = await _db;
-    final all = await isar.savedUrls.where().findAll();
+    final all = await getAllUrls();
 
     final ids = <int>[];
     final embeddings = <List<double>>[];
@@ -827,11 +856,12 @@ class IsarService {
     DateTime end,
   ) async {
     final isar = await _db;
-    return isar.savedUrls
+    final urls = await isar.savedUrls
         .filter()
         .savedAtBetween(start, end)
         .sortBySavedAtDesc()
         .findAll();
+    return _activeUrls(urls);
   }
 
   Future<void> updateUrl(SavedUrl url) async {
@@ -947,11 +977,12 @@ class IsarService {
   /// Archived ("done") links, newest-first — backs the Done/Archive view.
   Future<List<SavedUrl>> getArchivedUrls() async {
     final isar = await _db;
-    return isar.savedUrls
+    final urls = await isar.savedUrls
         .filter()
         .intentStatusEqualTo('done')
         .sortBySavedAtDesc()
         .findAll();
+    return _activeUrls(urls);
   }
 
   /// Unread links: [openedAt] is null, optional filters for rediscovery/digest.
@@ -961,7 +992,9 @@ class IsarService {
     int limit = 3,
   }) async {
     final isar = await _db;
-    final all = await isar.savedUrls.where().sortBySavedAt().findAll();
+    final all = _activeUrls(
+      await isar.savedUrls.where().sortBySavedAt().findAll(),
+    );
     final out = <SavedUrl>[];
     for (final u in all) {
       if (u.openedAt != null) continue;
@@ -981,7 +1014,7 @@ class IsarService {
   /// Number of unread links per primary category.
   Future<Map<String, int>> getUnreadCountByCategory() async {
     final isar = await _db;
-    final all = await isar.savedUrls.where().findAll();
+    final all = _activeUrls(await isar.savedUrls.where().findAll());
     final counts = <String, int>{};
     for (final u in all) {
       if (u.openedAt != null) continue;
@@ -995,7 +1028,9 @@ class IsarService {
   Future<Map<String, List<SavedUrl>>> getWeeklyDigestData() async {
     final isar = await _db;
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
-    final all = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
+    final all = _activeUrls(
+      await isar.savedUrls.where().sortBySavedAtDesc().findAll(),
+    );
     final grouped = <String, List<SavedUrl>>{};
     for (final u in all) {
       if (u.savedAt.isBefore(cutoff)) continue;
@@ -1011,7 +1046,9 @@ class IsarService {
   }) async {
     final isar = await _db;
     final cutoff = DateTime.now().subtract(minAge);
-    final all = await isar.savedUrls.where().sortBySavedAt().findAll();
+    final all = _activeUrls(
+      await isar.savedUrls.where().sortBySavedAt().findAll(),
+    );
     for (final u in all) {
       if (u.openedAt != null) continue;
       if (u.savedAt.isBefore(cutoff)) return u;
@@ -1022,7 +1059,9 @@ class IsarService {
   /// Number of consecutive recent days on which the user saved at least one link.
   Future<int> getSavingStreakDays() async {
     final isar = await _db;
-    final all = await isar.savedUrls.where().sortBySavedAtDesc().findAll();
+    final all = _activeUrls(
+      await isar.savedUrls.where().sortBySavedAtDesc().findAll(),
+    );
     if (all.isEmpty) return 0;
 
     final daysWithSaves = <int>{};
@@ -1052,7 +1091,7 @@ class IsarService {
   Future<bool> hasOpenedNothingRecently({int days = 7}) async {
     final isar = await _db;
     final cutoff = DateTime.now().subtract(Duration(days: days));
-    final all = await isar.savedUrls.where().findAll();
+    final all = _activeUrls(await isar.savedUrls.where().findAll());
     for (final u in all) {
       final o = u.openedAt;
       if (o != null && o.isAfter(cutoff)) return false;
@@ -1063,7 +1102,7 @@ class IsarService {
   /// Count of all unread links.
   Future<int> getTotalUnreadCount() async {
     final isar = await _db;
-    final all = await isar.savedUrls.where().findAll();
+    final all = _activeUrls(await isar.savedUrls.where().findAll());
     return all.where((u) => u.openedAt == null).length;
   }
 
@@ -1071,14 +1110,14 @@ class IsarService {
   Future<int> getRecentSaveCount({int days = 7}) async {
     final isar = await _db;
     final cutoff = DateTime.now().subtract(Duration(days: days));
-    final all = await isar.savedUrls.where().findAll();
+    final all = _activeUrls(await isar.savedUrls.where().findAll());
     return all.where((u) => u.savedAt.isAfter(cutoff)).length;
   }
 
   /// Mark all unread links in [category] as read.
   Future<void> markCategoryRead(String category) async {
     final isar = await _db;
-    final all = await isar.savedUrls.where().findAll();
+    final all = _activeUrls(await isar.savedUrls.where().findAll());
     await isar.writeTxn(() async {
       for (final u in all) {
         if (u.openedAt != null) continue;
@@ -1346,37 +1385,179 @@ class IsarService {
     final out = <SavedUrl>[];
     for (final id in c.urlIds) {
       final u = await isar.savedUrls.get(id);
-      if (u != null) out.add(u);
+      if (u != null && !u.isInBin) out.add(u);
     }
     out.sort((a, b) => b.savedAt.compareTo(a.savedAt));
     return out;
   }
 
-  // --------------- DELETE ---------------
+  // --------------- BIN + PERMANENT DELETE ---------------
 
-  Future<bool> deleteUrl(int id) async {
+  Future<List<SavedUrl>> getBinUrls() async {
     final isar = await _db;
-    final removedFromCollections = <int>[];
-    final ok = await isar.writeTxn(() async {
-      final ok = await isar.savedUrls.delete(id);
-      if (ok) {
-        final collections = await isar.userCollections.where().findAll();
-        for (final col in collections) {
-          if (col.urlIds.contains(id)) {
-            col.urlIds = col.urlIds.where((x) => x != id).toList();
-            await isar.userCollections.put(col);
-            removedFromCollections.add(col.id);
-          }
-        }
-      }
-      return ok;
-    });
-    if (ok) {
-      for (final collectionId in removedFromCollections) {
-        await _removeCollectionAddedAt(collectionId, id);
-      }
+    return isar.savedUrls
+        .filter()
+        .deletedAtIsNotNull()
+        .sortByDeletedAtDesc()
+        .findAll();
+  }
+
+  Stream<List<SavedUrl>> watchBinUrls() async* {
+    final isar = await _db;
+    yield* isar.savedUrls
+        .filter()
+        .deletedAtIsNotNull()
+        .sortByDeletedAtDesc()
+        .watch(fireImmediately: true);
+  }
+
+  Stream<int> watchBinCount() async* {
+    final isar = await _db;
+    final query = isar.savedUrls.filter().deletedAtIsNotNull().build();
+    yield await query.count();
+    await for (final _ in query.watchLazy()) {
+      yield await query.count();
     }
-    return ok;
+  }
+
+  Future<bool> moveUrlToBin(int id, {DateTime? deletedAt}) async {
+    return await moveUrlsToBin([id], deletedAt: deletedAt) == 1;
+  }
+
+  /// Soft-deletes URLs in one transaction. Collection membership and all URL
+  /// metadata remain intact for restoration.
+  Future<int> moveUrlsToBin(Iterable<int> ids, {DateTime? deletedAt}) async {
+    final uniqueIds = ids.toSet().toList(growable: false);
+    if (uniqueIds.isEmpty) return 0;
+    final isar = await _db;
+    final rows = await isar.savedUrls.getAll(uniqueIds);
+    final now = deletedAt ?? DateTime.now();
+    final changed = rows
+        .whereType<SavedUrl>()
+        .where((url) => !url.isInBin)
+        .toList(growable: false);
+    if (changed.isEmpty) return 0;
+    for (final url in changed) {
+      url.deletedAt = now;
+    }
+    await isar.writeTxn(() => isar.savedUrls.putAll(changed));
+    return changed.length;
+  }
+
+  Future<bool> restoreUrlFromBin(int id) async {
+    return await restoreUrlsFromBin([id]) == 1;
+  }
+
+  Future<int> restoreUrlsFromBin(Iterable<int> ids) async {
+    final uniqueIds = ids.toSet().toList(growable: false);
+    if (uniqueIds.isEmpty) return 0;
+    final isar = await _db;
+    final rows = await isar.savedUrls.getAll(uniqueIds);
+    final changed = rows
+        .whereType<SavedUrl>()
+        .where((url) => url.isInBin)
+        .toList(growable: false);
+    if (changed.isEmpty) return 0;
+    for (final url in changed) {
+      url.deletedAt = null;
+    }
+    await isar.writeTxn(() => isar.savedUrls.putAll(changed));
+    return changed.length;
+  }
+
+  /// Restores a binned duplicate as a fresh save while retaining its durable
+  /// content and collection memberships.
+  Future<SavedUrl?> resaveUrlFromBin(
+    int id, {
+    String? userNotes,
+    DateTime? savedAt,
+  }) async {
+    final isar = await _db;
+    SavedUrl? restored;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(id);
+      if (url == null || !url.isInBin) return;
+      url
+        ..deletedAt = null
+        ..savedAt = savedAt ?? DateTime.now()
+        ..rediscoverDismissedAt = null
+        ..intentStatus = null
+        ..intentAction = null
+        ..intentSetAt = null
+        ..revisitAfter = null;
+      final notes = userNotes?.trim();
+      if (notes != null && notes.isNotEmpty) url.userNotes = notes;
+      await isar.savedUrls.put(url);
+      restored = url;
+    });
+    return restored;
+  }
+
+  Future<bool> deleteUrlPermanently(int id) async {
+    return (await deleteUrlsPermanently([id])).contains(id);
+  }
+
+  Future<List<int>> deleteUrlsPermanently(Iterable<int> ids) async {
+    final requested = ids.toSet();
+    if (requested.isEmpty) return const [];
+    final isar = await _db;
+    final rows = await isar.savedUrls.getAll(requested.toList());
+    final existingIds = rows.whereType<SavedUrl>().map((url) => url.id).toSet();
+    if (existingIds.isEmpty) return const [];
+
+    final removedCollectionPairs = <(int, int)>[];
+    await isar.writeTxn(() async {
+      final collections = await isar.userCollections.where().findAll();
+      final changedCollections = <UserCollection>[];
+      for (final collection in collections) {
+        final removed = collection.urlIds
+            .where(existingIds.contains)
+            .toList(growable: false);
+        if (removed.isEmpty) continue;
+        collection.urlIds = collection.urlIds
+            .where((id) => !existingIds.contains(id))
+            .toList();
+        changedCollections.add(collection);
+        removedCollectionPairs.addAll(
+          removed.map((urlId) => (collection.id, urlId)),
+        );
+      }
+      if (changedCollections.isNotEmpty) {
+        await isar.userCollections.putAll(changedCollections);
+      }
+
+      final relatedEvents = (await isar.engagementEvents.where().findAll())
+          .where((event) => existingIds.contains(event.urlId))
+          .map((event) => event.id)
+          .toList(growable: false);
+      if (relatedEvents.isNotEmpty) {
+        await isar.engagementEvents.deleteAll(relatedEvents);
+      }
+      await isar.savedUrls.deleteAll(existingIds.toList(growable: false));
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    for (final pair in removedCollectionPairs) {
+      await prefs.remove(_collectionAddedAtKey(pair.$1, pair.$2));
+    }
+    await SessionTrackingService().removeUrlIds(existingIds);
+    return existingIds.toList(growable: false);
+  }
+
+  Future<List<int>> emptyBin() async {
+    final urls = await getBinUrls();
+    return deleteUrlsPermanently(urls.map((url) => url.id));
+  }
+
+  Future<List<int>> purgeExpiredBinItems({DateTime? now}) async {
+    final cutoff = (now ?? DateTime.now()).subtract(binRetention);
+    final urls = await getBinUrls();
+    final expiredIds = urls
+        .where((url) => !url.deletedAt!.isAfter(cutoff))
+        .map((url) => url.id)
+        .toList(growable: false);
+    if (expiredIds.isEmpty) return const [];
+    return deleteUrlsPermanently(expiredIds);
   }
 
   Future<DateTime?> getLatestCollectionAddedAt(
@@ -1438,34 +1619,6 @@ class IsarService {
     return 'collection_added_at_${collectionId}_$urlId';
   }
 
-  Future<void> deleteUrlsByCategory(String category) async {
-    final isar = await _db;
-    final allUrls = await isar.savedUrls.where().findAll();
-    await isar.writeTxn(() async {
-      for (final url in allUrls) {
-        if (!url.effectiveCategories.contains(category)) continue;
-
-        final remaining = url.effectiveCategories
-            .where((item) => item != category)
-            .toList();
-
-        if (remaining.isEmpty) {
-          await isar.savedUrls.delete(url.id);
-          continue;
-        }
-
-        url.categories = remaining;
-        if (url.category == category) {
-          url.category = remaining.first;
-          url.categoryEmoji = CategoryResolver.emojiForCategory(
-            remaining.first,
-          );
-        }
-        await isar.savedUrls.put(url);
-      }
-    });
-  }
-
   Future<void> deleteAll() async {
     final isar = await _db;
     await isar.writeTxn(() async {
@@ -1473,6 +1626,12 @@ class IsarService {
       await isar.userCollections.clear();
       await isar.placeItinerarys.clear();
     });
+    final prefs = await SharedPreferences.getInstance();
+    for (final key in prefs.getKeys()) {
+      if (key.startsWith('collection_added_at_')) {
+        await prefs.remove(key);
+      }
+    }
     await SessionTrackingService().clear();
   }
 
@@ -1480,7 +1639,7 @@ class IsarService {
 
   Stream<List<SavedUrl>> watchAllUrls() async* {
     final isar = await _db;
-    yield* isar.savedUrls.where().sortBySavedAtDesc().watch(
+    yield* isar.savedUrls.filter().deletedAtIsNull().sortBySavedAtDesc().watch(
       fireImmediately: true,
     );
   }

@@ -104,7 +104,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
                 _pinSelected(context, ref, selectedUrls, onDone, onViewPinned);
                 break;
               case _BulkSelectionMenuAction.delete:
-                _confirmDelete(context, ref, selectedUrls, onDone);
+                _moveToBinWithUndo(context, ref, selectedUrls, onDone);
                 break;
             }
           },
@@ -302,69 +302,18 @@ void _showPinLimitReached(BuildContext context, VoidCallback? onViewPinned) {
   );
 }
 
-Future<void> _confirmDelete(
+Future<void> _moveToBinWithUndo(
   BuildContext context,
   WidgetRef ref,
   List<SavedUrl> urls,
   VoidCallback onDone,
 ) async {
-  final confirmed = await showModalBottomSheet<bool>(
-    context: context,
-    showDragHandle: true,
-    builder: (context) {
-      final count = urls.length;
-      final cs = Theme.of(context).colorScheme;
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Delete $count ${count == 1 ? 'item' : 'items'}?',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: cs.error,
-                        foregroundColor: cs.onError,
-                      ),
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Delete'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-  if (confirmed != true) return;
-
   final isar = ref.read(isarServiceProvider);
   final pins = ref.read(pinnedUrlsProvider);
-  for (final url in urls) {
-    await isar.deleteUrl(url.id);
-    if (pins.contains(url.id)) {
-      await ref.read(pinnedUrlsProvider.notifier).unpin(url.id);
-    }
-  }
+  final ids = urls.map((url) => url.id).toList(growable: false);
+  final pinnedIds = ids.where(pins.contains).toList(growable: false);
+  await isar.moveUrlsToBin(ids);
+  await ref.read(pinnedUrlsProvider.notifier).unpinAll(pinnedIds);
   ref.invalidate(categoriesProvider);
   ref.invalidate(collectionsListProvider);
   ref.invalidate(collectionsSummaryProvider);
@@ -374,17 +323,15 @@ Future<void> _confirmDelete(
   showAutoDismissSnackBar(
     context,
     SnackBar(
-      content: const Text('Deleted'),
+      content: const Text('Moved to Bin'),
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 4),
       action: SnackBarAction(
         label: 'Undo',
         onPressed: () async {
-          for (final url in urls) {
-            await isar.saveUrl(url);
-            if (pins.contains(url.id)) {
-              await ref.read(pinnedUrlsProvider.notifier).pin(url.id);
-            }
+          await isar.restoreUrlsFromBin(ids);
+          for (final id in pinnedIds) {
+            await ref.read(pinnedUrlsProvider.notifier).pin(id);
           }
           ref.invalidate(categoriesProvider);
           ref.invalidate(collectionsListProvider);

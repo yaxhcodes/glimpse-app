@@ -59,6 +59,7 @@ class BackupService {
       processingUpdatedAt: url.processingUpdatedAt?.toIso8601String(),
       processingError: url.processingError,
       savedAt: url.savedAt.toIso8601String(),
+      deletedAt: url.deletedAt?.toIso8601String(),
       openedAt: url.openedAt?.toIso8601String(),
       resurfacedAt: url.resurfacedAt?.toIso8601String(),
       rediscoverDismissedAt: url.rediscoverDismissedAt?.toIso8601String(),
@@ -133,6 +134,7 @@ class BackupService {
       ..processingUpdatedAt = _parseOptionalDate(b.processingUpdatedAt)
       ..processingError = b.processingError
       ..savedAt = DateTime.parse(b.savedAt)
+      ..deletedAt = _parseOptionalDate(b.deletedAt)
       ..openedAt = _parseOptionalDate(b.openedAt)
       ..resurfacedAt = _parseOptionalDate(b.resurfacedAt)
       ..rediscoverDismissedAt = _parseOptionalDate(b.rediscoverDismissedAt)
@@ -165,7 +167,7 @@ class BackupService {
     developer.log('Building backup payload', name: _tag);
 
     developer.log('Loading URLs from Isar...', name: _tag);
-    final urls = await _isarService.getAllUrls();
+    final urls = await _isarService.getAllUrlsIncludingBin();
     developer.log('Loaded ${urls.length} URLs', name: _tag);
 
     developer.log('Loading collections from Isar...', name: _tag);
@@ -541,6 +543,7 @@ class BackupService {
         'intentSetAt',
         'revisitAfter',
         'processingUpdatedAt',
+        'deletedAt',
       ]) {
         final value = raw[field];
         if (value != null) {
@@ -685,7 +688,7 @@ class BackupService {
       );
     }
 
-    final existingUrls = await _isarService.getAllUrls();
+    final existingUrls = await _isarService.getAllUrlsIncludingBin();
     final existingByUrl = {for (final u in existingUrls) u.rawUrl};
 
     var addedLinks = 0;
@@ -755,6 +758,8 @@ class BackupService {
   }) async {
     developer.log('Replace mode: clearing existing data...', name: _tag);
     await _isarService.deleteAll();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('glimpse_pinned_url_ids');
 
     final sessionService = SessionTrackingService();
     await sessionService.clear();
@@ -767,7 +772,7 @@ class BackupService {
     void Function(double progress)? onProgress,
   }) async {
     developer.log('Merge mode: loading existing data...', name: _tag);
-    final existingUrls = await _isarService.getAllUrls();
+    final existingUrls = await _isarService.getAllUrlsIncludingBin();
     final existingByUrl = {for (final u in existingUrls) u.rawUrl: u};
 
     final existingCollections = await _isarService.getAllCollections();
@@ -1060,6 +1065,10 @@ class BackupService {
           ? incoming.processingError
           : existing.processingError
       ..savedAt = _earliest(existing.savedAt, incomingSavedAt)
+      ..deletedAt =
+          existing.deletedAt == null || normalizedIncoming.deletedAt == null
+          ? null
+          : existing.deletedAt
       ..openedAt = _latestNullable(
         existing.openedAt,
         _parseOptionalDate(incoming.openedAt),

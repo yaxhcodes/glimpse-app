@@ -1,5 +1,5 @@
 class BackupData {
-  static const int currentVersion = 4;
+  static const int currentVersion = 5;
 
   final int version;
   final String createdAt;
@@ -92,6 +92,7 @@ class SavedUrlBackup {
   final String? processingUpdatedAt;
   final String? processingError;
   final String savedAt;
+  final String? deletedAt;
   final String? openedAt;
   final String? resurfacedAt;
   final String? rediscoverDismissedAt;
@@ -121,6 +122,7 @@ class SavedUrlBackup {
     this.processingUpdatedAt,
     this.processingError,
     required this.savedAt,
+    this.deletedAt,
     this.openedAt,
     this.resurfacedAt,
     this.rediscoverDismissedAt,
@@ -156,6 +158,7 @@ class SavedUrlBackup {
         'processingUpdatedAt': processingUpdatedAt,
       if (processingError != null) 'processingError': processingError,
       'savedAt': savedAt,
+      if (deletedAt != null) 'deletedAt': deletedAt,
       if (openedAt != null) 'openedAt': openedAt,
       if (resurfacedAt != null) 'resurfacedAt': resurfacedAt,
       if (rediscoverDismissedAt != null)
@@ -215,6 +218,7 @@ class SavedUrlBackup {
     processingUpdatedAt: json['processingUpdatedAt'] as String?,
     processingError: json['processingError'] as String?,
     savedAt: (json['savedAt'] as String?) ?? DateTime.now().toIso8601String(),
+    deletedAt: json['deletedAt'] as String?,
     openedAt: json['openedAt'] as String?,
     resurfacedAt: json['resurfacedAt'] as String?,
     rediscoverDismissedAt: json['rediscoverDismissedAt'] as String?,

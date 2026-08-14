@@ -38,123 +38,128 @@ const SavedUrlSchema = CollectionSchema(
       name: r'categoryEmoji',
       type: IsarType.string,
     ),
-    r'description': PropertySchema(
+    r'deletedAt': PropertySchema(
       id: 4,
+      name: r'deletedAt',
+      type: IsarType.dateTime,
+    ),
+    r'description': PropertySchema(
+      id: 5,
       name: r'description',
       type: IsarType.string,
     ),
     r'domain': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'domain',
       type: IsarType.string,
     ),
     r'effectiveCategories': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'effectiveCategories',
       type: IsarType.stringList,
     ),
     r'embedding': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'embedding',
       type: IsarType.doubleList,
     ),
     r'enrichmentJson': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'enrichmentJson',
       type: IsarType.string,
     ),
     r'intentAction': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'intentAction',
       type: IsarType.string,
     ),
     r'intentSetAt': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'intentSetAt',
       type: IsarType.dateTime,
     ),
     r'intentStatus': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'intentStatus',
       type: IsarType.string,
     ),
     r'openedAt': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'openedAt',
       type: IsarType.dateTime,
     ),
     r'processingAttempt': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'processingAttempt',
       type: IsarType.long,
     ),
     r'processingError': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'processingError',
       type: IsarType.string,
     ),
     r'processingId': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'processingId',
       type: IsarType.string,
     ),
     r'processingStatus': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'processingStatus',
       type: IsarType.string,
     ),
     r'processingUpdatedAt': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'processingUpdatedAt',
       type: IsarType.dateTime,
     ),
     r'rawUrl': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'rawUrl',
       type: IsarType.string,
     ),
     r'rediscoverDismissedAt': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'rediscoverDismissedAt',
       type: IsarType.dateTime,
     ),
     r'resurfacedAt': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'resurfacedAt',
       type: IsarType.dateTime,
     ),
     r'revisitAfter': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'revisitAfter',
       type: IsarType.dateTime,
     ),
     r'savedAt': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -201,6 +206,19 @@ const SavedUrlSchema = CollectionSchema(
           name: r'category',
           type: IndexType.hash,
           caseSensitive: true,
+        )
+      ],
+    ),
+    r'deletedAt': IndexSchema(
+      id: -8969437169173379604,
+      name: r'deletedAt',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'deletedAt',
+          type: IndexType.value,
+          caseSensitive: false,
         )
       ],
     ),
@@ -345,30 +363,31 @@ void _savedUrlSerialize(
   writer.writeStringList(offsets[1], object.categories);
   writer.writeString(offsets[2], object.category);
   writer.writeString(offsets[3], object.categoryEmoji);
-  writer.writeString(offsets[4], object.description);
-  writer.writeString(offsets[5], object.domain);
-  writer.writeStringList(offsets[6], object.effectiveCategories);
-  writer.writeDoubleList(offsets[7], object.embedding);
-  writer.writeString(offsets[8], object.enrichmentJson);
-  writer.writeString(offsets[9], object.intentAction);
-  writer.writeDateTime(offsets[10], object.intentSetAt);
-  writer.writeString(offsets[11], object.intentStatus);
-  writer.writeDateTime(offsets[12], object.openedAt);
-  writer.writeLong(offsets[13], object.processingAttempt);
-  writer.writeString(offsets[14], object.processingError);
-  writer.writeString(offsets[15], object.processingId);
-  writer.writeString(offsets[16], object.processingStatus);
-  writer.writeDateTime(offsets[17], object.processingUpdatedAt);
-  writer.writeString(offsets[18], object.rawUrl);
-  writer.writeDateTime(offsets[19], object.rediscoverDismissedAt);
-  writer.writeDateTime(offsets[20], object.resurfacedAt);
-  writer.writeDateTime(offsets[21], object.revisitAfter);
-  writer.writeDateTime(offsets[22], object.savedAt);
-  writer.writeString(offsets[23], object.summary);
-  writer.writeStringList(offsets[24], object.tags);
-  writer.writeString(offsets[25], object.thumbnailUrl);
-  writer.writeString(offsets[26], object.title);
-  writer.writeString(offsets[27], object.userNotes);
+  writer.writeDateTime(offsets[4], object.deletedAt);
+  writer.writeString(offsets[5], object.description);
+  writer.writeString(offsets[6], object.domain);
+  writer.writeStringList(offsets[7], object.effectiveCategories);
+  writer.writeDoubleList(offsets[8], object.embedding);
+  writer.writeString(offsets[9], object.enrichmentJson);
+  writer.writeString(offsets[10], object.intentAction);
+  writer.writeDateTime(offsets[11], object.intentSetAt);
+  writer.writeString(offsets[12], object.intentStatus);
+  writer.writeDateTime(offsets[13], object.openedAt);
+  writer.writeLong(offsets[14], object.processingAttempt);
+  writer.writeString(offsets[15], object.processingError);
+  writer.writeString(offsets[16], object.processingId);
+  writer.writeString(offsets[17], object.processingStatus);
+  writer.writeDateTime(offsets[18], object.processingUpdatedAt);
+  writer.writeString(offsets[19], object.rawUrl);
+  writer.writeDateTime(offsets[20], object.rediscoverDismissedAt);
+  writer.writeDateTime(offsets[21], object.resurfacedAt);
+  writer.writeDateTime(offsets[22], object.revisitAfter);
+  writer.writeDateTime(offsets[23], object.savedAt);
+  writer.writeString(offsets[24], object.summary);
+  writer.writeStringList(offsets[25], object.tags);
+  writer.writeString(offsets[26], object.thumbnailUrl);
+  writer.writeString(offsets[27], object.title);
+  writer.writeString(offsets[28], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -388,30 +407,31 @@ SavedUrl _savedUrlDeserialize(
   object.categories = reader.readStringList(offsets[1]) ?? [];
   object.category = reader.readString(offsets[2]);
   object.categoryEmoji = reader.readString(offsets[3]);
-  object.description = reader.readString(offsets[4]);
-  object.domain = reader.readString(offsets[5]);
-  object.embedding = reader.readDoubleList(offsets[7]);
-  object.enrichmentJson = reader.readStringOrNull(offsets[8]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[4]);
+  object.description = reader.readString(offsets[5]);
+  object.domain = reader.readString(offsets[6]);
+  object.embedding = reader.readDoubleList(offsets[8]);
+  object.enrichmentJson = reader.readStringOrNull(offsets[9]);
   object.id = id;
-  object.intentAction = reader.readStringOrNull(offsets[9]);
-  object.intentSetAt = reader.readDateTimeOrNull(offsets[10]);
-  object.intentStatus = reader.readStringOrNull(offsets[11]);
-  object.openedAt = reader.readDateTimeOrNull(offsets[12]);
-  object.processingAttempt = reader.readLongOrNull(offsets[13]);
-  object.processingError = reader.readStringOrNull(offsets[14]);
-  object.processingId = reader.readStringOrNull(offsets[15]);
-  object.processingStatus = reader.readStringOrNull(offsets[16]);
-  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[17]);
-  object.rawUrl = reader.readString(offsets[18]);
-  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[19]);
-  object.resurfacedAt = reader.readDateTimeOrNull(offsets[20]);
-  object.revisitAfter = reader.readDateTimeOrNull(offsets[21]);
-  object.savedAt = reader.readDateTime(offsets[22]);
-  object.summary = reader.readStringOrNull(offsets[23]);
-  object.tags = reader.readStringList(offsets[24]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[25]);
-  object.title = reader.readString(offsets[26]);
-  object.userNotes = reader.readStringOrNull(offsets[27]);
+  object.intentAction = reader.readStringOrNull(offsets[10]);
+  object.intentSetAt = reader.readDateTimeOrNull(offsets[11]);
+  object.intentStatus = reader.readStringOrNull(offsets[12]);
+  object.openedAt = reader.readDateTimeOrNull(offsets[13]);
+  object.processingAttempt = reader.readLongOrNull(offsets[14]);
+  object.processingError = reader.readStringOrNull(offsets[15]);
+  object.processingId = reader.readStringOrNull(offsets[16]);
+  object.processingStatus = reader.readStringOrNull(offsets[17]);
+  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[18]);
+  object.rawUrl = reader.readString(offsets[19]);
+  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[20]);
+  object.resurfacedAt = reader.readDateTimeOrNull(offsets[21]);
+  object.revisitAfter = reader.readDateTimeOrNull(offsets[22]);
+  object.savedAt = reader.readDateTime(offsets[23]);
+  object.summary = reader.readStringOrNull(offsets[24]);
+  object.tags = reader.readStringList(offsets[25]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[26]);
+  object.title = reader.readString(offsets[27]);
+  object.userNotes = reader.readStringOrNull(offsets[28]);
   return object;
 }
 
@@ -437,52 +457,54 @@ P _savedUrlDeserializeProp<P>(
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
       return (reader.readString(offset)) as P;
     case 6:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readDoubleList(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleList(offset)) as P;
     case 9:
       return (reader.readStringOrNull(offset)) as P;
     case 10:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readStringOrNull(offset)) as P;
-    case 12:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 13:
-      return (reader.readLongOrNull(offset)) as P;
-    case 14:
+    case 12:
       return (reader.readStringOrNull(offset)) as P;
+    case 13:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 14:
+      return (reader.readLongOrNull(offset)) as P;
     case 15:
       return (reader.readStringOrNull(offset)) as P;
     case 16:
       return (reader.readStringOrNull(offset)) as P;
     case 17:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readString(offset)) as P;
-    case 19:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 19:
+      return (reader.readString(offset)) as P;
     case 20:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 21:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 22:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 23:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 24:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 25:
       return (reader.readStringOrNull(offset)) as P;
+    case 25:
+      return (reader.readStringList(offset) ?? []) as P;
     case 26:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 27:
+      return (reader.readString(offset)) as P;
+    case 28:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -512,6 +534,14 @@ extension SavedUrlQueryWhereSort on QueryBuilder<SavedUrl, SavedUrl, QWhere> {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'title'),
+      );
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhere> anyDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'deletedAt'),
       );
     });
   }
@@ -806,6 +836,116 @@ extension SavedUrlQueryWhere on QueryBuilder<SavedUrl, SavedUrl, QWhereClause> {
               includeUpper: false,
             ));
       }
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> deletedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'deletedAt',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> deletedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'deletedAt',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> deletedAtEqualTo(
+      DateTime? deletedAt) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'deletedAt',
+        value: [deletedAt],
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> deletedAtNotEqualTo(
+      DateTime? deletedAt) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'deletedAt',
+              lower: [],
+              upper: [deletedAt],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'deletedAt',
+              lower: [deletedAt],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'deletedAt',
+              lower: [deletedAt],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'deletedAt',
+              lower: [],
+              upper: [deletedAt],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> deletedAtGreaterThan(
+    DateTime? deletedAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'deletedAt',
+        lower: [deletedAt],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> deletedAtLessThan(
+    DateTime? deletedAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'deletedAt',
+        lower: [],
+        upper: [deletedAt],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterWhereClause> deletedAtBetween(
+    DateTime? lowerDeletedAt,
+    DateTime? upperDeletedAt, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'deletedAt',
+        lower: [lowerDeletedAt],
+        includeLower: includeLower,
+        upper: [upperDeletedAt],
+        includeUpper: includeUpper,
+      ));
     });
   }
 
@@ -1447,6 +1587,75 @@ extension SavedUrlQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'categoryEmoji',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> deletedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> deletedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> deletedAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> deletedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> deletedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> deletedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'deletedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -4592,6 +4801,18 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.asc);
@@ -4870,6 +5091,18 @@ extension SavedUrlQuerySortThenBy
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByCategoryEmojiDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'categoryEmoji', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
@@ -5163,6 +5396,12 @@ extension SavedUrlQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'deletedAt');
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByDescription(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -5355,6 +5594,12 @@ extension SavedUrlQueryProperty
   QueryBuilder<SavedUrl, String, QQueryOperations> categoryEmojiProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'categoryEmoji');
+    });
+  }
+
+  QueryBuilder<SavedUrl, DateTime?, QQueryOperations> deletedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'deletedAt');
     });
   }
 

@@ -44,6 +44,15 @@ class PinnedUrlsNotifier extends StateNotifier<List<int>> {
     await _persist();
   }
 
+  Future<void> unpinAll(Iterable<int> ids) async {
+    final removed = ids.toSet();
+    if (removed.isEmpty) return;
+    final cleaned = state.where((id) => !removed.contains(id)).toList();
+    if (cleaned.length == state.length) return;
+    state = cleaned;
+    await _persist();
+  }
+
   Future<bool> toggle(int id) async {
     if (state.contains(id)) {
       await unpin(id);

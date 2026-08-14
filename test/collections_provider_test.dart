@@ -38,7 +38,9 @@ void main() {
     expect(addedAtBatchLoads, 1);
     expect(requestedIds, {1, 2, 999});
     expect(summaries, hasLength(2));
-    expect(summaries.first.linkCount, 3);
+    // Missing IDs (including binned members excluded by the database loader)
+    // remain in the collection for recovery but do not count as active links.
+    expect(summaries.first.linkCount, 2);
     expect(summaries.first.previewUrls.map((url) => url.id), [2, 1]);
     expect(summaries.first.lastSavedAt, DateTime(2026, 8, 10));
     expect(summaries.first.lastAddedAt, DateTime(2026, 8, 11));

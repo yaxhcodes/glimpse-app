@@ -17,16 +17,16 @@ class SessionRecord {
   });
 
   Map<String, dynamic> toJson() => {
-        'urlId': urlId,
-        'sessionId': sessionId,
-        'savedAt': savedAt.toIso8601String(),
-      };
+    'urlId': urlId,
+    'sessionId': sessionId,
+    'savedAt': savedAt.toIso8601String(),
+  };
 
   factory SessionRecord.fromJson(Map<String, dynamic> json) => SessionRecord(
-        urlId: json['urlId'] as int,
-        sessionId: json['sessionId'] as String,
-        savedAt: DateTime.parse(json['savedAt'] as String),
-      );
+    urlId: json['urlId'] as int,
+    sessionId: json['sessionId'] as String,
+    savedAt: DateTime.parse(json['savedAt'] as String),
+  );
 }
 
 /// Persists URL → session mappings outside Isar so the feature is fully
@@ -63,17 +63,29 @@ class SessionTrackingService {
 
   Future<void> writeAll(List<SessionRecord> records) => _writeAll(records);
 
-  /// Record that [urlId] belongs to [sessionId].
-  Future<void> record({
-    required int urlId,
-    required String sessionId,
-  }) async {
+  /// Removes every capture-session record for permanently deleted URLs in one
+  /// file rewrite.
+  Future<void> removeUrlIds(Iterable<int> urlIds) async {
+    final ids = urlIds.toSet();
+    if (ids.isEmpty) return;
     final all = await _readAll();
-    all.add(SessionRecord(
-      urlId: urlId,
-      sessionId: sessionId,
-      savedAt: DateTime.now(),
-    ));
+    final remaining = all
+        .where((record) => !ids.contains(record.urlId))
+        .toList();
+    if (remaining.length == all.length) return;
+    await _writeAll(remaining);
+  }
+
+  /// Record that [urlId] belongs to [sessionId].
+  Future<void> record({required int urlId, required String sessionId}) async {
+    final all = await _readAll();
+    all.add(
+      SessionRecord(
+        urlId: urlId,
+        sessionId: sessionId,
+        savedAt: DateTime.now(),
+      ),
+    );
     await _writeAll(all);
   }
 
@@ -85,11 +97,7 @@ class SessionTrackingService {
     final now = DateTime.now();
     final all = await _readAll();
     for (final id in urlIds) {
-      all.add(SessionRecord(
-        urlId: id,
-        sessionId: sessionId,
-        savedAt: now,
-      ));
+      all.add(SessionRecord(urlId: id, sessionId: sessionId, savedAt: now));
     }
     await _writeAll(all);
   }
@@ -121,9 +129,7 @@ class SessionTrackingService {
   /// Full records for a session, newest first.
   Future<List<SessionRecord>> recordsForSession(String sessionId) async {
     final all = await _readAll();
-    return all
-        .where((r) => r.sessionId == sessionId)
-        .toList()
+    return all.where((r) => r.sessionId == sessionId).toList()
       ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
   }
 

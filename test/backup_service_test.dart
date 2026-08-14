@@ -1,14 +1,21 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:glimpse/core/database/isar_service.dart';
 import 'package:glimpse/core/models/saved_url.dart';
+import 'package:glimpse/core/models/user_collection.dart';
+import 'package:glimpse/core/models/place_itinerary.dart';
 import 'package:glimpse/core/services/backup/backup_models.dart';
 import 'package:glimpse/core/services/backup/backup_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   test('version 4 backup data round-trips place itineraries', () {
     final backup = BackupData(
+      version: 4,
       createdAt: DateTime(2026, 8, 10).toIso8601String(),
       appVersion: '1.0.0',
       links: const [],
@@ -51,6 +58,7 @@ void main() {
     final dismissedAt = DateTime.utc(2026, 7, 3);
     final intentSetAt = DateTime.utc(2026, 7, 4);
     final revisitAfter = DateTime.utc(2026, 7, 8);
+    final deletedAt = DateTime.utc(2026, 7, 9);
 
     final original = SavedUrl()
       ..rawUrl = 'https://example.com/article'
@@ -62,6 +70,7 @@ void main() {
       ..categories = ['Technology']
       ..tags = ['flutter']
       ..savedAt = savedAt
+      ..deletedAt = deletedAt
       ..processingStatus = 'COMPLETED'
       ..processingId = 'process-1'
       ..processingAttempt = 2
@@ -84,7 +93,8 @@ void main() {
     final json = service.toBackup(original).toJson();
     final restored = service.fromBackup(SavedUrlBackup.fromJson(json));
 
-    expect(BackupData.currentVersion, 4);
+    expect(BackupData.currentVersion, 5);
+    expect(restored.deletedAt, deletedAt);
     expect(restored.processingStatus, original.processingStatus);
     expect(restored.processingId, original.processingId);
     expect(restored.processingAttempt, original.processingAttempt);
@@ -131,6 +141,7 @@ void main() {
       expect(backup.version, 1);
       expect(backup.links.single.intentStatus, isNull);
       expect(backup.links.single.processingStatus, isNull);
+      expect(backup.links.single.deletedAt, isNull);
     },
   );
 
@@ -194,11 +205,87 @@ void main() {
       ),
     );
   });
+
+  test('merge never moves an active local link into Bin', () async {
+    final local = _backupTestUrl()..deletedAt = null;
+    final incoming = _backupTestUrl()..deletedAt = DateTime.utc(2026, 8, 1);
+    final database = _MemoryBackupIsarService(local);
+    final backupService = BackupService(isarService: database);
+
+    await backupService.restoreBackup(
+      _singleLinkBackup(backupService.toBackup(incoming)),
+      RestoreMode.merge,
+    );
+
+    expect(database.url.deletedAt, isNull);
+  });
+
+  test('merge restores a local binned link when backup is active', () async {
+    final local = _backupTestUrl()..deletedAt = DateTime.utc(2026, 8, 1);
+    final incoming = _backupTestUrl()..deletedAt = null;
+    final database = _MemoryBackupIsarService(local);
+    final backupService = BackupService(isarService: database);
+
+    await backupService.restoreBackup(
+      _singleLinkBackup(backupService.toBackup(incoming)),
+      RestoreMode.merge,
+    );
+
+    expect(database.url.deletedAt, isNull);
+  });
 }
+
+SavedUrl _backupTestUrl() => SavedUrl()
+  ..id = 7
+  ..rawUrl = 'https://example.com/merge'
+  ..domain = 'example.com'
+  ..title = 'Merge link'
+  ..description = ''
+  ..category = 'Other'
+  ..categoryEmoji = 'O'
+  ..categories = ['Other']
+  ..tags = []
+  ..savedAt = DateTime.utc(2026, 7, 1);
+
+BackupData _singleLinkBackup(SavedUrlBackup link) => BackupData(
+  createdAt: DateTime.utc(2026, 8, 2).toIso8601String(),
+  appVersion: '1.0.0',
+  links: [link],
+  collections: const [],
+  saveSessions: const [],
+  settings: SettingsBackup(),
+);
 
 class _UnusedIsarService implements IsarService {
   @override
   dynamic noSuchMethod(Invocation invocation) {
     throw UnsupportedError('Database access is not expected in this test.');
+  }
+}
+
+class _MemoryBackupIsarService implements IsarService {
+  _MemoryBackupIsarService(this.url);
+
+  SavedUrl url;
+
+  @override
+  Future<List<SavedUrl>> getAllUrlsIncludingBin() async => [url];
+
+  @override
+  Future<List<UserCollection>> getAllCollections() async => const [];
+
+  @override
+  Future<List<PlaceItinerary>> getAllPlaceItineraries() async => const [];
+
+  @override
+  Future<void> updateUrl(SavedUrl updated) async {
+    url = updated;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    throw UnsupportedError(
+      '${invocation.memberName} is not used in this test.',
+    );
   }
 }

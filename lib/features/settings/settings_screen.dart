@@ -11,6 +11,7 @@ import '../../core/config/app_environment.dart';
 import '../../core/models/app_user.dart';
 import '../../core/models/music_provider.dart';
 import '../../core/providers/music_provider_preference_provider.dart';
+import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
@@ -32,6 +33,7 @@ import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/music_provider_sheet.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
+import 'bin_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -81,6 +83,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed == true) {
       final isarService = ref.read(isarServiceProvider);
       await isarService.deleteAll();
+      await ref
+          .read(pinnedUrlsProvider.notifier)
+          .unpinAll(ref.read(pinnedUrlsProvider));
       await clearAskSuggestionsCache();
       await clearInterestClusterCache();
       ref.invalidate(askEmptySuggestionsProvider);
@@ -218,6 +223,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             loading: () => 'Checking save allowance',
             error: (_, _) => 'Manage your plan',
           );
+    final binCount = ref.watch(binCountProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -331,6 +337,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: 'Data & Backup',
                       subtitle: 'Protect and restore your saved knowledge',
                       onTap: () => context.push('/settings/data-backup'),
+                    ),
+                    SettingsTile(
+                      icon: AppIcons.clearData,
+                      iconColor: SettingsAccents.rose,
+                      title: 'Bin',
+                      subtitle: 'Deleted items are kept for 30 days',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (binCount != null && binCount > 0) ...[
+                            SettingsBadge(label: '$binCount'),
+                            const SizedBox(width: 8),
+                          ],
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 24,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ],
+                      ),
+                      onTap: () => context.push('/settings/bin'),
                     ),
                   ],
                 ),

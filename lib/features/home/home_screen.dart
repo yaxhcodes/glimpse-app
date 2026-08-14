@@ -260,7 +260,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               label: 'Undo',
               onPressed: () async {
                 final isarService = ref.read(isarServiceProvider);
-                await isarService.deleteUrl(justSavedId);
+                await isarService.deleteUrlPermanently(justSavedId);
               },
             ),
           ),

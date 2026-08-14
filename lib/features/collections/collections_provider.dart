@@ -88,7 +88,7 @@ List<CollectionSummary> buildCollectionSummaries({
     summaries.add(
       CollectionSummary(
         collection: collection,
-        linkCount: collection.urlIds.length,
+        linkCount: urls.length,
         lastSavedAt: urls.firstOrNull?.savedAt,
         lastAddedAt: latestAddedAtByCollection[collection.id],
         visualHint: visualHint,

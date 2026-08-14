@@ -162,7 +162,71 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       // Exact duplicate check
       final existing = await isarService.findByRawUrl(normalizedUrl);
       if (existing != null) {
-        final addedToCollection = collectionId == null ||
+        if (existing.isInBin) {
+          final restored = await isarService.resaveUrlFromBin(
+            existing.id,
+            userNotes: notes,
+          );
+          if (restored == null) {
+            throw StateError('The link could not be restored from Bin.');
+          }
+          final needsEnrichment = !restored.isProcessingReady;
+          if (needsEnrichment) {
+            restored
+              ..processingStatus = UrlProcessingStatus.queued
+              ..processingId = processingId
+              ..processingUpdatedAt = DateTime.now()
+              ..processingError = null;
+            await isarService.updateUrl(restored);
+          }
+          final addedToCollection =
+              collectionId == null ||
+              await _addToCollection(
+                urlId: restored.id,
+                collectionId: collectionId,
+              );
+          _ref.invalidate(categoriesProvider);
+          _ref.invalidate(collectionsSummaryProvider);
+          _ref.invalidate(rediscoverRecapsProvider);
+          _ref.invalidate(recentlyResurfacedProvider);
+          _ref.invalidate(relatedSavesProvider);
+
+          final aiLimitReached = needsEnrichment
+              ? await _ref
+                    .read(usageServiceProvider)
+                    .hasReachedLimit(
+                      UsageFeature.aiSave,
+                      _ref.read(isProUserProvider),
+                    )
+              : false;
+          state = state.copyWith(
+            status: addedToCollection ? AddUrlStatus.done : AddUrlStatus.error,
+            errorMessage: addedToCollection
+                ? null
+                : 'The link was restored, but it could not be added to the collection.',
+            clearErrorMessage: addedToCollection,
+            savedUrlId: restored.id,
+            outcome: AddUrlOutcome.captured,
+            clearRelatedSaveIds: true,
+            aiLimitReached: aiLimitReached,
+          );
+          _isSaving = false;
+          if (needsEnrichment) {
+            if (notifyCapture && showCaptureAcknowledgement) {
+              await UrlSaveNotifications.showCaptureStarted();
+            }
+            _enrichInBackground(
+              normalizedUrl,
+              processingId: processingId,
+              notifyCapture: notifyCapture,
+            );
+          } else if (notifyCapture && showCaptureAcknowledgement) {
+            await UrlSaveNotifications.showAlreadyCaptured(restored);
+          }
+          return addedToCollection;
+        }
+        final addedToCollection =
+            collectionId == null ||
             await _addToCollection(
               urlId: existing.id,
               collectionId: collectionId,

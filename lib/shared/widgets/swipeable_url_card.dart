@@ -196,7 +196,7 @@ Future<void> deleteUrlWithUndo(
   final isarService = ref.read(isarServiceProvider);
   final pins = ref.read(pinnedUrlsProvider);
   final wasPinned = pins.contains(url.id);
-  await isarService.deleteUrl(url.id);
+  await isarService.moveUrlToBin(url.id);
   if (wasPinned) {
     await ref.read(pinnedUrlsProvider.notifier).unpin(url.id);
   }
@@ -208,13 +208,13 @@ Future<void> deleteUrlWithUndo(
   showAutoDismissSnackBar(
     context,
     SnackBar(
-      content: const Text('Deleted'),
+      content: const Text('Moved to Bin'),
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 4),
       action: SnackBarAction(
         label: 'Undo',
         onPressed: () async {
-          await isarService.saveUrl(url);
+          await isarService.restoreUrlFromBin(url.id);
           if (wasPinned) {
             await ref.read(pinnedUrlsProvider.notifier).pin(url.id);
           }

@@ -36,6 +36,7 @@ import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../shared/widgets/metadata_pill.dart';
 import '../../shared/widgets/music_provider_sheet.dart';
 import '../../shared/widgets/section_header.dart';
+import '../../shared/widgets/swipeable_url_card.dart' show deleteUrlWithUndo;
 import '../../shared/widgets/tag_group.dart';
 import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
@@ -779,32 +780,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Future<void> _deleteUrl() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete URL?'),
-        content: const Text('This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      final success = await ref
-          .read(urlDetailNotifierProvider.notifier)
-          .deleteUrl(widget.urlId);
-      if (success && mounted) {
-        context.pop();
-      }
-    }
+    final url = await ref.read(isarServiceProvider).getUrlById(widget.urlId);
+    if (url == null || !mounted) return;
+    await deleteUrlWithUndo(context, ref, url);
+    if (mounted) context.pop();
   }
 
   Future<void> _removeTag(SavedUrl url, String tag) async {
