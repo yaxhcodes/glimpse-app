@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/category_order_provider.dart';
@@ -65,9 +66,7 @@ final displayedUrlsProvider = Provider<AsyncValue<List<SavedUrl>>>((ref) {
   if (forceEmpty) return const AsyncValue.data([]);
 
   // Exclude "done" (archived) saves from the main library list.
-  return urlsAsync.whenData(
-    (urls) => urls.where((u) => !u.isDone).toList(),
-  );
+  return urlsAsync.whenData((urls) => urls.where((u) => !u.isDone).toList());
 });
 
 /// Categories displayed in the UI. Respects the dev-only "Force Empty Library" flag.
@@ -117,19 +116,46 @@ List<Map<String, dynamic>> _categoriesFromUrls(List<SavedUrl> urls) {
 /// Lowercase tag → occurrence count across the library (specificity / ordering).
 /// Uses [urlStreamProvider] (real data) so tag frequencies are never affected
 /// by dev simulation overrides.
+final _tagOccurrenceCacheProvider = Provider<TagOccurrenceCache>(
+  (ref) => TagOccurrenceCache(),
+);
+
 final tagOccurrenceMapProvider = Provider<Map<String, int>>((ref) {
-  final urls = ref.watch(urlStreamProvider).valueOrNull;
-  if (urls == null || urls.isEmpty) return {};
-  final counts = <String, int>{};
-  for (final u in urls) {
-    for (final t in u.tags) {
-      final k = t.toLowerCase().trim();
-      if (k.isEmpty) continue;
-      counts[k] = (counts[k] ?? 0) + 1;
-    }
-  }
-  return counts;
+  final urls = ref.watch(urlStreamProvider).valueOrNull ?? const <SavedUrl>[];
+  return ref.watch(_tagOccurrenceCacheProvider).build(urls);
 });
+
+/// Reuses tag counts when a URL stream emission changed only processing state.
+class TagOccurrenceCache {
+  final Map<int, List<String>> _tagsByUrlId = {};
+  Map<String, int> _counts = const {};
+
+  Map<String, int> build(List<SavedUrl> urls) {
+    var changed = urls.length != _tagsByUrlId.length;
+    for (final url in urls) {
+      if (!listEquals(_tagsByUrlId[url.id], url.tags)) changed = true;
+    }
+    if (!changed) return _counts;
+
+    final counts = <String, int>{};
+    for (final url in urls) {
+      for (final tag in url.tags) {
+        final key = tag.toLowerCase().trim();
+        if (key.isEmpty) continue;
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+    }
+    _tagsByUrlId
+      ..clear()
+      ..addEntries(
+        urls.map(
+          (url) => MapEntry(url.id, List<String>.unmodifiable(url.tags)),
+        ),
+      );
+    _counts = Map.unmodifiable(counts);
+    return _counts;
+  }
+}
 
 /// Incremented when the Home destination is tapped while Home is already
 /// selected, so the embedded Home screen can return to the top.

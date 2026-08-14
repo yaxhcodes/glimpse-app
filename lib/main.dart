@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'app.dart';
@@ -64,26 +65,50 @@ void main() async {
 }
 
 Future<void> _initializeDeferredServices() async {
+  // Platform SDK initialization can briefly occupy Android's main thread.
+  // Start each independent block only when Flutter has no animation/scroll
+  // work queued, and stagger them so they cannot all contend with first use.
+  await Future<void>.delayed(const Duration(seconds: 2));
+  await _runWhenUiIsIdle('app attestation', AppAttestationService.initialize);
+
   await Future<void>.delayed(const Duration(milliseconds: 750));
+  await _runWhenUiIsIdle('subscription', () async {
+    await SubscriptionService.init();
+    final currentUser = SupabaseAuthService.instance.currentUser;
+    if (currentUser != null) {
+      await SubscriptionService.instance.logInWithAuthenticatedUser(
+        currentUser.id,
+      );
+    }
+  });
 
-  unawaited(AppAttestationService.initialize());
-
-  await SubscriptionService.init();
-  final currentUser = SupabaseAuthService.instance.currentUser;
-  if (currentUser != null) {
-    await SubscriptionService.instance.logInWithAuthenticatedUser(
-      currentUser.id,
-    );
-  }
-
-  try {
+  await Future<void>.delayed(const Duration(milliseconds: 750));
+  await _runWhenUiIsIdle('background scheduling', () async {
     await Workmanager().initialize(digestCallbackDispatcher);
     await Future.wait([
       DigestScheduler.ensureScheduled(),
       BackupScheduler.ensureScheduled(),
     ]);
-  } catch (error, stackTrace) {
-    debugPrint('[Startup] Deferred background services failed: $error');
-    debugPrintStack(stackTrace: stackTrace);
-  }
+  });
+}
+
+Future<void> _runWhenUiIsIdle(String label, Future<void> Function() action) {
+  final completed = Completer<void>();
+  SchedulerBinding.instance.scheduleTask<void>(
+    () {
+      unawaited(() async {
+        try {
+          await action();
+        } catch (error, stackTrace) {
+          debugPrint('[Startup] Deferred $label failed: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        } finally {
+          completed.complete();
+        }
+      }());
+    },
+    Priority.idle,
+    debugLabel: 'Glimpse $label',
+  );
+  return completed.future;
 }

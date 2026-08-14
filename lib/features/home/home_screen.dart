@@ -81,10 +81,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _deferredDiscoveryScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _deferredDiscoveryTimer = Timer(const Duration(seconds: 2), () {
-        if (!mounted) return;
-        setState(() => _deferredDiscoveryReady = true);
-      });
+      _armDeferredDiscoveryTimer();
+    });
+  }
+
+  void _armDeferredDiscoveryTimer() {
+    _deferredDiscoveryTimer?.cancel();
+    _deferredDiscoveryTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      final activelyScrolling =
+          _scrollController.hasClients &&
+          _scrollController.position.isScrollingNotifier.value;
+      if (activelyScrolling) {
+        _armDeferredDiscoveryTimer();
+        return;
+      }
+      setState(() => _deferredDiscoveryReady = true);
     });
   }
 
@@ -929,7 +941,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final url = section.urls[index];
-                      final sectionIds = section.urls.map((u) => u.id).toList();
                       return SwipeableUrlCard(
                         key: ValueKey(url.id),
                         url: url,
@@ -940,7 +951,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         onSelectionToggle: () =>
                             selectionNotifier.toggle(url.id),
                         onTap: () =>
-                            context.push('/url/${url.id}', extra: sectionIds),
+                            context.push('/url/${url.id}', extra: section.ids),
                         onViewPinned: () {
                           _scrollController.animateTo(
                             0,
@@ -1091,7 +1102,10 @@ class _DomainInitialAvatar extends StatelessWidget {
 class _Section {
   final String label;
   final List<SavedUrl> urls;
-  const _Section(this.label, this.urls);
+  final List<int> ids;
+
+  _Section(this.label, this.urls)
+    : ids = List.unmodifiable(urls.map((url) => url.id));
 }
 
 class _LandingIdentity extends StatefulWidget {

@@ -348,6 +348,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ? const <SearchResult>[]
         : _applyFilters(resultsAsync.valueOrNull!, _filters, collections);
     final visibleUrls = visibleResults.map((result) => result.url).toList();
+    final visibleUrlIds = visibleUrls.map((url) => url.id).toList();
     final selectionState = ref.watch(bulkSelectionProvider(selectionScope));
     final selectionNotifier = ref.read(
       bulkSelectionProvider(selectionScope).notifier,
@@ -407,15 +408,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         focusNode: _searchFocus,
                         autofocus: true,
                         hint: 'Search your library…',
-                        onChanged: (value) {
-                          setState(() {});
-                          _onQueryChanged(value);
-                        },
+                        onChanged: _onQueryChanged,
                         onClear: query.isNotEmpty
                             ? () {
                                 _controller.clear();
-                                ref.read(searchProvider.notifier).clear();
-                                setState(() {});
+                                _onQueryChanged('');
                               }
                             : null,
                       ),
@@ -470,12 +467,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   : _pendingSearch || resultsAsync.isLoading
                   ? const LoadingIndicator(message: 'Searching your library…')
                   : resultsAsync.when(
-                      data: (results) {
-                        final filtered = _applyFilters(
-                          results,
-                          _filters,
-                          collections,
-                        );
+                      data: (_) {
+                        final filtered = visibleResults;
                         if (selectionState.enabled &&
                             selectedUrls.length != selectionState.count) {
                           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -581,9 +574,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       itemBuilder: (context, index) {
                                         final result = filtered[index];
                                         final url = result.url;
-                                        final filteredIds = filtered
-                                            .map((r) => r.url.id)
-                                            .toList();
                                         return SwipeableUrlCard(
                                           key: ValueKey(url.id),
                                           url: url,
@@ -608,7 +598,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                           },
                                           onTap: () => _onOpenResult(
                                             result,
-                                            siblingIds: filteredIds,
+                                            siblingIds: visibleUrlIds,
                                           ),
                                         );
                                       },

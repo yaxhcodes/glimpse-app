@@ -22,7 +22,6 @@ import '../../core/services/url_processing_observer.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../collections/collections_provider.dart';
 import '../home/home_provider.dart';
-import '../mindmap/interest_clusters_provider.dart';
 import '../rediscover/rediscover_memory_prefs.dart';
 import '../rediscover/rediscover_provider.dart';
 
@@ -194,7 +193,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           final aiLimitReached = needsEnrichment
               ? await _ref
                     .read(usageServiceProvider)
-                    .hasReachedLimit(
+                    .hasReachedLocalLimit(
                       UsageFeature.aiSave,
                       _ref.read(isProUserProvider),
                     )
@@ -238,7 +237,6 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         if (notifyCapture && showCaptureAcknowledgement) {
           await UrlSaveNotifications.showAlreadyCaptured(existing);
         }
-        _ref.invalidate(urlStreamProvider);
         _ref.invalidate(rediscoverRecapsProvider);
         _ref.invalidate(recentlyResurfacedProvider);
         _ref.invalidate(relatedSavesProvider);
@@ -299,7 +297,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
             null // enrichment will update
         ..userNotes = notes
         ..savedAt = DateTime.now()
-        ..processingStatus = UrlProcessingStatus.pending
+        ..processingStatus = UrlProcessingStatus.queued
         ..processingId = processingId
         ..processingAttempt = 0
         ..processingUpdatedAt = DateTime.now()
@@ -310,11 +308,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       unawaited(
         isarService.logEvent(type: EngagementEventType.save, url: savedUrl),
       );
-      savedUrl
-        ..processingStatus = UrlProcessingStatus.queued
-        ..processingUpdatedAt = DateTime.now();
-      await isarService.updateUrl(savedUrl);
-      final addedToCollection = collectionId == null ||
+      final addedToCollection =
+          collectionId == null ||
           await _addToCollection(
             urlId: savedUrl.id,
             collectionId: collectionId,
@@ -339,12 +334,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       }
 
       // Invalidate providers so Home screen shows the new URL instantly
-      _ref.invalidate(urlStreamProvider);
       _ref.invalidate(categoriesProvider);
-      _ref.invalidate(askEmptySuggestionsProvider);
-      _ref.invalidate(interestClusterThemesProvider);
-      _ref.invalidate(rediscoverRecapsProvider);
-      _ref.invalidate(relatedSavesProvider);
 
       // Surface (but never block on) the AI-save allowance: if it's exhausted,
       // the background enrichment will skip AI work, so tell the UI to prompt
@@ -352,7 +342,10 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       // value itself differs between prod and dev builds (see UsageLimits).
       final aiLimitReached = await _ref
           .read(usageServiceProvider)
-          .hasReachedLimit(UsageFeature.aiSave, _ref.read(isProUserProvider));
+          .hasReachedLocalLimit(
+            UsageFeature.aiSave,
+            _ref.read(isProUserProvider),
+          );
 
       state = state.copyWith(
         status: addedToCollection ? AddUrlStatus.done : AddUrlStatus.error,
@@ -400,15 +393,10 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     required String processingId,
     required bool notifyCapture,
   }) {
-    final enricher = _ref.read(enrichmentServiceProvider)(
-      onEnriched: () {
-        // Refresh providers so the URL card progressively hydrates
-        _ref.invalidate(urlStreamProvider);
-        _ref.invalidate(categoriesProvider);
-        _ref.invalidate(askEmptySuggestionsProvider);
-        _ref.invalidate(interestClusterThemesProvider);
-      },
-    );
+    // Isar's live URL stream progressively hydrates the card after every
+    // persisted enrichment stage. Restarting that stream from onEnriched
+    // multiplied full-library emissions and caused visible frame stalls.
+    final enricher = _ref.read(enrichmentServiceProvider)();
 
     // Find the URL's ID we just saved and enrich it
     _findAndEnrich(
@@ -453,6 +441,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         failedTasks.add('metadata_failed');
       }
       await enricher.enrichSingle(url.id, initialFailures: failedTasks);
+      _refreshDerivedDataAfterEnrichment();
       final relatedIds = await _surfaceSimilarOlderSaves(url.id);
       if (relatedIds.isNotEmpty) {
         _ref.invalidate(rediscoverRecapsProvider);
@@ -491,6 +480,16 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         stackTrace: st,
       );
     }
+  }
+
+  void _refreshDerivedDataAfterEnrichment() {
+    // Refresh expensive derived surfaces once after the pipeline settles,
+    // rather than once for every processing-status write.
+    _ref.invalidate(categoriesProvider);
+    _ref.invalidate(askEmptySuggestionsProvider);
+    _ref.invalidate(rediscoverRecapsProvider);
+    _ref.invalidate(recentlyResurfacedProvider);
+    _ref.invalidate(relatedSavesProvider);
   }
 
   Future<List<int>> _surfaceSimilarOlderSaves(int sourceId) async {

@@ -23,6 +23,9 @@ class IsarService {
   static const binRetention = Duration(days: 30);
 
   late Future<Isar> _db;
+  Map<String, int>? _canonicalUrlToId;
+  Future<Map<String, int>>? _canonicalUrlIndexBuild;
+  final Map<String, int> _canonicalUrlsSavedDuringIndexBuild = {};
 
   IsarService() {
     _db = _openDb();
@@ -66,7 +69,9 @@ class IsarService {
 
   Future<int> saveUrl(SavedUrl url) async {
     final isar = await _db;
-    return isar.writeTxn(() => isar.savedUrls.put(url));
+    final id = await isar.writeTxn(() => isar.savedUrls.put(url));
+    _rememberCanonicalUrl(url);
+    return id;
   }
 
   Future<bool> mutateUrl(int id, void Function(SavedUrl url) mutate) async {
@@ -588,7 +593,6 @@ class IsarService {
   }
 
   Future<Set<int>> _candidateUrlIds(String query, List<String> words) async {
-    final isar = await _db;
     final queries = <String>{query.trim().toLowerCase()};
     for (final w in words) {
       if (w.length >= 3) queries.add(w);
@@ -602,7 +606,7 @@ class IsarService {
     }
 
     // If the substring-based Isar filter matches almost everything, scan in-memory instead.
-    final total = await isar.savedUrls.where().count();
+    final total = (await getAllUrls()).length;
     if (total > 0 && ids.length > total * 0.85) {
       return {};
     }
@@ -718,13 +722,68 @@ class IsarService {
       if (canonicalExact != null) return canonicalExact;
     }
 
-    final all = await isar.savedUrls.where().findAll();
-    for (final saved in all) {
-      if (LinkPreviewService.canonicalizeUrl(saved.rawUrl) == canonical) {
-        return saved;
-      }
-    }
+    final index = await _canonicalUrlIndex(isar);
+    final matchedId = index[canonical];
+    if (matchedId == null) return null;
+
+    final matched = await isar.savedUrls.get(matchedId);
+    if (matched != null) return matched;
+
+    // Repair a stale entry lazily if an out-of-band write bypassed this
+    // service instead of rebuilding the whole index on the UI isolate.
+    index.remove(canonical);
     return null;
+  }
+
+  Future<Map<String, int>> _canonicalUrlIndex(Isar isar) {
+    final cached = _canonicalUrlToId;
+    if (cached != null) return Future.value(cached);
+
+    final inFlight = _canonicalUrlIndexBuild;
+    if (inFlight != null) return inFlight;
+
+    final build = () async {
+      try {
+        final rows = await isar.txn(() async {
+          // Project only the two small fields the index needs. Loading every
+          // SavedUrl would deserialize summaries, JSON and embeddings on the
+          // foreground isolate just to perform a duplicate check.
+          final ids = await isar.savedUrls.where().idProperty().findAll();
+          final rawUrls = await isar.savedUrls
+              .where()
+              .rawUrlProperty()
+              .findAll();
+          if (ids.length != rawUrls.length) {
+            throw StateError('Canonical URL index snapshot was inconsistent.');
+          }
+          return [
+            for (var i = 0; i < ids.length; i++)
+              _CanonicalUrlRow(id: ids[i], rawUrl: rawUrls[i]),
+          ];
+        });
+        final index = await compute(_buildCanonicalUrlIndex, rows);
+        index.addAll(_canonicalUrlsSavedDuringIndexBuild);
+        _canonicalUrlsSavedDuringIndexBuild.clear();
+        _canonicalUrlToId = index;
+        _canonicalUrlIndexBuild = null;
+        return index;
+      } catch (_) {
+        _canonicalUrlIndexBuild = null;
+        rethrow;
+      }
+    }();
+    _canonicalUrlIndexBuild = build;
+    return build;
+  }
+
+  void _rememberCanonicalUrl(SavedUrl url) {
+    final canonical = LinkPreviewService.canonicalizeUrl(url.rawUrl);
+    final index = _canonicalUrlToId;
+    if (index != null) {
+      index[canonical] = url.id;
+    } else if (_canonicalUrlIndexBuild != null) {
+      _canonicalUrlsSavedDuringIndexBuild[canonical] = url.id;
+    }
   }
 
   /// Fuzzy / keyword retrieval for natural-language questions (e.g. Ask).
@@ -1536,6 +1595,10 @@ class IsarService {
       await isar.savedUrls.deleteAll(existingIds.toList(growable: false));
     });
 
+    _canonicalUrlToId?.removeWhere((_, value) => existingIds.contains(value));
+    _canonicalUrlsSavedDuringIndexBuild.removeWhere(
+      (_, value) => existingIds.contains(value),
+    );
     final prefs = await SharedPreferences.getInstance();
     for (final pair in removedCollectionPairs) {
       await prefs.remove(_collectionAddedAtKey(pair.$1, pair.$2));
@@ -1626,6 +1689,9 @@ class IsarService {
       await isar.userCollections.clear();
       await isar.placeItinerarys.clear();
     });
+    _canonicalUrlToId = null;
+    _canonicalUrlIndexBuild = null;
+    _canonicalUrlsSavedDuringIndexBuild.clear();
     final prefs = await SharedPreferences.getInstance();
     for (final key in prefs.getKeys()) {
       if (key.startsWith('collection_added_at_')) {
@@ -1646,6 +1712,24 @@ class IsarService {
 }
 
 // ─── Isolate payloads + entry points ─────────────────────────────────────────
+
+class _CanonicalUrlRow {
+  const _CanonicalUrlRow({required this.id, required this.rawUrl});
+
+  final int id;
+  final String rawUrl;
+}
+
+Map<String, int> _buildCanonicalUrlIndex(List<_CanonicalUrlRow> rows) {
+  final index = <String, int>{};
+  for (final row in rows) {
+    index.putIfAbsent(
+      LinkPreviewService.canonicalizeUrl(row.rawUrl),
+      () => row.id,
+    );
+  }
+  return index;
+}
 
 class _CosineTopKPayload {
   const _CosineTopKPayload({

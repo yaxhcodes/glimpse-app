@@ -62,10 +62,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       });
       final request = ref.read(searchShellQueryRequestProvider);
       if (!mounted || request == null) return;
-      setState(() {
-        _loadedTabIndexes.add(_searchTabIndex);
-        _currentIndex = _searchTabIndex;
-      });
+      _activateTab(_searchTabIndex);
     });
   }
 
@@ -83,10 +80,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     ) {
       if (next == null) return;
       if (_currentIndex == _searchTabIndex) return;
-      setState(() {
-        _loadedTabIndexes.add(_searchTabIndex);
-        _currentIndex = _searchTabIndex;
-      });
+      _activateTab(_searchTabIndex);
     });
 
     final tt = Theme.of(context).textTheme;
@@ -120,7 +114,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               .read(bulkSelectionProvider(currentSelectionScope).notifier)
               .clear();
         } else if (_currentIndex != 0) {
-          setState(() => _currentIndex = 0);
+          _activateTab(0);
         }
       },
       child: LayoutBuilder(
@@ -134,6 +128,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           return Scaffold(
             backgroundColor: cs.surface,
             extendBody: !usesRail,
+            resizeToAvoidBottomInset: false,
             body: usesRail
                 ? Row(
                     children: [
@@ -265,10 +260,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     final wasAlreadyHome = _currentIndex == 0 && index == 0;
     final wasAlreadySearch =
         _currentIndex == _searchTabIndex && index == _searchTabIndex;
-    setState(() {
-      _loadedTabIndexes.add(index);
-      _currentIndex = index;
-    });
+    _activateTab(index);
     unawaited(
       ref.read(analyticsServiceProvider).trackScreen(_screenForIndex(index)),
     );
@@ -278,6 +270,15 @@ class _MainShellState extends ConsumerState<MainShell> {
     if (wasAlreadySearch) {
       ref.read(searchShellRefocusProvider.notifier).state++;
     }
+  }
+
+  void _activateTab(int index) {
+    if (_currentIndex == index && _loadedTabIndexes.contains(index)) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _loadedTabIndexes.add(index);
+      _currentIndex = index;
+    });
   }
 
   AnalyticsScreen _screenForIndex(int index) {

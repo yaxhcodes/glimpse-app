@@ -94,6 +94,29 @@ void main() {
       expect(await usage.hasReachedLimit(UsageFeature.search, false), isTrue);
     },
   );
+
+  test('local limit snapshot never performs a quota request', () async {
+    final limit = UsageLimits.getLimit(UsageFeature.aiSave);
+    SharedPreferences.setMockInitialValues({
+      'usage_last_reset': DateTime.now().toUtc().toIso8601String(),
+      'usage_aiSave_count': limit,
+    });
+    var requests = 0;
+    final usage = UsageService(
+      aiQuota: _quotaService(
+        onRequest: (options) {
+          requests++;
+          return _QuotaBackend().respond(options);
+        },
+      ),
+    );
+
+    expect(
+      await usage.hasReachedLocalLimit(UsageFeature.aiSave, false),
+      isTrue,
+    );
+    expect(requests, 0);
+  });
 }
 
 AiQuotaService _quotaService({

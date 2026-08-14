@@ -19,10 +19,15 @@ final interestClusterThemesProvider = FutureProvider<List<ClusterTheme>>((
   // autoDispose tearing this provider down mid-flight.
   final link = ref.keepAlive();
 
-  // Re-watch url count so the provider rebuilds when new URLs are added.
+  // A placeholder save has no embedding and cannot affect clustering. Waiting
+  // for the embedded count prevents an expensive no-op rebuild at capture time;
+  // the live stream triggers the real rebuild when enrichment stores a vector.
   ref.watch(
     urlStreamProvider.select(
-      (async) => async.whenOrNull(data: (urls) => urls.length),
+      (async) => async.whenOrNull(
+        data: (urls) =>
+            urls.where((url) => url.embedding?.isNotEmpty ?? false).length,
+      ),
     ),
   );
 

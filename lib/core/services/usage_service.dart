@@ -192,6 +192,18 @@ class UsageService {
     return usage >= UsageLimits.getLimit(feature);
   }
 
+  /// Fast local-only limit snapshot for latency-sensitive acknowledgements.
+  ///
+  /// This never contacts the worker. The enrichment path must still call
+  /// [hasReachedLimit] before doing paid work so the server remains the source
+  /// of truth. Save surfaces use this mirror only to avoid holding the user's
+  /// completed local save behind a quota network round trip.
+  Future<bool> hasReachedLocalLimit(UsageFeature feature, bool isPro) async {
+    if (isPro) return false;
+    final usage = await getUsage(feature);
+    return usage >= UsageLimits.getLimit(feature);
+  }
+
   /// Remaining uses for the current month.
   ///
   /// [isPro] is `true` → returns a large sentinel (`9999`).

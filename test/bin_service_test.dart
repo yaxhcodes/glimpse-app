@@ -127,6 +127,28 @@ void main() {
     },
   );
 
+  test('canonical URL index tracks saves and permanent deletion', () async {
+    final first = _url('https://example.com/article?utm_source=share');
+    await service.saveUrl(first);
+
+    expect(
+      (await service.findByRawUrl('https://example.com/article#notes'))!.id,
+      first.id,
+    );
+
+    // Saving after the lazy index has been built must update the cache without
+    // requiring another full-library scan.
+    final second = _url('https://example.com/second?ref=share');
+    await service.saveUrl(second);
+    expect(
+      (await service.findByRawUrl('https://example.com/second'))!.id,
+      second.id,
+    );
+
+    await service.deleteUrlPermanently(first.id);
+    expect(await service.findByRawUrl('https://example.com/article'), isNull);
+  });
+
   test(
     '30-day purge expires the boundary and batch-cleans memberships',
     () async {
@@ -162,7 +184,6 @@ void main() {
       ]);
     },
   );
-
 }
 
 SavedUrl _url(String rawUrl, {DateTime? savedAt}) {
