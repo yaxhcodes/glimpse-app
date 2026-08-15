@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/user_collection.dart';
 import '../../shared/formatting.dart';
+import '../../shared/widgets/selection_badge.dart';
 import '../../shared/widgets/url_card.dart';
 import 'collection_thumbnail_preview.dart';
 import 'collection_visual.dart';
@@ -122,9 +123,7 @@ class _CollectionCardState extends State<CollectionCard> {
                         Positioned(
                           top: -4,
                           right: -4,
-                          child: _CollectionSelectionBadge(
-                            selected: widget.isSelected,
-                          ),
+                          child: SelectionBadge(selected: widget.isSelected),
                         ),
                     ],
                   ),
@@ -298,9 +297,7 @@ class _CollectionListCardState extends State<CollectionListCard> {
                           Positioned(
                             top: -5,
                             right: -5,
-                            child: _CollectionSelectionBadge(
-                              selected: widget.isSelected,
-                            ),
+                            child: SelectionBadge(selected: widget.isSelected),
                           ),
                       ],
                     ),
@@ -377,42 +374,6 @@ class _CollectionListCardState extends State<CollectionListCard> {
       return null;
     }
     return 'Added · ${formatRelativeTime(lastAddedAt)}';
-  }
-}
-
-class _CollectionSelectionBadge extends StatelessWidget {
-  const _CollectionSelectionBadge({required this.selected});
-
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      key: ValueKey(selected ? 'collection-selected' : 'collection-unselected'),
-      duration: const Duration(milliseconds: 150),
-      curve: Curves.easeOutCubic,
-      width: 27,
-      height: 27,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: selected ? cs.primary : cs.surface,
-        border: Border.all(
-          color: selected ? cs.primary : cs.outline,
-          width: selected ? 0 : 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.14),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: selected
-          ? Icon(Icons.check_rounded, size: 18, color: cs.onPrimary)
-          : null,
-    );
   }
 }
 

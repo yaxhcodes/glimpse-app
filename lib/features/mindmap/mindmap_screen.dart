@@ -823,10 +823,8 @@ class MindmapScreen extends ConsumerWidget {
           children: [
             Text(
               'Interests',
-              style: tt.headlineSmall?.copyWith(
-                fontSize: 24,
+              style: tt.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
-                height: 1.15,
                 color: cs.onSurface,
               ),
             ),

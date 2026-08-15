@@ -22,6 +22,7 @@ void main() {
     ];
 
     for (final theme in themes) {
+      expect(theme.navigationBarTheme.height, 72);
       final styles = <TextStyle?>[
         theme.textTheme.displayLarge,
         theme.textTheme.headlineMedium,

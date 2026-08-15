@@ -94,6 +94,12 @@ void main() {
 
     await _pumpInterests(tester, themes: _fixtureThemes());
 
+    final interestsTitle = tester.widget<Text>(find.text('Interests'));
+    final titleContext = tester.element(find.text('Interests'));
+    expect(
+      interestsTitle.style?.fontSize,
+      Theme.of(titleContext).textTheme.titleLarge?.fontSize,
+    );
     expect(tester.getTopLeft(find.text('Interests')).dx, closeTo(20, 0.1));
     expect(tester.getTopLeft(find.text('Top signal')).dx, closeTo(20, 0.1));
     expect(

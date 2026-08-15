@@ -17,6 +17,7 @@ import '../../features/url_detail/url_detail_provider.dart';
 import 'expressive_tap_scale.dart';
 import 'expressive_loading_indicator.dart';
 import 'link_card_thumbnail.dart';
+import 'selection_badge.dart';
 import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
 
@@ -188,10 +189,16 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   widget.selectionMode
-                      ? _SelectionThumbnailControl(
+                      ? _SelectionThumbnail(
                           selected: widget.isSelected,
                           size: 56,
-                          onTap: widget.onSelectionTap,
+                          child: LinkCardThumbnail.build(
+                            url: widget.savedUrl,
+                            isRead: isRead,
+                            context: context,
+                            size: 56,
+                            borderRadius: 10,
+                          ),
                         )
                       : LinkCardThumbnail.build(
                           url: widget.savedUrl,
@@ -646,54 +653,40 @@ class _SubtleTextShimmer extends StatelessWidget {
   }
 }
 
-class _SelectionThumbnailControl extends StatelessWidget {
-  const _SelectionThumbnailControl({
+class _SelectionThumbnail extends StatelessWidget {
+  const _SelectionThumbnail({
     required this.selected,
     required this.size,
-    required this.onTap,
+    required this.child,
   });
 
   final bool selected;
   final double size;
-  final VoidCallback? onTap;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Semantics(
-      button: true,
       selected: selected,
       label: selected ? 'Deselect item' : 'Select item',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Center(
-            child: AnimatedScale(
-              scale: selected ? 1 : 0.84,
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOutCubic,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOutCubic,
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? cs.primary : Colors.transparent,
-                  border: Border.all(
-                    color: selected ? cs.primary : cs.outline,
-                    width: selected ? 0 : 1.6,
-                  ),
-                ),
-                child: selected
-                    ? Icon(Icons.check_rounded, size: 20, color: cs.onPrimary)
-                    : null,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: KeyedSubtree(
+                key: const ValueKey('url-card-selection-thumbnail'),
+                child: child,
               ),
             ),
-          ),
+            Positioned(
+              top: -4,
+              right: -4,
+              child: SelectionBadge(selected: selected),
+            ),
+          ],
         ),
       ),
     );

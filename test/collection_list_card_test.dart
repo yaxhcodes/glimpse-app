@@ -177,7 +177,7 @@ void main() {
       isSelected: true,
       onSelectionToggle: () => selectionToggles++,
     );
-    expect(find.byKey(const ValueKey('collection-selected')), findsOneWidget);
+    expect(find.byKey(const ValueKey('selection-selected')), findsOneWidget);
     await tester.tap(find.text('Weekend ideas'));
     expect(selectionToggles, 1);
   });

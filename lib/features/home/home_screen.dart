@@ -787,6 +787,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 count: _unreadDigests,
                                 maxCount: 9,
                                 isLabelVisible: _unreadDigests > 0,
+                                backgroundColor: theme.colorScheme.primary,
+                                textColor: theme.colorScheme.onPrimary,
                                 largeSize: 18,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 6,

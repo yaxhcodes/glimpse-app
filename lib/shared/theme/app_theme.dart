@@ -440,7 +440,7 @@ class AppTheme {
         highlightElevation: 4,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 80,
+        height: 72,
         elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,

@@ -148,6 +148,35 @@ void main() {
     );
   });
 
+  testWidgets(
+    'empty collection actions stay centered beside the Library card',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(400, 800);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await _pumpCollections(tester, const []);
+
+      final emptyRect = tester.getRect(
+        find.byKey(const ValueKey('collections-empty')),
+      );
+      final contentRect = tester.getRect(
+        find.byKey(const ValueKey('collections-empty-content')),
+      );
+      final libraryRect = tester.getRect(
+        find.byKey(const ValueKey('library-gateway-card')),
+      );
+
+      expect(contentRect.center.dy, closeTo(emptyRect.center.dy, 1));
+      expect(libraryRect.bottom, lessThan(contentRect.top));
+      expect(
+        find.widgetWithText(FilledButton, 'New collection'),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('long press selects collections and back exits selection', (
     tester,
   ) async {
@@ -163,7 +192,7 @@ void main() {
     expect(find.byTooltip('Exit selection'), findsOneWidget);
     expect(find.byTooltip('Edit collection'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsNothing);
-    expect(find.byKey(const ValueKey('collection-selected')), findsOneWidget);
+    expect(find.byKey(const ValueKey('selection-selected')), findsOneWidget);
 
     await tester.tap(find.text('Collection 2'));
     await tester.pumpAndSettle();

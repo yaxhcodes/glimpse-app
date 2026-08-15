@@ -190,28 +190,11 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
             );
             final collections = preferences.sortSummaries(rawCollections);
             if (collections.isEmpty) {
-              return CustomScrollView(
-                key: const ValueKey('collections-empty'),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    sliver: SliverToBoxAdapter(
-                      child: _LibraryGatewayCard(
-                        entities: librarySnapshot?.entities ?? const [],
-                        enabled: !selectionState.isActive,
-                        onTap: () => context.push('/library'),
-                      ),
-                    ),
-                  ),
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _CollectionsEmptyState(
-                      colorScheme: cs,
-                      textTheme: tt,
-                      onCreate: () => _createCollection(context),
-                    ),
-                  ),
-                ],
+              return _CollectionsEmptyLayout(
+                entities: librarySnapshot?.entities ?? const [],
+                libraryEnabled: !selectionState.isActive,
+                onLibraryTap: () => context.push('/library'),
+                onCreate: () => _createCollection(context),
               );
             }
             return DecoratedBox(
@@ -516,6 +499,63 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     ref.invalidate(collectionsListProvider);
     ref.invalidate(collectionsSummaryProvider);
     context.push('/collections/${collection.id}');
+  }
+}
+
+class _CollectionsEmptyLayout extends StatelessWidget {
+  const _CollectionsEmptyLayout({
+    required this.entities,
+    required this.libraryEnabled,
+    required this.onLibraryTap,
+    required this.onCreate,
+  });
+
+  final List<LibraryEntity> entities;
+  final bool libraryEnabled;
+  final VoidCallback onLibraryTap;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final libraryCard = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: _LibraryGatewayCard(
+        entities: entities,
+        enabled: libraryEnabled,
+        onTap: onLibraryTap,
+      ),
+    );
+    final emptyState = _CollectionsEmptyState(
+      colorScheme: theme.colorScheme,
+      textTheme: theme.textTheme,
+      onCreate: onCreate,
+    );
+
+    return LayoutBuilder(
+      key: const ValueKey('collections-empty'),
+      builder: (context, constraints) {
+        final useSequentialLayout =
+            constraints.maxHeight < 600 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.4;
+        if (useSequentialLayout) {
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: libraryCard),
+              SliverFillRemaining(hasScrollBody: false, child: emptyState),
+            ],
+          );
+        }
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            emptyState,
+            Align(alignment: Alignment.topCenter, child: libraryCard),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -867,6 +907,7 @@ class _CollectionsEmptyState extends StatelessWidget {
       ),
       child: Center(
         child: SingleChildScrollView(
+          key: const ValueKey('collections-empty-content'),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
