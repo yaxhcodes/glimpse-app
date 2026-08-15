@@ -194,6 +194,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('updates the bookmark for a book being read', (tester) async {
+    final entity = _entity(
+      key: 'reading-progress',
+      kind: LibraryEntityKind.book,
+      mention: const EnrichedMention(
+        title: 'Piranesi',
+        type: 'book',
+        creator: 'Susanna Clarke',
+        year: '2020',
+        genres: ['Fiction'],
+        libraryStatus: 'active',
+        pageCount: 272,
+        currentPage: 84,
+      ),
+    );
+    final actions = _FakeLibraryEntityActions();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          librarySnapshotProvider.overrideWith(
+            (ref) => AsyncValue.data(LibrarySnapshot(entities: [entity])),
+          ),
+          libraryEntityActionsProvider.overrideWithValue(actions),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: LibraryEntityDetailScreen(entityKey: entity.key),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('library-reading-progress-card')),
+      findsOneWidget,
+    );
+    expect(find.text('Page 84 · about 272 pages'), findsOneWidget);
+
+    await tester.tap(find.text('Update page'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('library-current-page-field')),
+      '101',
+    );
+    await tester.tap(find.text('Save bookmark'));
+    await tester.pumpAndSettle();
+
+    expect(actions.lastPage, 101);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('hides a Library item and restores it with Snackbar Undo', (
     tester,
   ) async {
@@ -340,9 +391,15 @@ class _FakeAnalytics implements AnalyticsService {
 
 class _FakeLibraryEntityActions implements LibraryEntityActions {
   LibraryItemStatus? lastStatus;
+  int? lastPage;
 
   @override
   Future<void> setStatus(LibraryEntity entity, LibraryItemStatus status) async {
     lastStatus = status;
+  }
+
+  @override
+  Future<void> setReadingPage(LibraryEntity entity, int page) async {
+    lastPage = page;
   }
 }

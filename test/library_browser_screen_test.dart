@@ -43,7 +43,7 @@ void main() {
     await tester.pumpWidget(_browserApp(entities));
     await tester.pump();
 
-    expect(_visibleTitles(tester), ['Gamma', 'Beta', 'Alpha']);
+    expect(_visibleTitles(tester), ['Beta', 'Gamma', 'Alpha']);
 
     await _chooseSort(tester, 'Title A–Z');
     expect(_visibleTitles(tester), ['Alpha', 'Beta', 'Gamma']);
@@ -52,7 +52,7 @@ void main() {
     await _chooseSort(tester, 'Status');
     expect(_visibleTitles(tester), ['Alpha', 'Beta', 'Gamma']);
     await _chooseSort(tester, 'Recently discovered');
-    expect(_visibleTitles(tester), ['Gamma', 'Beta', 'Alpha']);
+    expect(_visibleTitles(tester), ['Beta', 'Gamma', 'Alpha']);
 
     await tester.tap(find.byTooltip('Books options'));
     await tester.pumpAndSettle();
@@ -74,14 +74,14 @@ void main() {
 
     await tester.tap(find.text('Clear all'));
     await tester.pump();
-    expect(_visibleTitles(tester), ['Gamma', 'Beta', 'Alpha']);
+    expect(_visibleTitles(tester), ['Beta', 'Gamma', 'Alpha']);
 
     await tester.enterText(find.byType(SearchBar), 'missing title');
     await tester.pump();
     expect(find.text('Nothing matches these filters.'), findsOneWidget);
     await tester.tap(find.text('Clear search'));
     await tester.pump();
-    expect(_visibleTitles(tester), ['Gamma', 'Beta', 'Alpha']);
+    expect(_visibleTitles(tester), ['Beta', 'Gamma', 'Alpha']);
     expect(tester.takeException(), isNull);
   });
 
@@ -348,4 +348,7 @@ class _FakeLibraryEntityActions implements LibraryEntityActions {
     lastEntity = entity;
     lastStatus = status;
   }
+
+  @override
+  Future<void> setReadingPage(LibraryEntity entity, int page) async {}
 }

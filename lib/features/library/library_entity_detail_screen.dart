@@ -13,6 +13,7 @@ import 'library_entity.dart';
 import 'library_places_map.dart';
 import 'library_places_model.dart';
 import 'library_provider.dart';
+import 'library_reading_progress.dart';
 import 'library_status_picker.dart';
 import 'library_widgets.dart';
 import 'place_itinerary_editor_screen.dart';
@@ -45,10 +46,28 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
         return _EntityDetail(
           entity: entity,
           onStatusChanged: (status) => _setStatus(context, ref, entity, status),
+          onReadingPageChanged: (page) =>
+              _setReadingPage(context, ref, entity, page),
           onHide: () => _hideWithUndo(context, ref, entity),
         );
       },
     );
+  }
+
+  Future<void> _setReadingPage(
+    BuildContext context,
+    WidgetRef ref,
+    LibraryEntity entity,
+    int page,
+  ) async {
+    try {
+      await ref.read(libraryEntityActionsProvider).setReadingPage(entity, page);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update your bookmark.')),
+      );
+    }
   }
 
   Future<void> _setStatus(
@@ -105,11 +124,13 @@ class _EntityDetail extends StatelessWidget {
   const _EntityDetail({
     required this.entity,
     required this.onStatusChanged,
+    required this.onReadingPageChanged,
     required this.onHide,
   });
 
   final LibraryEntity entity;
   final Future<void> Function(LibraryItemStatus status) onStatusChanged;
+  final Future<void> Function(int page) onReadingPageChanged;
   final Future<void> Function() onHide;
 
   @override
@@ -161,6 +182,14 @@ class _EntityDetail extends StatelessWidget {
                           entity: entity,
                           onStatusChanged: onStatusChanged,
                         ),
+                      if (entity.kind == LibraryEntityKind.book &&
+                          entity.status == LibraryItemStatus.active) ...[
+                        const SizedBox(height: 24),
+                        LibraryReadingProgressCard(
+                          entity: entity,
+                          onPageChanged: onReadingPageChanged,
+                        ),
+                      ],
                       if (entity.kind == LibraryEntityKind.place &&
                           entity.genres.isNotEmpty) ...[
                         const SizedBox(height: 20),

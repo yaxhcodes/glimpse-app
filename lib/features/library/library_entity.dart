@@ -98,13 +98,22 @@ class LibraryEntity {
   List<String> get genres => mention.genres;
   LibraryItemStatus get status =>
       LibraryItemStatusX.fromStorage(mention.libraryStatus);
+  int? get pageCount => mention.pageCount;
+  int? get currentPage => mention.currentPage;
+  double? get readingProgress {
+    final page = currentPage;
+    final total = pageCount;
+    if (page == null || total == null || total <= 0) return null;
+    return (page / total).clamp(0.0, 1.0).toDouble();
+  }
 
   bool get needsResolution => switch (kind) {
     LibraryEntityKind.book =>
       mention.catalogId == null ||
           mention.creator == null ||
           mention.artworkUrl == null ||
-          mention.genres.isEmpty,
+          mention.genres.isEmpty ||
+          mention.pageCount == null,
     LibraryEntityKind.movie =>
       mention.catalogId == null ||
           mention.artworkUrl == null ||
@@ -689,6 +698,14 @@ class _LibraryEntityBuilder {
           ? current.matchConfidence
           : candidate.matchConfidence,
       libraryStatus: current.libraryStatus ?? candidate.libraryStatus,
+      pageCount: current.pageCount ?? candidate.pageCount,
+      currentPage: _laterPage(current.currentPage, candidate.currentPage),
     );
+  }
+
+  static int? _laterPage(int? first, int? second) {
+    if (first == null) return second;
+    if (second == null) return first;
+    return first >= second ? first : second;
   }
 }

@@ -428,36 +428,41 @@ class TranscriptEnrichmentService {
         if (item is! Map) continue;
         final title = _cleanText(item['title']);
         if (title.isEmpty) continue;
-        byKey.putIfAbsent(
-          _mentionIdentityKey('book', title),
-          () => EnrichedMention(
-            title: title,
-            type: 'book',
-            subtype: 'book',
-            creator: _cleanNullableText(item['author'] ?? item['creator']),
-            year: _cleanNullableText(
-              item['year'] ?? item['first_publish_year'],
-            ),
-            whyMentioned: _cleanNullableText(
-              item['why_mentioned'] ?? item['reason'] ?? item['description'],
-            ),
-            posterUrl: _cleanNullableText(
-              item['cover_url'] ?? item['coverUrl'],
-            ),
-            genres: _extractGenreList(item['genres'] ?? item['genre']),
-            rawGenres: _extractGenreList(
-              item['raw_genres'] ?? item['rawGenres'] ?? item['subjects'],
-            ),
-            catalogId: _cleanNullableText(
-              item['catalog_id'] ?? item['catalogId'] ?? item['work_id'],
-            ),
-            catalogSource: _cleanNullableText(
-              item['catalog_source'] ?? item['catalogSource'],
-            ),
-            matchConfidence: _toDouble(
-              item['match_confidence'] ?? item['matchConfidence'],
-            ),
+        final book = EnrichedMention(
+          title: title,
+          type: 'book',
+          subtype: 'book',
+          creator: _cleanNullableText(item['author'] ?? item['creator']),
+          year: _cleanNullableText(item['year'] ?? item['first_publish_year']),
+          whyMentioned: _cleanNullableText(
+            item['why_mentioned'] ?? item['reason'] ?? item['description'],
           ),
+          posterUrl: _cleanNullableText(item['cover_url'] ?? item['coverUrl']),
+          genres: _extractGenreList(item['genres'] ?? item['genre']),
+          rawGenres: _extractGenreList(
+            item['raw_genres'] ?? item['rawGenres'] ?? item['subjects'],
+          ),
+          catalogId: _cleanNullableText(
+            item['catalog_id'] ?? item['catalogId'] ?? item['work_id'],
+          ),
+          catalogSource: _cleanNullableText(
+            item['catalog_source'] ?? item['catalogSource'],
+          ),
+          matchConfidence: _toDouble(
+            item['match_confidence'] ?? item['matchConfidence'],
+          ),
+          pageCount: _extractPositiveInt(
+            item['page_count'] ??
+                item['pageCount'] ??
+                item['number_of_pages_median'] ??
+                item['number_of_pages'],
+          ),
+        );
+        final key = _mentionIdentityKey('book', title);
+        byKey.update(
+          key,
+          (existing) => existing.copyWith(pageCount: book.pageCount),
+          ifAbsent: () => book,
         );
       }
     }

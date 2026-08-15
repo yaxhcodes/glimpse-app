@@ -245,6 +245,11 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
         })
         .toList(growable: false);
     visible.sort((a, b) {
+      if (widget.kind == LibraryEntityKind.book &&
+          _sortOrder == LibrarySortOrder.discovered) {
+        final readingPriority = _readingRank(a).compareTo(_readingRank(b));
+        if (readingPriority != 0) return readingPriority;
+      }
       final primary = switch (_sortOrder) {
         LibrarySortOrder.discovered => b.discoveredAt.compareTo(a.discoveredAt),
         LibrarySortOrder.title => a.title.toLowerCase().compareTo(
@@ -262,6 +267,9 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
 
   int _yearOf(LibraryEntity entity) =>
       int.tryParse(entity.mention.year ?? '') ?? -1;
+
+  int _readingRank(LibraryEntity entity) =>
+      entity.status == LibraryItemStatus.active ? 0 : 1;
 
   int _statusRank(LibraryItemStatus status) => switch (status) {
     LibraryItemStatus.planning => 0,

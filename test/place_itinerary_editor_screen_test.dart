@@ -93,4 +93,7 @@ class _FakeLibraryEntityActions implements LibraryEntityActions {
   Future<void> setStatus(LibraryEntity entity, LibraryItemStatus status) async {
     updated[entity.key] = status;
   }
+
+  @override
+  Future<void> setReadingPage(LibraryEntity entity, int page) async {}
 }

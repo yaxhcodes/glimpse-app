@@ -1021,6 +1021,8 @@ class EnrichedMention {
     this.longitude,
     this.matchConfidence,
     this.libraryStatus,
+    this.pageCount,
+    this.currentPage,
   });
 
   final String title;
@@ -1040,6 +1042,8 @@ class EnrichedMention {
   final double? longitude;
   final double? matchConfidence;
   final String? libraryStatus;
+  final int? pageCount;
+  final int? currentPage;
 
   String? get artworkUrl => posterUrl;
 
@@ -1071,6 +1075,8 @@ class EnrichedMention {
     double? longitude,
     double? matchConfidence,
     String? libraryStatus,
+    int? pageCount,
+    int? currentPage,
   }) {
     return EnrichedMention(
       title: title ?? this.title,
@@ -1090,6 +1096,8 @@ class EnrichedMention {
       longitude: longitude ?? this.longitude,
       matchConfidence: matchConfidence ?? this.matchConfidence,
       libraryStatus: libraryStatus ?? this.libraryStatus,
+      pageCount: pageCount ?? this.pageCount,
+      currentPage: currentPage ?? this.currentPage,
     );
   }
 
@@ -1112,6 +1120,8 @@ class EnrichedMention {
       'longitude': longitude,
       'match_confidence': matchConfidence,
       'user_library_status': libraryStatus,
+      'page_count': pageCount,
+      'current_page': currentPage,
     };
   }
 
@@ -1167,7 +1177,21 @@ class EnrichedMention {
       libraryStatus: TranscriptEnrichmentService._cleanNullableText(
         json['user_library_status'] ?? json['userLibraryStatus'],
       ),
+      pageCount: _positiveInt(
+        json['page_count'] ??
+            json['pageCount'] ??
+            json['number_of_pages_median'] ??
+            json['number_of_pages'],
+      ),
+      currentPage: _positiveInt(json['current_page'] ?? json['currentPage']),
     );
+  }
+
+  static int? _positiveInt(Object? raw) {
+    if (raw is int && raw > 0) return raw;
+    if (raw is num && raw.isFinite && raw > 0) return raw.round();
+    final value = int.tryParse(raw?.toString().trim() ?? '');
+    return value != null && value > 0 ? value : null;
   }
 }
 

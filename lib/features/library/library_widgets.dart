@@ -142,8 +142,14 @@ class _LibraryStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final label =
+        entity.kind == LibraryEntityKind.book &&
+            entity.status == LibraryItemStatus.active &&
+            entity.currentPage != null
+        ? 'Reading · p. ${entity.currentPage}'
+        : entity.status.labelFor(entity.kind);
     return Semantics(
-      label: 'Status: ${entity.status.labelFor(entity.kind)}',
+      label: 'Status: $label',
       child: Material(
         key: ValueKey('library-status-badge-${entity.key}'),
         color: cs.inverseSurface,
@@ -153,7 +159,7 @@ class _LibraryStatusBadge extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
           child: Text(
-            entity.status.labelFor(entity.kind),
+            label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: cs.onInverseSurface,
               fontWeight: FontWeight.w700,

@@ -94,6 +94,7 @@ void main() {
             'catalog_source': 'open_library',
             'match_confidence': 0.97,
             'user_library_status': 'active',
+            'current_page': 42,
           },
           {
             'title': 'Kyoto',
@@ -102,6 +103,13 @@ void main() {
             'country': 'Japan',
             'latitude': 35.0116,
             'longitude': 135.7681,
+          },
+        ],
+        'books': [
+          {
+            'title': 'The Left Hand of Darkness',
+            'author': 'Ursula K. Le Guin',
+            'page_count': 304,
           },
         ],
       });
@@ -117,6 +125,8 @@ void main() {
       expect(book.artworkUrl, 'https://covers.example/left-hand.jpg');
       expect(book.matchConfidence, 0.97);
       expect(book.libraryStatus, 'active');
+      expect(book.pageCount, 304);
+      expect(book.currentPage, 42);
       expect(place.city, 'Kyoto');
       expect(place.latitude, closeTo(35.0116, 0.00001));
       expect(place.longitude, closeTo(135.7681, 0.00001));

@@ -99,6 +99,28 @@ class LibraryEntityActions {
   final Ref _ref;
 
   Future<void> setStatus(LibraryEntity entity, LibraryItemStatus status) async {
+    await _updateMentions(
+      entity,
+      (mention) => mention.copyWith(libraryStatus: status.name),
+    );
+  }
+
+  Future<void> setReadingPage(LibraryEntity entity, int page) async {
+    if (entity.kind != LibraryEntityKind.book ||
+        entity.status != LibraryItemStatus.active) {
+      throw StateError('Reading progress requires an active book');
+    }
+    if (page < 1) throw RangeError.range(page, 1, null, 'page');
+    await _updateMentions(
+      entity,
+      (mention) => mention.copyWith(currentPage: page),
+    );
+  }
+
+  Future<void> _updateMentions(
+    LibraryEntity entity,
+    EnrichedMention Function(EnrichedMention mention) update,
+  ) async {
     final isar = _ref.read(isarServiceProvider);
     var updatedSources = 0;
     for (final source in entity.sources) {
@@ -122,9 +144,7 @@ class LibraryEntityActions {
               kind == entity.kind &&
               LibraryIndex.provisionalKeyFor(kind!, mention) ==
                   source.provisionalKey;
-          updated.add(
-            matches ? mention.copyWith(libraryStatus: status.name) : mention,
-          );
+          updated.add(matches ? update(mention) : mention);
           sourceUpdated = sourceUpdated || matches;
         }
         if (!sourceUpdated) return;
@@ -414,6 +434,8 @@ class LibraryBackfillNotifier extends StateNotifier<LibraryBackfillState> {
       longitude: resolved.longitude ?? original.longitude,
       matchConfidence: resolved.matchConfidence ?? original.matchConfidence,
       libraryStatus: original.libraryStatus,
+      pageCount: resolved.pageCount ?? original.pageCount,
+      currentPage: original.currentPage,
     );
   }
 }

@@ -208,6 +208,8 @@ List<LibraryEntity> _fixtures() => [
     year: '2020',
     genres: const ['Fiction', 'Fantasy'],
     status: LibraryItemStatus.active,
+    pageCount: 272,
+    currentPage: 84,
     discoveredAt: DateTime(2026, 8, 6),
     why: 'A quiet recommendation about memory, wonder, and solitude.',
   ),
@@ -321,6 +323,8 @@ LibraryEntity _entity({
   String? year,
   List<String> genres = const [],
   LibraryItemStatus status = LibraryItemStatus.unlisted,
+  int? pageCount,
+  int? currentPage,
   String? city,
   String? country,
   double? latitude,
@@ -342,6 +346,8 @@ LibraryEntity _entity({
     latitude: latitude,
     longitude: longitude,
     libraryStatus: status.name,
+    pageCount: pageCount ?? (kind == LibraryEntityKind.book ? 300 : null),
+    currentPage: currentPage,
   );
   return LibraryEntity(
     key: key,

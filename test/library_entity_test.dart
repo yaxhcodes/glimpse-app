@@ -27,6 +27,8 @@ void main() {
           'catalog_source': 'open_library',
           'genres': ['Science Fiction'],
           'user_library_status': 'active',
+          'page_count': 688,
+          'current_page': 121,
         },
       );
 
@@ -40,6 +42,12 @@ void main() {
       });
       expect(snapshot.entities.single.genres, ['Science Fiction']);
       expect(snapshot.entities.single.status, LibraryItemStatus.active);
+      expect(snapshot.entities.single.pageCount, 688);
+      expect(snapshot.entities.single.currentPage, 121);
+      expect(
+        snapshot.entities.single.readingProgress,
+        closeTo(121 / 688, 0.001),
+      );
     });
 
     test('does not merge ambiguous titles with different disambiguators', () {
