@@ -7,7 +7,9 @@ import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
+import '../../core/providers/usage_providers.dart';
 import '../../core/services/category_resolver.dart';
+import '../../core/services/saved_url_enrichment_state.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../features/home/home_provider.dart';
@@ -97,6 +99,12 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         widget.savedUrl.isProcessingActive ||
         _isRecentlyEnriching(widget.savedUrl);
     final isProcessingFailed = widget.savedUrl.isProcessingFailed;
+    final showEnrichmentRetry =
+        !widget.selectionMode &&
+        SavedUrlEnrichmentState.shouldOfferRetry(
+          widget.savedUrl,
+          hasAiSaveAccess: ref.watch(aiSaveAvailableProvider),
+        );
     final processingPresentation = isProcessing || isProcessingFailed
         ? UrlProcessingPresentation.fromStatus(
             _retryingEnrichment
@@ -232,29 +240,69 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 0,
-                          runSpacing: 2,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Text(displaySourceName, style: metaStyle),
-                            Text(' · ', style: metaStyle),
-                            Text(
-                              UrlCard.timeAgoSaved(widget.savedUrl.savedAt),
-                              style: metaStyle,
+                            Expanded(
+                              child: Wrap(
+                                spacing: 0,
+                                runSpacing: 2,
+                                children: [
+                                  Text(displaySourceName, style: metaStyle),
+                                  Text(' · ', style: metaStyle),
+                                  Text(
+                                    UrlCard.timeAgoSaved(
+                                      widget.savedUrl.savedAt,
+                                    ),
+                                    style: metaStyle,
+                                  ),
+                                  Text(' · ', style: metaStyle),
+                                  Text(
+                                    _retryingEnrichment
+                                        ? 'Retrying'
+                                        : isProcessing
+                                        ? 'Processing'
+                                        : isProcessingFailed
+                                        ? 'Needs attention'
+                                        : isRead
+                                        ? 'Read'
+                                        : 'Unread',
+                                    style: metaStyle,
+                                  ),
+                                ],
+                              ),
                             ),
-                            Text(' · ', style: metaStyle),
-                            Text(
-                              _retryingEnrichment
-                                  ? 'Retrying'
-                                  : isProcessing
-                                  ? 'Processing'
-                                  : isProcessingFailed
-                                  ? 'Needs attention'
-                                  : isRead
-                                  ? 'Read'
-                                  : 'Unread',
-                              style: metaStyle,
-                            ),
+                            if (showEnrichmentRetry && !isProcessingFailed) ...[
+                              const SizedBox(width: 4),
+                              TextButton.icon(
+                                onPressed: _retryingEnrichment
+                                    ? null
+                                    : _retryEnrichment,
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(0, 40),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: _retryingEnrichment
+                                    ? SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: ExpressiveLoadingIndicator(
+                                          size: 14,
+                                          color: cs.primary,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.auto_awesome_rounded,
+                                        size: 16,
+                                      ),
+                                label: Text(
+                                  _retryingEnrichment ? 'Retrying' : 'Retry',
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                         if (notePreview != null) ...[
@@ -344,7 +392,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                           _ProcessingStatusPanel(
                             presentation: processingPresentation!,
                             retrying: _retryingEnrichment,
-                            onRetry: isProcessingFailed
+                            onRetry: isProcessingFailed && showEnrichmentRetry
                                 ? () => _retryEnrichment()
                                 : null,
                           ),
@@ -403,7 +451,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(success ? 'Retrying enrichment' : 'Could not retry'),
+          content: Text(
+            success ? 'Enrichment complete' : 'Could not enrich this save',
+          ),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
         ),

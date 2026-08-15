@@ -12,6 +12,7 @@ import '../../core/models/engagement_event.dart';
 import '../../core/models/music_provider.dart';
 import '../../core/providers/music_provider_preference_provider.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/usage_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/category_taxonomy.dart';
 import '../../core/services/intent_classifier.dart';
@@ -19,6 +20,7 @@ import '../../core/services/music_destination_service.dart';
 import '../../core/services/recipe_state_service.dart';
 import '../../core/services/rediscover_utility_profile.dart';
 import '../../core/services/saved_media_resolver.dart';
+import '../../core/services/saved_url_enrichment_state.dart';
 import '../../core/services/summary_rewriter.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/text_cleaner.dart';
@@ -837,7 +839,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (!mounted) return;
     setState(() => _retryingEnrichment = false);
     ref.invalidate(urlDetailProvider(widget.urlId));
-    _showSnack(success ? 'Retrying enrichment' : 'Could not retry enrichment');
+    _showSnack(success ? 'Enrichment complete' : 'Could not enrich this save');
   }
 
   Future<void> _deleteUrl() async {
@@ -1566,6 +1568,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _notesController.text = _localNotesOverride ?? url.userNotes ?? '';
     }
     final live = _savedEnrichment(url);
+    final showEnrichmentRetry = SavedUrlEnrichmentState.shouldOfferRetry(
+      url,
+      hasAiSaveAccess: ref.watch(aiSaveAvailableProvider),
+    );
     _scheduleMusicProviderPrompt(live, musicPreference);
     final metadata = _extractDetailMetadata(
       description: url.description,
@@ -1673,9 +1679,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   theme: theme,
                 ),
 
-                if (url.isProcessingFailed) ...[
+                if (showEnrichmentRetry) ...[
                   const SizedBox(height: 12),
-                  _buildEnrichmentFailedPanel(theme, colorScheme),
+                  _buildEnrichmentRetryPanel(
+                    theme,
+                    colorScheme,
+                    failed: url.isProcessingFailed,
+                  ),
                 ],
 
                 if (metadata.hasSocialRow) ...[
@@ -1761,39 +1771,54 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
-  Widget _buildEnrichmentFailedPanel(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildEnrichmentRetryPanel(
+    ThemeData theme,
+    ColorScheme colorScheme, {
+    required bool failed,
+  }) {
+    final accent = failed ? colorScheme.error : colorScheme.primary;
+    final containerColor = failed
+        ? colorScheme.errorContainer
+        : colorScheme.primaryContainer;
+    final foreground = failed
+        ? colorScheme.onErrorContainer
+        : colorScheme.onPrimaryContainer;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withValues(alpha: 0.55),
+        color: containerColor.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.error.withValues(alpha: 0.18)),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline_rounded, color: colorScheme.error, size: 20),
+          Icon(
+            failed ? Icons.error_outline_rounded : Icons.auto_awesome_rounded,
+            color: accent,
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              "Couldn't finish enrichment",
+              failed
+                  ? "Couldn't finish enrichment"
+                  : 'AI enrichment is available for this save',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onErrorContainer,
+                color: foreground,
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
           TextButton.icon(
             onPressed: _retryingEnrichment ? null : _retryEnrichment,
+            style: TextButton.styleFrom(foregroundColor: accent),
             icon: _retryingEnrichment
                 ? SizedBox(
                     width: 14,
                     height: 14,
-                    child: ExpressiveLoadingIndicator(
-                      size: 14,
-                      color: colorScheme.error,
-                    ),
+                    child: ExpressiveLoadingIndicator(size: 14, color: accent),
                   )
                 : const Icon(Icons.refresh_rounded, size: 18),
             label: const Text('Retry'),

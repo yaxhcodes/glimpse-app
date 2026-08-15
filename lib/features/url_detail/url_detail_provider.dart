@@ -2,6 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/providers/usage_providers.dart';
+import '../../core/services/entitlement_service.dart';
+import '../../core/services/saved_url_enrichment_state.dart';
+import '../../core/services/usage_limits.dart';
 
 /// Provider for a single URL detail by ID.
 ///
@@ -70,9 +74,19 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
         return false;
       }
 
-      final hasSavedAiPayload =
-          (url.enrichmentJson ?? '').trim().isNotEmpty ||
-          (url.summary ?? '').trim().isNotEmpty;
+      final isPro = _ref.read(isProUserProvider);
+      final limitReached = await _ref
+          .read(usageServiceProvider)
+          .hasReachedLimit(UsageFeature.aiSave, isPro);
+      if (limitReached ||
+          !SavedUrlEnrichmentState.shouldOfferRetry(
+            url,
+            hasAiSaveAccess: true,
+          )) {
+        state = const AsyncData(null);
+        return false;
+      }
+
       url
         ..processingStatus = UrlProcessingStatus.queued
         ..processingError = null
@@ -89,11 +103,18 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
         id,
         forceAi: true,
         forceEmbedding: true,
-        countAiUsage: !hasSavedAiPayload,
+        countAiUsage: true,
         initialFailures: failedTasks,
       );
-      state = const AsyncData(null);
-      return true;
+      _ref.read(usageRevisionProvider.notifier).state++;
+
+      final enriched = await isarService.getUrlById(id);
+      final success =
+          enriched != null && SavedUrlEnrichmentState.hasAiEnrichment(enriched);
+      state = success
+          ? const AsyncData(null)
+          : AsyncError('AI enrichment did not complete', StackTrace.current);
+      return success;
     } catch (e, stack) {
       state = AsyncError(e, stack);
       return false;

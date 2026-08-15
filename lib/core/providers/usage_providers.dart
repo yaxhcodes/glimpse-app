@@ -17,27 +17,49 @@ final usageServiceProvider = Provider<UsageService>(
 final usageRevisionProvider = StateProvider<int>((ref) => 0);
 
 /// Current usage count for a [UsageFeature].
-final usageProvider = FutureProvider.family<int, UsageFeature>((ref, feature) async {
+final usageProvider = FutureProvider.family<int, UsageFeature>((
+  ref,
+  feature,
+) async {
   ref.watch(usageRevisionProvider);
   return ref.read(usageServiceProvider).getUsage(feature);
 });
 
 /// Remaining uses for a [UsageFeature] (accounts for Pro = unlimited).
-final remainingUsageProvider = FutureProvider.family<int, UsageFeature>((ref, feature) async {
+final remainingUsageProvider = FutureProvider.family<int, UsageFeature>((
+  ref,
+  feature,
+) async {
   ref.watch(usageRevisionProvider);
   final isPro = ref.watch(isProUserProvider);
   return ref.read(usageServiceProvider).getRemaining(feature, isPro);
 });
 
+/// Whether the account can currently spend an AI save.
+///
+/// Pro is available immediately. Free accounts become eligible only after the
+/// authoritative remaining-usage lookup confirms a refreshed allowance.
+final aiSaveAvailableProvider = Provider<bool>((ref) {
+  if (ref.watch(isProUserProvider)) return true;
+  final remaining = ref.watch(remainingUsageProvider(UsageFeature.aiSave));
+  return (remaining.valueOrNull ?? 0) > 0;
+});
+
 /// Whether the monthly limit has been reached for a [UsageFeature].
-final limitReachedProvider = FutureProvider.family<bool, UsageFeature>((ref, feature) async {
+final limitReachedProvider = FutureProvider.family<bool, UsageFeature>((
+  ref,
+  feature,
+) async {
   ref.watch(usageRevisionProvider);
   final isPro = ref.watch(isProUserProvider);
   return ref.read(usageServiceProvider).hasReachedLimit(feature, isPro);
 });
 
 /// Whether usage is at or above the 80 % soft-warning threshold.
-final nearLimitProvider = FutureProvider.family<bool, UsageFeature>((ref, feature) async {
+final nearLimitProvider = FutureProvider.family<bool, UsageFeature>((
+  ref,
+  feature,
+) async {
   ref.watch(usageRevisionProvider);
   final isPro = ref.watch(isProUserProvider);
   return ref.read(usageServiceProvider).isNearLimit(feature, isPro);

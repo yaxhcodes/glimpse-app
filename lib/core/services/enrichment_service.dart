@@ -17,6 +17,7 @@ import 'gemini_service.dart';
 import 'link_preview_service.dart';
 import 'memory_intent_resolver.dart';
 import 'recipe_nutrition_service.dart';
+import 'saved_url_enrichment_state.dart';
 import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
 import 'title_resolver.dart';
@@ -164,7 +165,9 @@ class EnrichmentService {
     final afterEmbedding = await _isarService.getUrlById(urlId);
     if (afterEmbedding == null) return;
     final hasPresentableEnrichment = _hasPresentableEnrichment(afterEmbedding);
-    final hasAiEnrichment = _hasAiEnrichment(afterEmbedding);
+    final hasAiEnrichment = SavedUrlEnrichmentState.hasAiEnrichment(
+      afterEmbedding,
+    );
     final uniqueFailures = _uniqueFailures(failures);
     final status = uniqueFailures.isEmpty
         ? UrlProcessingStatus.completed
@@ -443,7 +446,7 @@ class EnrichmentService {
     // Skip only when a real AI envelope exists. Metadata title/description can
     // look stable while still being a raw bookmark.
     if (!force &&
-        _hasAiEnrichment(url) &&
+        SavedUrlEnrichmentState.hasAiEnrichment(url) &&
         (savedRecipe == null || recipeAlreadyEnhanced)) {
       developer.log(
         '_enrichAi SKIP (already enriched): ${url.rawUrl}',
@@ -1124,15 +1127,6 @@ class EnrichmentService {
     final summary = url.summary?.trim() ?? '';
     if (summary.length >= 24) return true;
     return false;
-  }
-
-  bool _hasAiEnrichment(SavedUrl url) {
-    final result = _savedEnrichment(url);
-    if (result == null) return false;
-    if (result.recipe?.hasUsefulContent == true) return true;
-    if (result.mentions.isNotEmpty || result.steps.isNotEmpty) return true;
-    if (result.keyPoints.isNotEmpty) return true;
-    return _isValidAiSummary(result.summary) && result.tags.isNotEmpty;
   }
 
   bool _isValidAiSummary(String? value) {
