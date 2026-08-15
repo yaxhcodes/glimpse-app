@@ -68,18 +68,40 @@ class LibraryEntityTile extends StatelessWidget {
         entity.mention.creator!,
       if ((entity.mention.year ?? '').trim().isNotEmpty) entity.mention.year!,
     ].join(' · ');
-    Widget content({required bool useHero}) => Column(
+    Widget artwork({required bool useHero, required bool showStatusBadge}) {
+      final artwork = LibraryArtwork(entity: entity);
+      return Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          if (useHero)
+            Hero(tag: 'library-artwork-${entity.key}', child: artwork)
+          else
+            artwork,
+          if (showStatusBadge && entity.status != LibraryItemStatus.unlisted)
+            Positioned(
+              left: 10,
+              bottom: -14,
+              child: _LibraryStatusBadge(entity: entity),
+            ),
+        ],
+      );
+    }
+
+    Widget content({
+      required bool useHero,
+      required bool showStatusBadge,
+    }) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: useHero
-              ? Hero(
-                  tag: 'library-artwork-${entity.key}',
-                  child: LibraryArtwork(entity: entity),
-                )
-              : LibraryArtwork(entity: entity),
+          child: artwork(useHero: useHero, showStatusBadge: showStatusBadge),
         ),
-        const SizedBox(height: 8),
+        SizedBox(
+          height: showStatusBadge && entity.status != LibraryItemStatus.unlisted
+              ? 22
+              : 8,
+        ),
         Text(
           entity.title,
           maxLines: 2,
@@ -106,8 +128,39 @@ class LibraryEntityTile extends StatelessWidget {
       onTap: onTap,
       onStatusSelected: onStatusSelected,
       onStatusMenuRequested: onStatusMenuRequested,
-      preview: content(useHero: false),
-      child: content(useHero: true),
+      preview: content(useHero: false, showStatusBadge: false),
+      child: content(useHero: true, showStatusBadge: true),
+    );
+  }
+}
+
+class _LibraryStatusBadge extends StatelessWidget {
+  const _LibraryStatusBadge({required this.entity});
+
+  final LibraryEntity entity;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Semantics(
+      label: 'Status: ${entity.status.labelFor(entity.kind)}',
+      child: Material(
+        key: ValueKey('library-status-badge-${entity.key}'),
+        color: cs.inverseSurface,
+        elevation: 1,
+        shadowColor: cs.shadow.withValues(alpha: 0.24),
+        shape: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+          child: Text(
+            entity.status.labelFor(entity.kind),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: cs.onInverseSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

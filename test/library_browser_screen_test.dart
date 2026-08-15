@@ -58,13 +58,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Filters'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Planning'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Planning'),
+      ),
+    );
     await tester.tap(find.text('Fiction'));
     await tester.tap(find.text('Show items'));
     await tester.pumpAndSettle();
 
     expect(_visibleTitles(tester), ['Alpha']);
-    expect(find.text('Planning'), findsOneWidget);
+    expect(find.widgetWithText(InputChip, 'Planning'), findsOneWidget);
     expect(find.text('Fiction'), findsWidgets);
 
     await tester.tap(find.text('Clear all'));
@@ -120,6 +125,79 @@ void main() {
     );
     expect(actions.lastEntity?.key, entity.key);
     expect(actions.lastStatus, LibraryItemStatus.active);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows the selected action as a badge on the card', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var status = LibraryItemStatus.unlisted;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 174,
+              height: 360,
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  final entity = _book(
+                    key: 'status-card',
+                    title: 'Piranesi',
+                    year: '2020',
+                    genre: 'Fiction',
+                    status: status,
+                    discoveredAt: DateTime(2026, 8, 1),
+                  );
+                  return LibraryEntityTile(
+                    entity: entity,
+                    onTap: () {},
+                    onStatusSelected: (selected) =>
+                        setState(() => status = selected),
+                    onStatusMenuRequested: () {},
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('library-status-badge-status-card')),
+      findsNothing,
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(LibraryEntityTile)),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    final origin = tester.getCenter(
+      find.byKey(const ValueKey('library-radial-origin')),
+    );
+    final droppedAction = tester.getCenter(
+      find.byKey(const ValueKey('library-radial-dropped')),
+    );
+    await gesture.moveBy(droppedAction - origin);
+    await tester.pumpAndSettle();
+    expect(find.text('Dropped'), findsOneWidget);
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('library-status-badge-status-card')),
+      findsOneWidget,
+    );
+    expect(find.text('Dropped'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
