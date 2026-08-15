@@ -194,6 +194,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('shows authoritative movie details and keeps why it mattered', (
+    tester,
+  ) async {
+    final entity = _entity(
+      key: 'blade-runner',
+      kind: LibraryEntityKind.movie,
+      mention: const EnrichedMention(
+        title: 'Blade Runner',
+        type: 'movie',
+        year: '1982',
+        genres: ['Action', 'Drama', 'Science Fiction'],
+        catalogId: 'tt0083658',
+        catalogSource: 'omdb',
+        plot: 'A blade runner pursues four escaped replicants.',
+        imdbRating: 8.1,
+        whyMentioned: 'It defined the visual language of cyberpunk cinema.',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          librarySnapshotProvider.overrideWith(
+            (ref) => AsyncValue.data(LibrarySnapshot(entities: [entity])),
+          ),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: LibraryEntityDetailScreen(entityKey: entity.key),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Action'), findsOneWidget);
+    expect(find.text('Drama'), findsOneWidget);
+    expect(find.text('Science Fiction'), findsOneWidget);
+    expect(find.text('8.1 IMDb'), findsOneWidget);
+    expect(find.text('Plot'), findsOneWidget);
+    expect(
+      find.text('A blade runner pursues four escaped replicants.'),
+      findsOneWidget,
+    );
+    expect(find.text('Why it mattered'), findsOneWidget);
+    expect(
+      find.text('It defined the visual language of cyberpunk cinema.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('updates the bookmark for a book being read', (tester) async {
     final entity = _entity(
       key: 'reading-progress',

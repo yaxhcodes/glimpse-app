@@ -140,6 +140,7 @@ class _EntityDetail extends StatelessWidget {
         .where((reason) => reason.isNotEmpty)
         .toSet()
         .toList(growable: false);
+    final plot = entity.mention.plot?.trim() ?? '';
     return Scaffold(
       appBar: AppBar(
         actions: [
@@ -202,6 +203,11 @@ class _EntityDetail extends StatelessWidget {
                           ],
                         ),
                       ],
+                      if (entity.kind == LibraryEntityKind.movie &&
+                          plot.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _PlotSummary(plot: plot),
+                      ],
                       if (reasons.isNotEmpty) ...[
                         const SizedBox(height: 24),
                         _WhyItMattered(reasons: reasons),
@@ -230,6 +236,11 @@ class _MediaHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final rating = entity.kind == LibraryEntityKind.movie
+        ? entity.mention.imdbRating
+        : null;
+    final hasRating =
+        rating != null && rating.isFinite && rating > 0 && rating <= 10;
     return LayoutBuilder(
       builder: (context, constraints) {
         final artworkWidth = constraints.maxWidth < 360 ? 112.0 : 132.0;
@@ -269,7 +280,7 @@ class _MediaHeader extends StatelessWidget {
                     _metadata(entity),
                     style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
-                  if (entity.genres.isNotEmpty) ...[
+                  if (entity.genres.isNotEmpty || hasRating) ...[
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
@@ -277,6 +288,7 @@ class _MediaHeader extends StatelessWidget {
                       children: [
                         for (final genre in entity.genres)
                           LibraryGenreChip(label: genre),
+                        if (hasRating) _ImdbRatingChip(rating: rating),
                       ],
                     ),
                   ],
@@ -310,6 +322,24 @@ class _MediaHeader extends StatelessWidget {
     final selected = await showLibraryStatusPicker(context, entity: entity);
     if (selected == null || selected == entity.status) return;
     await onStatusChanged(selected);
+  }
+}
+
+class _ImdbRatingChip extends StatelessWidget {
+  const _ImdbRatingChip({required this.rating});
+
+  final double rating;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Chip(
+      avatar: Icon(Icons.star_rounded, size: 17, color: cs.tertiary),
+      label: Text('${rating.toStringAsFixed(1)} IMDb'),
+      side: BorderSide.none,
+      backgroundColor: cs.tertiaryContainer.withValues(alpha: 0.52),
+      visualDensity: VisualDensity.compact,
+    );
   }
 }
 
@@ -495,6 +525,44 @@ class _WhyItMattered extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlotSummary extends StatelessWidget {
+  const _PlotSummary({required this.plot});
+
+  final String plot;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Plot',
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              plot,
+              style: tt.bodyLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.42,
+              ),
+            ),
           ],
         ),
       ),

@@ -403,12 +403,11 @@ class LibraryBackfillNotifier extends StateNotifier<LibraryBackfillState> {
     EnrichedMention resolved,
     LibraryEntityKind kind,
   ) {
-    final rawGenres = {
-      ...original.rawGenres,
-      ...original.genres,
-      ...resolved.rawGenres,
-      ...resolved.genres,
-    };
+    final resolvedGenres = {...resolved.rawGenres, ...resolved.genres};
+    final rawGenres =
+        kind == LibraryEntityKind.movie && resolvedGenres.isNotEmpty
+        ? resolvedGenres
+        : {...original.rawGenres, ...original.genres, ...resolvedGenres};
     String? prefer(String? resolvedValue, String? originalValue) {
       final resolvedText = resolvedValue?.trim() ?? '';
       if (resolvedText.isNotEmpty) return resolvedText;
@@ -436,6 +435,8 @@ class LibraryBackfillNotifier extends StateNotifier<LibraryBackfillState> {
       libraryStatus: original.libraryStatus,
       pageCount: resolved.pageCount ?? original.pageCount,
       currentPage: original.currentPage,
+      plot: prefer(resolved.plot, original.plot),
+      imdbRating: resolved.imdbRating ?? original.imdbRating,
     );
   }
 }

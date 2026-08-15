@@ -473,34 +473,54 @@ class TranscriptEnrichmentService {
         final title = _cleanText(item['title']);
         if (title.isEmpty) continue;
         final subtype = _cleanNullableText(item['subtype'] ?? item['type']);
-        byKey.putIfAbsent(
-          _mentionIdentityKey('movie', title),
-          () => EnrichedMention(
-            title: title,
-            type: 'movie',
-            subtype: subtype ?? 'movie',
-            creator: _cleanNullableText(item['creator'] ?? item['director']),
-            year: _cleanNullableText(item['year']),
-            whyMentioned: _cleanNullableText(
-              item['why_mentioned'] ?? item['reason'] ?? item['description'],
-            ),
-            posterUrl: _cleanNullableText(
-              item['poster_url'] ?? item['posterUrl'],
-            ),
-            genres: _extractGenreList(item['genres'] ?? item['genre']),
-            rawGenres: _extractGenreList(
-              item['raw_genres'] ?? item['rawGenres'],
-            ),
-            catalogId: _cleanNullableText(
-              item['catalog_id'] ?? item['catalogId'] ?? item['tmdb_id'],
-            ),
-            catalogSource: _cleanNullableText(
-              item['catalog_source'] ?? item['catalogSource'],
-            ),
-            matchConfidence: _toDouble(
-              item['match_confidence'] ?? item['matchConfidence'],
-            ),
+        final movie = EnrichedMention(
+          title: title,
+          type: 'movie',
+          subtype: subtype ?? 'movie',
+          creator: _cleanNullableText(item['creator'] ?? item['director']),
+          year: _cleanNullableText(item['year']),
+          whyMentioned: _cleanNullableText(
+            item['why_mentioned'] ?? item['reason'] ?? item['description'],
           ),
+          posterUrl: _cleanNullableText(
+            item['poster_url'] ?? item['posterUrl'],
+          ),
+          genres: _extractGenreList(item['genres'] ?? item['genre']),
+          rawGenres: _extractGenreList(item['raw_genres'] ?? item['rawGenres']),
+          catalogId: _cleanNullableText(
+            item['catalog_id'] ??
+                item['catalogId'] ??
+                item['imdb_id'] ??
+                item['tmdb_id'],
+          ),
+          catalogSource: _cleanNullableText(
+            item['catalog_source'] ?? item['catalogSource'],
+          ),
+          matchConfidence: _toDouble(
+            item['match_confidence'] ?? item['matchConfidence'],
+          ),
+          plot: _cleanNullableText(item['plot'] ?? item['overview']),
+          imdbRating: _toDouble(item['imdb_rating'] ?? item['imdbRating']),
+        );
+        final key = _mentionIdentityKey('movie', title);
+        byKey.update(
+          key,
+          (existing) => existing.copyWith(
+            subtype: movie.subtype,
+            creator: movie.creator,
+            year: movie.year,
+            posterUrl: movie.posterUrl,
+            genres: movie.genres.isEmpty ? existing.genres : movie.genres,
+            rawGenres: movie.rawGenres.isEmpty
+                ? existing.rawGenres
+                : movie.rawGenres,
+            catalogId: movie.catalogId,
+            catalogSource: movie.catalogSource,
+            matchConfidence: movie.matchConfidence,
+            plot: movie.plot,
+            imdbRating: movie.imdbRating,
+          ),
+          ifAbsent: () => movie,
         );
       }
     }

@@ -35,7 +35,7 @@ extension LibraryItemStatusX on LibraryItemStatus {
 extension LibraryEntityKindX on LibraryEntityKind {
   String get label => switch (this) {
     LibraryEntityKind.book => 'Books',
-    LibraryEntityKind.movie => 'Movies',
+    LibraryEntityKind.movie => 'Movies & Shows',
     LibraryEntityKind.place => 'Places',
   };
 
@@ -636,10 +636,12 @@ class _LibraryEntityBuilder {
   LibraryEntity build() {
     _sources.sort((a, b) => b.savedAt.compareTo(a.savedAt));
     final mention = _mention!;
+    final hasCatalogGenres =
+        kind == LibraryEntityKind.movie && _hasCatalogGenres(mention);
     final genres = LibraryGenreNormalizer.normalize(kind, {
       ...mention.rawGenres,
       ...mention.genres.where((genre) => genre != 'Other'),
-      ..._genreSignals,
+      if (!hasCatalogGenres) ..._genreSignals,
     });
     return LibraryEntity(
       key: key,
@@ -663,11 +665,19 @@ class _LibraryEntityBuilder {
         rawGenres: raw.toList(growable: false),
       );
     }
-    final rawGenres = {
-      ...current.rawGenres,
-      ...current.genres.where((genre) => genre != 'Other'),
-      ...candidate.rawGenres,
-      ...candidate.genres,
+    final currentHasCatalogGenres =
+        kind == LibraryEntityKind.movie && _hasCatalogGenres(current);
+    final candidateHasCatalogGenres =
+        kind == LibraryEntityKind.movie && _hasCatalogGenres(candidate);
+    final rawGenres = <String>{
+      if (!candidateHasCatalogGenres || currentHasCatalogGenres)
+        ...current.rawGenres,
+      if (!candidateHasCatalogGenres || currentHasCatalogGenres)
+        ...current.genres.where((genre) => genre != 'Other'),
+      if (!currentHasCatalogGenres || candidateHasCatalogGenres)
+        ...candidate.rawGenres,
+      if (!currentHasCatalogGenres || candidateHasCatalogGenres)
+        ...candidate.genres.where((genre) => genre != 'Other'),
     };
     String? richer(String? a, String? b) {
       final first = a?.trim() ?? '';
@@ -700,7 +710,16 @@ class _LibraryEntityBuilder {
       libraryStatus: current.libraryStatus ?? candidate.libraryStatus,
       pageCount: current.pageCount ?? candidate.pageCount,
       currentPage: _laterPage(current.currentPage, candidate.currentPage),
+      plot: richer(current.plot, candidate.plot),
+      imdbRating: current.imdbRating ?? candidate.imdbRating,
     );
+  }
+
+  static bool _hasCatalogGenres(EnrichedMention mention) {
+    final source = mention.catalogSource?.trim() ?? '';
+    return source.isNotEmpty &&
+        (mention.rawGenres.isNotEmpty ||
+            mention.genres.any((genre) => genre != 'Other'));
   }
 
   static int? _laterPage(int? first, int? second) {

@@ -1023,6 +1023,8 @@ class EnrichedMention {
     this.libraryStatus,
     this.pageCount,
     this.currentPage,
+    this.plot,
+    this.imdbRating,
   });
 
   final String title;
@@ -1044,6 +1046,8 @@ class EnrichedMention {
   final String? libraryStatus;
   final int? pageCount;
   final int? currentPage;
+  final String? plot;
+  final double? imdbRating;
 
   String? get artworkUrl => posterUrl;
 
@@ -1077,6 +1081,8 @@ class EnrichedMention {
     String? libraryStatus,
     int? pageCount,
     int? currentPage,
+    String? plot,
+    double? imdbRating,
   }) {
     return EnrichedMention(
       title: title ?? this.title,
@@ -1098,6 +1104,8 @@ class EnrichedMention {
       libraryStatus: libraryStatus ?? this.libraryStatus,
       pageCount: pageCount ?? this.pageCount,
       currentPage: currentPage ?? this.currentPage,
+      plot: plot ?? this.plot,
+      imdbRating: imdbRating ?? this.imdbRating,
     );
   }
 
@@ -1122,6 +1130,8 @@ class EnrichedMention {
       'user_library_status': libraryStatus,
       'page_count': pageCount,
       'current_page': currentPage,
+      'plot': plot,
+      'imdb_rating': imdbRating,
     };
   }
 
@@ -1184,6 +1194,12 @@ class EnrichedMention {
             json['number_of_pages'],
       ),
       currentPage: _positiveInt(json['current_page'] ?? json['currentPage']),
+      plot: TranscriptEnrichmentService._cleanNullableText(
+        json['plot'] ?? json['overview'],
+      ),
+      imdbRating: TranscriptEnrichmentService._toDouble(
+        json['imdb_rating'] ?? json['imdbRating'],
+      ),
     );
   }
 

@@ -97,6 +97,12 @@ void main() {
             'current_page': 42,
           },
           {
+            'title': 'Blade Runner',
+            'type': 'movie',
+            'year': '1982',
+            'why_mentioned': 'A defining science-fiction film.',
+          },
+          {
             'title': 'Kyoto',
             'type': 'place',
             'city': 'Kyoto',
@@ -112,11 +118,31 @@ void main() {
             'page_count': 304,
           },
         ],
+        'movies': [
+          {
+            'title': 'Blade Runner',
+            'year': '1982',
+            'type': 'movie',
+            'genres': ['Action', 'Drama', 'Science Fiction'],
+            'raw_genres': ['Action', 'Drama', 'Sci-Fi'],
+            'catalog_id': 'tt0083658',
+            'catalog_source': 'omdb',
+            'plot': 'A blade runner pursues four escaped replicants.',
+            'imdb_rating': 8.1,
+          },
+        ],
       });
 
       final roundTrip = TranscriptEnrichmentResult.fromJson(result!.toJson())!;
-      final book = roundTrip.mentions.first;
-      final place = roundTrip.mentions.last;
+      final book = roundTrip.mentions.firstWhere(
+        (mention) => mention.type == 'book',
+      );
+      final movie = roundTrip.mentions.firstWhere(
+        (mention) => mention.type == 'movie',
+      );
+      final place = roundTrip.mentions.firstWhere(
+        (mention) => mention.type == 'place',
+      );
 
       expect(roundTrip.schemaVersion, 3);
       expect(book.creator, 'Ursula K. Le Guin');
@@ -127,6 +153,12 @@ void main() {
       expect(book.libraryStatus, 'active');
       expect(book.pageCount, 304);
       expect(book.currentPage, 42);
+      expect(movie.genres, ['Action', 'Drama', 'Science Fiction']);
+      expect(movie.catalogId, 'tt0083658');
+      expect(movie.catalogSource, 'omdb');
+      expect(movie.plot, 'A blade runner pursues four escaped replicants.');
+      expect(movie.imdbRating, 8.1);
+      expect(movie.whyMentioned, 'A defining science-fiction film.');
       expect(place.city, 'Kyoto');
       expect(place.latitude, closeTo(35.0116, 0.00001));
       expect(place.longitude, closeTo(135.7681, 0.00001));

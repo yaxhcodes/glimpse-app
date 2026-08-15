@@ -155,6 +155,32 @@ void main() {
       expect(indexedBook.mention.rawGenres, isEmpty);
     });
 
+    test('prefers resolved movie genres over broad save categories', () {
+      final movie = _saved(
+        id: 1,
+        sourceTitle: 'A long list of movies to watch',
+        categories: const ['Movies', 'Recommendations', 'Entertainment'],
+        tags: const ['cinema', 'classics', 'watchlist'],
+        mention: {
+          'title': 'Blade Runner',
+          'type': 'movie',
+          'year': '1982',
+          'catalog_id': 'tt0083658',
+          'catalog_source': 'omdb',
+          'genres': ['Action', 'Drama', 'Science Fiction'],
+          'raw_genres': ['Action', 'Drama', 'Sci-Fi'],
+          'plot': 'A blade runner pursues four escaped replicants.',
+          'imdb_rating': 8.1,
+        },
+      );
+
+      final entity = LibraryIndex.build([movie]).entities.single;
+
+      expect(entity.genres, ['Action', 'Drama', 'Science Fiction']);
+      expect(entity.mention.plot, contains('escaped replicants'));
+      expect(entity.mention.imdbRating, 8.1);
+    });
+
     test('sends bounded place provenance as resolver-only context hints', () {
       final place = _saved(
         id: 1,
@@ -294,6 +320,7 @@ void main() {
   });
 
   test('uses kind-specific reading and watch labels', () {
+    expect(LibraryEntityKind.movie.label, 'Movies & Shows');
     expect(
       LibraryItemStatus.active.labelFor(LibraryEntityKind.book),
       'Reading',
