@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glimpse/features/url_detail/source_saved_metadata_row.dart';
 import 'package:glimpse/shared/widgets/category_chip.dart';
+import 'package:glimpse/shared/widgets/content_attribution_disclaimer.dart';
 import 'package:glimpse/shared/widgets/creator_profile_link.dart';
-import 'package:glimpse/shared/widgets/metadata_pill.dart';
 import 'package:glimpse/shared/widgets/tag_group.dart';
 
 void main() {
@@ -35,31 +37,133 @@ void main() {
     expect(semantics.flagsCollection.isButton, isTrue);
   });
 
-  testWidgets('creator links expose a 48dp semantic link target', (
-    tester,
-  ) async {
+  testWidgets('creator links remain compact and semantic', (tester) async {
     await tester.pumpWidget(
       themed(
-        const CreatorProfileLink(
-          username: 'glimpse',
-          platform: 'Instagram',
-          compact: true,
-        ),
+        const CreatorProfileLink(username: 'glimpse', platform: 'Instagram'),
       ),
     );
 
-    expect(
-      tester.getSize(find.byType(CreatorProfileLink)).height,
-      greaterThanOrEqualTo(48),
-    );
+    expect(tester.getSize(find.byType(CreatorProfileLink)).height, 32);
     expect(
       tester.getSize(find.byType(CreatorProfileLink)).width,
       lessThan(200),
     );
+    expect(find.text('by'), findsNothing);
+    expect(find.text('@glimpse'), findsOneWidget);
+    expect(find.text('Creator'), findsNothing);
+    final handleRect = tester.getRect(find.text('@glimpse'));
+    final externalIconRect = tester.getRect(
+      find.byIcon(Icons.north_east_rounded),
+    );
+    expect(externalIconRect.left, greaterThanOrEqualTo(handleRect.right));
+    expect(externalIconRect.left - handleRect.right, lessThanOrEqualTo(8));
+    final linkTarget = find.descendant(
+      of: find.byType(CreatorProfileLink),
+      matching: find.byType(InkWell),
+    );
+    expect(tester.getSize(linkTarget).height, 32);
     final semantics = tester
         .getSemantics(find.byType(CreatorProfileLink))
         .getSemanticsData();
     expect(semantics.flagsCollection.isLink, isTrue);
+  });
+
+  testWidgets('exact timestamp animates while unread remains stable', (
+    tester,
+  ) async {
+    Widget metadata(String savedLabel, {required bool exactDateVisible}) {
+      return themed(
+        SizedBox(
+          width: 240,
+          child: SourceSavedMetadataRow(
+            leading: const Icon(Icons.camera_alt_outlined, size: 16),
+            sourceName: 'Instagram',
+            savedLabel: savedLabel,
+            exactDateVisible: exactDateVisible,
+            isRead: false,
+            sourceColor: Colors.pink,
+            onSavedLabelTap: () {},
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(metadata('22h ago', exactDateVisible: false));
+    final relativeUnreadRect = tester.getRect(
+      find.byKey(const ValueKey('read-state-label')),
+    );
+
+    await tester.pumpWidget(
+      metadata('August 16, 2026 · 5:03 PM', exactDateVisible: true),
+    );
+    final transitionUnreadRect = tester.getRect(
+      find.byKey(const ValueKey('read-state-label')),
+    );
+
+    expect(transitionUnreadRect, relativeUnreadRect);
+    expect(
+      find.descendant(
+        of: find.byType(SourceSavedMetadataRow),
+        matching: find.byType(AnimatedSwitcher),
+      ),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(
+      tester.getRect(find.byKey(const ValueKey('read-state-label'))),
+      relativeUnreadRect,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byKey(const ValueKey('read-state-label'))),
+      relativeUnreadRect,
+    );
+    expect(find.byKey(const ValueKey('saved-timestamp-label')), findsOneWidget);
+    final timestampParagraph = tester.renderObject<RenderParagraph>(
+      find.byKey(const ValueKey('saved-timestamp-label')),
+    );
+    expect(timestampParagraph.didExceedMaxLines, isTrue);
+  });
+
+  testWidgets('creator and unread share a balanced second metadata row', (
+    tester,
+  ) async {
+    Widget metadata(String savedLabel, {required bool exactDateVisible}) {
+      return themed(
+        SizedBox(
+          width: 240,
+          child: SourceSavedMetadataRow(
+            leading: const Icon(Icons.camera_alt_outlined, size: 16),
+            sourceName: 'Instagram',
+            savedLabel: savedLabel,
+            exactDateVisible: exactDateVisible,
+            isRead: false,
+            sourceColor: Colors.pink,
+            creatorLink: const Text('@glimpse'),
+            onSavedLabelTap: () {},
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(metadata('22h ago', exactDateVisible: false));
+    final relativeUnreadRect = tester.getRect(
+      find.byKey(const ValueKey('read-state-label')),
+    );
+    expect(
+      tester.getCenter(find.text('@glimpse')).dy,
+      tester.getCenter(find.text('Unread')).dy,
+    );
+
+    await tester.pumpWidget(
+      metadata('August 16, 2026 · 5:03 PM', exactDateVisible: true),
+    );
+    final exactUnreadRect = tester.getRect(
+      find.byKey(const ValueKey('read-state-label')),
+    );
+
+    expect(exactUnreadRect, relativeUnreadRect);
   });
 
   testWidgets('detail tags remain left-aligned and wrap inline', (
@@ -95,41 +199,31 @@ void main() {
     expect(wrapped.dy - first.dy, lessThanOrEqualTo(50));
   });
 
-  testWidgets('social metrics and author remain on one compact row', (
+  testWidgets('content disclaimer communicates accuracy and attribution', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      themed(
-        const SizedBox(
-          width: 360,
-          child: Row(
-            children: [
-              MetadataPill(value: '499K', icon: Icons.favorite_border_rounded),
-              SizedBox(width: 8),
-              MetadataPill(
-                value: '7.7K',
-                icon: Icons.chat_bubble_outline_rounded,
-              ),
-              SizedBox(width: 8),
-              Flexible(
-                fit: FlexFit.loose,
-                child: CreatorProfileLink(
-                  username: 'rasikanandaswami',
-                  platform: 'Instagram',
-                  compact: true,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    await tester.pumpWidget(themed(const ContentAttributionDisclaimer()));
+
+    expect(
+      find.text(ContentAttributionDisclaimer.accuracyText),
+      findsOneWidget,
     );
-
-    final likes = tester.getCenter(find.text('499K'));
-    final comments = tester.getCenter(find.text('7.7K'));
-    final author = tester.getCenter(find.text('rasikanandaswami'));
-
-    expect(comments.dy, likes.dy);
-    expect(author.dy, likes.dy);
+    expect(
+      find.text(ContentAttributionDisclaimer.attributionText),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.info_outline_rounded), findsNothing);
+    expect(
+      tester
+          .getTopLeft(find.text(ContentAttributionDisclaimer.accuracyText))
+          .dx,
+      tester
+          .getTopLeft(find.text(ContentAttributionDisclaimer.attributionText))
+          .dx,
+    );
+    final semantics = tester
+        .getSemantics(find.byType(ContentAttributionDisclaimer))
+        .getSemanticsData();
+    expect(semantics.label, ContentAttributionDisclaimer.message);
   });
 }

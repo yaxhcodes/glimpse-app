@@ -6,14 +6,10 @@ class CreatorProfileLink extends StatelessWidget {
     super.key,
     required this.username,
     required this.platform,
-    this.accent,
-    this.compact = false,
   });
 
   final String username;
   final String platform;
-  final Color? accent;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -22,68 +18,47 @@ class CreatorProfileLink extends StatelessWidget {
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final effectiveAccent = accent ?? colorScheme.primary;
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.alternate_email_rounded,
-          size: compact ? 14 : 15,
-          color: effectiveAccent.withValues(alpha: 0.82),
-        ),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            normalized,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style:
-                (compact
-                        ? theme.textTheme.labelMedium
-                        : theme.textTheme.bodyMedium)
-                    ?.copyWith(
-                      color: effectiveAccent,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                    ),
-          ),
-        ),
-        const SizedBox(width: 5),
-        Icon(
-          Icons.north_east_rounded,
-          size: compact ? 13 : 15,
-          color: effectiveAccent.withValues(alpha: 0.72),
-        ),
-      ],
-    );
-
-    final visual = compact
-        ? Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.78),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: content,
-          )
-        : Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: content,
-          );
 
     return Semantics(
       link: true,
       label: 'Open $normalized on $platform',
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
+        constraints: const BoxConstraints(minHeight: 32),
         child: Align(
           alignment: Alignment.centerLeft,
           widthFactor: 1,
           heightFactor: 1,
           child: InkWell(
-            borderRadius: BorderRadius.circular(compact ? 12 : 10),
+            borderRadius: BorderRadius.circular(8),
             onTap: () => _openProfile(normalized),
-            child: visual,
+            child: SizedBox(
+              height: 32,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      '@$normalized',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.88,
+                        ),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.north_east_rounded,
+                    size: 13,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

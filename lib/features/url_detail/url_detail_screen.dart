@@ -32,12 +32,12 @@ import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/category_chip.dart'
     show faviconUrl, platformColors;
+import '../../shared/widgets/content_attribution_disclaimer.dart';
 import '../../shared/widgets/content_recommendation_section.dart';
 import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
-import '../../shared/widgets/metadata_pill.dart';
 import '../../shared/widgets/music_provider_sheet.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/swipeable_url_card.dart' show deleteUrlWithUndo;
@@ -53,6 +53,7 @@ import '../rediscover/rediscover_open_context.dart';
 import 'detail_expansion_section.dart';
 import 'notable_item_card.dart';
 import 'notable_term_grid.dart';
+import 'source_saved_metadata_row.dart';
 import 'url_detail_provider.dart';
 
 part 'url_detail_pager.dart';
@@ -74,21 +75,6 @@ class UrlDetailScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<UrlDetailScreen> createState() => _UrlDetailScreenState();
-}
-
-class _DetailMetadata {
-  const _DetailMetadata({
-    this.likesLabel,
-    this.commentsLabel,
-    this.creatorUsername,
-  });
-
-  final String? likesLabel;
-  final String? commentsLabel;
-  final String? creatorUsername;
-
-  bool get hasStats => likesLabel != null || commentsLabel != null;
-  bool get hasSocialRow => hasStats || creatorUsername != null;
 }
 
 enum _NoteSaveStatus { idle, saving, saved, failed }
@@ -328,33 +314,6 @@ class _NoteSuggestionChip extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReadStatePill extends StatelessWidget {
-  const _ReadStatePill({required this.isRead});
-
-  final bool isRead;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        isRead ? 'Read' : 'Unread',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
-          height: 1,
         ),
       ),
     );
@@ -1573,11 +1532,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       hasAiSaveAccess: ref.watch(aiSaveAvailableProvider),
     );
     _scheduleMusicProviderPrompt(live, musicPreference);
-    final metadata = _extractDetailMetadata(
+    final creatorUsername = _extractCreatorUsername(
       description: url.description,
       creator: live?.creator,
-      likeCount: live?.likeCount,
-      commentCount: live?.commentCount,
       rawUrl: url.rawUrl,
     );
     final formattedDescription = _formatDescription(url.description);
@@ -1623,6 +1580,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     final showSummary =
         summaryDisplayText.isNotEmpty && live?.recipe?.hasUsefulContent != true;
+    final showSummaryAddNote =
+        showSummary && !_hasNoteContent(url) && !_notesEditing;
     final noteSuggestions = _buildNoteSuggestions(
       url: url,
       live: live,
@@ -1676,7 +1635,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   url: url,
                   displaySourceName: displaySourceName,
                   colorScheme: colorScheme,
-                  theme: theme,
+                  creatorUsername: creatorUsername,
                 ),
 
                 if (showEnrichmentRetry) ...[
@@ -1688,16 +1647,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                 ],
 
-                if (metadata.hasSocialRow) ...[
-                  const SizedBox(height: 10),
-                  _buildSocialMetadata(
-                    metadata: metadata,
-                    displaySourceName: displaySourceName,
-                    colorScheme: colorScheme,
-                  ),
-                ],
-
-                const SizedBox(height: 14),
+                SizedBox(height: creatorUsername != null ? 8 : 14),
                 _buildOpenButton(url, displaySourceName),
 
                 if (showSummary) ...[
@@ -1706,15 +1656,21 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     summary: summaryDisplayText,
                     theme: theme,
                     colorScheme: colorScheme,
+                    onAddNote: showSummaryAddNote ? _beginEditingNotes : null,
                   ),
                 ],
 
-                const SizedBox(height: 20),
-                _buildNotesSection(
-                  url: url,
-                  suggestions: noteSuggestions,
-                  theme: theme,
-                  colorScheme: colorScheme,
+                _buildAnimatedNotesRegion(
+                  expanded: !showSummaryAddNote,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: _buildNotesSection(
+                      url: url,
+                      suggestions: noteSuggestions,
+                      theme: theme,
+                      colorScheme: colorScheme,
+                    ),
+                  ),
                 ),
 
                 ..._buildEnrichmentSections(
@@ -1733,6 +1689,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   onLongPress: (tag) => _showTagMenu(url, tag),
                   accent: _recipeAccent(colorScheme),
                 ),
+                const SizedBox(height: 20),
+                const ContentAttributionDisclaimer(),
               ],
             ),
           ),
@@ -2109,11 +2067,47 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required String summary,
     required ThemeData theme,
     required ColorScheme colorScheme,
+    VoidCallback? onAddNote,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Summary', accent: _recipeAccent(colorScheme)),
+        Row(
+          children: [
+            Expanded(
+              child: SectionHeader(
+                title: 'Summary',
+                accent: _recipeAccent(colorScheme),
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: onAddNote == null
+                  ? const SizedBox(key: ValueKey('summary-add-note-hidden'))
+                  : TextButton.icon(
+                      key: const ValueKey('summary-add-note-action'),
+                      onPressed: onAddNote,
+                      icon: const Icon(Icons.note_add_outlined, size: 14),
+                      label: const Text('Add note'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                        backgroundColor: colorScheme.surfaceContainerHigh
+                            .withValues(alpha: 0.78),
+                        minimumSize: const Size(40, 34),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        shape: const StadiumBorder(),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        textStyle: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         Text(
           summary,
@@ -2126,13 +2120,57 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
+  Widget _buildAnimatedNotesRegion({
+    required bool expanded,
+    required Widget child,
+  }) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      reverseDuration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.topCenter,
+          children: [...previousChildren, ?currentChild],
+        );
+      },
+      transitionBuilder: (transitionChild, animation) {
+        return ClipRect(
+          child: SizeTransition(
+            sizeFactor: animation,
+            axisAlignment: -1,
+            child: FadeTransition(opacity: animation, child: transitionChild),
+          ),
+        );
+      },
+      child: expanded
+          ? KeyedSubtree(
+              key: const ValueKey('notes-region-expanded'),
+              child: child,
+            )
+          : const SizedBox(
+              key: ValueKey('notes-region-collapsed'),
+              width: double.infinity,
+            ),
+    );
+  }
+
+  String _personalNoteText(SavedUrl url) {
+    return (_localNotesOverride ?? url.userNotes ?? '').trim();
+  }
+
+  bool _hasNoteContent(SavedUrl url) {
+    return _personalNoteText(url).isNotEmpty || url.askNotes.isNotEmpty;
+  }
+
   Widget _buildNotesSection({
     required SavedUrl url,
     required List<String> suggestions,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final personalNote = (_localNotesOverride ?? url.userNotes ?? '').trim();
+    final personalNote = _personalNoteText(url);
     final askNotes = url.askNotes.reversed.toList()
       ..sort((a, b) {
         final aAt = a.createdAt;
@@ -2489,102 +2527,31 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
   }
 
-  Widget _buildSocialMetadata({
-    required _DetailMetadata metadata,
-    required String displaySourceName,
-    required ColorScheme colorScheme,
-  }) {
-    final metrics = <Widget>[
-      if (metadata.likesLabel != null)
-        MetadataPill(
-          value: metadata.likesLabel!,
-          icon: Icons.favorite_border_rounded,
-        ),
-      if (metadata.commentsLabel != null)
-        MetadataPill(
-          value: metadata.commentsLabel!,
-          icon: Icons.chat_bubble_outline_rounded,
-        ),
-    ];
-    final creator = metadata.creatorUsername;
-    if (creator == null && metrics.isEmpty) return const SizedBox.shrink();
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        for (var index = 0; index < metrics.length; index++) ...[
-          if (index > 0) const SizedBox(width: 8),
-          metrics[index],
-        ],
-        if (creator != null && metrics.isNotEmpty) const SizedBox(width: 8),
-        if (creator != null)
-          Flexible(
-            fit: FlexFit.loose,
-            child: CreatorProfileLink(
-              username: creator,
-              platform: displaySourceName,
-              accent: colorScheme.onSurfaceVariant,
-              compact: true,
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildSourceSavedRow({
     required SavedUrl url,
     required String displaySourceName,
     required ColorScheme colorScheme,
-    required ThemeData theme,
+    required String? creatorUsername,
   }) {
     final savedLabel = _showExactSavedDate
         ? _formatExactSavedDate(url.savedAt)
         : _formatDate(url.savedAt);
-    return Row(
-      children: [
-        _buildSourceLeadingIcon(url, displaySourceName, colorScheme),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            displaySourceName,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: _recipeAccent(colorScheme),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+    return SourceSavedMetadataRow(
+      leading: _buildSourceLeadingIcon(url, displaySourceName, colorScheme),
+      sourceName: displaySourceName,
+      savedLabel: savedLabel,
+      exactDateVisible: _showExactSavedDate,
+      isRead: url.openedAt != null,
+      sourceColor: _recipeAccent(colorScheme),
+      creatorLink: creatorUsername == null
+          ? null
+          : CreatorProfileLink(
+              username: creatorUsername,
+              platform: displaySourceName,
             ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Text(
-            '•',
-            style: TextStyle(color: colorScheme.outline, fontSize: 12),
-          ),
-        ),
-        Flexible(
-          flex: 2,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () {
-              setState(() => _showExactSavedDate = !_showExactSavedDate);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Text(
-                savedLabel,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 13,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        _ReadStatePill(isRead: url.openedAt != null),
-      ],
+      onSavedLabelTap: () {
+        setState(() => _showExactSavedDate = !_showExactSavedDate);
+      },
     );
   }
 
@@ -4212,11 +4179,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1);
   }
 
-  _DetailMetadata _extractDetailMetadata({
+  String? _extractCreatorUsername({
     required String description,
     required String? creator,
-    required int? likeCount,
-    required int? commentCount,
     required String rawUrl,
   }) {
     final text = TextCleaner.cleanLoose(description);
@@ -4224,28 +4189,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       return RegExp(pattern, caseSensitive: false).firstMatch(text)?.group(1);
     }
 
-    final likes = matchFirst(r'\b([\d,.]+[KMBkmb]?)\s+likes?\b');
-    final comments = matchFirst(r'\b([\d,.]+[KMBkmb]?)\s+comments?\b');
     final fromDescription = matchFirst(r'-\s*@?([A-Za-z0-9._]+)\s+on\s+');
-    final parsedUsername = _supportsProfileUsername(rawUrl)
+    return _supportsProfileUsername(rawUrl)
         ? _cleanUsername(creator) ??
               _cleanUsername(fromDescription) ??
               _usernameFromUrl(rawUrl)
         : null;
-
-    return _DetailMetadata(
-      likesLabel: likeCount != null
-          ? _compactCountLabel(likeCount.toString())
-          : likes == null
-          ? null
-          : _compactCountLabel(likes),
-      commentsLabel: commentCount != null
-          ? _compactCountLabel(commentCount.toString())
-          : comments == null
-          ? null
-          : _compactCountLabel(comments),
-      creatorUsername: parsedUsername,
-    );
   }
 
   String? _cleanUsername(String? value) {
@@ -4282,24 +4231,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         host.endsWith('.tiktok.com') ||
         host == 'threads.net' ||
         host.endsWith('.threads.net');
-  }
-
-  String _compactCountLabel(String raw) {
-    final clean = raw.replaceAll(',', '').trim();
-    if (RegExp(r'[KMBkmb]$').hasMatch(clean)) {
-      return clean.toUpperCase();
-    }
-    final value = double.tryParse(clean);
-    if (value == null) return raw.trim();
-    if (value >= 1000000) return '${_trimDecimal(value / 1000000)}M';
-    if (value >= 1000) return '${_trimDecimal(value / 1000)}K';
-    return value.round().toString();
-  }
-
-  String _trimDecimal(double value) {
-    return value >= 10
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(1).replaceFirst(RegExp(r'\.0$'), '');
   }
 
   List<String> _buildNoteSuggestions({
@@ -4652,7 +4583,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final hour12 = date.hour % 12 == 0 ? 12 : date.hour % 12;
     final minute = date.minute.toString().padLeft(2, '0');
     final period = date.hour >= 12 ? 'PM' : 'AM';
-    return '${months[date.month - 1]} ${date.day}, ${date.year} • $hour12:$minute $period';
+    return '${months[date.month - 1]} ${date.day}, ${date.year} · $hour12:$minute $period';
   }
 }
 
