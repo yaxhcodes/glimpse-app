@@ -215,6 +215,7 @@ class TranscriptEnrichmentResult {
   }
 
   static TranscriptEnrichmentResult? fromJson(Map<String, dynamic> json) {
+    final mentions = TranscriptEnrichmentService._extractMentions(json);
     return TranscriptEnrichmentResult(
       schemaVersion:
           TranscriptEnrichmentService._extractPositiveInt(
@@ -236,8 +237,13 @@ class TranscriptEnrichmentResult {
             json['content_description'],
       ),
       steps: TranscriptEnrichmentService._extractContentSteps(json),
-      mentions: TranscriptEnrichmentService._extractMentions(json),
-      notableItems: TranscriptEnrichmentService._extractNotableItems(json),
+      mentions: mentions,
+      notableItems: TranscriptEnrichmentService._extractNotableItems(
+        json,
+        excludingTitles: mentions
+            .where((item) => item.type != 'other')
+            .map((item) => item.title),
+      ),
       contentSections: TranscriptEnrichmentService._extractContentSections(
         json,
       ),

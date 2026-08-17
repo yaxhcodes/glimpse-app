@@ -174,7 +174,12 @@ class TranscriptEnrichmentService {
         mentions: mentions,
         recipe: recipe,
         keyPoints: _extractStringList(data['key_points']),
-        notableItems: _extractNotableItems(data),
+        notableItems: _extractNotableItems(
+          data,
+          excludingTitles: mentions
+              .where((item) => item.type != 'other')
+              .map((item) => item.title),
+        ),
         contentSections: _extractContentSections(data),
         categoryEvidence: _cleanNullableText(
           data['category_evidence'] ?? data['domain_evidence'],
@@ -276,14 +281,19 @@ class TranscriptEnrichmentService {
   }
 
   static List<EnrichedNotableItem> _extractNotableItems(
-    Map<String, dynamic> data,
-  ) {
+    Map<String, dynamic> data, {
+    Iterable<String> excludingTitles = const [],
+  }) {
     final raw =
         data['notable_items'] ??
         data['notableItems'] ??
         data['highlight_items'] ??
         data['highlights'];
     if (raw is! List) return const [];
+    final excludedKeys = excludingTitles
+        .map(_mentionKey)
+        .where((key) => key.isNotEmpty)
+        .toSet();
     final seen = <String>{};
     return raw
         .map((item) {
@@ -301,6 +311,7 @@ class TranscriptEnrichmentService {
         })
         .whereType<EnrichedNotableItem>()
         .where((item) => item.hasUsefulContent)
+        .where((item) => !excludedKeys.contains(_mentionKey(item.text)))
         .where((item) {
           final key = _cleanText(item.text).toLowerCase();
           if (seen.contains(key)) return false;
@@ -411,6 +422,8 @@ class TranscriptEnrichmentService {
 
   static List<EnrichedMention> _extractMentions(Map<String, dynamic> data) {
     final byKey = <String, EnrichedMention>{};
+    final structuredIdentityKeys = <String>{};
+    final structuredTitleKeys = <String>{};
     final mentions = data['mentions'];
     if (mentions is List) {
       for (final item in mentions) {
@@ -459,6 +472,8 @@ class TranscriptEnrichmentService {
           ),
         );
         final key = _mentionIdentityKey('book', title);
+        structuredIdentityKeys.add(key);
+        structuredTitleKeys.add(_mentionKey(title));
         byKey.update(
           key,
           (existing) => existing.copyWith(pageCount: book.pageCount),
@@ -503,6 +518,8 @@ class TranscriptEnrichmentService {
           imdbRating: _toDouble(item['imdb_rating'] ?? item['imdbRating']),
         );
         final key = _mentionIdentityKey('movie', title);
+        structuredIdentityKeys.add(key);
+        structuredTitleKeys.add(_mentionKey(title));
         byKey.update(
           key,
           (existing) => existing.copyWith(
@@ -534,8 +551,11 @@ class TranscriptEnrichmentService {
           _cleanText(item['city']),
           _cleanText(item['country']),
         ].where((part) => part.isNotEmpty).join(', ');
+        final key = _mentionIdentityKey('place', title);
+        structuredIdentityKeys.add(key);
+        structuredTitleKeys.add(_mentionKey(title));
         byKey.putIfAbsent(
-          _mentionIdentityKey('place', title),
+          key,
           () => EnrichedMention(
             title: title,
             type: 'place',
@@ -584,7 +604,15 @@ class TranscriptEnrichmentService {
         );
       }
     }
-    return byKey.values.take(20).toList();
+    return byKey.entries
+        .where((entry) {
+          final titleKey = _mentionKey(entry.value.title);
+          return !structuredTitleKeys.contains(titleKey) ||
+              structuredIdentityKeys.contains(entry.key);
+        })
+        .map((entry) => entry.value)
+        .take(20)
+        .toList();
   }
 
   static String _normalizeMentionType(Object? raw) {
@@ -782,9 +810,11 @@ class TranscriptEnrichmentService {
     return uri.replace(fragment: '', query: '').toString();
   }
 
-  static String _mentionKey(String value) {
-    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
-  }
+  static String _mentionKey(String value) => TagNoiseFilter.cleanTag(value)
+      .replaceAll(RegExp(r"['’`]+"), '')
+      .replaceAll(RegExp(r'[-_/\\|]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 
   static String _mentionIdentityKey(String type, String title) =>
       '${_normalizeMentionType(type)}:${_mentionKey(title)}';

@@ -202,6 +202,66 @@ void main() {
       expect(result.mentions.last.city, 'Paris');
     });
 
+    test('prefers structured titles over duplicate generic sections', () {
+      final result = TranscriptEnrichmentResult.fromJson({
+        'meaningful_title': 'International drama recommendations',
+        'summary': 'Series worth watching.',
+        'category': 'Movies & TV',
+        'tags': ['k-drama'],
+        'mentions': [
+          {
+            'title': 'Reply 1988',
+            'type': 'other',
+            'why_mentioned': 'The central subject of the recommendation.',
+          },
+          {
+            'title': '愛のあとにくるもの',
+            'type': 'other',
+            'why_mentioned': 'A Japanese drama recommendation.',
+          },
+        ],
+        'movies': [
+          {
+            'title': 'Reply 1988',
+            'type': 'show',
+            'poster_url': 'https://posters.example/reply-1988.jpg',
+          },
+          {'title': '愛のあとにくるもの', 'type': 'show'},
+        ],
+        'entities': [
+          {
+            'name': 'Reply 1988',
+            'type': 'reference',
+            'why_mentioned': 'The same recommended series.',
+          },
+          {
+            'name': 'Netflix',
+            'type': 'platform',
+            'why_mentioned': 'A streaming service.',
+          },
+        ],
+        'notable_items': [
+          {'text': 'Reply 1988', 'type': 'product', 'label': 'K-Drama'},
+          {'text': '愛のあとにくるもの', 'type': 'reference'},
+          {
+            'text': '20 episodes of almost 2 hours each',
+            'type': 'term',
+            'label': 'Format',
+          },
+        ],
+      });
+
+      expect(result, isNotNull);
+      expect(result!.mentions.map((mention) => (mention.title, mention.type)), [
+        ('Reply 1988', 'movie'),
+        ('愛のあとにくるもの', 'movie'),
+        ('Netflix', 'tool'),
+      ]);
+      expect(result.notableItems.map((item) => item.text), [
+        '20 episodes of almost 2 hours each',
+      ]);
+    });
+
     test('preserves useful game, music, and tool entities', () {
       final result = TranscriptEnrichmentResult.fromJson({
         'meaningful_title': 'Offline game recommendations',
