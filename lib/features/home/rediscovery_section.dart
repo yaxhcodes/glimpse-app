@@ -107,7 +107,7 @@ class RediscoverySection extends ConsumerWidget {
                       ),
                     ),
                     Icon(
-                      Icons.chevron_right,
+                      Icons.chevron_right_rounded,
                       size: 20,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                     ),

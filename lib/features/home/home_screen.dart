@@ -860,6 +860,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               IconButton(
                                 onPressed: () => context.push('/sources'),
                                 tooltip: 'View all sources',
+                                alignment: Alignment.centerRight,
+                                padding: EdgeInsets.zero,
                                 icon: Icon(
                                   Icons.chevron_right_rounded,
                                   size: 20,
