@@ -35,7 +35,7 @@ import '../../shared/widgets/category_chip.dart'
 import '../../shared/widgets/content_attribution_disclaimer.dart';
 import '../../shared/widgets/content_recommendation_section.dart';
 import '../../shared/widgets/creator_profile_link.dart';
-import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../shared/widgets/enrichment_retry_button.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../shared/widgets/music_provider_sheet.dart';
@@ -1735,51 +1735,49 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required bool failed,
   }) {
     final accent = failed ? colorScheme.error : colorScheme.primary;
-    final containerColor = failed
-        ? colorScheme.errorContainer
-        : colorScheme.primaryContainer;
-    final foreground = failed
-        ? colorScheme.onErrorContainer
-        : colorScheme.onPrimaryContainer;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: containerColor.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            failed ? Icons.error_outline_rounded : Icons.auto_awesome_rounded,
-            color: accent,
-            size: 20,
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              failed ? Icons.error_outline_rounded : Icons.auto_awesome_rounded,
+              color: accent,
+              size: 17,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              failed
-                  ? "Couldn't finish enrichment"
-                  : 'AI enrichment is available for this save',
+              failed ? 'Enrichment needs attention' : 'AI details available',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: foreground,
-                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          TextButton.icon(
-            onPressed: _retryingEnrichment ? null : _retryEnrichment,
-            style: TextButton.styleFrom(foregroundColor: accent),
-            icon: _retryingEnrichment
-                ? SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: ExpressiveLoadingIndicator(size: 14, color: accent),
-                  )
-                : const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Retry'),
+          const SizedBox(width: 8),
+          EnrichmentRetryButton(
+            retrying: _retryingEnrichment,
+            onPressed: _retryEnrichment,
+            color: accent,
+            icon: null,
+            label: failed ? 'Try again' : 'Enrich',
+            retryingLabel: 'Enriching',
+            tonal: true,
           ),
         ],
       ),

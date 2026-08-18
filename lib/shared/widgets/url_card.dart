@@ -16,6 +16,7 @@ import '../../features/home/home_provider.dart';
 import '../../features/url_detail/url_detail_provider.dart';
 import 'expressive_tap_scale.dart';
 import 'expressive_loading_indicator.dart';
+import 'enrichment_retry_button.dart';
 import 'link_card_thumbnail.dart';
 import 'selection_badge.dart';
 import 'tag_group.dart' show tagChipColors;
@@ -281,33 +282,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             ),
                             if (showEnrichmentRetry && !isProcessingFailed) ...[
                               const SizedBox(width: 4),
-                              TextButton.icon(
-                                onPressed: _retryingEnrichment
-                                    ? null
-                                    : _retryEnrichment,
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size(0, 40),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                icon: _retryingEnrichment
-                                    ? SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: ExpressiveLoadingIndicator(
-                                          size: 14,
-                                          color: cs.primary,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.auto_awesome_rounded,
-                                        size: 16,
-                                      ),
-                                label: Text(
-                                  _retryingEnrichment ? 'Retrying' : 'Retry',
-                                ),
+                              EnrichmentRetryButton(
+                                retrying: _retryingEnrichment,
+                                onPressed: _retryEnrichment,
                               ),
                             ],
                           ],

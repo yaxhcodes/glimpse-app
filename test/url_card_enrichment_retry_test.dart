@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/url_processing_status.dart';
 import 'package:glimpse/core/providers/usage_providers.dart';
+import 'package:glimpse/shared/widgets/enrichment_retry_button.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
 
 SavedUrl _metadataOnlyUrl() {
@@ -46,6 +47,10 @@ void main() {
     expect(
       (tester.getCenter(retry).dy - tester.getCenter(source).dy).abs(),
       lessThan(8),
+    );
+    expect(
+      tester.getSize(find.byType(EnrichmentRetryButton)).height,
+      lessThanOrEqualTo(32),
     );
   });
 
