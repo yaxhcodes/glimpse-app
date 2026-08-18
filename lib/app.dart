@@ -805,6 +805,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeMode,
+          themeAnimationStyle: AppTheme.transitionStyle,
           scrollBehavior: const AppScrollBehavior(),
           routerConfig: _router,
           builder: (context, child) {

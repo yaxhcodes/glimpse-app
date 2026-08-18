@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glimpse/shared/theme/app_motion.dart';
 import 'package:glimpse/shared/theme/app_theme.dart';
 
 void main() {
@@ -26,6 +27,49 @@ void main() {
         'slate',
       ],
     );
+  });
+
+  test('theme changes use the shared expressive transition', () {
+    expect(AppTheme.transitionStyle.duration, AppMotion.long);
+    expect(AppTheme.transitionStyle.curve, AppMotion.emphasized);
+  });
+
+  testWidgets('accent changes interpolate instead of switching abruptly', (
+    tester,
+  ) async {
+    final seed = ValueNotifier<Color>(Colors.purple);
+    addTearDown(seed.dispose);
+    Color? renderedPrimary;
+
+    await tester.pumpWidget(
+      ValueListenableBuilder<Color>(
+        valueListenable: seed,
+        builder: (context, value, child) {
+          return MaterialApp(
+            theme: AppTheme.lightTheme(value),
+            themeAnimationStyle: AppTheme.transitionStyle,
+            home: Builder(
+              builder: (context) {
+                renderedPrimary = Theme.of(context).colorScheme.primary;
+                return const SizedBox.shrink();
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    final startingPrimary = renderedPrimary;
+    final targetPrimary = AppTheme.lightTheme(Colors.blue).colorScheme.primary;
+    seed.value = Colors.blue;
+    await tester.pump();
+    await tester.pump(AppMotion.long * 0.5);
+
+    expect(renderedPrimary, isNot(startingPrimary));
+    expect(renderedPrimary, isNot(targetPrimary));
+
+    await tester.pumpAndSettle();
+    expect(renderedPrimary, targetPrimary);
   });
 
   test('pink and sakura generate visibly distinct Material palettes', () {

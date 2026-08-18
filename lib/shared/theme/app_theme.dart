@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_icons.dart';
+import 'app_motion.dart';
 
 /// Mouse / trackpad friendly scrolling (desktop, web) + touch.
 class AppScrollBehavior extends MaterialScrollBehavior {
@@ -73,6 +74,16 @@ enum AppAccentColor {
 
 class AppTheme {
   AppTheme._();
+
+  /// A calm, shared transition for brightness and accent changes.
+  ///
+  /// Keeping this at the app boundary lets Flutter interpolate the complete
+  /// [ThemeData] consistently instead of individual screens changing at
+  /// slightly different speeds.
+  static const transitionStyle = AnimationStyle(
+    duration: AppMotion.long,
+    curve: AppMotion.emphasized,
+  );
 
   /// Build a light theme from a [seedColor].
   static ThemeData lightTheme(

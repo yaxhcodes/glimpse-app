@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/theme/app_motion.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_provider.dart';
 import 'settings_components.dart';
@@ -346,14 +347,18 @@ class _AccentSwatch extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: AppMotion.short,
+          curve: AppMotion.emphasizedDecelerate,
           width: 58,
           height: 58,
           // Outer ring (with a gap) appears only when selected.
           padding: EdgeInsets.all(selected ? 4 : 0),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: selected ? Border.all(color: cs.primary, width: 2.5) : null,
+            border: Border.all(
+              color: selected ? cs.primary : Colors.transparent,
+              width: 2.5,
+            ),
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -364,31 +369,51 @@ class _AccentSwatch extends StatelessWidget {
                 width: 1,
               ),
             ),
-            child: isDynamic && !selected
-                ? const Center(
-                    child: AppIcon(
-                      AppIcons.automaticTheme,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  )
-                : selected
-                ? Center(
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: cs.surface,
-                        shape: BoxShape.circle,
+            child: AnimatedSwitcher(
+              duration: AppMotion.short,
+              reverseDuration: AppMotion.short,
+              switchInCurve: AppMotion.emphasizedDecelerate,
+              switchOutCurve: AppMotion.emphasizedAccelerate,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(
+                      begin: 0.78,
+                      end: 1,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: selected
+                  ? Center(
+                      key: ValueKey('accent-selected-${accent.name}'),
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: cs.surface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 18,
+                          color: cs.primary,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.check_rounded,
-                        size: 18,
-                        color: cs.primary,
+                    )
+                  : isDynamic
+                  ? const Center(
+                      key: ValueKey('accent-dynamic-icon'),
+                      child: AppIcon(
+                        AppIcons.automaticTheme,
+                        color: Colors.white,
+                        size: 20,
                       ),
-                    ),
-                  )
-                : null,
+                    )
+                  : SizedBox(key: ValueKey('accent-idle-${accent.name}')),
+            ),
           ),
         ),
       ),
