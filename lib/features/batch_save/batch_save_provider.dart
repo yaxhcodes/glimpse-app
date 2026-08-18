@@ -183,7 +183,21 @@ class BatchSaveNotifier extends StateNotifier<BatchSaveState> {
   /// fallback for AI fields. Enrichment (AI tags, summaries, embeddings)
   /// runs in the background so the user sees success instantly.
   Future<void> saveAll() async {
-    final user = _ref.read(authServiceProvider).currentUser;
+    final authService = _ref.read(authServiceProvider);
+    var user = authService.currentUser;
+    if (user == null) {
+      try {
+        user = await _ref.read(authControllerProvider.future);
+      } catch (error, stackTrace) {
+        developer.log(
+          'Could not finish auth restoration before local batch save.',
+          name: 'BatchSave',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        user = authService.currentUser;
+      }
+    }
     if (user == null) {
       state = state.copyWith(
         status: BatchSaveStatus.error,

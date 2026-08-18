@@ -508,6 +508,27 @@ class AskAnswerActionPolicy {
   }
 }
 
+class AskLocalAnswerCopy {
+  static final _topicQuestion = RegExp(
+    r'^(?:what did i save|did i save (?:anything|something)|what do i have|show me (?:my )?saves?)\s+(?:about|on)\s+(.+?)[?.!]*$',
+    caseSensitive: false,
+  );
+
+  static String intro(String question, int sourceCount) {
+    final normalizedQuestion = question.trim();
+    final match = _topicQuestion.firstMatch(normalizedQuestion);
+    final topic = match?.group(1)?.trim();
+    final count = sourceCount == 1
+        ? 'one relevant save'
+        : '$sourceCount relevant saves';
+
+    if (topic != null && topic.isNotEmpty) {
+      return 'You have $count about $topic. This answer uses summaries already saved on this device.';
+    }
+    return 'I found $count on this device. Here is what the saved summaries say about your question.';
+  }
+}
+
 class AskNotifier extends StateNotifier<AskState> {
   final Ref _ref;
 
@@ -549,8 +570,7 @@ class AskNotifier extends StateNotifier<AskState> {
     }).toList();
 
     return ChatMessage(
-      text:
-          "I couldn't reach AI just now, but these are the closest saves I found.",
+      text: AskLocalAnswerCopy.intro(question, sections.length),
       isUser: false,
       sources: sections.map((section) => section.source).toList(),
       sections: sections,
@@ -588,6 +608,28 @@ class AskNotifier extends StateNotifier<AskState> {
     final isarService = _ref.read(isarServiceProvider);
 
     try {
+      if (await _ref.read(networkStatusServiceProvider).isDefinitelyOffline()) {
+        final localContext = preloadedSources?.isNotEmpty == true
+            ? preloadedSources!.take(3).toList()
+            : await _fallbackContext(question);
+        if (localContext.isEmpty) {
+          _addBotMessage(
+            "I couldn't find a relevant save for that question on this device.",
+            confidence: ChatAnswerConfidence.insufficientEvidence,
+            answerType: ChatAnswerType.insufficientEvidence,
+          );
+        } else {
+          state = state.copyWith(
+            messages: [
+              ...state.messages,
+              _buildLocalFallbackAnswer(question, localContext),
+            ],
+            isLoading: false,
+          );
+        }
+        return;
+      }
+
       // Usage-based gating: free users get 5 Ask queries/month.
       // Pro (or dev override) users bypass the limit entirely.
       final isPro = _ref.read(isProUserProvider);
@@ -988,7 +1030,7 @@ class AskNotifier extends StateNotifier<AskState> {
       allUrls: allUrls,
       limit: 3,
     );
-    return urls.isEmpty ? allUrls.take(3).toList() : urls;
+    return urls;
   }
 
   void _addBotMessage(

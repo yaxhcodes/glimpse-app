@@ -262,6 +262,24 @@ void main() {
     });
   });
 
+  group('AskLocalAnswerCopy', () {
+    test('answers topic-presence questions from on-device summaries', () {
+      expect(
+        AskLocalAnswerCopy.intro('What did I save about Software & AI?', 3),
+        'You have 3 relevant saves about Software & AI. '
+        'This answer uses summaries already saved on this device.',
+      );
+    });
+
+    test('uses singular copy for one local result', () {
+      expect(
+        AskLocalAnswerCopy.intro('Explain my saved Riverpod notes', 1),
+        'I found one relevant save on this device. '
+        'Here is what the saved summaries say about your question.',
+      );
+    });
+  });
+
   group('GeminiService chat response parsing', () {
     test('parses answer metadata and follow-up suggestions', () {
       final source = _saved(

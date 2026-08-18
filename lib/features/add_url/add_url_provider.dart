@@ -114,7 +114,21 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     if (_isSaving) return false;
     _isSaving = true;
 
-    final user = _ref.read(authServiceProvider).currentUser;
+    final authService = _ref.read(authServiceProvider);
+    var user = authService.currentUser;
+    if (user == null) {
+      try {
+        user = await _ref.read(authControllerProvider.future);
+      } catch (error, stackTrace) {
+        developer.log(
+          'Could not finish auth restoration before local save.',
+          name: 'AddUrl',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        user = authService.currentUser;
+      }
+    }
     if (user == null) {
       _isSaving = false;
       state = state.copyWith(

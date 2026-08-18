@@ -426,14 +426,15 @@ class SupabaseAuthService implements AuthService {
         _stateController.add(appUser);
       } catch (e, st) {
         developer.log(
-          'Auth state profile load failed — $e',
+          'Auth state profile load failed — using offline session fallback: $e',
           name: 'Auth',
           stackTrace: st,
         );
-        _currentUser = null;
-        _stateController.addError(
-          const AuthFailure('Could not load your account profile.'),
-        );
+        final appUser = _currentUser?.id == user.id
+            ? _currentUser!
+            : _offlineAppUser(user);
+        _currentUser = appUser;
+        _stateController.add(appUser);
       }
     });
   }

@@ -14,6 +14,7 @@ import '../services/embedding_service.dart';
 import '../services/enrichment_service.dart';
 import '../services/gemini_service.dart';
 import '../services/link_preview_service.dart';
+import '../services/network_status_service.dart';
 import '../services/recipe_nutrition_service.dart';
 import '../services/saved_notes_service.dart';
 import '../services/transcript_enrichment_service.dart';
@@ -43,6 +44,10 @@ final backupStorageServiceProvider = Provider<BackupStorageService>((ref) {
 /// Global provider for the link preview service.
 final linkPreviewServiceProvider = Provider<LinkPreviewService>((ref) {
   return LinkPreviewService();
+});
+
+final networkStatusServiceProvider = Provider<NetworkStatusService>((ref) {
+  return NetworkStatusService();
 });
 
 final transcriptEnrichmentServiceProvider =
