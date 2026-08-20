@@ -4070,6 +4070,78 @@ abstract class AppLocalizations {
   /// **'FAQ'**
   String get faq;
 
+  /// No description provided for @sendFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Send feedback'**
+  String get sendFeedback;
+
+  /// No description provided for @rateOnPlayStore.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate on Play Store'**
+  String get rateOnPlayStore;
+
+  /// No description provided for @shareGlimpse.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Glimpse'**
+  String get shareGlimpse;
+
+  /// No description provided for @feedbackEmailSubject.
+  ///
+  /// In en, this message translates to:
+  /// **'Glimpse feedback'**
+  String get feedbackEmailSubject;
+
+  /// No description provided for @shareGlimpseText.
+  ///
+  /// In en, this message translates to:
+  /// **'Glimpse helps you save links worth returning to. Try it: {url}'**
+  String shareGlimpseText(Object url);
+
+  /// No description provided for @couldNotOpenLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open this link.'**
+  String get couldNotOpenLink;
+
+  /// No description provided for @couldNotShareGlimpse.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not share Glimpse.'**
+  String get couldNotShareGlimpse;
+
+  /// No description provided for @keepsakeQuoteCuriosity.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the things that keep you curious.'**
+  String get keepsakeQuoteCuriosity;
+
+  /// No description provided for @keepsakeQuoteIdea.
+  ///
+  /// In en, this message translates to:
+  /// **'A small glimpse can become a lasting idea.'**
+  String get keepsakeQuoteIdea;
+
+  /// No description provided for @keepsakeQuoteSpark.
+  ///
+  /// In en, this message translates to:
+  /// **'Save the spark. Return when it matters.'**
+  String get keepsakeQuoteSpark;
+
+  /// No description provided for @keepsakeQuoteFutureSelf.
+  ///
+  /// In en, this message translates to:
+  /// **'Your future self might be looking for this.'**
+  String get keepsakeQuoteFutureSelf;
+
+  /// No description provided for @keepsakeQuoteNoticing.
+  ///
+  /// In en, this message translates to:
+  /// **'Worth noticing. Worth keeping.'**
+  String get keepsakeQuoteNoticing;
+
   /// No description provided for @other.
   ///
   /// In en, this message translates to:

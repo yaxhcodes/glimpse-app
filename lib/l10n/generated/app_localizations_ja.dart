@@ -2134,6 +2134,44 @@ class AppLocalizationsJa extends AppLocalizations {
   String get faq => 'よくある質問';
 
   @override
+  String get sendFeedback => 'フィードバックを送る';
+
+  @override
+  String get rateOnPlayStore => 'Play ストアで評価';
+
+  @override
+  String get shareGlimpse => 'Glimpse を共有';
+
+  @override
+  String get feedbackEmailSubject => 'Glimpse へのフィードバック';
+
+  @override
+  String shareGlimpseText(Object url) {
+    return 'Glimpse なら、あとで見返したいリンクを保存できます。ぜひお試しください：$url';
+  }
+
+  @override
+  String get couldNotOpenLink => 'このリンクを開けませんでした。';
+
+  @override
+  String get couldNotShareGlimpse => 'Glimpse を共有できませんでした。';
+
+  @override
+  String get keepsakeQuoteCuriosity => '好奇心を灯し続けるものを、大切に。';
+
+  @override
+  String get keepsakeQuoteIdea => '小さな発見が、いつまでも残るアイデアになる。';
+
+  @override
+  String get keepsakeQuoteSpark => 'ひらめきを保存しよう。必要なときに戻れるように。';
+
+  @override
+  String get keepsakeQuoteFutureSelf => '未来のあなたが、これを探しているかもしれない。';
+
+  @override
+  String get keepsakeQuoteNoticing => '心に留める価値がある。残しておく価値がある。';
+
+  @override
   String get other => 'その他';
 
   @override

@@ -2325,6 +2325,48 @@ class AppLocalizationsEs extends AppLocalizations {
   String get faq => 'Preguntas frecuentes';
 
   @override
+  String get sendFeedback => 'Enviar comentarios';
+
+  @override
+  String get rateOnPlayStore => 'Valorar en Play Store';
+
+  @override
+  String get shareGlimpse => 'Compartir Glimpse';
+
+  @override
+  String get feedbackEmailSubject => 'Comentarios sobre Glimpse';
+
+  @override
+  String shareGlimpseText(Object url) {
+    return 'Glimpse te ayuda a guardar enlaces a los que vale la pena volver. Pruébalo: $url';
+  }
+
+  @override
+  String get couldNotOpenLink => 'No se pudo abrir este enlace.';
+
+  @override
+  String get couldNotShareGlimpse => 'No se pudo compartir Glimpse.';
+
+  @override
+  String get keepsakeQuoteCuriosity =>
+      'Conserva lo que mantiene viva tu curiosidad.';
+
+  @override
+  String get keepsakeQuoteIdea =>
+      'Un pequeño vistazo puede convertirse en una idea duradera.';
+
+  @override
+  String get keepsakeQuoteSpark => 'Guarda la chispa. Vuelve cuando importe.';
+
+  @override
+  String get keepsakeQuoteFutureSelf =>
+      'Puede que tu yo del futuro esté buscando esto.';
+
+  @override
+  String get keepsakeQuoteNoticing =>
+      'Vale la pena notarlo. Vale la pena guardarlo.';
+
+  @override
   String get other => 'Otros';
 
   @override

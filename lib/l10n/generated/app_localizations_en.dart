@@ -2305,6 +2305,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get faq => 'FAQ';
 
   @override
+  String get sendFeedback => 'Send feedback';
+
+  @override
+  String get rateOnPlayStore => 'Rate on Play Store';
+
+  @override
+  String get shareGlimpse => 'Share Glimpse';
+
+  @override
+  String get feedbackEmailSubject => 'Glimpse feedback';
+
+  @override
+  String shareGlimpseText(Object url) {
+    return 'Glimpse helps you save links worth returning to. Try it: $url';
+  }
+
+  @override
+  String get couldNotOpenLink => 'Could not open this link.';
+
+  @override
+  String get couldNotShareGlimpse => 'Could not share Glimpse.';
+
+  @override
+  String get keepsakeQuoteCuriosity => 'Keep the things that keep you curious.';
+
+  @override
+  String get keepsakeQuoteIdea => 'A small glimpse can become a lasting idea.';
+
+  @override
+  String get keepsakeQuoteSpark => 'Save the spark. Return when it matters.';
+
+  @override
+  String get keepsakeQuoteFutureSelf =>
+      'Your future self might be looking for this.';
+
+  @override
+  String get keepsakeQuoteNoticing => 'Worth noticing. Worth keeping.';
+
+  @override
   String get other => 'Other';
 
   @override

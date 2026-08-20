@@ -33,6 +33,8 @@ abstract final class AppIcons {
   static const amoledTheme = PhosphorIconsRegular.circleHalf;
   static const terms = PhosphorIconsRegular.scroll;
   static const help = PhosphorIconsRegular.question;
+  static const feedback = PhosphorIconsRegular.envelopeSimple;
+  static const rate = PhosphorIconsRegular.star;
 
   // Shared interface actions and onboarding illustrations.
   static const hierarchy = PhosphorIconsRegular.treeStructure;
@@ -78,6 +80,8 @@ abstract final class AppIcons {
     amoledTheme: PhosphorIconsFill.circleHalf,
     terms: PhosphorIconsFill.scroll,
     help: PhosphorIconsFill.question,
+    feedback: PhosphorIconsFill.envelopeSimple,
+    rate: PhosphorIconsFill.star,
   };
 
   static IconData filledVariant(IconData icon) {
