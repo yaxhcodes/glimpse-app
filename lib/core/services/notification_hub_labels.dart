@@ -1,26 +1,28 @@
+import '../../l10n/generated/app_localizations.dart';
+
 /// User-facing labels for the in-app notification hub (not internal type codes).
 class NotificationHubLabels {
   NotificationHubLabels._();
 
   /// History entries use [type] values: geo, new_interest, collector, streak, resurface, digest.
-  static String forHistoryType(String? type) {
+  static String forHistoryType(AppLocalizations strings, String? type) {
     switch (type) {
       case 'geo':
-        return 'Travel & Places';
+        return strings.notificationTravelPlaces;
       case 'new_interest':
-        return 'New Discovery';
+        return strings.notificationNewDiscovery;
       case 'collector':
-        return 'Reading Reminder';
+        return strings.notificationReadingReminder;
       case 'streak':
-        return 'Activity';
+        return strings.notificationActivity;
       case 'resurface':
-        return 'Worth Revisiting';
+        return strings.notificationWorthRevisiting;
       case 'revisit':
-        return 'Revisit Reminder';
+        return strings.notificationRevisitReminder;
       case 'digest':
-        return 'Weekly Digest';
+        return strings.notificationWeeklyDigest;
       default:
-        return 'Notification';
+        return strings.notification;
     }
   }
 }

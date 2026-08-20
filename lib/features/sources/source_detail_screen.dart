@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/bulk_selection_provider.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
@@ -15,26 +16,40 @@ import '../../shared/widgets/swipeable_url_card.dart';
 import 'sources_provider.dart';
 
 enum _SourceItemFilter {
-  all('All items', Icons.filter_list_rounded),
-  unread('Unread', Icons.mark_email_unread_outlined),
-  read('Read', Icons.done_all_rounded);
+  all(Icons.filter_list_rounded),
+  unread(Icons.mark_email_unread_outlined),
+  read(Icons.done_all_rounded);
 
-  const _SourceItemFilter(this.label, this.icon);
+  const _SourceItemFilter(this.icon);
 
-  final String label;
   final IconData icon;
 }
 
 enum _SourceSort {
-  newest('Newest', Icons.sort_rounded),
-  oldest('Oldest', Icons.history_rounded),
-  recentlyOpened('Recently opened', Icons.schedule_rounded);
+  newest(Icons.sort_rounded),
+  oldest(Icons.history_rounded),
+  recentlyOpened(Icons.schedule_rounded);
 
-  const _SourceSort(this.label, this.icon);
+  const _SourceSort(this.icon);
 
-  final String label;
   final IconData icon;
 }
+
+String _localizedItemFilter(
+  AppLocalizations strings,
+  _SourceItemFilter filter,
+) => switch (filter) {
+  _SourceItemFilter.all => strings.allItems,
+  _SourceItemFilter.unread => strings.unread,
+  _SourceItemFilter.read => strings.read,
+};
+
+String _localizedSourceSort(AppLocalizations strings, _SourceSort sort) =>
+    switch (sort) {
+      _SourceSort.newest => strings.newest,
+      _SourceSort.oldest => strings.oldest,
+      _SourceSort.recentlyOpened => strings.recentlyOpened,
+    };
 
 class SourceDetailScreen extends ConsumerStatefulWidget {
   const SourceDetailScreen({super.key, required this.sourceName});
@@ -93,7 +108,7 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
             slivers: [
               _sourceAppBar(context),
               SliverFillRemaining(
-                child: Center(child: Text('Could not load this source')),
+                child: Center(child: Text(context.l10n.couldNotLoadSource)),
               ),
             ],
           ),
@@ -126,7 +141,7 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
                   leading: selectionState.isActive
                       ? IconButton(
                           icon: const Icon(Icons.arrow_back_rounded),
-                          tooltip: 'Exit selection',
+                          tooltip: context.l10n.exitSelection,
                           onPressed: selectionNotifier.clear,
                         )
                       : null,
@@ -145,8 +160,8 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
                       : null,
                 ),
                 if (urls.isEmpty)
-                  const SliverFillRemaining(
-                    child: Center(child: Text('No saves from this source')),
+                  SliverFillRemaining(
+                    child: Center(child: Text(context.l10n.noSavesFromSource)),
                   )
                 else ...[
                   SliverToBoxAdapter(
@@ -348,28 +363,30 @@ class _SourceMetadataHeader extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _Metric(
-                        label: urls.length == 1 ? 'Save' : 'Saves',
+                        label: context.l10n.saves,
                         value: urls.length.toString(),
                       ),
                     ),
                     const _MetricDivider(),
                     Expanded(
                       child: _Metric(
-                        label: 'This week',
+                        label: context.l10n.thisWeek,
                         value: (cluster?.savesThisWeek ?? 0).toString(),
                       ),
                     ),
                     const _MetricDivider(),
                     Expanded(
                       child: _Metric(
-                        label: 'Last saved',
-                        value: lastSaved == null ? '—' : _timeAgo(lastSaved),
+                        label: context.l10n.lastSavedLabel,
+                        value: lastSaved == null
+                            ? '—'
+                            : _timeAgo(context, lastSaved),
                       ),
                     ),
                     const _MetricDivider(),
                     Expanded(
                       child: _Metric(
-                        label: 'Opened',
+                        label: context.l10n.opened,
                         value: openedCount.toString(),
                       ),
                     ),
@@ -383,7 +400,7 @@ class _SourceMetadataHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Top themes',
+                    context.l10n.topThemes,
                     style: tt.labelMedium?.copyWith(
                       color: cs.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
@@ -434,16 +451,19 @@ class _SourceMetadataHeader extends StatelessWidget {
     return latest;
   }
 
-  String _timeAgo(DateTime date) {
+  String _timeAgo(BuildContext context, DateTime date) {
+    final strings = context.l10n;
     final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
-    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
-    return '${(diff.inDays / 365).floor()}y ago';
+    if (diff.inMinutes < 1) return strings.justNow;
+    if (diff.inMinutes < 60) return strings.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return strings.hoursAgo(diff.inHours);
+    if (diff.inDays == 1) return strings.yesterday;
+    if (diff.inDays < 7) return strings.daysAgo(diff.inDays);
+    if (diff.inDays < 30) return strings.weeksAgo((diff.inDays / 7).floor());
+    if (diff.inDays < 365) {
+      return strings.monthsAgo((diff.inDays / 30).floor());
+    }
+    return strings.yearsAgo((diff.inDays / 365).floor());
   }
 }
 
@@ -521,12 +541,12 @@ class _SourceControls extends StatelessWidget {
       children: [
         _SourceControlChip(
           icon: itemFilter.icon,
-          label: itemFilter.label,
+          label: _localizedItemFilter(context.l10n, itemFilter),
           onTap: () => _chooseItemFilter(context),
         ),
         _SourceControlChip(
           icon: sort.icon,
-          label: sort.label,
+          label: _localizedSourceSort(context.l10n, sort),
           onTap: () => _chooseSort(context),
         ),
       ],
@@ -539,10 +559,10 @@ class _SourceControls extends StatelessWidget {
       useSafeArea: true,
       showDragHandle: true,
       builder: (context) => _SourceChoiceSheet<_SourceItemFilter>(
-        title: 'Show items',
+        title: context.l10n.showItems,
         selected: itemFilter,
         options: _SourceItemFilter.values,
-        labelFor: (option) => option.label,
+        labelFor: (option) => _localizedItemFilter(context.l10n, option),
         iconFor: (option) => option.icon,
       ),
     );
@@ -557,10 +577,10 @@ class _SourceControls extends StatelessWidget {
       useSafeArea: true,
       showDragHandle: true,
       builder: (context) => _SourceChoiceSheet<_SourceSort>(
-        title: 'Sort by',
+        title: context.l10n.sortBy,
         selected: sort,
         options: _SourceSort.values,
-        labelFor: (option) => option.label,
+        labelFor: (option) => _localizedSourceSort(context.l10n, option),
         iconFor: (option) => option.icon,
       ),
     );
@@ -696,10 +716,11 @@ class _EmptyFilteredSource extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final strings = context.l10n;
     final message = switch (filter) {
-      _SourceItemFilter.all => 'No items from this source',
-      _SourceItemFilter.unread => 'No unread items',
-      _SourceItemFilter.read => 'No read items',
+      _SourceItemFilter.all => strings.noItemsFromSource,
+      _SourceItemFilter.unread => strings.noUnreadItems,
+      _SourceItemFilter.read => strings.noReadItems,
     };
     return Center(
       child: Padding(

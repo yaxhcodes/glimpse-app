@@ -15,6 +15,7 @@ import '../../core/providers/swipe_preferences_provider.dart';
 import '../../shared/widgets/premium_swipe_card.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../l10n/l10n.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -67,11 +68,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: const Text('Deleted'),
+          content: Text(context.l10n.deleted),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 4),
           action: SnackBarAction(
-            label: 'Undo',
+            label: context.l10n.undo,
             onPressed: () async {
               await DigestPrefs.restoreDigest(entry, index: index);
               await _load();
@@ -106,7 +107,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       appBar: AppBar(
         backgroundColor: theme.colorScheme.surface,
         foregroundColor: theme.colorScheme.onSurface,
-        title: const Text('Notifications'),
+        title: Text(context.l10n.notifications),
       ),
       body: _loading
           ? const Center(child: ExpressiveLoadingIndicator())
@@ -173,14 +174,14 @@ class _EmptyNotifications extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No notifications yet',
+              context.l10n.noNotificationsYet,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Travel alerts, new discoveries, reading reminders,\nand weekly digests will appear here.',
+              context.l10n.notificationsEmptyDescription,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -257,34 +258,16 @@ class CuratedNotificationListTile extends StatelessWidget {
   final List<SavedUrl> stripUrls;
   final VoidCallback onTap;
 
-  static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  static const _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  static String _formatDate(DateTime d) {
+  static String _formatDate(BuildContext context, DateTime d) {
     final now = DateTime.now();
     final diff = now.difference(d);
 
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'Yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inMinutes < 60) return context.l10n.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return context.l10n.hoursAgo(diff.inHours);
+    if (diff.inDays == 1) return context.l10n.yesterday;
+    if (diff.inDays < 7) return context.l10n.daysAgo(diff.inDays);
 
-    final day = _days[d.weekday - 1];
-    final month = _months[d.month - 1];
-    return '$day, $month ${d.day}';
+    return MaterialLocalizations.of(context).formatMediumDate(d);
   }
 
   static String _fallbackContext(String topic, SavedUrl? hero) {
@@ -336,7 +319,7 @@ class CuratedNotificationListTile extends StatelessWidget {
 
     final dateStr = entry['date'] as String? ?? '';
     final date = DateTime.tryParse(dateStr);
-    final formatted = date != null ? _formatDate(date) : '';
+    final formatted = date != null ? _formatDate(context, date) : '';
 
     final topic = entry['topic'] as String? ?? 'Notification';
     final body = entry['body'] as String?;
@@ -347,7 +330,10 @@ class CuratedNotificationListTile extends StatelessWidget {
       Theme.of(context).colorScheme,
     );
 
-    final channelLabel = NotificationHubLabels.forHistoryType(type);
+    final channelLabel = NotificationHubLabels.forHistoryType(
+      context.l10n,
+      type,
+    );
     final contextLine = (body != null && body.trim().isNotEmpty)
         ? body.trim()
         : _fallbackContext(topic, heroUrl);

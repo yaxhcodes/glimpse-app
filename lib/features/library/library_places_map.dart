@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
+import '../../l10n/l10n.dart';
 import '../../core/services/ai_proxy_config.dart';
 import 'library_entity.dart';
 
@@ -182,7 +183,7 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
                   : 12,
               right: 12,
               child: IconButton.filledTonal(
-                tooltip: 'Fit all places',
+                tooltip: context.l10n.fitAllPlaces,
                 onPressed: _styleLoaded ? () => unawaited(_fitAll()) : null,
                 icon: const Icon(Icons.center_focus_strong_rounded),
               ),
@@ -556,8 +557,8 @@ class _MapFallback extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 noLocations
-                    ? 'No mapped places yet'
-                    : 'Map unavailable — your places are still listed below',
+                    ? context.l10n.noMappedPlaces
+                    : context.l10n.mapUnavailablePlacesListed,
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,

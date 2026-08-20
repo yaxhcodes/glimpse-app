@@ -34,6 +34,7 @@ import 'home_provider.dart';
 import 'rediscovery_section.dart';
 import 'guide_card.dart';
 import 'home_loading_skeleton.dart';
+import '../../l10n/l10n.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -183,6 +184,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _saveUrl(String rawUrl, {required bool isFirstSave}) async {
     final messenger = ScaffoldMessenger.of(context);
+    final strings = context.l10n;
     final notifier = ref.read(addUrlProvider.notifier);
     final success = await notifier.saveUrl(rawUrl);
     final addState = ref.read(addUrlProvider);
@@ -265,11 +267,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         showAutoDismissSnackBarVia(
           messenger,
           SnackBar(
-            content: const Text('Captured'),
+            content: Text(strings.captured),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 3),
             action: SnackBarAction(
-              label: 'Undo',
+              label: strings.undo,
               onPressed: () async {
                 final isarService = ref.read(isarServiceProvider);
                 await isarService.deleteUrlPermanently(justSavedId);
@@ -306,13 +308,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       showAutoDismissSnackBarVia(
         messenger,
         SnackBar(
-          content: const Text('Already in Glimpse'),
+          content: Text(context.l10n.alreadyInGlimpse),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
           action: id == null
               ? null
               : SnackBarAction(
-                  label: 'Open',
+                  label: context.l10n.open,
                   onPressed: () => context.push('/url/$id'),
                 ),
         ),
@@ -530,7 +532,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     AppIcons.settings,
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
                   ),
-                  tooltip: 'Settings',
+                  tooltip: context.l10n.settings,
                   onPressed: () => context.push('/settings'),
                 ),
               ],
@@ -563,7 +565,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: _isCelebratingFirstSave && urls.isNotEmpty
                                 ? Text(
                                     key: const ValueKey('headline_success'),
-                                    'Captured in Glimpse',
+                                    context.l10n.capturedInGlimpse,
                                     style: textTheme.headlineSmall?.copyWith(
                                       fontWeight: FontWeight.w700,
                                       height: 1.2,
@@ -572,7 +574,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   )
                                 : Text(
                                     key: const ValueKey('headline_empty'),
-                                    'Capture something worth returning to',
+                                    context.l10n.captureSomethingWorthReturning,
                                     style: textTheme.headlineSmall?.copyWith(
                                       fontWeight: FontWeight.w700,
                                       height: 1.2,
@@ -585,7 +587,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             duration: const Duration(milliseconds: 200),
                             child: _isCelebratingFirstSave && urls.isNotEmpty
                                 ? Text(
-                                    'Your first captured item is ready below.',
+                                    context.l10n.firstCapturedReady,
                                     key: const ValueKey('sub_success'),
                                     style: textTheme.bodyMedium?.copyWith(
                                       color: colorScheme.onSurfaceVariant,
@@ -594,7 +596,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     textAlign: TextAlign.center,
                                   )
                                 : Text(
-                                    'Share from any app — Glimpse sorts it for you.',
+                                    context.l10n.shareAnyApp,
                                     key: const ValueKey('sub_empty'),
                                     style: textTheme.bodyMedium?.copyWith(
                                       color: colorScheme.onSurfaceVariant,
@@ -643,7 +645,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: TextButton(
                           onPressed: () => context.push('/guide'),
                           child: Text(
-                            'How Glimpse works',
+                            context.l10n.howGlimpseWorks,
                             style: textTheme.labelLarge?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w500,
@@ -696,8 +698,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .toList();
 
     final sections = <_Section>[
-      if (pinnedUrls.isNotEmpty) _Section('Pinned', pinnedUrls),
-      if (regularUrls.isNotEmpty) _Section('Recent Saves', regularUrls),
+      if (pinnedUrls.isNotEmpty) _Section(context.l10n.pinned, pinnedUrls),
+      if (regularUrls.isNotEmpty)
+        _Section(context.l10n.recentSaves, regularUrls),
     ];
 
     // Post-onboarding guide card: shows on a populated home until the user
@@ -752,7 +755,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   leading: selectionState.isActive
                       ? IconButton(
                           icon: const Icon(Icons.arrow_back_rounded),
-                          tooltip: 'Exit selection',
+                          tooltip: context.l10n.exitSelection,
                           onPressed: selectionNotifier.clear,
                         )
                       : null,
@@ -778,7 +781,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       : [
                           IconButton(
                             icon: const AppIcon(AppIcons.addLink),
-                            tooltip: 'Add URL',
+                            tooltip: context.l10n.addUrl,
                             onPressed: () => context.push('/add'),
                           ),
                           if (!isEmpty)
@@ -800,7 +803,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ),
                                 child: const AppIcon(AppIcons.notifications),
                               ),
-                              tooltip: 'Notifications',
+                              tooltip: context.l10n.notifications,
                               onPressed: () async {
                                 await context.push('/notifications');
                                 _refreshUnreadBadge();
@@ -808,7 +811,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           IconButton(
                             icon: const AppIcon(AppIcons.settings),
-                            tooltip: 'Settings',
+                            tooltip: context.l10n.settings,
                             onPressed: () => context.push('/settings'),
                           ),
                         ],
@@ -843,7 +846,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          'Sources',
+                                          context.l10n.sources,
                                           style: theme.textTheme.labelMedium
                                               ?.copyWith(
                                                 color: theme
@@ -859,7 +862,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                               IconButton(
                                 onPressed: () => context.push('/sources'),
-                                tooltip: 'View all sources',
+                                tooltip: context.l10n.viewAllSources,
                                 alignment: Alignment.centerRight,
                                 padding: EdgeInsets.zero,
                                 icon: Icon(
@@ -1275,7 +1278,7 @@ class _ClipboardSuggestion extends StatelessWidget {
                   ),
                 ),
                 onPressed: onDismiss,
-                tooltip: 'Dismiss clipboard suggestion',
+                tooltip: context.l10n.dismissClipboardSuggestion,
               ),
             ],
           ),
@@ -1362,13 +1365,13 @@ class _InlineSaveInput extends StatelessWidget {
   ) {
     switch (uiState) {
       case _InputUiState.processing:
-        return _buildProcessingState(colorScheme, textTheme);
+        return _buildProcessingState(context, colorScheme, textTheme);
       case _InputUiState.success:
-        return _buildSuccessState(colorScheme, textTheme);
+        return _buildSuccessState(context, colorScheme, textTheme);
       case _InputUiState.error:
-        return _buildErrorState(colorScheme, textTheme);
+        return _buildErrorState(context, colorScheme, textTheme);
       case _InputUiState.idle:
-        return _buildIdleState(colorScheme);
+        return _buildIdleState(context, colorScheme);
     }
   }
 
@@ -1383,7 +1386,7 @@ class _InlineSaveInput extends StatelessWidget {
     return host.startsWith('www.') ? host.substring(4) : host;
   }
 
-  Widget _buildIdleState(ColorScheme colorScheme) {
+  Widget _buildIdleState(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       key: const ValueKey('input_idle'),
       padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
@@ -1433,8 +1436,8 @@ class _InlineSaveInput extends StatelessWidget {
               cursorColor: colorScheme.primary,
               cursorWidth: 1.5,
               cursorRadius: const Radius.circular(1),
-              decoration: const InputDecoration(
-                hintText: 'Paste a link…',
+              decoration: InputDecoration(
+                hintText: context.l10n.pasteLink,
                 border: InputBorder.none,
                 isCollapsed: true,
               ),
@@ -1447,10 +1450,14 @@ class _InlineSaveInput extends StatelessWidget {
     );
   }
 
-  Widget _buildProcessingState(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildProcessingState(
+    BuildContext context,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     final label = isFirstSaveCelebration
-        ? 'Capturing what caught your eye'
-        : 'Finding the context';
+        ? context.l10n.capturingWhatCaughtYourEye
+        : context.l10n.findingContext;
     return Padding(
       key: const ValueKey('input_processing'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1469,14 +1476,18 @@ class _InlineSaveInput extends StatelessWidget {
     );
   }
 
-  Widget _buildSuccessState(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildSuccessState(
+    BuildContext context,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     return Padding(
       key: const ValueKey('input_success'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
           Text(
-            'Captured',
+            context.l10n.captured,
             style: textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface,
               fontWeight: FontWeight.w600,
@@ -1487,7 +1498,11 @@ class _InlineSaveInput extends StatelessWidget {
     );
   }
 
-  Widget _buildErrorState(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildErrorState(
+    BuildContext context,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     return Padding(
       key: const ValueKey('input_error'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1495,7 +1510,7 @@ class _InlineSaveInput extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              errorText ?? 'Invalid link',
+              errorText ?? context.l10n.invalidLink,
               style: textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onErrorContainer,
               ),

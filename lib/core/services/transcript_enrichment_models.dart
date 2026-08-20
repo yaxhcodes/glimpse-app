@@ -3,6 +3,7 @@ part of 'transcript_enrichment_service.dart';
 class TranscriptEnrichmentResult {
   const TranscriptEnrichmentResult({
     this.schemaVersion = 1,
+    this.outputLocale = 'en',
     required this.meaningfulTitle,
     required this.summary,
     required this.category,
@@ -34,6 +35,7 @@ class TranscriptEnrichmentResult {
   });
 
   final int schemaVersion;
+  final String outputLocale;
   final String meaningfulTitle;
   final String summary;
   final String category;
@@ -115,6 +117,7 @@ class TranscriptEnrichmentResult {
 
   TranscriptEnrichmentResult copyWith({
     int? schemaVersion,
+    String? outputLocale,
     String? meaningfulTitle,
     String? summary,
     String? category,
@@ -146,6 +149,7 @@ class TranscriptEnrichmentResult {
   }) {
     return TranscriptEnrichmentResult(
       schemaVersion: schemaVersion ?? this.schemaVersion,
+      outputLocale: outputLocale ?? this.outputLocale,
       meaningfulTitle: meaningfulTitle ?? this.meaningfulTitle,
       summary: summary ?? this.summary,
       category: category ?? this.category,
@@ -181,6 +185,7 @@ class TranscriptEnrichmentResult {
   Map<String, dynamic> toJson() {
     return {
       'schema_version': schemaVersion,
+      'output_locale': outputLocale,
       'meaningful_title': meaningfulTitle,
       'summary': summary,
       'category': category,
@@ -222,6 +227,9 @@ class TranscriptEnrichmentResult {
             json['schema_version'] ?? json['schemaVersion'],
           ) ??
           1,
+      outputLocale: TranscriptEnrichmentService._cleanText(
+        json['output_locale'] ?? json['outputLocale'] ?? 'en',
+      ),
       meaningfulTitle: TranscriptEnrichmentService._cleanText(
         json['meaningful_title'],
       ),
@@ -311,8 +319,12 @@ class TranscriptEnrichmentResult {
     ).hasMatch(text)) {
       return false;
     }
-    final words = text
-        .split(RegExp(r'[^a-z0-9]+', caseSensitive: false))
+    if (RegExp(r'[\u3040-\u30ff\u3400-\u9fff]').hasMatch(text)) {
+      return true;
+    }
+    final words = RegExp(r'''[^\s.,!?;:'"()\[\]{}…、。！？]+''', unicode: true)
+        .allMatches(text)
+        .map((match) => match.group(0) ?? '')
         .where((word) => word.length >= 2)
         .length;
     return words >= minWords;
@@ -321,7 +333,7 @@ class TranscriptEnrichmentResult {
   static bool _sameLooseText(String a, String b) {
     String normalize(String value) => value
         .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'''[\s.,!?;:'"()\[\]{}…、。！？・]+'''), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/dev_simulation_providers.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../rediscover/journey_visual.dart';
@@ -87,7 +88,7 @@ class RediscoverySection extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Rediscover',
+                            context.l10n.rediscover,
                             style: tt.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: cs.onSurface,
@@ -96,7 +97,7 @@ class RediscoverySection extends ConsumerWidget {
                           ),
                           const SizedBox(height: 1),
                           Text(
-                            'Worth picking back up',
+                            context.l10n.rediscoverSubtitle,
                             style: tt.labelSmall?.copyWith(
                               fontSize: 10,
                               color: cs.onSurfaceVariant,
@@ -252,14 +253,14 @@ class _RediscoverTip extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Rediscover chooses a few memories worth returning to each day.',
+              context.l10n.rediscoverTip,
               style: tt.bodySmall?.copyWith(color: cs.onSurface, height: 1.3),
             ),
           ),
           const SizedBox(width: 6),
           IconButton(
             onPressed: onDismiss,
-            tooltip: 'Dismiss Rediscover tip',
+            tooltip: context.l10n.dismissRediscoverTip,
             icon: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
           ),
         ],
@@ -280,32 +281,41 @@ class _RediscoverJourneyCard extends StatelessWidget {
       journey: memory.journey,
       title: memory.homeCopy.title,
       supportingText: memory.homeCopy.subtitle,
-      metadata: _metadataLine(memory),
+      metadata: _metadataLine(context, memory),
       height: height,
     );
   }
 
-  String _metadataLine(RediscoverMemory memory) {
+  String _metadataLine(BuildContext context, RediscoverMemory memory) {
+    final strings = context.l10n;
+    final waiting = memory.unopenedCount == 0
+        ? strings.ready
+        : strings.waitingCount(memory.unopenedCount);
     if (memory.journey.kind == RediscoverJourneyKind.returningTopic) {
-      return 'Back in view · ${memory.waitingLabel}';
+      return '${strings.backInView} · $waiting';
     }
     final dates = [
       for (final item in memory.journey.items)
         item.url.openedAt ?? item.url.resurfacedAt ?? item.url.savedAt,
     ]..sort((a, b) => b.compareTo(a));
-    final opened = dates.isEmpty ? 'recently' : _timeAgo(dates.first);
-    return '${memory.waitingLabel} · $opened';
+    final opened = dates.isEmpty
+        ? strings.justNow
+        : _timeAgo(context, dates.first);
+    return '$waiting · $opened';
   }
 
-  String _timeAgo(DateTime date) {
+  String _timeAgo(BuildContext context, DateTime date) {
+    final strings = context.l10n;
     final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
-    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
-    return '${(diff.inDays / 365).floor()}y ago';
+    if (diff.inMinutes < 1) return strings.justNow;
+    if (diff.inMinutes < 60) return strings.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return strings.hoursAgo(diff.inHours);
+    if (diff.inDays == 1) return strings.yesterday;
+    if (diff.inDays < 7) return strings.daysAgo(diff.inDays);
+    if (diff.inDays < 30) return strings.weeksAgo((diff.inDays / 7).floor());
+    if (diff.inDays < 365) {
+      return strings.monthsAgo((diff.inDays / 30).floor());
+    }
+    return strings.yearsAgo((diff.inDays / 365).floor());
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
 import 'library_entity.dart';
 
 class LibraryReadingProgressCard extends StatelessWidget {
@@ -50,7 +51,7 @@ class LibraryReadingProgressCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Your bookmark',
+                        context.l10n.yourBookmark,
                         style: tt.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -58,8 +59,12 @@ class LibraryReadingProgressCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         currentPage == null
-                            ? _pageCountLabel(pageCount)
-                            : _currentPageLabel(currentPage, pageCount),
+                            ? _pageCountLabel(context, pageCount)
+                            : _currentPageLabel(
+                                context,
+                                currentPage,
+                                pageCount,
+                              ),
                         style: tt.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -87,7 +92,9 @@ class LibraryReadingProgressCard extends StatelessWidget {
                 onPressed: () => _choosePage(context),
                 icon: const Icon(Icons.bookmark_add_outlined),
                 label: Text(
-                  currentPage == null ? 'Set current page' : 'Update page',
+                  currentPage == null
+                      ? context.l10n.setCurrentPage
+                      : context.l10n.updatePage,
                 ),
               ),
             ),
@@ -109,13 +116,18 @@ class LibraryReadingProgressCard extends StatelessWidget {
     await onPageChanged(page);
   }
 
-  static String _pageCountLabel(int? pageCount) => pageCount == null
-      ? 'Save the page you’re on'
-      : 'Save your place · about $pageCount pages';
+  static String _pageCountLabel(BuildContext context, int? pageCount) =>
+      pageCount == null
+      ? context.l10n.savePageYouAreOn
+      : context.l10n.savePlaceAboutPages(pageCount);
 
-  static String _currentPageLabel(int currentPage, int? pageCount) {
-    if (pageCount == null) return 'Page $currentPage';
-    return 'Page $currentPage · about $pageCount pages';
+  static String _currentPageLabel(
+    BuildContext context,
+    int currentPage,
+    int? pageCount,
+  ) {
+    if (pageCount == null) return context.l10n.pageNumber(currentPage);
+    return context.l10n.pageAboutPages(pageCount, currentPage);
   }
 }
 
@@ -162,14 +174,14 @@ class _ReadingPageSheetState extends State<_ReadingPageSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Update your bookmark',
+            context.l10n.updateYourBookmark,
             style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 5),
           Text(
             widget.entity.pageCount == null
                 ? widget.entity.title
-                : '${widget.entity.title} · about ${widget.entity.pageCount} pages',
+                : '${widget.entity.title} · ${context.l10n.aboutPages(widget.entity.pageCount!)}',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
@@ -184,8 +196,8 @@ class _ReadingPageSheetState extends State<_ReadingPageSheet> {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             maxLength: 5,
             decoration: InputDecoration(
-              labelText: 'Current page',
-              hintText: 'Enter a page number',
+              labelText: context.l10n.currentPage,
+              hintText: context.l10n.enterPageNumber,
               errorText: _errorText,
               counterText: '',
               prefixIcon: const Icon(Icons.bookmark_outline_rounded),
@@ -197,7 +209,7 @@ class _ReadingPageSheetState extends State<_ReadingPageSheet> {
             width: double.infinity,
             child: FilledButton(
               onPressed: _save,
-              child: const Text('Save bookmark'),
+              child: Text(context.l10n.saveBookmark),
             ),
           ),
         ],
@@ -208,7 +220,7 @@ class _ReadingPageSheetState extends State<_ReadingPageSheet> {
   void _save() {
     final page = int.tryParse(_controller.text.trim());
     if (page == null || page < 1) {
-      setState(() => _errorText = 'Enter a page number greater than zero');
+      setState(() => _errorText = context.l10n.pageGreaterThanZero);
       return;
     }
     Navigator.pop(context, page);

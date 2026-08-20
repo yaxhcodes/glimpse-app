@@ -73,4 +73,12 @@ void main() {
       'PhosphorFill',
     );
   });
+
+  test('language setting uses the Phosphor icon family', () {
+    expect(AppIcons.language.fontFamily, 'PhosphorRegular');
+    expect(
+      AppIcons.filledVariant(AppIcons.language).fontFamily,
+      'PhosphorFill',
+    );
+  });
 }

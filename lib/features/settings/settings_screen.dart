@@ -34,6 +34,7 @@ import '../../shared/widgets/music_provider_sheet.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
 import 'bin_provider.dart';
+import '../../l10n/l10n.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -56,25 +57,78 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _chooseLanguage() async {
+    final current = ref.read(appLocaleProvider).preference;
+    final selected = await showModalBottomSheet<AppLanguage>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final strings = sheetContext.l10n;
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: Text(
+                    strings.chooseLanguage,
+                    style: Theme.of(sheetContext).textTheme.titleLarge,
+                  ),
+                ),
+                for (final language in AppLanguage.values)
+                  ListTile(
+                    leading: Icon(
+                      language == current
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                    ),
+                    title: Text(_languageLabel(strings, language)),
+                    onTap: () => Navigator.pop(sheetContext, language),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (selected != null && mounted) {
+      await ref.read(appLocaleProvider.notifier).setLanguage(selected);
+    }
+  }
+
+  String _languageLabel(AppLocalizations strings, AppLanguage language) =>
+      switch (language) {
+        AppLanguage.system => strings.languageSystem,
+        AppLanguage.english => strings.languageEnglish,
+        AppLanguage.japanese => strings.languageJapanese,
+        AppLanguage.spanish => strings.languageSpanish,
+        AppLanguage.french => strings.languageFrench,
+        AppLanguage.portugueseBrazil => strings.languagePortugueseBrazil,
+      };
+
   Future<void> _clearData() async {
+    final strings = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear All Data?'),
-        content: const Text(
-          'This will permanently delete all saved URLs. This cannot be undone.',
-        ),
+        title: Text(strings.clearAllDataQuestion),
+        content: Text(strings.clearAllDataWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('Delete All'),
+            child: Text(strings.deleteAll),
           ),
         ],
       ),
@@ -95,8 +149,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(
-              content: Text('All data cleared'),
+            SnackBar(
+              content: Text(strings.allDataCleared),
               behavior: SnackBarBehavior.floating,
               duration: Duration(seconds: 3),
             ),
@@ -106,21 +160,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _logout() async {
+    final strings = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Log out?'),
-        content: const Text(
-          'You’ll need to sign in again to access your Glimpse account.',
-        ),
+        title: Text(strings.logOutQuestion),
+        content: Text(strings.logOutWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Log out'),
+            child: Text(strings.logOut),
           ),
         ],
       ),
@@ -133,19 +186,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _requestAccountDeletion() async {
+    final strings = context.l10n;
     final isPro = ref.read(isProUserProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete account?'),
+        title: Text(strings.deleteAccountQuestion),
         content: Text(
           isPro
-              ? 'This removes your Glimpse account metadata but does not cancel '
-                    'store billing. Pro cannot be moved to another Glimpse '
-                    'account, so manage your subscription before deleting. '
-                    'Your on-device library is not uploaded to Supabase.'
-              : 'This removes your Glimpse account metadata. Your on-device '
-                    'library is not uploaded to Supabase.',
+              ? strings.deleteAccountProWarning
+              : strings.deleteAccountFreeWarning,
         ),
         actions: [
           if (isPro)
@@ -154,18 +204,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Navigator.pop(dialogContext, false);
                 context.push('/settings/subscription');
               },
-              child: const Text('Manage subscription'),
+              child: Text(strings.manageSubscription),
             ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
-            child: const Text('Delete account'),
+            child: Text(strings.deleteAccount),
           ),
         ],
       ),
@@ -178,8 +228,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Account deleted'),
+          SnackBar(
+            content: Text(strings.accountDeleted),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -210,18 +260,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final accountUser = authState.valueOrNull;
     final isPro = ref.watch(isProUserProvider);
     final musicPreference = ref.watch(musicProviderPreferenceProvider);
+    final strings = context.l10n;
+    final localeState = ref.watch(appLocaleProvider);
     final aiSaveRemaining = ref.watch(
       remainingUsageProvider(UsageFeature.aiSave),
     );
     final planSubtitle = isPro
-        ? 'Manage your plan'
+        ? strings.manageYourPlan
         : aiSaveRemaining.when(
-            data: (remaining) {
-              final label = remaining == 1 ? 'AI save' : 'AI saves';
-              return '$remaining $label left this month';
-            },
-            loading: () => 'Checking save allowance',
-            error: (_, _) => 'Manage your plan',
+            data: strings.aiSavesLeft,
+            loading: () => strings.checkingSaveAllowance,
+            error: (_, _) => strings.manageYourPlan,
           );
     final binCount = ref.watch(binCountProvider).valueOrNull;
 
@@ -233,7 +282,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             backgroundColor: cs.surface,
             foregroundColor: cs.onSurface,
             title: Text(
-              'Settings',
+              strings.settings,
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -244,7 +293,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // ─── Account & plan ──────────────────────
-                const SettingsGroupLabel('Account & plan'),
+                SettingsGroupLabel(strings.accountAndPlan),
                 SettingsGroup(
                   children: [
                     _AccountIdentityTile(
@@ -286,24 +335,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
 
                 // ─── Personalization ─────────────────────
-                const SettingsGroupLabel('Personalization'),
+                SettingsGroupLabel(strings.personalization),
                 SettingsGroup(
                   children: [
                     SettingsTile(
                       icon: AppIcons.appearance,
                       iconColor: SettingsAccents.violet,
-                      title: 'Look & Feel',
-                      subtitle: 'Theme and accent color',
+                      title: strings.lookAndFeel,
+                      subtitle: strings.themeAndAccent,
                       onTap: () => context.push('/settings/look-and-feel'),
+                    ),
+                    SettingsTile(
+                      icon: AppIcons.language,
+                      iconColor: SettingsAccents.blue,
+                      title: strings.language,
+                      subtitle: _languageLabel(strings, localeState.preference),
+                      onTap: _chooseLanguage,
                     ),
                     SettingsTile(
                       icon: AppIcons.musicProvider,
                       iconColor: SettingsAccents.rose,
-                      title: 'Music app',
+                      title: strings.musicApp,
                       subtitle: musicPreference.isLoaded
                           ? musicPreference.provider?.label ??
-                                'Choose where songs open'
-                          : 'Loading preference',
+                                strings.chooseWhereSongsOpen
+                          : strings.loadingPreference,
                       onTap: _chooseMusicProvider,
                     ),
                   ],
@@ -311,38 +367,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
 
                 // ─── Library gestures ────────────────────
-                const SettingsGroupLabel('Library gestures'),
+                SettingsGroupLabel(strings.libraryGestures),
                 const _SwipeActionsGroup(),
                 const SizedBox(height: 24),
 
                 // ─── Notifications ───────────────────────
-                const SettingsGroupLabel('Notifications'),
+                SettingsGroupLabel(strings.notifications),
                 const SettingsGroup(children: [_DigestToggle()]),
                 const SizedBox(height: 24),
 
                 // ─── Privacy & data ──────────────────────
-                const SettingsGroupLabel('Privacy & data'),
+                SettingsGroupLabel(strings.privacyAndData),
                 SettingsGroup(
                   children: [
                     SettingsTile(
                       icon: AppIcons.privacy,
                       iconColor: SettingsAccents.indigo,
-                      title: 'Privacy',
-                      subtitle: 'What stays local and what is uploaded',
+                      title: strings.privacy,
+                      subtitle: strings.privacySubtitle,
                       onTap: () => context.push('/settings/privacy'),
                     ),
                     SettingsTile(
                       icon: AppIcons.backup,
                       iconColor: SettingsAccents.green,
-                      title: 'Data & Backup',
-                      subtitle: 'Protect and restore your saved knowledge',
+                      title: strings.dataAndBackup,
+                      subtitle: strings.dataAndBackupSubtitle,
                       onTap: () => context.push('/settings/data-backup'),
                     ),
                     SettingsTile(
                       icon: AppIcons.clearData,
                       iconColor: SettingsAccents.rose,
-                      title: 'Bin',
-                      subtitle: 'Deleted items are kept for 30 days',
+                      title: strings.bin,
+                      subtitle: strings.binSubtitle,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -368,8 +424,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       icon: AppIcons.clearData,
                       iconColor: cs.error,
                       destructive: true,
-                      title: 'Clear All Data',
-                      subtitle: 'Permanently delete all saved links',
+                      title: strings.clearAllData,
+                      subtitle: strings.clearAllDataSubtitle,
                       trailing: const SizedBox.shrink(),
                       onTap: _clearData,
                     ),
@@ -378,14 +434,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
 
                 // ─── About ───────────────────────────────
-                const SettingsGroupLabel('About'),
+                SettingsGroupLabel(strings.about),
                 SettingsGroup(
                   children: [
                     SettingsTile(
                       icon: AppIcons.about,
                       iconColor: SettingsAccents.indigo,
-                      title: 'About Glimpse',
-                      subtitle: 'Version, legal & help',
+                      title: strings.aboutGlimpse,
+                      subtitle: strings.aboutSubtitle,
                       trailing: const _VersionTrailing(),
                       onTap: () => context.push('/settings/about'),
                     ),
@@ -394,24 +450,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
 
                 // ─── Account actions ─────────────────────
-                const SettingsGroupLabel('Account actions'),
+                SettingsGroupLabel(strings.accountActions),
                 SettingsGroup(
                   children: [
                     SettingsTile(
                       icon: AppIcons.logout,
                       iconColor: SettingsAccents.blue,
-                      title: 'Log out',
-                      subtitle: 'Sign out of this device',
+                      title: strings.logOut,
+                      subtitle: strings.logOutSubtitle,
                       onTap: _logout,
                     ),
                     SettingsTile(
                       icon: AppIcons.deleteAccount,
                       iconColor: cs.error,
                       destructive: true,
-                      title: 'Delete account',
+                      title: strings.deleteAccount,
                       subtitle: _isDeletingAccount
-                          ? 'Deleting your account…'
-                          : 'Request account deletion',
+                          ? strings.deletingAccount
+                          : strings.deleteAccountSubtitle,
                       trailing: _isDeletingAccount
                           ? const SizedBox.square(
                               dimension: 20,
@@ -625,6 +681,7 @@ class _SwipeActionsGroup extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final prefs = ref.watch(swipePreferencesProvider);
+    final strings = context.l10n;
 
     return SettingsGroup(
       children: [
@@ -635,8 +692,8 @@ class _SwipeActionsGroup extends ConsumerWidget {
             filled: true,
           ),
           iconColor: SettingsAccents.rose,
-          title: 'Left swipe',
-          subtitle: prefs.leftSwipeAction.label,
+          title: strings.leftSwipe,
+          subtitle: _localizedSwipeActionLabel(strings, prefs.leftSwipeAction),
           onTap: () async {
             final action = await _pickSwipeAction(
               context,
@@ -654,8 +711,8 @@ class _SwipeActionsGroup extends ConsumerWidget {
             filled: true,
           ),
           iconColor: SettingsAccents.teal,
-          title: 'Right swipe',
-          subtitle: prefs.rightSwipeAction.label,
+          title: strings.rightSwipe,
+          subtitle: _localizedSwipeActionLabel(strings, prefs.rightSwipeAction),
           onTap: () async {
             final action = await _pickSwipeAction(
               context,
@@ -702,7 +759,7 @@ class _SwipeActionSheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
             child: Text(
-              'Choose swipe action',
+              context.l10n.chooseSwipeAction,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -763,7 +820,7 @@ class _SwipeActionOption extends StatelessWidget {
             const SizedBox(width: 16),
             Expanded(
               child: Text(
-                action.label,
+                _localizedSwipeActionLabel(context.l10n, action),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
@@ -824,8 +881,8 @@ class _DigestToggleState extends ConsumerState<_DigestToggle> {
     return SettingsTile(
       icon: AppIcons.smartNotifications,
       iconColor: SettingsAccents.amber,
-      title: 'Smart notifications',
-      subtitle: 'Behavior-based alerts',
+      title: context.l10n.smartNotifications,
+      subtitle: context.l10n.behaviorBasedAlerts,
       onTap: _loaded ? () => _set(!_enabled) : null,
       trailing: Switch(
         value: _enabled,
@@ -835,6 +892,19 @@ class _DigestToggleState extends ConsumerState<_DigestToggle> {
     );
   }
 }
+
+String _localizedSwipeActionLabel(
+  AppLocalizations strings,
+  SwipeActionType action,
+) => switch (action) {
+  SwipeActionType.delete => strings.delete,
+  SwipeActionType.toggleRead => strings.markReadUnread,
+  SwipeActionType.addToCollection => strings.addToCollection,
+  SwipeActionType.pin => strings.pin,
+  SwipeActionType.askGlimpse => strings.askGlimpse,
+  SwipeActionType.share => strings.share,
+  SwipeActionType.none => strings.none,
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Developer section (dev context only)

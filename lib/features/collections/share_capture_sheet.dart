@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
@@ -129,7 +130,7 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Saving to',
+              context.l10n.savingTo,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
@@ -153,7 +154,7 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
                     Expanded(
                       child: Text(
                         _hasCollections == false
-                            ? 'New collection'
+                            ? context.l10n.newCollection
                             : _defaultCollection?.name ??
                                   _defaultCollectionName,
                         style: theme.textTheme.titleMedium,
@@ -181,8 +182,8 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
                 const SizedBox(width: 10),
                 Text(
                   _choosingCollection
-                      ? 'Choose a collection'
-                      : 'Processing link...',
+                      ? context.l10n.chooseACollection
+                      : context.l10n.processingLink,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -257,7 +258,10 @@ class _CollectionPickerSheet extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Choose collection', style: theme.textTheme.titleLarge),
+            Text(
+              context.l10n.chooseCollection,
+              style: theme.textTheme.titleLarge,
+            ),
             const SizedBox(height: 12),
             FilledButton.tonalIcon(
               onPressed: () async {
@@ -269,7 +273,7 @@ class _CollectionPickerSheet extends ConsumerWidget {
                 }
               },
               icon: const Icon(Icons.add_rounded),
-              label: const Text('New collection'),
+              label: Text(context.l10n.newCollection),
             ),
             const SizedBox(height: 8),
             if (allowNoCollection) ...[
@@ -279,7 +283,7 @@ class _CollectionPickerSheet extends ConsumerWidget {
                   Icons.folder_off_outlined,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
-                title: const Text('No Collection'),
+                title: Text(context.l10n.noCollection),
                 trailing: selectedCollectionId == null
                     ? Icon(
                         Icons.check_rounded,
@@ -298,9 +302,9 @@ class _CollectionPickerSheet extends ConsumerWidget {
                 padding: EdgeInsets.all(24),
                 child: Center(child: ExpressiveLoadingIndicator()),
               ),
-              error: (_, _) => const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('Could not load collections.'),
+              error: (_, _) => Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(context.l10n.couldNotLoadCollections),
               ),
               data: (items) => SizedBox(
                 height: (items.length * 56.0).clamp(56, 336),
@@ -318,7 +322,9 @@ class _CollectionPickerSheet extends ConsumerWidget {
                         iconSize: 18,
                       ),
                       title: Text(collection.name),
-                      subtitle: Text('${collection.urlIds.length} links'),
+                      subtitle: Text(
+                        context.l10n.linkCount(collection.urlIds.length),
+                      ),
                       trailing: selectedCollectionId == collection.id
                           ? Icon(
                               Icons.check_rounded,

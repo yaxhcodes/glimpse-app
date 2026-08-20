@@ -5,6 +5,7 @@ import '../../shared/theme/app_layout.dart';
 import '../../shared/theme/app_motion.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_provider.dart';
+import '../../l10n/l10n.dart';
 import 'settings_components.dart';
 
 class LookAndFeelScreen extends ConsumerWidget {
@@ -15,6 +16,7 @@ class LookAndFeelScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final amoledSurfaces = ref.watch(amoledSurfacesProvider);
     final accent = ref.watch(accentColorProvider);
+    final strings = context.l10n;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final lightOnly = themeMode == ThemeMode.light;
@@ -30,7 +32,7 @@ class LookAndFeelScreen extends ConsumerWidget {
             backgroundColor: cs.surface,
             foregroundColor: cs.onSurface,
             title: Text(
-              'Look & feel',
+              strings.lookAndFeel,
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -44,13 +46,13 @@ class LookAndFeelScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // ─── Brightness ──────────────────────────
-                const SettingsGroupLabel('Brightness'),
+                SettingsGroupLabel(strings.brightness),
                 _Panel(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Choose when to use light or dark colors.',
+                        strings.brightnessDescription,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
                           height: 1.3,
@@ -60,21 +62,21 @@ class LookAndFeelScreen extends ConsumerWidget {
                       SizedBox(
                         width: double.infinity,
                         child: SegmentedButton<ThemeMode>(
-                          segments: const [
+                          segments: [
                             ButtonSegment(
                               value: ThemeMode.system,
-                              icon: AppIcon(AppIcons.automaticTheme),
-                              label: Text('System'),
+                              icon: const AppIcon(AppIcons.automaticTheme),
+                              label: Text(strings.systemTheme),
                             ),
                             ButtonSegment(
                               value: ThemeMode.light,
-                              icon: AppIcon(AppIcons.lightTheme),
-                              label: Text('Light'),
+                              icon: const AppIcon(AppIcons.lightTheme),
+                              label: Text(strings.lightTheme),
                             ),
                             ButtonSegment(
                               value: ThemeMode.dark,
-                              icon: AppIcon(AppIcons.darkTheme),
-                              label: Text('Dark'),
+                              icon: const AppIcon(AppIcons.darkTheme),
+                              label: Text(strings.darkTheme),
                             ),
                           ],
                           selected: {themeMode},
@@ -95,10 +97,10 @@ class LookAndFeelScreen extends ConsumerWidget {
                       iconColor: lightOnly
                           ? cs.onSurfaceVariant
                           : SettingsAccents.indigo,
-                      title: 'AMOLED black',
+                      title: strings.amoledBlack,
                       subtitle: lightOnly
-                          ? 'Available when not using light theme.'
-                          : 'Pure black backgrounds on OLED — saves power.',
+                          ? strings.amoledUnavailable
+                          : strings.amoledDescription,
                       onTap: lightOnly
                           ? null
                           : () => ref
@@ -119,14 +121,13 @@ class LookAndFeelScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // ─── Accent color ────────────────────────
-                const SettingsGroupLabel('Accent color'),
+                SettingsGroupLabel(strings.accentColor),
                 _Panel(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Dynamic uses your wallpaper palette on supported '
-                        'devices.',
+                        strings.dynamicAccentDescription,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
                           height: 1.3,
@@ -154,7 +155,9 @@ class LookAndFeelScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Selected: ${accent.label}',
+                        strings.selectedAccent(
+                          _localizedAccentLabel(strings, accent),
+                        ),
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: cs.onSurfaceVariant,
                           fontWeight: FontWeight.w500,
@@ -234,7 +237,7 @@ class _ThemePreviewStrip extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Theme preview',
+                      context.l10n.themePreview,
                       style: tt.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: colorScheme.onPrimaryContainer,
@@ -242,7 +245,7 @@ class _ThemePreviewStrip extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Accent and surfaces update from your choices below.',
+                      context.l10n.themePreviewDescription,
                       style: tt.bodySmall?.copyWith(
                         color: colorScheme.onPrimaryContainer.withValues(
                           alpha: 0.7,
@@ -342,7 +345,7 @@ class _AccentSwatch extends StatelessWidget {
     }
 
     return Tooltip(
-      message: accent.label,
+      message: _localizedAccentLabel(context.l10n, accent),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
@@ -420,3 +423,21 @@ class _AccentSwatch extends StatelessWidget {
     );
   }
 }
+
+String _localizedAccentLabel(AppLocalizations strings, AppAccentColor accent) =>
+    switch (accent) {
+      AppAccentColor.dynamic => strings.accentDynamic,
+      AppAccentColor.purple => strings.accentPurple,
+      AppAccentColor.blue => strings.accentBlue,
+      AppAccentColor.teal => strings.accentTeal,
+      AppAccentColor.green => strings.accentGreen,
+      AppAccentColor.lime => strings.accentLime,
+      AppAccentColor.yellow => strings.accentYellow,
+      AppAccentColor.orange => strings.accentOrange,
+      AppAccentColor.red => strings.accentRed,
+      AppAccentColor.pink => strings.accentPink,
+      AppAccentColor.sakura => strings.accentSakura,
+      AppAccentColor.indigo => strings.accentIndigo,
+      AppAccentColor.slate => strings.accentSlate,
+      AppAccentColor.monochrome => strings.accentMonochrome,
+    };

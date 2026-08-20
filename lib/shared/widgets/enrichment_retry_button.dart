@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import 'expressive_loading_indicator.dart';
 
 class EnrichmentRetryButton extends StatelessWidget {
@@ -9,8 +10,8 @@ class EnrichmentRetryButton extends StatelessWidget {
     required this.onPressed,
     this.color,
     this.icon = Icons.auto_awesome_rounded,
-    this.label = 'Retry',
-    this.retryingLabel = 'Retrying',
+    this.label,
+    this.retryingLabel,
     this.tonal = false,
   });
 
@@ -18,8 +19,8 @@ class EnrichmentRetryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Color? color;
   final IconData? icon;
-  final String label;
-  final String retryingLabel;
+  final String? label;
+  final String? retryingLabel;
   final bool tonal;
 
   @override
@@ -39,7 +40,11 @@ class EnrichmentRetryButton extends StatelessWidget {
         else if (icon != null)
           Icon(icon, size: 16),
         if (retrying || icon != null) const SizedBox(width: 6),
-        Text(retrying ? retryingLabel : label),
+        Text(
+          retrying
+              ? retryingLabel ?? context.l10n.retrying
+              : label ?? context.l10n.retry,
+        ),
       ],
     );
 

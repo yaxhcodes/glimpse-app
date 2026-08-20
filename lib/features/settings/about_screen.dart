@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_assets.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import 'settings_components.dart';
@@ -10,9 +11,9 @@ import 'settings_components.dart';
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
-  Future<String> _versionString() async {
+  Future<String> _versionString(AppLocalizations strings) async {
     final info = await PackageInfo.fromPlatform();
-    return 'Version ${info.version} (Build ${info.buildNumber})';
+    return strings.versionBuild(info.buildNumber, info.version);
   }
 
   Future<void> _openUrl(String url) async {
@@ -38,7 +39,7 @@ class AboutScreen extends StatelessWidget {
             backgroundColor: cs.surface,
             foregroundColor: cs.onSurface,
             title: Text(
-              'About',
+              context.l10n.about,
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -68,7 +69,7 @@ class AboutScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 Center(
                   child: Text(
-                    'Glimpse',
+                    context.l10n.appName,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -77,7 +78,7 @@ class AboutScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Center(
                   child: Text(
-                    'Save something worth keeping',
+                    context.l10n.aboutTagline,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -86,9 +87,9 @@ class AboutScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Center(
                   child: FutureBuilder<String>(
-                    future: _versionString(),
+                    future: _versionString(context.l10n),
                     builder: (context, snapshot) {
-                      final text = snapshot.data ?? 'Loading version…';
+                      final text = snapshot.data ?? context.l10n.loadingVersion;
                       return Text(
                         text,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -101,20 +102,20 @@ class AboutScreen extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 // ── Legal ──
-                const SettingsGroupLabel('Legal'),
+                SettingsGroupLabel(context.l10n.legal),
                 SettingsGroup(
                   children: [
                     SettingsTile(
                       icon: AppIcons.terms,
                       iconColor: SettingsAccents.indigo,
-                      title: 'Terms of Service',
+                      title: context.l10n.termsOfService,
                       trailing: const _OpenLinkIcon(),
                       onTap: () => _openUrl('https://www.getglimpse.xyz/terms'),
                     ),
                     SettingsTile(
                       icon: AppIcons.privacy,
                       iconColor: SettingsAccents.green,
-                      title: 'Privacy Policy',
+                      title: context.l10n.privacyPolicy,
                       trailing: const _OpenLinkIcon(),
                       onTap: () =>
                           _openUrl('https://www.getglimpse.xyz/privacy'),
@@ -124,13 +125,13 @@ class AboutScreen extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // ── Help ──
-                const SettingsGroupLabel('Help'),
+                SettingsGroupLabel(context.l10n.help),
                 SettingsGroup(
                   children: [
                     SettingsTile(
                       icon: AppIcons.help,
                       iconColor: SettingsAccents.blue,
-                      title: 'FAQ',
+                      title: context.l10n.faq,
                       trailing: const _OpenLinkIcon(),
                       onTap: () => _openUrl('https://www.getglimpse.xyz/faq'),
                     ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
+
 class ContentAttributionDisclaimer extends StatelessWidget {
   const ContentAttributionDisclaimer({super.key});
 
@@ -11,16 +13,18 @@ class ContentAttributionDisclaimer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final localizedAccuracy = context.l10n.informationMayBeInaccurate;
+    final localizedAttribution = context.l10n.originalContentAttribution;
 
     return Semantics(
       container: true,
-      label: message,
+      label: '$localizedAccuracy. $localizedAttribution',
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            accuracyText,
+            localizedAccuracy,
             style: theme.textTheme.labelMedium?.copyWith(
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
               fontSize: 12,
@@ -30,7 +34,7 @@ class ContentAttributionDisclaimer extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            attributionText,
+            localizedAttribution,
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.58),
               fontSize: 11.5,

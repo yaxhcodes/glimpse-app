@@ -15,55 +15,58 @@ import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../collections/collections_provider.dart';
 import 'search_provider.dart';
+import '../../l10n/l10n.dart';
 
 /// Date filter options.
-enum DateFilter {
-  all('All time'),
-  today('Today'),
-  thisWeek('This week'),
-  thisMonth('This month');
+enum DateFilter { all, today, thisWeek, thisMonth }
 
-  final String label;
-  const DateFilter(this.label);
-}
+enum SearchStatusFilter { all, unread, read }
 
-enum SearchStatusFilter {
-  all('All'),
-  unread('Unread'),
-  read('Read');
+enum SearchNotesFilter { all, withNotes, withoutNotes }
 
-  final String label;
-  const SearchStatusFilter(this.label);
-}
+enum SearchCollectionFilterMode { all, inCollection, notInCollection, specific }
 
-enum SearchNotesFilter {
-  all('All'),
-  withNotes('Has notes'),
-  withoutNotes('No notes');
+enum SearchSortMode { relevance, newest, oldest, recentlyOpened }
 
-  final String label;
-  const SearchNotesFilter(this.label);
-}
+String _dateFilterLabel(BuildContext context, DateFilter value) =>
+    switch (value) {
+      DateFilter.all => context.l10n.allTime,
+      DateFilter.today => context.l10n.today,
+      DateFilter.thisWeek => context.l10n.thisWeek,
+      DateFilter.thisMonth => context.l10n.thisMonth,
+    };
 
-enum SearchCollectionFilterMode {
-  all('All'),
-  inCollection('In a collection'),
-  notInCollection('Not in a collection'),
-  specific('Specific collection');
+String _statusFilterLabel(BuildContext context, SearchStatusFilter value) =>
+    switch (value) {
+      SearchStatusFilter.all => context.l10n.all,
+      SearchStatusFilter.unread => context.l10n.unread,
+      SearchStatusFilter.read => context.l10n.read,
+    };
 
-  final String label;
-  const SearchCollectionFilterMode(this.label);
-}
+String _notesFilterLabel(BuildContext context, SearchNotesFilter value) =>
+    switch (value) {
+      SearchNotesFilter.all => context.l10n.all,
+      SearchNotesFilter.withNotes => context.l10n.hasNotes,
+      SearchNotesFilter.withoutNotes => context.l10n.noNotes,
+    };
 
-enum SearchSortMode {
-  relevance('Relevance'),
-  newest('Newest saved'),
-  oldest('Oldest saved'),
-  recentlyOpened('Recently opened');
+String _collectionFilterLabel(
+  BuildContext context,
+  SearchCollectionFilterMode value,
+) => switch (value) {
+  SearchCollectionFilterMode.all => context.l10n.all,
+  SearchCollectionFilterMode.inCollection => context.l10n.inCollection,
+  SearchCollectionFilterMode.notInCollection => context.l10n.notInCollection,
+  SearchCollectionFilterMode.specific => context.l10n.specificCollection,
+};
 
-  final String label;
-  const SearchSortMode(this.label);
-}
+String _sortLabel(BuildContext context, SearchSortMode value) =>
+    switch (value) {
+      SearchSortMode.relevance => context.l10n.relevance,
+      SearchSortMode.newest => context.l10n.newestSaved,
+      SearchSortMode.oldest => context.l10n.oldestSaved,
+      SearchSortMode.recentlyOpened => context.l10n.recentlyOpened,
+    };
 
 class _SearchFilters {
   const _SearchFilters({
@@ -383,7 +386,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           leading: selectionState.isActive
               ? IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Exit selection',
+                  tooltip: context.l10n.exitSelection,
                   onPressed: selectionNotifier.clear,
                 )
               : null,
@@ -415,7 +418,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         controller: _controller,
                         focusNode: _searchFocus,
                         autofocus: true,
-                        hint: 'Search your library…',
+                        hint: context.l10n.searchYourLibrary,
                         onChanged: _onQueryChanged,
                         onClear: query.isNotEmpty
                             ? () {
@@ -449,7 +452,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             ),
                             const SizedBox(height: 18),
                             Text(
-                              'Find anything you saved',
+                              context.l10n.findAnythingSaved,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: -0.2,
@@ -458,8 +461,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Search across titles, tags, notes, and '
-                              'summaries — then narrow the view.',
+                              context.l10n.searchEmptyDescription,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: colorScheme.onSurfaceVariant.withValues(
                                   alpha: 0.8,
@@ -473,7 +475,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                     )
                   : _pendingSearch || resultsAsync.isLoading
-                  ? const LoadingIndicator(message: 'Searching your library…')
+                  ? LoadingIndicator(message: context.l10n.searchingLibrary)
                   : resultsAsync.when(
                       data: (_) {
                         final filtered = visibleResults;
@@ -521,7 +523,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            'Semantic match',
+                                            context.l10n.semanticMatch,
                                             style: theme.textTheme.labelLarge
                                                 ?.copyWith(
                                                   color: colorScheme
@@ -553,15 +555,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                             ),
                                             const SizedBox(height: 16),
                                             Text(
-                                              'No matches for this filter',
+                                              context.l10n.noMatchesForFilter,
                                               style:
                                                   theme.textTheme.titleMedium,
                                               textAlign: TextAlign.center,
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
-                                              'Try another time range or '
-                                              'broaden your search.',
+                                              context.l10n.broadenSearch,
                                               style: theme.textTheme.bodyMedium
                                                   ?.copyWith(
                                                     color: colorScheme
@@ -615,8 +616,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ],
                         );
                       },
-                      loading: () => const LoadingIndicator(
-                        message: 'Searching your library…',
+                      loading: () => LoadingIndicator(
+                        message: context.l10n.searchingLibrary,
                       ),
                       error: (err, _) {
                         final isLimit = err is UsageLimitReachedException;
@@ -636,14 +637,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 const SizedBox(height: 16),
                                 Text(
                                   isLimit
-                                      ? 'Monthly limit reached'
-                                      : 'Search failed',
+                                      ? context.l10n.monthlyLimitReached
+                                      : context.l10n.searchFailed,
                                   style: theme.textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   isLimit
-                                      ? "You've reached your monthly search limit. Upgrade to Glimpse Pro for unlimited searches."
+                                      ? context
+                                            .l10n
+                                            .monthlySearchLimitDescription
                                       : '$err',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
@@ -670,7 +673,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                     icon: const Icon(
                                       Icons.workspace_premium_outlined,
                                     ),
-                                    label: const Text('Upgrade to Pro'),
+                                    label: Text(context.l10n.upgradeToPro),
                                   )
                                 else
                                   FilledButton.tonalIcon(
@@ -683,7 +686,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       }
                                     },
                                     icon: const Icon(Icons.refresh),
-                                    label: const Text('Try again'),
+                                    label: Text(context.l10n.tryAgain),
                                   ),
                               ],
                             ),
@@ -710,7 +713,7 @@ class _FilterIconButton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Tooltip(
-      message: active ? 'Filters active' : 'Filters',
+      message: active ? context.l10n.filtersActive : context.l10n.filters,
       child: SizedBox(
         width: 54,
         height: 54,
@@ -781,7 +784,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
             Row(
               children: [
                 Text(
-                  'Filters',
+                  context.l10n.filters,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -790,43 +793,43 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                 TextButton(
                   onPressed: () =>
                       setState(() => _draft = const _SearchFilters()),
-                  child: const Text('Reset'),
+                  child: Text(context.l10n.reset),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             _FilterSection(
-              title: 'Time',
+              title: context.l10n.time,
               child: _ChoiceWrap<DateFilter>(
                 values: DateFilter.values,
                 selected: _draft.date,
-                labelFor: (value) => value.label,
+                labelFor: (value) => _dateFilterLabel(context, value),
                 onSelected: (value) =>
                     setState(() => _draft = _draft.copyWith(date: value)),
               ),
             ),
             _FilterSection(
-              title: 'Status',
+              title: context.l10n.status,
               child: _ChoiceWrap<SearchStatusFilter>(
                 values: SearchStatusFilter.values,
                 selected: _draft.status,
-                labelFor: (value) => value.label,
+                labelFor: (value) => _statusFilterLabel(context, value),
                 onSelected: (value) =>
                     setState(() => _draft = _draft.copyWith(status: value)),
               ),
             ),
             _FilterSection(
-              title: 'Notes',
+              title: context.l10n.notes,
               child: _ChoiceWrap<SearchNotesFilter>(
                 values: SearchNotesFilter.values,
                 selected: _draft.notes,
-                labelFor: (value) => value.label,
+                labelFor: (value) => _notesFilterLabel(context, value),
                 onSelected: (value) =>
                     setState(() => _draft = _draft.copyWith(notes: value)),
               ),
             ),
             _FilterSection(
-              title: 'Collections',
+              title: context.l10n.collections,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -841,7 +844,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                               .toList()
                         : SearchCollectionFilterMode.values,
                     selected: _draft.collectionMode,
-                    labelFor: (value) => value.label,
+                    labelFor: (value) => _collectionFilterLabel(context, value),
                     onSelected: (value) {
                       final firstId = widget.collections.isEmpty
                           ? null
@@ -867,9 +870,9 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                       initialValue:
                           _draft.collectionId ??
                           widget.collections.first.collection.id,
-                      decoration: const InputDecoration(
-                        labelText: 'Collection',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.collection,
+                        border: const OutlineInputBorder(),
                       ),
                       items: [
                         for (final summary in widget.collections)
@@ -890,11 +893,11 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
               ),
             ),
             _FilterSection(
-              title: 'Sort',
+              title: context.l10n.sort,
               child: _ChoiceWrap<SearchSortMode>(
                 values: SearchSortMode.values,
                 selected: _draft.sort,
-                labelFor: (value) => value.label,
+                labelFor: (value) => _sortLabel(context, value),
                 onSelected: (value) =>
                     setState(() => _draft = _draft.copyWith(sort: value)),
               ),
@@ -904,7 +907,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () => Navigator.pop(context, _draft),
-                child: const Text('Apply filters'),
+                child: Text(context.l10n.applyFilters),
               ),
             ),
           ],

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
@@ -101,7 +102,7 @@ class InterestMapView extends StatelessWidget {
           ),
           sliver: SliverList(
             delegate: SliverChildListDelegate.fixed([
-              _SectionEyebrow('Top signal'),
+              _SectionEyebrow(context.l10n.topSignal),
               ClusterCard(
                 cluster: heroCluster,
                 tier: ClusterCardTier.hero,
@@ -109,7 +110,7 @@ class InterestMapView extends StatelessWidget {
               ),
               if (medium.isNotEmpty) ...[
                 const SizedBox(height: 28),
-                _SectionEyebrow('Growing interests'),
+                _SectionEyebrow(context.l10n.growingInterests),
               ],
             ]),
           ),
@@ -131,7 +132,7 @@ class InterestMapView extends StatelessWidget {
             ),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
-                _SectionEyebrow('Quieter interests'),
+                _SectionEyebrow(context.l10n.quieterInterests),
               ]),
             ),
           ),
@@ -188,7 +189,10 @@ List<InterestCluster> _displayClustersForThemes(List<ClusterTheme> themes) {
   ].take(18).toList();
 }
 
-String _interestMapSubtitle(List<ClusterTheme> themes) {
+String _interestMapSubtitle(
+  AppLocalizations strings,
+  List<ClusterTheme> themes,
+) {
   final clusters = _displayClustersForThemes(themes);
   final totalSaveCount = {
     for (final theme in themes)
@@ -199,15 +203,17 @@ String _interestMapSubtitle(List<ClusterTheme> themes) {
     (sum, cluster) => sum + cluster.saveCount,
   );
   if (clusters.isEmpty && totalSaveCount > 0) {
-    return 'No patterns yet · $totalSaveCount saves scanned';
+    return strings.noPatternsScanned(totalSaveCount);
   }
 
-  final patternNoun = clusters.length == 1 ? 'pattern' : 'patterns';
   if (groupedSaveCount == totalSaveCount) {
-    return '${clusters.length} $patternNoun · $totalSaveCount saves';
+    return strings.interestStats(clusters.length, totalSaveCount);
   }
-  return '${clusters.length} $patternNoun · '
-      '$groupedSaveCount of $totalSaveCount saves grouped';
+  return strings.interestGroupedStats(
+    groupedSaveCount,
+    clusters.length,
+    totalSaveCount,
+  );
 }
 
 class _MasonryClusterGrid extends StatelessWidget {
@@ -762,7 +768,7 @@ class _MindmapEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Your interest map is empty',
+              context.l10n.interestMapEmpty,
               style: tt.titleSmall?.copyWith(
                 color: cs.onSurface,
                 fontWeight: FontWeight.w600,
@@ -771,7 +777,7 @@ class _MindmapEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Save at least 3 links and Glimpse will connect recurring themes across them.',
+              context.l10n.interestMapEmptyDescription,
               textAlign: TextAlign.center,
               style: tt.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -808,8 +814,8 @@ class MindmapScreen extends ConsumerWidget {
         : 0.0;
     final scrollBottomPadding = 32.0 + shellBottomInset;
     final subtitle = themesAsync.maybeWhen(
-      data: _interestMapSubtitle,
-      orElse: () => 'Learning what keeps your attention',
+      data: (themes) => _interestMapSubtitle(context.l10n, themes),
+      orElse: () => context.l10n.learningInterests,
     );
 
     return Scaffold(
@@ -822,7 +828,7 @@ class MindmapScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Interests',
+              context.l10n.interests,
               style: tt.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: cs.onSurface,
@@ -842,7 +848,7 @@ class MindmapScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Rebuild map',
+            tooltip: context.l10n.rebuildMap,
             onPressed: () async {
               HapticFeedback.lightImpact();
               await clearInterestClusterCache();
@@ -853,8 +859,7 @@ class MindmapScreen extends ConsumerWidget {
         ],
       ),
       body: themesAsync.when(
-        loading: () =>
-            const LoadingIndicator(message: 'Reading your interests...'),
+        loading: () => LoadingIndicator(message: context.l10n.readingInterests),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(28),
@@ -864,7 +869,7 @@ class MindmapScreen extends ConsumerWidget {
                 Icon(Icons.error_outline_rounded, size: 40, color: cs.error),
                 const SizedBox(height: 14),
                 Text(
-                  'Could not build clusters',
+                  context.l10n.couldNotBuildClusters,
                   style: tt.titleSmall?.copyWith(color: cs.onSurface),
                   textAlign: TextAlign.center,
                 ),
@@ -914,8 +919,8 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
     final tagFrequency = ref.watch(tagOccurrenceMapProvider);
 
     return themesAsync.when(
-      loading: () => const Scaffold(
-        body: LoadingIndicator(message: 'Opening interest...'),
+      loading: () => Scaffold(
+        body: LoadingIndicator(message: context.l10n.openingInterest),
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(),
@@ -923,7 +928,7 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
           child: Padding(
             padding: const EdgeInsets.all(28),
             child: Text(
-              'Could not open this interest.',
+              context.l10n.couldNotOpenInterest,
               style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
@@ -935,7 +940,7 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
         if (theme == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const Center(child: Text('Interest not found')),
+            body: Center(child: Text(context.l10n.interestNotFound)),
           );
         }
 
@@ -972,7 +977,7 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                 sliver: SliverList(
                   delegate: SliverChildListDelegate.fixed([
                     Text(
-                      _clusterDetailSummary(theme),
+                      _clusterDetailSummary(context, theme),
                       style: tt.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                         height: 1.35,
@@ -985,7 +990,7 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                         child: Row(
                           children: [
                             _SubChip(
-                              label: 'All',
+                              label: context.l10n.all,
                               count: theme.urls.length,
                               selected: _selectedSub == null,
                               cs: cs,
@@ -1065,20 +1070,14 @@ ClusterTheme? _themeById(List<ClusterTheme> themes, int id) {
   return null;
 }
 
-String _clusterDetailSummary(ClusterTheme theme) {
+String _clusterDetailSummary(BuildContext context, ClusterTheme theme) {
   final topics = theme.subClusters
       .map((sub) => sub.label.trim())
       .where((label) => label.isNotEmpty)
       .take(3)
       .toList();
   if (topics.isEmpty) {
-    return '${theme.urls.length} saves in this interest.';
+    return context.l10n.interestSummary(theme.urls.length);
   }
-  return '${theme.urls.length} saves across ${_naturalJoin(topics)} topics.';
-}
-
-String _naturalJoin(List<String> values) {
-  if (values.length <= 1) return values.join();
-  if (values.length == 2) return '${values[0]} and ${values[1]}';
-  return '${values.take(values.length - 1).join(', ')}, and ${values.last}';
+  return context.l10n.interestTopicsSummary(theme.urls.length, topics.length);
 }

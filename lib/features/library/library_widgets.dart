@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import 'library_entity.dart';
+import 'library_localization.dart';
 import 'library_radial_status_menu.dart';
 
 class LibraryArtwork extends StatelessWidget {
@@ -146,10 +148,10 @@ class _LibraryStatusBadge extends StatelessWidget {
         entity.kind == LibraryEntityKind.book &&
             entity.status == LibraryItemStatus.active &&
             entity.currentPage != null
-        ? 'Reading · p. ${entity.currentPage}'
-        : entity.status.labelFor(entity.kind);
+        ? context.l10n.libraryReadingPageStatus(entity.currentPage!)
+        : localizedLibraryStatus(context.l10n, entity.status, entity.kind);
     return Semantics(
-      label: 'Status: $label',
+      label: context.l10n.libraryStatusSemantics(label),
       child: Material(
         key: ValueKey('library-status-badge-${entity.key}'),
         color: cs.inverseSurface,
@@ -186,7 +188,7 @@ class LibraryGenreChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        localizedLibraryGenre(context.l10n, label),
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
           color: cs.onSecondaryContainer,
           fontWeight: FontWeight.w600,
@@ -266,7 +268,10 @@ class _ArtworkFallback extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        entity.kind.singularLabel.toUpperCase(),
+                        localizedLibraryKindSingular(
+                          context.l10n,
+                          entity.kind,
+                        ).toUpperCase(),
                         style: tt.labelSmall?.copyWith(
                           color: cs.onPrimaryContainer.withValues(alpha: 0.72),
                           fontWeight: FontWeight.w700,

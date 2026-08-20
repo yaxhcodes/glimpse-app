@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import 'section_header.dart';
 
 /// Canonical colors for tag / keyword chips, used everywhere a tag pill is
@@ -56,7 +57,10 @@ class TagGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Tags', accent: accent ?? colorScheme.primary),
+        SectionHeader(
+          title: context.l10n.tags,
+          accent: accent ?? colorScheme.primary,
+        ),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,

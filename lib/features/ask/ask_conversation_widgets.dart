@@ -1230,8 +1230,8 @@ class _ComposerBar extends StatelessWidget {
                             ),
                             decoration: InputDecoration(
                               hintText: attachedSource == null
-                                  ? 'Message Glimpse...'
-                                  : 'Ask about this save...',
+                                  ? context.l10n.messageGlimpse
+                                  : context.l10n.askAboutThisSave,
                               hintStyle: textTheme.bodyLarge?.copyWith(
                                 color: colorScheme.outline,
                               ),
@@ -1258,7 +1258,7 @@ class _ComposerBar extends StatelessWidget {
                       builder: (context, value, _) {
                         if (isLoading) {
                           return Tooltip(
-                            message: 'Sending...',
+                            message: context.l10n.sending,
                             child: Container(
                               width: 48,
                               height: 48,
@@ -1280,7 +1280,7 @@ class _ComposerBar extends StatelessWidget {
                         }
                         final hasText = value.text.trim().isNotEmpty;
                         return Tooltip(
-                          message: 'Send',
+                          message: context.l10n.send,
                           child: GestureDetector(
                             onTap: hasText
                                 ? () {

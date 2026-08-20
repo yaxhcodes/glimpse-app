@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../shared/formatting.dart';
+import '../../l10n/l10n.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 
@@ -49,14 +49,14 @@ class _CollectionReorderSheetState extends State<_CollectionReorderSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Reorder collections',
+                        context.l10n.reorderCollections,
                         style: tt.titleLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Drag to set your manual order',
+                        context.l10n.dragToSetManualOrder,
                         style: tt.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -65,7 +65,7 @@ class _CollectionReorderSheetState extends State<_CollectionReorderSheet> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Close',
+                  tooltip: context.l10n.close,
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded),
                 ),
@@ -101,7 +101,7 @@ class _CollectionReorderSheetState extends State<_CollectionReorderSheet> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  subtitle: Text(formatLinkCount(summary.linkCount)),
+                  subtitle: Text(context.l10n.linkCount(summary.linkCount)),
                   trailing: ReorderableDragStartListener(
                     index: index,
                     child: const Padding(
@@ -120,7 +120,7 @@ class _CollectionReorderSheetState extends State<_CollectionReorderSheet> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: Text(context.l10n.cancel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -132,7 +132,7 @@ class _CollectionReorderSheetState extends State<_CollectionReorderSheet> {
                           .map((summary) => summary.collection.id)
                           .toList(growable: false),
                     ),
-                    child: const Text('Done'),
+                    child: Text(context.l10n.done),
                   ),
                 ),
               ],

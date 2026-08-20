@@ -7,6 +7,7 @@ import '../../core/models/user_collection.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
@@ -47,8 +48,8 @@ class _CollectionDetailScreenState
         .toList();
 
     final title = metaAsync.maybeWhen(
-      data: (c) => c?.name ?? 'Collection',
-      orElse: () => 'Collection',
+      data: (c) => c?.name ?? context.l10n.collection,
+      orElse: () => context.l10n.collection,
     );
     final description = collection?.description?.trim();
 
@@ -65,7 +66,7 @@ class _CollectionDetailScreenState
           leading: selectionState.isActive
               ? IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Exit selection',
+                  tooltip: context.l10n.exitSelection,
                   onPressed: selectionNotifier.clear,
                 )
               : null,
@@ -102,7 +103,7 @@ class _CollectionDetailScreenState
               : [
                   IconButton(
                     icon: const AppIcon(AppIcons.addLink),
-                    tooltip: 'Add Link',
+                    tooltip: context.l10n.addLink,
                     onPressed: collection == null
                         ? null
                         : () => context.push(
@@ -114,23 +115,26 @@ class _CollectionDetailScreenState
                   ),
                   IconButton(
                     icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Edit collection',
+                    tooltip: context.l10n.editCollection,
                     onPressed: () => _edit(context, metaAsync.valueOrNull),
                   ),
                   PopupMenuButton<String>(
                     onSelected: (value) async {
                       switch (value) {
                         case 'delete':
-                          await _confirmDeleteCollection(context);
+                          await _confirmDeleteCollection(
+                            context,
+                            collection?.name,
+                          );
                           break;
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
                         child: ListTile(
-                          leading: Icon(Icons.delete_outline),
-                          title: Text('Delete collection'),
+                          leading: const Icon(Icons.delete_outline),
+                          title: Text(context.l10n.deleteCollection),
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
@@ -145,7 +149,7 @@ class _CollectionDetailScreenState
             if (urls.isEmpty) {
               return Center(
                 child: Text(
-                  'No links in this collection yet.',
+                  context.l10n.noLinksInCollection,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -251,22 +255,27 @@ class _CollectionDetailScreenState
     );
   }
 
-  Future<void> _confirmDeleteCollection(BuildContext context) async {
+  Future<void> _confirmDeleteCollection(
+    BuildContext context,
+    String? collectionName,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete collection?'),
-        content: const Text(
-          'Links stay in your library; only this group is removed.',
+        title: Text(
+          collectionName == null || collectionName.trim().isEmpty
+              ? context.l10n.deleteCollection
+              : context.l10n.deleteCollectionNamed(collectionName),
         ),
+        content: Text(context.l10n.deleteCollectionDescription),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),

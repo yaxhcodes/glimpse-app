@@ -19,6 +19,7 @@ import '../mindmap/mindmap_screen.dart';
 import '../search/search_provider.dart';
 import '../search/search_screen.dart';
 import '../../shared/widgets/expressive_fab.dart';
+import '../../l10n/l10n.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -29,13 +30,6 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   static const int _searchTabIndex = 3;
-
-  static const _destinations = [
-    (label: 'Home', icon: AppIcons.home),
-    (label: 'Collections', icon: AppIcons.collections),
-    (label: 'Interests', icon: AppIcons.interests),
-    (label: 'Search', icon: AppIcons.search),
-  ];
 
   int _currentIndex = 0;
 
@@ -85,6 +79,13 @@ class _MainShellState extends ConsumerState<MainShell> {
 
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final strings = context.l10n;
+    final destinations = [
+      (label: strings.home, icon: AppIcons.home),
+      (label: strings.collections, icon: AppIcons.collections),
+      (label: strings.interests, icon: AppIcons.interests),
+      (label: strings.search, icon: AppIcons.search),
+    ];
     final urlsAsync = ref.watch(displayedUrlsProvider);
     final hasLinks = (urlsAsync.valueOrNull?.length ?? 0) > 0;
     final homeSelection = ref.watch(bulkSelectionProvider('home'));
@@ -157,7 +158,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                             ),
                           ),
                           destinations: [
-                            for (final destination in _destinations)
+                            for (final destination in destinations)
                               NavigationRailDestination(
                                 icon: AppIcon(destination.icon),
                                 selectedIcon: AppIcon(
@@ -194,7 +195,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                       ),
                     ),
                     label: Text(
-                      'Ask Glimpse',
+                      strings.askGlimpse,
                       style: tt.labelLarge?.copyWith(
                         color: cs.onSecondaryContainer,
                         fontWeight: FontWeight.w600,
@@ -216,7 +217,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                       labelBehavior:
                           NavigationDestinationLabelBehavior.alwaysShow,
                       destinations: [
-                        for (final destination in _destinations)
+                        for (final destination in destinations)
                           NavigationDestination(
                             icon: AppIcon(destination.icon),
                             selectedIcon: AppIcon(

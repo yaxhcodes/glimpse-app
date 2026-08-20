@@ -36,6 +36,7 @@ import 'ask_itinerary_builder.dart';
 import 'ask_empty_suggestions_provider.dart';
 import 'ask_greeting_service.dart';
 import 'ask_provider.dart';
+import '../../l10n/l10n.dart';
 
 part 'ask_conversation_widgets.dart';
 
@@ -317,7 +318,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
             : null,
         automaticallyImplyLeading: false,
         title: Text(
-          'Ask Glimpse',
+          context.l10n.askGlimpse,
           style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         centerTitle: false,
@@ -326,7 +327,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
           if (askState.messages.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              tooltip: 'New chat',
+              tooltip: context.l10n.newChat,
               onPressed: () {
                 HapticFeedback.lightImpact();
                 ref.read(askProvider.notifier).clearHistory();
@@ -338,7 +339,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               padding: const EdgeInsets.only(right: 16),
               child: Center(
                 child: Text(
-                  linkCount == 1 ? '1 link' : '$linkCount links',
+                  context.l10n.linkCount(linkCount),
                   style: textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -513,12 +514,10 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                 future: _greetingFuture,
                 builder: (context, snapshot) {
                   final greeting = snapshot.data;
-                  final line =
-                      greeting?.line ??
-                      (userName != null && userName.isNotEmpty
-                          ? 'Hey, $userName.'
-                          : 'Hey.');
-                  final hint = greeting?.hint;
+                  final line = _localizedGreeting(greeting);
+                  final hint = greeting?.hint == null
+                      ? null
+                      : context.l10n.saveYourFirstLink;
 
                   return Column(
                     mainAxisSize: MainAxisSize.min,
@@ -616,5 +615,17 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         ),
       ),
     );
+  }
+
+  String _localizedGreeting(AskGreeting? greeting) {
+    if (greeting == null) return context.l10n.askGreetingAfternoon;
+    return switch (greeting.phase) {
+      TimeBucket.earlyMorning => context.l10n.askGreetingEarlyMorning,
+      TimeBucket.morning => context.l10n.askGreetingMorning,
+      TimeBucket.afternoon => context.l10n.askGreetingAfternoon,
+      TimeBucket.evening => context.l10n.askGreetingEvening,
+      TimeBucket.night => context.l10n.askGreetingNight,
+      TimeBucket.lateNight => context.l10n.askGreetingLateNight,
+    };
   }
 }

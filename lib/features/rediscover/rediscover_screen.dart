@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_glass_surface.dart';
@@ -63,7 +64,7 @@ class RediscoverScreen extends ConsumerWidget {
                 backgroundColor: premiumBackground(context),
               ),
               title: Text(
-                'Rediscover',
+                context.l10n.rediscover,
                 style: tt.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
@@ -156,8 +157,8 @@ class RediscoverScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Hidden for 7 days'),
+        SnackBar(
+          content: Text(context.l10n.hiddenFor7Days),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -184,8 +185,8 @@ class RediscoverScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('You’ll see less like this'),
+        SnackBar(
+          content: Text(context.l10n.seeLessLikeThis),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -224,7 +225,7 @@ class _IntentHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'A few memories worth using',
+            context.l10n.rediscoverIntentTitle,
             style: AppTypography.editorial(
               tt.titleSmall,
               fontWeight: FontWeight.w700,
@@ -235,8 +236,8 @@ class _IntentHeader extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             unopened > 0
-                ? 'Chosen from $unopened unopened saves and what matters now.'
-                : 'Chosen from what you saved, opened, and left for later.',
+                ? context.l10n.chosenFromUnopened(unopened)
+                : context.l10n.chosenFromSaved,
             style: tt.labelSmall?.copyWith(
               color: cs.onSurfaceVariant,
               fontWeight: FontWeight.w400,
@@ -265,10 +266,10 @@ class _DailyMemorySection extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverMainAxisGroup(
       slivers: [
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: _SectionHeader(
-            title: 'Today',
-            subtitle: 'A stable set for today — no endless feed.',
+            title: context.l10n.today,
+            subtitle: context.l10n.todayStableSet,
           ),
         ),
         SliverList(
@@ -322,7 +323,7 @@ class _DailyMemoryCard extends StatelessWidget {
           journey: memory.journey,
           title: memory.rediscoverCopy.title,
           supportingText: memory.copyIdentity.reasonForToday,
-          metadata: _metadata(memory),
+          metadata: _metadata(context, memory),
           height: primary ? 220 : 182,
           onTap: onOpen,
         ),
@@ -334,7 +335,7 @@ class _DailyMemoryCard extends StatelessWidget {
             shape: const CircleBorder(),
             clipBehavior: Clip.antiAlias,
             child: PopupMenuButton<_MemoryMenuAction>(
-              tooltip: 'Rediscover options',
+              tooltip: context.l10n.rediscoverOptions,
               icon: Icon(Icons.more_horiz_rounded, color: cs.onSurface),
               onSelected: (action) {
                 switch (action) {
@@ -344,14 +345,14 @@ class _DailyMemoryCard extends StatelessWidget {
                     onLessLikeThis();
                 }
               },
-              itemBuilder: (context) => const [
+              itemBuilder: (context) => [
                 PopupMenuItem(
                   value: _MemoryMenuAction.snooze,
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.schedule_rounded),
-                    title: Text('Not now'),
-                    subtitle: Text('Hide for 7 days'),
+                    title: Text(context.l10n.notNow),
+                    subtitle: Text(context.l10n.hideFor7Days),
                   ),
                 ),
                 PopupMenuItem(
@@ -359,8 +360,8 @@ class _DailyMemoryCard extends StatelessWidget {
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.thumb_down_alt_outlined),
-                    title: Text('Less like this'),
-                    subtitle: Text('Reduce similar topics'),
+                    title: Text(context.l10n.lessLikeThis),
+                    subtitle: Text(context.l10n.reduceSimilarTopics),
                   ),
                 ),
               ],
@@ -371,24 +372,27 @@ class _DailyMemoryCard extends StatelessWidget {
     );
   }
 
-  String _metadata(RediscoverMemory memory) {
+  String _metadata(BuildContext context, RediscoverMemory memory) {
+    final strings = context.l10n;
+    final saveCount = strings.saveCount(memory.saveCount);
     final queued = memory.journey.items.any((item) => item.url.isQueued);
     if (queued) {
-      return 'Queued · ${memory.saveCount} ${_saveWord(memory.saveCount)}';
+      return '${strings.queued} · $saveCount';
     }
     if (memory.journey.kind == RediscoverJourneyKind.forgottenGems) {
-      return 'Forgotten gem · ${memory.saveCount} ${_saveWord(memory.saveCount)}';
+      return '${strings.forgottenGem} · $saveCount';
     }
     if (memory.journey.kind == RediscoverJourneyKind.returningTopic) {
-      return 'Back in view · ${memory.saveCount} ${_saveWord(memory.saveCount)}';
+      return '${strings.backInView} · $saveCount';
     }
     if (memory.journey.kind == RediscoverJourneyKind.onThisDay) {
-      return 'From your past · ${memory.saveCount} ${_saveWord(memory.saveCount)}';
+      return '${strings.fromYourPast} · $saveCount';
     }
-    return '${memory.saveCount} ${_saveWord(memory.saveCount)} · ${memory.waitingLabel}';
+    final status = memory.unopenedCount == 0
+        ? strings.ready
+        : strings.waitingCount(memory.unopenedCount);
+    return '$saveCount · $status';
   }
-
-  String _saveWord(int count) => count == 1 ? 'save' : 'saves';
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -439,10 +443,10 @@ class _RecapSection extends StatelessWidget {
     }
     return SliverMainAxisGroup(
       slivers: [
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: _SectionHeader(
-            title: 'Recaps',
-            subtitle: 'Weekly and monthly patterns from your own saves.',
+            title: context.l10n.recaps,
+            subtitle: context.l10n.recapsDescription,
           ),
         ),
         SliverList(
@@ -474,11 +478,16 @@ class _RecapCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final strings = context.l10n;
     final label = switch (recap.cadence) {
-      RediscoverRecapCadence.daily => 'Daily recap',
-      RediscoverRecapCadence.weekly => 'Weekly recap',
-      RediscoverRecapCadence.monthly => 'Monthly recap',
+      RediscoverRecapCadence.daily => strings.dailyRecap,
+      RediscoverRecapCadence.weekly => strings.weeklyRecap,
+      RediscoverRecapCadence.monthly => strings.monthlyRecap,
     };
+    final title = _localizedRecapTitle(strings, recap);
+    final unopenedCount = recap.items
+        .where((item) => item.url.openedAt == null)
+        .length;
     return Material(
       color: cs.surfaceContainerLow,
       borderRadius: BorderRadius.circular(18),
@@ -504,7 +513,7 @@ class _RecapCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      recap.title,
+                      title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.editorial(
@@ -517,7 +526,7 @@ class _RecapCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '${recap.subtitle} · ${recap.items.length} saves',
+                      strings.recapSummary(recap.items.length, unopenedCount),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: tt.bodySmall?.copyWith(
@@ -535,6 +544,25 @@ class _RecapCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+String _localizedRecapTitle(AppLocalizations strings, RediscoverRecap recap) {
+  switch (recap.cadence) {
+    case RediscoverRecapCadence.daily:
+      return recap.title;
+    case RediscoverRecapCadence.weekly:
+      return strings.yourWeekInSaves;
+    case RediscoverRecapCadence.monthly:
+      const suffix = ' kept showing up';
+      final rawTitle = recap.title.trim();
+      if (rawTitle.endsWith(suffix)) {
+        final topic = rawTitle.substring(0, rawTitle.length - suffix.length);
+        return strings.topicKeptShowingUp(
+          localizedCategoryLabel(strings, topic),
+        );
+      }
+      return strings.yourMonthInMemories;
   }
 }
 
@@ -559,12 +587,12 @@ class _NoMemoriesToday extends StatelessWidget {
             AppIcon(AppIcons.rediscover, color: cs.onSurfaceVariant, size: 28),
             const SizedBox(height: 12),
             Text(
-              'Nothing strong enough today',
+              context.l10n.nothingStrongToday,
               style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 5),
             Text(
-              'Rediscover will stay quiet until a save is genuinely worth bringing back.',
+              context.l10n.rediscoverQuiet,
               textAlign: TextAlign.center,
               style: tt.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,

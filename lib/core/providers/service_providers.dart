@@ -20,6 +20,7 @@ import '../services/saved_notes_service.dart';
 import '../services/transcript_enrichment_service.dart';
 import '../services/entitlement_service.dart';
 import 'usage_providers.dart';
+import '../../l10n/l10n.dart';
 
 /// Global provider for the Isar database service.
 final isarServiceProvider = Provider<IsarService>((ref) {
@@ -119,7 +120,8 @@ final geminiServiceProvider = Provider<GeminiService?>((ref) {
     'userId=${AiProxyConfig.userId.isNotEmpty ? "set" : "MISSING"})',
     name: 'ServiceProviders',
   );
-  return GeminiService();
+  final outputLocale = appLocaleTag(ref.watch(effectiveAppLocaleProvider));
+  return GeminiService(null, outputLocale);
 });
 
 /// Enrichment service factory. Creates a fresh instance each time because
@@ -142,6 +144,7 @@ final enrichmentServiceProvider =
           recipeNutritionService: ref.read(recipeNutritionServiceProvider),
           usageService: ref.read(usageServiceProvider),
           isPro: ref.read(isProUserProvider),
+          outputLocale: appLocaleTag(ref.read(effectiveAppLocaleProvider)),
           onEnriched: onEnriched,
         );
       };

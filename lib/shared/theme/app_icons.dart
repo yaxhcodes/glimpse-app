@@ -18,6 +18,7 @@ abstract final class AppIcons {
 
   // Settings destinations.
   static const appearance = PhosphorIconsRegular.palette;
+  static const language = PhosphorIconsRegular.translate;
   static const musicProvider = PhosphorIconsRegular.headphones;
   static const privacy = PhosphorIconsRegular.shieldCheck;
   static const backup = PhosphorIconsRegular.cloudArrowUp;
@@ -63,6 +64,7 @@ abstract final class AppIcons {
     settings: PhosphorIconsFill.gearSix,
     addToCollection: PhosphorIconsFill.folderSimplePlus,
     appearance: PhosphorIconsFill.palette,
+    language: PhosphorIconsFill.translate,
     musicProvider: PhosphorIconsFill.headphones,
     privacy: PhosphorIconsFill.shieldCheck,
     backup: PhosphorIconsFill.cloudArrowUp,

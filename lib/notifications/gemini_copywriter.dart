@@ -10,6 +10,7 @@ import '../core/services/summary_trimmer.dart';
 import '../core/services/tag_analyzer.dart';
 import '../core/services/title_resolver.dart';
 import '../core/services/user_fingerprint.dart';
+import '../l10n/l10n.dart';
 
 const _copyCacheTtl = Duration(hours: 24);
 const _copyCachePrefix = 'notif_copy_cache_';
@@ -69,6 +70,7 @@ USER_CONTENT_END''';
     required UserFingerprint fingerprint,
     required List<SavedUrl> relevantLinks,
   }) async {
+    final outputLocale = appLocaleTag(await loadEffectiveAppLocale());
     final letter = _letterForNotifType(type);
 
     // Richness gate: skip LLM for thin profiles OR when proxy is disabled.
@@ -79,7 +81,7 @@ USER_CONTENT_END''';
     }
 
     // Check persistent copy cache (24h TTL per notification type).
-    final cached = await _readCachedCopy(type);
+    final cached = await _readCachedCopy(type, outputLocale);
     if (cached != null) return cached;
 
     try {
@@ -88,11 +90,12 @@ USER_CONTENT_END''';
         typeLetter: letter,
         fingerprint: fingerprint,
         relevantLinks: relevantLinks,
+        outputLocale: outputLocale,
       );
       final raw = await _callGemini(userPrompt);
       final parsed = _parseGeminiJson(raw);
       final copy = _clampCopy(parsed);
-      await _writeCachedCopy(type, copy);
+      await _writeCachedCopy(type, outputLocale, copy);
       return copy;
     } catch (_) {
       return _clampCopy(_templateFallback(letter, fingerprint));
@@ -101,10 +104,13 @@ USER_CONTENT_END''';
 
   // ── Persistent copy cache ─────────────────────────────────────────────
 
-  static Future<NotifCopy?> _readCachedCopy(NotifType type) async {
+  static Future<NotifCopy?> _readCachedCopy(
+    NotifType type,
+    String outputLocale,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final key = '$_copyCachePrefix${type.name}';
+      final key = '$_copyCachePrefix${outputLocale}_${type.name}';
       final raw = prefs.getString(key);
       final ts = prefs.getInt('${key}_ts');
       if (raw == null || ts == null) return null;
@@ -122,10 +128,14 @@ USER_CONTENT_END''';
     }
   }
 
-  static Future<void> _writeCachedCopy(NotifType type, NotifCopy copy) async {
+  static Future<void> _writeCachedCopy(
+    NotifType type,
+    String outputLocale,
+    NotifCopy copy,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final key = '$_copyCachePrefix${type.name}';
+      final key = '$_copyCachePrefix${outputLocale}_${type.name}';
       await prefs.setString(
         key,
         jsonEncode({'title': copy.title, 'body': copy.body}),
@@ -158,6 +168,7 @@ USER_CONTENT_END''';
     required String typeLetter,
     required UserFingerprint fingerprint,
     required List<SavedUrl> relevantLinks,
+    required String outputLocale,
   }) {
     final topTags = fingerprint.topClusters.map((c) => c.name).join(', ');
     final geos = fingerprint.geographySpread.join(', ');
@@ -174,6 +185,7 @@ USER_CONTENT_END''';
     final reason = _reasonForType(typeLetter, fingerprint);
 
     return '''
+Write the notification title and body in $outputLocale. Preserve proper names.
 ${_untrustedBlock('''
 Notification type: ${type.name}
 What triggered this: $reason

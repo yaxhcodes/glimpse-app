@@ -55,6 +55,7 @@ import 'notable_item_card.dart';
 import 'notable_term_grid.dart';
 import 'source_saved_metadata_row.dart';
 import 'url_detail_provider.dart';
+import '../../l10n/l10n.dart';
 
 part 'url_detail_pager.dart';
 part 'recipe_cooking_mode.dart';
@@ -138,7 +139,7 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  'Ask Glimpse',
+                  context.l10n.askGlimpse,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
@@ -148,7 +149,7 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
               ),
               if (note.createdAt != null)
                 Text(
-                  _formatAskNoteDate(note.createdAt!),
+                  _formatAskNoteDate(context, note.createdAt!),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1,
@@ -190,11 +191,13 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
                       minimumSize: const Size(40, 36),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    child: Text(_expanded ? 'Show less' : 'Show more'),
+                    child: Text(
+                      _expanded ? context.l10n.showLess : context.l10n.showMore,
+                    ),
                   ),
                 const Spacer(),
                 PopupMenuButton<_AskNoteAction>(
-                  tooltip: 'Ask note actions',
+                  tooltip: context.l10n.askNoteActions,
                   onSelected: (action) {
                     switch (action) {
                       case _AskNoteAction.copy:
@@ -203,14 +206,14 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
                         widget.onDelete();
                     }
                   },
-                  itemBuilder: (context) => const [
+                  itemBuilder: (context) => [
                     PopupMenuItem(
                       value: _AskNoteAction.copy,
-                      child: Text('Copy answer'),
+                      child: Text(context.l10n.copyAnswer),
                     ),
                     PopupMenuItem(
                       value: _AskNoteAction.delete,
-                      child: Text('Delete'),
+                      child: Text(context.l10n.delete),
                     ),
                   ],
                   icon: const Icon(Icons.more_horiz_rounded, size: 20),
@@ -223,31 +226,16 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
     );
   }
 
-  String _formatAskNoteDate(DateTime value) {
+  String _formatAskNoteDate(BuildContext context, DateTime value) {
     final now = DateTime.now();
     final local = value.toLocal();
     if (now.year == local.year &&
         now.month == local.month &&
         now.day == local.day) {
-      return 'Today';
+      return context.l10n.today;
     }
-    return '${_monthName(local.month)} ${local.day}';
+    return MaterialLocalizations.of(context).formatShortMonthDay(local);
   }
-
-  String _monthName(int month) => const [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ][month - 1];
 }
 
 class _NoteSuggestionChip extends StatelessWidget {
@@ -1379,17 +1367,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             surfaceTintColor: Colors.transparent,
             flexibleSpace: const AppGlassSurface(),
             foregroundColor: colorScheme.onSurfaceVariant,
-            title: const Text('Details'),
+            title: Text(context.l10n.details),
             actions: [
               if (url != null) ...[
                 IconButton(
                   icon: const AppIcon(AppIcons.addToCollection),
-                  tooltip: 'Add to collection',
+                  tooltip: context.l10n.addToCollection,
                   onPressed: () => _showAddToCollection(url),
                 ),
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert_rounded),
-                  tooltip: 'More',
+                  tooltip: context.l10n.more,
                   onSelected: (value) {
                     if (value == 'open_original') {
                       _launchUrl(url.rawUrl);
@@ -1416,7 +1404,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                             color: colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 10),
-                          const Text('Open Original'),
+                          Text(context.l10n.openOriginal),
                         ],
                       ),
                     ),
@@ -1430,7 +1418,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                             color: colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 10),
-                          const Text('Copy Link'),
+                          Text(context.l10n.copyLink),
                         ],
                       ),
                     ),
@@ -1444,7 +1432,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                             color: colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 10),
-                          const Text('Share'),
+                          Text(context.l10n.share),
                         ],
                       ),
                     ),
@@ -1459,7 +1447,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                             color: colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 10),
-                          const Text('Add tag'),
+                          Text(context.l10n.addTag),
                         ],
                       ),
                     ),
@@ -1473,7 +1461,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                             color: colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 10),
-                          const Text('Change category'),
+                          Text(context.l10n.changeCategory),
                         ],
                       ),
                     ),
@@ -1488,7 +1476,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            'Delete',
+                            context.l10n.delete,
                             style: TextStyle(color: colorScheme.error),
                           ),
                         ],
@@ -1762,7 +1750,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              failed ? 'Enrichment needs attention' : 'AI details available',
+              failed
+                  ? context.l10n.enrichmentNeedsAttention
+                  : context.l10n.aiDetailsAvailable,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
@@ -1775,8 +1765,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             onPressed: _retryEnrichment,
             color: accent,
             icon: null,
-            label: failed ? 'Try again' : 'Enrich',
-            retryingLabel: 'Enriching',
+            label: failed ? context.l10n.tryAgain : context.l10n.enrich,
+            retryingLabel: context.l10n.enriching,
             tonal: true,
           ),
         ],
@@ -1787,8 +1777,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   /// "Open in Instagram" when we know the source, else a neutral fallback.
   String _openButtonLabel(String displaySourceName) {
     final name = displaySourceName.trim();
-    if (name.isEmpty || name.toLowerCase() == 'web') return 'Open original';
-    return 'Open in $name';
+    if (name.isEmpty || name.toLowerCase() == 'web') {
+      return context.l10n.openOriginal;
+    }
+    return context.l10n.openInSource(name);
   }
 
   Widget _buildDetailMedia({
@@ -2074,7 +2066,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           children: [
             Expanded(
               child: SectionHeader(
-                title: 'Summary',
+                title: context.l10n.summary,
                 accent: _recipeAccent(colorScheme),
               ),
             ),
@@ -2088,7 +2080,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       key: const ValueKey('summary-add-note-action'),
                       onPressed: onAddNote,
                       icon: const Icon(Icons.note_add_outlined, size: 14),
-                      label: const Text('Add note'),
+                      label: Text(context.l10n.addNote),
                       style: TextButton.styleFrom(
                         foregroundColor: colorScheme.onSurfaceVariant,
                         backgroundColor: colorScheme.surfaceContainerHigh
@@ -2186,7 +2178,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         child: TextButton.icon(
           onPressed: _beginEditingNotes,
           icon: const Icon(Icons.note_add_outlined, size: 18),
-          label: const Text('Add a note'),
+          label: Text(context.l10n.addNote),
           style: TextButton.styleFrom(
             foregroundColor: colorScheme.onSurfaceVariant,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -2201,7 +2193,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Notes', accent: _recipeAccent(colorScheme)),
+        SectionHeader(
+          title: context.l10n.notes,
+          accent: _recipeAccent(colorScheme),
+        ),
         const SizedBox(height: 8),
         if (_notesEditing)
           _buildPersonalNoteEditor(
@@ -2222,7 +2217,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             child: TextButton.icon(
               onPressed: _beginEditingNotes,
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Add your note'),
+              label: Text(context.l10n.addYourNote),
             ),
           ),
         if (visibleAskNotes.isNotEmpty) ...[
@@ -2245,8 +2240,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     setState(() => _showAllAskNotes = !_showAllAskNotes),
                 child: Text(
                   _showAllAskNotes
-                      ? 'Show less'
-                      : 'Show all ${askNotes.length}',
+                      ? context.l10n.showLess
+                      : context.l10n.showAllCount(askNotes.length),
                 ),
               ),
             ),
@@ -2257,25 +2252,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   void _copyAskNote(SavedAskNote note) {
     Clipboard.setData(ClipboardData(text: note.body));
-    _showSnack('Answer copied');
+    _showSnack(context.l10n.answerCopied);
   }
 
   Future<void> _confirmDeleteAskNote(SavedAskNote note) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Ask note?'),
-        content: const Text(
-          'This removes the saved answer from this link. Your own note is not affected.',
-        ),
+        title: Text(context.l10n.deleteAskNoteQuestion),
+        content: Text(context.l10n.deleteAskNoteDescription),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -2287,9 +2280,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (!mounted) return;
     if (deleted) {
       ref.invalidate(urlStreamProvider);
-      _showSnack('Ask note deleted');
+      _showSnack(context.l10n.askNoteDeleted);
     } else {
-      _showSnack('Could not delete Ask note');
+      _showSnack(context.l10n.couldNotDeleteAskNote);
     }
   }
 
@@ -2311,7 +2304,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           Row(
             children: [
               Text(
-                'Your note',
+                context.l10n.yourNote,
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: colorScheme.onSurfaceVariant,
@@ -2321,7 +2314,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               TextButton.icon(
                 onPressed: _beginEditingNotes,
                 icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text('Edit'),
+                label: Text(context.l10n.edit),
                 style: TextButton.styleFrom(
                   minimumSize: const Size(40, 36),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -2364,7 +2357,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Your note',
+                      context.l10n.yourNote,
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: colorScheme.onSurfaceVariant,
@@ -2379,7 +2372,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       minimumSize: const Size(40, 36),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    child: const Text('Done'),
+                    child: Text(context.l10n.done),
                   ),
                 ],
               ),
@@ -2396,7 +2389,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     color: colorScheme.onSurface,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'What stood out to you?',
+                    hintText: context.l10n.notePrompt,
                     hintStyle: TextStyle(color: colorScheme.outline),
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
@@ -2425,9 +2418,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   Widget _buildNoteSaveStatus(ThemeData theme, ColorScheme colorScheme) {
     final status = switch (_noteSaveStatus) {
       _NoteSaveStatus.idle => null,
-      _NoteSaveStatus.saving => 'Saving…',
-      _NoteSaveStatus.saved => 'Saved',
-      _NoteSaveStatus.failed => 'Couldn\'t save',
+      _NoteSaveStatus.saving => context.l10n.noteSaving,
+      _NoteSaveStatus.saved => context.l10n.noteSaved,
+      _NoteSaveStatus.failed => context.l10n.noteCouldNotSave,
     };
     if (status == null) return const SizedBox.shrink();
     return Padding(
@@ -2462,7 +2455,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 minimumSize: const Size(40, 32),
                 padding: const EdgeInsets.symmetric(horizontal: 6),
               ),
-              child: const Text('Retry'),
+              child: Text(context.l10n.retry),
             ),
           ],
         ],
@@ -2493,7 +2486,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               ),
               const SizedBox(width: 5),
               Text(
-                'Quick add',
+                context.l10n.quickAdd,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -2512,7 +2505,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               final isIntent = classified.kind != IntentKind.note;
               final selected = isIntent && activeAction == classified.action;
               return _NoteSuggestionChip(
-                label: suggestion,
+                label: _localizedQuickAddLabel(context.l10n, suggestion),
                 icon: _quickAddIconFor(suggestion),
                 selected: selected,
                 intent: isIntent,
@@ -2532,8 +2525,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required String? creatorUsername,
   }) {
     final savedLabel = _showExactSavedDate
-        ? _formatExactSavedDate(url.savedAt)
-        : _formatDate(url.savedAt);
+        ? _formatExactSavedDate(context, url.savedAt)
+        : _formatDate(context, url.savedAt);
     return SourceSavedMetadataRow(
       leading: _buildSourceLeadingIcon(url, displaySourceName, colorScheme),
       sourceName: displaySourceName,
@@ -2633,7 +2626,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         ContentRecommendationSection<EnrichedMention>(
           title: _mentionSectionTitle(key),
           subtitle: key == 'person'
-              ? '${items.length} ${items.length == 1 ? 'person' : 'people'} mentioned'
+              ? context.l10n.peopleMentionedCount(items.length)
               : null,
           accent: _sectionAccent(key, colorScheme),
           items: items,
@@ -2719,16 +2712,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   String _mentionSectionTitle(String type) {
     return switch (type) {
-      'movie' => 'Worth watching',
-      'book' => 'Worth reading',
-      'game' => 'Games mentioned',
-      'music' => 'Music mentioned',
-      'tool' => 'Tools mentioned',
-      'product' => 'Worth a look',
-      'app' => 'Apps to try',
-      'person' => 'People mentioned',
-      'place' => 'Places to visit',
-      _ => 'Also mentioned',
+      'movie' => context.l10n.worthWatching,
+      'book' => context.l10n.worthReading,
+      'game' => context.l10n.gamesMentioned,
+      'music' => context.l10n.musicMentioned,
+      'tool' => context.l10n.toolsMentioned,
+      'product' => context.l10n.worthALook,
+      'app' => context.l10n.appsToTry,
+      'person' => context.l10n.peopleMentioned,
+      'place' => context.l10n.placesToVisit,
+      _ => context.l10n.alsoMentioned,
     };
   }
 
@@ -2762,7 +2755,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-          title: 'Key Takeaways',
+          title: context.l10n.keyTakeaways,
           accent: _recipeAccent(colorScheme),
         ),
         const SizedBox(height: 10),
@@ -2818,7 +2811,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ColorScheme colorScheme,
   }) {
     return DetailExpansionSection(
-      title: 'Full breakdown',
+      title: context.l10n.fullBreakdown,
       accent: _recipeAccent(colorScheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2894,16 +2887,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final sourceBlocks = <(String, String)>[
+    final sourceBlocks = <(String, String, bool)>[
       if (live.caption?.trim().isNotEmpty == true)
-        ('Caption', live.caption!.trim()),
+        (context.l10n.caption, live.caption!.trim(), false),
       if (live.transcript?.trim().isNotEmpty == true)
-        ('Transcript', live.transcript!.trim()),
+        (context.l10n.transcript, live.transcript!.trim(), true),
       if (live.ocrText?.trim().isNotEmpty == true)
-        ('On-screen text', live.ocrText!.trim()),
+        (context.l10n.onScreenText, live.ocrText!.trim(), false),
     ];
     return DetailExpansionSection(
-      title: 'Transcript & Caption',
+      title: context.l10n.transcriptAndCaption,
       accent: _recipeAccent(colorScheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2922,6 +2915,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               child: _buildSourceText(
                 label: sourceBlocks[index].$1,
                 text: sourceBlocks[index].$2,
+                isTranscript: sourceBlocks[index].$3,
                 theme: theme,
                 colorScheme: colorScheme,
               ),
@@ -2961,9 +2955,40 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     };
   }
 
+  String _localizedQuickAddLabel(AppLocalizations strings, String suggestion) {
+    return switch (suggestion) {
+      'Try This Weekend' => strings.quickTryThisWeekend,
+      'Need Ingredients' => strings.quickNeedIngredients,
+      'Share With Someone' => strings.quickShareWithSomeone,
+      'Already Tried' => strings.quickAlreadyTried,
+      'Watch Later' => strings.quickWatchLater,
+      'Add to Watchlist' => strings.quickAddToWatchlist,
+      'Already Watched' => strings.quickAlreadyWatched,
+      'Add to Reading List' => strings.quickAddToReadingList,
+      'Read Later' => strings.quickReadLater,
+      'Research This' => strings.quickResearchThis,
+      'Already Read' => strings.quickAlreadyRead,
+      'Try This Tool' => strings.quickTryThisTool,
+      'Compare Alternatives' => strings.quickCompareAlternatives,
+      'Use in Project' => strings.quickUseInProject,
+      'Share With Team' => strings.quickShareWithTeam,
+      'Plan Itinerary' => strings.quickPlanItinerary,
+      'Check Best Season' => strings.quickCheckBestSeason,
+      'Save Route' => strings.quickSaveRoute,
+      'Practice Later' => strings.quickPracticeLater,
+      'Make Checklist' => strings.quickMakeChecklist,
+      'Revisit Notes' => strings.quickRevisitNotes,
+      'Revisit Later' => strings.quickRevisitLater,
+      'Worth Trying' => strings.quickWorthTrying,
+      'Already Checked' => strings.quickAlreadyChecked,
+      _ => suggestion,
+    };
+  }
+
   Widget _buildSourceText({
     required String label,
     required String text,
+    required bool isTranscript,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
@@ -2971,7 +2996,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       color: colorScheme.onSurfaceVariant,
       height: 1.5,
     );
-    if (label != 'Transcript') return Text(text, style: style);
+    if (!isTranscript) return Text(text, style: style);
 
     final paragraphs = splitTranscriptParagraphs(text);
     return Column(
@@ -3034,19 +3059,19 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   String _notableItemsSectionTitle(List<EnrichedNotableItem> items) {
-    if (items.isEmpty) return 'Notable details';
+    if (items.isEmpty) return context.l10n.notableDetails;
     final types = items.map((item) => item.type.toLowerCase()).toSet();
     if (types.length == 1) {
       final type = types.first;
-      if (type == 'quote') return 'Quotes';
-      if (type == 'website') return 'Websites mentioned';
+      if (type == 'quote') return context.l10n.quotes;
+      if (type == 'website') return context.l10n.websitesMentioned;
       if (type == 'tool' || type == 'app' || type == 'product') {
-        return 'Tools mentioned';
+        return context.l10n.toolsMentioned;
       }
-      if (type == 'claim') return 'Claims to remember';
-      if (type == 'term') return 'Terms mentioned';
+      if (type == 'claim') return context.l10n.claimsToRemember;
+      if (type == 'term') return context.l10n.termsMentioned;
     }
-    return 'Notable details';
+    return context.l10n.notableDetails;
   }
 
   Widget _buildRecipeSection({
@@ -4552,36 +4577,31 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Icon(Icons.public_outlined, size: 14, color: variant);
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(BuildContext context, DateTime date) {
+    final strings = context.l10n;
     final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
-    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
-    return '${(diff.inDays / 365).floor()}y ago';
+    if (diff.inMinutes < 1) return strings.justNow;
+    if (diff.inMinutes < 60) return strings.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return strings.hoursAgo(diff.inHours);
+    if (diff.inDays == 1) return strings.yesterday;
+    if (diff.inDays < 7) return strings.daysAgo(diff.inDays);
+    if (diff.inDays < 30) {
+      return strings.weeksAgo((diff.inDays / 7).floor());
+    }
+    if (diff.inDays < 365) {
+      return strings.monthsAgo((diff.inDays / 30).floor());
+    }
+    return strings.yearsAgo((diff.inDays / 365).floor());
   }
 
-  String _formatExactSavedDate(DateTime date) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    final hour12 = date.hour % 12 == 0 ? 12 : date.hour % 12;
-    final minute = date.minute.toString().padLeft(2, '0');
-    final period = date.hour >= 12 ? 'PM' : 'AM';
-    return '${months[date.month - 1]} ${date.day}, ${date.year} · $hour12:$minute $period';
+  String _formatExactSavedDate(BuildContext context, DateTime date) {
+    final local = date.toLocal();
+    final material = MaterialLocalizations.of(context);
+    final time = material.formatTimeOfDay(
+      TimeOfDay.fromDateTime(local),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
+    return '${material.formatFullDate(local)} · $time';
   }
 }
 

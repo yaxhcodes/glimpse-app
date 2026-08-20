@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/models/music_provider.dart';
+import '../../l10n/l10n.dart';
 
 Future<MusicProvider?> showMusicProviderSheet(
   BuildContext context, {
@@ -35,14 +36,14 @@ class _MusicProviderSheet extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Where do you listen?',
+                  context.l10n.whereDoYouListen,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'Choose the app Glimpse should use for songs you find.',
+                  context.l10n.chooseMusicProvider,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.35,

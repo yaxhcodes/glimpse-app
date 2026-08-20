@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/place_itinerary.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'library_entity.dart';
@@ -59,7 +60,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Places'),
+        title: Text(context.l10n.libraryPlaces),
         backgroundColor: Theme.of(
           context,
         ).colorScheme.surface.withValues(alpha: 0.82),
@@ -70,7 +71,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
                   .isNotEmpty ==
               true)
             IconButton(
-              tooltip: 'Plan an itinerary',
+              tooltip: context.l10n.planAnItinerary,
               onPressed: () => _createPlanForFocusedArea(
                 snapshot.value!.ofKind(LibraryEntityKind.place),
               ),
@@ -81,7 +82,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
       ),
       body: snapshot.when(
         loading: () => const Center(child: ExpressiveLoadingIndicator()),
-        error: (_, _) => const Center(child: Text('Could not open Places')),
+        error: (_, _) => Center(child: Text(context.l10n.couldNotOpenLibrary)),
         data: (data) {
           final places = data.ofKind(LibraryEntityKind.place);
           if (places.isEmpty) return const _PlacesEmptyState();
@@ -388,7 +389,7 @@ class _PlacesSheet extends StatelessWidget {
                         children: [
                           Text(
                             selectedAreaKey == allPlacesAreaKey
-                                ? 'Your places'
+                                ? context.l10n.yourPlaces
                                 : areas
                                       .firstWhere(
                                         (area) => area.key == selectedAreaKey,
@@ -398,7 +399,10 @@ class _PlacesSheet extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           Text(
-                            '${visiblePlaces.length} ${visiblePlaces.length == 1 ? 'place' : 'places'} · ${areas.length} ${areas.length == 1 ? 'area' : 'areas'}',
+                            context.l10n.placesAreasSummary(
+                              areas.length,
+                              visiblePlaces.length,
+                            ),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
@@ -407,7 +411,7 @@ class _PlacesSheet extends StatelessWidget {
                     ),
                     if (selectedAreaKey != allPlacesAreaKey)
                       IconButton(
-                        tooltip: 'Plan this area',
+                        tooltip: context.l10n.planThisArea,
                         onPressed: () => onCreatePlan(
                           areas.firstWhere(
                             (area) => area.key == selectedAreaKey,
@@ -438,12 +442,12 @@ class _PlacesSheet extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
                   child: SearchBar(
                     controller: searchController,
-                    hintText: 'Search saved places',
+                    hintText: context.l10n.searchSavedPlaces,
                     leading: const Icon(Icons.search_rounded),
                     trailing: [
                       if (query.isNotEmpty)
                         IconButton(
-                          tooltip: 'Clear search',
+                          tooltip: context.l10n.clearSearch,
                           onPressed: onClearQuery,
                           icon: const Icon(Icons.close_rounded),
                         ),
@@ -452,7 +456,7 @@ class _PlacesSheet extends StatelessWidget {
                   ),
                 ),
                 if (visiblePlans.isNotEmpty) ...[
-                  const _SectionHeading(title: 'Your plans'),
+                  _SectionHeading(title: context.l10n.yourPlans),
                   for (final plan in visiblePlans)
                     _ItineraryRow(plan: plan, onTap: () => onOpenPlan(plan)),
                 ],
@@ -470,7 +474,7 @@ class _PlacesSheet extends StatelessWidget {
                                 Icons.add_road_rounded,
                                 size: 18,
                               ),
-                              label: const Text('Plan'),
+                              label: Text(context.l10n.plan),
                             )
                           : null,
                     ),
@@ -568,7 +572,7 @@ class _FocusedPlace extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        _placeMetadata(entity),
+                        _placeMetadata(context, entity),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -613,7 +617,7 @@ class _AreaSelector extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         children: [
           ChoiceChip(
-            label: const Text('All'),
+            label: Text(context.l10n.all),
             selected: selectedKey == allPlacesAreaKey,
             side: BorderSide.none,
             onSelected: (_) => onSelected(allPlacesAreaKey),
@@ -689,8 +693,8 @@ class _PlaceListRow extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         entity.mention.hasCoordinates
-                            ? _placeMetadata(entity)
-                            : '${_placeMetadata(entity)} · Location unavailable',
+                            ? _placeMetadata(context, entity)
+                            : '${_placeMetadata(context, entity)} · ${context.l10n.locationUnavailable}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -703,7 +707,7 @@ class _PlaceListRow extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Open ${entity.title}',
+                  tooltip: context.l10n.openNamedItem(entity.title),
                   onPressed: onOpen,
                   icon: const Icon(Icons.arrow_forward_rounded),
                 ),
@@ -727,10 +731,13 @@ class _PlaceStatusLabel extends StatelessWidget {
     final (icon, label) = switch (entity.status) {
       LibraryItemStatus.planning => (
         Icons.bookmark_added_rounded,
-        'Want to visit',
+        context.l10n.wantToVisit,
       ),
-      LibraryItemStatus.completed => (Icons.check_circle_rounded, 'Visited'),
-      _ => (Icons.bookmark_border_rounded, 'Saved place'),
+      LibraryItemStatus.completed => (
+        Icons.check_circle_rounded,
+        context.l10n.libraryVisited,
+      ),
+      _ => (Icons.bookmark_border_rounded, context.l10n.savedPlace),
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -790,7 +797,7 @@ class _ItineraryRow extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
-        '${plan.stops.length} ${plan.stops.length == 1 ? 'stop' : 'stops'}${plan.date == null ? '' : ' · ${MaterialLocalizations.of(context).formatMediumDate(plan.date!)}'}',
+        '${context.l10n.libraryStopCount(plan.stops.length)}${plan.date == null ? '' : ' · ${MaterialLocalizations.of(context).formatMediumDate(plan.date!)}'}',
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
@@ -890,9 +897,9 @@ class _NoPlaceResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(32),
-      child: Center(child: Text('No saved places match this search.')),
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Center(child: Text(context.l10n.noSavedPlacesMatch)),
     );
   }
 }
@@ -915,12 +922,12 @@ class _PlacesEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No places discovered yet',
+              context.l10n.noPlacesDiscovered,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 6),
             Text(
-              'Places mentioned in your saves will gather here.',
+              context.l10n.placesMentionedGatherHere,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -933,10 +940,10 @@ class _PlacesEmptyState extends StatelessWidget {
   }
 }
 
-String _placeMetadata(LibraryEntity entity) {
+String _placeMetadata(BuildContext context, LibraryEntity entity) {
   final label = [
     entity.mention.city,
     entity.mention.country,
   ].whereType<String>().where((value) => value.trim().isNotEmpty).join(', ');
-  return label.isEmpty ? 'Saved place' : label;
+  return label.isEmpty ? context.l10n.savedPlace : label;
 }

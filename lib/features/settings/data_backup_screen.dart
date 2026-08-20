@@ -12,8 +12,15 @@ import '../../core/providers/backup_provider.dart';
 import '../../core/services/backup/backup_models.dart';
 import '../../core/services/backup/backup_service.dart';
 import '../../core/services/backup_scheduler.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+
+String _localizedBackupInterval(BuildContext context, int hours) {
+  if (hours == 0) return context.l10n.off;
+  if (hours == 168) return context.l10n.weekly;
+  return context.l10n.everyHours(hours);
+}
 
 /// Mihon-inspired Data & Backup screen.
 ///
@@ -51,25 +58,25 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     });
   }
 
-  String _formatDate(String isoDate) {
+  String _formatDate(BuildContext context, String isoDate) {
     try {
       final dt = DateTime.parse(isoDate);
       final now = DateTime.now();
       final diff = now.difference(dt);
-      if (diff.inMinutes < 1) return 'just now';
+      if (diff.inMinutes < 1) return context.l10n.justNow;
       if (diff.inHours < 1) {
         final m = diff.inMinutes;
-        return '$m minute${m == 1 ? '' : 's'} ago';
+        return context.l10n.minutesAgo(m);
       }
       if (diff.inDays < 1) {
         final h = diff.inHours;
-        return '$h hour${h == 1 ? '' : 's'} ago';
+        return context.l10n.hoursAgo(h);
       }
       if (diff.inDays < 7) {
         final d = diff.inDays;
-        return '$d day${d == 1 ? '' : 's'} ago';
+        return context.l10n.daysAgo(d);
       }
-      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      return MaterialLocalizations.of(context).formatMediumDate(dt.toLocal());
     } catch (_) {
       return isoDate;
     }
@@ -79,6 +86,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final strings = context.l10n;
     final state = ref.watch(backupProvider);
 
     ref.listen<BackupState>(backupProvider, (prev, next) {
@@ -110,7 +118,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         slivers: [
           SliverAppBar.large(
             title: Text(
-              'Data & backup',
+              strings.dataAndBackup,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
           ),
@@ -122,14 +130,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _SectionHeader(text: 'Storage location'),
+                      _SectionHeader(text: strings.storageLocation),
                       const SizedBox(height: 16),
                       const _StorageLocationTile(),
                       const SizedBox(height: 8),
-                      const _Note(
-                        text:
-                            'Used for saving your backup files. Pick a folder once and Glimpse will keep writing new backups there.',
-                      ),
+                      _Note(text: strings.backupFolderInfo),
                     ],
                   ),
                 ),
@@ -138,7 +143,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _SectionHeader(text: 'Automatic backup'),
+                      _SectionHeader(text: strings.automaticBackup),
                       const SizedBox(height: 16),
                       const _AutoBackupSection(),
                     ],
@@ -149,7 +154,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _SectionHeader(text: 'Backup and restore'),
+                      _SectionHeader(text: strings.backupAndRestore),
                       const SizedBox(height: 16),
                       _DualBackupActions(
                         isCreating: isSavingLocal,
@@ -162,17 +167,16 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                       if (_lastBackupDate != null) ...[
                         const SizedBox(height: 12),
                         Text(
-                          'Last backup: ${_formatDate(_lastBackupDate!)}',
+                          strings.lastBackup(
+                            _formatDate(context, _lastBackupDate!),
+                          ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
                         ),
                       ],
                       const SizedBox(height: 16),
-                      const _Note(
-                        text:
-                            'Backups contain your full library — links, collections, tags, and metadata. They stay on your device.',
-                      ),
+                      _Note(text: strings.backupLocalInfo),
                     ],
                   ),
                 ),
@@ -182,14 +186,12 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _SectionHeader(text: 'Other'),
+                      _SectionHeader(text: strings.other),
                       const SizedBox(height: 16),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Share backup'),
-                        subtitle: const Text(
-                          'Send a backup to another app or cloud service',
-                        ),
+                        title: Text(strings.shareBackup),
+                        subtitle: Text(strings.shareBackupDescription),
                         trailing: isExporting
                             ? SizedBox(
                                 width: 18,
@@ -228,9 +230,8 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final summary = linkCount != null
-        ? 'Saved $linkCount ${linkCount == 1 ? 'link' : 'links'} to '
-              '${_lastSegment(pathOrLabel)}'
-        : 'Backup saved to ${_lastSegment(pathOrLabel)}';
+        ? context.l10n.backupSavedLinksTo(linkCount, _lastSegment(pathOrLabel))
+        : context.l10n.backupSavedTo(_lastSegment(pathOrLabel));
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -268,7 +269,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
           action: detail == null
               ? null
               : SnackBarAction(
-                  label: 'Details',
+                  label: context.l10n.details,
                   onPressed: () => _showErrorDetails(error),
                 ),
         ),
@@ -281,7 +282,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Error details'),
+        title: Text(context.l10n.errorDetails),
         content: SingleChildScrollView(
           child: SelectableText(
             '${error.message}\n\n$detail',
@@ -296,11 +297,11 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
               );
               if (ctx.mounted) Navigator.of(ctx).pop();
             },
-            child: const Text('Copy'),
+            child: Text(context.l10n.copy),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
+            child: Text(context.l10n.close),
           ),
         ],
       ),
@@ -350,7 +351,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: const Text('Could not read the selected file.'),
+            content: Text(context.l10n.couldNotReadSelectedFile),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 4),
           ),
@@ -455,8 +456,8 @@ class _StorageLocationTile extends ConsumerWidget {
     final value = asyncLocation.maybeWhen(data: (v) => v, orElse: () => null);
     final hasLocation = value?.uri != null;
     final pathText = hasLocation
-        ? (value!.label ?? 'Folder selected')
-        : 'Pick a folder';
+        ? (value!.label ?? context.l10n.folderSelected)
+        : context.l10n.pickAFolder;
     final isAndroid = Platform.isAndroid;
 
     final row = InkWell(
@@ -471,9 +472,7 @@ class _StorageLocationTile extends ConsumerWidget {
                   ..hideCurrentSnackBar()
                   ..showSnackBar(
                     SnackBar(
-                      content: const Text(
-                        'Could not save folder permission. Please try again.',
-                      ),
+                      content: Text(context.l10n.couldNotSaveFolderPermission),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -499,8 +498,8 @@ class _StorageLocationTile extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       isAndroid
-                          ? 'Tap to choose where backups are stored'
-                          : 'Permanent backup folder is available on Android',
+                          ? context.l10n.chooseBackupFolderDescription
+                          : context.l10n.permanentBackupFolderAndroid,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -508,7 +507,7 @@ class _StorageLocationTile extends ConsumerWidget {
                   ] else ...[
                     const SizedBox(height: 4),
                     Text(
-                      'Tap to change',
+                      context.l10n.tapToChange,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -519,7 +518,7 @@ class _StorageLocationTile extends ConsumerWidget {
             ),
             if (hasLocation && isAndroid)
               IconButton(
-                tooltip: 'Forget folder',
+                tooltip: context.l10n.forgetFolder,
                 icon: const Icon(Icons.close_rounded),
                 style: IconButton.styleFrom(
                   foregroundColor: cs.onSurfaceVariant,
@@ -568,15 +567,15 @@ class _AutoBackupSection extends ConsumerWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
-                BackupScheduler.intervalLabel(hours),
+                _localizedBackupInterval(context, hours),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w500,
                 ),
               ),
               subtitle: Text(
                 android
-                    ? 'How often to save a backup to your storage location'
-                    : 'Auto backup runs on Android when a storage folder is set',
+                    ? context.l10n.backupFrequencyDescription
+                    : context.l10n.autoBackupAndroidOnly,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
@@ -589,15 +588,17 @@ class _AutoBackupSection extends ConsumerWidget {
                   ? () => _showFrequencySheet(context, ref, hours)
                   : null,
             ),
-            const _Note(
-              text:
-                  'Keep copies of backups in other places as well. Backups can include your full library — treat them as sensitive if you share files.',
-            ),
+            _Note(text: context.l10n.backupSensitiveInfo),
             if (settings.lastAutoBackupIso != null) ...[
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'Last automatic backup: ${_formatAutoBackupRelative(settings.lastAutoBackupIso!)}',
+                  context.l10n.lastAutomaticBackup(
+                    _formatAutoBackupRelative(
+                      context,
+                      settings.lastAutoBackupIso!,
+                    ),
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -609,8 +610,12 @@ class _AutoBackupSection extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'Last attempt failed ${_formatAutoBackupRelative(settings.lastAttemptIso!)}. '
-                  'Glimpse will retry automatically.',
+                  context.l10n.lastBackupAttemptFailed(
+                    _formatAutoBackupRelative(
+                      context,
+                      settings.lastAttemptIso!,
+                    ),
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
                 ),
               ),
@@ -619,7 +624,7 @@ class _AutoBackupSection extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
-                  'Set a storage location above before automatic backups can run.',
+                  context.l10n.setStorageBeforeAutoBackup,
                   style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
                 ),
               ),
@@ -639,24 +644,21 @@ class _AutoBackupSection extends ConsumerWidget {
     );
   }
 
-  static String _formatAutoBackupRelative(String iso) {
+  static String _formatAutoBackupRelative(BuildContext context, String iso) {
     try {
       final dt = DateTime.parse(iso);
       final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 1) return 'just now';
+      if (diff.inMinutes < 1) return context.l10n.justNow;
       if (diff.inHours < 1) {
-        final m = diff.inMinutes;
-        return '$m minute${m == 1 ? '' : 's'} ago';
+        return context.l10n.minutesAgo(diff.inMinutes);
       }
       if (diff.inDays < 1) {
-        final h = diff.inHours;
-        return '$h hour${h == 1 ? '' : 's'} ago';
+        return context.l10n.hoursAgo(diff.inHours);
       }
       if (diff.inDays < 7) {
-        final d = diff.inDays;
-        return '$d day${d == 1 ? '' : 's'} ago';
+        return context.l10n.daysAgo(diff.inDays);
       }
-      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      return MaterialLocalizations.of(context).formatMediumDate(dt.toLocal());
     } catch (_) {
       return iso;
     }
@@ -680,7 +682,7 @@ class _AutoBackupSection extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                 child: Text(
-                  'Automatic backup frequency',
+                  context.l10n.automaticBackup,
                   style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -688,7 +690,7 @@ class _AutoBackupSection extends ConsumerWidget {
               ),
               for (final h in BackupScheduler.intervalHourChoices)
                 ListTile(
-                  title: Text(BackupScheduler.intervalLabel(h)),
+                  title: Text(_localizedBackupInterval(context, h)),
                   trailing: h == currentHours
                       ? Icon(
                           Icons.check_rounded,
@@ -740,7 +742,7 @@ class _DualBackupActions extends StatelessWidget {
                       color: cs.primary,
                     ),
                   )
-                : const Text('Create backup'),
+                : Text(context.l10n.createBackup),
           ),
         ),
         const SizedBox(width: 12),
@@ -756,7 +758,7 @@ class _DualBackupActions extends StatelessWidget {
                       color: cs.primary,
                     ),
                   )
-                : const Text('Restore backup'),
+                : Text(context.l10n.restoreBackup),
           ),
         ),
       ],
@@ -790,19 +792,20 @@ class _RecentBackupsSection extends ConsumerWidget {
                     : null;
                 final fromFile = primary?.lastModified;
                 final display = fromPrefs ?? fromFile;
-                final label = display != null ? _formatRelative(display) : null;
+                final label = display != null
+                    ? _formatRelative(context, display)
+                    : null;
 
                 final body = label != null
                     ? Text(
-                        'Last saved to folder: $label',
+                        context.l10n.lastSavedToFolder(label),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
                           height: 1.4,
                         ),
                       )
                     : Text(
-                        'No backup file in this folder yet. Use Create backup '
-                        'above after picking this location.',
+                        context.l10n.noBackupFileInFolder,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
                           height: 1.4,
@@ -816,7 +819,7 @@ class _RecentBackupsSection extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const _SectionHeader(text: 'Folder backup'),
+                          _SectionHeader(text: context.l10n.folderBackup),
                           const SizedBox(height: 16),
                           body,
                         ],
@@ -839,21 +842,18 @@ class _RecentBackupsSection extends ConsumerWidget {
     );
   }
 
-  static String _formatRelative(DateTime dt) {
+  static String _formatRelative(BuildContext context, DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 1) return context.l10n.justNow;
     if (diff.inHours < 1) {
-      final m = diff.inMinutes;
-      return '$m minute${m == 1 ? '' : 's'} ago';
+      return context.l10n.minutesAgo(diff.inMinutes);
     }
     if (diff.inDays < 1) {
-      final h = diff.inHours;
-      return '$h hour${h == 1 ? '' : 's'} ago';
+      return context.l10n.hoursAgo(diff.inHours);
     }
     if (diff.inDays < 7) {
-      final d = diff.inDays;
-      return '$d day${d == 1 ? '' : 's'} ago';
+      return context.l10n.daysAgo(diff.inDays);
     }
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    return MaterialLocalizations.of(context).formatMediumDate(dt.toLocal());
   }
 }

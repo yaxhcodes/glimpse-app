@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
 import 'library_entity.dart';
+import 'library_localization.dart';
 import 'library_status_picker.dart';
 
 class LibraryRadialStatusTarget extends StatefulWidget {
@@ -46,11 +48,15 @@ class _LibraryRadialStatusTargetState extends State<LibraryRadialStatusTarget> {
 
   @override
   Widget build(BuildContext context) {
-    final listName = libraryListName(widget.entity.kind).toLowerCase();
+    final strings = context.l10n;
+    final listName = localizedLibraryListName(strings, widget.entity.kind);
     return Semantics(
       button: true,
-      label: '${widget.entity.kind.singularLabel}: ${widget.entity.title}',
-      hint: 'Double tap to open. Long press to change $listName status.',
+      label: strings.libraryItemSemantics(
+        localizedLibraryKindSingular(strings, widget.entity.kind),
+        widget.entity.title,
+      ),
+      hint: strings.libraryItemOpenHint(listName),
       onTap: widget.onTap,
       onLongPress: widget.onStatusMenuRequested,
       child: GestureDetector(
@@ -175,7 +181,11 @@ class _LibraryRadialStatusTargetState extends State<LibraryRadialStatusTarget> {
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      status.labelFor(widget.entity.kind),
+                      localizedLibraryStatus(
+                        context.l10n,
+                        status,
+                        widget.entity.kind,
+                      ),
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: cs.onInverseSurface,
                         fontWeight: FontWeight.w700,

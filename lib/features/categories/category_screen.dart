@@ -13,6 +13,7 @@ import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import 'category_provider.dart';
+import '../../l10n/l10n.dart';
 
 class CategoryScreen extends ConsumerWidget {
   final String categoryName;
@@ -86,7 +87,7 @@ class CategoryScreen extends ConsumerWidget {
             slivers: [
               SliverAppBar.large(
                 title: Text(
-                  categoryName,
+                  localizedCategoryLabel(context.l10n, categoryName),
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
               ),

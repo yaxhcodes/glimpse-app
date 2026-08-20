@@ -6,32 +6,34 @@ import 'summary_rewriter.dart';
 import 'summary_trimmer.dart';
 import 'title_resolver.dart';
 import 'transcript_enrichment_service.dart';
+import '../../l10n/l10n.dart';
 
 class UrlSaveNotifications {
   UrlSaveNotifications._();
 
-  static const _captureTitle = 'Capturing what caught your eye.';
-  static const _captureBody = "We'll notify you when it's ready.";
-
-  static Future<void> showCaptureStarted() {
+  static Future<void> showCaptureStarted() async {
+    final strings = await loadBackgroundLocalizations();
+    final captureTitle = strings.captureTitle;
+    final captureBody = strings.captureBody;
     final payload = jsonEncode({
       'type': 'url_capture_started',
       'route': 'home',
-      'title': _captureTitle,
-      'body': _captureBody,
+      'title': captureTitle,
+      'body': captureBody,
     });
 
-    return DigestNotifications.show(
+    await DigestNotifications.show(
       type: NotifType.resurface,
-      title: _captureTitle,
-      body: _captureBody,
+      title: captureTitle,
+      body: captureBody,
       payloadJson: payload,
     );
   }
 
-  static Future<void> showSavedToCollection(String collectionName) {
-    final title = 'Saved to $collectionName';
-    const body = 'Glimpse is making sense of what caught your eye.';
+  static Future<void> showSavedToCollection(String collectionName) async {
+    final strings = await loadBackgroundLocalizations();
+    final title = strings.savedToCollection(collectionName);
+    final body = strings.makingSense;
     final payload = jsonEncode({
       'type': 'url_saved_to_collection',
       'route': 'home',
@@ -39,7 +41,7 @@ class UrlSaveNotifications {
       'body': body,
     });
 
-    return DigestNotifications.show(
+    await DigestNotifications.show(
       type: NotifType.resurface,
       title: title,
       body: body,
@@ -50,9 +52,10 @@ class UrlSaveNotifications {
   /// Shown after a shared save when the user is out of free AI saves: the
   /// bookmark was kept but not AI-enriched. Tapping routes to the subscription
   /// page (handled by NotificationRouter's `subscription` route).
-  static Future<void> showAiLimitReached() {
-    const title = 'Saved without AI enrichment';
-    const body = "You're out of free AI saves this month. Tap to upgrade.";
+  static Future<void> showAiLimitReached() async {
+    final strings = await loadBackgroundLocalizations();
+    final title = strings.savedWithoutAi;
+    final body = strings.aiLimitBody;
     final payload = jsonEncode({
       'type': 'url_capture_limit',
       'route': 'subscription',
@@ -60,7 +63,7 @@ class UrlSaveNotifications {
       'body': body,
     });
 
-    return DigestNotifications.show(
+    await DigestNotifications.show(
       type: NotifType.resurface,
       title: title,
       body: body,
@@ -68,9 +71,10 @@ class UrlSaveNotifications {
     );
   }
 
-  static Future<void> showAlreadyCaptured(SavedUrl url) {
+  static Future<void> showAlreadyCaptured(SavedUrl url) async {
+    final strings = await loadBackgroundLocalizations();
     final title = _notificationTitle(url);
-    final body = _notificationBody(url) ?? 'Already in your world.';
+    final body = _notificationBody(url) ?? strings.alreadyInYourWorld;
     final payload = _urlPayload(
       type: 'url_capture_duplicate',
       url: url,
@@ -78,7 +82,7 @@ class UrlSaveNotifications {
       body: body,
     );
 
-    return DigestNotifications.show(
+    await DigestNotifications.show(
       type: NotifType.resurface,
       title: title,
       body: body,
@@ -106,9 +110,10 @@ class UrlSaveNotifications {
     );
   }
 
-  static Future<void> showCaptureFailed(SavedUrl url) {
-    const title = "Couldn't finish enrichment";
-    const body = 'Tap to retry this save.';
+  static Future<void> showCaptureFailed(SavedUrl url) async {
+    final strings = await loadBackgroundLocalizations();
+    final title = strings.enrichmentFailed;
+    final body = strings.tapToRetry;
     final payload = _urlPayload(
       type: 'url_capture_failed',
       url: url,
@@ -116,7 +121,7 @@ class UrlSaveNotifications {
       body: body,
     );
 
-    return DigestNotifications.show(
+    await DigestNotifications.show(
       type: NotifType.resurface,
       title: title,
       body: body,

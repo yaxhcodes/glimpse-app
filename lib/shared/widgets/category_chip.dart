@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../l10n/l10n.dart';
 
 /// Brand accent colours for known platforms.
 const platformColors = <String, Color>{
@@ -160,6 +161,7 @@ class CategoryChip extends StatelessWidget {
     final rawColor = platformColors[category] ?? theme.colorScheme.primary;
     final brandColor = _ensureReadable(rawColor, isDark);
     final favicon = faviconUrl(category);
+    final displayCategory = localizedCategoryLabel(context.l10n, category);
 
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -185,7 +187,7 @@ class CategoryChip extends StatelessWidget {
             Text(emoji, style: const TextStyle(fontSize: 10)),
           const SizedBox(width: 4),
           Text(
-            category,
+            displayCategory,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -200,7 +202,7 @@ class CategoryChip extends StatelessWidget {
     if (onTap == null) return chip;
     return Semantics(
       button: true,
-      label: category,
+      label: displayCategory,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
         child: Align(

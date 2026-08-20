@@ -121,7 +121,9 @@ class GeminiService {
   // Fallback strings — defined once, not scattered across methods
   static const _fallbackQuestion = 'What stands out in my recent saves?';
   static const _fallbackCollectionName = '📁 New collection';
-  GeminiService([String? legacyApiKey]);
+  GeminiService([String? legacyApiKey, this.outputLocale = 'en']);
+
+  final String outputLocale;
 
   // ─── Core infrastructure ──────────────────────────────────────────────────
 
@@ -200,11 +202,19 @@ USER_CONTENT_END''';
     required bool jsonMode,
     required String prompt,
   }) async {
+    final localizedPrompt =
+        '''OUTPUT LANGUAGE CONTRACT:
+- Write every user-facing prose value in $outputLocale.
+- Keep JSON keys, enum values, category identifiers, source types, and other machine identifiers exactly as specified in English.
+- Preserve proper names and factual titles in their established form.
+- Preserve exact source quotations verbatim; localize only surrounding explanation.
+
+$prompt''';
     final cfg = _generationConfigForProxy(jsonMode);
     try {
       return await _tryProxyModel(
         modelName: _primaryModel,
-        prompt: prompt,
+        prompt: localizedPrompt,
         generationConfig: cfg,
         timeout: _primaryTimeout,
         label: 'primary',
@@ -217,7 +227,7 @@ USER_CONTENT_END''';
     }
     return _tryProxyModel(
       modelName: _fallbackModel,
-      prompt: prompt,
+      prompt: localizedPrompt,
       generationConfig: cfg,
       timeout: _fallbackTimeout,
       label: 'fallback',

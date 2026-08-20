@@ -8,8 +8,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'library_entity.dart';
+import 'library_localization.dart';
 import 'library_places_map.dart';
 import 'library_places_model.dart';
 import 'library_provider.dart';
@@ -38,9 +40,7 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
         if (entity == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const Center(
-              child: Text('This Library item is unavailable.'),
-            ),
+            body: Center(child: Text(context.l10n.libraryItemUnavailable)),
           );
         }
         return _EntityDetail(
@@ -65,7 +65,7 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update your bookmark.')),
+        SnackBar(content: Text(context.l10n.couldNotUpdateBookmark)),
       );
     }
   }
@@ -88,7 +88,7 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update this Library item.')),
+        SnackBar(content: Text(context.l10n.couldNotUpdateLibraryItem)),
       );
     }
   }
@@ -107,9 +107,9 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('${entity.title} hidden from Library'),
+          content: Text(context.l10n.hiddenFromLibrary(entity.title)),
           action: SnackBarAction(
-            label: 'Undo',
+            label: context.l10n.undo,
             onPressed: () => preferences.unhide(
               entity.key,
               provisionalKey: entity.provisionalKey,
@@ -145,17 +145,17 @@ class _EntityDetail extends StatelessWidget {
       appBar: AppBar(
         actions: [
           PopupMenuButton<String>(
-            tooltip: 'Library item options',
+            tooltip: context.l10n.libraryItemOptions,
             onSelected: (value) {
               if (value == 'hide') onHide();
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'hide',
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.visibility_off_outlined),
-                  title: Text('Hide from Library'),
+                  title: Text(context.l10n.hideFromLibrary),
                 ),
               ),
             ],
@@ -277,7 +277,7 @@ class _MediaHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _metadata(entity),
+                    _metadata(context, entity),
                     style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   if (entity.genres.isNotEmpty || hasRating) ...[
@@ -301,9 +301,13 @@ class _MediaHeader extends StatelessWidget {
                       label: Text(
                         entity.status == LibraryItemStatus.unlisted
                             ? entity.kind == LibraryEntityKind.book
-                                  ? 'Add to your reading list'
-                                  : 'Add to your watchlist'
-                            : entity.status.labelFor(entity.kind),
+                                  ? context.l10n.addToReadingList
+                                  : context.l10n.addToWatchlist
+                            : localizedLibraryStatus(
+                                context.l10n,
+                                entity.status,
+                                entity.kind,
+                              ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -371,7 +375,7 @@ class _PlaceHeader extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          _metadata(entity),
+          _metadata(context, entity),
           style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
         ),
         const SizedBox(height: 14),
@@ -381,7 +385,7 @@ class _PlaceHeader extends StatelessWidget {
           children: [
             FilterChip(
               avatar: const Icon(Icons.bookmark_add_outlined, size: 18),
-              label: const Text('Want to visit'),
+              label: Text(context.l10n.wantToVisit),
               selected: entity.status == LibraryItemStatus.planning,
               side: BorderSide.none,
               onSelected: (selected) => onStatusChanged(
@@ -392,7 +396,7 @@ class _PlaceHeader extends StatelessWidget {
             ),
             FilterChip(
               avatar: const Icon(Icons.check_circle_outline_rounded, size: 18),
-              label: const Text('Visited'),
+              label: Text(context.l10n.libraryVisited),
               selected: entity.status == LibraryItemStatus.completed,
               side: BorderSide.none,
               onSelected: (selected) => onStatusChanged(
@@ -410,7 +414,7 @@ class _PlaceHeader extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: () => _planVisit(context),
                 icon: const Icon(Icons.route_rounded),
-                label: const Text('Plan a visit'),
+                label: Text(context.l10n.planAVisit),
               ),
             ),
             if (entity.mention.hasCoordinates) ...[
@@ -418,7 +422,7 @@ class _PlaceHeader extends StatelessWidget {
               FilledButton.tonalIcon(
                 onPressed: () => _openInMaps(entity),
                 icon: const Icon(Icons.map_outlined),
-                label: const Text('Maps'),
+                label: Text(context.l10n.maps),
               ),
             ],
           ],
@@ -511,7 +515,7 @@ class _WhyItMattered extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Why it mattered',
+              context.l10n.whyItMattered,
               style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
@@ -552,7 +556,7 @@ class _PlotSummary extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Plot',
+              context.l10n.plot,
               style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
@@ -588,10 +592,8 @@ class _SourceSaves extends StatelessWidget {
           shape: const RoundedRectangleBorder(side: BorderSide.none),
           collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
           leading: const Icon(Icons.link_rounded),
-          title: const Text('Found in your saves'),
-          subtitle: Text(
-            '${entity.sources.length} ${entity.sources.length == 1 ? 'save' : 'saves'}',
-          ),
+          title: Text(context.l10n.foundInYourSaves),
+          subtitle: Text(context.l10n.saveCount(entity.sources.length)),
           children: [
             for (final source in entity.sources)
               ListTile(
@@ -612,12 +614,12 @@ class _SourceSaves extends StatelessWidget {
   }
 }
 
-String _metadata(LibraryEntity entity) {
+String _metadata(BuildContext context, LibraryEntity entity) {
   final values = switch (entity.kind) {
     LibraryEntityKind.book => [entity.mention.creator, entity.mention.year],
     LibraryEntityKind.movie => [
       entity.mention.year,
-      _titleCase(entity.mention.subtype),
+      localizedLibrarySubtype(context.l10n, entity.mention.subtype),
     ],
     LibraryEntityKind.place => [entity.mention.city, entity.mention.country],
   };
@@ -625,11 +627,7 @@ String _metadata(LibraryEntity entity) {
       .whereType<String>()
       .where((value) => value.trim().isNotEmpty)
       .join(' · ');
-  return label.isEmpty ? entity.kind.singularLabel : label;
-}
-
-String? _titleCase(String? value) {
-  final text = value?.trim() ?? '';
-  if (text.isEmpty) return null;
-  return '${text[0].toUpperCase()}${text.substring(1)}';
+  return label.isEmpty
+      ? localizedLibraryKindSingular(context.l10n, entity.kind)
+      : label;
 }

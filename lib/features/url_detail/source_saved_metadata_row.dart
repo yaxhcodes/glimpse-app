@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
+
 class SourceSavedMetadataRow extends StatelessWidget {
   const SourceSavedMetadataRow({
     super.key,
@@ -156,7 +158,7 @@ class _ReadStatePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        isRead ? 'Read' : 'Unread',
+        isRead ? context.l10n.read : context.l10n.unread,
         key: const ValueKey('read-state-label'),
         style: theme.textTheme.labelSmall?.copyWith(
           color: colorScheme.onSurfaceVariant,

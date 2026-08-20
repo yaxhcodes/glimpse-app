@@ -49,6 +49,7 @@ class EnrichmentService {
   final RecipeNutritionService? _recipeNutritionService;
   final UsageService _usageService;
   final bool _isPro;
+  final String _outputLocale;
   final void Function()? _onEnriched;
   late final DomainCentroidService _domainCentroidService;
 
@@ -61,6 +62,7 @@ class EnrichmentService {
     RecipeNutritionService? recipeNutritionService,
     required UsageService usageService,
     required bool isPro,
+    String outputLocale = 'en',
     void Function()? onEnriched,
   }) : _isarService = isarService,
        _geminiService = geminiService,
@@ -70,6 +72,7 @@ class EnrichmentService {
        _recipeNutritionService = recipeNutritionService,
        _usageService = usageService,
        _isPro = isPro,
+       _outputLocale = outputLocale,
        _onEnriched = onEnriched {
     _domainCentroidService = DomainCentroidService(_isarService);
     if (kDebugMode) {
@@ -347,6 +350,8 @@ class EnrichmentService {
           if ((recipe.category ?? '').isNotEmpty) recipe.category!,
         ]);
         final result = TranscriptEnrichmentResult(
+          schemaVersion: 4,
+          outputLocale: existing?.outputLocale ?? _outputLocale,
           meaningfulTitle: recipe.title,
           summary: recipe.summary ?? recipe.description ?? '',
           category: normalized.name,
@@ -583,6 +588,7 @@ class EnrichmentService {
         name: 'Enrichment',
       );
     } else if (savedRecipe != null && !mediaRequiresEvidence) {
+      final baseEnrichment = savedEnrichment!;
       final enhancedRecipe = await _enhanceRecipeIfNeeded(
         savedRecipe,
         urlId: urlId,
@@ -607,23 +613,25 @@ class EnrichmentService {
       enrichedThumbnailUrl = enhancedRecipe.image;
       enrichmentJson = jsonEncode(
         TranscriptEnrichmentResult(
-          meaningfulTitle: enrichedTitle ?? savedEnrichment!.meaningfulTitle,
+          schemaVersion: 4,
+          outputLocale: baseEnrichment.outputLocale,
+          meaningfulTitle: enrichedTitle ?? baseEnrichment.meaningfulTitle,
           summary: summary ?? '',
           category: category,
           tags: tags,
           contentType: 'recipe',
           brief: summary,
-          steps: savedEnrichment!.steps,
-          mentions: savedEnrichment.mentions,
+          steps: baseEnrichment.steps,
+          mentions: baseEnrichment.mentions,
           recipe: enhancedRecipe,
-          keyPoints: savedEnrichment.keyPoints,
-          thumbnailUrl: enrichedThumbnailUrl ?? savedEnrichment.thumbnailUrl,
-          creator: enhancedRecipe.author ?? savedEnrichment.creator,
-          caption: savedEnrichment.caption,
-          transcript: savedEnrichment.transcript,
-          likeCount: savedEnrichment.likeCount,
-          commentCount: savedEnrichment.commentCount,
-          memoryIntent: savedEnrichment.memoryIntent,
+          keyPoints: baseEnrichment.keyPoints,
+          thumbnailUrl: enrichedThumbnailUrl ?? baseEnrichment.thumbnailUrl,
+          creator: enhancedRecipe.author ?? baseEnrichment.creator,
+          caption: baseEnrichment.caption,
+          transcript: baseEnrichment.transcript,
+          likeCount: baseEnrichment.likeCount,
+          commentCount: baseEnrichment.commentCount,
+          memoryIntent: baseEnrichment.memoryIntent,
         ).toJson(),
       );
     } else if (_geminiService != null &&
@@ -772,6 +780,8 @@ class EnrichmentService {
         summary?.trim().isNotEmpty == true) {
       enrichmentJson = jsonEncode(
         TranscriptEnrichmentResult(
+          schemaVersion: 4,
+          outputLocale: _outputLocale,
           meaningfulTitle:
               TitleResolver.isLowSignalTitle(
                 freshUrl.title,
@@ -868,6 +878,7 @@ class EnrichmentService {
           processingId: processingId,
           attempt: attempt,
           forceRefresh: forceRefresh || attempt > 1,
+          outputLocale: _outputLocale,
         );
         if (result != null && result.hasReliableMediaEvidence) {
           await _markProcessing(

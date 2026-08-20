@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../l10n/l10n.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
 import '../../core/providers/usage_providers.dart';
@@ -46,16 +47,19 @@ class UrlCard extends ConsumerStatefulWidget {
   });
 
   /// Relative time for the source · time row (shared with other link cards).
-  static String timeAgoSaved(DateTime savedAt) {
+  static String timeAgoSaved(BuildContext context, DateTime savedAt) {
+    final strings = context.l10n;
     final diff = DateTime.now().difference(savedAt);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
-    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
-    return '${(diff.inDays / 365).floor()}y ago';
+    if (diff.inMinutes < 1) return strings.justNow;
+    if (diff.inMinutes < 60) return strings.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return strings.hoursAgo(diff.inHours);
+    if (diff.inDays == 1) return strings.yesterday;
+    if (diff.inDays < 7) return strings.daysAgo(diff.inDays);
+    if (diff.inDays < 30) return strings.weeksAgo((diff.inDays / 7).floor());
+    if (diff.inDays < 365) {
+      return strings.monthsAgo((diff.inDays / 30).floor());
+    }
+    return strings.yearsAgo((diff.inDays / 365).floor());
   }
 
   /// Shared with search / notification list rows: neutral light cards, tinted dark.
@@ -260,6 +264,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   Text(' · ', style: metaStyle),
                                   Text(
                                     UrlCard.timeAgoSaved(
+                                      context,
                                       widget.savedUrl.savedAt,
                                     ),
                                     style: metaStyle,
@@ -267,14 +272,14 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   Text(' · ', style: metaStyle),
                                   Text(
                                     _retryingEnrichment
-                                        ? 'Retrying'
+                                        ? context.l10n.retrying
                                         : isProcessing
-                                        ? 'Processing'
+                                        ? context.l10n.processing
                                         : isProcessingFailed
-                                        ? 'Needs attention'
+                                        ? context.l10n.needsAttention
                                         : isRead
-                                        ? 'Read'
-                                        : 'Unread',
+                                        ? context.l10n.read
+                                        : context.l10n.unread,
                                     style: metaStyle,
                                   ),
                                 ],
@@ -436,7 +441,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            success ? 'Enrichment complete' : 'Could not enrich this save',
+            success
+                ? context.l10n.enrichmentComplete
+                : context.l10n.couldNotEnrichSave,
           ),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
@@ -454,24 +461,24 @@ class _UrlCardState extends ConsumerState<UrlCard> {
           children: [
             ListTile(
               leading: const Icon(Icons.copy_outlined),
-              title: const Text('Copy Link'),
+              title: Text(context.l10n.copyLink),
               onTap: () {
                 Navigator.pop(ctx);
                 Clipboard.setData(ClipboardData(text: widget.savedUrl.rawUrl));
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
                   ..showSnackBar(
-                    const SnackBar(
-                      content: Text('Link copied'),
+                    SnackBar(
+                      content: Text(context.l10n.linkCopied),
                       behavior: SnackBarBehavior.floating,
-                      duration: Duration(seconds: 3),
+                      duration: const Duration(seconds: 3),
                     ),
                   );
               },
             ),
             ListTile(
               leading: const Icon(Icons.share_outlined),
-              title: const Text('Share'),
+              title: Text(context.l10n.share),
               onTap: () {
                 Navigator.pop(ctx);
                 Share.share(widget.savedUrl.rawUrl);
@@ -479,7 +486,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
             ),
             ListTile(
               leading: const Icon(Icons.open_in_new_rounded),
-              title: const Text('Open Original'),
+              title: Text(context.l10n.openOriginal),
               onTap: () async {
                 Navigator.pop(ctx);
                 final uri = Uri.tryParse(widget.savedUrl.rawUrl);
@@ -578,7 +585,7 @@ class _ProcessingStatusPanel extends StatelessWidget {
                           color: accent,
                         ),
                       )
-                    : const Text('Retry'),
+                    : Text(context.l10n.retry),
               ),
             ],
           ],

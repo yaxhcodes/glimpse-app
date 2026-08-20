@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import 'library_entity.dart';
-
-String libraryListName(LibraryEntityKind kind) => switch (kind) {
-  LibraryEntityKind.book => 'Reading list',
-  LibraryEntityKind.movie => 'Watchlist',
-  LibraryEntityKind.place => 'Places',
-};
+import 'library_localization.dart';
 
 IconData libraryStatusIcon(LibraryItemStatus status, LibraryEntityKind kind) =>
     switch (status) {
@@ -45,8 +41,8 @@ Future<LibraryItemStatus?> showLibraryStatusPicker(
               children: [
                 Text(
                   entity.kind == LibraryEntityKind.book
-                      ? 'Reading status'
-                      : 'Watch status',
+                      ? context.l10n.readingStatus
+                      : context.l10n.watchStatus,
                   style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
@@ -70,7 +66,9 @@ Future<LibraryItemStatus?> showLibraryStatusPicker(
                 selected: entity.status == status,
                 selectedTileColor: cs.secondaryContainer,
                 leading: Icon(libraryStatusIcon(status, entity.kind)),
-                title: Text(status.labelFor(entity.kind)),
+                title: Text(
+                  localizedLibraryStatus(context.l10n, status, entity.kind),
+                ),
                 trailing: entity.status == status
                     ? const Icon(Icons.check_rounded)
                     : null,
@@ -87,8 +85,8 @@ Future<LibraryItemStatus?> showLibraryStatusPicker(
               leading: const Icon(Icons.playlist_remove_rounded),
               title: Text(
                 entity.kind == LibraryEntityKind.book
-                    ? 'Remove from reading list'
-                    : 'Remove from watchlist',
+                    ? context.l10n.removeFromReadingList
+                    : context.l10n.removeFromWatchlist,
               ),
               onTap: () => Navigator.pop(context, LibraryItemStatus.unlisted),
             ),

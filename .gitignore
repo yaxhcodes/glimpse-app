@@ -41,6 +41,7 @@ glimpse-enrichment-backend/
 .pub-cache/
 .pub/
 /coverage/
+/test/failures/
 
 # Symbolication related
 app.*.symbols

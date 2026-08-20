@@ -9,6 +9,7 @@ import 'package:glimpse/core/services/saved_notes_service.dart';
 import 'package:glimpse/features/home/home_provider.dart';
 import 'package:glimpse/features/url_detail/url_detail_provider.dart';
 import 'package:glimpse/features/url_detail/url_detail_screen.dart';
+import 'package:glimpse/l10n/l10n.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
 import 'package:glimpse/shared/widgets/lightweight_markdown_text.dart';
 
@@ -240,6 +241,62 @@ Use **structured curation**.
     expect(find.widgetWithText(TextButton, 'Add your note'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.textContaining('## Ask Glimpse'), findsNothing);
+  });
+
+  testWidgets('detail localizes note chrome and both saved-time formats', (
+    tester,
+  ) async {
+    final url = _savedUrl()
+      ..id = 11
+      ..savedAt = DateTime.now().subtract(const Duration(days: 2));
+    final database = _MemoryIsarService(url);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isarServiceProvider.overrideWithValue(database),
+          savedNotesServiceProvider.overrideWithValue(
+            SavedNotesService(database),
+          ),
+          urlDetailProvider(11).overrideWith((ref) async => database.url),
+          tagOccurrenceMapProvider.overrideWithValue(const {}),
+        ],
+        child: MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(useMaterial3: true),
+          home: const UrlDetailScreen(urlId: 11),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2日前'), findsOneWidget);
+    await tester.ensureVisible(find.text('2日前'));
+    await tester.tap(find.text('2日前'));
+    await tester.pump();
+    expect(find.textContaining('August'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            RegExp(r'\d{4}年\d{1,2}月\d{1,2}日').hasMatch(widget.data ?? ''),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.text('メモを追加'));
+    await tester.tap(find.text('メモを追加'));
+    await tester.pump();
+    expect(find.text('自分のメモ'), findsOneWidget);
+    expect(find.text('完了'), findsOneWidget);
+    expect(find.text('印象に残ったことは？'), findsOneWidget);
+    expect(find.text('クイック追加'), findsOneWidget);
+    expect(find.text('後で見返す'), findsOneWidget);
+    expect(find.text('誰かと共有'), findsOneWidget);
+    expect(find.text('試す価値あり'), findsOneWidget);
+    expect(find.text('確認済み'), findsOneWidget);
   });
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
@@ -78,7 +79,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
   Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      setState(() => _nameError = 'Name your collection');
+      setState(() => _nameError = context.l10n.nameCollectionError);
       return;
     }
 
@@ -90,7 +91,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
           collection.name.trim().toLowerCase() == name.toLowerCase(),
     );
     if (duplicate) {
-      setState(() => _nameError = 'A collection with this name already exists');
+      setState(() => _nameError = context.l10n.duplicateCollectionError);
       return;
     }
 
@@ -192,7 +193,9 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isEditing ? 'Edit collection' : 'New collection',
+                            isEditing
+                                ? context.l10n.editCollection
+                                : context.l10n.newCollection,
                             style: tt.titleLarge?.copyWith(
                               color: cs.onSurface,
                               fontWeight: FontWeight.w600,
@@ -201,8 +204,8 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                           const SizedBox(height: 2),
                           Text(
                             isEditing
-                                ? 'Refine this saved space.'
-                                : 'Create a focused space for saved ideas.',
+                                ? context.l10n.collectionEditSubtitle
+                                : context.l10n.collectionCreateSubtitle,
                             style: tt.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),
@@ -211,7 +214,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Close',
+                      tooltip: context.l10n.close,
                       onPressed: _creating
                           ? null
                           : () => Navigator.pop(context),
@@ -229,8 +232,8 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                     setState(() => _nameError = null);
                   },
                   decoration: InputDecoration(
-                    labelText: 'Name',
-                    hintText: 'Travel & Wanderlust',
+                    labelText: context.l10n.nameLabel,
+                    hintText: context.l10n.collectionNameHint,
                     errorText: _nameError,
                   ),
                 ),
@@ -242,9 +245,9 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                   maxLength: maxCollectionDescriptionLength,
                   textCapitalization: TextCapitalization.sentences,
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    hintText: 'Optional note for this space',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.descriptionLabel,
+                    hintText: context.l10n.collectionDescriptionHint,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -255,7 +258,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                         onPressed: _creating
                             ? null
                             : () => Navigator.pop(context),
-                        child: const Text('Cancel'),
+                        child: Text(context.l10n.cancel),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -271,7 +274,11 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                                   color: cs.onPrimary,
                                 ),
                               )
-                            : Text(isEditing ? 'Save' : 'Create'),
+                            : Text(
+                                isEditing
+                                    ? context.l10n.save
+                                    : context.l10n.create,
+                              ),
                       ),
                     ),
                   ],

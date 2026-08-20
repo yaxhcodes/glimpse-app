@@ -20,6 +20,7 @@ import 'collections_provider.dart';
 import 'collections_preferences_provider.dart';
 import 'create_collection_sheet.dart';
 import 'move_collection_contents_sheet.dart';
+import '../../l10n/l10n.dart';
 
 enum _CollectionsMenuAction {
   viewGrid,
@@ -100,7 +101,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
               !selectionState.isActive && !widget.embedded,
           leading: selectionState.isActive
               ? IconButton(
-                  tooltip: 'Exit selection',
+                  tooltip: context.l10n.exitSelection,
                   onPressed: selectionNotifier.clear,
                   icon: const Icon(Icons.close_rounded),
                 )
@@ -108,7 +109,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           title: selectionState.isActive
               ? BulkSelectionTitle(count: selectedCollections.length)
               : Text(
-                  'Collections',
+                  context.l10n.collections,
                   key: const ValueKey('collections-surface-title'),
                   style: tt.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
@@ -118,7 +119,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           actions: selectionState.isActive
               ? [
                   IconButton(
-                    tooltip: 'Select all',
+                    tooltip: context.l10n.selectAll,
                     onPressed: () => selectionNotifier.selectAll(
                       orderedCollections.map(
                         (summary) => summary.collection.id,
@@ -128,7 +129,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   ),
                   if (selectedCollections.length == 1)
                     IconButton(
-                      tooltip: 'Edit collection',
+                      tooltip: context.l10n.editCollection,
                       onPressed: () => _editCollection(
                         context,
                         selectedCollections.single,
@@ -137,7 +138,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                       icon: const Icon(Icons.edit_outlined),
                     ),
                   IconButton(
-                    tooltip: 'Move contents',
+                    tooltip: context.l10n.moveContents,
                     onPressed: canMoveSelection
                         ? () => _moveCollectionContents(
                             context,
@@ -150,7 +151,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     icon: const Icon(Icons.drive_file_move_outline),
                   ),
                   IconButton(
-                    tooltip: 'Delete selected collections',
+                    tooltip: context.l10n.deleteSelectedCollections,
                     color: cs.error,
                     onPressed: selectedCollections.isEmpty
                         ? null
@@ -298,7 +299,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 padding: EdgeInsets.only(bottom: shellBottomInset),
                 child: ExpressiveFab(
                   heroTag: 'collections-create',
-                  tooltip: 'New collection',
+                  tooltip: context.l10n.newCollection,
                   onPressed: () => _createCollection(context),
                   child: const AppIcon(AppIcons.addToCollection),
                 ),
@@ -423,11 +424,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
       SnackBar(
         content: Text(
           movedCount == 0
-              ? '${selected.length == 1 ? 'Collection' : 'Collections'} moved '
-                    'to ${target.name}'
-              : 'Moved $movedCount ${movedCount == 1 ? 'link' : 'links'} to '
-                    '${target.name} and deleted '
-                    '${selected.length == 1 ? 'the source collection' : 'the source collections'}',
+              ? context.l10n.movedToCollection(target.name)
+              : context.l10n.movedLinksAndDeletedSources(
+                  movedCount,
+                  target.name,
+                  selected.length,
+                ),
         ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
@@ -447,24 +449,24 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
       builder: (dialogContext) => AlertDialog(
         title: Text(
           count == 1
-              ? 'Delete “${selected.single.collection.name}”?'
-              : 'Delete $count collections?',
+              ? context.l10n.deleteCollectionNamed(
+                  selected.single.collection.name,
+                )
+              : context.l10n.deleteCollectionsCount(count),
         ),
         content: Text(
           count == 1
-              ? 'Its saved links will stay in your library. Only the '
-                    'collection will be removed.'
-              : 'Their saved links will stay in your library. Only the '
-                    'collections will be removed.',
+              ? context.l10n.deleteCollectionDescription
+              : context.l10n.deleteCollectionsDescription,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(dialogContext.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Delete'),
+            child: Text(dialogContext.l10n.delete),
           ),
         ],
       ),
@@ -484,9 +486,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     showAutoDismissSnackBarVia(
       messenger,
       SnackBar(
-        content: Text(
-          count == 1 ? 'Collection deleted' : '$count collections deleted',
-        ),
+        content: Text(context.l10n.collectionsDeleted(count)),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
       ),
@@ -573,18 +573,18 @@ class _LibraryGatewayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final strings = context.l10n;
     final artworkEntities = entities
         .where((entity) => (entity.artworkUrl ?? '').trim().isNotEmpty)
         .take(3)
         .toList(growable: false);
     final itemLabel = entities.isEmpty
-        ? 'Builds quietly as you save'
-        : '${entities.length} ${entities.length == 1 ? 'item' : 'items'}';
+        ? strings.buildsQuietly
+        : strings.itemCount(entities.length);
 
     return Semantics(
       button: enabled,
-      label:
-          'Library, books, movies, and places found in your saves, $itemLabel',
+      label: '${strings.library}, ${strings.libraryDescription}, $itemLabel',
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 160),
         opacity: enabled ? 1 : 0.55,
@@ -682,7 +682,7 @@ class _LibraryGatewayDetails extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Library',
+          context.l10n.library,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: tt.titleMedium?.copyWith(
@@ -692,7 +692,7 @@ class _LibraryGatewayDetails extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          'Books, movies & places found in your saves',
+          context.l10n.libraryDescription,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: tt.bodyMedium?.copyWith(
@@ -773,7 +773,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<_CollectionsMenuAction>(
-      tooltip: 'Collection options',
+      tooltip: context.l10n.collectionOptions,
       icon: const Icon(Icons.more_vert_rounded),
       onSelected: onSelected,
       itemBuilder: (context) => [
@@ -782,7 +782,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
             icon: Icons.grid_view_rounded,
-            label: 'Grid',
+            label: context.l10n.grid,
             selected: preferences.layout == CollectionsLayout.grid,
           ),
         ),
@@ -791,7 +791,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
             icon: Icons.view_list_rounded,
-            label: 'List',
+            label: context.l10n.list,
             selected: preferences.layout == CollectionsLayout.list,
           ),
         ),
@@ -801,7 +801,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
             icon: Icons.swap_vert_rounded,
-            label: 'Manual',
+            label: context.l10n.manual,
             selected: preferences.sort == CollectionsSort.manual,
           ),
         ),
@@ -810,7 +810,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
             icon: Icons.schedule_rounded,
-            label: 'Newest',
+            label: context.l10n.newest,
             selected: preferences.sort == CollectionsSort.newest,
           ),
         ),
@@ -819,7 +819,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
             icon: Icons.sort_by_alpha_rounded,
-            label: 'A–Z',
+            label: context.l10n.alphabetical,
             selected: preferences.sort == CollectionsSort.name,
           ),
         ),
@@ -830,7 +830,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
             icon: Icons.drag_indicator_rounded,
-            label: 'Reorder',
+            label: context.l10n.reorder,
             enabled: canReorder,
           ),
         ),
@@ -921,7 +921,7 @@ class _CollectionsEmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Text(
-                'Create your first collection',
+                context.l10n.createFirstCollection,
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: colorScheme.onSurface,
@@ -930,7 +930,7 @@ class _CollectionsEmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Group links into calm, focused spaces.',
+                context.l10n.collectionEmptyDescription,
                 textAlign: TextAlign.center,
                 style: textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -941,7 +941,7 @@ class _CollectionsEmptyState extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onCreate,
                 icon: const AppIcon(AppIcons.addToCollection),
-                label: const Text('New collection'),
+                label: Text(context.l10n.newCollection),
               ),
             ],
           ),

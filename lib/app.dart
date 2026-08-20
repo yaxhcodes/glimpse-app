@@ -83,6 +83,7 @@ import 'shared/widgets/app_snackbar.dart';
 import 'shared/widgets/expressive_loading_indicator.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
+import 'l10n/l10n.dart';
 
 /// Provider that holds a URL received via Android share intent.
 final sharedUrlProvider = StateProvider<String?>((ref) => null);
@@ -757,6 +758,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     final amoledSurfaces = ref.watch(amoledSurfacesProvider);
     final accent = ref.watch(accentColorProvider);
     final devProOverrideActive = ref.watch(devProOverrideActiveProvider);
+    final localeState = ref.watch(appLocaleProvider);
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
@@ -805,6 +807,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeMode,
+          locale: localeState.preference == AppLanguage.system
+              ? null
+              : localeState.effectiveLocale,
+          supportedLocales: appSupportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localeListResolutionCallback: (locales, supportedLocales) =>
+              resolveAppLocale(locales),
           themeAnimationStyle: AppTheme.transitionStyle,
           scrollBehavior: const AppScrollBehavior(),
           routerConfig: _router,

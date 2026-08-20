@@ -9,6 +9,7 @@ import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/title_resolver.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
@@ -271,14 +272,14 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                 backgroundColor: cs.surface,
                 foregroundColor: cs.onSurface,
                 leading: IconButton(
-                  tooltip: 'Exit selection',
+                  tooltip: context.l10n.exitSelection,
                   onPressed: selectionNotifier.clear,
                   icon: const Icon(Icons.close_rounded),
                 ),
                 title: BulkSelectionTitle(count: selectedUrls.length),
                 actions: [
                   IconButton(
-                    tooltip: 'Select all',
+                    tooltip: context.l10n.selectAll,
                     onPressed: urls.isEmpty
                         ? null
                         : () {
@@ -310,11 +311,11 @@ class _BinScreenState extends ConsumerState<BinScreen> {
               SliverAppBar.large(
                 backgroundColor: cs.surface,
                 foregroundColor: cs.onSurface,
-                title: const Text('Bin'),
+                title: Text(context.l10n.bin),
                 actions: [
                   if (_maintenanceComplete && urls.isNotEmpty)
                     PopupMenuButton<String>(
-                      tooltip: 'Bin actions',
+                      tooltip: context.l10n.binActions,
                       onSelected: (value) {
                         if (value == 'restore') {
                           unawaited(_restoreMany(urls));
@@ -322,19 +323,19 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                           unawaited(_emptyBin(urls));
                         }
                       },
-                      itemBuilder: (context) => const [
+                      itemBuilder: (context) => [
                         PopupMenuItem(
                           value: 'restore',
                           child: ListTile(
                             leading: Icon(Icons.restore_rounded),
-                            title: Text('Restore all'),
+                            title: Text(context.l10n.restoreAll),
                           ),
                         ),
                         PopupMenuItem(
                           value: 'empty',
                           child: ListTile(
                             leading: Icon(Icons.delete_forever_rounded),
-                            title: Text('Empty Bin'),
+                            title: Text(context.l10n.emptyBin),
                           ),
                         ),
                       ],
@@ -370,8 +371,7 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Text(
-                      'Deleted items are kept for 30 days, then removed '
-                      'permanently the next time Glimpse runs cleanup.',
+                      context.l10n.deletedItemsRetention,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -450,8 +450,8 @@ class _BinItem extends StatelessWidget {
     final remainingHours = expiresAt.difference(DateTime.now()).inHours;
     final remainingDays = (remainingHours / 24).ceil().clamp(0, 30);
     final expiryLabel = remainingDays == 0
-        ? 'Expires today'
-        : '$remainingDays ${remainingDays == 1 ? 'day' : 'days'} left';
+        ? context.l10n.expiresToday
+        : context.l10n.daysLeft(remainingDays);
 
     return Dismissible(
       key: ValueKey('bin-${url.id}'),
@@ -467,14 +467,14 @@ class _BinItem extends StatelessWidget {
         backgroundColor: cs.tertiaryContainer,
         foregroundColor: cs.onTertiaryContainer,
         icon: Icons.restore_rounded,
-        label: 'Restore',
+        label: context.l10n.restore,
       ),
       secondaryBackground: _SwipeActionBackground(
         alignment: Alignment.centerRight,
         backgroundColor: cs.errorContainer,
         foregroundColor: cs.onErrorContainer,
         icon: Icons.delete_forever_rounded,
-        label: 'Delete',
+        label: context.l10n.delete,
       ),
       confirmDismiss: (direction) {
         if (direction == DismissDirection.endToStart) {
@@ -558,7 +558,7 @@ class _BinItem extends StatelessWidget {
                   ),
                   if (!selectionMode)
                     PopupMenuButton<String>(
-                      tooltip: 'Item actions',
+                      tooltip: context.l10n.itemActions,
                       onSelected: (value) {
                         if (value == 'restore') {
                           onRestore();
@@ -567,18 +567,18 @@ class _BinItem extends StatelessWidget {
                         }
                       },
                       itemBuilder: (context) => [
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'restore',
                           child: _ItemMenuRow(
                             icon: Icons.restore_rounded,
-                            label: 'Restore',
+                            label: context.l10n.restore,
                           ),
                         ),
                         PopupMenuItem(
                           value: 'delete',
                           child: _ItemMenuRow(
                             icon: Icons.delete_forever_rounded,
-                            label: 'Delete permanently',
+                            label: context.l10n.deletePermanently,
                             color: cs.error,
                           ),
                         ),
@@ -717,10 +717,13 @@ class _EmptyBin extends StatelessWidget {
               color: colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 16),
-            Text('Bin is empty', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              context.l10n.binIsEmpty,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 6),
             Text(
-              'Items you delete will appear here for 30 days.',
+              context.l10n.binEmptyDescription,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,

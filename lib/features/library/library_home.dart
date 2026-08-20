@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'library_entity.dart';
+import 'library_localization.dart';
 import 'library_provider.dart';
 import 'library_widgets.dart';
 
@@ -18,7 +20,7 @@ class LibraryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Library')),
+      appBar: AppBar(title: Text(context.l10n.library)),
       body: const LibraryHome(),
     );
   }
@@ -149,7 +151,7 @@ class _LibraryDashboard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Found in your saves',
+          context.l10n.foundInYourSaves,
           style: tt.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
             letterSpacing: -0.25,
@@ -157,7 +159,7 @@ class _LibraryDashboard extends StatelessWidget {
         ),
         const SizedBox(height: 3),
         Text(
-          'Recognized and organized by type',
+          context.l10n.recognizedOrganizedByType,
           style: tt.bodyMedium?.copyWith(
             color: cs.onSurfaceVariant,
             height: 1.35,
@@ -246,14 +248,14 @@ class _LibraryDestinationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final noun = switch (kind) {
-      LibraryEntityKind.book => entities.length == 1 ? 'book' : 'books',
-      LibraryEntityKind.movie => entities.length == 1 ? 'movie' : 'movies',
-      LibraryEntityKind.place => entities.length == 1 ? 'place' : 'places',
-    };
+    final countLabel = localizedLibraryCount(
+      context.l10n,
+      kind,
+      entities.length,
+    );
     return Semantics(
       button: true,
-      label: '${kind.label}, ${entities.length} $noun',
+      label: '${localizedLibraryKind(context.l10n, kind)}, $countLabel',
       child: Card(
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
@@ -271,7 +273,6 @@ class _LibraryDestinationCard extends StatelessWidget {
                         child: _DestinationLabel(
                           kind: kind,
                           count: entities.length,
-                          noun: noun,
                         ),
                       ),
                     ],
@@ -285,11 +286,7 @@ class _LibraryDestinationCard extends StatelessWidget {
                             : _EditorialArtworkPreview(entities: entities),
                       ),
                       const SizedBox(height: 12),
-                      _DestinationLabel(
-                        kind: kind,
-                        count: entities.length,
-                        noun: noun,
-                      ),
+                      _DestinationLabel(kind: kind, count: entities.length),
                     ],
                   ),
           ),
@@ -300,15 +297,10 @@ class _LibraryDestinationCard extends StatelessWidget {
 }
 
 class _DestinationLabel extends StatelessWidget {
-  const _DestinationLabel({
-    required this.kind,
-    required this.count,
-    required this.noun,
-  });
+  const _DestinationLabel({required this.kind, required this.count});
 
   final LibraryEntityKind kind;
   final int count;
-  final String noun;
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +314,7 @@ class _DestinationLabel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                kind.label,
+                localizedLibraryKind(context.l10n, kind),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: tt.titleMedium?.copyWith(
@@ -332,7 +324,9 @@ class _DestinationLabel extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                count == 0 ? 'Nothing recognized yet' : '$count $noun',
+                count == 0
+                    ? context.l10n.nothingRecognizedYet
+                    : localizedLibraryCount(context.l10n, kind, count),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
@@ -360,7 +354,7 @@ class _EditorialArtworkPreview extends StatelessWidget {
     if (entities.isEmpty) {
       return _DestinationPlaceholder(
         icon: Icons.auto_awesome_mosaic_rounded,
-        label: 'Recognized titles will gather here',
+        label: context.l10n.recognizedTitlesGatherHere,
       );
     }
     final preview = entities
@@ -370,7 +364,7 @@ class _EditorialArtworkPreview extends StatelessWidget {
     if (preview.isEmpty) {
       return _DestinationPlaceholder(
         icon: Icons.auto_awesome_mosaic_rounded,
-        label: '${entities.length} recognized',
+        label: context.l10n.recognizedCount(entities.length),
       );
     }
     return LayoutBuilder(
@@ -438,9 +432,9 @@ class _PlacesPreview extends StatelessWidget {
                 .clamp(0, 6),
           ),
           child: entities.isEmpty
-              ? const _DestinationPlaceholder(
+              ? _DestinationPlaceholder(
                   icon: Icons.map_rounded,
-                  label: 'Saved places will appear on a map',
+                  label: context.l10n.savedPlacesAppearOnMap,
                 )
               : const SizedBox.expand(),
         ),
@@ -545,15 +539,18 @@ class _BackfillStatus extends StatelessWidget {
     final serviceUnavailable =
         state.issue == LibraryBackfillIssue.serviceUnavailable;
     final title = state.isRunning
-        ? 'Adding details'
+        ? context.l10n.addingDetails
         : serviceUnavailable
-        ? 'Extra details are temporarily unavailable'
-        : '${state.failed} ${state.failed == 1 ? 'item' : 'items'} couldn’t be refreshed';
+        ? context.l10n.extraDetailsUnavailable
+        : context.l10n.itemsCouldNotRefresh(state.failed);
     final supportingText = state.isRunning
-        ? '${state.completed.clamp(0, state.total)} of ${state.total}'
+        ? context.l10n.progressOf(
+            state.completed.clamp(0, state.total),
+            state.total,
+          )
         : serviceUnavailable
-        ? 'Saved details remain available'
-        : '${state.failed} waiting to retry';
+        ? context.l10n.savedDetailsRemainAvailable
+        : context.l10n.waitingToRetry(state.failed);
     return SizedBox(
       height: 44,
       child: Row(
@@ -595,7 +592,7 @@ class _BackfillStatus extends StatelessWidget {
             ),
           ),
           if (state.canRetry)
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
+            TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
         ],
       ),
     );
@@ -617,7 +614,7 @@ class _LibraryEmptyState extends StatelessWidget {
             Icon(Icons.auto_awesome_rounded, size: 64, color: cs.primary),
             const SizedBox(height: 20),
             Text(
-              'It builds as you save',
+              context.l10n.libraryBuildsAsYouSave,
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -625,7 +622,7 @@ class _LibraryEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Save recommendations for books, movies, and places. Glimpse will organize the things inside them here.',
+              context.l10n.libraryEmptyDescription,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -646,7 +643,7 @@ class _LibraryErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        'Library is unavailable right now',
+        context.l10n.libraryUnavailable,
         style: Theme.of(context).textTheme.bodyLarge,
       ),
     );

@@ -17,6 +17,7 @@ import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../collections/share_capture_sheet.dart';
 import 'add_url_provider.dart';
+import '../../l10n/l10n.dart';
 
 class ManualAddArguments {
   const ManualAddArguments({this.initialCollection});
@@ -165,6 +166,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(addUrlProvider);
+    final strings = context.l10n;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -195,14 +197,14 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Capture something worth returning to',
+                strings.captureSomethingWorthReturning,
                 style: textTheme.headlineMedium?.copyWith(
                   color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                'Glimpse will find the context after you capture it.',
+                strings.captureContextAfter,
                 style: textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -211,18 +213,18 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
               TextFormField(
                 controller: _urlController,
                 decoration: InputDecoration(
-                  label: const _FieldLabelPill('Link'),
+                  label: _FieldLabelPill(strings.link),
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                   hintText: 'https://example.com',
                   helperText: _clipboardPrefilled
-                      ? 'Detected from clipboard'
+                      ? strings.detectedFromClipboard
                       : null,
                   helperStyle: textTheme.labelSmall?.copyWith(
                     color: colorScheme.primary,
                   ),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.content_paste_go_rounded),
-                    tooltip: 'Paste from clipboard',
+                    tooltip: context.l10n.pasteFromClipboard,
                     onPressed: isEnabled ? _pasteFromClipboard : null,
                   ),
                 ),
@@ -233,7 +235,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                 autocorrect: false,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a URL';
+                    return strings.pleaseEnterUrl;
                   }
                   return null;
                 },
@@ -251,14 +253,14 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                 focusNode: _notesFocusNode,
                 decoration: InputDecoration(
                   label: _notesFocusNode.hasFocus
-                      ? const _FieldLabelPill('Note (optional)')
+                      ? _FieldLabelPill(strings.noteOptional)
                       : null,
                   floatingLabelBehavior: _notesFocusNode.hasFocus
                       ? FloatingLabelBehavior.always
                       : FloatingLabelBehavior.never,
                   hintText: _notesFocusNode.hasFocus
                       ? null
-                      : 'Add a note (optional)',
+                      : strings.addNoteOptional,
                   alignLabelWithHint: true,
                 ),
                 minLines: 3,
@@ -273,8 +275,8 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                 const SizedBox(height: 20),
                 _DuplicateSaveNotice(
                   message: state.status == AddUrlStatus.duplicate
-                      ? 'Already in Glimpse'
-                      : state.errorMessage ?? 'Could not capture this link',
+                      ? context.l10n.alreadyInGlimpse
+                      : state.errorMessage ?? strings.couldNotCaptureLink,
                   savedUrlId: state.savedUrlId,
                   isError: state.status == AddUrlStatus.error,
                 ),
@@ -296,7 +298,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 160),
                 child: isSaving
-                    ? const Row(
+                    ? Row(
                         key: ValueKey('saving'),
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -305,10 +307,13 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                             child: ExpressiveLoadingIndicator(size: 18),
                           ),
                           SizedBox(width: 10),
-                          Text('Capturing…'),
+                          Text(context.l10n.capturing),
                         ],
                       )
-                    : const Text('Capture', key: ValueKey('capture')),
+                    : Text(
+                        context.l10n.capture,
+                        key: const ValueKey('capture'),
+                      ),
               ),
             ),
           ),
@@ -361,11 +366,13 @@ class _CollectionSelector extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final borderRadius = BorderRadius.circular(20);
+    final strings = context.l10n;
+    final selectedName = collection?.name ?? strings.noCollection;
 
     return Semantics(
       button: true,
       enabled: enabled,
-      label: 'Collection, ${collection?.name ?? 'No Collection'}',
+      label: strings.collectionSelection(selectedName),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -374,7 +381,7 @@ class _CollectionSelector extends StatelessWidget {
           child: InputDecorator(
             isEmpty: false,
             decoration: InputDecoration(
-              label: const _FieldLabelPill('Collection'),
+              label: _FieldLabelPill(strings.collection),
               floatingLabelBehavior: FloatingLabelBehavior.always,
               enabled: enabled,
               suffixIcon: Icon(
@@ -385,7 +392,7 @@ class _CollectionSelector extends StatelessWidget {
               ),
             ),
             child: Text(
-              collection?.name ?? 'No Collection',
+              selectedName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -448,7 +455,7 @@ class _DuplicateSaveNotice extends ConsumerWidget {
                   if (snapshot.connectionState != ConnectionState.done) {
                     return _DuplicatePreviewShell(
                       child: Text(
-                        'Finding the saved version...',
+                        context.l10n.findingSavedVersion,
                         style: textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -522,7 +529,7 @@ class _DuplicateUrlPreview extends StatelessWidget {
                     ],
                     const SizedBox(height: 6),
                     Text(
-                      'Open saved item',
+                      context.l10n.openSavedItem,
                       style: textTheme.labelSmall?.copyWith(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w700,

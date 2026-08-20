@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import 'cluster_pattern.dart';
 
@@ -152,7 +153,7 @@ class _InterestTile extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: '${cluster.label}, ${cluster.saveCount} saves',
+      label: '${cluster.label}, ${context.l10n.saveCount(cluster.saveCount)}',
       child: Material(
         color: surface,
         shape: RoundedRectangleBorder(
@@ -218,7 +219,7 @@ class _InterestTile extends StatelessWidget {
                       ),
                       SizedBox(height: useCompactVerticalRhythm ? 3 : 5),
                       Text(
-                        _saveText(cluster.saveCount),
+                        context.l10n.saveCount(cluster.saveCount),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: tt.bodySmall?.copyWith(
@@ -263,7 +264,7 @@ class _SlimTile extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: '${cluster.label}, ${cluster.saveCount} saves',
+      label: '${cluster.label}, ${context.l10n.saveCount(cluster.saveCount)}',
       child: Material(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
@@ -302,7 +303,7 @@ class _SlimTile extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           [
-                            _saveText(cluster.saveCount),
+                            context.l10n.saveCount(cluster.saveCount),
                             if (subtopicText.isNotEmpty) subtopicText,
                           ].join(' · '),
                           maxLines: 1,
@@ -433,5 +434,3 @@ IconData _iconForCluster(InterestCluster cluster) {
 bool _hasAny(String text, List<String> needles) {
   return needles.any(text.contains);
 }
-
-String _saveText(int count) => count == 1 ? '1 save' : '$count saves';

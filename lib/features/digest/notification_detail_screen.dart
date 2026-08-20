@@ -6,6 +6,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/title_resolver.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/notifications/curated_notification_media.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/url_card.dart';
@@ -30,7 +31,9 @@ class NotificationDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<NotificationDetailScreen> createState() =>
       _NotificationDetailScreenState();
 }
-class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScreen>
+
+class _NotificationDetailScreenState
+    extends ConsumerState<NotificationDetailScreen>
     with SingleTickerProviderStateMixin {
   List<SavedUrl> _urls = [];
   bool _loading = true;
@@ -106,16 +109,23 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
   }
 
   Widget _leadingThumb(SavedUrl u) {
-    return CuratedNotificationThumbStripItem(
-      url: u,
-      size: 56,
-    );
+    return CuratedNotificationThumbStripItem(url: u, size: 56);
   }
 
   /// Unified card row with curated thumbnails (same priority rules as hub).
-  Widget _linkRow(BuildContext context, SavedUrl u, ThemeData theme, ColorScheme cs,
-      Map<String, int> tagFreq, int animationIndex, double entranceT) {
-    final resolvedTitle = TitleResolver.resolveDetailTitle(u, tagFrequency: tagFreq);
+  Widget _linkRow(
+    BuildContext context,
+    SavedUrl u,
+    ThemeData theme,
+    ColorScheme cs,
+    Map<String, int> tagFreq,
+    int animationIndex,
+    double entranceT,
+  ) {
+    final resolvedTitle = TitleResolver.resolveDetailTitle(
+      u,
+      tagFrequency: tagFreq,
+    );
     final isRead = u.openedAt != null;
     final isLight = theme.brightness == Brightness.light;
     final platformLabel = CategoryResolver.displaySourceName(
@@ -161,13 +171,20 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
                             resolvedTitle,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: (theme.textTheme.titleSmall ?? const TextStyle())
-                                .copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize:
-                                  (theme.textTheme.titleSmall?.fontSize ?? 14) + 0.5,
-                              color: cs.onSurface,
-                            ),
+                            style:
+                                (theme.textTheme.titleSmall ??
+                                        const TextStyle())
+                                    .copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize:
+                                          (theme
+                                                  .textTheme
+                                                  .titleSmall
+                                                  ?.fontSize ??
+                                              14) +
+                                          0.5,
+                                      color: cs.onSurface,
+                                    ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -175,7 +192,10 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
                           children: [
                             Text(platformLabel, style: metaStyle),
                             Text(' · ', style: metaStyle),
-                            Text(UrlCard.timeAgoSaved(u.savedAt), style: metaStyle),
+                            Text(
+                              UrlCard.timeAgoSaved(context, u.savedAt),
+                              style: metaStyle,
+                            ),
                           ],
                         ),
                       ],
@@ -195,112 +215,121 @@ class _NotificationDetailScreenState extends ConsumerState<NotificationDetailScr
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final tagFreq = ref.watch(tagOccurrenceMapProvider);
-    final entranceAnim =
-        CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic);
+    final entranceAnim = CurvedAnimation(
+      parent: _entrance,
+      curve: Curves.easeOutCubic,
+    );
 
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
-        title: const Text('Notification'),
+        title: Text(context.l10n.notification),
         actions: [
           if (_urls.isNotEmpty)
             TextButton(
               onPressed: _markAllRead,
-              child: const Text('Mark all read'),
+              child: Text(context.l10n.markAllRead),
             ),
         ],
       ),
       body: _loading
           ? const Center(child: ExpressiveLoadingIndicator())
           : _urls.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.link_off_outlined,
-                            size: 56, color: cs.onSurfaceVariant),
-                        const SizedBox(height: 16),
-                        Text(
-                          'These links have been removed',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 20),
-                        FilledButton(
-                          onPressed: () => context.pop(),
-                          child: const Text('Back'),
-                        ),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.link_off_outlined,
+                      size: 56,
+                      color: cs.onSurfaceVariant,
                     ),
-                  ),
-                )
-              : AnimatedBuilder(
-                  animation: _entrance,
-                  builder: (context, _) {
-                    final t = entranceAnim.value;
-                    final insight = _effectiveInsight();
-                    final onVar = cs.onSurfaceVariant.withValues(alpha: 0.84);
+                    const SizedBox(height: 16),
+                    Text(
+                      'These links have been removed',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: () => context.pop(),
+                      child: Text(context.l10n.back),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : AnimatedBuilder(
+              animation: _entrance,
+              builder: (context, _) {
+                final t = entranceAnim.value;
+                final insight = _effectiveInsight();
+                final onVar = cs.onSurfaceVariant.withValues(alpha: 0.84);
 
-                    return CustomScrollView(
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: FadeTransition(
-                            opacity: entranceAnim,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 0.06),
-                                end: Offset.zero,
-                              ).animate(entranceAnim),
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.title,
-                                      style: theme.textTheme.headlineSmall?.copyWith(
+                return CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: FadeTransition(
+                        opacity: entranceAnim,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.06),
+                            end: Offset.zero,
+                          ).animate(entranceAnim),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.title,
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(
                                         fontWeight: FontWeight.w700,
                                         height: 1.2,
                                         color: cs.onSurface,
                                       ),
-                                    ),
-                                    if (insight.isNotEmpty) ...[
-                                      const SizedBox(height: 14),
-                                      Text(
-                                        insight,
-                                        style:
-                                            theme.textTheme.bodyLarge?.copyWith(
-                                          height: 1.45,
-                                          color: onVar,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
                                 ),
-                              ),
+                                if (insight.isNotEmpty) ...[
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    insight,
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      height: 1.45,
+                                      color: onVar,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                final u = _urls[index];
-                                return _linkRow(context, u, theme, cs, tagFreq,
-                                    index, t);
-                              },
-                              childCount: _urls.length,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final u = _urls[index];
+                          return _linkRow(
+                            context,
+                            u,
+                            theme,
+                            cs,
+                            tagFreq,
+                            index,
+                            t,
+                          );
+                        }, childCount: _urls.length),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
     );
   }
 }

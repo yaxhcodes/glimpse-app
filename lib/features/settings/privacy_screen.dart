@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 
 class PrivacyScreen extends StatelessWidget {
   const PrivacyScreen({super.key});
 
-  static const _localItems = [
-    'Bookmarks',
-    'Notes',
-    'Collections',
-    'Tags',
-    'AI summaries',
-  ];
-
-  static const _uploadedItems = [
-    'Account information',
-    'Subscription status',
-    'Anonymous product analytics',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final strings = context.l10n;
+    final localItems = [
+      strings.bookmarks,
+      strings.notes,
+      strings.collections,
+      strings.tags,
+      strings.aiSummaries,
+    ];
+    final uploadedItems = [
+      strings.accountInformation,
+      strings.subscriptionStatus,
+      strings.anonymousProductAnalytics,
+    ];
     final pagePadding = AppLayout.pageHorizontalPadding(
       MediaQuery.sizeOf(context).width,
       compactPadding: 20,
@@ -31,16 +31,16 @@ class PrivacyScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
-        title: const Text('Privacy'),
+        title: Text(strings.privacy),
         backgroundColor: cs.surface,
         foregroundColor: cs.onSurface,
       ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(pagePadding, 12, pagePadding, 32),
         children: [
-          _PrivacySection(title: 'Local', items: _localItems),
+          _PrivacySection(title: strings.local, items: localItems),
           const SizedBox(height: 24),
-          _PrivacySection(title: 'Uploaded', items: _uploadedItems),
+          _PrivacySection(title: strings.uploaded, items: uploadedItems),
         ],
       ),
     );

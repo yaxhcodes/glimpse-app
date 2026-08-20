@@ -77,9 +77,10 @@ class TranscriptEnrichmentService {
 
   /// Reads only local transcript enrichment cache. This never calls the backend.
   static Future<TranscriptEnrichmentResult?> cachedResultForUrl(
-    String rawUrl,
-  ) async {
-    final cacheKey = _cacheKeyForUrl(rawUrl);
+    String rawUrl, {
+    String outputLocale = 'en',
+  }) async {
+    final cacheKey = _cacheKeyForUrl(rawUrl, outputLocale);
     final cached = _memoryCache[cacheKey];
     if (_isAcceptableCachedResult(rawUrl, cached)) return cached;
     if (cached != null) _memoryCache.remove(cacheKey);
@@ -104,9 +105,10 @@ class TranscriptEnrichmentService {
     String? processingId,
     int attempt = 1,
     bool forceRefresh = false,
+    String outputLocale = 'en',
   }) async {
     if (!supportsUrl(rawUrl)) return null;
-    final cacheKey = _cacheKeyForUrl(rawUrl);
+    final cacheKey = _cacheKeyForUrl(rawUrl, outputLocale);
     if (forceRefresh) {
       _memoryCache.remove(cacheKey);
       await _removePersisted(cacheKey);
@@ -133,6 +135,7 @@ class TranscriptEnrichmentService {
         'description': description,
         'thumbnailUrl': thumbnailUrl,
         'domain': domain,
+        'output_locale': outputLocale,
       };
       if (saveId != null) requestData['save_id'] = saveId;
       if (processingId != null) requestData['processing_id'] = processingId;
@@ -160,6 +163,9 @@ class TranscriptEnrichmentService {
               data['schema_version'] ?? data['schemaVersion'],
             ) ??
             1,
+        outputLocale: _cleanText(data['output_locale']).isNotEmpty
+            ? _cleanText(data['output_locale'])
+            : outputLocale,
         meaningfulTitle: _cleanText(data['meaningful_title']),
         summary: _cleanText(data['summary']),
         category: _cleanText(data['category']),
@@ -752,7 +758,10 @@ class TranscriptEnrichmentService {
     return value.round();
   }
 
-  static String _cacheKeyForUrl(String rawUrl) {
+  static String _cacheKeyForUrl(String rawUrl, String outputLocale) =>
+      '${outputLocale.trim()}|${_canonicalCacheKeyForUrl(rawUrl)}';
+
+  static String _canonicalCacheKeyForUrl(String rawUrl) {
     final uri = Uri.tryParse(rawUrl.trim());
     if (uri == null) return rawUrl.trim();
     var host = uri.host.toLowerCase();

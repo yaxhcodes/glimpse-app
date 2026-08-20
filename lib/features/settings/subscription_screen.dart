@@ -10,6 +10,7 @@ import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
@@ -32,6 +33,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final strings = context.l10n;
     final tierAsync = ref.watch(subscriptionTierProvider);
     final pagePadding = AppLayout.pageHorizontalPadding(
       MediaQuery.sizeOf(context).width,
@@ -46,7 +48,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Text(
-          'Subscription',
+          strings.subscription,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -60,11 +62,11 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             children: [
               const Icon(Icons.error_outline, size: 48),
               const SizedBox(height: 12),
-              const Text('Could not load subscription info'),
+              Text(strings.couldNotLoadSubscription),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => ref.invalidate(subscriptionTierProvider),
-                child: const Text('Retry'),
+                child: Text(strings.retry),
               ),
             ],
           ),
@@ -90,23 +92,22 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     const SizedBox(height: 28),
 
                     // ── Core Library (free) ──
-                    const SettingsGroupLabel('Core Library'),
-                    const SettingsGroup(
+                    SettingsGroupLabel(strings.coreLibrary),
+                    SettingsGroup(
                       children: [
                         _PlanFeatureTile(
-                          title: 'Unlimited link saving',
-                          subtitle: 'Save as many links as you want',
+                          title: strings.unlimitedLinkSaving,
+                          subtitle: strings.unlimitedLinkSavingDescription,
                           included: true,
                         ),
                         _PlanFeatureTile(
-                          title: 'Collections & organization',
-                          subtitle: 'Group and manage bookmarks your way',
+                          title: strings.collectionsOrganization,
+                          subtitle: strings.collectionsOrganizationDescription,
                           included: true,
                         ),
                         _PlanFeatureTile(
-                          title: 'Smart notifications',
-                          subtitle:
-                              'Behavior-based alerts and reading reminders',
+                          title: strings.smartNotifications,
+                          subtitle: strings.smartNotificationsLongDescription,
                           included: true,
                         ),
                       ],
@@ -114,23 +115,22 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     const SizedBox(height: 24),
 
                     // ── AI Assistant (free with monthly caps) ──
-                    const SettingsGroupLabel('AI Assistant'),
-                    const SettingsGroup(
+                    SettingsGroupLabel(strings.aiAssistant),
+                    SettingsGroup(
                       children: [
                         _PlanFeatureTile(
-                          title: 'AI tagging & categorization',
-                          subtitle: 'Free: 30 saves / mo  ·  Pro: Unlimited',
+                          title: strings.aiTaggingCategorization,
+                          subtitle: strings.freeSavesProUnlimited,
                           included: true,
                         ),
                         _PlanFeatureTile(
-                          title: 'Keyword search',
-                          subtitle: 'Free: 30 searches / mo  ·  Pro: Unlimited',
+                          title: strings.keywordSearch,
+                          subtitle: strings.freeSearchesProUnlimited,
                           included: true,
                         ),
                         _PlanFeatureTile(
-                          title: 'Ask Your Bookmarks',
-                          subtitle:
-                              'Free: 30 questions / mo  ·  Pro: Unlimited',
+                          title: strings.askYourBookmarks,
+                          subtitle: strings.freeQuestionsProUnlimited,
                           included: true,
                         ),
                       ],
@@ -138,24 +138,24 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     const SizedBox(height: 24),
 
                     // ── Pro Insights (Pro only) ──
-                    const SettingsGroupLabel('Pro Insights'),
+                    SettingsGroupLabel(strings.proInsights),
                     SettingsGroup(
                       children: [
                         _PlanFeatureTile(
-                          title: 'Semantic search',
-                          subtitle: 'Find links by meaning, not just words',
+                          title: strings.semanticSearch,
+                          subtitle: strings.semanticSearchDescription,
                           included: isPro,
                           proOnly: true,
                         ),
                         _PlanFeatureTile(
-                          title: 'Weekly Recap',
-                          subtitle: 'AI-generated summary of your saved links',
+                          title: strings.weeklyRecap,
+                          subtitle: strings.weeklyRecapDescription,
                           included: isPro,
                           proOnly: true,
                         ),
                         _PlanFeatureTile(
-                          title: 'Multi-Link Synthesis',
-                          subtitle: 'Cross-analyze any set of bookmarks',
+                          title: strings.multiLinkSynthesis,
+                          subtitle: strings.multiLinkSynthesisDescription,
                           included: isPro,
                           proOnly: true,
                         ),
@@ -359,14 +359,13 @@ class _PlanHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final strings = context.l10n;
 
     final description = isPro
         ? (showDevOverrideHint
-              ? 'Every AI feature, no limits, across your whole library. '
-                    '(dev override; store: Free)'
-              : 'Every AI feature, no limits, across your whole library.')
-        : 'Build your personal knowledge library with essential tools. AI '
-              'features are included so you can explore before upgrading.';
+              ? strings.proPlanDevDescription
+              : strings.proPlanDescription)
+        : strings.freePlanDescription;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -402,7 +401,7 @@ class _PlanHero extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
-                  isPro ? 'Glimpse Pro' : 'Glimpse Free',
+                  isPro ? 'Glimpse Pro' : 'Glimpse ${strings.free}',
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
@@ -411,7 +410,7 @@ class _PlanHero extends StatelessWidget {
                 ),
               ),
               SettingsBadge(
-                label: isPro ? 'Active' : 'Free',
+                label: isPro ? strings.active : strings.free,
                 emphasized: isPro,
               ),
             ],
@@ -536,6 +535,7 @@ class _CtaFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final strings = context.l10n;
     // Action buttons always follow **RevenueCat** tier, not the dev override.
     final isFree = rcTier == SubscriptionTier.free;
 
@@ -566,11 +566,11 @@ class _CtaFooter extends StatelessWidget {
                           fontSize: 16,
                         ),
                       ),
-                      child: const Text('Upgrade to Glimpse Pro'),
+                      child: Text(strings.upgradeToGlimpsePro),
                     ),
                     TextButton(
                       onPressed: onRestore,
-                      child: const Text('Restore Purchases'),
+                      child: Text(strings.restorePurchases),
                     ),
                   ],
                 )
@@ -586,11 +586,11 @@ class _CtaFooter extends StatelessWidget {
                           fontSize: 16,
                         ),
                       ),
-                      child: const Text('Manage Subscription'),
+                      child: Text(strings.manageSubscription),
                     ),
                     TextButton(
                       onPressed: onManageOnPlay,
-                      child: const Text('Manage on Google Play'),
+                      child: Text(strings.manageOnGooglePlay),
                     ),
                     if (AppEnvironment.isDevContext)
                       Text(

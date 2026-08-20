@@ -9,6 +9,7 @@ import '../../core/providers/service_providers.dart';
 import '../../features/collections/add_to_collection_sheet.dart';
 import '../../features/collections/collections_provider.dart';
 import '../../features/home/home_provider.dart';
+import '../../l10n/l10n.dart';
 import 'app_snackbar.dart';
 
 class BulkSelectionTitle extends StatelessWidget {
@@ -55,16 +56,17 @@ class BulkSelectionActionButtons extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final readLabel = _readActionLabel(selectedUrls);
+    final strings = context.l10n;
+    final readLabel = _readActionLabel(strings, selectedUrls);
     final pinnedIds = ref.watch(pinnedUrlsProvider);
-    final pinLabel = _pinActionLabel(selectedUrls, pinnedIds);
+    final pinLabel = _pinActionLabel(strings, selectedUrls, pinnedIds);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           padding: EdgeInsets.zero,
-          tooltip: 'Select all',
+          tooltip: strings.selectAll,
           icon: const Icon(Icons.select_all_rounded),
           onPressed: visibleUrls.isEmpty
               ? null
@@ -86,7 +88,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
         ),
         PopupMenuButton<_BulkSelectionMenuAction>(
           enabled: selectedUrls.isNotEmpty,
-          tooltip: 'More selection actions',
+          tooltip: strings.moreSelectionActions,
           icon: const Icon(Icons.more_vert_rounded),
           onSelected: (action) async {
             switch (action) {
@@ -109,19 +111,19 @@ class BulkSelectionActionButtons extends ConsumerWidget {
             }
           },
           itemBuilder: (context) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: _BulkSelectionMenuAction.addToCollection,
               child: ListTile(
-                leading: Icon(Icons.create_new_folder_outlined),
-                title: Text('Add to collection'),
+                leading: const Icon(Icons.create_new_folder_outlined),
+                title: Text(strings.addToCollection),
               ),
             ),
             if (onMoveToCollection != null)
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: _BulkSelectionMenuAction.moveToCollection,
                 child: ListTile(
-                  leading: Icon(Icons.drive_file_move_outline),
-                  title: Text('Move to collection'),
+                  leading: const Icon(Icons.drive_file_move_outline),
+                  title: Text(strings.moveToCollection),
                 ),
               ),
             PopupMenuItem(
@@ -135,7 +137,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
               value: _BulkSelectionMenuAction.delete,
               child: ListTile(
                 leading: Icon(Icons.delete_outline_rounded, color: cs.error),
-                title: Text('Delete', style: TextStyle(color: cs.error)),
+                title: Text(strings.delete, style: TextStyle(color: cs.error)),
               ),
             ),
           ],
@@ -147,12 +149,12 @@ class BulkSelectionActionButtons extends ConsumerWidget {
 
 enum _BulkSelectionMenuAction { addToCollection, moveToCollection, pin, delete }
 
-String _readActionLabel(List<SavedUrl> urls) {
-  if (urls.isEmpty) return 'Mark read';
+String _readActionLabel(AppLocalizations strings, List<SavedUrl> urls) {
+  if (urls.isEmpty) return strings.markRead;
   final read = urls.where((url) => url.openedAt != null).length;
-  if (read == 0) return 'Mark Read';
-  if (read == urls.length) return 'Mark Unread';
-  return 'Toggle Read Status';
+  if (read == 0) return strings.markRead;
+  if (read == urls.length) return strings.markUnread;
+  return strings.toggleReadStatus;
 }
 
 IconData _readActionIcon(List<SavedUrl> urls) {
@@ -162,11 +164,15 @@ IconData _readActionIcon(List<SavedUrl> urls) {
   return Icons.mark_email_read_outlined;
 }
 
-String _pinActionLabel(List<SavedUrl> urls, List<int> pinnedIds) {
+String _pinActionLabel(
+  AppLocalizations strings,
+  List<SavedUrl> urls,
+  List<int> pinnedIds,
+) {
   if (urls.isNotEmpty && urls.every((url) => pinnedIds.contains(url.id))) {
-    return 'Unpin';
+    return strings.unpin;
   }
-  return 'Pin';
+  return strings.pin;
 }
 
 IconData _pinActionIcon(List<SavedUrl> urls, List<int> pinnedIds) {
@@ -203,7 +209,7 @@ Future<void> _markReadState(
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text(_readActionLabel(urls).replaceFirst('Mark', 'Marked')),
+        content: Text(_readActionLabel(context.l10n, urls)),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
       ),

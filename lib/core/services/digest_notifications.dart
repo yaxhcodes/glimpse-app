@@ -4,6 +4,7 @@ import 'dart:math' show Random;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../../l10n/l10n.dart';
 import 'digest_prefs.dart';
 import 'notification_action_handler.dart';
 
@@ -33,7 +34,6 @@ enum NotifType {
 const _groupKey = 'glimpse_notifications';
 const _channelId = 'glimpse_notifications';
 const _channelName = 'Glimpse';
-const _channelDesc = 'Smart notifications about your saved links';
 
 /// Fixed notification ID used for the group summary.
 const _summaryNotifId = 0;
@@ -99,11 +99,13 @@ class DigestNotifications {
         >();
     if (androidPlugin == null) return;
 
+    final l10n = await loadBackgroundLocalizations();
+
     await androidPlugin.createNotificationChannel(
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         _channelId,
         _channelName,
-        description: _channelDesc,
+        description: l10n.smartNotificationsDescription,
         importance: Importance.high,
       ),
     );
@@ -128,11 +130,12 @@ class DigestNotifications {
     bool withActions = false,
   }) async {
     final notifId = _uniqueNotifId();
+    final l10n = await loadBackgroundLocalizations();
 
     final androidDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
-      channelDescription: _channelDesc,
+      channelDescription: l10n.smartNotificationsDescription,
       importance: Importance.high,
       priority: Priority.high,
       groupKey: _groupKey,
@@ -141,16 +144,16 @@ class DigestNotifications {
       // Quick triage on single-link notifications: archive or push out the
       // revisit without opening the app. The plain body tap still opens it.
       actions: withActions
-          ? const [
+          ? [
               AndroidNotificationAction(
                 NotificationActions.markDone,
-                'Done',
+                l10n.done,
                 showsUserInterface: false,
                 cancelNotification: true,
               ),
               AndroidNotificationAction(
                 NotificationActions.snooze,
-                'Later',
+                l10n.later,
                 showsUserInterface: false,
                 cancelNotification: true,
               ),
@@ -190,6 +193,7 @@ class DigestNotifications {
 
   static Future<void> _updateGroupSummary() async {
     final history = await DigestPrefs.loadHistory();
+    final l10n = await loadBackgroundLocalizations();
 
     // Only consider entries that were actually sent as notifications.
     final notifEntries = history
@@ -211,17 +215,15 @@ class DigestNotifications {
     }
 
     final titles = notifEntries
-        .map((e) => e['topic']?.toString() ?? 'Notification')
+        .map((e) => e['topic']?.toString() ?? l10n.notificationFallbackTitle)
         .toList();
 
-    final summaryText = count == 1
-        ? '1 new notification'
-        : '$count new notifications';
+    final summaryText = l10n.newNotificationCount(count);
 
     final summaryDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
-      channelDescription: _channelDesc,
+      channelDescription: l10n.smartNotificationsDescription,
       // Match child importance so the group is never demoted.
       importance: Importance.high,
       priority: Priority.high,

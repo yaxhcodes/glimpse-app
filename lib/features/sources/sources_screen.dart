@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/category_chip.dart'
     show faviconUrl, platformColors;
 import '../../shared/widgets/app_glass_surface.dart';
@@ -13,20 +14,29 @@ import 'sources_provider.dart';
 
 /// Lets the user narrow the source list to where saves actually came from.
 enum _SourceFilter {
-  all('All', Icons.all_inclusive_rounded),
-  apps('Apps', Icons.apps_rounded),
-  websites('Websites', Icons.language_rounded);
+  all(Icons.all_inclusive_rounded),
+  apps(Icons.apps_rounded),
+  websites(Icons.language_rounded);
 
-  const _SourceFilter(this.label, this.icon);
-  final String label;
+  const _SourceFilter(this.icon);
   final IconData icon;
-
-  String get listTitle => switch (this) {
-    _SourceFilter.all => 'All sources',
-    _SourceFilter.apps => 'Apps',
-    _SourceFilter.websites => 'Websites',
-  };
 }
+
+String _localizedFilterLabel(AppLocalizations strings, _SourceFilter filter) =>
+    switch (filter) {
+      _SourceFilter.all => strings.all,
+      _SourceFilter.apps => strings.apps,
+      _SourceFilter.websites => strings.websites,
+    };
+
+String _localizedFilterListTitle(
+  AppLocalizations strings,
+  _SourceFilter filter,
+) => switch (filter) {
+  _SourceFilter.all => strings.allSources,
+  _SourceFilter.apps => strings.apps,
+  _SourceFilter.websites => strings.websites,
+};
 
 class SourcesScreen extends ConsumerStatefulWidget {
   const SourcesScreen({super.key});
@@ -58,6 +68,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final strings = context.l10n;
     final clustersAsync = ref.watch(filteredClustersProvider(_query));
 
     return Scaffold(
@@ -82,7 +93,9 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               !searching &&
               _filter == _SourceFilter.all &&
               topSources.isNotEmpty;
-          final listTitle = searching ? 'Results' : _filter.listTitle;
+          final listTitle = searching
+              ? strings.results
+              : _localizedFilterListTitle(strings, _filter);
 
           return CustomScrollView(
             slivers: [
@@ -94,7 +107,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   backgroundColor: premiumBackground(context),
                 ),
                 title: Text(
-                  'Sources',
+                  strings.sources,
                   style: tt.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
@@ -102,12 +115,12 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 ),
                 actions: [
                   IconButton(
-                    tooltip: 'Done',
+                    tooltip: strings.done,
                     icon: const Icon(Icons.check_circle_outline_rounded),
                     onPressed: () => context.push('/archive'),
                   ),
                   PopupMenuButton<_SourceFilter>(
-                    tooltip: 'Filter sources',
+                    tooltip: strings.filterSources,
                     icon: Icon(
                       Icons.tune_rounded,
                       color: _filter == _SourceFilter.all
@@ -131,7 +144,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              f.label,
+                              _localizedFilterLabel(strings, f),
                               style: tt.bodyMedium?.copyWith(
                                 fontWeight: active
                                     ? FontWeight.w600
@@ -160,7 +173,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: PremiumSearchBar(
                     controller: _searchController,
-                    hint: 'Search apps, sites, and domains...',
+                    hint: strings.searchSources,
                     onClear: _query.isNotEmpty
                         ? () {
                             _searchController.clear();
@@ -179,7 +192,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 )
               else ...[
                 if (showRail) ...[
-                  const _SectionHeader(title: 'Top sources'),
+                  _SectionHeader(title: strings.topSources),
                   SliverToBoxAdapter(
                     child: SizedBox(
                       height: 134,
@@ -224,7 +237,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               flexibleSpace: AppGlassSurface(
                 backgroundColor: premiumBackground(context),
               ),
-              title: const Text('Sources'),
+              title: Text(strings.sources),
             ),
             const SliverFillRemaining(
               child: Center(child: ExpressiveLoadingIndicator()),
@@ -240,10 +253,10 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               flexibleSpace: AppGlassSurface(
                 backgroundColor: premiumBackground(context),
               ),
-              title: const Text('Sources'),
+              title: Text(strings.sources),
             ),
-            const SliverFillRemaining(
-              child: Center(child: Text('Could not load sources')),
+            SliverFillRemaining(
+              child: Center(child: Text(strings.couldNotLoadSources)),
             ),
           ],
         ),
@@ -275,7 +288,7 @@ class _EmptySearch extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Text(
-          'No sources match "$query"',
+          context.l10n.noSourcesMatch(query),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -295,10 +308,11 @@ class _EmptyFilter extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final strings = context.l10n;
     final message = switch (filter) {
-      _SourceFilter.apps => 'No saves from apps yet',
-      _SourceFilter.websites => 'No website saves yet',
-      _SourceFilter.all => 'No sources yet',
+      _SourceFilter.apps => strings.noSavesFromApps,
+      _SourceFilter.websites => strings.noWebsiteSaves,
+      _SourceFilter.all => strings.noSourcesYet,
     };
     return Center(
       child: Padding(
@@ -337,6 +351,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
     final fav = faviconUrl(source.name) ?? source.faviconUrl;
     final brandColor = platformColors[source.name];
     final isEmpty = source.isEmpty;
+    final strings = context.l10n;
 
     return Card(
       elevation: 0,
@@ -391,8 +406,8 @@ class _KnowledgeClusterCard extends StatelessWidget {
                           children: [
                             Text(
                               isEmpty
-                                  ? 'No saves yet'
-                                  : '${source.count} saves',
+                                  ? strings.noSavesYet
+                                  : strings.saveCount(source.count),
                               style: tt.labelSmall?.copyWith(
                                 color: cs.onSurfaceVariant.withValues(
                                   alpha: isEmpty ? 0.62 : 1,
@@ -413,7 +428,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                '+${source.savesThisWeek} this week',
+                                strings.savesThisWeek(source.savesThisWeek),
                                 style: tt.labelSmall?.copyWith(
                                   color: cs.primary,
                                   fontWeight: FontWeight.w500,
@@ -424,7 +439,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                             if (source.isGrowing) ...[
                               const SizedBox(width: 6),
                               Text(
-                                '· Growing',
+                                '· ${strings.growing}',
                                 style: tt.labelSmall?.copyWith(
                                   color: cs.primary.withValues(alpha: 0.7),
                                   fontWeight: FontWeight.w400,
@@ -486,7 +501,9 @@ class _KnowledgeClusterCard extends StatelessWidget {
                       ),
                     if (source.lastSavedAt != null)
                       Text(
-                        'Last saved ${_timeAgo(source.lastSavedAt!)}',
+                        strings.lastSaved(
+                          _timeAgo(context, source.lastSavedAt!),
+                        ),
                         style: tt.labelSmall?.copyWith(
                           color: cs.onSurfaceVariant.withValues(alpha: 0.55),
                           fontWeight: FontWeight.w400,
@@ -503,16 +520,19 @@ class _KnowledgeClusterCard extends StatelessWidget {
     );
   }
 
-  String _timeAgo(DateTime date) {
+  String _timeAgo(BuildContext context, DateTime date) {
+    final strings = context.l10n;
     final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
-    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
-    return '${(diff.inDays / 365).floor()}y ago';
+    if (diff.inMinutes < 1) return strings.justNow;
+    if (diff.inMinutes < 60) return strings.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return strings.hoursAgo(diff.inHours);
+    if (diff.inDays == 1) return strings.yesterday;
+    if (diff.inDays < 7) return strings.daysAgo(diff.inDays);
+    if (diff.inDays < 30) return strings.weeksAgo((diff.inDays / 7).floor());
+    if (diff.inDays < 365) {
+      return strings.monthsAgo((diff.inDays / 30).floor());
+    }
+    return strings.yearsAgo((diff.inDays / 365).floor());
   }
 }
 
@@ -528,6 +548,7 @@ class _TopSourceCard extends StatelessWidget {
     final iconSpec = resolveSourceIcon(cluster.name);
     final fav = faviconUrl(cluster.name) ?? cluster.faviconUrl;
     final brandColor = platformColors[cluster.name];
+    final strings = context.l10n;
 
     return SizedBox(
       width: 152,
@@ -565,7 +586,7 @@ class _TopSourceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${cluster.count} saves',
+                  strings.saveCount(cluster.count),
                   style: tt.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
@@ -575,7 +596,7 @@ class _TopSourceCard extends StatelessWidget {
                 if (cluster.savesThisWeek > 0) ...[
                   const SizedBox(height: 2),
                   Text(
-                    '+${cluster.savesThisWeek} this week',
+                    strings.savesThisWeek(cluster.savesThisWeek),
                     style: tt.labelSmall?.copyWith(
                       color: cs.primary,
                       fontWeight: FontWeight.w500,

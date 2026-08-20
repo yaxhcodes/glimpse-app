@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'library_entity.dart';
+import 'library_localization.dart';
 import 'library_provider.dart';
 import 'library_status_picker.dart';
 import 'library_widgets.dart';
@@ -12,13 +14,6 @@ import 'library_widgets.dart';
 enum LibrarySortOrder { discovered, title, year, status }
 
 extension on LibrarySortOrder {
-  String get label => switch (this) {
-    LibrarySortOrder.discovered => 'Recently discovered',
-    LibrarySortOrder.title => 'Title A–Z',
-    LibrarySortOrder.year => 'Year newest',
-    LibrarySortOrder.status => 'Status',
-  };
-
   IconData get icon => switch (this) {
     LibrarySortOrder.discovered => Icons.schedule_rounded,
     LibrarySortOrder.title => Icons.sort_by_alpha_rounded,
@@ -26,6 +21,14 @@ extension on LibrarySortOrder {
     LibrarySortOrder.status => Icons.playlist_add_check_rounded,
   };
 }
+
+String _localizedSortOrder(BuildContext context, LibrarySortOrder order) =>
+    switch (order) {
+      LibrarySortOrder.discovered => context.l10n.recentlyDiscovered,
+      LibrarySortOrder.title => context.l10n.titleAZ,
+      LibrarySortOrder.year => context.l10n.yearNewest,
+      LibrarySortOrder.status => context.l10n.status,
+    };
 
 class LibraryBrowserScreen extends ConsumerStatefulWidget {
   const LibraryBrowserScreen({super.key, required this.kind});
@@ -63,7 +66,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
-        title: Text(widget.kind.label),
+        title: Text(localizedLibraryKind(context.l10n, widget.kind)),
         actions: [
           _LibraryOptionsMenu(
             kind: widget.kind,
@@ -77,7 +80,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
       ),
       body: async.when(
         loading: () => const Center(child: ExpressiveLoadingIndicator()),
-        error: (_, _) => const Center(child: Text('Could not open Library')),
+        error: (_, _) => Center(child: Text(context.l10n.couldNotOpenLibrary)),
         data: (snapshot) {
           final all = snapshot.ofKind(widget.kind);
           final visible = _visibleEntities(all);
@@ -98,12 +101,14 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                         height: 52,
                         child: SearchBar(
                           controller: _searchController,
-                          hintText: 'Search ${widget.kind.label.toLowerCase()}',
+                          hintText: context.l10n.searchLibraryItems(
+                            localizedLibraryKind(context.l10n, widget.kind),
+                          ),
                           leading: const Icon(Icons.search_rounded),
                           trailing: [
                             if (_query.isNotEmpty)
                               IconButton(
-                                tooltip: 'Clear search',
+                                tooltip: context.l10n.clearSearch,
                                 onPressed: () {
                                   _searchController.clear();
                                   setState(() => _query = '');
@@ -122,19 +127,27 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                           children: [
                             if (_selectedStatus case final status?)
                               InputChip(
-                                label: Text(status.labelFor(widget.kind)),
+                                label: Text(
+                                  localizedLibraryStatus(
+                                    context.l10n,
+                                    status,
+                                    widget.kind,
+                                  ),
+                                ),
                                 onDeleted: () =>
                                     setState(() => _selectedStatus = null),
                               ),
                             if (_selectedGenre case final genre?)
                               InputChip(
-                                label: Text(genre),
+                                label: Text(
+                                  localizedLibraryGenre(context.l10n, genre),
+                                ),
                                 onDeleted: () =>
                                     setState(() => _selectedGenre = null),
                               ),
                             TextButton(
                               onPressed: _clearFilters,
-                              child: const Text('Clear all'),
+                              child: Text(context.l10n.clearAll),
                             ),
                           ],
                         ),
@@ -144,13 +157,13 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              _sortOrder.label,
+                              _localizedSortOrder(context, _sortOrder),
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
                           Text(
-                            '${visible.length} ${visible.length == 1 ? 'item' : 'items'}',
+                            context.l10n.itemCount(visible.length),
                             style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
@@ -317,7 +330,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update this Library item.')),
+        SnackBar(content: Text(context.l10n.couldNotUpdateLibraryItem)),
       );
     }
   }
@@ -368,7 +381,9 @@ class _LibraryOptionsMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<_LibraryMenuAction>(
-      tooltip: '${kind.label} options',
+      tooltip: context.l10n.libraryOptions(
+        localizedLibraryKind(context.l10n, kind),
+      ),
       icon: Badge.count(
         count: activeFilterCount,
         isLabelVisible: activeFilterCount > 0,
@@ -389,7 +404,7 @@ class _LibraryOptionsMenu extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: _LibraryMenuRow(
             icon: Icons.tune_rounded,
-            label: 'Filters',
+            label: context.l10n.filters,
             selected: activeFilterCount > 0,
           ),
         ),
@@ -400,7 +415,7 @@ class _LibraryOptionsMenu extends StatelessWidget {
             padding: EdgeInsets.zero,
             child: _LibraryMenuRow(
               icon: option.icon,
-              label: option.label,
+              label: _localizedSortOrder(context, option),
               selected: option == sortOrder,
             ),
           ),
@@ -488,7 +503,9 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    'Filter ${widget.kind.label}',
+                    context.l10n.filterLibraryItems(
+                      localizedLibraryKind(context.l10n, widget.kind),
+                    ),
                     style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -497,15 +514,15 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                     _status = null;
                     _genre = null;
                   }),
-                  child: const Text('Reset'),
+                  child: Text(context.l10n.reset),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             Text(
               widget.kind == LibraryEntityKind.book
-                  ? 'Reading status'
-                  : 'Watch status',
+                  ? context.l10n.readingStatus
+                  : context.l10n.watchStatus,
               style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
@@ -514,7 +531,7 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
               runSpacing: 8,
               children: [
                 ChoiceChip(
-                  label: const Text('Any status'),
+                  label: Text(context.l10n.anyStatus),
                   selected: _status == null,
                   onSelected: (_) => setState(() => _status = null),
                 ),
@@ -524,7 +541,9 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                       libraryStatusIcon(status, widget.kind),
                       size: 18,
                     ),
-                    label: Text(status.labelFor(widget.kind)),
+                    label: Text(
+                      localizedLibraryStatus(context.l10n, status, widget.kind),
+                    ),
                     selected: _status == status,
                     onSelected: (_) => setState(() => _status = status),
                   ),
@@ -532,7 +551,7 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Genre',
+              context.l10n.genre,
               style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
@@ -543,13 +562,13 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                   runSpacing: 8,
                   children: [
                     ChoiceChip(
-                      label: const Text('All genres'),
+                      label: Text(context.l10n.allGenres),
                       selected: _genre == null,
                       onSelected: (_) => setState(() => _genre = null),
                     ),
                     for (final genre in widget.genres)
                       ChoiceChip(
-                        label: Text(genre),
+                        label: Text(localizedLibraryGenre(context.l10n, genre)),
                         selected: _genre == genre,
                         onSelected: (_) => setState(() => _genre = genre),
                       ),
@@ -565,7 +584,7 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                   context,
                   _BrowserFilters(status: _status, genre: _genre),
                 ),
-                child: const Text('Show items'),
+                child: Text(context.l10n.showItems),
               ),
             ),
           ],
@@ -598,8 +617,8 @@ class _NoResults extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               hasFilters
-                  ? 'Nothing matches these filters.'
-                  : 'Nothing recognized here yet.',
+                  ? context.l10n.nothingMatchesFilters
+                  : context.l10n.nothingRecognizedHere,
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -607,7 +626,10 @@ class _NoResults extends StatelessWidget {
             ),
             if (hasFilters) ...[
               const SizedBox(height: 12),
-              TextButton(onPressed: onClear, child: const Text('Clear search')),
+              TextButton(
+                onPressed: onClear,
+                child: Text(context.l10n.clearSearch),
+              ),
             ],
           ],
         ),

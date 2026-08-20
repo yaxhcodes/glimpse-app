@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/user_collection.dart';
-import '../../shared/formatting.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/selection_badge.dart';
 import '../../shared/widgets/url_card.dart';
 import 'collection_thumbnail_preview.dart';
@@ -41,13 +41,15 @@ class _CollectionCardState extends State<CollectionCard> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final visual = _resolveSummaryVisual(widget.summary);
-    final linkText = formatLinkCount(widget.summary.linkCount);
-    final latestSaveText = _latestSaveText(widget.summary);
+    final linkText = context.l10n.linkCount(widget.summary.linkCount);
+    final latestSaveText = _latestSaveText(context, widget.summary);
     final semanticParts = [
       collection.name,
       linkText,
       if (widget.summary.lastAddedAt != null)
-        'last added ${formatRelativeTime(widget.summary.lastAddedAt!)}',
+        context.l10n.lastAddedTime(
+          UrlCard.timeAgoSaved(context, widget.summary.lastAddedAt!),
+        ),
     ];
 
     return Semantics(
@@ -171,14 +173,14 @@ class _CollectionCardState extends State<CollectionCard> {
     );
   }
 
-  String? _latestSaveText(CollectionSummary summary) {
+  String? _latestSaveText(BuildContext context, CollectionSummary summary) {
     final lastAddedAt = summary.lastAddedAt;
     if (lastAddedAt == null) {
       // Empty collections already read "No links" on the count line above —
       // a second "No saves yet" line is redundant, so show nothing here.
       return null;
     }
-    return 'Added · ${formatRelativeTime(lastAddedAt)}';
+    return context.l10n.addedTime(UrlCard.timeAgoSaved(context, lastAddedAt));
   }
 }
 
@@ -213,12 +215,12 @@ class _CollectionListCardState extends State<CollectionListCard> {
     final theme = Theme.of(context);
     final tt = Theme.of(context).textTheme;
     final visual = _resolveSummaryVisual(widget.summary);
-    final linkText = formatLinkCount(widget.summary.linkCount);
+    final linkText = context.l10n.linkCount(widget.summary.linkCount);
     final description = collection.description?.trim();
     final subtitleText = description == null || description.isEmpty
         ? linkText
         : description;
-    final latestSaveText = _latestSaveText(widget.summary);
+    final latestSaveText = _latestSaveText(context, widget.summary);
     final selectedFill = Color.alphaBlend(
       cs.primary.withValues(alpha: 0.045),
       UrlCard.listCardFillColor(theme),
@@ -238,7 +240,9 @@ class _CollectionListCardState extends State<CollectionListCard> {
         if (description != null && description.isNotEmpty) description,
         linkText,
         if (widget.summary.lastAddedAt != null)
-          'last added ${formatRelativeTime(widget.summary.lastAddedAt!)}',
+          context.l10n.lastAddedTime(
+            UrlCard.timeAgoSaved(context, widget.summary.lastAddedAt!),
+          ),
       ].join(', '),
       child: AnimatedScale(
         scale: _pressed ? 0.985 : 1,
@@ -366,14 +370,14 @@ class _CollectionListCardState extends State<CollectionListCard> {
     );
   }
 
-  String? _latestSaveText(CollectionSummary summary) {
+  String? _latestSaveText(BuildContext context, CollectionSummary summary) {
     final lastAddedAt = summary.lastAddedAt;
     if (lastAddedAt == null) {
       // Empty collections already read "No links" on the count line above —
       // a second "No saves yet" line is redundant, so show nothing here.
       return null;
     }
-    return 'Added · ${formatRelativeTime(lastAddedAt)}';
+    return context.l10n.addedTime(UrlCard.timeAgoSaved(context, lastAddedAt));
   }
 }
 
