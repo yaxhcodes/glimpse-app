@@ -32,10 +32,11 @@ void main() {
     final gradient = decoration.gradient! as LinearGradient;
     expect(gradient.colors.first.a, lessThan(1));
     expect(gradient.colors.last.a, 0);
+    expect(find.byType(BackdropFilter), findsNothing);
     expect(
-      tester.getSize(
-        find.byKey(const ValueKey('shell-status-bar-accent-size')),
-      ).height,
+      tester
+          .getSize(find.byKey(const ValueKey('shell-status-bar-accent-size')))
+          .height,
       24,
     );
 

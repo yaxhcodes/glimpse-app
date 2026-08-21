@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 class ShellStatusBarAccent extends StatelessWidget {
@@ -30,28 +28,23 @@ class ShellStatusBarAccent extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         opacity: visible ? 1 : 0,
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    accentTint.withValues(alpha: opacity),
-                    accentTint.withValues(alpha: opacity * 0.52),
-                    accentTint.withValues(alpha: 0),
-                  ],
-                  stops: const [0, 0.78, 1],
-                ),
-              ),
-              child: SizedBox(
-                key: const ValueKey('shell-status-bar-accent-size'),
-                height: MediaQuery.paddingOf(context).top,
-                width: double.infinity,
-              ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                accentTint.withValues(alpha: opacity),
+                accentTint.withValues(alpha: opacity * 0.52),
+                accentTint.withValues(alpha: 0),
+              ],
+              stops: const [0, 0.78, 1],
             ),
+          ),
+          child: SizedBox(
+            key: const ValueKey('shell-status-bar-accent-size'),
+            height: MediaQuery.paddingOf(context).top,
+            width: double.infinity,
           ),
         ),
       ),

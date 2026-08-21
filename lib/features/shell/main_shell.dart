@@ -23,6 +23,7 @@ import '../search/search_provider.dart';
 import '../search/search_screen.dart';
 import 'navigation_discovery_icon.dart';
 import 'navigation_discovery_provider.dart';
+import 'shell_bottom_navigation_transition.dart';
 import 'shell_chrome_provider.dart';
 import 'shell_status_bar_accent.dart';
 import '../../shared/widgets/expressive_fab.dart';
@@ -297,7 +298,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
             bottomNavigationBar: usesRail
                 ? null
-                : _AnimatedShellBottomNavigation(
+                : ShellBottomNavigationTransition(
                     visible: showCompactChrome,
                     child: AppGlassSurface(
                       backgroundColor: cs.surfaceContainerLow,
@@ -490,89 +491,5 @@ class _MainShellState extends ConsumerState<MainShell> {
       2 => AnalyticsScreen.interests,
       _ => AnalyticsScreen.search,
     };
-  }
-}
-
-class _AnimatedShellBottomNavigation extends StatefulWidget {
-  const _AnimatedShellBottomNavigation({
-    required this.visible,
-    required this.child,
-  });
-
-  final bool visible;
-  final Widget child;
-
-  @override
-  State<_AnimatedShellBottomNavigation> createState() =>
-      _AnimatedShellBottomNavigationState();
-}
-
-class _AnimatedShellBottomNavigationState
-    extends State<_AnimatedShellBottomNavigation>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-      reverseDuration: const Duration(milliseconds: 180),
-      value: widget.visible ? 1 : 0,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-  }
-
-  @override
-  void didUpdateWidget(_AnimatedShellBottomNavigation oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.visible == widget.visible) return;
-    if (widget.visible) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      excluding: !widget.visible,
-      child: IgnorePointer(
-        ignoring: !widget.visible,
-        child: AnimatedBuilder(
-          animation: _animation,
-          child: widget.child,
-          builder: (context, child) {
-            final progress = _animation.value;
-            return ClipRect(
-              child: Align(
-                alignment: Alignment.topCenter,
-                heightFactor: progress,
-                child: Opacity(
-                  opacity: progress,
-                  child: Transform.translate(
-                    offset: Offset(0, 18 * (1 - progress)),
-                    child: child,
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
   }
 }
