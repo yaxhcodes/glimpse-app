@@ -807,9 +807,10 @@ class MindmapScreen extends ConsumerWidget {
       MediaQuery.sizeOf(context).width,
       compactPadding: 20,
     );
-    final shellBottomInset =
-        embedded &&
-            !AppLayout.usesNavigationRail(MediaQuery.sizeOf(context).width)
+    final usesRail = AppLayout.usesNavigationRail(
+      MediaQuery.sizeOf(context).width,
+    );
+    final shellBottomInset = embedded && !usesRail
         ? MediaQuery.paddingOf(context).bottom
         : 0.0;
     final scrollBottomPadding = 32.0 + shellBottomInset;
@@ -820,79 +821,88 @@ class MindmapScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: AppBar(
-        automaticallyImplyLeading: !embedded,
-        titleSpacing: embedded ? horizontalPadding : 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              context.l10n.interests,
-              style: tt.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: tt.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: cs.surface,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: context.l10n.rebuildMap,
-            onPressed: () async {
-              HapticFeedback.lightImpact();
-              await clearInterestClusterCache();
-              ref.invalidate(interestClusterThemesProvider);
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: themesAsync.when(
-        loading: () => LoadingIndicator(message: context.l10n.readingInterests),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
+      body: NestedScrollView(
+        floatHeaderSlivers: !usesRail,
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverAppBar(
+            pinned: usesRail,
+            floating: !usesRail,
+            snap: !usesRail,
+            automaticallyImplyLeading: !embedded,
+            titleSpacing: embedded ? horizontalPadding : 0,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline_rounded, size: 40, color: cs.error),
-                const SizedBox(height: 14),
                 Text(
-                  context.l10n.couldNotBuildClusters,
-                  style: tt.titleSmall?.copyWith(color: cs.onSurface),
-                  textAlign: TextAlign.center,
+                  context.l10n.interests,
+                  style: tt.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
                 ),
-                const SizedBox(height: 8),
                 Text(
-                  '$e',
-                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                  textAlign: TextAlign.center,
+                  subtitle,
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
+            backgroundColor: cs.surface,
+            surfaceTintColor: Colors.transparent,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: context.l10n.rebuildMap,
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  await clearInterestClusterCache();
+                  ref.invalidate(interestClusterThemesProvider);
+                },
+              ),
+              const SizedBox(width: 4),
+            ],
           ),
-        ),
-        data: (themes) {
-          if (_displayClustersForThemes(themes).isEmpty) {
-            return const _MindmapEmptyState();
-          }
+        ],
+        body: themesAsync.when(
+          loading: () =>
+              LoadingIndicator(message: context.l10n.readingInterests),
+          error: (e, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline_rounded, size: 40, color: cs.error),
+                  const SizedBox(height: 14),
+                  Text(
+                    context.l10n.couldNotBuildClusters,
+                    style: tt.titleSmall?.copyWith(color: cs.onSurface),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$e',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          data: (themes) {
+            if (_displayClustersForThemes(themes).isEmpty) {
+              return const _MindmapEmptyState();
+            }
 
-          return _MindmapCanvas(
-            themes: themes,
-            scrollBottomPadding: scrollBottomPadding,
-          );
-        },
+            return _MindmapCanvas(
+              themes: themes,
+              scrollBottomPadding: scrollBottomPadding,
+            );
+          },
+        ),
       ),
     );
   }

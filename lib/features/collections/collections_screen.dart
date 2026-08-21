@@ -14,6 +14,7 @@ import '../../shared/widgets/expressive_tap_scale.dart';
 import '../library/library_entity.dart';
 import '../library/library_provider.dart';
 import '../library/library_widgets.dart';
+import '../shell/shell_chrome_provider.dart';
 import 'collection_card.dart';
 import 'collection_reorder_sheet.dart';
 import 'collections_provider.dart';
@@ -75,9 +76,11 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final hasCollections = loadedCollections.isNotEmpty;
-    final shellBottomInset =
-        widget.embedded &&
-            !AppLayout.usesNavigationRail(MediaQuery.sizeOf(context).width)
+    final shellChromeVisible = ref.watch(shellChromeVisibilityProvider);
+    final usesRail = AppLayout.usesNavigationRail(
+      MediaQuery.sizeOf(context).width,
+    );
+    final shellBottomInset = widget.embedded && !usesRail
         ? MediaQuery.paddingOf(context).bottom
         : 0.0;
     final scrollBottomPadding = 24.0 + shellBottomInset;
@@ -91,210 +94,221 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
       },
       child: Scaffold(
         backgroundColor: cs.surface,
-        appBar: AppBar(
-          titleSpacing: selectionState.isActive
-              ? null
-              : widget.embedded
-              ? 20
-              : null,
-          automaticallyImplyLeading:
-              !selectionState.isActive && !widget.embedded,
-          leading: selectionState.isActive
-              ? IconButton(
-                  tooltip: context.l10n.exitSelection,
-                  onPressed: selectionNotifier.clear,
-                  icon: const Icon(Icons.close_rounded),
-                )
-              : null,
-          title: selectionState.isActive
-              ? BulkSelectionTitle(count: selectedCollections.length)
-              : Text(
-                  context.l10n.collections,
-                  key: const ValueKey('collections-surface-title'),
-                  style: tt.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
-                ),
-          actions: selectionState.isActive
-              ? [
-                  IconButton(
-                    tooltip: context.l10n.selectAll,
-                    onPressed: () => selectionNotifier.selectAll(
-                      orderedCollections.map(
-                        (summary) => summary.collection.id,
+        body: NestedScrollView(
+          floatHeaderSlivers: !usesRail,
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverAppBar(
+              pinned: usesRail || selectionState.isActive,
+              floating: !usesRail,
+              snap: !usesRail,
+              titleSpacing: selectionState.isActive
+                  ? null
+                  : widget.embedded
+                  ? 20
+                  : null,
+              automaticallyImplyLeading:
+                  !selectionState.isActive && !widget.embedded,
+              leading: selectionState.isActive
+                  ? IconButton(
+                      tooltip: context.l10n.exitSelection,
+                      onPressed: selectionNotifier.clear,
+                      icon: const Icon(Icons.close_rounded),
+                    )
+                  : null,
+              title: selectionState.isActive
+                  ? BulkSelectionTitle(count: selectedCollections.length)
+                  : Text(
+                      context.l10n.collections,
+                      key: const ValueKey('collections-surface-title'),
+                      style: tt.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
                       ),
                     ),
-                    icon: const Icon(Icons.select_all_rounded),
-                  ),
-                  if (selectedCollections.length == 1)
-                    IconButton(
-                      tooltip: context.l10n.editCollection,
-                      onPressed: () => _editCollection(
-                        context,
-                        selectedCollections.single,
-                        selectionNotifier,
+              actions: selectionState.isActive
+                  ? [
+                      IconButton(
+                        tooltip: context.l10n.selectAll,
+                        onPressed: () => selectionNotifier.selectAll(
+                          orderedCollections.map(
+                            (summary) => summary.collection.id,
+                          ),
+                        ),
+                        icon: const Icon(Icons.select_all_rounded),
                       ),
-                      icon: const Icon(Icons.edit_outlined),
-                    ),
-                  IconButton(
-                    tooltip: context.l10n.moveContents,
-                    onPressed: canMoveSelection
-                        ? () => _moveCollectionContents(
+                      if (selectedCollections.length == 1)
+                        IconButton(
+                          tooltip: context.l10n.editCollection,
+                          onPressed: () => _editCollection(
                             context,
-                            selectedCollections,
+                            selectedCollections.single,
+                            selectionNotifier,
+                          ),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                      IconButton(
+                        tooltip: context.l10n.moveContents,
+                        onPressed: canMoveSelection
+                            ? () => _moveCollectionContents(
+                                context,
+                                selectedCollections,
+                                orderedCollections,
+                                selectionNotifier,
+                                preferencesNotifier,
+                              )
+                            : null,
+                        icon: const Icon(Icons.drive_file_move_outline),
+                      ),
+                      IconButton(
+                        tooltip: context.l10n.deleteSelectedCollections,
+                        color: cs.error,
+                        onPressed: selectedCollections.isEmpty
+                            ? null
+                            : () => _confirmDeleteCollections(
+                                context,
+                                selectedCollections,
+                                selectionNotifier,
+                                preferencesNotifier,
+                              ),
+                        icon: const Icon(Icons.delete_outline_rounded),
+                      ),
+                    ]
+                  : [
+                      if (hasCollections)
+                        _CollectionsOptionsMenu(
+                          preferences: preferences,
+                          canReorder: loadedCollections.length > 1,
+                          onSelected: (action) => _handleMenuAction(
+                            context,
+                            action,
                             orderedCollections,
-                            selectionNotifier,
-                            preferencesNotifier,
-                          )
-                        : null,
-                    icon: const Icon(Icons.drive_file_move_outline),
-                  ),
-                  IconButton(
-                    tooltip: context.l10n.deleteSelectedCollections,
-                    color: cs.error,
-                    onPressed: selectedCollections.isEmpty
-                        ? null
-                        : () => _confirmDeleteCollections(
-                            context,
-                            selectedCollections,
-                            selectionNotifier,
                             preferencesNotifier,
                           ),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                  ),
-                ]
-              : [
-                  if (hasCollections)
-                    _CollectionsOptionsMenu(
-                      preferences: preferences,
-                      canReorder: loadedCollections.length > 1,
-                      onSelected: (action) => _handleMenuAction(
-                        context,
-                        action,
-                        orderedCollections,
-                        preferencesNotifier,
-                      ),
-                    ),
-                  if (hasCollections) const SizedBox(width: 8),
-                ],
-        ),
-        body: async.when(
-          loading: () => const Center(child: ExpressiveLoadingIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
-          data: (rawCollections) {
-            _scheduleCollectionStateSync(
-              rawCollections,
-              preferences,
-              preferencesNotifier,
-              selectionNotifier,
-            );
-            final collections = preferences.sortSummaries(rawCollections);
-            if (collections.isEmpty) {
-              return _CollectionsEmptyLayout(
-                entities: librarySnapshot?.entities ?? const [],
-                libraryEnabled: !selectionState.isActive,
-                onLibraryTap: () => context.push('/library'),
-                onCreate: () => _createCollection(context),
+                        ),
+                      if (hasCollections) const SizedBox(width: 8),
+                    ],
+            ),
+          ],
+          body: async.when(
+            loading: () => const Center(child: ExpressiveLoadingIndicator()),
+            error: (e, _) => Center(child: Text('$e')),
+            data: (rawCollections) {
+              _scheduleCollectionStateSync(
+                rawCollections,
+                preferences,
+                preferencesNotifier,
+                selectionNotifier,
               );
-            }
-            return DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    cs.surface,
-                    cs.surfaceContainerLow.withValues(alpha: 0.42),
-                  ],
-                ),
-              ),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeOutCubic,
-                child: CustomScrollView(
-                  key: ValueKey(
-                    preferences.layout == CollectionsLayout.grid
-                        ? 'collections-grid'
-                        : 'collections-list',
+              final collections = preferences.sortSummaries(rawCollections);
+              if (collections.isEmpty) {
+                return _CollectionsEmptyLayout(
+                  entities: librarySnapshot?.entities ?? const [],
+                  libraryEnabled: !selectionState.isActive,
+                  onLibraryTap: () => context.push('/library'),
+                  onCreate: () => _createCollection(context),
+                );
+              }
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      cs.surface,
+                      cs.surfaceContainerLow.withValues(alpha: 0.42),
+                    ],
                   ),
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      sliver: SliverToBoxAdapter(
-                        child: _LibraryGatewayCard(
-                          entities: librarySnapshot?.entities ?? const [],
-                          enabled: !selectionState.isActive,
-                          onTap: () => context.push('/library'),
-                        ),
-                      ),
-                    ),
-                    if (preferences.layout == CollectionsLayout.grid)
-                      SliverPadding(
-                        padding: EdgeInsets.fromLTRB(
-                          16,
-                          0,
-                          16,
-                          scrollBottomPadding,
-                        ),
-                        sliver: SliverGrid.builder(
-                          gridDelegate:
-                              const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 224,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 0.96,
-                              ),
-                          itemCount: collections.length,
-                          itemBuilder: (context, i) {
-                            final summary = collections[i];
-                            final id = summary.collection.id;
-                            return ExpressiveTapScale(
-                              child: CollectionCard(
-                                key: ValueKey('collection-card-$id'),
-                                summary: summary,
-                                selectionMode: selectionState.isActive,
-                                isSelected: selectionState.isSelected(id),
-                                onSelectionStart: () =>
-                                    selectionNotifier.startWith(id),
-                                onSelectionToggle: () =>
-                                    selectionNotifier.toggle(id),
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: EdgeInsets.only(bottom: scrollBottomPadding),
-                        sliver: SliverList.builder(
-                          itemCount: collections.length,
-                          itemBuilder: (context, i) {
-                            final summary = collections[i];
-                            final id = summary.collection.id;
-                            return ExpressiveTapScale(
-                              child: CollectionListCard(
-                                key: ValueKey('collection-list-card-$id'),
-                                summary: summary,
-                                selectionMode: selectionState.isActive,
-                                isSelected: selectionState.isSelected(id),
-                                onSelectionStart: () =>
-                                    selectionNotifier.startWith(id),
-                                onSelectionToggle: () =>
-                                    selectionNotifier.toggle(id),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
                 ),
-              ),
-            );
-          },
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeOutCubic,
+                  child: CustomScrollView(
+                    key: ValueKey(
+                      preferences.layout == CollectionsLayout.grid
+                          ? 'collections-grid'
+                          : 'collections-list',
+                    ),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        sliver: SliverToBoxAdapter(
+                          child: _LibraryGatewayCard(
+                            entities: librarySnapshot?.entities ?? const [],
+                            enabled: !selectionState.isActive,
+                            onTap: () => context.push('/library'),
+                          ),
+                        ),
+                      ),
+                      if (preferences.layout == CollectionsLayout.grid)
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            0,
+                            16,
+                            scrollBottomPadding,
+                          ),
+                          sliver: SliverGrid.builder(
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 224,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.96,
+                                ),
+                            itemCount: collections.length,
+                            itemBuilder: (context, i) {
+                              final summary = collections[i];
+                              final id = summary.collection.id;
+                              return ExpressiveTapScale(
+                                child: CollectionCard(
+                                  key: ValueKey('collection-card-$id'),
+                                  summary: summary,
+                                  selectionMode: selectionState.isActive,
+                                  isSelected: selectionState.isSelected(id),
+                                  onSelectionStart: () =>
+                                      selectionNotifier.startWith(id),
+                                  onSelectionToggle: () =>
+                                      selectionNotifier.toggle(id),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: EdgeInsets.only(bottom: scrollBottomPadding),
+                          sliver: SliverList.builder(
+                            itemCount: collections.length,
+                            itemBuilder: (context, i) {
+                              final summary = collections[i];
+                              final id = summary.collection.id;
+                              return ExpressiveTapScale(
+                                child: CollectionListCard(
+                                  key: ValueKey('collection-list-card-$id'),
+                                  summary: summary,
+                                  selectionMode: selectionState.isActive,
+                                  isSelected: selectionState.isSelected(id),
+                                  onSelectionStart: () =>
+                                      selectionNotifier.startWith(id),
+                                  onSelectionToggle: () =>
+                                      selectionNotifier.toggle(id),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
-        floatingActionButton: hasCollections && !selectionState.isActive
+        floatingActionButton:
+            hasCollections &&
+                !selectionState.isActive &&
+                (usesRail || shellChromeVisible)
             ? Padding(
                 padding: EdgeInsets.only(bottom: shellBottomInset),
                 child: ExpressiveFab(

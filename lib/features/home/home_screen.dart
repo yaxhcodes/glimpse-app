@@ -29,6 +29,7 @@ import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/theme/app_icons.dart';
 import '../add_url/add_url_provider.dart';
+import '../shell/shell_chrome_provider.dart';
 import '../sources/sources_provider.dart';
 import 'home_provider.dart';
 import 'rediscovery_section.dart';
@@ -49,7 +50,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   final _urlInputController = TextEditingController();
   final _urlInputFocus = FocusNode();
-  bool _isScrolled = false;
   int _unreadDigests = 0;
   int _titleTapCount = 0;
   String? _clipboardUrl;
@@ -71,7 +71,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _refreshUnreadBadge();
     _urlInputController.addListener(_onInputChanged);
     _checkClipboard();
@@ -350,15 +349,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  void _onScroll() {
-    final scrolled = _scrollController.offset > 0;
-    if (scrolled != _isScrolled) {
-      setState(() => _isScrolled = scrolled);
-    }
-  }
-
   void _scrollToTop() {
     if (!_scrollController.hasClients) return;
+    ref.read(shellChromeVisibilityProvider.notifier).show();
     _scrollController.animateTo(
       0,
       duration: const Duration(milliseconds: 320),
@@ -370,7 +363,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _introFadeTimer?.cancel();
     _deferredDiscoveryTimer?.cancel();
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _urlInputController.removeListener(_onInputChanged);
     _urlInputController.dispose();
@@ -744,7 +736,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverAppBar(
-                  pinned: true,
+                  pinned: selectionState.isActive,
                   floating: true,
                   snap: true,
                   centerTitle: false,
@@ -972,34 +964,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
                 const SliverToBoxAdapter(child: SizedBox(height: 96)),
               ],
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 180),
-                opacity: _isScrolled ? 1.0 : 0.0,
-                child: Container(
-                  height: MediaQuery.of(context).padding.top + 16,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Theme.of(
-                          context,
-                        ).colorScheme.scrim.withValues(alpha: 0.45),
-                        Theme.of(
-                          context,
-                        ).colorScheme.surface.withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ),
           ),
         ],

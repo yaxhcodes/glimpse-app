@@ -49,7 +49,14 @@ void main() {
     await tester.pumpAndSettle();
     final lastCollectionRect = tester.getRect(find.text('Collection 1'));
     expect(lastCollectionRect.bottom, lessThanOrEqualTo(navigationRect.top));
+    expect(find.byTooltip('Collection options'), findsNothing);
 
+    await tester.drag(
+      find.byKey(const ValueKey('collections-grid')),
+      const Offset(0, 80),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Collection options'), findsOneWidget);
     await tester.tap(find.byTooltip('Collection options'));
     await tester.pumpAndSettle();
     await _tapPopupItem(tester, 'List');

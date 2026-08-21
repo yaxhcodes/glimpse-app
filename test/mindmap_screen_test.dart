@@ -82,6 +82,11 @@ void main() {
     final lastInterestRect = tester.getRect(find.text('Interest 12'));
     final navigationRect = tester.getRect(find.byType(NavigationBar));
     expect(lastInterestRect.bottom, lessThanOrEqualTo(navigationRect.top));
+    expect(find.byTooltip('Rebuild map'), findsNothing);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 80));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Rebuild map'), findsOneWidget);
   });
 
   testWidgets('header, sections, and cards share the responsive grid', (
