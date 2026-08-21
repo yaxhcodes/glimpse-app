@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,15 +27,36 @@ class NotificationsScreen extends ConsumerStatefulWidget {
       _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
+    with WidgetsBindingObserver {
   List<Map<String, dynamic>> _history = [];
   Map<int, SavedUrl> _urlById = {};
   bool _loading = true;
+  StreamSubscription<void>? _historySubscription;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _historySubscription = DigestPrefs.historyChanges.listen((_) {
+      unawaited(_load());
+    });
     _load();
+  }
+
+  @override
+  void dispose() {
+    _historySubscription?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_load());
+    }
   }
 
   /// First id = hero; up to three more for strip (`take(3)` downstream).
@@ -43,6 +66,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     final history = await DigestPrefs.loadHistory();
     final isar = ref.read(isarServiceProvider);
     final idSet = <int>{};
@@ -52,7 +76,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       }
     }
     final urls = await isar.getUrlsByIds(idSet);
-    if (!mounted) return;
+    if (!mounted || generation != _loadGeneration) return;
     setState(() {
       _history = history;
       _urlById = urls;

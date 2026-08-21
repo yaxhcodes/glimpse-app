@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:math' show Random;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -37,6 +39,14 @@ const _channelName = 'Glimpse';
 
 /// Fixed notification ID used for the group summary.
 const _summaryNotifId = 0;
+
+@immutable
+class NotificationGroupSnapshot {
+  const NotificationGroupSnapshot({required this.count, required this.titles});
+
+  final int count;
+  final List<String> titles;
+}
 
 class DigestNotifications {
   DigestNotifications._();
@@ -128,9 +138,27 @@ class DigestNotifications {
     required String body,
     required String payloadJson,
     bool withActions = false,
+    String? historyType,
+    String? historySignature,
   }) async {
     final notifId = _uniqueNotifId();
     final l10n = await loadBackgroundLocalizations();
+    final payload = _decodePayload(payloadJson);
+    final logicalNotifId = payload['notifId']?.toString() ?? 'notif_$notifId';
+    payload['notifId'] = logicalNotifId;
+    final effectivePayloadJson = jsonEncode(payload);
+    final linkIds = _linkIdsFromPayload(payload);
+
+    await DigestPrefs.saveNotifPayload(logicalNotifId, payload);
+    final historyId = await DigestPrefs.addDigestToHistory(
+      ids: linkIds,
+      summaries: [body],
+      topic: title,
+      type: historyType ?? _historyTypeFor(type),
+      notifId: logicalNotifId,
+      body: body,
+      sig: historySignature,
+    );
 
     final androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -167,9 +195,11 @@ class DigestNotifications {
         title,
         body,
         NotificationDetails(android: androidDetails),
-        payload: payloadJson,
+        payload: effectivePayloadJson,
       );
     } on PlatformException catch (e, st) {
+      await DigestPrefs.deleteDigest(historyId);
+      await DigestPrefs.deleteNotifPayload(logicalNotifId);
       developer.log(
         'Failed to show notification.',
         name: 'DigestNotifications',
@@ -191,17 +221,92 @@ class DigestNotifications {
     }
   }
 
+  static Map<String, dynamic> _decodePayload(String payloadJson) {
+    try {
+      final decoded = jsonDecode(payloadJson);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      // Routing falls back to the notifications hub for malformed payloads.
+    }
+    return <String, dynamic>{};
+  }
+
+  static List<int> _linkIdsFromPayload(Map<String, dynamic> payload) {
+    final raw = payload['linkIds'] ?? payload['ids'];
+    if (raw is! List) return const [];
+    return raw.whereType<num>().map((id) => id.toInt()).toList();
+  }
+
+  static String _historyTypeFor(NotifType type) {
+    return switch (type) {
+      NotifType.geography => 'geo',
+      NotifType.newInterest => 'new_interest',
+      NotifType.collector => 'collector',
+      NotifType.streak => 'streak',
+      NotifType.resurface => 'resurface',
+      NotifType.digest => 'digest',
+      NotifType.revisitDue => 'revisit',
+    };
+  }
+
+  @visibleForTesting
+  static NotificationGroupSnapshot snapshotForActiveNotifications(
+    Iterable<ActiveNotification> notifications,
+  ) {
+    final children = notifications.where(
+      (notification) =>
+          notification.id != _summaryNotifId &&
+          notification.groupKey == _groupKey,
+    );
+    return NotificationGroupSnapshot(
+      count: children.length,
+      titles: children
+          .map((notification) => notification.title?.trim() ?? '')
+          .where((title) => title.isNotEmpty)
+          .toList(),
+    );
+  }
+
   static Future<void> _updateGroupSummary() async {
-    final history = await DigestPrefs.loadHistory();
     final l10n = await loadBackgroundLocalizations();
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
-    // Only consider entries that were actually sent as notifications.
-    final notifEntries = history
-        .where((e) => e['notifId'] != null)
-        .take(5)
-        .toList();
+    NotificationGroupSnapshot? snapshot;
+    if (androidPlugin != null) {
+      try {
+        snapshot = snapshotForActiveNotifications(
+          await androidPlugin.getActiveNotifications(),
+        );
+      } on PlatformException catch (e, st) {
+        developer.log(
+          'Failed to read active notifications for group summary.',
+          name: 'DigestNotifications',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
 
-    final count = notifEntries.length;
+    if (snapshot == null || snapshot.count == 0) {
+      final history = await DigestPrefs.loadHistory();
+      final entries = history
+          .where((entry) => entry['notifId'] != null && entry['read'] != true)
+          .toList();
+      snapshot = NotificationGroupSnapshot(
+        count: entries.length,
+        titles: entries
+            .map(
+              (entry) =>
+                  entry['topic']?.toString() ?? l10n.notificationFallbackTitle,
+            )
+            .toList(),
+      );
+    }
+
+    final count = snapshot.count;
 
     // No need for a summary when there are no notifications.
     if (count == 0) return;
@@ -214,9 +319,7 @@ class DigestNotifications {
       return;
     }
 
-    final titles = notifEntries
-        .map((e) => e['topic']?.toString() ?? l10n.notificationFallbackTitle)
-        .toList();
+    final titles = snapshot.titles.take(5).toList();
 
     final summaryText = l10n.newNotificationCount(count);
 

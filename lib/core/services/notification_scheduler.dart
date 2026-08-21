@@ -331,24 +331,14 @@ class NotificationScheduler {
       'explanation': candidate.explanation,
     };
 
-    await DigestPrefs.saveNotifPayload(notifId, payload);
-
     await DigestNotifications.show(
       type: NotifType.resurface,
       title: copy.title,
       body: copy.body,
       payloadJson: jsonEncode(payload),
       withActions: linkIds.length == 1,
-    );
-
-    await DigestPrefs.addDigestToHistory(
-      ids: linkIds,
-      summaries: [copy.body],
-      topic: copy.title,
-      type: 'rediscover',
-      notifId: notifId,
-      body: copy.body,
-      sig: sig,
+      historyType: 'rediscover',
+      historySignature: sig,
     );
 
     return 'rediscover: ${copy.title}';
@@ -480,8 +470,6 @@ class NotificationScheduler {
     );
     assert(notifId.isNotEmpty);
 
-    await DigestPrefs.saveNotifPayload(notifId, payload);
-
     final payloadJson = jsonEncode(payload);
 
     await DigestNotifications.show(
@@ -492,9 +480,10 @@ class NotificationScheduler {
       // Single-link notifications (revisit-due, resurface) get quick Done/Later
       // action buttons; multi-link ones have no single target to act on.
       withActions: linkIds.length == 1,
+      historyType: historyType,
+      historySignature: sig,
     );
 
-    final summaries = [copy.body];
     if (type == 'F') {
       final digestLinks = <SavedUrl>[];
       for (final id in linkIds.take(5)) {
@@ -508,16 +497,6 @@ class NotificationScheduler {
         );
       }
     }
-
-    await DigestPrefs.addDigestToHistory(
-      ids: linkIds,
-      summaries: summaries,
-      topic: copy.title,
-      type: historyType,
-      notifId: notifId,
-      body: copy.body,
-      sig: sig,
-    );
 
     return '$historyType: ${copy.title}';
   }

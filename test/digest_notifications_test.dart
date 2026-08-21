@@ -1,0 +1,67 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:glimpse/core/services/digest_notifications.dart';
+import 'package:glimpse/core/services/digest_prefs.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  group('notification group summary', () {
+    test(
+      'counts every active child while limiting neither count nor source',
+      () {
+        final active = <ActiveNotification>[
+          for (var i = 1; i <= 7; i++)
+            ActiveNotification(
+              id: i,
+              groupKey: 'glimpse_notifications',
+              title: 'Notification $i',
+            ),
+          const ActiveNotification(
+            id: 0,
+            groupKey: 'glimpse_notifications',
+            title: 'Glimpse',
+          ),
+          const ActiveNotification(
+            id: 8,
+            groupKey: 'another_group',
+            title: 'Unrelated',
+          ),
+        ];
+
+        final snapshot = DigestNotifications.snapshotForActiveNotifications(
+          active,
+        );
+
+        expect(snapshot.count, 7);
+        expect(snapshot.titles, hasLength(7));
+        expect(snapshot.titles.last, 'Notification 7');
+      },
+    );
+  });
+
+  group('notification history', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('is persisted and announced immediately', () async {
+      final changed = DigestPrefs.historyChanges.first;
+
+      final historyId = await DigestPrefs.addDigestToHistory(
+        ids: const [42],
+        summaries: const ['A concise notification body.'],
+        topic: 'Ready to revisit',
+        type: 'resurface',
+        notifId: 'notif_42',
+        body: 'A concise notification body.',
+      );
+
+      await changed;
+      final history = await DigestPrefs.loadHistory();
+      expect(history, hasLength(1));
+      expect(history.single['id'], historyId);
+      expect(history.single['notifId'], 'notif_42');
+      expect(history.single['ids'], [42]);
+    });
+  });
+}

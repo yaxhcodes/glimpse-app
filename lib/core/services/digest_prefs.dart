@@ -1,5 +1,6 @@
 // ignore_for_file: use_null_aware_elements
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Persisted state for notifications, scheduling, and the notifications screen.
 class DigestPrefs {
   DigestPrefs._();
+
+  static final StreamController<void> _historyChanges =
+      StreamController<void>.broadcast(sync: true);
+
+  /// Emits after notification history is changed in this isolate.
+  ///
+  /// Background isolates have their own controller, so notification surfaces
+  /// should also refresh when the app resumes.
+  static Stream<void> get historyChanges => _historyChanges.stream;
 
   static const _lastKey = 'digest_last_json';
   static const _historyKey = 'digest_history';
@@ -51,8 +61,14 @@ class DigestPrefs {
     await p.setString(notifPayloadKey(notifId), jsonEncode(payload));
   }
 
+  static Future<void> deleteNotifPayload(String notifId) async {
+    final p = await SharedPreferences.getInstance();
+    await p.remove(notifPayloadKey(notifId));
+  }
+
   static Future<Map<String, dynamic>?> loadNotifPayload(String notifId) async {
     final p = await SharedPreferences.getInstance();
+    await p.reload();
     final s = p.getString(notifPayloadKey(notifId));
     if (s == null) return null;
     try {
@@ -62,7 +78,7 @@ class DigestPrefs {
     }
   }
 
-  static Future<void> addDigestToHistory({
+  static Future<String> addDigestToHistory({
     required List<int> ids,
     required List<String> summaries,
     required String topic,
@@ -73,9 +89,11 @@ class DigestPrefs {
   }) async {
     final p = await SharedPreferences.getInstance();
     final history = await loadHistory();
+    final now = DateTime.now();
+    final historyId = now.microsecondsSinceEpoch.toString();
     history.insert(0, {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'date': DateTime.now().toIso8601String(),
+      'id': historyId,
+      'date': now.toIso8601String(),
       'ids': ids,
       'summaries': summaries,
       'topic': topic,
@@ -87,6 +105,8 @@ class DigestPrefs {
     });
     if (history.length > 50) history.removeRange(50, history.length);
     await p.setString(_historyKey, jsonEncode(history));
+    _historyChanges.add(null);
+    return historyId;
   }
 
   /// Topic signatures (e.g. `A:india`, `G:42`) fired [within] the given window.
@@ -109,6 +129,10 @@ class DigestPrefs {
 
   static Future<List<Map<String, dynamic>>> loadHistory() async {
     final p = await SharedPreferences.getInstance();
+    // Notification workers run in a background isolate with a separate
+    // SharedPreferences cache. Always reload before reading history so the
+    // foreground hub sees a just-delivered notification immediately.
+    await p.reload();
     final s = p.getString(_historyKey);
     if (s == null) return [];
     try {
@@ -128,6 +152,7 @@ class DigestPrefs {
       }
     }
     await p.setString(_historyKey, jsonEncode(history));
+    _historyChanges.add(null);
   }
 
   static Future<void> deleteDigest(String digestId) async {
@@ -135,6 +160,7 @@ class DigestPrefs {
     final history = await loadHistory();
     history.removeWhere((e) => e['id'] == digestId);
     await p.setString(_historyKey, jsonEncode(history));
+    _historyChanges.add(null);
   }
 
   static Future<void> restoreDigest(
@@ -149,6 +175,7 @@ class DigestPrefs {
     history.insert(insertAt, Map<String, dynamic>.from(entry));
     if (history.length > 50) history.removeRange(50, history.length);
     await p.setString(_historyKey, jsonEncode(history));
+    _historyChanges.add(null);
   }
 
   static Future<int> unreadCount() async {
