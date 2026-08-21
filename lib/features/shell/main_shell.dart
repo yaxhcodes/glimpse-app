@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,10 +15,14 @@ import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../home/home_screen.dart';
 import '../home/home_provider.dart';
+import '../library/library_provider.dart';
 import '../collections/collections_screen.dart';
 import '../mindmap/mindmap_screen.dart';
+import '../mindmap/interest_clusters_provider.dart';
 import '../search/search_provider.dart';
 import '../search/search_screen.dart';
+import 'navigation_discovery_icon.dart';
+import 'navigation_discovery_provider.dart';
 import '../../shared/widgets/expressive_fab.dart';
 import '../../l10n/l10n.dart';
 
@@ -76,15 +81,44 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (_currentIndex == _searchTabIndex) return;
       _activateTab(_searchTabIndex);
     });
-
+    ref.listen<NavigationDiscoveryState>(navigationDiscoveryProvider, (
+      previous,
+      next,
+    ) {
+      if ((_currentIndex == 1 && next.hasNewCollections) ||
+          (_currentIndex == 2 && next.hasNewInterests)) {
+        _acknowledgeDiscoveryWhenReady(_currentIndex);
+      }
+    });
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final strings = context.l10n;
+    final discovery = ref.watch(navigationDiscoveryProvider);
     final destinations = [
-      (label: strings.home, icon: AppIcons.home),
-      (label: strings.collections, icon: AppIcons.collections),
-      (label: strings.interests, icon: AppIcons.interests),
-      (label: strings.search, icon: AppIcons.search),
+      (
+        label: strings.home,
+        icon: AppIcons.home,
+        hasUpdate: false,
+        badgeKey: 'home',
+      ),
+      (
+        label: strings.collections,
+        icon: AppIcons.collections,
+        hasUpdate: discovery.hasNewCollections,
+        badgeKey: 'collections',
+      ),
+      (
+        label: strings.interests,
+        icon: AppIcons.interests,
+        hasUpdate: discovery.hasNewInterests,
+        badgeKey: 'interests',
+      ),
+      (
+        label: strings.search,
+        icon: AppIcons.search,
+        hasUpdate: false,
+        badgeKey: 'search',
+      ),
     ];
     final urlsAsync = ref.watch(displayedUrlsProvider);
     final hasLinks = (urlsAsync.valueOrNull?.length ?? 0) > 0;
@@ -158,14 +192,34 @@ class _MainShellState extends ConsumerState<MainShell> {
                             ),
                           ),
                           destinations: [
-                            for (final destination in destinations)
+                            for (
+                              var index = 0;
+                              index < destinations.length;
+                              index++
+                            )
                               NavigationRailDestination(
-                                icon: AppIcon(destination.icon),
-                                selectedIcon: AppIcon(
-                                  destination.icon,
-                                  selected: true,
+                                icon: NavigationDiscoveryIcon(
+                                  key: ValueKey(
+                                    '${destinations[index].badgeKey}-navigation-discovery-badge',
+                                  ),
+                                  semanticsLabel: destinations[index].label,
+                                  discoveryLabel:
+                                      strings.notificationNewDiscovery,
+                                  showBadge:
+                                      destinations[index].hasUpdate &&
+                                      _currentIndex != index,
+                                  icon: AppIcon(destinations[index].icon),
                                 ),
-                                label: Text(destination.label),
+                                selectedIcon: NavigationDiscoveryIcon(
+                                  semanticsLabel: destinations[index].label,
+                                  discoveryLabel:
+                                      strings.notificationNewDiscovery,
+                                  icon: AppIcon(
+                                    destinations[index].icon,
+                                    selected: true,
+                                  ),
+                                ),
+                                label: Text(destinations[index].label),
                               ),
                           ],
                         ),
@@ -217,14 +271,32 @@ class _MainShellState extends ConsumerState<MainShell> {
                       labelBehavior:
                           NavigationDestinationLabelBehavior.alwaysShow,
                       destinations: [
-                        for (final destination in destinations)
+                        for (
+                          var index = 0;
+                          index < destinations.length;
+                          index++
+                        )
                           NavigationDestination(
-                            icon: AppIcon(destination.icon),
-                            selectedIcon: AppIcon(
-                              destination.icon,
-                              selected: true,
+                            icon: NavigationDiscoveryIcon(
+                              key: ValueKey(
+                                '${destinations[index].badgeKey}-navigation-discovery-badge',
+                              ),
+                              semanticsLabel: destinations[index].label,
+                              discoveryLabel: strings.notificationNewDiscovery,
+                              showBadge:
+                                  destinations[index].hasUpdate &&
+                                  _currentIndex != index,
+                              icon: AppIcon(destinations[index].icon),
                             ),
-                            label: destination.label,
+                            selectedIcon: NavigationDiscoveryIcon(
+                              semanticsLabel: destinations[index].label,
+                              discoveryLabel: strings.notificationNewDiscovery,
+                              icon: AppIcon(
+                                destinations[index].icon,
+                                selected: true,
+                              ),
+                            ),
+                            label: destinations[index].label,
                           ),
                       ],
                     ),
@@ -262,6 +334,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     final wasAlreadySearch =
         _currentIndex == _searchTabIndex && index == _searchTabIndex;
     _activateTab(index);
+    _acknowledgeDiscoveryWhenReady(index);
     unawaited(
       ref.read(analyticsServiceProvider).trackScreen(_screenForIndex(index)),
     );
@@ -280,6 +353,52 @@ class _MainShellState extends ConsumerState<MainShell> {
       _loadedTabIndexes.add(index);
       _currentIndex = index;
     });
+  }
+
+  void _acknowledgeDiscoveryWhenReady(int index) {
+    if (index == 1) {
+      unawaited(_acknowledgeCollectionsWhenReady());
+    } else if (index == 2) {
+      unawaited(_acknowledgeInterestsWhenReady());
+    }
+  }
+
+  Future<void> _acknowledgeCollectionsWhenReady() async {
+    try {
+      var snapshot = ref.read(librarySnapshotProvider).valueOrNull;
+      if (snapshot == null) {
+        await ref.read(urlStreamProvider.future);
+        snapshot = ref.read(librarySnapshotProvider).valueOrNull;
+      }
+      if (!mounted || _currentIndex != 1 || snapshot == null) return;
+      await ref
+          .read(navigationDiscoveryProvider.notifier)
+          .acknowledgeCollections();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Collections discovery remains pending because the tab did not load.',
+        name: 'MainShell',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _acknowledgeInterestsWhenReady() async {
+    try {
+      await ref.read(interestClusterThemesProvider.future);
+      if (!mounted || _currentIndex != 2) return;
+      await ref
+          .read(navigationDiscoveryProvider.notifier)
+          .acknowledgeInterests();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Interests discovery remains pending because the tab did not load.',
+        name: 'MainShell',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   AnalyticsScreen _screenForIndex(int index) {

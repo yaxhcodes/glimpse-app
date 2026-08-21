@@ -19,6 +19,7 @@ import '../../core/services/entitlement_service.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../collections/collections_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
+import '../shell/navigation_discovery_provider.dart';
 import '../../core/services/digest_background.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/services/digest_scheduler.dart';
@@ -142,6 +143,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           .unpinAll(ref.read(pinnedUrlsProvider));
       await clearAskSuggestionsCache();
       await clearInterestClusterCache();
+      await ref
+          .read(navigationDiscoveryProvider.notifier)
+          .resetAfterDataClear();
       ref.invalidate(askEmptySuggestionsProvider);
       ref.invalidate(interestClusterThemesProvider);
       ref.invalidate(collectionsListProvider);

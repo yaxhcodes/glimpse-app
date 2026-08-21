@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/backup_provider.dart';
 import '../../core/services/backup/backup_models.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../shell/navigation_discovery_provider.dart';
 
 class BackupPreviewScreen extends ConsumerStatefulWidget {
   const BackupPreviewScreen({super.key});
@@ -12,6 +15,7 @@ class BackupPreviewScreen extends ConsumerStatefulWidget {
   ConsumerState<BackupPreviewScreen> createState() =>
       _BackupPreviewScreenState();
 }
+
 class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
   RestoreMode _restoreMode = RestoreMode.merge;
 
@@ -33,27 +37,36 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
 
     ref.listen<BackupState>(backupProvider, (prev, next) {
       if (next.status == BackupStatus.success && next.restoredCount != null) {
+        unawaited(
+          ref
+              .read(navigationDiscoveryProvider.notifier)
+              .rebaselineAfterExternalDataChange(),
+        );
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text(
-              next.restoredCount! > 0
-                  ? 'Restored ${next.restoredCount} links'
-                  : 'Restore complete',
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                next.restoredCount! > 0
+                    ? 'Restored ${next.restoredCount} links'
+                    : 'Restore complete',
+              ),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
             ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ));
+          );
         ref.read(backupProvider.notifier).reset();
         Navigator.of(context).popUntil((route) => route.isFirst);
       } else if (next.status == BackupStatus.error && next.error != null) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text(next.error!.message),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ));
+          ..showSnackBar(
+            SnackBar(
+              content: Text(next.error!.message),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+            ),
+          );
       }
     });
 
@@ -98,10 +111,7 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
                           value: backup.appVersion,
                         ),
                       if (backup.device != null && backup.device!.isNotEmpty)
-                        _DetailRow(
-                          label: 'Device',
-                          value: backup.device!,
-                        ),
+                        _DetailRow(label: 'Device', value: backup.device!),
                       const Divider(height: 24),
                       _DetailRow(
                         label: 'Links',
@@ -150,8 +160,8 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
                             'Replaces all current data with the backup. Your current library will be deleted.',
                         isSelected: _restoreMode == RestoreMode.replace,
                         isDestructive: true,
-                        onTap: () => setState(
-                            () => _restoreMode = RestoreMode.replace),
+                        onTap: () =>
+                            setState(() => _restoreMode = RestoreMode.replace),
                       ),
                       const SizedBox(height: 16),
                       _RestoreImpactSummary(mode: _restoreMode),
@@ -214,9 +224,11 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isReplace ? 'Replace library?' : 'Merge backup?'),
-        content: Text(isReplace
-            ? 'This will replace your current library with the backup. All your current links and collections will be permanently deleted.'
-            : 'Links from the backup will be merged into your current library. Duplicates will be skipped.'),
+        content: Text(
+          isReplace
+              ? 'This will replace your current library with the backup. All your current links and collections will be permanently deleted.'
+              : 'Links from the backup will be merged into your current library. Duplicates will be skipped.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -226,7 +238,8 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
             onPressed: () => Navigator.pop(context, true),
             style: isReplace
                 ? FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error)
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  )
                 : null,
             child: Text(isReplace ? 'Replace' : 'Merge'),
           ),
@@ -269,10 +282,10 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: cs.primary,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-          ),
+        color: cs.primary,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.2,
+      ),
     );
   }
 }
@@ -291,12 +304,18 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: theme.textTheme.bodyMedium?.copyWith(
-            color: cs.onSurfaceVariant,
-          )),
-          Text(value, style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          )),
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -355,7 +374,10 @@ class _RestoreImpactSummary extends ConsumerWidget {
             ),
             if (addedCol > 0 || updatedCol > 0) ...[
               const SizedBox(height: 10),
-              Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.5)),
+              Divider(
+                height: 1,
+                color: cs.outlineVariant.withValues(alpha: 0.5),
+              ),
               const SizedBox(height: 10),
               if (addedCol > 0)
                 _ImpactRow(
@@ -386,7 +408,9 @@ class _RestoreImpactSummary extends ConsumerWidget {
             const SizedBox(width: 10),
             Text(
               'Calculating changes\u2026',
-              style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -434,8 +458,7 @@ class _ImpactRow extends StatelessWidget {
         Row(
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: tint.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
@@ -505,8 +528,8 @@ class _RestoreModeOption extends StatelessWidget {
 
     final bgColor = isSelected
         ? (isDestructive
-            ? cs.errorContainer.withValues(alpha: 0.3)
-            : cs.primaryContainer.withValues(alpha: 0.3))
+              ? cs.errorContainer.withValues(alpha: 0.3)
+              : cs.primaryContainer.withValues(alpha: 0.3))
         : cs.surfaceContainerHighest.withValues(alpha: 0.5);
 
     return Material(
@@ -528,7 +551,9 @@ class _RestoreModeOption extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? (isDestructive ? cs.errorContainer : cs.primaryContainer)
+                      ? (isDestructive
+                            ? cs.errorContainer
+                            : cs.primaryContainer)
                       : cs.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(10),
                 ),

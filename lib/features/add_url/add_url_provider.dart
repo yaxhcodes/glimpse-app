@@ -26,6 +26,7 @@ import '../home/home_provider.dart';
 import '../rediscover/rediscover_daily_set.dart';
 import '../rediscover/rediscover_provider.dart';
 import '../rediscover/rediscover_topic_pulse_provider.dart';
+import '../shell/navigation_discovery_provider.dart';
 
 /// State for the Add URL flow.
 enum AddUrlStatus {
@@ -234,6 +235,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
               normalizedUrl,
               processingId: processingId,
               notifyCapture: notifyCapture,
+              evaluateNavigationDiscovery: false,
             );
           } else if (notifyCapture && showCaptureAcknowledgement) {
             await UrlSaveNotifications.showAlreadyCaptured(restored);
@@ -381,6 +383,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         normalizedUrl,
         processingId: processingId,
         notifyCapture: notifyCapture,
+        evaluateNavigationDiscovery: true,
       );
       unawaited(
         _ref
@@ -408,6 +411,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     String normalizedUrl, {
     required String processingId,
     required bool notifyCapture,
+    required bool evaluateNavigationDiscovery,
   }) {
     // Isar's live URL stream progressively hydrates the card after every
     // persisted enrichment stage. Restarting that stream from onEnriched
@@ -420,6 +424,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       enricher,
       processingId: processingId,
       notifyCapture: notifyCapture,
+      evaluateNavigationDiscovery: evaluateNavigationDiscovery,
     );
   }
 
@@ -428,6 +433,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     EnrichmentService enricher, {
     required String processingId,
     required bool notifyCapture,
+    required bool evaluateNavigationDiscovery,
   }) async {
     try {
       final isarService = _ref.read(isarServiceProvider);
@@ -457,7 +463,18 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         failedTasks.add('metadata_failed');
       }
       await enricher.enrichSingle(url.id, initialFailures: failedTasks);
+      final enriched = await isarService.getUrlById(url.id);
+      final enrichmentSucceeded =
+          enriched != null &&
+          UrlProcessingStatus.isSuccessfulTerminal(enriched.processingStatus);
       _refreshDerivedDataAfterEnrichment();
+      if (evaluateNavigationDiscovery && enrichmentSucceeded) {
+        unawaited(
+          _ref
+              .read(navigationDiscoveryProvider.notifier)
+              .recordCompletedNewSave(url.id),
+        );
+      }
       final relatedIds = await _surfaceSimilarOlderSaves(url.id);
       if (relatedIds.isNotEmpty) {
         _ref.invalidate(rediscoverRecapsProvider);
@@ -471,11 +488,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         }
       }
       if (notifyCapture) {
-        final enriched = await isarService.getUrlById(url.id);
-        if (enriched != null &&
-            UrlProcessingStatus.isSuccessfulTerminal(
-              enriched.processingStatus,
-            )) {
+        if (enrichmentSucceeded) {
           await UrlSaveNotifications.showCaptureReady(enriched);
         } else if (enriched != null &&
             enriched.processingStatus == UrlProcessingStatus.failed) {

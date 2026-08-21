@@ -40,6 +40,154 @@ List<Map<String, dynamic>> _rowsForIsolate(List<SavedUrl> urls) {
       .toList();
 }
 
+/// A label-free snapshot of the Interest Map's semantic structure.
+///
+/// It deliberately stores stable URL identities instead of generated labels,
+/// so a rename never looks like a newly discovered interest.
+@immutable
+class InterestTopologySnapshot {
+  const InterestTopologySnapshot({
+    required this.embeddedCount,
+    required this.topClusters,
+    required this.subtopics,
+  });
+
+  const InterestTopologySnapshot.empty()
+    : embeddedCount = 0,
+      topClusters = const [],
+      subtopics = const [];
+
+  final int embeddedCount;
+  final List<Set<String>> topClusters;
+  final List<Set<String>> subtopics;
+
+  Iterable<Set<String>> get meaningfulTopClusters =>
+      topClusters.where((cluster) => cluster.length >= 2);
+
+  /// Whether this topology adds a user-meaningful group compared with
+  /// [previous]. Routine growth of an existing group remains quiet.
+  bool addsMeaningfulStructureComparedTo(InterestTopologySnapshot previous) {
+    if (embeddedCount < 3) return false;
+
+    final currentTop = meaningfulTopClusters.toList(growable: false);
+    if (previous.embeddedCount < 3 && currentTop.isNotEmpty) return true;
+
+    return _containsNewTopologyGroup(
+          currentTop,
+          previous.meaningfulTopClusters,
+        ) ||
+        _containsNewTopologyGroup(subtopics, previous.subtopics);
+  }
+
+  String get fingerprint {
+    final canonical = <String>[
+      'count:$embeddedCount',
+      ..._canonicalTopologyGroups('top', topClusters),
+      ..._canonicalTopologyGroups('sub', subtopics),
+    ]..sort();
+    return _stableFingerprint(canonical.join('|'));
+  }
+}
+
+bool _containsNewTopologyGroup(
+  Iterable<Set<String>> current,
+  Iterable<Set<String>> previous,
+) {
+  final previousGroups = previous.toList(growable: false);
+  for (final group in current) {
+    final matchesExisting = previousGroups.any((candidate) {
+      final overlap = group.where(candidate.contains).length;
+      return overlap / group.length >= 0.5;
+    });
+    if (!matchesExisting) return true;
+  }
+  return false;
+}
+
+Iterable<String> _canonicalTopologyGroups(
+  String prefix,
+  Iterable<Set<String>> groups,
+) => groups.map((group) {
+  final members = group.toList(growable: false)..sort();
+  return '$prefix:${members.join(',')}';
+});
+
+String _stableFingerprint(String value) {
+  var hash = 0x811c9dc5;
+  for (final unit in value.codeUnits) {
+    hash ^= unit;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+  return hash.toRadixString(16).padLeft(8, '0');
+}
+
+/// Builds the same label-free topology used by the Interest Map without
+/// invoking Gemini or any other network service.
+Future<InterestTopologySnapshot> buildInterestTopologySnapshot(
+  Iterable<SavedUrl> sourceUrls,
+) async {
+  final urls = sourceUrls
+      .where((url) => url.embedding?.isNotEmpty ?? false)
+      .toList(growable: false);
+  if (urls.isEmpty) return const InterestTopologySnapshot.empty();
+
+  final rows = _rowsForIsolate(urls);
+  final topology = await compute(computeInterestTopologyGroups, rows);
+  final topGroups = _topologyIndexGroups(topology['topClusters']);
+  final rawSubGroups = topology['subClusters'] as List<dynamic>? ?? const [];
+
+  final topClusters = [
+    for (final group in topGroups)
+      {
+        for (final index in group)
+          if (index >= 0 && index < urls.length) urls[index].rawUrl,
+      },
+  ];
+  final subtopics = <Set<String>>[];
+  for (final rawParent in rawSubGroups) {
+    if (rawParent is! List) continue;
+    for (final rawGroup in rawParent) {
+      if (rawGroup is! List) continue;
+      final group = <String>{};
+      for (final rawIndex in rawGroup) {
+        final index = (rawIndex as num).toInt();
+        if (index >= 0 && index < urls.length) group.add(urls[index].rawUrl);
+      }
+      if (group.length >= kMinSubClusterSize) subtopics.add(group);
+    }
+  }
+
+  return InterestTopologySnapshot(
+    embeddedCount: urls.length,
+    topClusters: List.unmodifiable(topClusters),
+    subtopics: List.unmodifiable(subtopics),
+  );
+}
+
+/// Isolate-safe shared topology pass for both Interest Map rendering and
+/// navigation discovery. The result contains global row indices.
+Map<String, dynamic> computeInterestTopologyGroups(
+  List<Map<String, dynamic>> rows,
+) {
+  final topClusters = clusterUrlIndicesByCosine(rows);
+  final embeddings = _embeddingsFromRows(rows);
+  final subClusters = computeSubClusters(
+    _buildSubClusterPayload(topClusters, embeddings),
+  );
+  return <String, dynamic>{
+    'topClusters': topClusters,
+    'subClusters': subClusters,
+  };
+}
+
+List<List<int>> _topologyIndexGroups(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final group in raw)
+      if (group is List) [for (final value in group) (value as num).toInt()],
+  ];
+}
+
 /// The broad topic category used as a hard clustering boundary, so unrelated
 /// topics (Food & Cooking vs Technology) never share a cluster. Maps any raw /
 /// platform category onto one of the 16 [CategoryTaxonomy] buckets.
@@ -1138,7 +1286,8 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
 
   // ── Step 1: top-level clustering ───────────────────────────────────────
   final rows = _rowsForIsolate(urls);
-  final indexClusters = await compute(clusterUrlIndicesByCosine, rows);
+  final topology = await compute(computeInterestTopologyGroups, rows);
+  final indexClusters = _topologyIndexGroups(topology['topClusters']);
   if (indexClusters.isEmpty) {
     developer.log('Top-level clustering returned 0 clusters.', name: 'Mindmap');
     return const [];
@@ -1155,8 +1304,6 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
   );
 
   // ── Step 2: sub-clustering ─────────────────────────────────────────────
-  final embeddings = _embeddingsFromRows(rows);
-
   // Build global-index lists for each top-level cluster.
   // urlIndexById maps url.id -> position in the `urls` list.
   final urlIndexById = {for (var i = 0; i < urls.length; i++) urls[i].id: i};
@@ -1164,9 +1311,17 @@ Future<List<ClusterTheme>> loadOrBuildInterestClusterThemes({
     return cluster.map((u) => urlIndexById[u.id]).whereType<int>().toList();
   }).toList();
 
-  // Run sub-clustering in the isolate.
-  final subPayload = _buildSubClusterPayload(clusterGlobalIndices, embeddings);
-  final rawSubGroups = await compute(computeSubClusters, subPayload);
+  // Sub-clustering was completed in the shared topology isolate pass above.
+  final rawSubGroups = (topology['subClusters'] as List<dynamic>? ?? const [])
+      .map((parent) {
+        if (parent is! List) return null;
+        return [
+          for (final group in parent)
+            if (group is List)
+              [for (final value in group) (value as num).toInt()],
+        ];
+      })
+      .toList();
 
   // rawSubGroups[i] is a list of groups of GLOBAL indices (or null).
   // Convert to LOCAL indices (0-based within topClusters[i]) for downstream use.
