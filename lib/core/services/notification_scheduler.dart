@@ -337,6 +337,7 @@ class NotificationScheduler {
       body: copy.body,
       payloadJson: jsonEncode(payload),
       withActions: linkIds.length == 1,
+      persistInHistory: true,
       historyType: 'rediscover',
       historySignature: sig,
     );
@@ -480,6 +481,7 @@ class NotificationScheduler {
       // Single-link notifications (revisit-due, resurface) get quick Done/Later
       // action buttons; multi-link ones have no single target to act on.
       withActions: linkIds.length == 1,
+      persistInHistory: true,
       historyType: historyType,
       historySignature: sig,
     );

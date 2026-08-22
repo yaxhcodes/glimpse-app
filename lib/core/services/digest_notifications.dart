@@ -132,12 +132,15 @@ class DigestNotifications {
   }
 
   /// [payloadJson] must be the full serialized notification payload (type, linkIds, title, …).
+  /// [persistInHistory] is reserved for curated/scheduled notifications; save
+  /// and capture status notifications belong in the system tray only.
   static Future<void> show({
     required NotifType type,
     required String title,
     required String body,
     required String payloadJson,
     bool withActions = false,
+    bool persistInHistory = false,
     String? historyType,
     String? historySignature,
   }) async {
@@ -149,16 +152,19 @@ class DigestNotifications {
     final effectivePayloadJson = jsonEncode(payload);
     final linkIds = _linkIdsFromPayload(payload);
 
-    await DigestPrefs.saveNotifPayload(logicalNotifId, payload);
-    final historyId = await DigestPrefs.addDigestToHistory(
-      ids: linkIds,
-      summaries: [body],
-      topic: title,
-      type: historyType ?? _historyTypeFor(type),
-      notifId: logicalNotifId,
-      body: body,
-      sig: historySignature,
-    );
+    String? historyId;
+    if (persistInHistory) {
+      await DigestPrefs.saveNotifPayload(logicalNotifId, payload);
+      historyId = await DigestPrefs.addDigestToHistory(
+        ids: linkIds,
+        summaries: [body],
+        topic: title,
+        type: historyType ?? _historyTypeFor(type),
+        notifId: logicalNotifId,
+        body: body,
+        sig: historySignature,
+      );
+    }
 
     final androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -198,8 +204,10 @@ class DigestNotifications {
         payload: effectivePayloadJson,
       );
     } on PlatformException catch (e, st) {
-      await DigestPrefs.deleteDigest(historyId);
-      await DigestPrefs.deleteNotifPayload(logicalNotifId);
+      if (historyId != null) {
+        await DigestPrefs.deleteDigest(historyId);
+        await DigestPrefs.deleteNotifPayload(logicalNotifId);
+      }
       developer.log(
         'Failed to show notification.',
         name: 'DigestNotifications',

@@ -137,9 +137,33 @@ class DigestPrefs {
     if (s == null) return [];
     try {
       final list = jsonDecode(s) as List<dynamic>;
-      return list.cast<Map<String, dynamic>>();
+      final history = list.cast<Map<String, dynamic>>();
+      final curatedHistory = history
+          .where((entry) => !_isUrlSaveHistoryEntry(p, entry))
+          .toList();
+      if (curatedHistory.length != history.length) {
+        await p.setString(_historyKey, jsonEncode(curatedHistory));
+      }
+      return curatedHistory;
     } catch (_) {
       return [];
+    }
+  }
+
+  static bool _isUrlSaveHistoryEntry(
+    SharedPreferences preferences,
+    Map<String, dynamic> entry,
+  ) {
+    final notifId = entry['notifId'];
+    if (notifId is! String || notifId.isEmpty) return false;
+    final rawPayload = preferences.getString(notifPayloadKey(notifId));
+    if (rawPayload == null) return false;
+    try {
+      final payload = jsonDecode(rawPayload);
+      return payload is Map &&
+          payload['type']?.toString().startsWith('url_') == true;
+    } catch (_) {
+      return false;
     }
   }
 

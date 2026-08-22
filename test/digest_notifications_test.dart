@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/services/digest_notifications.dart';
@@ -62,6 +64,40 @@ void main() {
       expect(history.single['id'], historyId);
       expect(history.single['notifId'], 'notif_42');
       expect(history.single['ids'], [42]);
+    });
+
+    test('removes save status notifications from curated history', () async {
+      SharedPreferences.setMockInitialValues({
+        'digest_history': jsonEncode([
+          {
+            'id': 'save-status',
+            'notifId': 'notif_save',
+            'topic': 'Capturing what caught your eye.',
+          },
+          {
+            'id': 'curated',
+            'notifId': 'notif_curated',
+            'topic': 'A collection worth revisiting',
+          },
+        ]),
+        DigestPrefs.notifPayloadKey('notif_save'): jsonEncode({
+          'type': 'url_capture_started',
+        }),
+        DigestPrefs.notifPayloadKey('notif_curated'): jsonEncode({
+          'type': 'R',
+        }),
+      });
+
+      final history = await DigestPrefs.loadHistory();
+
+      expect(history, hasLength(1));
+      expect(history.single['id'], 'curated');
+
+      final preferences = await SharedPreferences.getInstance();
+      final stored = jsonDecode(
+        preferences.getString('digest_history')!,
+      ) as List<dynamic>;
+      expect(stored, hasLength(1));
     });
   });
 }
