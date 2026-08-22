@@ -20,10 +20,15 @@ class AiProxyClient {
 
   Future<String> postGemini({
     required Map<String, dynamic> body,
+    AiRequestFeature? feature,
     Duration timeout = const Duration(seconds: 15),
   }) async {
     try {
-      return await AiTransport.instance.postGemini(body: body, timeout: timeout);
+      return await AiTransport.instance.postGemini(
+        body: body,
+        feature: feature,
+        timeout: timeout,
+      );
     } on AiTransportException catch (e) {
       throw AiProxyException(
         e.message,

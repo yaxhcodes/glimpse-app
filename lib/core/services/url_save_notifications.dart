@@ -52,10 +52,10 @@ class UrlSaveNotifications {
   /// Shown after a shared save when the user is out of free AI saves: the
   /// bookmark was kept but not AI-enriched. Tapping routes to the subscription
   /// page (handled by NotificationRouter's `subscription` route).
-  static Future<void> showAiLimitReached() async {
+  static Future<void> showAiLimitReached({required bool isPro}) async {
     final strings = await loadBackgroundLocalizations();
     final title = strings.savedWithoutAi;
-    final body = strings.aiLimitBody;
+    final body = isPro ? strings.proAiLimitBody : strings.aiLimitBody;
     final payload = jsonEncode({
       'type': 'url_capture_limit',
       'route': 'subscription',

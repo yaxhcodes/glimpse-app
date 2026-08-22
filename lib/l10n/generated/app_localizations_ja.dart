@@ -172,7 +172,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String aiSavesLeft(num count) {
-    return '今月のAI保存はあと$count回です';
+    return '無料AI保存はあと$count回です';
   }
 
   @override
@@ -193,7 +193,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get savedWithoutAi => 'AI解析なしで保存しました';
 
   @override
-  String get aiLimitBody => '今月の無料AI保存を使い切りました。タップしてアップグレードできます。';
+  String get aiLimitBody => '生涯30件の無料AI保存を使い切りました。タップしてアップグレードできます。';
+
+  @override
+  String get proAiLimitBody => '今月のAI保存500件を使い切りました。リンクはAI解析なしで保存されました。';
 
   @override
   String get alreadyInYourWorld => 'すでに保存されています。';
@@ -839,19 +842,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiTaggingCategorization => 'AIタグ付けと分類';
 
   @override
-  String get freeSavesProUnlimited => '無料：月30件・Pro：無制限';
+  String get freeSavesProUnlimited => '無料：生涯30件・Pro：月500件';
 
   @override
   String get keywordSearch => 'キーワード検索';
 
   @override
-  String get freeSearchesProUnlimited => '無料：月30回・Pro：無制限';
+  String get freeSearchesProUnlimited => '無料：月30回・Pro：拡張アクセス';
 
   @override
   String get askYourBookmarks => 'ブックマークに質問';
 
   @override
-  String get freeQuestionsProUnlimited => '無料：月30問・Pro：無制限';
+  String get freeQuestionsProUnlimited => '無料：月30問・Pro：十分なフェアユース';
 
   @override
   String get proInsights => 'Proインサイト';
@@ -881,15 +884,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get free => '無料';
 
   @override
-  String get proPlanDescription => 'ライブラリ全体で、すべてのAI機能を制限なく利用できます。';
+  String get proPlanDescription => '月500件のAI保存と、Ask・検索の拡張アクセスを利用できます。';
 
   @override
   String get proPlanDevDescription =>
-      'ライブラリ全体で、すべてのAI機能を制限なく利用できます。（開発用上書き、ストア：無料）';
+      '月500件のAI保存と、Ask・検索の拡張アクセスを利用できます。（開発用上書き、ストア：無料）';
 
   @override
-  String get freePlanDescription =>
-      '基本機能で自分だけの知識ライブラリを作れます。アップグレード前に試せるAI機能も含まれます。';
+  String get freePlanDescription => 'リンク保存は無制限。アップグレード前に生涯30件のAI保存を試せます。';
 
   @override
   String get upgradeToGlimpsePro => 'Glimpse Proにアップグレード';
@@ -1333,7 +1335,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get monthlySearchLimitDescription =>
-      '今月の検索上限に達しました。無制限に検索するにはGlimpse Proへアップグレードしてください。';
+      '今月の検索上限に達しました。検索アクセスを拡張するにはGlimpse Proへアップグレードしてください。';
 
   @override
   String get openingInterest => '関心を開いています…';

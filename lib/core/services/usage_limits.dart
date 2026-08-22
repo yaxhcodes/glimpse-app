@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 
 import '../config/app_environment.dart';
 
-/// Features tracked for monthly usage limits.
+/// Features tracked for plan usage limits.
 enum UsageFeature { aiSave, ask, search }
 
 /// Centralized limits configuration.
@@ -21,8 +21,10 @@ class UsageLimits {
 
   static bool get _isDev => AppEnvironment.isDevContext;
 
-  static int getLimit(UsageFeature feature) {
-    final limit = _isDev ? _devLimit(feature) : _prodLimit(feature);
+  static int getLimit(UsageFeature feature, {bool isPro = false}) {
+    final limit = _isDev
+        ? _devLimit(feature, isPro: isPro)
+        : _prodLimit(feature, isPro: isPro);
     if (kDebugMode) {
       developer.log(
         'Limit for ${feature.name}: $limit (dev: $_isDev)',
@@ -32,15 +34,21 @@ class UsageLimits {
     return limit;
   }
 
-  static int _prodLimit(UsageFeature feature) => switch (feature) {
-    UsageFeature.aiSave => 30,
-    UsageFeature.ask => 30,
-    UsageFeature.search => 30,
-  };
+  static int _prodLimit(UsageFeature feature, {required bool isPro}) {
+    if (isPro && feature == UsageFeature.aiSave) return 500;
+    return switch (feature) {
+      UsageFeature.aiSave => 30,
+      UsageFeature.ask => 30,
+      UsageFeature.search => 30,
+    };
+  }
 
-  static int _devLimit(UsageFeature feature) => switch (feature) {
-    UsageFeature.aiSave => 3,
-    UsageFeature.ask => 2,
-    UsageFeature.search => 3,
-  };
+  static int _devLimit(UsageFeature feature, {required bool isPro}) {
+    if (isPro && feature == UsageFeature.aiSave) return 5;
+    return switch (feature) {
+      UsageFeature.aiSave => 3,
+      UsageFeature.ask => 2,
+      UsageFeature.search => 3,
+    };
+  }
 }

@@ -7,7 +7,7 @@ import '../../core/services/usage_service.dart';
 /// Provider for the [UsageService] singleton.
 ///
 /// Wired with [AiQuotaService] so costly features (AI saves) are gated by the
-/// worker's server-side monthly quota, which survives reinstall.
+/// worker's server-side plan quota, which survives reinstall.
 final usageServiceProvider = Provider<UsageService>(
   (ref) => UsageService(aiQuota: AiQuotaService.instance),
 );
@@ -22,10 +22,11 @@ final usageProvider = FutureProvider.family<int, UsageFeature>((
   feature,
 ) async {
   ref.watch(usageRevisionProvider);
-  return ref.read(usageServiceProvider).getUsage(feature);
+  final isPro = ref.watch(isProUserProvider);
+  return ref.read(usageServiceProvider).getUsage(feature, isPro: isPro);
 });
 
-/// Remaining uses for a [UsageFeature] (accounts for Pro = unlimited).
+/// Remaining uses for a [UsageFeature] in the active plan window.
 final remainingUsageProvider = FutureProvider.family<int, UsageFeature>((
   ref,
   feature,
@@ -45,7 +46,7 @@ final aiSaveAvailableProvider = Provider<bool>((ref) {
   return (remaining.valueOrNull ?? 0) > 0;
 });
 
-/// Whether the monthly limit has been reached for a [UsageFeature].
+/// Whether the active plan limit has been reached for a [UsageFeature].
 final limitReachedProvider = FutureProvider.family<bool, UsageFeature>((
   ref,
   feature,

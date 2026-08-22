@@ -178,8 +178,8 @@ class AppLocalizationsPt extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Restam $count salvamentos com IA neste mês',
-      one: 'Resta 1 salvamento com IA neste mês',
+      other: 'Restam $count salvamentos gratuitos com IA',
+      one: 'Resta 1 salvamento gratuito com IA',
     );
     return '$_temp0';
   }
@@ -204,7 +204,11 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get aiLimitBody =>
-      'Seus salvamentos gratuitos com IA deste mês acabaram. Toque para fazer upgrade.';
+      'Você usou os 30 salvamentos gratuitos com IA vitalícios. Toque para fazer upgrade.';
+
+  @override
+  String get proAiLimitBody =>
+      'Você usou 500 salvamentos com IA neste mês. O link foi salvo sem análise de IA.';
 
   @override
   String get alreadyInYourWorld => 'Já está entre os seus itens.';
@@ -886,21 +890,22 @@ class AppLocalizationsPt extends AppLocalizations {
   String get aiTaggingCategorization => 'Etiquetagem e categorização por IA';
 
   @override
-  String get freeSavesProUnlimited => 'Grátis: 30 itens/mês · Pro: ilimitado';
+  String get freeSavesProUnlimited =>
+      'Grátis: 30 com IA vitalícios · Pro: 500/mês';
 
   @override
   String get keywordSearch => 'Busca por palavras-chave';
 
   @override
   String get freeSearchesProUnlimited =>
-      'Grátis: 30 buscas/mês · Pro: ilimitado';
+      'Grátis: 30 buscas/mês · Pro: acesso ampliado';
 
   @override
   String get askYourBookmarks => 'Pergunte aos seus favoritos';
 
   @override
   String get freeQuestionsProUnlimited =>
-      'Grátis: 30 perguntas/mês · Pro: ilimitado';
+      'Grátis: 30 perguntas/mês · Pro: uso justo generoso';
 
   @override
   String get proInsights => 'Insights Pro';
@@ -934,15 +939,15 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get proPlanDescription =>
-      'Todos os recursos de IA, sem limites, em toda a sua biblioteca.';
+      '500 salvamentos com IA por mês, além de acesso ampliado ao Ask e à busca.';
 
   @override
   String get proPlanDevDescription =>
-      'Todos os recursos de IA, sem limites, em toda a sua biblioteca. (substituição de desenvolvimento; loja: Grátis)';
+      '500 salvamentos com IA por mês, além de acesso ampliado ao Ask e à busca. (substituição de desenvolvimento; loja: Grátis)';
 
   @override
   String get freePlanDescription =>
-      'Crie sua biblioteca pessoal de conhecimento com as ferramentas essenciais. Recursos de IA estão incluídos para você experimentar antes de fazer upgrade.';
+      'Salve links sem limite e experimente IA com 30 enriquecimentos gratuitos vitalícios.';
 
   @override
   String get upgradeToGlimpsePro => 'Fazer upgrade para Glimpse Pro';
@@ -1439,7 +1444,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get monthlySearchLimitDescription =>
-      'Você atingiu seu limite mensal de buscas. Faça upgrade para o Glimpse Pro e pesquise sem limites.';
+      'Você atingiu seu limite mensal de buscas. Faça upgrade para o Glimpse Pro e amplie o acesso.';
 
   @override
   String get openingInterest => 'Abrindo interesse…';

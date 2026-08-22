@@ -12,6 +12,8 @@ import 'app_attestation_service.dart';
 typedef AccessTokenProvider = Future<String?> Function({bool forceRefresh});
 typedef AppCheckTokenProvider = Future<String?> Function({bool forceRefresh});
 
+enum AiRequestFeature { aiSave, ask }
+
 enum AiTransportErrorType {
   timeout,
   rateLimited,
@@ -107,9 +109,15 @@ class AiTransport {
   /// POST to the worker's Gemini endpoint and return the first model text part.
   Future<String> postGemini({
     required Map<String, dynamic> body,
+    AiRequestFeature? feature,
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    final raw = await _post('/gemini', body: body, timeout: timeout);
+    final raw = await _post(
+      '/gemini',
+      body: body,
+      timeout: timeout,
+      feature: feature,
+    );
     final text = _extractGeminiText(raw);
     if (text == null || text.isEmpty) {
       throw AiTransportException(
@@ -156,6 +164,7 @@ class AiTransport {
     String path, {
     required Map<String, dynamic> body,
     required Duration timeout,
+    AiRequestFeature? feature,
   }) async {
     final base = Uri.tryParse(AiProxyConfig.baseUrl);
     if (base == null || !base.hasScheme || base.host.isEmpty) {
@@ -186,6 +195,7 @@ class AiTransport {
                 headers: await _headers(
                   requestId: requestId,
                   forceRefresh: forceCredentialRefresh,
+                  feature: feature,
                 ),
                 validateStatus: (_) => true,
               ),
@@ -241,6 +251,7 @@ class AiTransport {
   Future<Map<String, String>> _headers({
     required String requestId,
     required bool forceRefresh,
+    AiRequestFeature? feature,
   }) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -249,6 +260,9 @@ class AiTransport {
     final userId = AiProxyConfig.userId;
     if (userId.isNotEmpty) {
       headers['X-User-Id'] = userId;
+    }
+    if (feature != null) {
+      headers['X-Glimpse-Feature'] = feature.name;
     }
     final accessToken = await _accessTokenProvider(forceRefresh: forceRefresh);
     if (accessToken != null && accessToken.isNotEmpty) {

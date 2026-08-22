@@ -59,10 +59,9 @@ class Search extends _$Search {
     state = const AsyncValue.loading();
     // Behavioral signal: what the user searches for feeds topic affinity.
     unawaited(
-      ref.read(isarServiceProvider).logEvent(
-            type: EngagementEventType.search,
-            query: query,
-          ),
+      ref
+          .read(isarServiceProvider)
+          .logEvent(type: EngagementEventType.search, query: query),
     );
 
     try {
@@ -92,7 +91,8 @@ class Search extends _$Search {
       }
 
       // Usage gating: every search (keyword or semantic) counts toward the
-      // free-user monthly limit. Pro users bypass.
+      // Free users have a monthly product quota. Pro remains subject to the
+      // gateway's independent fair-use safeguards.
       final isPro = ref.read(isProUserProvider);
       final usageService = ref.read(usageServiceProvider);
       final searchBlocked = await usageService.hasReachedLimit(
@@ -127,7 +127,10 @@ class Search extends _$Search {
                     .map((e) => SearchResult(url: e.key, score: e.value))
                     .toList(),
               );
-              await usageService.incrementUsage(UsageFeature.search);
+              await usageService.incrementUsage(
+                UsageFeature.search,
+                isPro: isPro,
+              );
               ref.read(usageRevisionProvider.notifier).state++;
               return;
             }
@@ -140,7 +143,7 @@ class Search extends _$Search {
       final scored = await isar.keywordSearchWithScores(query);
       if (id == _requestId) {
         applyKeywordResults(scored);
-        await usageService.incrementUsage(UsageFeature.search);
+        await usageService.incrementUsage(UsageFeature.search, isPro: isPro);
         ref.read(usageRevisionProvider.notifier).state++;
       }
     } catch (e, st) {

@@ -571,7 +571,7 @@ class EnrichmentService {
             .toJson(),
       );
       if (countUsage) {
-        await _usageService.incrementUsage(UsageFeature.aiSave);
+        await _usageService.incrementUsage(UsageFeature.aiSave, isPro: _isPro);
       }
       await _markProcessing(
         urlId,
@@ -681,7 +681,10 @@ class EnrichmentService {
           enrichedTitle = null;
         }
         if (aiFailure == null && countUsage) {
-          await _usageService.incrementUsage(UsageFeature.aiSave);
+          await _usageService.incrementUsage(
+            UsageFeature.aiSave,
+            isPro: _isPro,
+          );
         }
       } catch (e, st) {
         aiFailure = 'gemini_enrichment_failed';
@@ -1033,7 +1036,7 @@ class EnrichmentService {
         url: url,
       );
       if (countUsage) {
-        await _usageService.incrementUsage(UsageFeature.aiSave);
+        await _usageService.incrementUsage(UsageFeature.aiSave, isPro: _isPro);
       }
 
       final enhancedSteps = enhancement.steps.isNotEmpty

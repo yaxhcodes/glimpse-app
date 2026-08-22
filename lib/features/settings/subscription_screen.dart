@@ -114,7 +114,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // ── AI Assistant (free with monthly caps) ──
+                    // ── AI Assistant (plan-specific allowances) ──
                     SettingsGroupLabel(strings.aiAssistant),
                     SettingsGroup(
                       children: [

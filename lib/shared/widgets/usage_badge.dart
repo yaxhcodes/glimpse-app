@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/usage_providers.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/services/usage_service.dart';
 
 /// Compact chip that shows remaining usage for a [UsageFeature].
@@ -38,17 +39,19 @@ class UsageBadge extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: nearLimit
                     ? colorScheme.errorContainer.withValues(alpha: 0.6)
-                    : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                    : colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.6,
+                      ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '$remaining left',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: nearLimit
-                          ? colorScheme.onErrorContainer
-                          : colorScheme.onSurfaceVariant,
-                      fontWeight: nearLimit ? FontWeight.w700 : FontWeight.w500,
-                    ),
+                  color: nearLimit
+                      ? colorScheme.onErrorContainer
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: nearLimit ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
           ),
@@ -76,18 +79,17 @@ class UsageInlineIndicator extends ConsumerWidget {
 
     return usageAsync.when(
       data: (usage) {
-        final limit = UsageService.limitFor(feature);
+        final isPro = ref.watch(isProUserProvider);
+        final limit = UsageService.limitFor(feature, isPro: isPro);
         final nearLimit = nearLimitAsync.valueOrNull ?? false;
         final colorScheme = Theme.of(context).colorScheme;
 
         return Text(
           '$usage / $limit used',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: nearLimit
-                    ? colorScheme.error
-                    : colorScheme.onSurfaceVariant,
-                fontWeight: nearLimit ? FontWeight.w700 : FontWeight.w500,
-              ),
+            color: nearLimit ? colorScheme.error : colorScheme.onSurfaceVariant,
+            fontWeight: nearLimit ? FontWeight.w700 : FontWeight.w500,
+          ),
         );
       },
       loading: () => const SizedBox.shrink(),

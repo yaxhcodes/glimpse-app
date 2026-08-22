@@ -58,6 +58,7 @@ void main() {
       );
 
       final result = await transport.postGemini(
+        feature: AiRequestFeature.ask,
         body: {
           'contents': [
             {
@@ -82,6 +83,10 @@ void main() {
         'Bearer fresh-access-token',
       );
       expect(requests.last.headers['X-Firebase-AppCheck'], 'fresh-app-check');
+      expect(
+        requests.map((request) => request.headers['X-Glimpse-Feature']).toSet(),
+        {'ask'},
+      );
     },
   );
 

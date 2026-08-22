@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/services/summary_trimmer.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/utils/url_extractor.dart';
@@ -158,7 +159,9 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
       final aiLimitReached = ref.read(addUrlProvider).aiLimitReached;
       ref.read(addUrlProvider.notifier).reset();
       // App-level ScaffoldMessenger → the snackbar survives this pop.
-      if (aiLimitReached) showAiLimitSnackBar(context);
+      if (aiLimitReached) {
+        showAiLimitSnackBar(context, isPro: ref.read(isProUserProvider));
+      }
       context.pop();
     }
   }

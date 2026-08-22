@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import '../models/saved_url.dart';
+import 'ai/ai_transport.dart';
 import 'ai_proxy_client.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
@@ -165,6 +166,7 @@ USER_CONTENT_END''';
     required Map<String, dynamic> generationConfig,
     required Duration timeout,
     required String label,
+    AiRequestFeature? requestFeature,
   }) async {
     for (var attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) await Future<void>.delayed(_retryDelay);
@@ -182,6 +184,7 @@ USER_CONTENT_END''';
         };
         return await AiProxyClient.instance.postGemini(
           body: body,
+          feature: requestFeature,
           timeout: timeout,
         );
       } catch (e) {
@@ -201,6 +204,7 @@ USER_CONTENT_END''';
   Future<String?> _generateText({
     required bool jsonMode,
     required String prompt,
+    AiRequestFeature? requestFeature,
   }) async {
     final localizedPrompt =
         '''OUTPUT LANGUAGE CONTRACT:
@@ -218,6 +222,7 @@ $prompt''';
         generationConfig: cfg,
         timeout: _primaryTimeout,
         label: 'primary',
+        requestFeature: requestFeature,
       );
     } catch (e) {
       developer.log(
@@ -231,6 +236,7 @@ $prompt''';
       generationConfig: cfg,
       timeout: _fallbackTimeout,
       label: 'fallback',
+      requestFeature: requestFeature,
     );
   }
 
@@ -297,7 +303,11 @@ $content
 
 Output valid JSON only. No markdown, no explanation.''';
 
-    final text = await _generateText(jsonMode: true, prompt: prompt);
+    final text = await _generateText(
+      jsonMode: true,
+      prompt: prompt,
+      requestFeature: AiRequestFeature.aiSave,
+    );
     return _parseCategorizationResult(text ?? '{}');
   }
 
@@ -448,7 +458,11 @@ $content
 
 Output valid JSON only. No markdown, no explanation.''';
 
-    final text = await _generateText(jsonMode: true, prompt: prompt);
+    final text = await _generateText(
+      jsonMode: true,
+      prompt: prompt,
+      requestFeature: AiRequestFeature.aiSave,
+    );
     try {
       final data =
           json.decode(_cleanJson(text ?? '{}')) as Map<String, dynamic>;
@@ -662,7 +676,11 @@ ${_untrustedBlock(contextBlock)}
 QUESTION:
 ${_untrustedBlock(question)}''';
 
-    final text = await _generateText(jsonMode: true, prompt: prompt);
+    final text = await _generateText(
+      jsonMode: true,
+      prompt: prompt,
+      requestFeature: AiRequestFeature.ask,
+    );
     return _parseChatResponse(
       text ?? '{}',
       contextUrls,
@@ -1059,7 +1077,11 @@ RULES:
 - No bullet points. No markdown. Plain prose paragraphs separated by line breaks.
 - Max 220 words. Be sharp, not exhaustive.''';
 
-    return (await _generateText(jsonMode: false, prompt: prompt))?.trim() ??
+    return (await _generateText(
+          jsonMode: false,
+          prompt: prompt,
+          requestFeature: AiRequestFeature.ask,
+        ))?.trim() ??
         'Could not build a plan from these saves.';
   }
 
@@ -1090,7 +1112,11 @@ Cite sources inline using [1], [2], etc.
 LINKS:
 ${_untrustedBlock(items)}''';
 
-    final text = await _generateText(jsonMode: false, prompt: prompt);
+    final text = await _generateText(
+      jsonMode: false,
+      prompt: prompt,
+      requestFeature: AiRequestFeature.ask,
+    );
     return text?.trim() ?? 'No synthesis available.';
   }
 

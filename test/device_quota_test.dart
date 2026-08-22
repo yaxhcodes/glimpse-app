@@ -26,7 +26,7 @@ void main() {
     expect(captured?.data, {
       'feature': 'aiSave',
       'commit': false,
-      'scopeVersion': 2,
+      'scopeVersion': 3,
       'localUsed': 11,
     });
   });
@@ -47,34 +47,65 @@ void main() {
     expect(await usage.getUsage(UsageFeature.aiSave), 11);
   });
 
-  test('successful Pro usage is counted for a later free account', () async {
+  test(
+    'Pro Ask usage is governed by gateway fair use, not product quota',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'usage_last_reset': DateTime.now().toUtc().toIso8601String(),
+        'usage_ask_count': 11,
+      });
+      var requests = 0;
+      final backend = _QuotaBackend();
+      final usage = UsageService(
+        aiQuota: _quotaService(
+          onRequest: (options) {
+            requests++;
+            return backend.respond(options);
+          },
+        ),
+      );
+
+      expect(await usage.hasReachedLimit(UsageFeature.ask, true), isFalse);
+      expect(requests, 0);
+
+      await usage.incrementUsage(UsageFeature.ask, isPro: true);
+
+      expect(requests, 0);
+      expect(await usage.getUsage(UsageFeature.ask, isPro: true), 11);
+    },
+  );
+
+  test('Pro AI saves use a separate monthly 500 counter', () async {
     SharedPreferences.setMockInitialValues({
       'usage_last_reset': DateTime.now().toUtc().toIso8601String(),
-      'usage_ask_count': 11,
+      'usage_aiSave_count': 11,
     });
-    var requests = 0;
-    final requestBodies = <Map<String, dynamic>>[];
-    final backend = _QuotaBackend();
     final usage = UsageService(
-      aiQuota: _quotaService(
-        onRequest: (options) {
-          requests++;
-          requestBodies.add(Map<String, dynamic>.from(options.data as Map));
-          return backend.respond(options);
-        },
-      ),
+      aiQuota: _quotaService(onRequest: _QuotaBackend(limit: 500).respond),
     );
 
-    expect(await usage.hasReachedLimit(UsageFeature.ask, true), isFalse);
-    expect(requests, 0);
+    await usage.incrementUsage(UsageFeature.aiSave, isPro: true);
 
-    await usage.incrementUsage(UsageFeature.ask);
+    expect(await usage.getUsage(UsageFeature.aiSave, isPro: true), 1);
+    expect(await usage.getUsage(UsageFeature.aiSave), 11);
+    expect(await usage.getRemaining(UsageFeature.aiSave, true), 499);
+  });
 
-    expect(requests, 1);
-    expect(await usage.getUsage(UsageFeature.ask), 12);
-    expect(await usage.getRemaining(UsageFeature.ask, false), 18);
-    expect(requestBodies.first['localUsed'], 11);
-    expect(requestBodies.last.containsKey('localUsed'), isFalse);
+  test('month reset retains free lifetime AI usage', () async {
+    final previousMonth = DateTime.utc(2025, 12, 1);
+    SharedPreferences.setMockInitialValues({
+      'usage_last_reset': previousMonth.toIso8601String(),
+      'usage_aiSave_count': 17,
+      'usage_pro_aiSave_count': 44,
+      'usage_ask_count': 9,
+    });
+    final usage = UsageService();
+
+    await usage.resetUsageIfNeeded();
+
+    expect(await usage.getUsage(UsageFeature.aiSave), 17);
+    expect(await usage.getUsage(UsageFeature.aiSave, isPro: true), 0);
+    expect(await usage.getUsage(UsageFeature.ask), 0);
   });
 
   test(
@@ -147,7 +178,9 @@ AiQuotaService _quotaService({
 }
 
 class _QuotaBackend {
-  static const limit = 30;
+  _QuotaBackend({this.limit = 30});
+
+  final int limit;
 
   int used = 0;
   bool initialized = false;

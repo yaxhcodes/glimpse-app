@@ -181,8 +181,8 @@ class AppLocalizationsFr extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Il reste $count enregistrements IA ce mois-ci',
-      one: 'Il reste 1 enregistrement IA ce mois-ci',
+      other: 'Il reste $count enregistrements IA gratuits',
+      one: 'Il reste 1 enregistrement IA gratuit',
     );
     return '$_temp0';
   }
@@ -207,7 +207,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiLimitBody =>
-      'Vous avez épuisé vos enregistrements IA gratuits ce mois-ci. Touchez pour changer de forfait.';
+      'Vous avez utilisé vos 30 enregistrements IA gratuits à vie. Touchez pour changer de forfait.';
+
+  @override
+  String get proAiLimitBody =>
+      'Vous avez utilisé 500 enregistrements IA ce mois-ci. Le lien a été enregistré sans analyse IA.';
 
   @override
   String get alreadyInYourWorld => 'Déjà présent dans vos éléments.';
@@ -894,22 +898,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiTaggingCategorization => 'Étiquetage et classement par IA';
 
   @override
-  String get freeSavesProUnlimited =>
-      'Gratuit : 30 enregistrements/mois · Pro : illimité';
+  String get freeSavesProUnlimited => 'Gratuit : 30 IA à vie · Pro : 500/mois';
 
   @override
   String get keywordSearch => 'Recherche par mots-clés';
 
   @override
   String get freeSearchesProUnlimited =>
-      'Gratuit : 30 recherches/mois · Pro : illimité';
+      'Gratuit : 30 recherches/mois · Pro : accès étendu';
 
   @override
   String get askYourBookmarks => 'Interroger vos favoris';
 
   @override
   String get freeQuestionsProUnlimited =>
-      'Gratuit : 30 questions/mois · Pro : illimité';
+      'Gratuit : 30 questions/mois · Pro : usage raisonnable généreux';
 
   @override
   String get proInsights => 'Analyses Pro';
@@ -943,15 +946,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get proPlanDescription =>
-      'Toutes les fonctions d’IA, sans limites, dans toute votre bibliothèque.';
+      '500 enregistrements IA par mois, avec un accès étendu à Ask et à la recherche.';
 
   @override
   String get proPlanDevDescription =>
-      'Toutes les fonctions d’IA, sans limites, dans toute votre bibliothèque. (forçage développeur ; boutique : Gratuit)';
+      '500 enregistrements IA par mois, avec un accès étendu à Ask et à la recherche. (forçage développeur ; boutique : Gratuit)';
 
   @override
   String get freePlanDescription =>
-      'Créez votre bibliothèque personnelle avec les outils essentiels. Des fonctions d’IA sont incluses pour les essayer avant de passer à l’offre supérieure.';
+      'Enregistrez des liens sans limite et essayez l’IA avec 30 enrichissements gratuits à vie.';
 
   @override
   String get upgradeToGlimpsePro => 'Passer à Glimpse Pro';
@@ -1450,7 +1453,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get monthlySearchLimitDescription =>
-      'Vous avez atteint votre limite mensuelle de recherches. Passez à Glimpse Pro pour des recherches illimitées.';
+      'Vous avez atteint votre limite mensuelle de recherches. Passez à Glimpse Pro pour un accès étendu.';
 
   @override
   String get openingInterest => 'Ouverture de l’intérêt…';

@@ -1,7 +1,7 @@
 import 'ai/ai_transport.dart';
 import 'usage_limits.dart';
 
-/// A snapshot of a feature's server-side monthly quota.
+/// A snapshot of a feature's server-side plan quota.
 class AiQuotaSnapshot {
   const AiQuotaSnapshot({
     required this.used,
@@ -11,10 +11,10 @@ class AiQuotaSnapshot {
     required this.enforced,
   });
 
-  /// Uses consumed this month for the verified account.
+  /// Uses consumed in the active plan window.
   final int used;
 
-  /// Monthly allowance for free users.
+  /// Allowance for the active plan window.
   final int limit;
 
   /// Remaining uses (`limit - used`, floored at 0).
@@ -31,10 +31,11 @@ class AiQuotaSnapshot {
   bool get reached => enforced && !allowed;
 }
 
-/// Server-authoritative monthly quota for costly AI features.
+/// Server-authoritative plan quota for costly AI features.
 ///
 /// Talks to the Cloudflare Worker `/quota` endpoint, which counts usage per
-/// durable installation and resets monthly. The verified Supabase account and
+/// durable installation. Free AI saves are lifetime; Pro AI saves and the
+/// remaining free features reset monthly. The verified Supabase account and
 /// App Check token authorize the request, while `X-User-Id` owns the shared
 /// device allowance. This source of truth survives account switches and, when
 /// the platform durable store restores successfully, reinstall / "clear app
@@ -50,7 +51,7 @@ class AiQuotaService {
   static final AiQuotaService instance = AiQuotaService();
 
   final AiTransport _transport;
-  static const int _deviceScopeVersion = 2;
+  static const int _deviceScopeVersion = 3;
 
   /// Maps a [UsageFeature] to its server feature key, or `null` when the
   /// feature is metered purely locally (no server-side cost ceiling yet).

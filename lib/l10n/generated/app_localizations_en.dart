@@ -178,8 +178,8 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count AI saves left this month',
-      one: '1 AI save left this month',
+      other: '$count lifetime AI saves left',
+      one: '1 lifetime AI save left',
     );
     return '$_temp0';
   }
@@ -203,7 +203,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiLimitBody =>
-      'You’re out of free AI saves this month. Tap to upgrade.';
+      'You’ve used your 30 lifetime AI saves. Tap to upgrade.';
+
+  @override
+  String get proAiLimitBody =>
+      'You’ve used 500 AI saves this month. Your link was saved without AI enrichment.';
 
   @override
   String get alreadyInYourWorld => 'Already in your world.';
@@ -879,21 +883,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiTaggingCategorization => 'AI tagging & categorization';
 
   @override
-  String get freeSavesProUnlimited => 'Free: 30 saves / mo · Pro: Unlimited';
+  String get freeSavesProUnlimited =>
+      'Free: 30 lifetime AI saves · Pro: 500 / mo';
 
   @override
   String get keywordSearch => 'Keyword search';
 
   @override
   String get freeSearchesProUnlimited =>
-      'Free: 30 searches / mo · Pro: Unlimited';
+      'Free: 30 searches / mo · Pro: Expanded access';
 
   @override
   String get askYourBookmarks => 'Ask Your Bookmarks';
 
   @override
   String get freeQuestionsProUnlimited =>
-      'Free: 30 questions / mo · Pro: Unlimited';
+      'Free: 30 questions / mo · Pro: Generous fair use';
 
   @override
   String get proInsights => 'Pro Insights';
@@ -927,15 +932,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get proPlanDescription =>
-      'Every AI feature, no limits, across your whole library.';
+      '500 AI-enriched saves each month, plus expanded Ask and search access across your library.';
 
   @override
   String get proPlanDevDescription =>
-      'Every AI feature, no limits, across your whole library. (dev override; store: Free)';
+      '500 AI-enriched saves each month, plus expanded Ask and search access. (dev override; store: Free)';
 
   @override
   String get freePlanDescription =>
-      'Build your personal knowledge library with essential tools. AI features are included so you can explore before upgrading.';
+      'Save links without limits and explore AI with 30 lifetime enriched saves before upgrading.';
 
   @override
   String get upgradeToGlimpsePro => 'Upgrade to Glimpse Pro';
@@ -1429,7 +1434,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get monthlySearchLimitDescription =>
-      'You\'ve reached your monthly search limit. Upgrade to Glimpse Pro for unlimited searches.';
+      'You\'ve reached your monthly search limit. Upgrade to Glimpse Pro for expanded search access.';
 
   @override
   String get openingInterest => 'Opening interest…';

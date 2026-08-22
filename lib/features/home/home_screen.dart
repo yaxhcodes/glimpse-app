@@ -16,6 +16,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/services/demo_seed_service.dart';
 import '../../core/services/digest_prefs.dart';
+import '../../core/services/entitlement_service.dart';
 import '../../core/utils/url_extractor.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
@@ -191,7 +192,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted) return;
 
     if (success && addState.aiLimitReached) {
-      showAiLimitSnackBar(context);
+      showAiLimitSnackBar(context, isPro: ref.read(isProUserProvider));
     }
 
     if (success) {

@@ -31,13 +31,13 @@ extension UpgradeFeatureCopy on UpgradeFeature {
 
   String get description => switch (this) {
     UpgradeFeature.aiTagging =>
-      'Upgrade to Glimpse Pro for unlimited AI-powered categorization, summaries, and semantic search across everything you save.',
+      'Upgrade to Glimpse Pro for up to 500 AI-enriched saves each month, plus summaries and semantic search.',
     UpgradeFeature.ask =>
-      'Upgrade to Glimpse Pro for unlimited conversations with your saved knowledge — and get deeper answers powered by semantic search.',
+      'Upgrade to Glimpse Pro for generous Ask Glimpse access and deeper answers powered by semantic search.',
     UpgradeFeature.search =>
-      'Upgrade to Glimpse Pro for unlimited searches across your saved links, including meaning-based semantic search.',
+      'Upgrade to Glimpse Pro for expanded search across your saved links, including meaning-based semantic search.',
     UpgradeFeature.semanticSearch =>
-      'Semantic search finds results by meaning, not just keywords. Upgrade to Glimpse Pro to unlock it — along with unlimited searches.',
+      'Semantic search finds results by meaning, not just keywords. Upgrade to Glimpse Pro to unlock it with expanded search access.',
     UpgradeFeature.recap =>
       'Weekly Recap distills your recent saves into a short, insightful summary. Upgrade to Glimpse Pro to unlock it.',
     UpgradeFeature.synthesis =>
@@ -45,9 +45,9 @@ extension UpgradeFeatureCopy on UpgradeFeature {
   };
 
   String get ctaLabel => switch (this) {
-    UpgradeFeature.aiTagging => 'Upgrade for unlimited AI',
-    UpgradeFeature.ask => 'Upgrade for unlimited queries',
-    UpgradeFeature.search => 'Upgrade for unlimited search',
+    UpgradeFeature.aiTagging => 'Get 500 AI saves / month',
+    UpgradeFeature.ask => 'Upgrade Ask Glimpse',
+    UpgradeFeature.search => 'Upgrade search',
     UpgradeFeature.semanticSearch => 'Upgrade for semantic search',
     UpgradeFeature.recap => 'Upgrade for Weekly Recap',
     UpgradeFeature.synthesis => 'Upgrade for synthesis',
@@ -98,6 +98,10 @@ Future<bool> checkLimitOrShowGate(
   );
 
   if (!context.mounted) return false;
+  if (isPro) {
+    showAiLimitSnackBar(context, isPro: true);
+    return false;
+  }
   final upgraded = await showUpgradeGate(context, upgradeFeature);
   if (upgraded == true && context.mounted) {
     // Invalidate usage so counts refresh after purchase
@@ -107,30 +111,34 @@ Future<bool> checkLimitOrShowGate(
   return false;
 }
 
-/// Shows a non-blocking snackbar telling the user their monthly AI-save
-/// allowance is used up (so the save was kept but not AI-enriched), with an
-/// "Upgrade" action that opens the subscription page.
+/// Shows a non-blocking snackbar when the active AI-save allowance is used up.
 ///
 /// The app uses a single app-level [ScaffoldMessenger], so the snackbar
 /// survives route pops (e.g. the Add-URL screen popping after save). The
 /// action navigates via the root navigator so it works regardless of which
 /// screen is on top when the user taps it.
-void showAiLimitSnackBar(BuildContext context) {
+void showAiLimitSnackBar(BuildContext context, {required bool isPro}) {
   showAutoDismissSnackBar(
     context,
     SnackBar(
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 6),
-      content: const Text(
-        "You're out of free AI saves this month. It was saved without AI enrichment.",
+      content: Text(
+        isPro
+            ? "You've used 500 AI saves this month. It was saved without AI enrichment."
+            : "You've used your 30 lifetime AI saves. It was saved without AI enrichment.",
       ),
-      action: SnackBarAction(
-        label: 'Upgrade',
-        onPressed: () {
-          final navContext = rootNavigatorKey.currentContext;
-          if (navContext != null) navContext.push('/settings/subscription');
-        },
-      ),
+      action: isPro
+          ? null
+          : SnackBarAction(
+              label: 'Upgrade',
+              onPressed: () {
+                final navContext = rootNavigatorKey.currentContext;
+                if (navContext != null) {
+                  navContext.push('/settings/subscription');
+                }
+              },
+            ),
     ),
   );
 }
@@ -206,12 +214,12 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
               children: [
                 _benefitRow(
                   Icons.category_outlined,
-                  'Unlimited AI categorization',
+                  '500 AI-enriched saves each month',
                 ),
                 const SizedBox(height: 8),
                 _benefitRow(
                   Icons.chat_bubble_outline_rounded,
-                  'Unlimited Ask Glimpse queries',
+                  'Generous Ask Glimpse access',
                 ),
                 const SizedBox(height: 8),
                 _benefitRow(

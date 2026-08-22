@@ -7,7 +7,7 @@ export 'usage_limits.dart';
 import 'ai_quota_service.dart';
 import 'usage_limits.dart';
 
-/// Thrown when a free user hits the monthly usage ceiling for a feature.
+/// Thrown when the active plan hits its usage ceiling for a feature.
 class UsageLimitReachedException implements Exception {
   final UsageFeature feature;
 
@@ -20,18 +20,19 @@ class UsageLimitReachedException implements Exception {
       UsageFeature.ask => 'Ask Glimpse queries',
       UsageFeature.search => 'searches',
     };
-    return "You've reached your monthly limit for $label.";
+    return "You've reached your usage limit for $label.";
   }
 }
 
 /// Independent usage-tracking service.
 ///
-/// Persists counters locally in [SharedPreferences] and automatically resets
-/// them at the start of a new UTC calendar month. Pro users bypass all limits
-/// while their successful usage continues to be counted.
+/// Persists counters locally in [SharedPreferences]. Free AI saves are a
+/// lifetime allowance; monthly counters reset at the start of each UTC month.
+/// Pro AI saves use their own monthly counter, while Pro Ask and search remain
+/// protected by the gateway's fair-use rate limits rather than product quotas.
 ///
 /// When an [AiQuotaService] is supplied, server-metered features (see
-/// [AiQuotaService.serverFeature]) are gated by the worker's monthly quota
+/// [AiQuotaService.serverFeature]) are gated by the worker's plan quota
 /// instead of the local counter. The local counter is then kept only as a
 /// self-healing mirror so badges stay accurate; the server is the source of
 /// truth that survives reinstall. If the worker is unreachable the gate falls
@@ -46,40 +47,57 @@ class UsageService {
   static const String _countSuffix = '_count';
   static const String _lastResetKey = '${_prefix}last_reset';
   static const String _deviceScopeMigrationPrefix =
-      '${_prefix}device_scope_v2_';
+      '${_prefix}device_scope_v3_';
+  static const String _proAiSaveCountKey = '${_prefix}pro_aiSave$_countSuffix';
 
-  String _countKey(UsageFeature feature) =>
-      '$_prefix${feature.name}$_countSuffix';
+  String _countKey(UsageFeature feature, {required bool isPro}) {
+    if (isPro && feature == UsageFeature.aiSave) return _proAiSaveCountKey;
+    return '$_prefix${feature.name}$_countSuffix';
+  }
 
-  String _deviceScopeMigrationKey(UsageFeature feature) =>
-      '$_deviceScopeMigrationPrefix${feature.name}';
+  String _deviceScopeMigrationKey(UsageFeature feature, bool isPro) =>
+      '$_deviceScopeMigrationPrefix${isPro ? 'pro' : 'free'}_${feature.name}';
+
+  bool _isProductMetered(UsageFeature feature, bool isPro) =>
+      !isPro || feature == UsageFeature.aiSave;
 
   /// Server feature key for [feature] when server metering is active, else null.
   String? _serverFeature(UsageFeature feature) =>
       _aiQuota == null ? null : AiQuotaService.serverFeature(feature);
 
   /// Overwrites the local mirror so badges reflect the server's [value].
-  Future<void> _setLocalCount(UsageFeature feature, int value) async {
+  Future<void> _setLocalCount(
+    UsageFeature feature,
+    int value, {
+    required bool isPro,
+  }) async {
     await resetUsageIfNeeded();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_countKey(feature), value);
+    await prefs.setInt(_countKey(feature, isPro: isPro), value);
   }
 
-  Future<int?> _migrationUsage(UsageFeature feature) async {
+  Future<int?> _migrationUsage(UsageFeature feature, bool isPro) async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_deviceScopeMigrationKey(feature)) ?? false) {
+    if (prefs.getBool(_deviceScopeMigrationKey(feature, isPro)) ?? false) {
       return null;
     }
-    return getUsage(feature);
+    // The old unscoped counter represented the free allowance. A newly capped
+    // Pro plan starts its own monthly counter at zero instead of inheriting it.
+    if (isPro) return 0;
+    return getUsage(feature, isPro: false);
   }
 
-  Future<void> _markDeviceScopeMigrated(UsageFeature feature) async {
+  Future<void> _markDeviceScopeMigrated(
+    UsageFeature feature,
+    bool isPro,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_deviceScopeMigrationKey(feature), true);
+    await prefs.setBool(_deviceScopeMigrationKey(feature, isPro), true);
   }
 
   /// Checks whether the stored counters belong to the previous month and,
-  /// if so, resets every counter to 0 and bumps the reset timestamp.
+  /// if so, resets monthly counters and bumps the reset timestamp.
+  /// The free AI-save counter is deliberately retained for life.
   Future<void> resetUsageIfNeeded() async {
     final prefs = await SharedPreferences.getInstance();
     final lastResetStr = prefs.getString(_lastResetKey);
@@ -97,9 +115,9 @@ class UsageService {
     }
 
     if (lastReset.year != now.year || lastReset.month != now.month) {
-      for (final feature in UsageFeature.values) {
-        await prefs.remove(_countKey(feature));
-      }
+      await prefs.remove(_countKey(UsageFeature.ask, isPro: false));
+      await prefs.remove(_countKey(UsageFeature.search, isPro: false));
+      await prefs.remove(_proAiSaveCountKey);
       await prefs.setString(_lastResetKey, now.toIso8601String());
       developer.log(
         'Usage counters reset for new month (${now.year}-${now.month.toString().padLeft(2, '0')})',
@@ -108,32 +126,36 @@ class UsageService {
     }
   }
 
-  /// Current count for [feature] (resets automatically on month boundary).
-  Future<int> getUsage(UsageFeature feature) async {
+  /// Current count for [feature] in the active plan window.
+  Future<int> getUsage(UsageFeature feature, {bool isPro = false}) async {
     await resetUsageIfNeeded();
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_countKey(feature)) ?? 0;
+    return prefs.getInt(_countKey(feature, isPro: isPro)) ?? 0;
   }
 
   /// Increments [feature] by one (resets automatically on month boundary).
   ///
-  /// For server-metered features this consumes one unit of the worker's monthly
+  /// For server-metered features this consumes one unit of the worker's plan
   /// device quota and mirrors the authoritative count locally. Best-effort: the
   /// AI work has already happened by the time this is called, so a consume
   /// failure falls back to a local increment rather than blocking the completed
   /// save.
-  Future<void> incrementUsage(UsageFeature feature) async {
+  Future<void> incrementUsage(
+    UsageFeature feature, {
+    required bool isPro,
+  }) async {
+    if (!_isProductMetered(feature, isPro)) return;
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
       try {
-        final migrationUsed = await _migrationUsage(feature);
+        final migrationUsed = await _migrationUsage(feature, isPro);
         final snap = await _aiQuota!.consume(
           serverFeature,
           migrationUsed: migrationUsed,
         );
         if (snap.enforced) {
-          await _setLocalCount(feature, snap.used);
-          await _markDeviceScopeMigrated(feature);
+          await _setLocalCount(feature, snap.used, isPro: isPro);
+          await _markDeviceScopeMigrated(feature, isPro);
           developer.log(
             '${feature.name} consumed server-side: ${snap.used} / ${snap.limit}',
             name: 'UsageService',
@@ -150,35 +172,35 @@ class UsageService {
 
     await resetUsageIfNeeded();
     final prefs = await SharedPreferences.getInstance();
-    final current = prefs.getInt(_countKey(feature)) ?? 0;
+    final key = _countKey(feature, isPro: isPro);
+    final current = prefs.getInt(key) ?? 0;
     final next = current + 1;
-    await prefs.setInt(_countKey(feature), next);
+    await prefs.setInt(key, next);
     developer.log(
-      '${feature.name} usage incremented: $next / ${UsageLimits.getLimit(feature)}',
+      '${feature.name} usage incremented: $next / '
+      '${UsageLimits.getLimit(feature, isPro: isPro)}',
       name: 'UsageService',
     );
   }
 
-  /// Whether the user has consumed the full monthly allowance.
-  ///
-  /// [isPro] is `true` → always returns `false` (unlimited).
+  /// Whether the active plan has consumed the feature allowance.
   ///
   /// For server-metered features this consults the worker's authoritative count
   /// (and heals the local mirror), falling back to the local counter only when
   /// the worker is unreachable.
   Future<bool> hasReachedLimit(UsageFeature feature, bool isPro) async {
-    if (isPro) return false;
+    if (!_isProductMetered(feature, isPro)) return false;
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
       try {
-        final migrationUsed = await _migrationUsage(feature);
+        final migrationUsed = await _migrationUsage(feature, isPro);
         final snap = await _aiQuota!.peek(
           serverFeature,
           migrationUsed: migrationUsed,
         );
         if (snap.enforced) {
-          await _setLocalCount(feature, snap.used);
-          await _markDeviceScopeMigrated(feature);
+          await _setLocalCount(feature, snap.used, isPro: isPro);
+          await _markDeviceScopeMigrated(feature, isPro);
           return snap.reached;
         }
       } catch (e) {
@@ -188,8 +210,8 @@ class UsageService {
         );
       }
     }
-    final usage = await getUsage(feature);
-    return usage >= UsageLimits.getLimit(feature);
+    final usage = await getUsage(feature, isPro: isPro);
+    return usage >= UsageLimits.getLimit(feature, isPro: isPro);
   }
 
   /// Fast local-only limit snapshot for latency-sensitive acknowledgements.
@@ -199,27 +221,25 @@ class UsageService {
   /// of truth. Save surfaces use this mirror only to avoid holding the user's
   /// completed local save behind a quota network round trip.
   Future<bool> hasReachedLocalLimit(UsageFeature feature, bool isPro) async {
-    if (isPro) return false;
-    final usage = await getUsage(feature);
-    return usage >= UsageLimits.getLimit(feature);
+    if (!_isProductMetered(feature, isPro)) return false;
+    final usage = await getUsage(feature, isPro: isPro);
+    return usage >= UsageLimits.getLimit(feature, isPro: isPro);
   }
 
-  /// Remaining uses for the current month.
-  ///
-  /// [isPro] is `true` → returns a large sentinel (`9999`).
+  /// Remaining uses for the active plan window.
   Future<int> getRemaining(UsageFeature feature, bool isPro) async {
-    if (isPro) return 9999;
+    if (!_isProductMetered(feature, isPro)) return 9999;
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
       try {
-        final migrationUsed = await _migrationUsage(feature);
+        final migrationUsed = await _migrationUsage(feature, isPro);
         final snap = await _aiQuota!.peek(
           serverFeature,
           migrationUsed: migrationUsed,
         );
         if (snap.enforced) {
-          await _setLocalCount(feature, snap.used);
-          await _markDeviceScopeMigrated(feature);
+          await _setLocalCount(feature, snap.used, isPro: isPro);
+          await _markDeviceScopeMigrated(feature, isPro);
           return snap.remaining.clamp(0, snap.limit);
         }
       } catch (e) {
@@ -229,8 +249,8 @@ class UsageService {
         );
       }
     }
-    final usage = await getUsage(feature);
-    final limit = UsageLimits.getLimit(feature);
+    final usage = await getUsage(feature, isPro: isPro);
+    final limit = UsageLimits.getLimit(feature, isPro: isPro);
     return (limit - usage).clamp(0, limit);
   }
 
@@ -238,8 +258,11 @@ class UsageService {
   Future<void> resetAll() async {
     final prefs = await SharedPreferences.getInstance();
     for (final feature in UsageFeature.values) {
-      await prefs.remove(_countKey(feature));
+      await prefs.remove(_countKey(feature, isPro: false));
+      await prefs.remove(_deviceScopeMigrationKey(feature, false));
+      await prefs.remove(_deviceScopeMigrationKey(feature, true));
     }
+    await prefs.remove(_proAiSaveCountKey);
     await prefs.setString(
       _lastResetKey,
       DateTime.now().toUtc().toIso8601String(),
@@ -248,23 +271,24 @@ class UsageService {
   }
 
   /// The hard limit for [feature].
-  static int limitFor(UsageFeature feature) => UsageLimits.getLimit(feature);
+  static int limitFor(UsageFeature feature, {bool isPro = false}) =>
+      UsageLimits.getLimit(feature, isPro: isPro);
 
   /// Whether the current usage count is at or above the soft-warning
   /// threshold (≥ 80 % of limit).
   Future<bool> isNearLimit(UsageFeature feature, bool isPro) async {
-    if (isPro) return false;
+    if (!_isProductMetered(feature, isPro)) return false;
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
       try {
-        final migrationUsed = await _migrationUsage(feature);
+        final migrationUsed = await _migrationUsage(feature, isPro);
         final snap = await _aiQuota!.peek(
           serverFeature,
           migrationUsed: migrationUsed,
         );
         if (snap.enforced) {
-          await _setLocalCount(feature, snap.used);
-          await _markDeviceScopeMigrated(feature);
+          await _setLocalCount(feature, snap.used, isPro: isPro);
+          await _markDeviceScopeMigrated(feature, isPro);
           if (snap.limit == 0) return false;
           return snap.used >= (snap.limit * 0.8).ceil();
         }
@@ -275,8 +299,8 @@ class UsageService {
         );
       }
     }
-    final usage = await getUsage(feature);
-    final limit = UsageLimits.getLimit(feature);
+    final usage = await getUsage(feature, isPro: isPro);
+    final limit = UsageLimits.getLimit(feature, isPro: isPro);
     if (limit == 0) return false;
     return usage >= (limit * 0.8).ceil();
   }

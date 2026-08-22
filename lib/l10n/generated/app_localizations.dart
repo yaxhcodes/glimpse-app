@@ -431,7 +431,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiSavesLeft.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 AI save left this month} other{{count} AI saves left this month}}'**
+  /// **'{count, plural, =1{1 lifetime AI save left} other{{count} lifetime AI saves left}}'**
   String aiSavesLeft(num count);
 
   /// No description provided for @captureTitle.
@@ -467,8 +467,14 @@ abstract class AppLocalizations {
   /// No description provided for @aiLimitBody.
   ///
   /// In en, this message translates to:
-  /// **'You’re out of free AI saves this month. Tap to upgrade.'**
+  /// **'You’ve used your 30 lifetime AI saves. Tap to upgrade.'**
   String get aiLimitBody;
+
+  /// No description provided for @proAiLimitBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You’ve used 500 AI saves this month. Your link was saved without AI enrichment.'**
+  String get proAiLimitBody;
 
   /// No description provided for @alreadyInYourWorld.
   ///
@@ -1685,7 +1691,7 @@ abstract class AppLocalizations {
   /// No description provided for @freeSavesProUnlimited.
   ///
   /// In en, this message translates to:
-  /// **'Free: 30 saves / mo · Pro: Unlimited'**
+  /// **'Free: 30 lifetime AI saves · Pro: 500 / mo'**
   String get freeSavesProUnlimited;
 
   /// No description provided for @keywordSearch.
@@ -1697,7 +1703,7 @@ abstract class AppLocalizations {
   /// No description provided for @freeSearchesProUnlimited.
   ///
   /// In en, this message translates to:
-  /// **'Free: 30 searches / mo · Pro: Unlimited'**
+  /// **'Free: 30 searches / mo · Pro: Expanded access'**
   String get freeSearchesProUnlimited;
 
   /// No description provided for @askYourBookmarks.
@@ -1709,7 +1715,7 @@ abstract class AppLocalizations {
   /// No description provided for @freeQuestionsProUnlimited.
   ///
   /// In en, this message translates to:
-  /// **'Free: 30 questions / mo · Pro: Unlimited'**
+  /// **'Free: 30 questions / mo · Pro: Generous fair use'**
   String get freeQuestionsProUnlimited;
 
   /// No description provided for @proInsights.
@@ -1769,19 +1775,19 @@ abstract class AppLocalizations {
   /// No description provided for @proPlanDescription.
   ///
   /// In en, this message translates to:
-  /// **'Every AI feature, no limits, across your whole library.'**
+  /// **'500 AI-enriched saves each month, plus expanded Ask and search access across your library.'**
   String get proPlanDescription;
 
   /// No description provided for @proPlanDevDescription.
   ///
   /// In en, this message translates to:
-  /// **'Every AI feature, no limits, across your whole library. (dev override; store: Free)'**
+  /// **'500 AI-enriched saves each month, plus expanded Ask and search access. (dev override; store: Free)'**
   String get proPlanDevDescription;
 
   /// No description provided for @freePlanDescription.
   ///
   /// In en, this message translates to:
-  /// **'Build your personal knowledge library with essential tools. AI features are included so you can explore before upgrading.'**
+  /// **'Save links without limits and explore AI with 30 lifetime enriched saves before upgrading.'**
   String get freePlanDescription;
 
   /// No description provided for @upgradeToGlimpsePro.
@@ -2597,7 +2603,7 @@ abstract class AppLocalizations {
   /// No description provided for @monthlySearchLimitDescription.
   ///
   /// In en, this message translates to:
-  /// **'You\'ve reached your monthly search limit. Upgrade to Glimpse Pro for unlimited searches.'**
+  /// **'You\'ve reached your monthly search limit. Upgrade to Glimpse Pro for expanded search access.'**
   String get monthlySearchLimitDescription;
 
   /// No description provided for @openingInterest.

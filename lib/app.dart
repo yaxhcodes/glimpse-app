@@ -623,7 +623,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     // The share flow has no UI to host a snackbar (it pops the app), so the
     // upgrade prompt is delivered as a tappable notification instead.
     if (success && aiLimitReached) {
-      await UrlSaveNotifications.showAiLimitReached();
+      await UrlSaveNotifications.showAiLimitReached(
+        isPro: ref.read(isProUserProvider),
+      );
     }
 
     if (returnAfterSave && (success || state.savedUrlId != null)) {

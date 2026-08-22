@@ -630,8 +630,8 @@ class AskNotifier extends StateNotifier<AskState> {
         return;
       }
 
-      // Usage-based gating: free users get 5 Ask queries/month.
-      // Pro (or dev override) users bypass the limit entirely.
+      // Usage-based gating: free users have a monthly Ask allowance. Pro
+      // conversations use the gateway's separate fair-use rate limits.
       final isPro = _ref.read(isProUserProvider);
       final usageService = _ref.read(usageServiceProvider);
       final hasReached = await usageService.hasReachedLimit(
@@ -682,7 +682,7 @@ class AskNotifier extends StateNotifier<AskState> {
               )
             : await gemini.synthesize(urls: preloadedSources);
 
-        await usageService.incrementUsage(UsageFeature.ask);
+        await usageService.incrementUsage(UsageFeature.ask, isPro: isPro);
         _ref.read(usageRevisionProvider.notifier).state++;
 
         _addBotMessage(
@@ -774,7 +774,7 @@ class AskNotifier extends StateNotifier<AskState> {
         hasProactiveTip: safeSuggestions.proactiveTip != null,
       );
 
-      await usageService.incrementUsage(UsageFeature.ask);
+      await usageService.incrementUsage(UsageFeature.ask, isPro: isPro);
       _ref.read(usageRevisionProvider.notifier).state++;
 
       _addBotMessage(
@@ -934,7 +934,10 @@ class AskNotifier extends StateNotifier<AskState> {
         .map((s) => contextUrls[s.sourceIndex - 1])
         .toList();
 
-    await usageService.incrementUsage(UsageFeature.ask);
+    await usageService.incrementUsage(
+      UsageFeature.ask,
+      isPro: _ref.read(isProUserProvider),
+    );
     _ref.read(usageRevisionProvider.notifier).state++;
 
     _addBotMessage(
