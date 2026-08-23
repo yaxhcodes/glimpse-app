@@ -63,6 +63,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get languagePortugueseBrazil => 'Portuguese (Brazil)';
 
   @override
+  String get languageGerman => 'German';
+
+  @override
   String get chooseLanguage => 'Choose language';
 
   @override

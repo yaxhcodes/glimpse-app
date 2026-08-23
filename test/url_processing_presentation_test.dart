@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/url_processing_status.dart';
 import 'package:glimpse/l10n/generated/app_localizations.dart';
+import 'package:glimpse/l10n/generated/app_localizations_de.dart';
 import 'package:glimpse/l10n/generated/app_localizations_en.dart';
 import 'package:glimpse/l10n/generated/app_localizations_es.dart';
 import 'package:glimpse/l10n/generated/app_localizations_fr.dart';
@@ -110,6 +111,11 @@ void main() {
         AppLocalizationsPt(),
         'Lendo reel',
         'Extraindo os detalhes úteis',
+      );
+      expectCopy(
+        AppLocalizationsDe(),
+        'Reel wird gelesen',
+        'Nützliche Details werden herausgearbeitet',
       );
     });
   });

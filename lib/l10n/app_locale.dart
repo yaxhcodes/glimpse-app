@@ -11,6 +11,7 @@ const appSupportedLocales = <Locale>[
   Locale('es'),
   Locale('fr'),
   Locale('pt', 'BR'),
+  Locale('de'),
 ];
 
 enum AppLanguage {
@@ -20,6 +21,7 @@ enum AppLanguage {
   spanish,
   french,
   portugueseBrazil,
+  german,
 }
 
 extension AppLanguageLocale on AppLanguage {
@@ -30,6 +32,7 @@ extension AppLanguageLocale on AppLanguage {
     AppLanguage.spanish => const Locale('es'),
     AppLanguage.french => const Locale('fr'),
     AppLanguage.portugueseBrazil => const Locale('pt', 'BR'),
+    AppLanguage.german => const Locale('de'),
   };
 
   String? get persistedTag => switch (this) {
@@ -39,6 +42,7 @@ extension AppLanguageLocale on AppLanguage {
     AppLanguage.spanish => 'es',
     AppLanguage.french => 'fr',
     AppLanguage.portugueseBrazil => 'pt-BR',
+    AppLanguage.german => 'de',
   };
 
   static AppLanguage fromPersistedTag(String? value) => switch (value) {
@@ -47,6 +51,7 @@ extension AppLanguageLocale on AppLanguage {
     'es' => AppLanguage.spanish,
     'fr' => AppLanguage.french,
     'pt-BR' || 'pt_BR' || 'pt' => AppLanguage.portugueseBrazil,
+    'de' => AppLanguage.german,
     _ => AppLanguage.system,
   };
 }
@@ -85,6 +90,8 @@ Locale resolveAppLocale(List<Locale>? preferredLocales) {
         return const Locale('fr');
       case 'pt':
         return const Locale('pt', 'BR');
+      case 'de':
+        return const Locale('de');
       case 'en':
         return const Locale('en');
     }

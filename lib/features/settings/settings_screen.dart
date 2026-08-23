@@ -110,6 +110,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         AppLanguage.spanish => strings.languageSpanish,
         AppLanguage.french => strings.languageFrench,
         AppLanguage.portugueseBrazil => strings.languagePortugueseBrazil,
+        AppLanguage.german => strings.languageGerman,
       };
 
   Future<void> _clearData() async {

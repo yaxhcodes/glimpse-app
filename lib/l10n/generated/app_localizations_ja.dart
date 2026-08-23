@@ -63,6 +63,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get languagePortugueseBrazil => 'ポルトガル語（ブラジル）';
 
   @override
+  String get languageGerman => 'ドイツ語';
+
+  @override
   String get chooseLanguage => '言語を選択';
 
   @override

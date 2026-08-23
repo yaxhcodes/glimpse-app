@@ -21,7 +21,8 @@ void main() {
       resolveAppLocale(const [Locale('pt', 'PT')]),
       const Locale('pt', 'BR'),
     );
-    expect(resolveAppLocale(const [Locale('de')]), const Locale('en'));
+    expect(resolveAppLocale(const [Locale('de', 'DE')]), const Locale('de'));
+    expect(resolveAppLocale(const [Locale('it')]), const Locale('en'));
   });
 
   test('persists an explicit language and restores system mode', () async {
@@ -35,6 +36,19 @@ void main() {
     await controller.setLanguage(AppLanguage.system);
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.containsKey('glimpse_app_language'), isFalse);
+    controller.dispose();
+  });
+
+  test('persists and restores German explicitly', () async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = AppLocaleController();
+    await controller.ready;
+    await controller.setLanguage(AppLanguage.german);
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(controller.state.effectiveLocale, const Locale('de'));
+    expect(preferences.getString('glimpse_app_language'), 'de');
+    expect(AppLanguageLocale.fromPersistedTag('de'), AppLanguage.german);
     controller.dispose();
   });
 
@@ -62,6 +76,7 @@ void main() {
       const Locale('es'): 'Inicio',
       const Locale('fr'): 'Accueil',
       const Locale('pt', 'BR'): 'Início',
+      const Locale('de'): 'Start',
     };
 
     for (final entry in expected.entries) {
@@ -79,6 +94,7 @@ void main() {
         const Locale('es'): 'Películas y series',
         const Locale('fr'): 'Films et séries',
         const Locale('pt', 'BR'): 'Filmes e séries',
+        const Locale('de'): 'Filme & Serien',
       };
 
       for (final entry in expected.entries) {
@@ -132,6 +148,14 @@ void main() {
         'Onde você ouve música?',
         'Aparência',
       ],
+      const Locale('de'): [
+        'Speichere etwas, zu dem du zurückkehren möchtest',
+        'Quellen',
+        'Neueste Speicherungen',
+        'Wischaktion auswählen',
+        'Wo hörst du Musik?',
+        'Darstellung',
+      ],
     };
 
     for (final entry in expected.entries) {
@@ -158,6 +182,7 @@ void main() {
       'lib/l10n/app_es.arb',
       'lib/l10n/app_fr.arb',
       'lib/l10n/app_pt.arb',
+      'lib/l10n/app_de.arb',
     ];
     Set<String> messageKeys(String path) {
       final json =
@@ -490,6 +515,25 @@ void main() {
     expect(result.hasStructuredEnrichment, isTrue);
     final restored = TranscriptEnrichmentResult.fromJson(result.toJson());
     expect(restored?.outputLocale, 'ja');
+    expect(restored?.summary, result.summary);
+    expect(restored?.category, 'Education');
+  });
+
+  test('German enrichment is useful and survives JSON round-trip', () {
+    const result = TranscriptEnrichmentResult(
+      schemaVersion: 4,
+      outputLocale: 'de',
+      meaningfulTitle: 'Lernen vertiefen · Praktische Schritte',
+      summary:
+          'Konkrete Wege, um neue Ideen in die Praxis umzusetzen. Kleine tägliche Schritte erleichtern den Einstieg.',
+      category: 'Education',
+      tags: ['Lernen', 'Gewohnheiten'],
+      keyPoints: ['Klein anfangen', 'Täglich reflektieren'],
+    );
+
+    expect(result.hasStructuredEnrichment, isTrue);
+    final restored = TranscriptEnrichmentResult.fromJson(result.toJson());
+    expect(restored?.outputLocale, 'de');
     expect(restored?.summary, result.summary);
     expect(restored?.category, 'Education');
   });
