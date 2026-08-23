@@ -1180,20 +1180,20 @@ class _ComposerBar extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                 ],
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Pill only wraps the text field
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: colorScheme.outlineVariant,
-                            width: 0.5,
-                          ),
-                        ),
+                Material(
+                  color: transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                    side: BorderSide(
+                      color: colorScheme.outlineVariant,
+                      width: 0.5,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
                         child: Theme(
                           data: theme.copyWith(
                             splashFactory: NoSplash.splashFactory,
@@ -1225,6 +1225,7 @@ class _ComposerBar extends StatelessWidget {
                             maxLines: 5,
                             textInputAction: TextInputAction.newline,
                             textCapitalization: TextCapitalization.sentences,
+                            textAlignVertical: TextAlignVertical.center,
                             style: textTheme.bodyLarge?.copyWith(
                               color: colorScheme.onSurface,
                             ),
@@ -1242,80 +1243,70 @@ class _ComposerBar extends StatelessWidget {
                               errorBorder: InputBorder.none,
                               focusedErrorBorder: InputBorder.none,
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
+                              constraints: const BoxConstraints(minHeight: 56),
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                15,
+                                8,
+                                13,
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Send button sits outside the pill
-                    ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: controller,
-                      builder: (context, value, _) {
-                        if (isLoading) {
-                          return Tooltip(
-                            message: context.l10n.sending,
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: colorScheme.primary,
-                              ),
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: ExpressiveLoadingIndicator(
-                                  size: 24,
-                                  color: colorScheme.onPrimary,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        final hasText = value.text.trim().isNotEmpty;
-                        return Tooltip(
-                          message: context.l10n.send,
-                          child: GestureDetector(
-                            onTap: hasText
-                                ? () {
-                                    HapticFeedback.lightImpact();
-                                    onSubmit(controller.text);
-                                  }
-                                : null,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: hasText
+                      Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: controller,
+                          builder: (context, value, _) {
+                            final hasText = value.text.trim().isNotEmpty;
+                            final isActive = hasText || isLoading;
+                            return IconButton(
+                              tooltip: isLoading
+                                  ? context.l10n.sending
+                                  : context.l10n.send,
+                              onPressed: hasText && !isLoading
+                                  ? () {
+                                      HapticFeedback.lightImpact();
+                                      onSubmit(controller.text);
+                                    }
+                                  : null,
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size.square(48),
+                                maximumSize: const Size.square(48),
+                                padding: EdgeInsets.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                backgroundColor: isActive
                                     ? colorScheme.primary
-                                    : colorScheme.surfaceContainerHigh,
-                                border: hasText
-                                    ? null
-                                    : Border.all(
-                                        color: colorScheme.outlineVariant,
-                                      ),
-                              ),
-                              child: Icon(
-                                Icons.arrow_upward_rounded,
-                                size: 20,
-                                color: hasText
+                                    : Colors.transparent,
+                                disabledBackgroundColor: isLoading
+                                    ? colorScheme.primary
+                                    : Colors.transparent,
+                                foregroundColor: colorScheme.onPrimary,
+                                disabledForegroundColor: isLoading
                                     ? colorScheme.onPrimary
                                     : colorScheme.onSurfaceVariant,
+                                shape: const CircleBorder(),
+                                side: BorderSide.none,
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                              icon: isLoading
+                                  ? SizedBox.square(
+                                      dimension: 24,
+                                      child: ExpressiveLoadingIndicator(
+                                        size: 24,
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.arrow_upward_rounded,
+                                      size: 20,
+                                    ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

@@ -348,20 +348,20 @@ class _AskScreenState extends ConsumerState<AskScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    colorScheme.surface,
-                    colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
-                  ],
-                ),
-              ),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.surface,
+              colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            Expanded(
               child: askState.messages.isEmpty
                   ? _buildEmptyState(
                       textTheme,
@@ -459,21 +459,21 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                       ),
                     ),
             ),
-          ),
-          _ComposerBar(
-            controller: _controller,
-            focusNode: _focusNode,
-            isLoading: askState.isLoading,
-            attachedSource: _attachedSource,
-            onClearAttachedSource: _attachedSource == null
-                ? null
-                : () {
-                    HapticFeedback.selectionClick();
-                    setState(() => _attachedSource = null);
-                  },
-            onSubmit: (text) => _onSendMessage(text),
-          ),
-        ],
+            _ComposerBar(
+              controller: _controller,
+              focusNode: _focusNode,
+              isLoading: askState.isLoading,
+              attachedSource: _attachedSource,
+              onClearAttachedSource: _attachedSource == null
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _attachedSource = null);
+                    },
+              onSubmit: (text) => _onSendMessage(text),
+            ),
+          ],
+        ),
       ),
     );
   }
