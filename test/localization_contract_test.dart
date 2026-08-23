@@ -486,6 +486,8 @@ void main() {
       "'Finding what matters'",
       "'Finishing your save'",
       "'Couldn\\'t finish processing'",
+      "'Could not enrich this save'",
+      "'Enrichment complete'",
       "'Link copied'",
     ];
 

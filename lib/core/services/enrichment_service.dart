@@ -484,6 +484,7 @@ class EnrichmentService {
     List<String> topics = const [];
     MemoryIntentMetadata? memoryIntent;
     String? aiFailure;
+    var replaceExistingTags = false;
     final nestedTaskFailures = <String>[];
 
     final mediaRequiresEvidence = TranscriptEnrichmentService.supportsUrl(
@@ -506,6 +507,7 @@ class EnrichmentService {
     }
 
     if (transcriptResult != null) {
+      replaceExistingTags = true;
       await _markProcessing(
         urlId,
         UrlProcessingStatus.transcriptReady,
@@ -588,6 +590,7 @@ class EnrichmentService {
         name: 'Enrichment',
       );
     } else if (savedRecipe != null && !mediaRequiresEvidence) {
+      replaceExistingTags = true;
       final baseEnrichment = savedEnrichment!;
       final enhancedRecipe = await _enhanceRecipeIfNeeded(
         savedRecipe,
@@ -679,6 +682,8 @@ class EnrichmentService {
           tags = _metadataFallbackTags(url, platformCat.tags);
           summary = _metadataFallbackSummary(url);
           enrichedTitle = null;
+        } else {
+          replaceExistingTags = true;
         }
         if (aiFailure == null && countUsage) {
           await _usageService.incrementUsage(
@@ -724,12 +729,16 @@ class EnrichmentService {
       summary = _metadataFallbackSummary(url);
     }
 
-    // Enrich tags with platform data already stored, then sanitize aggressively.
+    // Successful AI enrichment owns the tag set. Preserve stored metadata tags
+    // only when AI was unavailable or returned an unusable result.
     final enrichedTags = TagNoiseFilter.filterTags(tags);
-    for (final t in url.tags) {
-      final clean = TagNoiseFilter.cleanTag(t);
-      if (!TagNoiseFilter.isNoiseTag(clean) && !enrichedTags.contains(clean)) {
-        enrichedTags.add(clean);
+    if (!replaceExistingTags) {
+      for (final t in url.tags) {
+        final clean = TagNoiseFilter.cleanTag(t);
+        if (!TagNoiseFilter.isNoiseTag(clean) &&
+            !enrichedTags.contains(clean)) {
+          enrichedTags.add(clean);
+        }
       }
     }
 

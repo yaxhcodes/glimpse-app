@@ -786,7 +786,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (!mounted) return;
     setState(() => _retryingEnrichment = false);
     ref.invalidate(urlDetailProvider(widget.urlId));
-    _showSnack(success ? 'Enrichment complete' : 'Could not enrich this save');
+    _showSnack(
+      success
+          ? context.l10n.enrichmentComplete
+          : context.l10n.couldNotEnrichSave,
+    );
   }
 
   Future<void> _deleteUrl() async {
