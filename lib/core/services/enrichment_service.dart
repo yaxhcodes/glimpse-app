@@ -1346,6 +1346,7 @@ class EnrichmentService {
       category: url.category,
       tags: url.tags,
     ).name;
+    final claimedConfidence = _savedEnrichment(url)?.categoryConfidence;
 
     final validation = await _domainCentroidService.validate(
       claimedCategory: claimedCategory,
@@ -1367,6 +1368,7 @@ class EnrichmentService {
         'suggested_similarity': validation.suggestedSimilarity,
       if (validation.suggestedCategory != null)
         'suggested_sample_size': validation.suggestedSampleSize,
+      if (claimedConfidence != null) 'category_confidence': claimedConfidence,
     };
     if (validation.suggestedCategory != null) {
       final originalCategory = url.category;
@@ -1392,6 +1394,30 @@ class EnrichmentService {
         saveId: url.id.toString(),
         url: url.rawUrl,
         platform: originalCategory,
+        attempt: url.processingAttempt,
+        fields: fields,
+      );
+      return;
+    }
+
+    if (DomainCentroidService.shouldRetainHighConfidenceClaim(
+      claimedCategory: claimedCategory,
+      claimedConfidence: claimedConfidence,
+      validation: validation,
+    )) {
+      url.enrichmentJson = _markCategoryCentroidDecision(
+        url.enrichmentJson,
+        originalCategory: claimedCategory,
+        finalCategory: claimedCategory,
+        validation: validation,
+        needsReview: true,
+      );
+      UrlProcessingObserver.logStage(
+        'CATEGORY_CENTROID_RETAINED',
+        processingId: url.processingId ?? 'url-${url.id}',
+        saveId: url.id.toString(),
+        url: url.rawUrl,
+        platform: claimedCategory,
         attempt: url.processingAttempt,
         fields: fields,
       );

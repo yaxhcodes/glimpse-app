@@ -93,7 +93,7 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
         ..processingUpdatedAt = DateTime.now();
       await isarService.updateUrl(url);
 
-      final enricher = _ref.read(enrichmentServiceProvider)();
+      final enricher = await createLocalizedEnrichmentService(_ref);
       final failedTasks = <String>[];
       final metadataCompleted = await enricher.enrichMetadata(id);
       if (!metadataCompleted) {
@@ -144,7 +144,7 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
         await isarService.updateUrl(url);
       }
       if (isYouTube) {
-        final enricher = _ref.read(enrichmentServiceProvider)();
+        final enricher = await createLocalizedEnrichmentService(_ref);
         await enricher.enrichSingle(
           id,
           forceAi: true,

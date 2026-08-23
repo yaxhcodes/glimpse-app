@@ -37,5 +37,17 @@ String localizedCategoryLabel(AppLocalizations strings, String category) =>
       'Lifestyle' => strings.categoryLifestyle,
       'Sports' => strings.categorySports,
       'Other' => strings.categoryOther,
+      'Movies & TV' => strings.libraryMoviesShows,
       _ => category,
     };
+
+String localizedTagLabel(AppLocalizations strings, String label) {
+  final trimmed = label.trim();
+  final localizedCategory = localizedCategoryLabel(strings, trimmed);
+  if (localizedCategory != trimmed) return localizedCategory;
+
+  return switch (trimmed.toLowerCase().replaceAll(RegExp(r'\s+'), ' ')) {
+    'appletv' || 'apple tv' || 'apple tv+' => 'Apple TV+',
+    _ => trimmed,
+  };
+}

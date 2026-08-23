@@ -711,6 +711,12 @@ class TranscriptEnrichmentService {
       }
     }
 
+    if (out.isEmpty) {
+      for (final topic in _extractStringList(data['topics'])) {
+        add(topic);
+      }
+    }
+
     if (hasMovieRecommendationIntentForEnrichment(
       data,
       hasMovieMentions: hasMovieMentions,

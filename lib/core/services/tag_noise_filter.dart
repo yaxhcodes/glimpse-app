@@ -41,8 +41,9 @@ class TagNoiseFilter {
     if (RegExp(r'\b(like|likes|comment|comments|views)\b').hasMatch(cleaned)) {
       return true;
     }
-    if (RegExp(r'\b(instagram|twitter|facebook|youtube|tiktok|threads)\b')
-        .hasMatch(cleaned)) {
+    if (RegExp(
+      r'\b(instagram|twitter|facebook|youtube|tiktok|threads)\b',
+    ).hasMatch(cleaned)) {
       return true;
     }
     if (cleaned.endsWith('.com') || cleaned.endsWith('.in')) return true;
@@ -53,24 +54,28 @@ class TagNoiseFilter {
     final seen = <String>{};
     final out = <String>[];
     for (final tag in tags) {
-      final cleaned = cleanTag(tag);
-      if (cleaned.isEmpty || isNoiseTag(cleaned) || seen.contains(cleaned)) {
+      final displayTag = cleanDisplayTag(tag);
+      final comparisonKey = displayTag.toLowerCase();
+      if (comparisonKey.isEmpty ||
+          isNoiseTag(comparisonKey) ||
+          seen.contains(comparisonKey)) {
         continue;
       }
-      seen.add(cleaned);
-      out.add(cleaned);
+      seen.add(comparisonKey);
+      out.add(displayTag);
     }
     return out;
   }
 
-  static String cleanTag(String tag) {
+  static String cleanDisplayTag(String tag) {
     return TextCleaner.cleanLoose(tag)
         .replaceAll(RegExp(r'https?://\S+'), '')
         .replaceAll(RegExp(r'[#,"\.;:()\[\]{}]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
-        .trim()
-        .toLowerCase();
+        .trim();
   }
+
+  static String cleanTag(String tag) => cleanDisplayTag(tag).toLowerCase();
 
   /// Rarest first (lowest [occurrences] count). Unknown tags count as 0 (most specific).
   static List<String> orderByRarity(
@@ -96,7 +101,7 @@ class TagNoiseFilter {
     final filtered = filterTags(tags);
     final ordered = occurrences.isEmpty
         ? (List<String>.from(filtered)
-          ..sort((a, b) => b.length.compareTo(a.length)))
+            ..sort((a, b) => b.length.compareTo(a.length)))
         : orderByRarity(filtered, occurrences);
     if (ordered.length <= maxVisible) {
       return (visible: ordered, overflow: 0);
@@ -133,7 +138,7 @@ class TagNoiseFilter {
     if (filtered.isEmpty) return (visible: <String>[], overflow: 0);
     final ordered = occurrences.isEmpty
         ? (List<String>.from(filtered)
-          ..sort((a, b) => b.length.compareTo(a.length)))
+            ..sort((a, b) => b.length.compareTo(a.length)))
         : orderByRarity(filtered, occurrences);
     final visible = _tagsWithinCharBudget(ordered);
     final overflow = ordered.length - visible.length;

@@ -1,4 +1,5 @@
 import '../../core/models/url_processing_status.dart';
+import '../../l10n/l10n.dart';
 
 class UrlProcessingPresentation {
   const UrlProcessingPresentation({
@@ -14,75 +15,78 @@ class UrlProcessingPresentation {
   factory UrlProcessingPresentation.fromStatus(
     String? status, {
     required String sourceName,
+    required AppLocalizations strings,
   }) {
     switch (status?.trim().toUpperCase()) {
       case UrlProcessingStatus.pending:
       case UrlProcessingStatus.queued:
-        return const UrlProcessingPresentation(
-          headline: 'Saved to your library',
-          detail: 'Waiting to understand your save',
+        return UrlProcessingPresentation(
+          headline: strings.processingSavedHeadline,
+          detail: strings.processingSavedDetail,
         );
       case UrlProcessingStatus.processing:
-        return const UrlProcessingPresentation(
-          headline: 'Opening the content',
-          detail: 'Checking what this save contains',
+        return UrlProcessingPresentation(
+          headline: strings.processingOpeningHeadline,
+          detail: strings.processingOpeningDetail,
         );
       case UrlProcessingStatus.extracting:
         return UrlProcessingPresentation(
-          headline: 'Reading the ${_contentNoun(sourceName)}',
-          detail: 'Pulling out the useful details',
+          headline: strings.processingReadingHeadline(
+            _contentNoun(sourceName, strings),
+          ),
+          detail: strings.processingExtractingDetail,
         );
       case UrlProcessingStatus.transcriptReady:
-        return const UrlProcessingPresentation(
-          headline: 'Content understood',
-          detail: 'Turning content into a useful save',
+        return UrlProcessingPresentation(
+          headline: strings.processingUnderstoodHeadline,
+          detail: strings.processingUnderstoodDetail,
         );
       case UrlProcessingStatus.enriching:
-        return const UrlProcessingPresentation(
-          headline: 'Finding what matters',
-          detail: 'Finding the ideas that matter most',
+        return UrlProcessingPresentation(
+          headline: strings.processingFindingHeadline,
+          detail: strings.processingFindingDetail,
         );
       case UrlProcessingStatus.generatingRecommendations:
-        return const UrlProcessingPresentation(
-          headline: 'Connecting the dots',
-          detail: 'Connecting this with related saves',
+        return UrlProcessingPresentation(
+          headline: strings.processingConnectingHeadline,
+          detail: strings.processingConnectingDetail,
         );
       case UrlProcessingStatus.generatingEmbeddings:
-        return const UrlProcessingPresentation(
-          headline: 'Finishing your save',
-          detail: 'Finishing search and rediscovery',
+        return UrlProcessingPresentation(
+          headline: strings.processingFinishingHeadline,
+          detail: strings.processingFinishingDetail,
         );
       case UrlProcessingStatus.retrying:
-        return const UrlProcessingPresentation(
-          headline: 'Trying that step again',
-          detail: 'Trying this processing step again',
+        return UrlProcessingPresentation(
+          headline: strings.processingRetryHeadline,
+          detail: strings.processingRetryDetail,
         );
       case UrlProcessingStatus.failed:
       case UrlProcessingStatus.partial:
-        return const UrlProcessingPresentation(
-          headline: 'Couldn\'t finish processing',
-          detail: 'Your save is safe. Try processing again',
+        return UrlProcessingPresentation(
+          headline: strings.processingFailedHeadline,
+          detail: strings.processingFailedDetail,
           failed: true,
         );
       default:
-        return const UrlProcessingPresentation(
-          headline: 'Understanding this save',
-          detail: 'Finding the ideas worth keeping',
+        return UrlProcessingPresentation(
+          headline: strings.processingDefaultHeadline,
+          detail: strings.processingDefaultDetail,
         );
     }
   }
 
-  static String _contentNoun(String sourceName) {
+  static String _contentNoun(String sourceName, AppLocalizations strings) {
     switch (sourceName.trim().toLowerCase()) {
       case 'instagram':
-        return 'reel';
+        return strings.processingContentReel;
       case 'youtube':
       case 'tiktok':
-        return 'video';
+        return strings.processingContentVideo;
       case 'pinterest':
-        return 'pin';
+        return strings.processingContentPin;
       default:
-        return 'page';
+        return strings.processingContentPage;
     }
   }
 }

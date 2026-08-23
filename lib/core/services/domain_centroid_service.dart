@@ -36,6 +36,15 @@ class DomainCentroidService {
   static const correctionSimilarityFloor = 0.75;
   static const correctionMargin = 0.08;
 
+  static bool shouldRetainHighConfidenceClaim({
+    required String claimedCategory,
+    required double? claimedConfidence,
+    required DomainCentroidResult validation,
+  }) =>
+      claimedCategory != 'Other' &&
+      !validation.hasCorrectionSuggestion &&
+      (claimedConfidence ?? 0) >= highConfidenceFloor;
+
   final Map<String, List<double>> _centroidCache = {};
   final Map<String, int> _sampleSizeCache = {};
   DateTime? _cacheBuiltAt;

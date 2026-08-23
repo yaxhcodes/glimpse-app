@@ -570,6 +570,84 @@ class AppLocalizationsFr extends AppLocalizations {
   String get processing => 'Traitement';
 
   @override
+  String get processingSavedHeadline => 'Enregistré dans votre bibliothèque';
+
+  @override
+  String get processingSavedDetail => 'Préparation de votre enregistrement';
+
+  @override
+  String get processingOpeningHeadline => 'Ouverture du contenu';
+
+  @override
+  String get processingOpeningDetail => 'Vérification du contenu enregistré';
+
+  @override
+  String processingReadingHeadline(String content) {
+    return 'Lecture de $content';
+  }
+
+  @override
+  String get processingExtractingDetail => 'Extraction des détails utiles';
+
+  @override
+  String get processingUnderstoodHeadline => 'Contenu compris';
+
+  @override
+  String get processingUnderstoodDetail => 'Transformation en contenu utile';
+
+  @override
+  String get processingFindingHeadline => 'Recherche de l’essentiel';
+
+  @override
+  String get processingFindingDetail =>
+      'Recherche des idées les plus importantes';
+
+  @override
+  String get processingConnectingHeadline => 'Création de liens';
+
+  @override
+  String get processingConnectingDetail =>
+      'Connexion aux enregistrements associés';
+
+  @override
+  String get processingFinishingHeadline => 'Finalisation de l’enregistrement';
+
+  @override
+  String get processingFinishingDetail =>
+      'Préparation de la recherche et de la redécouverte';
+
+  @override
+  String get processingRetryHeadline => 'Nouvel essai de cette étape';
+
+  @override
+  String get processingRetryDetail => 'Nouvelle tentative de cette étape';
+
+  @override
+  String get processingFailedHeadline => 'Impossible de terminer le traitement';
+
+  @override
+  String get processingFailedDetail =>
+      'Votre enregistrement est sûr. Réessayez';
+
+  @override
+  String get processingDefaultHeadline => 'Analyse de cet enregistrement';
+
+  @override
+  String get processingDefaultDetail => 'Recherche des idées à conserver';
+
+  @override
+  String get processingContentReel => 'reel';
+
+  @override
+  String get processingContentVideo => 'vidéo';
+
+  @override
+  String get processingContentPin => 'épingle';
+
+  @override
+  String get processingContentPage => 'page';
+
+  @override
   String get needsAttention => 'Attention requise';
 
   @override

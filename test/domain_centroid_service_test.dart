@@ -185,4 +185,37 @@ void main() {
     expect(result.isReliable, isTrue);
     expect(result.suggestedCategory, isNull);
   });
+
+  test('retains a high-confidence canonical claim without a better match', () {
+    final service = DomainCentroidService(null);
+    service.rebuildCentroidsFromUrls([
+      for (var i = 0; i < 5; i += 1)
+        url(id: i, category: 'Philosophy', embedding: [1, 0.02 * i]),
+    ]);
+
+    final result = service.validateCached(
+      claimedCategory: 'Philosophy',
+      saveEmbedding: [0, 1],
+    );
+
+    expect(result.isReliable, isTrue);
+    expect(result.similarity, lessThan(DomainCentroidService.similarityFloor));
+    expect(result.suggestedCategory, isNull);
+    expect(
+      DomainCentroidService.shouldRetainHighConfidenceClaim(
+        claimedCategory: 'Philosophy',
+        claimedConfidence: 0.9,
+        validation: result,
+      ),
+      isTrue,
+    );
+    expect(
+      DomainCentroidService.shouldRetainHighConfidenceClaim(
+        claimedCategory: 'Philosophy',
+        claimedConfidence: 0.6,
+        validation: result,
+      ),
+      isFalse,
+    );
+  });
 }

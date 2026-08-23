@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/services/transcript_enrichment_service.dart';
 import 'package:glimpse/core/services/notification_hub_labels.dart';
+import 'package:glimpse/core/services/tag_noise_filter.dart';
 import 'package:glimpse/features/library/library_entity.dart';
 import 'package:glimpse/features/library/library_localization.dart';
 import 'package:glimpse/l10n/l10n.dart';
@@ -26,6 +27,7 @@ void main() {
   test('persists an explicit language and restores system mode', () async {
     SharedPreferences.setMockInitialValues({});
     final controller = AppLocaleController();
+    await controller.ready;
     await controller.setLanguage(AppLanguage.japanese);
     expect(controller.state.preference, AppLanguage.japanese);
     expect(controller.state.effectiveLocale, const Locale('ja'));
@@ -35,6 +37,21 @@ void main() {
     expect(preferences.containsKey('glimpse_app_language'), isFalse);
     controller.dispose();
   });
+
+  test(
+    'cold-start locale loading restores Japanese before background work',
+    () async {
+      SharedPreferences.setMockInitialValues({'glimpse_app_language': 'ja'});
+
+      final controller = AppLocaleController();
+      await controller.ready;
+
+      expect(controller.state.preference, AppLanguage.japanese);
+      expect(controller.state.effectiveLocale, const Locale('ja'));
+      expect(await loadEffectiveAppLocale(), const Locale('ja'));
+      controller.dispose();
+    },
+  );
 
   testWidgets('all v1 localization delegates load translated navigation', (
     tester,
@@ -51,6 +68,32 @@ void main() {
       final strings = await AppLocalizations.delegate.load(entry.key);
       expect(strings.home, entry.value);
     }
+  });
+
+  testWidgets(
+    'generic taxonomy labels localize while proper names remain canonical',
+    (tester) async {
+      final expected = <Locale, String>{
+        const Locale('en'): 'Movies & Shows',
+        const Locale('ja'): '映画・番組',
+        const Locale('es'): 'Películas y series',
+        const Locale('fr'): 'Films et séries',
+        const Locale('pt', 'BR'): 'Filmes e séries',
+      };
+
+      for (final entry in expected.entries) {
+        final strings = await AppLocalizations.delegate.load(entry.key);
+        expect(localizedCategoryLabel(strings, 'Movies & TV'), entry.value);
+        expect(localizedTagLabel(strings, 'appletv'), 'Apple TV+');
+      }
+    },
+  );
+
+  test('tag cleanup preserves display casing while deduplicating safely', () {
+    expect(
+      TagNoiseFilter.filterTags(const ['Apple TV+', 'apple tv+', 'スパイドラマ']),
+      const ['Apple TV+', 'スパイドラマ'],
+    );
   });
 
   testWidgets('screenshot surfaces use the selected language catalog', (
@@ -361,6 +404,7 @@ void main() {
       'lib/core/services/notification_hub_labels.dart',
       'lib/shared/widgets/bulk_selection_toolbar.dart',
       'lib/shared/widgets/music_provider_sheet.dart',
+      'lib/shared/widgets/url_processing_presentation.dart',
     ];
     const forbidden = <String>[
       "'Capture something worth returning to'",
@@ -412,6 +456,12 @@ void main() {
       "'Privacy Policy'",
       "'Share backup'",
       "'Send a backup to another app or cloud service'",
+      "'Reading the reel'",
+      "'Pulling out the useful details'",
+      "'Finding what matters'",
+      "'Finishing your save'",
+      "'Couldn\\'t finish processing'",
+      "'Link copied'",
     ];
 
     final source = paths

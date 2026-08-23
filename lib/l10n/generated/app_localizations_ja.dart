@@ -538,6 +538,80 @@ class AppLocalizationsJa extends AppLocalizations {
   String get processing => '処理中';
 
   @override
+  String get processingSavedHeadline => 'ライブラリに保存しました';
+
+  @override
+  String get processingSavedDetail => '保存内容を理解する準備をしています';
+
+  @override
+  String get processingOpeningHeadline => 'コンテンツを開いています';
+
+  @override
+  String get processingOpeningDetail => '保存内容を確認しています';
+
+  @override
+  String processingReadingHeadline(String content) {
+    return '$contentを読み取っています';
+  }
+
+  @override
+  String get processingExtractingDetail => '役立つ情報を取り出しています';
+
+  @override
+  String get processingUnderstoodHeadline => '内容を理解しました';
+
+  @override
+  String get processingUnderstoodDetail => '役立つ保存内容にまとめています';
+
+  @override
+  String get processingFindingHeadline => '大切なポイントを探しています';
+
+  @override
+  String get processingFindingDetail => '最も重要なアイデアを見つけています';
+
+  @override
+  String get processingConnectingHeadline => '関連を見つけています';
+
+  @override
+  String get processingConnectingDetail => '関連する保存内容とつなげています';
+
+  @override
+  String get processingFinishingHeadline => '保存を仕上げています';
+
+  @override
+  String get processingFinishingDetail => '検索と再発見の準備を整えています';
+
+  @override
+  String get processingRetryHeadline => 'もう一度試しています';
+
+  @override
+  String get processingRetryDetail => 'この処理をもう一度試しています';
+
+  @override
+  String get processingFailedHeadline => '処理を完了できませんでした';
+
+  @override
+  String get processingFailedDetail => '保存内容は安全です。もう一度お試しください';
+
+  @override
+  String get processingDefaultHeadline => 'この保存内容を理解しています';
+
+  @override
+  String get processingDefaultDetail => '残しておく価値のあるアイデアを探しています';
+
+  @override
+  String get processingContentReel => 'リール';
+
+  @override
+  String get processingContentVideo => '動画';
+
+  @override
+  String get processingContentPin => 'ピン';
+
+  @override
+  String get processingContentPage => 'ページ';
+
+  @override
   String get needsAttention => '確認が必要';
 
   @override

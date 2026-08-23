@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -322,10 +323,17 @@ class BatchSaveNotifier extends StateNotifier<BatchSaveState> {
   /// Kick off background enrichment without awaiting it.
   /// Failures are logged but never block the user.
   void _enrichInBackground(List<int> urlIds) {
-    developer.log('_enrichInBackground START: ${urlIds.length} URLs: $urlIds',
-        name: 'BatchSave');
+    unawaited(_runLocalizedEnrichment(urlIds));
+  }
 
-    final enricher = _ref.read(enrichmentServiceProvider)(
+  Future<void> _runLocalizedEnrichment(List<int> urlIds) async {
+    developer.log(
+      '_enrichInBackground START: ${urlIds.length} URLs: $urlIds',
+      name: 'BatchSave',
+    );
+
+    final enricher = await createLocalizedEnrichmentService(
+      _ref,
       onEnriched: () {
         // Refresh providers so the UI progressively updates
         if (!_disposed) {
@@ -337,12 +345,16 @@ class BatchSaveNotifier extends StateNotifier<BatchSaveState> {
       },
     );
 
-    enricher.enrichBatch(urlIds).then((_) {
+    try {
+      await enricher.enrichBatch(urlIds);
       developer.log('_enrichInBackground COMPLETE', name: 'BatchSave');
-    }).catchError((e, st) {
-      developer.log('Background enrichment batch failed: $e',
-          name: 'BatchSave', stackTrace: st);
-    });
+    } catch (error, stackTrace) {
+      developer.log(
+        'Background enrichment batch failed: $error',
+        name: 'BatchSave',
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   void cancel() {

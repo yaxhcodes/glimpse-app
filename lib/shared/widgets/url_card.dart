@@ -82,6 +82,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = context.l10n;
     final cs = theme.colorScheme;
     final tt = theme.textTheme;
     final tagColors = tagChipColors(cs);
@@ -117,6 +118,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                 ? UrlProcessingStatus.retrying
                 : widget.savedUrl.processingStatus,
             sourceName: displaySourceName,
+            strings: strings,
           )
         : null;
     final resolvedTitle =
@@ -343,7 +345,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
-                                    tag,
+                                    localizedTagLabel(strings, tag),
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w500,

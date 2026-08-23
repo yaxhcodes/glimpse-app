@@ -463,10 +463,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Link copied'),
+        SnackBar(
+          content: Text(context.l10n.linkCopied),
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
   }
@@ -2045,12 +2045,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   List<String> _displayCategories(SavedUrl url) {
-    return CategoryTaxonomy.sourceHierarchyLabels(
+    final categories = CategoryTaxonomy.sourceHierarchyLabels(
       categories: url.effectiveCategories,
       primaryCategory: url.category,
       tags: url.tags,
       text: '${url.title} ${url.summary ?? ''} ${url.description}',
     );
+    return categories
+        .map((category) => localizedTagLabel(context.l10n, category))
+        .toList(growable: false);
   }
 
   Widget _buildSummarySection({

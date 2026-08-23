@@ -560,6 +560,81 @@ class AppLocalizationsEn extends AppLocalizations {
   String get processing => 'Processing';
 
   @override
+  String get processingSavedHeadline => 'Saved to your library';
+
+  @override
+  String get processingSavedDetail => 'Waiting to understand your save';
+
+  @override
+  String get processingOpeningHeadline => 'Opening the content';
+
+  @override
+  String get processingOpeningDetail => 'Checking what this save contains';
+
+  @override
+  String processingReadingHeadline(String content) {
+    return 'Reading the $content';
+  }
+
+  @override
+  String get processingExtractingDetail => 'Pulling out the useful details';
+
+  @override
+  String get processingUnderstoodHeadline => 'Content understood';
+
+  @override
+  String get processingUnderstoodDetail => 'Turning content into a useful save';
+
+  @override
+  String get processingFindingHeadline => 'Finding what matters';
+
+  @override
+  String get processingFindingDetail => 'Finding the ideas that matter most';
+
+  @override
+  String get processingConnectingHeadline => 'Connecting the dots';
+
+  @override
+  String get processingConnectingDetail => 'Connecting this with related saves';
+
+  @override
+  String get processingFinishingHeadline => 'Finishing your save';
+
+  @override
+  String get processingFinishingDetail => 'Finishing search and rediscovery';
+
+  @override
+  String get processingRetryHeadline => 'Trying that step again';
+
+  @override
+  String get processingRetryDetail => 'Trying this processing step again';
+
+  @override
+  String get processingFailedHeadline => 'Couldn\'t finish processing';
+
+  @override
+  String get processingFailedDetail =>
+      'Your save is safe. Try processing again';
+
+  @override
+  String get processingDefaultHeadline => 'Understanding this save';
+
+  @override
+  String get processingDefaultDetail => 'Finding the ideas worth keeping';
+
+  @override
+  String get processingContentReel => 'reel';
+
+  @override
+  String get processingContentVideo => 'video';
+
+  @override
+  String get processingContentPin => 'pin';
+
+  @override
+  String get processingContentPage => 'page';
+
+  @override
   String get needsAttention => 'Needs attention';
 
   @override

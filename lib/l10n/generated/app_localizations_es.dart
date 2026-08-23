@@ -567,6 +567,84 @@ class AppLocalizationsEs extends AppLocalizations {
   String get processing => 'Procesando';
 
   @override
+  String get processingSavedHeadline => 'Guardado en tu biblioteca';
+
+  @override
+  String get processingSavedDetail => 'Preparando el contenido guardado';
+
+  @override
+  String get processingOpeningHeadline => 'Abriendo el contenido';
+
+  @override
+  String get processingOpeningDetail => 'Comprobando qué contiene';
+
+  @override
+  String processingReadingHeadline(String content) {
+    return 'Leyendo $content';
+  }
+
+  @override
+  String get processingExtractingDetail => 'Extrayendo los detalles útiles';
+
+  @override
+  String get processingUnderstoodHeadline => 'Contenido comprendido';
+
+  @override
+  String get processingUnderstoodDetail => 'Convirtiéndolo en algo útil';
+
+  @override
+  String get processingFindingHeadline => 'Buscando lo importante';
+
+  @override
+  String get processingFindingDetail => 'Buscando las ideas más importantes';
+
+  @override
+  String get processingConnectingHeadline => 'Conectando ideas';
+
+  @override
+  String get processingConnectingDetail =>
+      'Conectándolo con guardados relacionados';
+
+  @override
+  String get processingFinishingHeadline => 'Terminando tu guardado';
+
+  @override
+  String get processingFinishingDetail =>
+      'Preparando la búsqueda y el redescubrimiento';
+
+  @override
+  String get processingRetryHeadline => 'Intentando ese paso de nuevo';
+
+  @override
+  String get processingRetryDetail => 'Volviendo a intentar este paso';
+
+  @override
+  String get processingFailedHeadline => 'No se pudo terminar el proceso';
+
+  @override
+  String get processingFailedDetail =>
+      'Tu guardado está seguro. Inténtalo de nuevo';
+
+  @override
+  String get processingDefaultHeadline => 'Comprendiendo este guardado';
+
+  @override
+  String get processingDefaultDetail =>
+      'Buscando ideas que vale la pena conservar';
+
+  @override
+  String get processingContentReel => 'reel';
+
+  @override
+  String get processingContentVideo => 'vídeo';
+
+  @override
+  String get processingContentPin => 'pin';
+
+  @override
+  String get processingContentPage => 'página';
+
+  @override
   String get needsAttention => 'Requiere atención';
 
   @override

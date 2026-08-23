@@ -106,11 +106,15 @@ class AppLocaleController extends StateNotifier<AppLocaleState>
         ),
       ) {
     WidgetsBinding.instance.addObserver(this);
-    _load();
+    ready = _load();
   }
+
+  late final Future<void> ready;
 
   Future<void> _load() async {
     final preferences = await SharedPreferences.getInstance();
+    await preferences.reload();
+    if (!mounted) return;
     state = state.copyWith(
       preference: AppLanguageLocale.fromPersistedTag(
         preferences.getString(_appLanguagePreferenceKey),
@@ -119,6 +123,7 @@ class AppLocaleController extends StateNotifier<AppLocaleState>
   }
 
   Future<void> setLanguage(AppLanguage language) async {
+    await ready;
     state = state.copyWith(preference: language);
     final preferences = await SharedPreferences.getInstance();
     final tag = language.persistedTag;
@@ -180,6 +185,7 @@ final effectiveAppLocaleProvider = Provider<Locale>(
 
 Future<Locale> loadEffectiveAppLocale() async {
   final preferences = await SharedPreferences.getInstance();
+  await preferences.reload();
   final selection = AppLanguageLocale.fromPersistedTag(
     preferences.getString(_appLanguagePreferenceKey),
   );

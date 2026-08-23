@@ -131,11 +131,24 @@ final geminiServiceProvider = Provider<GeminiService?>((ref) {
 ///   final enricher = ref.read(enrichmentServiceProvider);
 ///   final service = enricher(onEnriched: () { ref.invalidate(...); });
 final enrichmentServiceProvider =
-    Provider<EnrichmentService Function({void Function()? onEnriched})>((ref) {
-      return ({void Function()? onEnriched}) {
+    Provider<
+      EnrichmentService Function({
+        void Function()? onEnriched,
+        String? outputLocale,
+      })
+    >((ref) {
+      return ({void Function()? onEnriched, String? outputLocale}) {
+        final effectiveOutputLocale =
+            outputLocale ?? appLocaleTag(ref.read(effectiveAppLocaleProvider));
+        final sharedGeminiService = ref.read(geminiServiceProvider);
+        final localizedGeminiService =
+            sharedGeminiService == null ||
+                sharedGeminiService.outputLocale == effectiveOutputLocale
+            ? sharedGeminiService
+            : GeminiService(null, effectiveOutputLocale);
         return EnrichmentService(
           isarService: ref.read(isarServiceProvider),
-          geminiService: ref.read(geminiServiceProvider),
+          geminiService: localizedGeminiService,
           embeddingService: ref.read(embeddingServiceProvider),
           linkService: ref.read(linkPreviewServiceProvider),
           transcriptEnrichmentService: ref.read(
@@ -144,8 +157,30 @@ final enrichmentServiceProvider =
           recipeNutritionService: ref.read(recipeNutritionServiceProvider),
           usageService: ref.read(usageServiceProvider),
           isPro: ref.read(isProUserProvider),
-          outputLocale: appLocaleTag(ref.read(effectiveAppLocaleProvider)),
+          outputLocale: effectiveOutputLocale,
           onEnriched: onEnriched,
         );
       };
     });
+
+Future<EnrichmentService> createLocalizedEnrichmentService(
+  Ref ref, {
+  void Function()? onEnriched,
+}) async {
+  String outputLocale;
+  try {
+    outputLocale = appLocaleTag(await loadEffectiveAppLocale());
+  } catch (error, stackTrace) {
+    developer.log(
+      'Could not reload the saved app language before enrichment.',
+      name: 'ServiceProviders',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    outputLocale = appLocaleTag(ref.read(effectiveAppLocaleProvider));
+  }
+  return ref.read(enrichmentServiceProvider)(
+    outputLocale: outputLocale,
+    onEnriched: onEnriched,
+  );
+}

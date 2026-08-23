@@ -1106,6 +1106,150 @@ abstract class AppLocalizations {
   /// **'Processing'**
   String get processing;
 
+  /// No description provided for @processingSavedHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to your library'**
+  String get processingSavedHeadline;
+
+  /// No description provided for @processingSavedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting to understand your save'**
+  String get processingSavedDetail;
+
+  /// No description provided for @processingOpeningHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening the content'**
+  String get processingOpeningHeadline;
+
+  /// No description provided for @processingOpeningDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking what this save contains'**
+  String get processingOpeningDetail;
+
+  /// No description provided for @processingReadingHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading the {content}'**
+  String processingReadingHeadline(String content);
+
+  /// No description provided for @processingExtractingDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulling out the useful details'**
+  String get processingExtractingDetail;
+
+  /// No description provided for @processingUnderstoodHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Content understood'**
+  String get processingUnderstoodHeadline;
+
+  /// No description provided for @processingUnderstoodDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Turning content into a useful save'**
+  String get processingUnderstoodDetail;
+
+  /// No description provided for @processingFindingHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding what matters'**
+  String get processingFindingHeadline;
+
+  /// No description provided for @processingFindingDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding the ideas that matter most'**
+  String get processingFindingDetail;
+
+  /// No description provided for @processingConnectingHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting the dots'**
+  String get processingConnectingHeadline;
+
+  /// No description provided for @processingConnectingDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting this with related saves'**
+  String get processingConnectingDetail;
+
+  /// No description provided for @processingFinishingHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Finishing your save'**
+  String get processingFinishingHeadline;
+
+  /// No description provided for @processingFinishingDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Finishing search and rediscovery'**
+  String get processingFinishingDetail;
+
+  /// No description provided for @processingRetryHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Trying that step again'**
+  String get processingRetryHeadline;
+
+  /// No description provided for @processingRetryDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Trying this processing step again'**
+  String get processingRetryDetail;
+
+  /// No description provided for @processingFailedHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t finish processing'**
+  String get processingFailedHeadline;
+
+  /// No description provided for @processingFailedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Your save is safe. Try processing again'**
+  String get processingFailedDetail;
+
+  /// No description provided for @processingDefaultHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Understanding this save'**
+  String get processingDefaultHeadline;
+
+  /// No description provided for @processingDefaultDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding the ideas worth keeping'**
+  String get processingDefaultDetail;
+
+  /// No description provided for @processingContentReel.
+  ///
+  /// In en, this message translates to:
+  /// **'reel'**
+  String get processingContentReel;
+
+  /// No description provided for @processingContentVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'video'**
+  String get processingContentVideo;
+
+  /// No description provided for @processingContentPin.
+  ///
+  /// In en, this message translates to:
+  /// **'pin'**
+  String get processingContentPin;
+
+  /// No description provided for @processingContentPage.
+  ///
+  /// In en, this message translates to:
+  /// **'page'**
+  String get processingContentPage;
+
   /// No description provided for @needsAttention.
   ///
   /// In en, this message translates to:

@@ -114,10 +114,11 @@ class _TagChip extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final chip = tagChipColors(colorScheme);
+    final displayTag = localizedTagLabel(context.l10n, tag);
 
     return Semantics(
       button: true,
-      label: tag,
+      label: displayTag,
       child: Material(
         color: color ?? chip.background,
         borderRadius: BorderRadius.circular(999),
@@ -128,7 +129,7 @@ class _TagChip extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
             child: Text(
-              tag,
+              displayTag,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: foreground ?? chip.foreground,
                 fontWeight: FontWeight.w600,

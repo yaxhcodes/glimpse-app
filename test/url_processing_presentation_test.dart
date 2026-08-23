@@ -3,11 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/url_processing_status.dart';
+import 'package:glimpse/l10n/generated/app_localizations.dart';
+import 'package:glimpse/l10n/generated/app_localizations_en.dart';
+import 'package:glimpse/l10n/generated/app_localizations_es.dart';
+import 'package:glimpse/l10n/generated/app_localizations_fr.dart';
+import 'package:glimpse/l10n/generated/app_localizations_ja.dart';
+import 'package:glimpse/l10n/generated/app_localizations_pt.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
 import 'package:glimpse/shared/widgets/url_processing_presentation.dart';
 import 'package:shimmer/shimmer.dart';
 
 void main() {
+  final english = AppLocalizationsEn();
+
   group('UrlProcessingPresentation', () {
     test('turns persisted stages into stable user-facing copy', () {
       final presentations =
@@ -24,6 +32,7 @@ void main() {
             (status) => UrlProcessingPresentation.fromStatus(
               status,
               sourceName: 'Instagram',
+              strings: english,
             ),
           );
       final values = presentations.toList();
@@ -41,10 +50,12 @@ void main() {
       final youtube = UrlProcessingPresentation.fromStatus(
         UrlProcessingStatus.extracting,
         sourceName: 'YouTube',
+        strings: english,
       );
       final web = UrlProcessingPresentation.fromStatus(
         UrlProcessingStatus.extracting,
         sourceName: 'example.com',
+        strings: english,
       );
 
       expect(youtube.headline, 'Reading the video');
@@ -56,29 +67,57 @@ void main() {
       final failed = UrlProcessingPresentation.fromStatus(
         UrlProcessingStatus.failed,
         sourceName: 'Instagram',
+        strings: english,
       );
 
       expect(failed.failed, isTrue);
       expect(failed.headline, 'Couldn\'t finish processing');
       expect(failed.detail, contains('save is safe'));
     });
+
+    test('localizes extracting copy for every supported locale', () {
+      void expectCopy(
+        AppLocalizations strings,
+        String headline,
+        String detail,
+      ) {
+        final presentation = UrlProcessingPresentation.fromStatus(
+          UrlProcessingStatus.extracting,
+          sourceName: 'Instagram',
+          strings: strings,
+        );
+        expect(presentation.headline, headline);
+        expect(presentation.detail, detail);
+      }
+
+      expectCopy(
+        AppLocalizationsEn(),
+        'Reading the reel',
+        'Pulling out the useful details',
+      );
+      expectCopy(AppLocalizationsJa(), 'リールを読み取っています', '役立つ情報を取り出しています');
+      expectCopy(
+        AppLocalizationsEs(),
+        'Leyendo reel',
+        'Extrayendo los detalles útiles',
+      );
+      expectCopy(
+        AppLocalizationsFr(),
+        'Lecture de reel',
+        'Extraction des détails utiles',
+      );
+      expectCopy(
+        AppLocalizationsPt(),
+        'Lendo reel',
+        'Extraindo os detalhes úteis',
+      );
+    });
   });
 
   testWidgets('processing card fits phone width without repetitive copy', (
     tester,
   ) async {
-    final url = SavedUrl()
-      ..rawUrl = 'https://www.instagram.com/reel/example'
-      ..domain = 'instagram.com'
-      ..title = 'instagram.com'
-      ..description = ''
-      ..category = 'Social'
-      ..categoryEmoji = '📱'
-      ..categories = ['Social']
-      ..tags = ['instagram']
-      ..savedAt = DateTime.now()
-      ..processingStatus = UrlProcessingStatus.extracting
-      ..processingUpdatedAt = DateTime.now();
+    final url = _processingUrl();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -119,4 +158,40 @@ void main() {
     expect(luminanceDifference, greaterThan(0.12));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('processing card follows the active Japanese locale', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: UrlCard(savedUrl: _processingUrl(), tagFrequency: const {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('リールを読み取っています'), findsOneWidget);
+    expect(find.text('役立つ情報を取り出しています'), findsOneWidget);
+    expect(find.text('Reading the reel'), findsNothing);
+    expect(find.text('Pulling out the useful details'), findsNothing);
+  });
 }
+
+SavedUrl _processingUrl() => SavedUrl()
+  ..rawUrl = 'https://www.instagram.com/reel/example'
+  ..domain = 'instagram.com'
+  ..title = 'instagram.com'
+  ..description = ''
+  ..category = 'Social'
+  ..categoryEmoji = '📱'
+  ..categories = ['Social']
+  ..tags = ['instagram']
+  ..savedAt = DateTime.now()
+  ..processingStatus = UrlProcessingStatus.extracting
+  ..processingUpdatedAt = DateTime.now();

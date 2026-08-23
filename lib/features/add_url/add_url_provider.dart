@@ -413,13 +413,29 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     required bool notifyCapture,
     required bool evaluateNavigationDiscovery,
   }) {
+    unawaited(
+      _startLocalizedEnrichment(
+        normalizedUrl,
+        processingId: processingId,
+        notifyCapture: notifyCapture,
+        evaluateNavigationDiscovery: evaluateNavigationDiscovery,
+      ),
+    );
+  }
+
+  Future<void> _startLocalizedEnrichment(
+    String normalizedUrl, {
+    required String processingId,
+    required bool notifyCapture,
+    required bool evaluateNavigationDiscovery,
+  }) async {
     // Isar's live URL stream progressively hydrates the card after every
     // persisted enrichment stage. Restarting that stream from onEnriched
     // multiplied full-library emissions and caused visible frame stalls.
-    final enricher = _ref.read(enrichmentServiceProvider)();
+    final enricher = await createLocalizedEnrichmentService(_ref);
 
     // Find the URL's ID we just saved and enrich it
-    _findAndEnrich(
+    await _findAndEnrich(
       normalizedUrl,
       enricher,
       processingId: processingId,

@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glimpse/core/services/ai/ai_transport.dart';
 import 'package:glimpse/core/services/transcript_enrichment_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('TranscriptEnrichmentResult v2', () {
@@ -343,5 +345,47 @@ void main() {
 
       expect(isRecommendation, isTrue);
     });
+
+    test('uses localized topics when the provider omits tags', () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = TranscriptEnrichmentService(
+        transport: _StaticEnrichmentTransport({
+          'schema_version': 4,
+          'output_locale': 'ja',
+          'meaningful_title': '内面世界の構築 · 目的と意味',
+          'summary': '人生における意味と目的について説明しています。',
+          'category': 'Spirituality & Philosophy',
+          'tags': <String>[],
+          'topics': ['人生の目的', '内面的な成長', '実存的意味'],
+          'key_points': ['内面世界を構築することが方向性をもたらします。'],
+          'caption': 'build your inner world.',
+        }),
+      );
+
+      final result = await service.enrichUrl(
+        rawUrl: 'https://www.instagram.com/reel/JAPANESE_TAGS_TEST/',
+        title: 'Original title',
+        description: '',
+        thumbnailUrl: null,
+        domain: 'instagram.com',
+        outputLocale: 'ja',
+        forceRefresh: true,
+      );
+
+      expect(result?.category, 'Spirituality & Philosophy');
+      expect(result?.tags, ['人生の目的', '内面的な成長', '実存的意味']);
+    });
   });
+}
+
+class _StaticEnrichmentTransport extends AiTransport {
+  _StaticEnrichmentTransport(this.response);
+
+  final Map<String, dynamic> response;
+
+  @override
+  Future<Map<String, dynamic>> postEnrichment({
+    required Map<String, dynamic> body,
+    Duration timeout = const Duration(seconds: 180),
+  }) async => Map<String, dynamic>.from(response);
 }
