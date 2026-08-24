@@ -7,8 +7,8 @@ import '../../shared/theme/app_icons.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
-import '../../core/services/category_resolver.dart';
 import '../../core/services/digest_prefs.dart';
+import '../../core/services/notification_category_summary.dart';
 import '../../core/services/notification_hub_labels.dart';
 import '../../core/services/notification_router.dart';
 import '../../shared/widgets/notifications/curated_notification_media.dart';
@@ -312,26 +312,11 @@ class CuratedNotificationListTile extends StatelessWidget {
   /// One bundle-level line when several links are grouped (no tag pills).
   static String? _bundleHintLine(List<SavedUrl> urls) {
     if (urls.length < 2) return null;
-    final catCounts = <String, int>{};
-    for (final u in urls) {
-      for (final c in u.effectiveCategories) {
-        final trimmed = c.trim();
-        if (trimmed.isEmpty) continue;
-        // Domains only — keep platform/source names out of this line.
-        // See title-and-copy-consistency-spec.md §5.
-        if (CategoryResolver.isPlatformName(trimmed)) continue;
-        catCounts[trimmed] = (catCounts[trimmed] ?? 0) + 1;
-      }
-    }
-    if (catCounts.isEmpty) return null;
-    final sorted = catCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final primary = sorted.first.key;
-    if (sorted.length >= 2 &&
-        sorted[1].value >= 2 &&
-        sorted[1].key != primary) {
-      final second = sorted[1].key;
-      return 'Mostly $primary and $second.';
+    final ranked = NotificationCategorySummary.ranked(urls);
+    if (ranked.isEmpty) return null;
+    final primary = ranked.first.label;
+    if (ranked.length >= 2 && ranked[1].count >= 2) {
+      return 'Mostly $primary and ${ranked[1].label}.';
     }
     return 'Mostly about $primary.';
   }

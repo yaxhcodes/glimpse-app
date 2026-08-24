@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
+import '../../core/services/notification_category_summary.dart';
 import '../../core/services/title_resolver.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/widgets/notifications/curated_notification_media.dart';
@@ -86,24 +87,12 @@ class _NotificationDetailScreenState
   /// Fallback when no stored notification body exists — conversational, no raw counts.
   static String _syntheticInsight(List<SavedUrl> urls) {
     if (urls.length < 2) return '';
+    final ranked = NotificationCategorySummary.ranked(urls);
+    if (ranked.isEmpty) return '';
 
-    final catCounts = <String, int>{};
-    for (final u in urls) {
-      for (final c in u.effectiveCategories) {
-        // Domains only — never let a platform/source name (Instagram, …) leak
-        // into this line. See title-and-copy-consistency-spec.md §5.
-        if (CategoryResolver.isPlatformName(c)) continue;
-        catCounts[c] = (catCounts[c] ?? 0) + 1;
-      }
-    }
-    final sorted = catCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    if (sorted.isEmpty) return '';
-
-    final a = sorted[0].key;
-    if (sorted.length >= 2 && sorted[1].value >= 2) {
-      final b = sorted[1].key;
-      return 'Reads like a blend of $a and $b.';
+    final a = ranked.first.label;
+    if (ranked.length >= 2 && ranked[1].count >= 2) {
+      return 'Reads like a blend of $a and ${ranked[1].label}.';
     }
     return 'Mostly in the vein of $a.';
   }
