@@ -4,10 +4,21 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/services/digest_notifications.dart';
 import 'package:glimpse/core/services/digest_prefs.dart';
+import 'package:glimpse/core/services/url_save_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('notification group summary', () {
+    test('save status notification ids are stable and non-summary', () {
+      final first = UrlSaveNotifications.notificationIdForSavedUrl(42);
+
+      expect(first, UrlSaveNotifications.notificationIdForSavedUrl(42));
+      expect(first, isNot(0));
+      expect(first, greaterThanOrEqualTo(0x20000000));
+      expect(first, lessThan(0x40000000));
+      expect(first, isNot(UrlSaveNotifications.notificationIdForSavedUrl(43)));
+    });
+
     test(
       'counts every active child while limiting neither count nor source',
       () {
@@ -83,9 +94,7 @@ void main() {
         DigestPrefs.notifPayloadKey('notif_save'): jsonEncode({
           'type': 'url_capture_started',
         }),
-        DigestPrefs.notifPayloadKey('notif_curated'): jsonEncode({
-          'type': 'R',
-        }),
+        DigestPrefs.notifPayloadKey('notif_curated'): jsonEncode({'type': 'R'}),
       });
 
       final history = await DigestPrefs.loadHistory();
@@ -94,9 +103,8 @@ void main() {
       expect(history.single['id'], 'curated');
 
       final preferences = await SharedPreferences.getInstance();
-      final stored = jsonDecode(
-        preferences.getString('digest_history')!,
-      ) as List<dynamic>;
+      final stored =
+          jsonDecode(preferences.getString('digest_history')!) as List<dynamic>;
       expect(stored, hasLength(1));
     });
   });

@@ -8,4 +8,8 @@
     <string name="shortcut_ask_long">Glimpse fragen</string>
     <string name="shortcut_rediscover_short">Entdecken</string>
     <string name="shortcut_rediscover_long">Wiederentdecken öffnen</string>
+    <string name="background_enrichment_channel">Gespeicherte Links verarbeiten</string>
+    <string name="background_enrichment_channel_description">Verarbeitet an Glimpse geteilte Links im Hintergrund</string>
+    <string name="background_enrichment_title">Speichern wird abgeschlossen</string>
+    <string name="background_enrichment_body">Glimpse organisiert den Link im Hintergrund</string>
 </resources>

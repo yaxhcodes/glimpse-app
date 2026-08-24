@@ -22,6 +22,7 @@ import 'core/services/backup/backup_intent_service.dart';
 import 'core/services/backup/backup_models.dart';
 import 'core/services/app_update_service.dart';
 import 'core/services/app_shortcut_service.dart';
+import 'core/services/app_task_service.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/notification_router.dart';
 import 'core/services/tag_analyzer.dart';
@@ -38,7 +39,6 @@ import 'features/add_url/add_url_screen.dart';
 import 'features/add_url/add_url_provider.dart';
 import 'features/categories/category_screen.dart';
 import 'features/collections/collection_detail_screen.dart';
-import 'features/collections/collections_provider.dart';
 import 'features/collections/collections_screen.dart';
 import 'features/collections/create_collection_screen.dart';
 import 'features/collections/share_capture_sheet.dart';
@@ -79,9 +79,7 @@ import 'features/batch_save/batch_preview_screen.dart';
 import 'core/config/app_environment.dart';
 import 'core/services/entitlement_service.dart';
 import 'core/services/analytics_service.dart';
-import 'core/services/url_save_notifications.dart';
 import 'core/utils/url_extractor.dart';
-import 'shared/widgets/app_snackbar.dart';
 import 'shared/widgets/expressive_loading_indicator.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
@@ -586,14 +584,12 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         // Multi-share → batch preview
         _router.push('/batch-save', extra: urls);
       } else {
-        final collection = await _showShareCapturePrompt();
+        final outcome = await _showShareCapturePrompt(urls.first);
         if (!mounted) return;
-        await _quickSave(
-          urls.first,
-          notifyCapture: true,
-          returnAfterSave: true,
-          collection: collection,
-        );
+        if (outcome?.saved == true) {
+          final movedToBackground = await AppTaskService().moveToBackground();
+          if (!movedToBackground) await SystemNavigator.pop();
+        }
       }
     } catch (e, st) {
       developer.log(
@@ -611,10 +607,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     }
   }
 
-  Future<UserCollection?> _showShareCapturePrompt() async {
+  Future<ShareCaptureOutcome?> _showShareCapturePrompt(String url) async {
     final context = _router.routerDelegate.navigatorKey.currentContext;
     if (context == null || !context.mounted) return null;
-    return showShareCaptureSheet(context);
+    return showShareCaptureSheet(
+      context,
+      onCapture: (collection) => _quickSave(url, collection: collection),
+    );
   }
 
   void _showSignInToSaveMessage() {
@@ -631,82 +630,50 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       );
   }
 
-  Future<void> _quickSave(
+  Future<ShareCaptureOutcome> _quickSave(
     String url, {
-    bool notifyCapture = false,
-    bool returnAfterSave = false,
     UserCollection? collection,
   }) async {
     final notifier = ref.read(addUrlProvider.notifier);
     final success = await notifier.saveUrl(
       url,
-      notifyCapture: notifyCapture,
-      showCaptureAcknowledgement: false,
+      collectionId: collection?.id,
+      enrichmentExecution: AddUrlEnrichmentExecution.durable,
+      notifyOnCompletion: true,
     );
     final state = ref.read(addUrlProvider);
-    final errorMsg = state.errorMessage;
-    final aiLimitReached = state.aiLimitReached;
     final savedUrlId = state.savedUrlId;
-
-    if (savedUrlId != null) {
-      if (collection == null) {
-        await UrlSaveNotifications.showCaptureStarted();
-      } else {
-        try {
-          await ref
-              .read(isarServiceProvider)
-              .addUrlToCollection(
-                collectionId: collection.id,
-                urlId: savedUrlId,
-              );
-          ref.invalidate(collectionsListProvider);
-          ref.invalidate(collectionsSummaryProvider);
-          ref.invalidate(collectionUrlsProvider(collection.id));
-          await UrlSaveNotifications.showSavedToCollection(collection.name);
-        } catch (error, stackTrace) {
-          developer.log(
-            'The URL was saved, but could not be added to the selected collection.',
-            name: 'ShareIntent',
-            error: error,
-            stackTrace: stackTrace,
-          );
-          await UrlSaveNotifications.showCaptureStarted();
-        }
-      }
-    }
-
+    final savedUrl = savedUrlId == null
+        ? null
+        : await ref.read(isarServiceProvider).getUrlById(savedUrlId);
+    final enrichmentPending = savedUrl != null && !savedUrl.isProcessingReady;
+    final notificationsEnabled =
+        await DigestNotifications.areNotificationsEnabled();
     notifier.reset();
-
-    // Out of free AI saves: the bookmark is kept but won't be AI-enriched.
-    // The share flow has no UI to host a snackbar (it pops the app), so the
-    // upgrade prompt is delivered as a tappable notification instead.
-    if (success && aiLimitReached) {
-      await UrlSaveNotifications.showAiLimitReached(
-        isPro: ref.read(isProUserProvider),
+    if (savedUrlId == null) {
+      return const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
+    }
+    if (state.outcome == AddUrlOutcome.alreadySaved) {
+      return ShareCaptureOutcome(
+        type: ShareCaptureOutcomeType.duplicate,
+        collectionName: success ? collection?.name : null,
+        notificationsEnabled: notificationsEnabled,
+        enrichmentPending: false,
       );
     }
-
-    if (returnAfterSave && (success || state.savedUrlId != null)) {
-      await SystemNavigator.pop();
-      return;
+    if (!state.durableEnrichmentScheduled) {
+      return ShareCaptureOutcome(
+        type: ShareCaptureOutcomeType.schedulingFallback,
+        collectionName: success ? collection?.name : null,
+        notificationsEnabled: notificationsEnabled,
+        enrichmentPending: enrichmentPending,
+      );
     }
-
-    if (!mounted) return;
-    final ctx = _router.routerDelegate.navigatorKey.currentContext;
-    if (ctx == null) return;
-    if (!ctx.mounted) return;
-
-    final message = success
-        ? 'Capturing what caught your eye.'
-        : (errorMsg ?? 'Failed to save URL');
-
-    showAutoDismissSnackBar(
-      ctx,
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: success ? 3 : 4),
-      ),
+    return ShareCaptureOutcome(
+      type: ShareCaptureOutcomeType.captured,
+      collectionName: success ? collection?.name : null,
+      notificationsEnabled: notificationsEnabled,
+      enrichmentPending: enrichmentPending,
     );
   }
 
@@ -714,6 +681,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     unawaited(ref.read(analyticsServiceProvider).handleLifecycleState(state));
     if (state == AppLifecycleState.resumed) {
+      unawaited(DigestNotifications.reconcileGroupSummary());
       if (!_hasCompletedInitialResume) {
         _hasCompletedInitialResume = true;
         return;
@@ -795,6 +763,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(isProUserProvider, (_, isPro) {
+      unawaited(EntitlementService.persistEffectiveProSnapshot(isPro));
+    });
     ref.listen(authControllerProvider, (previous, next) {
       final wasSignedIn = previous?.valueOrNull != null;
       final isSignedOut = next.valueOrNull == null && !next.isLoading;

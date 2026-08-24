@@ -127,7 +127,7 @@ class EnrichmentService {
   /// Enrich a single URL with all phases (AI then embedding).
   /// Each phase is individually guarded so a failure in one does not
   /// prevent the other from running or the callback from firing.
-  Future<void> enrichSingle(
+  Future<EnrichmentRunResult> enrichSingle(
     int urlId, {
     bool forceAi = false,
     bool forceEmbedding = false,
@@ -142,16 +142,22 @@ class EnrichmentService {
       stage: 'BACKGROUND_ENRICHMENT_STARTED',
     );
 
-    final aiFailure = await _enrichAi(
+    final aiResult = await _enrichAi(
       urlId,
       force: forceAi,
       countUsage: countAiUsage,
     );
+    final aiFailure = aiResult.failure;
     if (aiFailure != null) failures.add(aiFailure);
     _onEnriched?.call();
 
     final afterAi = await _isarService.getUrlById(urlId);
-    if (afterAi == null) return;
+    if (afterAi == null) {
+      return EnrichmentRunResult(
+        aiLimitReached: aiResult.limitReached,
+        processingStatus: null,
+      );
+    }
 
     await _markProcessing(
       urlId,
@@ -166,7 +172,12 @@ class EnrichmentService {
     if (embeddingFailure != null) failures.add(embeddingFailure);
 
     final afterEmbedding = await _isarService.getUrlById(urlId);
-    if (afterEmbedding == null) return;
+    if (afterEmbedding == null) {
+      return EnrichmentRunResult(
+        aiLimitReached: aiResult.limitReached,
+        processingStatus: null,
+      );
+    }
     final hasPresentableEnrichment = _hasPresentableEnrichment(afterEmbedding);
     final hasAiEnrichment = SavedUrlEnrichmentState.hasAiEnrichment(
       afterEmbedding,
@@ -200,6 +211,10 @@ class EnrichmentService {
       name: 'Enrichment',
     );
     _onEnriched?.call();
+    return EnrichmentRunResult(
+      aiLimitReached: aiResult.limitReached,
+      processingStatus: status,
+    );
   }
 
   List<String> _uniqueFailures(List<String> failures) {
@@ -408,7 +423,7 @@ class EnrichmentService {
   /// Phase 1: AI categorization + summary.
   /// Entire method is wrapped in try/catch so failures never crash
   /// the batch or prevent Phase 2 (embedding) from running.
-  Future<String?> _enrichAi(
+  Future<_AiEnrichmentResult> _enrichAi(
     int urlId, {
     bool force = false,
     bool countUsage = true,
@@ -422,11 +437,13 @@ class EnrichmentService {
         task: 'summary',
         error: 'ai_enrichment_failed_unexpected',
       );
-      return 'ai_enrichment_failed_unexpected';
+      return const _AiEnrichmentResult(
+        failure: 'ai_enrichment_failed_unexpected',
+      );
     }
   }
 
-  Future<String?> _enrichAiInner(
+  Future<_AiEnrichmentResult> _enrichAiInner(
     int urlId, {
     bool force = false,
     bool countUsage = true,
@@ -437,7 +454,7 @@ class EnrichmentService {
         '_enrichAi SKIP: URL $urlId not found in Isar',
         name: 'Enrichment',
       );
-      return 'bookmark_missing';
+      return const _AiEnrichmentResult(failure: 'bookmark_missing');
     }
 
     developer.log('_enrichAi START: ${url.rawUrl}', name: 'Enrichment');
@@ -457,7 +474,7 @@ class EnrichmentService {
         '_enrichAi SKIP (already enriched): ${url.rawUrl}',
         name: 'Enrichment',
       );
-      return null;
+      return const _AiEnrichmentResult();
     }
 
     final aiLimitReached = countUsage
@@ -749,7 +766,10 @@ class EnrichmentService {
         '_enrichAi SKIP: URL $urlId disappeared before save',
         name: 'Enrichment',
       );
-      return 'bookmark_missing';
+      return _AiEnrichmentResult(
+        failure: 'bookmark_missing',
+        limitReached: aiLimitReached,
+      );
     }
 
     freshUrl.category = category;
@@ -840,7 +860,10 @@ class EnrichmentService {
       '_enrichAi SAVE OK: ${freshUrl.rawUrl} → $category',
       name: 'Enrichment',
     );
-    return aiFailure;
+    return _AiEnrichmentResult(
+      failure: aiFailure,
+      limitReached: aiLimitReached,
+    );
   }
 
   Future<_TranscriptEnrichmentAttempt> _enrichTranscriptWithRetries(
@@ -1532,6 +1555,23 @@ class _TranscriptEnrichmentAttempt {
 
   final TranscriptEnrichmentResult? result;
   final String? failureCode;
+}
+
+class EnrichmentRunResult {
+  const EnrichmentRunResult({
+    required this.aiLimitReached,
+    required this.processingStatus,
+  });
+
+  final bool aiLimitReached;
+  final String? processingStatus;
+}
+
+class _AiEnrichmentResult {
+  const _AiEnrichmentResult({this.failure, this.limitReached = false});
+
+  final String? failure;
+  final bool limitReached;
 }
 
 /// Simple counting semaphore for concurrency control.

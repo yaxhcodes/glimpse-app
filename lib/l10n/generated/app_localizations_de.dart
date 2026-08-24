@@ -189,18 +189,24 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get captureTitle => 'Was dir aufgefallen ist, wird gespeichert.';
+  String get captureBody => 'Wir benachrichtigen dich, sobald es fertig ist.';
 
   @override
-  String get captureBody => 'Wir benachrichtigen dich, sobald es fertig ist.';
+  String get captureQueuedWithoutNotifications =>
+      'Es wird in Glimpse fertiggestellt.';
+
+  @override
+  String get captureSchedulingFallback =>
+      'Gespeichert. Öffne Glimpse, um die Verarbeitung abzuschließen.';
+
+  @override
+  String get captureCouldNotSave =>
+      'Dieser Link konnte nicht gespeichert werden';
 
   @override
   String savedToCollection(String collectionName) {
     return 'In $collectionName gespeichert';
   }
-
-  @override
-  String get makingSense => 'Glimpse erfasst, was dir aufgefallen ist.';
 
   @override
   String get savedWithoutAi => 'Ohne KI-Anreicherung gespeichert';

@@ -188,18 +188,22 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get captureTitle => 'Capturing what caught your eye.';
+  String get captureBody => 'We’ll notify you when it’s ready.';
 
   @override
-  String get captureBody => 'We’ll notify you when it’s ready.';
+  String get captureQueuedWithoutNotifications => 'It’ll be ready in Glimpse.';
+
+  @override
+  String get captureSchedulingFallback =>
+      'Saved. Open Glimpse to finish organizing it.';
+
+  @override
+  String get captureCouldNotSave => 'Couldn’t save this link';
 
   @override
   String savedToCollection(String collectionName) {
     return 'Saved to $collectionName';
   }
-
-  @override
-  String get makingSense => 'Glimpse is making sense of what caught your eye.';
 
   @override
   String get savedWithoutAi => 'Saved without AI enrichment';

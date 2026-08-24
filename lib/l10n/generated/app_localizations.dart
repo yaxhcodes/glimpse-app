@@ -442,29 +442,35 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 lifetime AI save left} other{{count} lifetime AI saves left}}'**
   String aiSavesLeft(num count);
 
-  /// No description provided for @captureTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Capturing what caught your eye.'**
-  String get captureTitle;
-
   /// No description provided for @captureBody.
   ///
   /// In en, this message translates to:
   /// **'We’ll notify you when it’s ready.'**
   String get captureBody;
 
+  /// No description provided for @captureQueuedWithoutNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'It’ll be ready in Glimpse.'**
+  String get captureQueuedWithoutNotifications;
+
+  /// No description provided for @captureSchedulingFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. Open Glimpse to finish organizing it.'**
+  String get captureSchedulingFallback;
+
+  /// No description provided for @captureCouldNotSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t save this link'**
+  String get captureCouldNotSave;
+
   /// No description provided for @savedToCollection.
   ///
   /// In en, this message translates to:
   /// **'Saved to {collectionName}'**
   String savedToCollection(String collectionName);
-
-  /// No description provided for @makingSense.
-  ///
-  /// In en, this message translates to:
-  /// **'Glimpse is making sense of what caught your eye.'**
-  String get makingSense;
 
   /// No description provided for @savedWithoutAi.
   ///

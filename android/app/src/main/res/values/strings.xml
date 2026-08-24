@@ -9,4 +9,8 @@
     <string name="shortcut_ask_long">Ask Glimpse</string>
     <string name="shortcut_rediscover_short">Rediscover</string>
     <string name="shortcut_rediscover_long">Open Rediscover</string>
+    <string name="background_enrichment_channel">Saved link processing</string>
+    <string name="background_enrichment_channel_description">Finishes links shared to Glimpse in the background</string>
+    <string name="background_enrichment_title">Finishing your save</string>
+    <string name="background_enrichment_body">Glimpse is organizing it in the background</string>
 </resources>

@@ -8,4 +8,8 @@
     <string name="shortcut_ask_long">Glimpseに質問</string>
     <string name="shortcut_rediscover_short">再発見</string>
     <string name="shortcut_rediscover_long">再発見を開く</string>
+    <string name="background_enrichment_channel">保存リンクの処理</string>
+    <string name="background_enrichment_channel_description">Glimpse に共有したリンクをバックグラウンドで仕上げます</string>
+    <string name="background_enrichment_title">保存を仕上げています</string>
+    <string name="background_enrichment_body">Glimpse がバックグラウンドで整理しています</string>
 </resources>

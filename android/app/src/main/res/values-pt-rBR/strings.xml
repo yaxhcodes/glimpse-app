@@ -8,4 +8,8 @@
     <string name="shortcut_ask_long">Perguntar ao Glimpse</string>
     <string name="shortcut_rediscover_short">Redescobrir</string>
     <string name="shortcut_rediscover_long">Abrir Redescobrir</string>
+    <string name="background_enrichment_channel">Processamento de links salvos</string>
+    <string name="background_enrichment_channel_description">Conclui em segundo plano os links compartilhados com o Glimpse</string>
+    <string name="background_enrichment_title">Finalizando o salvamento</string>
+    <string name="background_enrichment_body">O Glimpse está organizando em segundo plano</string>
 </resources>

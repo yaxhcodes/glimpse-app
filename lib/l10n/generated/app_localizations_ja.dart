@@ -179,18 +179,21 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get captureTitle => '気になった内容を保存しています。';
+  String get captureBody => '準備ができたら通知します。';
 
   @override
-  String get captureBody => '準備ができたら通知します。';
+  String get captureQueuedWithoutNotifications => 'Glimpseでまもなく準備が整います。';
+
+  @override
+  String get captureSchedulingFallback => '保存しました。Glimpseを開いて整理を完了してください。';
+
+  @override
+  String get captureCouldNotSave => 'このリンクを保存できませんでした';
 
   @override
   String savedToCollection(String collectionName) {
     return '$collectionNameに保存しました';
   }
-
-  @override
-  String get makingSense => 'Glimpseが内容を整理しています。';
 
   @override
   String get savedWithoutAi => 'AI解析なしで保存しました';

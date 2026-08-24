@@ -35,8 +35,10 @@ import java.io.File
 class MainActivity : FlutterFragmentActivity() {
     private val backupChannelName = "com.shinrinyoku.glimpse/backup_intent"
     private val shortcutChannelName = "com.shinrinyoku.glimpse/app_shortcut"
+    private val appTaskChannelName = "com.shinrinyoku.glimpse/app_task"
     private var backupMethodChannel: MethodChannel? = null
     private var shortcutMethodChannel: MethodChannel? = null
+    private var appTaskMethodChannel: MethodChannel? = null
     private var pendingBackupPath: String? = null
     private var pendingShortcut: String? = null
     private var stableIdBridge: StableIdBridge? = null
@@ -104,6 +106,36 @@ class MainActivity : FlutterFragmentActivity() {
                         val shortcut = pendingShortcut ?: consumeShortcutFromIntent(intent)
                         pendingShortcut = null
                         result.success(shortcut)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
+
+        appTaskMethodChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            appTaskChannelName,
+        ).also { ch ->
+            ch.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // Keep the Activity and Flutter engine alive while returning
+                    // the user to the app that opened Android's share sheet.
+                    "moveToBackground" -> result.success(moveTaskToBack(true))
+                    "startEnrichmentKeepAlive" -> {
+                        val processingId = call.arguments as? String
+                        if (processingId.isNullOrBlank()) {
+                            result.error("invalid_processing_id", "A processing id is required.", null)
+                        } else {
+                            EnrichmentKeepAliveService.start(applicationContext, processingId)
+                            result.success(true)
+                        }
+                    }
+                    "finishEnrichmentKeepAlive" -> {
+                        val processingId = call.arguments as? String
+                        if (!processingId.isNullOrBlank()) {
+                            EnrichmentKeepAliveService.finish(applicationContext, processingId)
+                        }
+                        result.success(null)
                     }
                     else -> result.notImplemented()
                 }

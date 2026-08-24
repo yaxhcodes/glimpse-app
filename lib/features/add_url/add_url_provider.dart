@@ -10,6 +10,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/analytics_service.dart';
+import '../../core/services/app_task_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/usage_service.dart';
 import '../../core/services/domain_categorizer.dart';
@@ -19,7 +20,10 @@ import '../../core/services/link_preview_service.dart';
 import '../../core/services/rediscover_utility_profile.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/url_save_notifications.dart';
+import '../../core/services/url_enrichment_job.dart';
+import '../../core/services/url_enrichment_notification_guard.dart';
 import '../../core/services/url_processing_observer.dart';
+import '../../l10n/app_locale.dart';
 import '../ask/ask_empty_suggestions_provider.dart';
 import '../collections/collections_provider.dart';
 import '../home/home_provider.dart';
@@ -39,6 +43,8 @@ enum AddUrlStatus {
 
 enum AddUrlOutcome { none, captured, alreadySaved, capturedWithRelated }
 
+enum AddUrlEnrichmentExecution { immediate, durable }
+
 class AddUrlState {
   final AddUrlStatus status;
   final String? errorMessage;
@@ -46,6 +52,7 @@ class AddUrlState {
   final int? savedUrlId;
   final AddUrlOutcome outcome;
   final List<int> relatedSaveIds;
+  final bool durableEnrichmentScheduled;
 
   /// True when the save succeeded but the user's monthly AI-save allowance is
   /// exhausted, so this save will NOT be AI-enriched. The UI surfaces an
@@ -60,6 +67,7 @@ class AddUrlState {
     this.outcome = AddUrlOutcome.none,
     this.relatedSaveIds = const [],
     this.aiLimitReached = false,
+    this.durableEnrichmentScheduled = true,
   });
 
   AddUrlState copyWith({
@@ -73,6 +81,7 @@ class AddUrlState {
     List<int>? relatedSaveIds,
     bool clearRelatedSaveIds = false,
     bool? aiLimitReached,
+    bool? durableEnrichmentScheduled,
   }) {
     return AddUrlState(
       status: status ?? this.status,
@@ -86,6 +95,8 @@ class AddUrlState {
           ? const []
           : relatedSaveIds ?? this.relatedSaveIds,
       aiLimitReached: aiLimitReached ?? this.aiLimitReached,
+      durableEnrichmentScheduled:
+          durableEnrichmentScheduled ?? this.durableEnrichmentScheduled,
     );
   }
 }
@@ -109,8 +120,9 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
     String rawUrl, {
     String? notes,
     int? collectionId,
-    bool notifyCapture = false,
-    bool showCaptureAcknowledgement = true,
+    AddUrlEnrichmentExecution enrichmentExecution =
+        AddUrlEnrichmentExecution.immediate,
+    bool notifyOnCompletion = false,
   }) async {
     if (_isSaving) return false;
     _isSaving = true;
@@ -228,17 +240,24 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           );
           _isSaving = false;
           if (needsEnrichment) {
-            if (notifyCapture && showCaptureAcknowledgement) {
-              await UrlSaveNotifications.showCaptureStarted();
-            }
+            final scheduled =
+                enrichmentExecution == AddUrlEnrichmentExecution.durable
+                ? await _scheduleDurableEnrichment(
+                    restored,
+                    processingId: processingId,
+                    notifyOnCompletion: notifyOnCompletion,
+                    evaluateNavigationDiscovery: false,
+                  )
+                : true;
+            state = state.copyWith(durableEnrichmentScheduled: scheduled);
             _enrichInBackground(
               normalizedUrl,
               processingId: processingId,
-              notifyCapture: notifyCapture,
+              notifyOnCompletion: notifyOnCompletion,
               evaluateNavigationDiscovery: false,
+              keepAlive:
+                  enrichmentExecution == AddUrlEnrichmentExecution.durable,
             );
-          } else if (notifyCapture && showCaptureAcknowledgement) {
-            await UrlSaveNotifications.showAlreadyCaptured(restored);
           }
           return addedToCollection;
         }
@@ -251,9 +270,6 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         await isarService.updateResurfacedAt(existing.id, DateTime.now());
         if (existing.rediscoverDismissedAt != null) {
           await isarService.updateRediscoverDismissedAt(existing.id, null);
-        }
-        if (notifyCapture && showCaptureAcknowledgement) {
-          await UrlSaveNotifications.showAlreadyCaptured(existing);
         }
         _ref.invalidate(rediscoverRecapsProvider);
         _ref.invalidate(recentlyResurfacedProvider);
@@ -290,6 +306,7 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         clearSavedUrlId: true,
         outcome: AddUrlOutcome.none,
         clearRelatedSaveIds: true,
+        durableEnrichmentScheduled: true,
       );
 
       final platformCat = DomainCategorizer.categorize(normalizedUrl);
@@ -347,10 +364,6 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         name: 'AddUrl',
       );
 
-      if (notifyCapture && showCaptureAcknowledgement) {
-        await UrlSaveNotifications.showCaptureStarted();
-      }
-
       // Invalidate providers so Home screen shows the new URL instantly
       _ref.invalidate(categoriesProvider);
 
@@ -378,12 +391,21 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       );
       _isSaving = false;
 
-      // Kick off background enrichment (fire and forget)
+      if (enrichmentExecution == AddUrlEnrichmentExecution.durable) {
+        final scheduled = await _scheduleDurableEnrichment(
+          savedUrl,
+          processingId: processingId,
+          notifyOnCompletion: notifyOnCompletion,
+          evaluateNavigationDiscovery: true,
+        );
+        state = state.copyWith(durableEnrichmentScheduled: scheduled);
+      }
       _enrichInBackground(
         normalizedUrl,
         processingId: processingId,
-        notifyCapture: notifyCapture,
+        notifyOnCompletion: notifyOnCompletion,
         evaluateNavigationDiscovery: true,
+        keepAlive: enrichmentExecution == AddUrlEnrichmentExecution.durable,
       );
       unawaited(
         _ref
@@ -410,15 +432,17 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
   void _enrichInBackground(
     String normalizedUrl, {
     required String processingId,
-    required bool notifyCapture,
+    required bool notifyOnCompletion,
     required bool evaluateNavigationDiscovery,
+    required bool keepAlive,
   }) {
     unawaited(
       _startLocalizedEnrichment(
         normalizedUrl,
         processingId: processingId,
-        notifyCapture: notifyCapture,
+        notifyOnCompletion: notifyOnCompletion,
         evaluateNavigationDiscovery: evaluateNavigationDiscovery,
+        keepAlive: keepAlive,
       ),
     );
   }
@@ -426,29 +450,36 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
   Future<void> _startLocalizedEnrichment(
     String normalizedUrl, {
     required String processingId,
-    required bool notifyCapture,
+    required bool notifyOnCompletion,
     required bool evaluateNavigationDiscovery,
+    required bool keepAlive,
   }) async {
-    // Isar's live URL stream progressively hydrates the card after every
-    // persisted enrichment stage. Restarting that stream from onEnriched
-    // multiplied full-library emissions and caused visible frame stalls.
-    final enricher = await createLocalizedEnrichmentService(_ref);
+    try {
+      // Isar's live URL stream progressively hydrates the card after every
+      // persisted enrichment stage. Restarting that stream from onEnriched
+      // multiplied full-library emissions and caused visible frame stalls.
+      final enricher = await createLocalizedEnrichmentService(_ref);
 
-    // Find the URL's ID we just saved and enrich it
-    await _findAndEnrich(
-      normalizedUrl,
-      enricher,
-      processingId: processingId,
-      notifyCapture: notifyCapture,
-      evaluateNavigationDiscovery: evaluateNavigationDiscovery,
-    );
+      // Find the URL's ID we just saved and enrich it
+      await _findAndEnrich(
+        normalizedUrl,
+        enricher,
+        processingId: processingId,
+        notifyOnCompletion: notifyOnCompletion,
+        evaluateNavigationDiscovery: evaluateNavigationDiscovery,
+      );
+    } finally {
+      if (keepAlive) {
+        await AppTaskService().finishEnrichmentKeepAlive(processingId);
+      }
+    }
   }
 
   Future<void> _findAndEnrich(
     String normalizedUrl,
     EnrichmentService enricher, {
     required String processingId,
-    required bool notifyCapture,
+    required bool notifyOnCompletion,
     required bool evaluateNavigationDiscovery,
   }) async {
     try {
@@ -478,7 +509,10 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
       if (!metadataCompleted) {
         failedTasks.add('metadata_failed');
       }
-      await enricher.enrichSingle(url.id, initialFailures: failedTasks);
+      final enrichmentResult = await enricher.enrichSingle(
+        url.id,
+        initialFailures: failedTasks,
+      );
       final enriched = await isarService.getUrlById(url.id);
       final enrichmentSucceeded =
           enriched != null &&
@@ -503,13 +537,33 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
           );
         }
       }
-      if (notifyCapture) {
-        if (enrichmentSucceeded) {
-          await UrlSaveNotifications.showCaptureReady(enriched);
+      if (notifyOnCompletion) {
+        if (enrichmentResult.aiLimitReached) {
+          await UrlEnrichmentNotificationGuard.deliverOnce(
+            processingId,
+            UrlEnrichmentNotificationOutcome.aiLimitReached,
+            () => UrlSaveNotifications.showAiLimitReached(
+              isPro: _ref.read(isProUserProvider),
+              savedUrlId: url.id,
+            ),
+          );
+        } else if (enrichmentSucceeded) {
+          await UrlEnrichmentNotificationGuard.deliverOnce(
+            processingId,
+            UrlEnrichmentNotificationOutcome.ready,
+            () => UrlSaveNotifications.showCaptureReady(enriched),
+          );
         } else if (enriched != null &&
             enriched.processingStatus == UrlProcessingStatus.failed) {
-          await UrlSaveNotifications.showCaptureFailed(enriched);
+          await UrlEnrichmentNotificationGuard.deliverOnce(
+            processingId,
+            UrlEnrichmentNotificationOutcome.failed,
+            () => UrlSaveNotifications.showCaptureFailed(enriched),
+          );
         }
+      }
+      if (enrichmentResult.aiLimitReached || enrichmentSucceeded) {
+        await UrlEnrichmentScheduler.cancel(url.id);
       }
       developer.log('_findAndEnrich DONE: $normalizedUrl', name: 'AddUrl');
     } catch (e, st) {
@@ -525,6 +579,34 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
         stackTrace: st,
       );
     }
+  }
+
+  Future<bool> _scheduleDurableEnrichment(
+    SavedUrl savedUrl, {
+    required String processingId,
+    required bool notifyOnCompletion,
+    required bool evaluateNavigationDiscovery,
+  }) async {
+    final isPro = _ref.read(isProUserProvider);
+    if (notifyOnCompletion) {
+      await UrlEnrichmentNotificationGuard.markDeliveryExpected(processingId);
+    }
+    final keepAliveStarted = await AppTaskService().startEnrichmentKeepAlive(
+      processingId,
+    );
+    await EntitlementService.persistEffectiveProSnapshot(isPro);
+    final outputLocale = appLocaleTag(await loadEffectiveAppLocale());
+    final scheduled = await UrlEnrichmentScheduler.schedule(
+      UrlEnrichmentJob(
+        savedUrlId: savedUrl.id,
+        processingId: processingId,
+        outputLocale: outputLocale,
+        notifyOnCompletion: notifyOnCompletion,
+        evaluateNavigationDiscovery: evaluateNavigationDiscovery,
+        isPro: isPro,
+      ),
+    );
+    return keepAliveStarted && scheduled;
   }
 
   void _refreshDerivedDataAfterEnrichment() {

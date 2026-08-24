@@ -21,7 +21,12 @@ void main() {
         child: MaterialApp(
           home: Builder(
             builder: (context) => TextButton(
-              onPressed: () => showShareCaptureSheet(context),
+              onPressed: () => showShareCaptureSheet(
+                context,
+                onCapture: (_) async => const ShareCaptureOutcome(
+                  type: ShareCaptureOutcomeType.captured,
+                ),
+              ),
               child: const Text('Open'),
             ),
           ),
@@ -36,6 +41,126 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows a quiet captured confirmation before closing', (
+    tester,
+  ) async {
+    final isar = _DelayedIsarService(Future.value(const []));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [isarServiceProvider.overrideWithValue(isar)],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showShareCaptureSheet(
+                context,
+                onCapture: (_) async => const ShareCaptureOutcome(
+                  type: ShareCaptureOutcomeType.captured,
+                  notificationsEnabled: true,
+                  enrichmentPending: true,
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+
+    expect(find.text('Captured'), findsOneWidget);
+    expect(find.text('We’ll notify you when it’s ready.'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('Captured'), findsNothing);
+  });
+
+  testWidgets('does not promise a notification when notifications are off', (
+    tester,
+  ) async {
+    final isar = _DelayedIsarService(Future.value(const []));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [isarServiceProvider.overrideWithValue(isar)],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showShareCaptureSheet(
+                context,
+                onCapture: (_) async => const ShareCaptureOutcome(
+                  type: ShareCaptureOutcomeType.captured,
+                  enrichmentPending: true,
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+
+    expect(find.text('It’ll be ready in Glimpse.'), findsOneWidget);
+    expect(find.text('We’ll notify you when it’s ready.'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('shows the scheduling fallback without a notification promise', (
+    tester,
+  ) async {
+    final isar = _DelayedIsarService(Future.value(const []));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [isarServiceProvider.overrideWithValue(isar)],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showShareCaptureSheet(
+                context,
+                onCapture: (_) async => const ShareCaptureOutcome(
+                  type: ShareCaptureOutcomeType.schedulingFallback,
+                  notificationsEnabled: true,
+                  enrichmentPending: true,
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+
+    expect(
+      find.text('Saved. Open Glimpse to finish organizing it.'),
+      findsOneWidget,
+    );
+    expect(find.text('We’ll notify you when it’s ready.'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
   });
 }
 

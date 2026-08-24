@@ -11,48 +11,13 @@ import '../../l10n/l10n.dart';
 class UrlSaveNotifications {
   UrlSaveNotifications._();
 
-  static Future<void> showCaptureStarted() async {
-    final strings = await loadBackgroundLocalizations();
-    final captureTitle = strings.captureTitle;
-    final captureBody = strings.captureBody;
-    final payload = jsonEncode({
-      'type': 'url_capture_started',
-      'route': 'home',
-      'title': captureTitle,
-      'body': captureBody,
-    });
-
-    await DigestNotifications.show(
-      type: NotifType.resurface,
-      title: captureTitle,
-      body: captureBody,
-      payloadJson: payload,
-    );
-  }
-
-  static Future<void> showSavedToCollection(String collectionName) async {
-    final strings = await loadBackgroundLocalizations();
-    final title = strings.savedToCollection(collectionName);
-    final body = strings.makingSense;
-    final payload = jsonEncode({
-      'type': 'url_saved_to_collection',
-      'route': 'home',
-      'title': title,
-      'body': body,
-    });
-
-    await DigestNotifications.show(
-      type: NotifType.resurface,
-      title: title,
-      body: body,
-      payloadJson: payload,
-    );
-  }
-
   /// Shown after a shared save when the user is out of free AI saves: the
   /// bookmark was kept but not AI-enriched. Tapping routes to the subscription
   /// page (handled by NotificationRouter's `subscription` route).
-  static Future<void> showAiLimitReached({required bool isPro}) async {
+  static Future<void> showAiLimitReached({
+    required bool isPro,
+    required int savedUrlId,
+  }) async {
     final strings = await loadBackgroundLocalizations();
     final title = strings.savedWithoutAi;
     final body = isPro ? strings.proAiLimitBody : strings.aiLimitBody;
@@ -68,31 +33,13 @@ class UrlSaveNotifications {
       title: title,
       body: body,
       payloadJson: payload,
-    );
-  }
-
-  static Future<void> showAlreadyCaptured(SavedUrl url) async {
-    final strings = await loadBackgroundLocalizations();
-    final title = _notificationTitle(url);
-    final body = _notificationBody(url) ?? strings.alreadyInYourWorld;
-    final payload = _urlPayload(
-      type: 'url_capture_duplicate',
-      url: url,
-      title: title,
-      body: body,
-    );
-
-    await DigestNotifications.show(
-      type: NotifType.resurface,
-      title: title,
-      body: body,
-      payloadJson: jsonEncode(payload),
+      notificationId: notificationIdForSavedUrl(savedUrlId),
     );
   }
 
   static Future<void> showCaptureReady(SavedUrl url) async {
-    final body = _notificationBody(url);
-    if (body == null) return;
+    final strings = await loadBackgroundLocalizations();
+    final body = _notificationBody(url) ?? strings.enrichmentComplete;
 
     final title = _notificationTitle(url);
     final payload = _urlPayload(
@@ -107,6 +54,7 @@ class UrlSaveNotifications {
       title: title,
       body: body,
       payloadJson: jsonEncode(payload),
+      notificationId: notificationIdForSavedUrl(url.id),
     );
   }
 
@@ -126,7 +74,14 @@ class UrlSaveNotifications {
       title: title,
       body: body,
       payloadJson: jsonEncode(payload),
+      notificationId: notificationIdForSavedUrl(url.id),
     );
+  }
+
+  static int notificationIdForSavedUrl(int savedUrlId) {
+    const namespace = 0x20000000;
+    const mask = 0x1FFFFFFF;
+    return namespace + (savedUrlId.abs() & mask);
   }
 
   static Map<String, dynamic> _urlPayload({

@@ -14,20 +14,46 @@ import 'create_collection_sheet.dart';
 
 const _defaultCollectionName = 'Inbox';
 
-Future<UserCollection?> showShareCaptureSheet(BuildContext context) {
-  return showModalBottomSheet<UserCollection>(
+enum ShareCaptureOutcomeType { captured, duplicate, schedulingFallback, error }
+
+class ShareCaptureOutcome {
+  const ShareCaptureOutcome({
+    required this.type,
+    this.collectionName,
+    this.notificationsEnabled = false,
+    this.enrichmentPending = false,
+  });
+
+  final ShareCaptureOutcomeType type;
+  final String? collectionName;
+  final bool notificationsEnabled;
+  final bool enrichmentPending;
+
+  bool get saved => type != ShareCaptureOutcomeType.error;
+}
+
+typedef ShareCaptureCallback =
+    Future<ShareCaptureOutcome> Function(UserCollection? collection);
+
+Future<ShareCaptureOutcome?> showShareCaptureSheet(
+  BuildContext context, {
+  required ShareCaptureCallback onCapture,
+}) {
+  return showModalBottomSheet<ShareCaptureOutcome>(
     context: context,
     useRootNavigator: true,
     isDismissible: false,
     enableDrag: false,
     showDragHandle: false,
     backgroundColor: Colors.transparent,
-    builder: (_) => const _ShareCaptureSheet(),
+    builder: (_) => _ShareCaptureSheet(onCapture: onCapture),
   );
 }
 
 class _ShareCaptureSheet extends ConsumerStatefulWidget {
-  const _ShareCaptureSheet();
+  const _ShareCaptureSheet({required this.onCapture});
+
+  final ShareCaptureCallback onCapture;
 
   @override
   ConsumerState<_ShareCaptureSheet> createState() => _ShareCaptureSheetState();
@@ -39,6 +65,8 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
   late final Future<UserCollection?> _defaultCollectionFuture;
   bool? _hasCollections;
   bool _choosingCollection = false;
+  bool _capturing = false;
+  ShareCaptureOutcome? _outcome;
 
   @override
   void initState() {
@@ -85,11 +113,11 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
   }
 
   Future<void> _useDefaultCollection() async {
-    if (_choosingCollection || !mounted) return;
+    if (_choosingCollection || _capturing || !mounted) return;
     var collection = _defaultCollection;
     collection ??= await _defaultCollectionFuture;
-    if (!mounted || _choosingCollection) return;
-    Navigator.of(context).pop(collection);
+    if (!mounted || _choosingCollection || _capturing) return;
+    await _capture(collection);
   }
 
   Future<void> _chooseCollection() async {
@@ -105,17 +133,74 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
     }
     if (!mounted) return;
     if (selected != null) {
-      Navigator.of(context).pop(selected);
+      setState(() => _choosingCollection = false);
+      await _capture(selected);
       return;
     }
     setState(() => _choosingCollection = false);
     _autoSaveTimer = Timer(const Duration(seconds: 1), _useDefaultCollection);
   }
 
+  Future<void> _capture(UserCollection? collection) async {
+    if (_capturing || !mounted) return;
+    setState(() {
+      _capturing = true;
+      _choosingCollection = false;
+    });
+
+    ShareCaptureOutcome outcome;
+    try {
+      outcome = await widget.onCapture(collection);
+    } catch (error, stackTrace) {
+      developer.log(
+        'Share capture failed.',
+        name: 'ShareCapture',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      outcome = const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
+    }
+    if (!mounted) return;
+    setState(() => _outcome = outcome);
+    await Future<void>.delayed(
+      Duration(milliseconds: outcome.saved ? 700 : 1200),
+    );
+    if (!mounted) return;
+    Navigator.of(context).pop(outcome);
+  }
+
+  String _outcomeTitle(BuildContext context, ShareCaptureOutcome outcome) {
+    return switch (outcome.type) {
+      ShareCaptureOutcomeType.captured =>
+        outcome.collectionName == null
+            ? context.l10n.captured
+            : context.l10n.savedToCollection(outcome.collectionName!),
+      ShareCaptureOutcomeType.duplicate => context.l10n.alreadyInGlimpse,
+      ShareCaptureOutcomeType.schedulingFallback => context.l10n.captured,
+      ShareCaptureOutcomeType.error => context.l10n.captureCouldNotSave,
+    };
+  }
+
+  String? _outcomeDetail(BuildContext context, ShareCaptureOutcome outcome) {
+    return switch (outcome.type) {
+      ShareCaptureOutcomeType.captured =>
+        !outcome.enrichmentPending
+            ? null
+            : outcome.notificationsEnabled
+            ? context.l10n.captureBody
+            : context.l10n.captureQueuedWithoutNotifications,
+      ShareCaptureOutcomeType.schedulingFallback =>
+        context.l10n.captureSchedulingFallback,
+      ShareCaptureOutcomeType.duplicate ||
+      ShareCaptureOutcomeType.error => null,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final outcome = _outcome;
 
     return SafeArea(
       top: false,
@@ -129,67 +214,105 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              context.l10n.savingTo,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colors.onSurfaceVariant,
+            if (outcome == null) ...[
+              Text(
+                context.l10n.savingTo,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: _choosingCollection ? null : _chooseCollection,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(
-                      _hasCollections == false
-                          ? Icons.create_new_folder_outlined
-                          : Icons.folder_outlined,
-                      size: 22,
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: _choosingCollection || _capturing
+                    ? null
+                    : _chooseCollection,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _hasCollections == false
+                            ? Icons.create_new_folder_outlined
+                            : Icons.folder_outlined,
+                        size: 22,
+                        color: colors.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _hasCollections == false
+                              ? context.l10n.newCollection
+                              : _defaultCollection?.name ??
+                                    _defaultCollectionName,
+                          style: theme.textTheme.titleMedium,
+                        ),
+                      ),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: ExpressiveLoadingIndicator(
+                      size: 16,
                       color: colors.primary,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _hasCollections == false
-                            ? context.l10n.newCollection
-                            : _defaultCollection?.name ??
-                                  _defaultCollectionName,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                    ),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    _choosingCollection
+                        ? context.l10n.chooseACollection
+                        : context.l10n.processingLink,
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: colors.onSurfaceVariant,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: ExpressiveLoadingIndicator(
-                    size: 16,
-                    color: colors.primary,
+            ] else ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    outcome.saved
+                        ? Icons.check_circle_rounded
+                        : Icons.error_outline_rounded,
+                    color: outcome.saved ? colors.primary : colors.error,
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  _choosingCollection
-                      ? context.l10n.chooseACollection
-                      : context.l10n.processingLink,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _outcomeTitle(context, outcome),
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        if (_outcomeDetail(context, outcome)
+                            case final detail?) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            detail,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:math' show Random;
@@ -14,7 +15,11 @@ import 'notification_action_handler.dart';
 /// terminated. Must be top-level and vm:entry-point so the plugin can find it.
 @pragma('vm:entry-point')
 void notificationBackgroundResponse(NotificationResponse response) {
-  NotificationActionHandler.handleIfAction(response);
+  unawaited(() async {
+    await NotificationActionHandler.handleIfAction(response);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    await DigestNotifications.reconcileGroupSummary();
+  }());
 }
 
 /// Notification types used for copy generation and routing.
@@ -66,8 +71,10 @@ class DigestNotifications {
       onDidReceiveNotificationResponse: (details) async {
         // Action buttons (Done / Later) mutate intent without routing; a plain
         // body tap falls through to open the app.
-        if (await NotificationActionHandler.handleIfAction(details)) return;
-        onOpenNotification(details.payload);
+        final handled = await NotificationActionHandler.handleIfAction(details);
+        if (!handled) onOpenNotification(details.payload);
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        await reconcileGroupSummary();
       },
       onDidReceiveBackgroundNotificationResponse:
           notificationBackgroundResponse,
@@ -121,14 +128,33 @@ class DigestNotifications {
     );
   }
 
+  static Future<bool> areNotificationsEnabled() async {
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (androidPlugin == null) return false;
+    try {
+      return await androidPlugin.areNotificationsEnabled() ?? false;
+    } on PlatformException catch (error, stackTrace) {
+      developer.log(
+        'Could not read notification permission state.',
+        name: 'DigestNotifications',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
+  }
+
   /// Generates a unique notification ID that fits inside Android's 32-bit
   /// signed int. `DateTime.now().millisecondsSinceEpoch` overflows that range,
   /// which silently suppresses notifications on some Android versions.
   static int _uniqueNotifId() {
-    // Mix timestamp + random so collisions are extremely unlikely.
-    final ts = DateTime.now().millisecondsSinceEpoch % 0x7FFFFFFF;
+    // Keep random curated ids below the reserved save-status namespace.
+    final ts = DateTime.now().millisecondsSinceEpoch % 0x1FFFFFFF;
     final salt = _rnd.nextInt(0xFFFF);
-    return (ts ^ salt).abs();
+    return ((ts ^ salt) & 0x1FFFFFFF) + 1;
   }
 
   /// [payloadJson] must be the full serialized notification payload (type, linkIds, title, …).
@@ -143,8 +169,9 @@ class DigestNotifications {
     bool persistInHistory = false,
     String? historyType,
     String? historySignature,
+    int? notificationId,
   }) async {
-    final notifId = _uniqueNotifId();
+    final notifId = notificationId ?? _uniqueNotifId();
     final l10n = await loadBackgroundLocalizations();
     final payload = _decodePayload(payloadJson);
     final logicalNotifId = payload['notifId']?.toString() ?? 'notif_$notifId';
@@ -298,7 +325,7 @@ class DigestNotifications {
       }
     }
 
-    if (snapshot == null || snapshot.count == 0) {
+    if (snapshot == null) {
       final history = await DigestPrefs.loadHistory();
       final entries = history
           .where((entry) => entry['notifId'] != null && entry['read'] != true)
@@ -316,8 +343,10 @@ class DigestNotifications {
 
     final count = snapshot.count;
 
-    // No need for a summary when there are no notifications.
-    if (count == 0) return;
+    if (count == 0) {
+      await _cancelGroupSummary();
+      return;
+    }
 
     // For a single notification, Android shows it directly; a summary
     // is unnecessary and can actually suppress the child on some devices.
@@ -370,4 +399,6 @@ class DigestNotifications {
       );
     }
   }
+
+  static Future<void> reconcileGroupSummary() => _updateGroupSummary();
 }

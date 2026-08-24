@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:workmanager/workmanager.dart';
 
 import 'app.dart';
 import 'digest_callback.dart';
@@ -16,9 +15,11 @@ import 'core/providers/service_providers.dart';
 import 'features/onboarding/onboarding_bootstrap.dart';
 import 'core/services/ai/app_attestation_service.dart';
 import 'core/services/ai_proxy_config.dart';
+import 'core/services/background_work_manager.dart';
 import 'core/services/digest_scheduler.dart';
 import 'core/services/subscription_service.dart';
 import 'core/services/supabase_auth_service.dart';
+import 'core/services/url_enrichment_job.dart';
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +43,16 @@ void main() async {
   );
 
   final hasSeenOnboarding = await onboardingFuture;
+
+  unawaited(
+    BackgroundWorkManager.initialize(digestCallbackDispatcher).catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      debugPrint('[Startup] WorkManager initialization failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }),
+  );
 
   runApp(
     ProviderScope(
@@ -84,10 +95,11 @@ Future<void> _initializeDeferredServices() async {
 
   await Future<void>.delayed(const Duration(milliseconds: 750));
   await _runWhenUiIsIdle('background scheduling', () async {
-    await Workmanager().initialize(digestCallbackDispatcher);
+    await BackgroundWorkManager.ready;
     await Future.wait([
       DigestScheduler.ensureScheduled(),
       BackupScheduler.ensureScheduled(),
+      UrlEnrichmentScheduler.recoverPending(IsarService()),
     ]);
   });
 }
