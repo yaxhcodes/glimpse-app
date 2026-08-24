@@ -249,7 +249,7 @@ class _CollectionListCardState extends State<CollectionListCard> {
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOutCubic,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Material(
             color: widget.isSelected
                 ? selectedFill
@@ -284,7 +284,7 @@ class _CollectionListCardState extends State<CollectionListCard> {
               splashColor: cs.primary.withValues(alpha: 0.08),
               highlightColor: cs.primary.withValues(alpha: 0.05),
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

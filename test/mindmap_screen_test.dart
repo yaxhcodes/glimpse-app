@@ -105,11 +105,11 @@ void main() {
       interestsTitle.style?.fontSize,
       Theme.of(titleContext).textTheme.titleLarge?.fontSize,
     );
-    expect(tester.getTopLeft(find.text('Interests')).dx, closeTo(20, 0.1));
-    expect(tester.getTopLeft(find.text('Top signal')).dx, closeTo(20, 0.1));
+    expect(tester.getTopLeft(find.text('Interests')).dx, closeTo(16, 0.1));
+    expect(tester.getTopLeft(find.text('Top signal')).dx, closeTo(16, 0.1));
     expect(
       tester.getTopLeft(find.byType(ClusterCard).first).dx,
-      closeTo(20, 0.1),
+      closeTo(16, 0.1),
     );
 
     tester.view.physicalSize = const Size(1000, 900);

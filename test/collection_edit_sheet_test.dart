@@ -8,6 +8,41 @@ import 'package:glimpse/features/collections/collection_visual.dart';
 import 'package:glimpse/features/collections/create_collection_sheet.dart';
 
 void main() {
+  testWidgets('collection icons are borderless outside selected states', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Row(
+          children: [
+            CollectionVisual(
+              key: ValueKey('standard-visual'),
+              style: CollectionVisualStyle.food,
+            ),
+            CollectionVisual(
+              key: ValueKey('selected-visual'),
+              style: CollectionVisualStyle.food,
+              selected: true,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    BoxDecoration decorationFor(String key) {
+      final container = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      return container.decoration! as BoxDecoration;
+    }
+
+    expect(decorationFor('standard-visual').border, isNull);
+    expect(decorationFor('selected-visual').border, isNotNull);
+  });
+
   testWidgets('edit preserves membership and updates collection metadata', (
     tester,
   ) async {

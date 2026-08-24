@@ -80,7 +80,7 @@ class InterestMapView extends StatelessWidget {
 
     final horizontalPadding = AppLayout.pageHorizontalPadding(
       MediaQuery.sizeOf(context).width,
-      compactPadding: 20,
+      compactPadding: 16,
     );
     final heroCluster = clusters.first;
     final mediumEnd = clusters.length < 5 ? clusters.length : 5;
@@ -109,7 +109,7 @@ class InterestMapView extends StatelessWidget {
                 onTap: () => onClusterTap(heroCluster),
               ),
               if (medium.isNotEmpty) ...[
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 _SectionEyebrow(context.l10n.growingInterests),
               ],
             ]),
@@ -126,7 +126,7 @@ class InterestMapView extends StatelessWidget {
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
               horizontalPadding,
-              28,
+              24,
               horizontalPadding,
               0,
             ),
@@ -805,7 +805,7 @@ class MindmapScreen extends ConsumerWidget {
     final themesAsync = ref.watch(interestClusterThemesProvider);
     final horizontalPadding = AppLayout.pageHorizontalPadding(
       MediaQuery.sizeOf(context).width,
-      compactPadding: 20,
+      compactPadding: 16,
     );
     final usesRail = AppLayout.usesNavigationRail(
       MediaQuery.sizeOf(context).width,

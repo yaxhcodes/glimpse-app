@@ -716,10 +716,7 @@ class CollectionVisual extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.secondaryContainer,
           borderRadius: BorderRadius.circular(size * 0.28),
-          border: Border.all(
-            color: selected ? cs.primary : cs.outlineVariant,
-            width: selected ? 1.1 : 0.8,
-          ),
+          border: selected ? Border.all(color: cs.primary, width: 1.1) : null,
           boxShadow: selected
               ? [
                   BoxShadow(

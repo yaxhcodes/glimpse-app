@@ -29,6 +29,7 @@ class SwipeableUrlCard extends ConsumerWidget {
     this.isSelected = false,
     this.onSelectionStart,
     this.onSelectionToggle,
+    this.contentPadding = const EdgeInsets.all(12),
   });
 
   final SavedUrl url;
@@ -47,6 +48,7 @@ class SwipeableUrlCard extends ConsumerWidget {
   final bool isSelected;
   final VoidCallback? onSelectionStart;
   final VoidCallback? onSelectionToggle;
+  final EdgeInsetsGeometry contentPadding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -63,6 +65,7 @@ class SwipeableUrlCard extends ConsumerWidget {
       onSelectionTap: onSelectionToggle,
       onLongPress: selectionMode ? onSelectionToggle : onSelectionStart,
       onTap: onTap,
+      contentPadding: contentPadding,
     );
 
     if (selectionMode) return card;

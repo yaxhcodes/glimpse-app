@@ -927,7 +927,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 for (final section in sections) ...[
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
                       child: Text(
                         section.label,
                         style: theme.textTheme.labelLarge?.copyWith(
@@ -944,6 +944,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       return SwipeableUrlCard(
                         key: ValueKey(url.id),
                         url: url,
+                        contentPadding: const EdgeInsets.all(10),
                         selectionMode: selectionState.isActive,
                         isSelected: selectionState.isSelected(url.id),
                         onSelectionStart: () =>

@@ -33,6 +33,7 @@ class UrlCard extends ConsumerStatefulWidget {
   final bool selectionMode;
   final bool isSelected;
   final Map<String, int>? tagFrequency;
+  final EdgeInsetsGeometry contentPadding;
 
   const UrlCard({
     super.key,
@@ -44,6 +45,7 @@ class UrlCard extends ConsumerStatefulWidget {
     this.selectionMode = false,
     this.isSelected = false,
     this.tagFrequency,
+    this.contentPadding = const EdgeInsets.all(12),
   });
 
   /// Relative time for the source · time row (shared with other link cards).
@@ -191,7 +193,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               }
             },
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: widget.contentPadding,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

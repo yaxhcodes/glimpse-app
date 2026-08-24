@@ -65,7 +65,7 @@ class RediscoverySection extends ConsumerWidget {
         : memories.length.clamp(0, 3);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
