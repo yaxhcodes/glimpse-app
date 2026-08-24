@@ -157,6 +157,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         if (!mounted || request == null) return;
         _runQuery(request.query);
         _clearConsumedShellQueryRequest(request);
+        _searchFocus.requestFocus();
       });
     }
   }

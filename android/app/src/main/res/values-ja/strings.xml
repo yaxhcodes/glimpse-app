@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_capture_short">保存</string>
+    <string name="shortcut_capture_long">リンクを保存</string>
+    <string name="shortcut_search_short">検索</string>
+    <string name="shortcut_search_long">ライブラリを検索</string>
+    <string name="shortcut_ask_short">質問</string>
+    <string name="shortcut_ask_long">Glimpseに質問</string>
+    <string name="shortcut_rediscover_short">再発見</string>
+    <string name="shortcut_rediscover_long">再発見を開く</string>
+</resources>

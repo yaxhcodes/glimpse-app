@@ -23,6 +23,9 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <meta-data
+              android:name="android.app.shortcuts"
+              android:resource="@xml/shortcuts" />
             <!-- Glimpse handles incoming ACTION_VIEW intents (e.g. opening
                  a backup file from a file manager) entirely via the
                  `com.shinrinyoku.glimpse/backup_intent` MethodChannel

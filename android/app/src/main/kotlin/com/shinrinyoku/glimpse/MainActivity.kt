@@ -33,9 +33,12 @@ import java.io.File
  *                                 the app is already running.
  */
 class MainActivity : FlutterFragmentActivity() {
-    private val channelName = "com.shinrinyoku.glimpse/backup_intent"
-    private var methodChannel: MethodChannel? = null
+    private val backupChannelName = "com.shinrinyoku.glimpse/backup_intent"
+    private val shortcutChannelName = "com.shinrinyoku.glimpse/app_shortcut"
+    private var backupMethodChannel: MethodChannel? = null
+    private var shortcutMethodChannel: MethodChannel? = null
     private var pendingBackupPath: String? = null
+    private var pendingShortcut: String? = null
     private var stableIdBridge: StableIdBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,9 +60,9 @@ class MainActivity : FlutterFragmentActivity() {
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
 
-        methodChannel = MethodChannel(
+        backupMethodChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
-            channelName,
+            backupChannelName,
         ).also { ch ->
             ch.setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -87,8 +90,24 @@ class MainActivity : FlutterFragmentActivity() {
         // side can react without an explicit poll. This is mainly defensive
         // — `getInitialBackupFile()` covers the same case.
         pendingBackupPath?.let { path ->
-            methodChannel?.invokeMethod("onBackupFile", path)
+            backupMethodChannel?.invokeMethod("onBackupFile", path)
             pendingBackupPath = null
+        }
+
+        shortcutMethodChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            shortcutChannelName,
+        ).also { ch ->
+            ch.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getInitialAppShortcut" -> {
+                        val shortcut = pendingShortcut ?: consumeShortcutFromIntent(intent)
+                        pendingShortcut = null
+                        result.success(shortcut)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         }
     }
 
@@ -138,14 +157,41 @@ class MainActivity : FlutterFragmentActivity() {
         // freshly started.
         setIntent(intent)
 
+        val shortcut = consumeShortcutFromIntent(intent)
+        if (shortcut != null) {
+            val ch = shortcutMethodChannel
+            if (ch != null) {
+                ch.invokeMethod("onAppShortcut", shortcut)
+            } else {
+                pendingShortcut = shortcut
+            }
+            return
+        }
+
         val path = consumeBackupFromIntent(intent) ?: return
-        val ch = methodChannel
+        val ch = backupMethodChannel
         if (ch != null) {
             ch.invokeMethod("onBackupFile", path)
         } else {
             // Engine hasn't connected yet — queue for getInitialBackupFile().
             pendingBackupPath = path
         }
+    }
+
+    private fun consumeShortcutFromIntent(intent: Intent?): String? {
+        if (intent == null) return null
+        val shortcut = when (intent.action) {
+            ACTION_CAPTURE -> SHORTCUT_CAPTURE
+            ACTION_SEARCH -> SHORTCUT_SEARCH
+            ACTION_ASK -> SHORTCUT_ASK
+            ACTION_REDISCOVER -> SHORTCUT_REDISCOVER
+            else -> null
+        } ?: return null
+
+        // The activity is singleTask. Consume the custom action so an engine
+        // reattachment or a later resume cannot replay the same shortcut.
+        intent.action = Intent.ACTION_MAIN
+        return shortcut
     }
 
     /**
@@ -238,5 +284,17 @@ class MainActivity : FlutterFragmentActivity() {
         } catch (t: Throwable) {
             null
         }
+    }
+
+    private companion object {
+        const val ACTION_CAPTURE = "com.shinrinyoku.glimpse.action.CAPTURE"
+        const val ACTION_SEARCH = "com.shinrinyoku.glimpse.action.SEARCH"
+        const val ACTION_ASK = "com.shinrinyoku.glimpse.action.ASK"
+        const val ACTION_REDISCOVER = "com.shinrinyoku.glimpse.action.REDISCOVER"
+
+        const val SHORTCUT_CAPTURE = "capture"
+        const val SHORTCUT_SEARCH = "search"
+        const val SHORTCUT_ASK = "ask"
+        const val SHORTCUT_REDISCOVER = "rediscover"
     }
 }

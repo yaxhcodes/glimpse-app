@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Glimpse</string>
+    <string name="shortcut_capture_short">Capture</string>
+    <string name="shortcut_capture_long">Capture a link</string>
+    <string name="shortcut_search_short">Search</string>
+    <string name="shortcut_search_long">Search your library</string>
+    <string name="shortcut_ask_short">Ask Glimpse</string>
+    <string name="shortcut_ask_long">Ask Glimpse</string>
+    <string name="shortcut_rediscover_short">Rediscover</string>
+    <string name="shortcut_rediscover_long">Open Rediscover</string>
 </resources>

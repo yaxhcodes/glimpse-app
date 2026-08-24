@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_capture_short">Salvar</string>
+    <string name="shortcut_capture_long">Salvar um link</string>
+    <string name="shortcut_search_short">Buscar</string>
+    <string name="shortcut_search_long">Buscar na sua biblioteca</string>
+    <string name="shortcut_ask_short">Perguntar</string>
+    <string name="shortcut_ask_long">Perguntar ao Glimpse</string>
+    <string name="shortcut_rediscover_short">Redescobrir</string>
+    <string name="shortcut_rediscover_long">Abrir Redescobrir</string>
+</resources>

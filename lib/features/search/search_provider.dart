@@ -29,6 +29,8 @@ final searchShellRefocusProvider = StateProvider<int>((ref) => 0);
 class SearchShellQueryRequest {
   const SearchShellQueryRequest({required this.query, required this.revision});
 
+  const SearchShellQueryRequest.focus({required this.revision}) : query = '';
+
   final String query;
   final int revision;
 }

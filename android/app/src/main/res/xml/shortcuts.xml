@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="capture"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_capture"
+        android:shortcutShortLabel="@string/shortcut_capture_short"
+        android:shortcutLongLabel="@string/shortcut_capture_long">
+        <intent
+            android:action="com.shinrinyoku.glimpse.action.CAPTURE"
+            android:targetPackage="com.shinrinyoku.glimpse"
+            android:targetClass="com.shinrinyoku.glimpse.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="search"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search_short"
+        android:shortcutLongLabel="@string/shortcut_search_long">
+        <intent
+            android:action="com.shinrinyoku.glimpse.action.SEARCH"
+            android:targetPackage="com.shinrinyoku.glimpse"
+            android:targetClass="com.shinrinyoku.glimpse.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="ask"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_ask"
+        android:shortcutShortLabel="@string/shortcut_ask_short"
+        android:shortcutLongLabel="@string/shortcut_ask_long">
+        <intent
+            android:action="com.shinrinyoku.glimpse.action.ASK"
+            android:targetPackage="com.shinrinyoku.glimpse"
+            android:targetClass="com.shinrinyoku.glimpse.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="rediscover"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_rediscover"
+        android:shortcutShortLabel="@string/shortcut_rediscover_short"
+        android:shortcutLongLabel="@string/shortcut_rediscover_long">
+        <intent
+            android:action="com.shinrinyoku.glimpse.action.REDISCOVER"
+            android:targetPackage="com.shinrinyoku.glimpse"
+            android:targetClass="com.shinrinyoku.glimpse.MainActivity" />
+    </shortcut>
+</shortcuts>

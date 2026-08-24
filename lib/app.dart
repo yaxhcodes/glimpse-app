@@ -21,6 +21,7 @@ import 'features/home/guide_detail_screen.dart';
 import 'core/services/backup/backup_intent_service.dart';
 import 'core/services/backup/backup_models.dart';
 import 'core/services/app_update_service.dart';
+import 'core/services/app_shortcut_service.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/notification_router.dart';
 import 'core/services/tag_analyzer.dart';
@@ -51,6 +52,7 @@ import 'features/digest/digest_screen.dart';
 import 'features/digest/notification_detail_screen.dart';
 import 'features/digest/notifications_screen.dart';
 import 'features/search/search_screen.dart';
+import 'features/search/search_provider.dart';
 import 'features/url_detail/url_detail_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/bin_screen.dart';
@@ -259,6 +261,7 @@ final _router = GoRouter(
         return AskScreen(
           initialSource: request?.source ?? (extra is SavedUrl ? extra : null),
           initialPrompt: request?.initialPrompt,
+          autofocus: request?.autofocus ?? false,
         );
       },
     ),
@@ -349,8 +352,10 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     with WidgetsBindingObserver {
   late StreamSubscription _shareIntentSub;
   StreamSubscription<String>? _backupIntentSub;
+  StreamSubscription<AppShortcutAction>? _appShortcutSub;
   StreamSubscription<void>? _appUpdateReadySub;
   final BackupIntentService _backupIntentService = BackupIntentService();
+  final AppShortcutService _appShortcutService = AppShortcutService();
   Timer? _analyticsStartupTimer;
   Timer? _maintenanceStartupTimer;
   Timer? _appUpdateStartupTimer;
@@ -358,6 +363,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   bool _processingSharedUrls = false;
   bool _hasCompletedInitialResume = false;
   String? _lastTrackedLocation;
+  ({AppShortcutAction action, int revision})? _pendingAppShortcut;
+  int _appShortcutRevision = 0;
+  bool _appShortcutNavigationScheduled = false;
 
   @override
   void initState() {
@@ -386,6 +394,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     // Backup files opened via "Open with..." from a file manager.
     _backupIntentSub = _backupIntentService.incoming.listen(_handleBackupFile);
     unawaited(_backupIntentService.start());
+
+    _appShortcutSub = _appShortcutService.incoming.listen(_handleAppShortcut);
+    unawaited(_appShortcutService.start());
 
     final appUpdateService = ref.read(appUpdateServiceProvider);
     _appUpdateReadySub = appUpdateService.flexibleUpdateReady.listen((_) {
@@ -475,6 +486,53 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       } else if (state.status == BackupStatus.error && state.error != null) {
         _showBackupOpenError(state.error!.message);
         ref.read(backupProvider.notifier).reset();
+      }
+    });
+  }
+
+  void _handleAppShortcut(AppShortcutAction action) {
+    _pendingAppShortcut = (action: action, revision: ++_appShortcutRevision);
+    _schedulePendingAppShortcut();
+  }
+
+  void _schedulePendingAppShortcut() {
+    if (_appShortcutNavigationScheduled) return;
+    _appShortcutNavigationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _appShortcutNavigationScheduled = false;
+      _openPendingAppShortcut();
+    });
+  }
+
+  void _openPendingAppShortcut() {
+    final request = _pendingAppShortcut;
+    if (!mounted || request == null) return;
+    if (!ref.read(hasSeenOnboardingProvider)) return;
+    if (ref.read(authControllerProvider).valueOrNull == null) return;
+
+    _pendingAppShortcut = null;
+    if (request.action == AppShortcutAction.search) {
+      ref.read(searchShellQueryRequestProvider.notifier).state =
+          SearchShellQueryRequest.focus(revision: request.revision);
+      _router.go('/');
+      return;
+    }
+
+    _router.go('/');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || request.revision != _appShortcutRevision) return;
+      switch (request.action) {
+        case AppShortcutAction.capture:
+          _router.push('/add');
+          break;
+        case AppShortcutAction.ask:
+          _router.push('/ask', extra: const AskLaunchRequest(autofocus: true));
+          break;
+        case AppShortcutAction.rediscover:
+          _router.push('/rediscover');
+          break;
+        case AppShortcutAction.search:
+          break;
       }
     });
   }
@@ -678,11 +736,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     _router.routerDelegate.removeListener(_trackRouteOpen);
     _shareIntentSub.cancel();
     _backupIntentSub?.cancel();
+    _appShortcutSub?.cancel();
     _appUpdateReadySub?.cancel();
     _analyticsStartupTimer?.cancel();
     _maintenanceStartupTimer?.cancel();
     _appUpdateStartupTimer?.cancel();
     unawaited(_backupIntentService.dispose());
+    unawaited(_appShortcutService.dispose());
     super.dispose();
   }
 
@@ -747,6 +807,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           unawaited(_handleSharedUrls(pendingSharedUrls));
         });
       }
+      if (next.valueOrNull != null && _pendingAppShortcut != null) {
+        _schedulePendingAppShortcut();
+      }
       if (!wasSignedIn || !isSignedOut) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -754,6 +817,11 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           _router.go('/');
         }
       });
+    });
+    ref.listen<bool>(hasSeenOnboardingProvider, (previous, next) {
+      if (next && _pendingAppShortcut != null) {
+        _schedulePendingAppShortcut();
+      }
     });
 
     final themeMode = ref.watch(themeModeProvider);

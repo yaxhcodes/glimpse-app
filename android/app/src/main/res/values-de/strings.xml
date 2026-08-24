@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_capture_short">Speichern</string>
+    <string name="shortcut_capture_long">Link speichern</string>
+    <string name="shortcut_search_short">Suchen</string>
+    <string name="shortcut_search_long">Bibliothek durchsuchen</string>
+    <string name="shortcut_ask_short">Fragen</string>
+    <string name="shortcut_ask_long">Glimpse fragen</string>
+    <string name="shortcut_rediscover_short">Entdecken</string>
+    <string name="shortcut_rediscover_long">Wiederentdecken öffnen</string>
+</resources>

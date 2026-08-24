@@ -53,11 +53,13 @@ class AskScreen extends ConsumerStatefulWidget {
     this.embedded = false,
     this.initialSource,
     this.initialPrompt,
+    this.autofocus = false,
   });
 
   final bool embedded;
   final SavedUrl? initialSource;
   final String? initialPrompt;
+  final bool autofocus;
 
   @override
   ConsumerState<AskScreen> createState() => _AskScreenState();
@@ -79,7 +81,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   void initState() {
     super.initState();
     _attachedSource = widget.initialSource;
-    if (widget.initialSource != null ||
+    if (widget.autofocus ||
+        widget.initialSource != null ||
         widget.initialPrompt?.trim().isNotEmpty == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _clearedForInitialSource) return;
