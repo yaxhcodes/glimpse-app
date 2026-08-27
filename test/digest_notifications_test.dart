@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/services/digest_notifications.dart';
 import 'package:glimpse/core/services/digest_prefs.dart';
@@ -8,6 +9,18 @@ import 'package:glimpse/core/services/url_save_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  const notificationsChannel = MethodChannel(
+    'dexterous.com/flutter/local_notifications',
+  );
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+  tearDown(() {
+    messenger.setMockMethodCallHandler(notificationsChannel, null);
+  });
+
   group('notification group summary', () {
     test('save status notification ids are stable and non-summary', () {
       final first = UrlSaveNotifications.notificationIdForSavedUrl(42);
@@ -48,6 +61,46 @@ void main() {
         expect(snapshot.count, 7);
         expect(snapshot.titles, hasLength(7));
         expect(snapshot.titles.last, 'Notification 7');
+      },
+    );
+
+    test(
+      'foreground reconciliation does not alert the summary again',
+      () async {
+        SharedPreferences.setMockInitialValues({'glimpse_app_language': 'en'});
+        MethodCall? showCall;
+        messenger.setMockMethodCallHandler(notificationsChannel, (call) async {
+          if (call.method == 'getActiveNotifications') {
+            return <Map<String, Object?>>[
+              {
+                'id': 1,
+                'channelId': 'glimpse_notifications',
+                'groupKey': 'glimpse_notifications',
+                'title': 'First notification',
+              },
+              {
+                'id': 2,
+                'channelId': 'glimpse_notifications',
+                'groupKey': 'glimpse_notifications',
+                'title': 'Second notification',
+              },
+            ];
+          }
+          if (call.method == 'show') showCall = call;
+          return null;
+        });
+
+        await DigestNotifications.reconcileGroupSummary();
+
+        expect(showCall, isNotNull);
+        final arguments = Map<Object?, Object?>.from(
+          showCall!.arguments as Map,
+        );
+        expect(arguments['id'], 0);
+        final platformSpecifics = Map<Object?, Object?>.from(
+          arguments['platformSpecifics']! as Map,
+        );
+        expect(platformSpecifics['onlyAlertOnce'], isTrue);
       },
     );
   });

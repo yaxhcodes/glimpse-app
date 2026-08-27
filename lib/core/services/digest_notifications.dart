@@ -369,6 +369,9 @@ class DigestNotifications {
       priority: Priority.high,
       groupKey: _groupKey,
       setAsGroupSummary: true,
+      // Foreground reconciliation republishes this fixed notification ID.
+      // Keep its content current without making Android alert again.
+      onlyAlertOnce: true,
       styleInformation: InboxStyleInformation(
         titles,
         contentTitle: 'Glimpse',
