@@ -91,6 +91,21 @@ void main() {
     expect(await usage.getRemaining(UsageFeature.aiSave, true), 499);
   });
 
+  test('dev Pro simulation ignores a polluted production Pro mirror', () async {
+    SharedPreferences.setMockInitialValues({
+      'usage_last_reset': DateTime.now().toUtc().toIso8601String(),
+      'usage_pro_aiSave_count': 30,
+    });
+    final usage = UsageService(useDevProAiSaveCounter: true);
+
+    expect(await usage.getUsage(UsageFeature.aiSave, isPro: true), 0);
+
+    await usage.incrementUsage(UsageFeature.aiSave, isPro: true);
+
+    expect(await usage.getUsage(UsageFeature.aiSave, isPro: true), 1);
+    expect(await UsageService().getUsage(UsageFeature.aiSave, isPro: true), 30);
+  });
+
   test('month reset retains free lifetime AI usage', () async {
     final previousMonth = DateTime.utc(2025, 12, 1);
     SharedPreferences.setMockInitialValues({

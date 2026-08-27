@@ -1,16 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/app_environment.dart';
 import '../../core/services/ai_quota_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/usage_service.dart';
 
 /// Provider for the [UsageService] singleton.
 ///
-/// Wired with [AiQuotaService] so costly features (AI saves) are gated by the
+/// Wired with [AiQuotaService] so production AI saves are gated by the
 /// worker's server-side plan quota, which survives reinstall.
-final usageServiceProvider = Provider<UsageService>(
-  (ref) => UsageService(aiQuota: AiQuotaService.instance),
-);
+///
+/// A dev build with effective Pro access uses the separate local Pro counter.
+/// RevenueCat correctly reports the developer account's real plan, so asking
+/// the worker for its verified plan while Force Pro is active would otherwise
+/// make the simulation inherit an exhausted Free allowance.
+final usageServiceProvider = Provider<UsageService>((ref) {
+  final useLocalDevProQuota =
+      AppEnvironment.isDevContext && ref.watch(isProUserProvider);
+  return UsageService(
+    aiQuota: useLocalDevProQuota ? null : AiQuotaService.instance,
+    useDevProAiSaveCounter: useLocalDevProQuota,
+  );
+});
 
 /// Bumped after every increment so [usageProvider] / [remainingUsageProvider]
 /// / [limitReachedProvider] rebuild reactively.

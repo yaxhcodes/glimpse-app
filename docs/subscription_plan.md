@@ -40,7 +40,7 @@ they are not marketed as additional plan benefits.
    Store Connect.
 2. Attach both products to the RevenueCat offering and the exact entitlement
    identifier `Glimpse Pro`.
-3. Add the RevenueCat v1 secret API key to the proxy Worker:
-   `npx wrangler secret put REVENUECAT_V1_SECRET_API_KEY`.
+3. Add the RevenueCat Android public SDK key to the proxy Worker:
+   `npx wrangler secret put REVENUECAT_ANDROID_API_KEY`.
 4. Verify a free customer receives the lifetime-30 allowance and a subscribed
    customer receives the monthly-500 allowance before deploying the new app.

@@ -39,9 +39,12 @@ class UsageLimitReachedException implements Exception {
 /// back to the local counter — safe, because AI work also needs the worker, so
 /// an unreachable worker means no cost is incurred either way.
 class UsageService {
-  UsageService({AiQuotaService? aiQuota}) : _aiQuota = aiQuota;
+  UsageService({AiQuotaService? aiQuota, bool useDevProAiSaveCounter = false})
+    : _aiQuota = aiQuota,
+      _useDevProAiSaveCounter = useDevProAiSaveCounter;
 
   final AiQuotaService? _aiQuota;
+  final bool _useDevProAiSaveCounter;
 
   static const String _prefix = 'usage_';
   static const String _countSuffix = '_count';
@@ -49,9 +52,15 @@ class UsageService {
   static const String _deviceScopeMigrationPrefix =
       '${_prefix}device_scope_v3_';
   static const String _proAiSaveCountKey = '${_prefix}pro_aiSave$_countSuffix';
+  static const String _devProAiSaveCountKey =
+      '${_prefix}dev_pro_aiSave$_countSuffix';
 
   String _countKey(UsageFeature feature, {required bool isPro}) {
-    if (isPro && feature == UsageFeature.aiSave) return _proAiSaveCountKey;
+    if (isPro && feature == UsageFeature.aiSave) {
+      return _useDevProAiSaveCounter
+          ? _devProAiSaveCountKey
+          : _proAiSaveCountKey;
+    }
     return '$_prefix${feature.name}$_countSuffix';
   }
 
@@ -118,6 +127,7 @@ class UsageService {
       await prefs.remove(_countKey(UsageFeature.ask, isPro: false));
       await prefs.remove(_countKey(UsageFeature.search, isPro: false));
       await prefs.remove(_proAiSaveCountKey);
+      await prefs.remove(_devProAiSaveCountKey);
       await prefs.setString(_lastResetKey, now.toIso8601String());
       developer.log(
         'Usage counters reset for new month (${now.year}-${now.month.toString().padLeft(2, '0')})',
@@ -263,6 +273,7 @@ class UsageService {
       await prefs.remove(_deviceScopeMigrationKey(feature, true));
     }
     await prefs.remove(_proAiSaveCountKey);
+    await prefs.remove(_devProAiSaveCountKey);
     await prefs.setString(
       _lastResetKey,
       DateTime.now().toUtc().toIso8601String(),
