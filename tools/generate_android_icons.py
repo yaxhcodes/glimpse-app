@@ -2,8 +2,9 @@
 Generate platform icon assets for Glimpse from source artwork.
 
 Inputs (relative to project root):
-    assets/glimpse.png   -> RGBA app icon source (will be cropped to bbox)
-    assets/mono.svg      -> monochrome notification icon source
+    assets/glimpse.png             -> RGBA app icon source
+    assets/glimpse_monochrome.png  -> transparent Material You icon source
+    assets/mono.svg                -> monochrome notification icon source
 
 Outputs (relative to project root):
     generated_icons/res/...   -> a self-contained Android res/ folder ready to drop
@@ -15,16 +16,14 @@ The script does not modify the source pixels other than:
     - resizing (high-quality LANCZOS) to target densities
 No background removal or recoloring. Launcher artwork is scaled with enough
 transparent margin to sit naturally beside other Android adaptive icons.
-The themed launcher icon uses the same artwork placement as the adaptive
-foreground, but converts visible character pixels into a white alpha mask for
-Android 13+ Material You launcher tinting. Light eye fill and very dark pupil
-detail are cut out so the themed icon keeps the app mark's eye detail.
+The themed launcher icon uses a dedicated transparent monochrome source whose
+alpha channel defines the exact eye, beak, and ribbon cutouts for dynamic tint.
 """
 
 from __future__ import annotations
 
-import os
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -51,6 +50,7 @@ IOS_APPICONSET = (
 )
 
 GLIMPSE_PNG = ASSETS_DIR / "glimpse.png"
+GLIMPSE_MONOCHROME_PNG = ASSETS_DIR / "glimpse_monochrome.png"
 MONO_SVG = ASSETS_DIR / "mono.svg"
 
 LAUNCHER_BG_HEX = "#F5F4F0"
@@ -58,6 +58,7 @@ LAUNCHER_BG_HEX = "#F5F4F0"
 # Launcher artwork scale. Android adaptive icons reserve a central safe zone;
 # with visible-alpha cropping, 56% matches the production icon's optical size.
 LAUNCHER_ARTWORK_SCALE = 0.56
+THEMED_LAUNCHER_ARTWORK_SCALE = 0.58
 
 # Transparent exports can contain 1-alpha edge debris far outside the visible
 # artwork. Cropping to only perceptible alpha keeps the optical size correct.
@@ -189,49 +190,17 @@ def generate_launcher_icons(glimpse: Image.Image) -> None:
         )
 
 
-def is_light_cutout_pixel(red: int, green: int, blue: int) -> bool:
-    return min(red, green, blue) >= 220 and max(red, green, blue) - min(
-        red, green, blue
-    ) <= 48
-
-
-def is_eye_area_pixel(x: int, y: int, width: int, height: int) -> bool:
-    normalized_x = x / width
-    normalized_y = y / height
-    return 0.24 <= normalized_x <= 0.58 and 0.04 <= normalized_y <= 0.38
-
-
-def is_dark_eye_cutout_pixel(red: int, green: int, blue: int) -> bool:
-    return max(red, green, blue) <= 82 and max(red, green, blue) - min(
-        red, green, blue
-    ) <= 42
-
-
-def load_cropped_themed_launcher_mask(glimpse: Image.Image) -> Image.Image:
-    mask_alpha = Image.new("L", glimpse.size, 0)
-    src = glimpse.load()
-    dest = mask_alpha.load()
-    for y in range(glimpse.height):
-        for x in range(glimpse.width):
-            red, green, blue, alpha = src[x, y]
-            if (
-                alpha > 0
-                and not is_light_cutout_pixel(red, green, blue)
-                and not (
-                    is_eye_area_pixel(x, y, glimpse.width, glimpse.height)
-                    and is_dark_eye_cutout_pixel(red, green, blue)
-                )
-            ):
-                dest[x, y] = 255
-
-    mask = Image.new("RGBA", glimpse.size, (255, 255, 255, 0))
-    mask.putalpha(mask_alpha)
+def build_themed_launcher_mask() -> Image.Image:
+    source = Image.open(GLIMPSE_MONOCHROME_PNG).convert("RGBA")
+    alpha = source.getchannel("A")
+    mask = Image.new("RGBA", source.size, (255, 255, 255, 0))
+    mask.putalpha(alpha)
     bbox = mask.getbbox()
     if bbox is None:
-        raise RuntimeError("glimpse.png themed icon mask appears to be empty")
+        raise RuntimeError("glimpse_monochrome.png appears to be fully transparent")
     cropped = mask.crop(bbox)
     print(
-        f"  themed mask: source {glimpse.size}, cropped to bbox {bbox} -> "
+        f"  themed mask: source {mask.size}, cropped to bbox {bbox} -> "
         f"{cropped.size}"
     )
     return cropped
@@ -241,7 +210,7 @@ def generate_themed_launcher_icons(themed_mask: Image.Image) -> None:
     print("\n[2/7] Generating Material You themed launcher masks...")
     for density, size in ADAPTIVE_LAYER_DENSITIES.items():
         drawable_dir = OUT_RES / f"drawable-{density}"
-        themed = fit_centered(themed_mask, size, LAUNCHER_ARTWORK_SCALE)
+        themed = fit_centered(themed_mask, size, THEMED_LAUNCHER_ARTWORK_SCALE)
         themed.putalpha(themed.getchannel("A"))
         write_png(themed, drawable_dir / "ic_launcher_monochrome.png")
         print(f"  drawable-{density:<8} {size:>3}px -> ic_launcher_monochrome.png")
@@ -436,7 +405,7 @@ def main() -> None:
     OUT_RES.mkdir(parents=True, exist_ok=True)
 
     glimpse = load_cropped_glimpse()
-    themed_mask = load_cropped_themed_launcher_mask(glimpse)
+    themed_mask = build_themed_launcher_mask()
     generate_launcher_icons(glimpse)
     generate_themed_launcher_icons(themed_mask)
     generate_play_store_icon(glimpse)
