@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/database/isar_service.dart';
 import 'package:glimpse/core/models/saved_url.dart';
+import 'package:glimpse/core/providers/pinned_urls_provider.dart';
 import 'package:glimpse/core/providers/service_providers.dart';
 import 'package:glimpse/core/services/saved_notes_codec.dart';
 import 'package:glimpse/core/services/saved_notes_service.dart';
@@ -12,6 +13,7 @@ import 'package:glimpse/features/url_detail/url_detail_screen.dart';
 import 'package:glimpse/l10n/l10n.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
 import 'package:glimpse/shared/widgets/lightweight_markdown_text.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('Markdown previews remove model formatting markers', () {
@@ -241,6 +243,48 @@ Use **structured curation**.
     expect(find.widgetWithText(TextButton, 'Add your note'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.textContaining('## Ask Glimpse'), findsNothing);
+  });
+
+  testWidgets('detail overflow toggles the saved item pin', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final url = _savedUrl()..id = 12;
+    final database = _MemoryIsarService(url);
+    final container = ProviderContainer(
+      overrides: [
+        isarServiceProvider.overrideWithValue(database),
+        savedNotesServiceProvider.overrideWithValue(
+          SavedNotesService(database),
+        ),
+        urlDetailProvider(12).overrideWith((ref) async => database.url),
+        tagOccurrenceMapProvider.overrideWithValue(const {}),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: const UrlDetailScreen(urlId: 12),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Pin'), findsOneWidget);
+
+    await tester.tap(find.text('Pin'));
+    await tester.pump();
+    expect(container.read(pinnedUrlsProvider), contains(12));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Unpin'), findsOneWidget);
   });
 
   testWidgets('detail localizes note chrome and both saved-time formats', (

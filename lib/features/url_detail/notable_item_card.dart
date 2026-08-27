@@ -22,6 +22,15 @@ class NotableItemCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final itemType = item.type.toLowerCase();
+    final websiteUri = item.websiteUri;
+    if (itemType == 'website' && websiteUri != null) {
+      return _buildWebsiteCard(
+        uri: websiteUri,
+        theme: theme,
+        colorScheme: colorScheme,
+      );
+    }
+
     final isQuote = itemType == 'quote';
     final isClaim = itemType == 'claim';
     final attribution = item.attribution?.trim() ?? '';
@@ -113,6 +122,102 @@ class NotableItemCard extends StatelessWidget {
     );
   }
 
+  Widget _buildWebsiteCard({
+    required Uri uri,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final label = item.label?.trim() ?? '';
+    final host = uri.host.replaceFirst(RegExp(r'^www\.'), '');
+    final hasFriendlyLabel =
+        label.isNotEmpty &&
+        label != item.text &&
+        !label.contains('://') &&
+        !label.startsWith('www.');
+    final title = hasFriendlyLabel ? label : host;
+    final attribution = item.attribution?.trim() ?? '';
+    final why = item.whyImportant?.trim() ?? '';
+    final description = [
+      if (attribution.isNotEmpty && attribution != title) attribution,
+      if (why.isNotEmpty) why,
+    ].join(' · ');
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? 0 : 9),
+      child: Material(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.26),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(15, 14, 13, 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(Icons.language_rounded, size: 20, color: accent),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                        ),
+                      ),
+                      if (title != host) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          host,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                      if (description.isNotEmpty) ...[
+                        const SizedBox(height: 7),
+                        Text(
+                          description,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.open_in_new_rounded,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.58,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   IconData _iconFor(EnrichedNotableItem item) {
     final type = item.type.trim().toLowerCase();
     final label = item.label?.trim().toLowerCase() ?? '';
@@ -130,7 +235,8 @@ class NotableItemCard extends StatelessWidget {
       'term' => AppIcons.termMentioned,
       'quote' => Icons.format_quote_rounded,
       'claim' => Icons.lightbulb_outline_rounded,
-      'tool' || 'app' || 'website' => Icons.apps_rounded,
+      'website' => Icons.language_rounded,
+      'tool' || 'app' => Icons.apps_rounded,
       'product' => Icons.shopping_bag_outlined,
       _ => Icons.bookmark_border_rounded,
     };

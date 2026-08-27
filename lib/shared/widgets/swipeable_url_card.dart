@@ -11,6 +11,7 @@ import '../../core/services/title_resolver.dart';
 import '../../features/collections/add_to_collection_sheet.dart';
 import '../../features/collections/collections_provider.dart';
 import '../../features/home/home_provider.dart';
+import '../../l10n/l10n.dart';
 import 'app_snackbar.dart';
 import 'premium_swipe_card.dart';
 import 'url_card.dart';
@@ -95,7 +96,7 @@ class SwipeableUrlCard extends ConsumerWidget {
         showAddToCollectionSheet(context, url);
         return true;
       case SwipeActionType.pin:
-        return _togglePin(context, ref);
+        return togglePinnedUrl(context, ref, url, onViewPinned: onViewPinned);
       case SwipeActionType.toggleRead:
         await _toggleRead(context, ref);
         return true;
@@ -108,50 +109,6 @@ class SwipeableUrlCard extends ConsumerWidget {
       case SwipeActionType.none:
         return false;
     }
-  }
-
-  Future<bool> _togglePin(BuildContext context, WidgetRef ref) async {
-    final pins = ref.read(pinnedUrlsProvider);
-    final notifier = ref.read(pinnedUrlsProvider.notifier);
-    final messenger = ScaffoldMessenger.of(context);
-    final wasPinned = pins.contains(url.id);
-
-    if (wasPinned) {
-      await notifier.unpin(url.id);
-      if (context.mounted) {
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text('Unpinned'),
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 3),
-            ),
-          );
-      }
-      return true;
-    }
-
-    if (pins.length >= maxPinnedUrls) {
-      if (context.mounted) {
-        _showPinLimitSheet(context, ref, onViewPinned: onViewPinned);
-      }
-      return false;
-    }
-
-    await notifier.pin(url.id);
-    if (context.mounted) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('Pinned'),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
-        );
-    }
-    return true;
   }
 
   Future<void> _toggleRead(BuildContext context, WidgetRef ref) async {
@@ -189,6 +146,53 @@ class SwipeableUrlCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<bool> togglePinnedUrl(
+  BuildContext context,
+  WidgetRef ref,
+  SavedUrl url, {
+  VoidCallback? onViewPinned,
+}) async {
+  final pins = ref.read(pinnedUrlsProvider);
+  final notifier = ref.read(pinnedUrlsProvider.notifier);
+  final messenger = ScaffoldMessenger.of(context);
+  final wasPinned = pins.contains(url.id);
+
+  if (wasPinned) {
+    await notifier.unpin(url.id);
+    if (context.mounted) {
+      showAutoDismissSnackBarVia(
+        messenger,
+        SnackBar(
+          content: Text(context.l10n.unpin),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+    return true;
+  }
+
+  if (pins.length >= maxPinnedUrls) {
+    if (context.mounted) {
+      _showPinLimitSheet(context, ref, onViewPinned: onViewPinned);
+    }
+    return false;
+  }
+
+  await notifier.pin(url.id);
+  if (context.mounted) {
+    showAutoDismissSnackBarVia(
+      messenger,
+      SnackBar(
+        content: Text(context.l10n.pinned),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+  return true;
 }
 
 Future<void> deleteUrlWithUndo(

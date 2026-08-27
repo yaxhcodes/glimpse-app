@@ -11,6 +11,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/models/engagement_event.dart';
 import '../../core/models/music_provider.dart';
 import '../../core/providers/music_provider_preference_provider.dart';
+import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/category_resolver.dart';
@@ -40,7 +41,8 @@ import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../shared/widgets/music_provider_sheet.dart';
 import '../../shared/widgets/section_header.dart';
-import '../../shared/widgets/swipeable_url_card.dart' show deleteUrlWithUndo;
+import '../../shared/widgets/swipeable_url_card.dart'
+    show deleteUrlWithUndo, togglePinnedUrl;
 import '../../shared/widgets/tag_group.dart';
 import '../collections/add_to_collection_sheet.dart';
 import '../home/home_provider.dart';
@@ -112,38 +114,32 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
     final colorScheme = widget.colorScheme;
     final canExpand =
         note.body.length > 240 || '\n'.allMatches(note.body).length >= 5;
-    final accent = Color.alphaBlend(
-      colorScheme.primary.withValues(alpha: 0.42),
-      colorScheme.onSurfaceVariant,
-    );
+    final accent = colorScheme.primary;
     final mutedSurface = Color.alphaBlend(
-      colorScheme.primary.withValues(alpha: 0.035),
-      colorScheme.surfaceContainerHighest,
+      colorScheme.primary.withValues(alpha: 0.025),
+      colorScheme.surfaceContainerLow,
     );
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 15, 12, 12),
       decoration: BoxDecoration(
         color: mutedSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.28),
-        ),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome_rounded, size: 16, color: accent),
-              const SizedBox(width: 7),
+              Icon(Icons.auto_awesome_rounded, size: 18, color: accent),
+              const SizedBox(width: 9),
               Expanded(
                 child: Text(
                   context.l10n.askGlimpse,
-                  style: theme.textTheme.labelLarge?.copyWith(
+                  style: theme.textTheme.titleSmall?.copyWith(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                    height: 1.1,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.1,
                   ),
                 ),
               ),
@@ -151,45 +147,46 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
                 Text(
                   _formatAskNoteDate(context, note.createdAt!),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                     height: 1,
                   ),
                 ),
             ],
           ),
           if (note.question.trim().isNotEmpty) ...[
-            const SizedBox(height: 9),
+            const SizedBox(height: 12),
             Text(
               note.question,
-              style: theme.textTheme.bodySmall?.copyWith(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface,
-                fontWeight: FontWeight.w700,
-                height: 1.35,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
               ),
             ),
           ],
           if (note.body.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 9),
             LightweightMarkdownText(
               text: note.body,
               maxLines: canExpand && !_expanded ? 5 : null,
               selectable: _expanded || !canExpand,
               baseStyle:
                   theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    height: 1.45,
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
                   ) ??
                   const TextStyle(),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
             Row(
               children: [
                 if (canExpand)
                   TextButton(
                     onPressed: () => setState(() => _expanded = !_expanded),
                     style: TextButton.styleFrom(
-                      minimumSize: const Size(40, 36),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(40, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      foregroundColor: colorScheme.primary,
                     ),
                     child: Text(
                       _expanded ? context.l10n.showLess : context.l10n.showMore,
@@ -216,7 +213,11 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
                       child: Text(context.l10n.delete),
                     ),
                   ],
-                  icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    size: 20,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -1359,6 +1360,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (url != null) {
       _hadNoteWhenOpened ??= (url.userNotes ?? '').trim().isNotEmpty;
     }
+    final urlId = url?.id;
+    final isPinned = ref.watch(
+      pinnedUrlsProvider.select((ids) => urlId != null && ids.contains(urlId)),
+    );
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -1389,6 +1394,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       _copyUrlToClipboard(url.rawUrl);
                     } else if (value == 'share') {
                       Share.share(url.rawUrl);
+                    } else if (value == 'toggle_pin') {
+                      unawaited(togglePinnedUrl(context, ref, url));
                     } else if (value == 'add_tag') {
                       _addTag(url);
                     } else if (value == 'change_category') {
@@ -1441,6 +1448,24 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       ),
                     ),
                     const PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'toggle_pin',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isPinned
+                                ? Icons.push_pin_rounded
+                                : Icons.push_pin_outlined,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            isPinned ? context.l10n.unpin : context.l10n.pin,
+                          ),
+                        ],
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'add_tag',
                       child: Row(
@@ -3050,7 +3075,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   item: item,
                   accent: _recipeAccent(colorScheme),
                   compact: true,
-                  onTap: item.isMusicItem ? () => _openMusicItem(item) : null,
+                  onTap: _notableItemAction(item),
                 ),
             ],
           )
@@ -3059,10 +3084,22 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             NotableItemCard(
               item: item,
               accent: _recipeAccent(colorScheme),
-              onTap: item.isMusicItem ? () => _openMusicItem(item) : null,
+              onTap: _notableItemAction(item),
             ),
       ],
     );
+  }
+
+  VoidCallback? _notableItemAction(EnrichedNotableItem item) {
+    if (item.isMusicItem) return () => _openMusicItem(item);
+    final uri = item.websiteUri;
+    if (uri == null) return null;
+    return () => _openNotableWebsite(uri);
+  }
+
+  Future<void> _openNotableWebsite(Uri uri) async {
+    final launched = await _launchExternalUri(uri);
+    if (!launched && mounted) _showSnack(context.l10n.couldNotOpenLink);
   }
 
   String _notableItemsSectionTitle(List<EnrichedNotableItem> items) {

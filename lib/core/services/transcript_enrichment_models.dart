@@ -1236,6 +1236,7 @@ class EnrichedNotableItem {
     this.label,
     this.attribution,
     this.whyImportant,
+    this.destinationUrl,
   });
 
   final String text;
@@ -1243,6 +1244,7 @@ class EnrichedNotableItem {
   final String? label;
   final String? attribution;
   final String? whyImportant;
+  final String? destinationUrl;
 
   bool get hasUsefulContent => text.trim().isNotEmpty;
 
@@ -1253,6 +1255,32 @@ class EnrichedNotableItem {
     ).hasMatch(descriptor);
   }
 
+  Uri? get websiteUri {
+    if (type.trim().toLowerCase() != 'website') return null;
+
+    for (final candidate in [destinationUrl, text, label, attribution]) {
+      final value = candidate?.trim() ?? '';
+      if (value.isEmpty) continue;
+      final match = RegExp(
+        r'''(?:https?://|www\.)[^\s<>"']+|(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*\.)+[a-zA-Z]{2,})(?:/[^\s<>"']*)?''',
+        caseSensitive: false,
+      ).firstMatch(value);
+      if (match == null) continue;
+
+      final raw = match.group(0)!.replaceFirst(RegExp(r'[.,;:!?)\]}]+$'), '');
+      final normalized = raw.toLowerCase().startsWith(RegExp(r'https?://'))
+          ? raw
+          : 'https://$raw';
+      final uri = Uri.tryParse(normalized);
+      if (uri != null &&
+          (uri.scheme == 'http' || uri.scheme == 'https') &&
+          uri.host.contains('.')) {
+        return uri;
+      }
+    }
+    return null;
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'text': text,
@@ -1260,6 +1288,7 @@ class EnrichedNotableItem {
       'label': label,
       'attribution': attribution,
       'why_important': whyImportant,
+      'url': destinationUrl,
     };
   }
 
@@ -1279,6 +1308,9 @@ class EnrichedNotableItem {
       ),
       whyImportant: TranscriptEnrichmentService._cleanNullableText(
         json['why_important'] ?? json['whyImportant'] ?? json['why'],
+      ),
+      destinationUrl: TranscriptEnrichmentService._cleanNullableText(
+        json['url'] ?? json['href'] ?? json['link'],
       ),
     );
   }
