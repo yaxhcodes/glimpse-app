@@ -28,7 +28,11 @@ class ContentRecommendationSection<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: title, accent: accent),
+        SectionHeader(
+          title: title,
+          accent: accent,
+          emphasis: SectionHeaderEmphasis.secondary,
+        ),
         if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
           const SizedBox(height: 3),
           Text(
@@ -42,12 +46,7 @@ class ContentRecommendationSection<T> extends StatelessWidget {
         const SizedBox(height: 10),
         for (var i = 0; i < items.length; i++) ...[
           itemBuilder(context, items[i]),
-          if (i != items.length - 1)
-            Divider(
-              height: 20,
-              thickness: 0.6,
-              color: colorScheme.outlineVariant.withValues(alpha: 0.28),
-            ),
+          if (i != items.length - 1) const SizedBox(height: 8),
         ],
       ],
     );

@@ -45,14 +45,14 @@ class NotableItemCard extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: compact ? 0 : 9),
       child: Material(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
-        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
             width: compact ? null : double.infinity,
-            padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+            padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
             constraints: compact ? const BoxConstraints(minHeight: 68) : null,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,9 +95,9 @@ class NotableItemCard extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         child: Icon(
                           Icons.open_in_new_rounded,
-                          size: 17,
+                          size: 18,
                           color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.55,
+                            alpha: 0.58,
                           ),
                         ),
                       ),
@@ -145,7 +145,7 @@ class NotableItemCard extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: compact ? 0 : 9),
       child: Material(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.26),
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,

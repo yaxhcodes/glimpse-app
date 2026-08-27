@@ -112,15 +112,19 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
     final note = widget.note;
     final theme = widget.theme;
     final colorScheme = widget.colorScheme;
-    final canExpand =
-        note.body.length > 240 || '\n'.allMatches(note.body).length >= 5;
     final accent = colorScheme.primary;
+    final bodyStyle =
+        theme.textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          height: 1.5,
+        ) ??
+        const TextStyle();
     final mutedSurface = Color.alphaBlend(
       colorScheme.primary.withValues(alpha: 0.025),
       colorScheme.surfaceContainerLow,
     );
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(16, 15, 12, 12),
       decoration: BoxDecoration(
         color: mutedSurface,
@@ -166,65 +170,100 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
           ],
           if (note.body.trim().isNotEmpty) ...[
             const SizedBox(height: 9),
-            LightweightMarkdownText(
-              text: note.body,
-              maxLines: canExpand && !_expanded ? 5 : null,
-              selectable: _expanded || !canExpand,
-              baseStyle:
-                  theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.5,
-                  ) ??
-                  const TextStyle(),
-            ),
-            const SizedBox(height: 7),
-            Row(
-              children: [
-                if (canExpand)
-                  TextButton(
-                    onPressed: () => setState(() => _expanded = !_expanded),
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(40, 32),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      foregroundColor: colorScheme.primary,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final canExpand = _bodyExceedsMaxLines(
+                  context,
+                  text: note.body,
+                  style: bodyStyle,
+                  maxWidth: constraints.maxWidth,
+                );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LightweightMarkdownText(
+                      text: note.body,
+                      maxLines: canExpand && !_expanded ? 5 : null,
+                      selectable: _expanded || !canExpand,
+                      baseStyle: bodyStyle,
                     ),
-                    child: Text(
-                      _expanded ? context.l10n.showLess : context.l10n.showMore,
-                    ),
-                  ),
-                const Spacer(),
-                PopupMenuButton<_AskNoteAction>(
-                  tooltip: context.l10n.askNoteActions,
-                  onSelected: (action) {
-                    switch (action) {
-                      case _AskNoteAction.copy:
-                        widget.onCopy();
-                      case _AskNoteAction.delete:
-                        widget.onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: _AskNoteAction.copy,
-                      child: Text(context.l10n.copyAnswer),
-                    ),
-                    PopupMenuItem(
-                      value: _AskNoteAction.delete,
-                      child: Text(context.l10n.delete),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        if (canExpand)
+                          TextButton(
+                            onPressed: () =>
+                                setState(() => _expanded = !_expanded),
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(40, 32),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              foregroundColor: colorScheme.primary,
+                            ),
+                            child: Text(
+                              _expanded
+                                  ? context.l10n.showLess
+                                  : context.l10n.showMore,
+                            ),
+                          ),
+                        const Spacer(),
+                        PopupMenuButton<_AskNoteAction>(
+                          tooltip: context.l10n.askNoteActions,
+                          onSelected: (action) {
+                            switch (action) {
+                              case _AskNoteAction.copy:
+                                widget.onCopy();
+                              case _AskNoteAction.delete:
+                                widget.onDelete();
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: _AskNoteAction.copy,
+                              child: Text(context.l10n.copyAnswer),
+                            ),
+                            PopupMenuItem(
+                              value: _AskNoteAction.delete,
+                              child: Text(context.l10n.delete),
+                            ),
+                          ],
+                          icon: Icon(
+                            Icons.more_horiz_rounded,
+                            size: 20,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                  icon: Icon(
-                    Icons.more_horiz_rounded,
-                    size: 20,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ],
         ],
       ),
     );
+  }
+
+  bool _bodyExceedsMaxLines(
+    BuildContext context, {
+    required String text,
+    required TextStyle style,
+    required double maxWidth,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: LightweightMarkdownText.toPlainText(text),
+        style: style,
+      ),
+      maxLines: 5,
+      ellipsis: '…',
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+    )..layout(maxWidth: maxWidth);
+    return painter.didExceedMaxLines;
   }
 
   String _formatAskNoteDate(BuildContext context, DateTime value) {
@@ -1697,15 +1736,15 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   colorScheme: colorScheme,
                 ),
 
-                // ── Description ─────────────────────────────────────────────
-                // ── Tags ────────────────────────────────────────────────────
-                const SizedBox(height: 16),
-                TagGroup(
-                  tags: visibleTags,
-                  onTap: _openTagSearch,
-                  onLongPress: (tag) => _showTagMenu(url, tag),
-                  accent: _recipeAccent(colorScheme),
-                ),
+                if (visibleTags.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  TagGroup(
+                    tags: visibleTags,
+                    onTap: _openTagSearch,
+                    onLongPress: (tag) => _showTagMenu(url, tag),
+                    accent: _recipeAccent(colorScheme),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 const ContentAttributionDisclaimer(),
               ],
@@ -1727,16 +1766,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildOpenButton(SavedUrl url, String displaySourceName) {
-    final accent = _recipeAccent(Theme.of(context).colorScheme);
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = _recipeAccent(colorScheme);
     return SizedBox(
       width: double.infinity,
-      child: OutlinedButton.icon(
+      child: FilledButton.tonalIcon(
         onPressed: () => _launchUrl(url.rawUrl),
         icon: const Icon(Icons.open_in_new_rounded, size: 18),
         label: Text(_openButtonLabel(displaySourceName)),
-        style: OutlinedButton.styleFrom(
+        style: FilledButton.styleFrom(
           foregroundColor: accent,
-          side: BorderSide(color: accent.withValues(alpha: 0.55)),
+          backgroundColor: colorScheme.surfaceContainerLow,
+          elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -2253,7 +2294,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
           ),
         if (visibleAskNotes.isNotEmpty) ...[
-          const SizedBox(height: 14),
+          SizedBox(height: personalNote.isEmpty ? 8 : 12),
           ...visibleAskNotes.map(
             (note) => _SavedAskNoteCard(
               key: ValueKey(note.id),
@@ -2596,7 +2637,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           ? live.steps.map((s) => s.title).where((t) => t.isNotEmpty).toList()
           : const <String>[];
       sections.addAll([
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _buildRecipeSection(
           url: url,
           recipe: recipe,
@@ -2611,7 +2652,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final showContentSteps = _shouldShowKeyTakeaways(live);
     if (showContentSteps) {
       sections.addAll([
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _buildContentStepsSection(
           steps: live.steps,
           theme: theme,
@@ -2624,7 +2665,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         live.contentSections.isNotEmpty && recipe?.hasUsefulContent != true;
     if (showContentSections) {
       sections.addAll([
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _buildFullBreakdownSection(
           sections: live.contentSections,
           theme: theme,
@@ -2635,7 +2676,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
     if (live.notableItems.isNotEmpty) {
       sections.addAll([
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _buildNotableItemsSection(
           items: live.notableItems,
           theme: theme,
@@ -2654,7 +2695,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       final items = grouped[key] ?? const <EnrichedMention>[];
       if (items.isEmpty) continue;
       sections.addAll([
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         ContentRecommendationSection<EnrichedMention>(
           title: _mentionSectionTitle(key),
           subtitle: key == 'person'
@@ -2673,7 +2714,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
     if (_hasSourceMaterial(live)) {
       sections.addAll([
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _buildSourceMaterialSection(
           live: live,
           theme: theme,
@@ -3053,7 +3094,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: title, accent: _recipeAccent(colorScheme)),
+        SectionHeader(
+          title: title,
+          accent: _recipeAccent(colorScheme),
+          emphasis: SectionHeaderEmphasis.secondary,
+        ),
         if (displayItems.every(
           (item) => item.type.toLowerCase() == 'claim',
         )) ...[
@@ -3987,15 +4032,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final accent = _recipeAccent(colorScheme);
 
     return Material(
-      color: isPerson ? colorScheme.surfaceContainerLow : Colors.transparent,
-      borderRadius: BorderRadius.circular(isPerson ? 14 : 12),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(isPerson ? 14 : 12),
+        borderRadius: BorderRadius.circular(12),
         onTap: () => _launchMentionSearch(mention),
         child: Padding(
-          padding: isPerson
-              ? const EdgeInsets.all(12)
-              : const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -4101,12 +4144,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                 ),
               ),
+              const SizedBox(width: 10),
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Icon(
                   Icons.open_in_new_rounded,
-                  size: 16,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38),
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.58),
                 ),
               ),
             ],

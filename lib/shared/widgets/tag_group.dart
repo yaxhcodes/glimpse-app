@@ -60,6 +60,7 @@ class TagGroup extends StatelessWidget {
         SectionHeader(
           title: context.l10n.tags,
           accent: accent ?? colorScheme.primary,
+          emphasis: SectionHeaderEmphasis.secondary,
         ),
         const SizedBox(height: 10),
         Wrap(

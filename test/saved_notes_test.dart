@@ -185,6 +185,9 @@ This block has no question.''';
       await tester.pumpAndSettle();
 
       expect(find.text('Read this as content'), findsOneWidget);
+      expect(find.byType(OutlinedButton), findsNothing);
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(find.text('Tags'), findsNothing);
       expect(find.widgetWithText(TextButton, 'Edit'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
 
@@ -243,6 +246,45 @@ Use **structured curation**.
     expect(find.widgetWithText(TextButton, 'Add your note'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.textContaining('## Ask Glimpse'), findsNothing);
+  });
+
+  testWidgets('Ask note expansion follows rendered overflow', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final url = _savedUrl()
+      ..id = 13
+      ..askNotes = [
+        _askNote(body: List.filled(180, 'i').join()),
+      ];
+    final database = _MemoryIsarService(url);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isarServiceProvider.overrideWithValue(database),
+          savedNotesServiceProvider.overrideWithValue(
+            SavedNotesService(database),
+          ),
+          urlDetailProvider(13).overrideWith((ref) async => database.url),
+          tagOccurrenceMapProvider.overrideWithValue(const {}),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: const UrlDetailScreen(urlId: 13),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      MediaQuery.sizeOf(tester.element(find.byType(UrlDetailScreen))).width,
+      800,
+    );
+    expect(find.widgetWithText(TextButton, 'Show more'), findsNothing);
+
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextButton, 'Show more'), findsOneWidget);
   });
 
   testWidgets('detail overflow toggles the saved item pin', (tester) async {
