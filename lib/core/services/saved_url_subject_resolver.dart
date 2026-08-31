@@ -10,6 +10,56 @@ class SavedUrlSubject {
   final String label;
 }
 
+/// Per-operation subject lookup that avoids repeatedly parsing and normalizing
+/// the same save while a Rediscover build compares overlapping clusters.
+///
+/// The cache is deliberately short-lived. A new instance should be created for
+/// each build so edits to a persisted save are reflected on the next run.
+class SavedUrlSubjectIndex {
+  SavedUrlSubjectIndex({SavedUrlSubject? Function(SavedUrl url)? resolver})
+    : _resolver = resolver ?? SavedUrlSubjectResolver.resolve;
+
+  final SavedUrlSubject? Function(SavedUrl url) _resolver;
+  final Map<Object, SavedUrlSubject?> _subjects = {};
+
+  SavedUrlSubject? resolve(SavedUrl url) {
+    final key = url.id > 0 ? url.id : url;
+    return _subjects.putIfAbsent(key, () => _resolver(url));
+  }
+
+  SavedUrlSubject? dominantSubject(Iterable<SavedUrl> urls) {
+    final candidates = urls.toList();
+    if (candidates.isEmpty) return null;
+    final counts = <String, int>{};
+    final subjects = <String, SavedUrlSubject>{};
+    for (final url in candidates) {
+      final subject = resolve(url);
+      if (subject == null) continue;
+      counts[subject.key] = (counts[subject.key] ?? 0) + 1;
+      subjects[subject.key] = subject;
+    }
+    if (counts.isEmpty) return null;
+    final ranked = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final winner = ranked.first;
+    final required = candidates.length == 1 ? 1 : 2;
+    return winner.value >= required ? subjects[winner.key] : null;
+  }
+
+  List<SavedUrl> coherentCore(Iterable<SavedUrl> urls) {
+    final candidates = urls.toList();
+    final subject = dominantSubject(candidates);
+    if (subject == null) return candidates;
+    final matching = candidates
+        .where((url) => resolve(url)?.key == subject.key)
+        .toList();
+    final minimum = (candidates.length * 0.6).ceil();
+    return matching.length >= minimum && matching.length >= 2
+        ? matching
+        : candidates;
+  }
+}
+
 /// Resolves the durable subject of a save from structured enrichment evidence.
 ///
 /// This deliberately ignores descriptions and transcripts. Those fields often
@@ -51,7 +101,7 @@ abstract final class SavedUrlSubjectResolver {
   static SavedUrlSubject? resolve(SavedUrl url) {
     final enrichment = _enrichmentEvidence(url);
     final intent = MemoryIntentResolver.fromUrl(url);
-    final primaryIntent = intent?.primaryIntent.trim().toLowerCase();
+    final primaryIntent = intent?.primaryIntent.trim().toLowerCase() ?? '';
     final strongText = _normalize(
       [url.title, url.tags.join(' '), enrichment.topics.join(' ')].join(' '),
     );
@@ -129,7 +179,11 @@ abstract final class SavedUrlSubjectResolver {
         ])) {
       return travel;
     }
-    if (_isMovieWatchRecommendation(url, enrichment)) {
+    if (_isMovieWatchRecommendation(
+      url,
+      enrichment,
+      primaryIntent: primaryIntent,
+    )) {
       return movies;
     }
     if (primaryIntent == 'read_later' ||
@@ -250,10 +304,12 @@ abstract final class SavedUrlSubjectResolver {
 
   static bool _isMovieWatchRecommendation(
     SavedUrl url,
-    _EnrichmentEvidence enrichment,
-  ) {
-    final intent = MemoryIntentResolver.fromUrl(url);
-    final primaryIntent = intent?.primaryIntent.trim().toLowerCase();
+    _EnrichmentEvidence enrichment, {
+    String? primaryIntent,
+  }) {
+    primaryIntent ??= MemoryIntentResolver.fromUrl(
+      url,
+    )?.primaryIntent.trim().toLowerCase();
     final text = _normalize(
       [url.title, url.tags.join(' '), enrichment.topics.join(' ')].join(' '),
     );
@@ -287,35 +343,11 @@ abstract final class SavedUrlSubjectResolver {
   }
 
   static SavedUrlSubject? dominantSubject(Iterable<SavedUrl> urls) {
-    final candidates = urls.toList();
-    if (candidates.isEmpty) return null;
-    final counts = <String, int>{};
-    final subjects = <String, SavedUrlSubject>{};
-    for (final url in candidates) {
-      final subject = resolve(url);
-      if (subject == null) continue;
-      counts[subject.key] = (counts[subject.key] ?? 0) + 1;
-      subjects[subject.key] = subject;
-    }
-    if (counts.isEmpty) return null;
-    final ranked = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final winner = ranked.first;
-    final required = candidates.length == 1 ? 1 : 2;
-    return winner.value >= required ? subjects[winner.key] : null;
+    return SavedUrlSubjectIndex().dominantSubject(urls);
   }
 
   static List<SavedUrl> coherentCore(Iterable<SavedUrl> urls) {
-    final candidates = urls.toList();
-    final subject = dominantSubject(candidates);
-    if (subject == null) return candidates;
-    final matching = candidates
-        .where((url) => resolve(url)?.key == subject.key)
-        .toList();
-    final minimum = (candidates.length * 0.6).ceil();
-    return matching.length >= minimum && matching.length >= 2
-        ? matching
-        : candidates;
+    return SavedUrlSubjectIndex().coherentCore(urls);
   }
 }
 
@@ -379,16 +411,23 @@ _EnrichmentEvidence _enrichmentEvidence(SavedUrl url) {
   }
 }
 
+final RegExp _nonAlphaNumeric = RegExp(r'[^a-z0-9]+');
+final RegExp _whitespace = RegExp(r'\s+');
+final Map<String, String> _normalizedPhrases = {};
+
 String _normalize(String value) => value
     .toLowerCase()
-    .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
-    .replaceAll(RegExp(r'\s+'), ' ')
+    .replaceAll(_nonAlphaNumeric, ' ')
+    .replaceAll(_whitespace, ' ')
     .trim();
 
 bool _hasAny(String normalizedText, Iterable<String> phrases) {
   final padded = ' $normalizedText ';
   for (final phrase in phrases) {
-    final normalizedPhrase = _normalize(phrase);
+    final normalizedPhrase = _normalizedPhrases.putIfAbsent(
+      phrase,
+      () => _normalize(phrase),
+    );
     if (normalizedPhrase.isNotEmpty && padded.contains(' $normalizedPhrase ')) {
       return true;
     }

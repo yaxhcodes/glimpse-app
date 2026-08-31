@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -112,7 +113,7 @@ final rediscoverJourneysProvider = FutureProvider<List<RediscoverJourney>>((
   final relatedItems = (await relatedItemsFuture).items.take(8).toList();
   final anniversaries = (await anniversariesFuture).take(8).toList();
 
-  return buildRediscoverJourneys(
+  return computeRediscoverJourneys(
     liveUrls: urls,
     clusters: clusters,
     profile: profile,
@@ -226,6 +227,7 @@ List<RediscoverJourney> buildRediscoverJourneys({
   if (liveUrls.length < 3) return const [];
 
   final liveIds = {for (final url in liveUrls) url.id};
+  final subjects = SavedUrlSubjectIndex();
 
   // One coherent pipeline: every topic journey comes from the embedding
   // clusters that power the Interests map (on-theme cores), framed by member
@@ -234,9 +236,10 @@ List<RediscoverJourney> buildRediscoverJourneys({
   // keyword memory-goals, forgotten-gems, and never-opened grab-bag generators
   // are retired; coherence now comes from a single grouping source.
   final journeys = _clusterJourneys(
-    _consolidateClusterThemes(clusters),
+    _consolidateClusterThemes(clusters, subjects),
     liveIds,
     profile,
+    subjects,
   );
 
   // Thin-library fallback: if clusters have not formed yet, show one
@@ -275,14 +278,69 @@ List<RediscoverJourney> buildRediscoverJourneys({
   }
 
   journeys.sort((a, b) => b.signal.compareTo(a.signal));
-  return _generateJourneyNarratives(_dedupeJourneys(journeys)).take(6).toList();
+  return _generateJourneyNarratives(
+    _dedupeJourneys(journeys, subjects),
+  ).take(6).toList();
+}
+
+/// Runs the pure journey-ranking pass away from Flutter's platform/UI isolate.
+/// This matters when WorkManager resumes alongside the app: a large library
+/// must not delay Android input dispatch while notification candidates build.
+Future<List<RediscoverJourney>> computeRediscoverJourneys({
+  required List<SavedUrl> liveUrls,
+  required List<ClusterTheme> clusters,
+  required AffinityProfile profile,
+  List<RediscoveryItem> interestFallbackItems = const [],
+  List<RediscoveryItem> anniversaryItems = const [],
+}) {
+  return compute(
+    _buildRediscoverJourneysInIsolate,
+    _RediscoverJourneyBuildRequest(
+      liveUrls: liveUrls,
+      clusters: clusters,
+      profile: profile,
+      interestFallbackItems: interestFallbackItems,
+      anniversaryItems: anniversaryItems,
+    ),
+  );
+}
+
+List<RediscoverJourney> _buildRediscoverJourneysInIsolate(
+  _RediscoverJourneyBuildRequest request,
+) {
+  return buildRediscoverJourneys(
+    liveUrls: request.liveUrls,
+    clusters: request.clusters,
+    profile: request.profile,
+    interestFallbackItems: request.interestFallbackItems,
+    anniversaryItems: request.anniversaryItems,
+  );
+}
+
+class _RediscoverJourneyBuildRequest {
+  const _RediscoverJourneyBuildRequest({
+    required this.liveUrls,
+    required this.clusters,
+    required this.profile,
+    required this.interestFallbackItems,
+    required this.anniversaryItems,
+  });
+
+  final List<SavedUrl> liveUrls;
+  final List<ClusterTheme> clusters;
+  final AffinityProfile profile;
+  final List<RediscoveryItem> interestFallbackItems;
+  final List<RediscoveryItem> anniversaryItems;
 }
 
 /// Removes redundant journeys, keeping the highest-signal one. The consolidation
 /// pass handles true embedding duplicates first; this later pass drops title
 /// collisions and overlapping save sets that can still appear from fallback
 /// shelves.
-List<RediscoverJourney> _dedupeJourneys(List<RediscoverJourney> journeys) {
+List<RediscoverJourney> _dedupeJourneys(
+  List<RediscoverJourney> journeys,
+  SavedUrlSubjectIndex subjects,
+) {
   final kept = <RediscoverJourney>[];
   final seenTitleFamilies = <String>{};
   final seenSubjectFamilies = <String>{};
@@ -291,9 +349,7 @@ List<RediscoverJourney> _dedupeJourneys(List<RediscoverJourney> journeys) {
     if (seenTitleFamilies.contains(titleKey)) continue;
     final subject = j.kind == RediscoverJourneyKind.onThisDay
         ? null
-        : SavedUrlSubjectResolver.dominantSubject(
-            j.items.map((item) => item.url),
-          );
+        : subjects.dominantSubject(j.items.map((item) => item.url));
     if (subject != null && seenSubjectFamilies.contains(subject.key)) continue;
     final ids = j.items.map((i) => i.url.id).toSet();
     final overlapsKept =
@@ -310,32 +366,36 @@ List<RediscoverJourney> _dedupeJourneys(List<RediscoverJourney> journeys) {
   return kept;
 }
 
-List<ClusterTheme> _consolidateClusterThemes(List<ClusterTheme> clusters) {
+List<ClusterTheme> _consolidateClusterThemes(
+  List<ClusterTheme> clusters,
+  SavedUrlSubjectIndex subjects,
+) {
   const mergeSimilarityThreshold = 0.85;
   final merged = <ClusterTheme>[];
   final consumed = <int>{};
+  final centroids = [
+    for (final cluster in clusters) _clusterCentroid(cluster.urls),
+  ];
+  final clusterSubjects = [
+    for (final cluster in clusters) subjects.dominantSubject(cluster.urls),
+  ];
 
   for (var i = 0; i < clusters.length; i += 1) {
     if (consumed.contains(i)) continue;
     var current = clusters[i];
-    var currentCentroid = _clusterCentroid(current.urls);
+    var currentCentroid = centroids[i];
+    var currentSubject = clusterSubjects[i];
 
     for (var j = i + 1; j < clusters.length; j += 1) {
       if (consumed.contains(j)) continue;
       final next = clusters[j];
-      final currentSubject = SavedUrlSubjectResolver.dominantSubject(
-        current.urls,
-      );
-      final nextSubject = SavedUrlSubjectResolver.dominantSubject(next.urls);
+      final nextSubject = clusterSubjects[j];
       if (currentSubject != null &&
           nextSubject != null &&
           currentSubject.key != nextSubject.key) {
         continue;
       }
-      final similarity = _cosineSimilarity(
-        currentCentroid,
-        _clusterCentroid(next.urls),
-      );
+      final similarity = _cosineSimilarity(currentCentroid, centroids[j]);
       if (similarity < mergeSimilarityThreshold) continue;
       final urlsById = <int, SavedUrl>{
         for (final url in current.urls) url.id: url,
@@ -349,6 +409,7 @@ List<ClusterTheme> _consolidateClusterThemes(List<ClusterTheme> clusters) {
         subClusters: [...current.subClusters, ...next.subClusters],
       );
       currentCentroid = _clusterCentroid(current.urls);
+      currentSubject = subjects.dominantSubject(current.urls);
       consumed.add(j);
     }
     merged.add(current);
@@ -395,7 +456,8 @@ String _dominantTopic(List<SavedUrl> urls) {
 List<RediscoverJourney> _clusterJourneys(
   List<ClusterTheme> clusters,
   Set<int> liveIds,
-  AffinityProfile profile, {
+  AffinityProfile profile,
+  SavedUrlSubjectIndex subjects, {
   int maxJourneys = 5,
 }) {
   final now = DateTime.now();
@@ -409,7 +471,7 @@ List<RediscoverJourney> _clusterJourneys(
 
     // Restrict to the cluster's on-theme core so outliers the clusterer lumped
     // into the tail (e.g. a film save inside a food cluster) don't show up.
-    final core = SavedUrlSubjectResolver.coherentCore(_onThemeCore(members));
+    final core = subjects.coherentCore(_onThemeCore(members));
     if (core.length < 3) continue;
 
     final unopened = core.where((u) => u.openedAt == null).length;

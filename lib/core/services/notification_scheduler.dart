@@ -388,7 +388,7 @@ class NotificationScheduler {
     final interest = await RediscoveryService(isar).getRediscoveryLinks(
       limit: 8,
     );
-    final journeys = buildRediscoverJourneys(
+    final journeys = await computeRediscoverJourneys(
       liveUrls: liveUrls,
       clusters: clusters,
       profile: profile,

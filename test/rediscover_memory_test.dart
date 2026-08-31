@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/url_processing_status.dart';
 import 'package:glimpse/core/services/affinity_profile.dart';
+import 'package:glimpse/core/services/saved_url_subject_resolver.dart';
 import 'package:glimpse/features/mindmap/cluster_theme.dart';
 import 'package:glimpse/features/rediscover/journey_visual.dart';
 import 'package:glimpse/features/rediscover/rediscover_daily_set.dart';
@@ -524,6 +525,48 @@ void main() {
       journeys.single.items.map((item) => item.url.id).toSet(),
       hasLength(6),
     );
+  });
+
+  test('journey subject index resolves each save once per build', () {
+    final urls = [
+      _url(id: 901, title: 'Recipe one'),
+      _url(id: 902, title: 'Recipe two'),
+      _url(id: 903, title: 'Recipe three'),
+    ];
+    var resolveCount = 0;
+    final subjects = SavedUrlSubjectIndex(
+      resolver: (url) {
+        resolveCount += 1;
+        return SavedUrlSubjectResolver.recipes;
+      },
+    );
+
+    expect(subjects.dominantSubject(urls)?.key, 'recipes');
+    expect(subjects.coherentCore(urls), urls);
+    expect(subjects.dominantSubject(urls.reversed)?.key, 'recipes');
+    expect(resolveCount, urls.length);
+  });
+
+  test('journey builder can run on a worker isolate', () async {
+    final urls = [
+      for (var i = 0; i < 3; i++)
+        _url(
+          id: 920 + i,
+          title: 'Meal prep recipe ${i + 1}',
+          embedding: [1, i / 100],
+        ),
+    ];
+
+    final journeys = await computeRediscoverJourneys(
+      liveUrls: urls,
+      clusters: [
+        ClusterTheme(index: 0, label: 'Cooking', summary: '', urls: urls),
+      ],
+      profile: AffinityProfile.empty,
+    );
+
+    expect(journeys, hasLength(1));
+    expect(journeys.single.items.map((item) => item.url.id), [920, 921, 922]);
   });
 
   test('movie journeys exclude film analysis saved for learning', () {
