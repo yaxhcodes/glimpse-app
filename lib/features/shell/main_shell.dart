@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/services/analytics_service.dart';
+import '../../core/services/scroll_capture_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/app_glass_surface.dart';
@@ -141,6 +142,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       bulkSelectionProvider('collections'),
     );
     final searchSelection = ref.watch(bulkSelectionProvider('search'));
+    final scrollCaptureActive = ScrollCaptureScope.isCapturingOf(context);
     final currentSelectionScope = switch (_currentIndex) {
       0 => 'home',
       1 => 'collections',
@@ -174,176 +176,195 @@ class _MainShellState extends ConsumerState<MainShell> {
           );
           final showCompactChrome = hasActiveSelection || shellChromeVisible;
           final content = _buildShellContent(constrainWidth: usesRail);
+          final navigationBarHeight =
+              (Theme.of(context).navigationBarTheme.height ?? 80) +
+              MediaQuery.viewPaddingOf(context).bottom;
 
-          return Scaffold(
-            backgroundColor: cs.surface,
-            extendBody: !usesRail,
-            resizeToAvoidBottomInset: false,
-            body: Stack(
-              children: [
-                Positioned.fill(
-                  child: usesRail
-                      ? Row(
-                          children: [
-                            SafeArea(
-                              right: false,
-                              child: NavigationRail(
-                                selectedIndex: _currentIndex,
-                                onDestinationSelected: _selectDestination,
-                                extended: usesExtendedRail,
-                                labelType: usesExtendedRail
-                                    ? NavigationRailLabelType.none
-                                    : NavigationRailLabelType.all,
-                                minWidth: 80,
-                                minExtendedWidth: 216,
-                                groupAlignment: -0.72,
-                                leading: Padding(
-                                  padding: const EdgeInsets.only(bottom: 18),
-                                  child: SvgPicture.asset(
-                                    'assets/glimpse.svg',
-                                    width: 28,
-                                    height: 28,
-                                    colorFilter: ColorFilter.mode(
-                                      cs.primary,
-                                      BlendMode.srcIn,
+          return ScrollCaptureViewportScope(
+            bottomObstruction: usesRail ? 0 : navigationBarHeight,
+            child: Scaffold(
+              backgroundColor: cs.surface,
+              extendBody: !usesRail,
+              resizeToAvoidBottomInset: false,
+              body: Stack(
+                children: [
+                  Positioned.fill(
+                    child: usesRail
+                        ? Row(
+                            children: [
+                              SafeArea(
+                                right: false,
+                                child: NavigationRail(
+                                  selectedIndex: _currentIndex,
+                                  onDestinationSelected: _selectDestination,
+                                  extended: usesExtendedRail,
+                                  labelType: usesExtendedRail
+                                      ? NavigationRailLabelType.none
+                                      : NavigationRailLabelType.all,
+                                  minWidth: 80,
+                                  minExtendedWidth: 216,
+                                  groupAlignment: -0.72,
+                                  leading: Padding(
+                                    padding: const EdgeInsets.only(bottom: 18),
+                                    child: SvgPicture.asset(
+                                      'assets/glimpse.svg',
+                                      width: 28,
+                                      height: 28,
+                                      colorFilter: ColorFilter.mode(
+                                        cs.primary,
+                                        BlendMode.srcIn,
+                                      ),
                                     ),
                                   ),
+                                  destinations: [
+                                    for (
+                                      var index = 0;
+                                      index < destinations.length;
+                                      index++
+                                    )
+                                      NavigationRailDestination(
+                                        icon: NavigationDiscoveryIcon(
+                                          key: ValueKey(
+                                            '${destinations[index].badgeKey}-navigation-discovery-badge',
+                                          ),
+                                          semanticsLabel:
+                                              destinations[index].label,
+                                          discoveryLabel:
+                                              strings.notificationNewDiscovery,
+                                          showBadge:
+                                              destinations[index].hasUpdate &&
+                                              _currentIndex != index,
+                                          icon: AppIcon(
+                                            destinations[index].icon,
+                                          ),
+                                        ),
+                                        selectedIcon: NavigationDiscoveryIcon(
+                                          semanticsLabel:
+                                              destinations[index].label,
+                                          discoveryLabel:
+                                              strings.notificationNewDiscovery,
+                                          icon: AppIcon(
+                                            destinations[index].icon,
+                                            selected: true,
+                                          ),
+                                        ),
+                                        label: Text(destinations[index].label),
+                                      ),
+                                  ],
                                 ),
-                                destinations: [
-                                  for (
-                                    var index = 0;
-                                    index < destinations.length;
-                                    index++
-                                  )
-                                    NavigationRailDestination(
-                                      icon: NavigationDiscoveryIcon(
-                                        key: ValueKey(
-                                          '${destinations[index].badgeKey}-navigation-discovery-badge',
-                                        ),
-                                        semanticsLabel:
-                                            destinations[index].label,
-                                        discoveryLabel:
-                                            strings.notificationNewDiscovery,
-                                        showBadge:
-                                            destinations[index].hasUpdate &&
-                                            _currentIndex != index,
-                                        icon: AppIcon(destinations[index].icon),
-                                      ),
-                                      selectedIcon: NavigationDiscoveryIcon(
-                                        semanticsLabel:
-                                            destinations[index].label,
-                                        discoveryLabel:
-                                            strings.notificationNewDiscovery,
-                                        icon: AppIcon(
-                                          destinations[index].icon,
-                                          selected: true,
-                                        ),
-                                      ),
-                                      label: Text(destinations[index].label),
-                                    ),
-                                ],
                               ),
-                            ),
-                            VerticalDivider(
-                              width: 1,
-                              thickness: 1,
-                              color: cs.outlineVariant.withValues(alpha: 0.55),
-                            ),
-                            Expanded(child: content),
-                          ],
-                        )
-                      : content,
-                ),
-                if (!usesRail)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: ShellStatusBarAccent(
-                      visible:
-                          !showCompactChrome &&
-                          _currentIndex != _searchTabIndex,
-                    ),
-                  ),
-              ],
-            ),
-            floatingActionButton:
-                _currentIndex == 0 &&
-                    hasLinks &&
-                    !homeSelection.isActive &&
-                    (usesRail || shellChromeVisible)
-                ? ExpressiveExtendedFab(
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      context.push('/ask');
-                    },
-                    icon: SvgPicture.asset(
-                      'assets/glimpse.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: ColorFilter.mode(
-                        cs.onSecondaryContainer,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                    label: Text(
-                      strings.askGlimpse,
-                      style: tt.labelLarge?.copyWith(
-                        color: cs.onSecondaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  )
-                : null,
-            floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-            bottomNavigationBar: usesRail
-                ? null
-                : ShellBottomNavigationTransition(
-                    visible: showCompactChrome,
-                    child: AppGlassSurface(
-                      backgroundColor: cs.surfaceContainerLow,
-                      opacity: Theme.of(context).brightness == Brightness.dark
-                          ? 0.72
-                          : 0.80,
-                      child: NavigationBar(
-                        selectedIndex: _currentIndex,
-                        onDestinationSelected: _selectDestination,
-                        labelBehavior:
-                            NavigationDestinationLabelBehavior.alwaysShow,
-                        destinations: [
-                          for (
-                            var index = 0;
-                            index < destinations.length;
-                            index++
+                              VerticalDivider(
+                                width: 1,
+                                thickness: 1,
+                                color: cs.outlineVariant.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                              Expanded(child: content),
+                            ],
                           )
-                            NavigationDestination(
-                              icon: NavigationDiscoveryIcon(
-                                key: ValueKey(
-                                  '${destinations[index].badgeKey}-navigation-discovery-badge',
-                                ),
-                                semanticsLabel: destinations[index].label,
-                                discoveryLabel:
-                                    strings.notificationNewDiscovery,
-                                showBadge:
-                                    destinations[index].hasUpdate &&
-                                    _currentIndex != index,
-                                icon: AppIcon(destinations[index].icon),
-                              ),
-                              selectedIcon: NavigationDiscoveryIcon(
-                                semanticsLabel: destinations[index].label,
-                                discoveryLabel:
-                                    strings.notificationNewDiscovery,
-                                icon: AppIcon(
-                                  destinations[index].icon,
-                                  selected: true,
-                                ),
-                              ),
-                              label: destinations[index].label,
-                            ),
-                        ],
+                        : content,
+                  ),
+                  if (!usesRail)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: ShellStatusBarAccent(
+                        visible:
+                            !showCompactChrome &&
+                            _currentIndex != _searchTabIndex,
                       ),
                     ),
-                  ),
+                ],
+              ),
+              floatingActionButton:
+                  !scrollCaptureActive &&
+                      _currentIndex == 0 &&
+                      hasLinks &&
+                      !homeSelection.isActive &&
+                      (usesRail || shellChromeVisible)
+                  ? ExpressiveExtendedFab(
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        context.push('/ask');
+                      },
+                      icon: SvgPicture.asset(
+                        'assets/glimpse.svg',
+                        width: 20,
+                        height: 20,
+                        colorFilter: ColorFilter.mode(
+                          cs.onSecondaryContainer,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                      label: Text(
+                        strings.askGlimpse,
+                        style: tt.labelLarge?.copyWith(
+                          color: cs.onSecondaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : null,
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.endFloat,
+              bottomNavigationBar: usesRail
+                  ? null
+                  : IgnorePointer(
+                      ignoring: scrollCaptureActive,
+                      child: Opacity(
+                        opacity: scrollCaptureActive ? 0 : 1,
+                        child: ShellBottomNavigationTransition(
+                          visible: showCompactChrome,
+                          child: AppGlassSurface(
+                            backgroundColor: cs.surfaceContainerLow,
+                            opacity:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? 0.72
+                                : 0.80,
+                            child: NavigationBar(
+                              selectedIndex: _currentIndex,
+                              onDestinationSelected: _selectDestination,
+                              labelBehavior:
+                                  NavigationDestinationLabelBehavior.alwaysShow,
+                              destinations: [
+                                for (
+                                  var index = 0;
+                                  index < destinations.length;
+                                  index++
+                                )
+                                  NavigationDestination(
+                                    icon: NavigationDiscoveryIcon(
+                                      key: ValueKey(
+                                        '${destinations[index].badgeKey}-navigation-discovery-badge',
+                                      ),
+                                      semanticsLabel: destinations[index].label,
+                                      discoveryLabel:
+                                          strings.notificationNewDiscovery,
+                                      showBadge:
+                                          destinations[index].hasUpdate &&
+                                          _currentIndex != index,
+                                      icon: AppIcon(destinations[index].icon),
+                                    ),
+                                    selectedIcon: NavigationDiscoveryIcon(
+                                      semanticsLabel: destinations[index].label,
+                                      discoveryLabel:
+                                          strings.notificationNewDiscovery,
+                                      icon: AppIcon(
+                                        destinations[index].icon,
+                                        selected: true,
+                                      ),
+                                    ),
+                                    label: destinations[index].label,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
           );
         },
       ),
@@ -357,9 +378,12 @@ class _MainShellState extends ConsumerState<MainShell> {
         index: _currentIndex,
         children: [
           for (var index = 0; index < _screens.length; index += 1)
-            _loadedTabIndexes.contains(index)
-                ? _screens[index]
-                : const SizedBox.shrink(),
+            ScrollCaptureVisibilityScope(
+              isVisible: index == _currentIndex,
+              child: _loadedTabIndexes.contains(index)
+                  ? _screens[index]
+                  : const SizedBox.shrink(),
+            ),
         ],
       ),
     );

@@ -1,11 +1,13 @@
 package com.shinrinyoku.glimpse
 
+import android.content.Context
 import android.content.Intent
 import android.view.Display
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.widget.FrameLayout
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -42,6 +44,15 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingBackupPath: String? = null
     private var pendingShortcut: String? = null
     private var stableIdBridge: StableIdBridge? = null
+    private var scrollCaptureBridge: ScrollCaptureBridge? = null
+    private var scrollCaptureRootLayout: ScrollCaptureRootLayout? = null
+
+    override fun provideRootLayout(context: Context): FrameLayout {
+        return ScrollCaptureRootLayout(context).also {
+            scrollCaptureRootLayout = it
+            scrollCaptureBridge?.attachRootLayout(it)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +64,11 @@ class MainActivity : FlutterFragmentActivity() {
         if (hasFocus) preferHighestRefreshRate()
     }
 
+    override fun onPostResume() {
+        super.onPostResume()
+        scrollCaptureBridge?.registerWhenReady()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -61,6 +77,14 @@ class MainActivity : FlutterFragmentActivity() {
             context = applicationContext,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            scrollCaptureBridge = ScrollCaptureBridge(
+                activity = this,
+                messenger = flutterEngine.dartExecutor.binaryMessenger,
+                rootLayout = scrollCaptureRootLayout,
+            )
+        }
 
         backupMethodChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -141,6 +165,12 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        scrollCaptureBridge?.dispose()
+        scrollCaptureBridge = null
+        super.onDestroy()
     }
 
     private fun preferHighestRefreshRate() {

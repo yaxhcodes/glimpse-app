@@ -25,6 +25,7 @@ import 'core/services/app_shortcut_service.dart';
 import 'core/services/app_task_service.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/notification_router.dart';
+import 'core/services/scroll_capture_service.dart';
 import 'core/services/tag_analyzer.dart';
 import 'core/services/embedding_backfill_service.dart';
 import 'core/services/category_repair_service.dart';
@@ -860,67 +861,85 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           routerConfig: _router,
           builder: (context, child) {
             var content = child ?? const SizedBox.shrink();
-            if (!AppEnvironment.isDevContext) {
-              return content;
-            }
-            content = Banner(
-              message: 'DEV',
-              location: BannerLocation.topStart,
-              color: const Color(0xFFE65100),
-              textStyle: const TextStyle(
-                color: Color(0xFFFFFFFF),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                height: 1,
-              ),
-              child: content,
-            );
-            if (devProOverrideActive) {
-              content = Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  content,
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    child: SafeArea(
-                      bottom: false,
-                      child: Center(
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF4A148C),
-                            borderRadius: BorderRadius.vertical(
-                              bottom: Radius.circular(6),
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              'DEV PRO MODE',
-                              style: const TextStyle(
-                                color: Color(0xFFFFFFFF),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+            if (AppEnvironment.isDevContext) {
+              content = _DevEnvironmentChrome(
+                showProOverride: devProOverrideActive,
+                child: content,
               );
             }
-            return content;
+            return ScrollCaptureCoordinator(child: content);
           },
         );
       },
     );
+  }
+}
+
+class _DevEnvironmentChrome extends StatelessWidget {
+  const _DevEnvironmentChrome({
+    required this.showProOverride,
+    required this.child,
+  });
+
+  final bool showProOverride;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget content = Banner(
+      message: 'DEV',
+      location: BannerLocation.topStart,
+      color: const Color(0xFFE65100),
+      textStyle: const TextStyle(
+        color: Color(0xFFFFFFFF),
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        height: 1,
+      ),
+      child: child,
+    );
+    if (!showProOverride) return content;
+
+    content = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        content,
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          child: SafeArea(
+            bottom: false,
+            child: Center(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4A148C),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(6),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    'DEV PRO MODE',
+                    style: const TextStyle(
+                      color: Color(0xFFFFFFFF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    return content;
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/scroll_capture_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/app_snackbar.dart';
@@ -84,6 +85,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
         ? MediaQuery.paddingOf(context).bottom
         : 0.0;
     final scrollBottomPadding = 24.0 + shellBottomInset;
+    final scrollCaptureActive = ScrollCaptureScope.isCapturingOf(context);
 
     return PopScope(
       canPop: !selectionState.isActive,
@@ -95,12 +97,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
       child: Scaffold(
         backgroundColor: cs.surface,
         body: NestedScrollView(
-          floatHeaderSlivers: !usesRail,
+          floatHeaderSlivers: !usesRail && !scrollCaptureActive,
           headerSliverBuilder: (context, innerBoxIsScrolled) => [
             SliverAppBar(
               pinned: usesRail || selectionState.isActive,
-              floating: !usesRail,
-              snap: !usesRail,
+              floating: !usesRail && !scrollCaptureActive,
+              snap: !usesRail && !scrollCaptureActive,
               titleSpacing: selectionState.isActive
                   ? null
                   : widget.embedded

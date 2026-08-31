@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../core/services/scroll_capture_service.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../l10n/l10n.dart';
@@ -35,33 +36,6 @@ String? _previewImageUrl(SavedUrl u) {
 
 // ─── Mindmap atlas ─────────────────────────────────────────────────────────
 
-class _MindmapCanvas extends StatelessWidget {
-  const _MindmapCanvas({
-    required this.themes,
-    required this.scrollBottomPadding,
-  });
-
-  final List<ClusterTheme> themes;
-  final double scrollBottomPadding;
-
-  @override
-  Widget build(BuildContext context) {
-    final clusters = _displayClustersForThemes(themes);
-    if (clusters.isEmpty) return const _MindmapEmptyState();
-
-    return InterestMapView(
-      clusters: clusters,
-      bottomPadding: scrollBottomPadding,
-      onClusterTap: (cluster) {
-        final theme = _themeById(themes, int.tryParse(cluster.id) ?? -1);
-        if (theme == null) return;
-        HapticFeedback.lightImpact();
-        context.push('/mindmap/cluster/${theme.index}');
-      },
-    );
-  }
-}
-
 class InterestMapView extends StatelessWidget {
   const InterestMapView({
     super.key,
@@ -78,88 +52,95 @@ class InterestMapView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (clusters.isEmpty) return const _MindmapEmptyState();
 
-    final horizontalPadding = AppLayout.pageHorizontalPadding(
-      MediaQuery.sizeOf(context).width,
-      compactPadding: 16,
-    );
-    final heroCluster = clusters.first;
-    final mediumEnd = clusters.length < 5 ? clusters.length : 5;
-    final medium = clusters.length <= 1
-        ? <InterestCluster>[]
-        : clusters.sublist(1, mediumEnd);
-    final slim = clusters.length <= 5
-        ? <InterestCluster>[]
-        : clusters.sublist(5);
-
     return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            16,
-            horizontalPadding,
-            0,
-          ),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate.fixed([
-              _SectionEyebrow(context.l10n.topSignal),
-              ClusterCard(
-                cluster: heroCluster,
-                tier: ClusterCardTier.hero,
-                onTap: () => onClusterTap(heroCluster),
-              ),
-              if (medium.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                _SectionEyebrow(context.l10n.growingInterests),
-              ],
-            ]),
-          ),
-        ),
-        if (medium.isNotEmpty)
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            sliver: SliverToBoxAdapter(
-              child: _MasonryClusterGrid(items: medium, onOpen: onClusterTap),
-            ),
-          ),
-        if (slim.isNotEmpty)
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              24,
-              horizontalPadding,
-              0,
-            ),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate.fixed([
-                _SectionEyebrow(context.l10n.quieterInterests),
-              ]),
-            ),
-          ),
-        if (slim.isNotEmpty)
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              0,
-              horizontalPadding,
-              24,
-            ),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                if (index.isOdd) return const SizedBox(height: 8);
-                final cluster = slim[index ~/ 2];
-                return ClusterCard(
-                  cluster: cluster,
-                  tier: ClusterCardTier.slim,
-                  onTap: () => onClusterTap(cluster),
-                );
-              }, childCount: slim.length * 2 - 1),
-            ),
-          ),
-        SliverToBoxAdapter(child: SizedBox(height: bottomPadding)),
-      ],
+      slivers: _interestMapSlivers(
+        context: context,
+        clusters: clusters,
+        onClusterTap: onClusterTap,
+        bottomPadding: bottomPadding,
+      ),
     );
   }
+}
+
+List<Widget> _interestMapSlivers({
+  required BuildContext context,
+  required List<InterestCluster> clusters,
+  required ValueChanged<InterestCluster> onClusterTap,
+  required double bottomPadding,
+}) {
+  final horizontalPadding = AppLayout.pageHorizontalPadding(
+    MediaQuery.sizeOf(context).width,
+    compactPadding: 16,
+  );
+  final heroCluster = clusters.first;
+  final mediumEnd = clusters.length < 5 ? clusters.length : 5;
+  final medium = clusters.length <= 1
+      ? <InterestCluster>[]
+      : clusters.sublist(1, mediumEnd);
+  final slim = clusters.length <= 5 ? <InterestCluster>[] : clusters.sublist(5);
+
+  return [
+    SliverPadding(
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 0),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate.fixed([
+          _SectionEyebrow(context.l10n.topSignal),
+          ClusterCard(
+            cluster: heroCluster,
+            tier: ClusterCardTier.hero,
+            onTap: () => onClusterTap(heroCluster),
+          ),
+          if (medium.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _SectionEyebrow(context.l10n.growingInterests),
+          ],
+        ]),
+      ),
+    ),
+    if (medium.isNotEmpty)
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        sliver: SliverToBoxAdapter(
+          child: _MasonryClusterGrid(items: medium, onOpen: onClusterTap),
+        ),
+      ),
+    if (slim.isNotEmpty)
+      SliverPadding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          24,
+          horizontalPadding,
+          0,
+        ),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate.fixed([
+            _SectionEyebrow(context.l10n.quieterInterests),
+          ]),
+        ),
+      ),
+    if (slim.isNotEmpty)
+      SliverPadding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          0,
+          horizontalPadding,
+          24,
+        ),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            if (index.isOdd) return const SizedBox(height: 8);
+            final cluster = slim[index ~/ 2];
+            return ClusterCard(
+              cluster: cluster,
+              tier: ClusterCardTier.slim,
+              onTap: () => onClusterTap(cluster),
+            );
+          }, childCount: slim.length * 2 - 1),
+        ),
+      ),
+    SliverToBoxAdapter(child: SizedBox(height: bottomPadding)),
+  ];
 }
 
 List<InterestCluster> _displayClustersForThemes(List<ClusterTheme> themes) {
@@ -814,20 +795,78 @@ class MindmapScreen extends ConsumerWidget {
         ? MediaQuery.paddingOf(context).bottom
         : 0.0;
     final scrollBottomPadding = 32.0 + shellBottomInset;
+    final scrollCaptureActive = ScrollCaptureScope.isCapturingOf(context);
     final subtitle = themesAsync.maybeWhen(
       data: (themes) => _interestMapSubtitle(context.l10n, themes),
       orElse: () => context.l10n.learningInterests,
     );
+    final bodySlivers = themesAsync.when<List<Widget>>(
+      loading: () => [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: LoadingIndicator(message: context.l10n.readingInterests),
+        ),
+      ],
+      error: (e, _) => [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline_rounded, size: 40, color: cs.error),
+                  const SizedBox(height: 14),
+                  Text(
+                    context.l10n.couldNotBuildClusters,
+                    style: tt.titleSmall?.copyWith(color: cs.onSurface),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$e',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+      data: (themes) {
+        final clusters = _displayClustersForThemes(themes);
+        if (clusters.isEmpty) {
+          return const [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _MindmapEmptyState(),
+            ),
+          ];
+        }
+        return _interestMapSlivers(
+          context: context,
+          clusters: clusters,
+          bottomPadding: scrollBottomPadding,
+          onClusterTap: (cluster) {
+            final theme = _themeById(themes, int.tryParse(cluster.id) ?? -1);
+            if (theme == null) return;
+            HapticFeedback.lightImpact();
+            context.push('/mindmap/cluster/${theme.index}');
+          },
+        );
+      },
+    );
 
     return Scaffold(
       backgroundColor: cs.surface,
-      body: NestedScrollView(
-        floatHeaderSlivers: !usesRail,
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+      body: CustomScrollView(
+        slivers: [
           SliverAppBar(
             pinned: usesRail,
-            floating: !usesRail,
-            snap: !usesRail,
+            floating: !usesRail && !scrollCaptureActive,
+            snap: !usesRail && !scrollCaptureActive,
             automaticallyImplyLeading: !embedded,
             titleSpacing: embedded ? horizontalPadding : 0,
             title: Column(
@@ -865,44 +904,8 @@ class MindmapScreen extends ConsumerWidget {
               const SizedBox(width: 4),
             ],
           ),
+          ...bodySlivers,
         ],
-        body: themesAsync.when(
-          loading: () =>
-              LoadingIndicator(message: context.l10n.readingInterests),
-          error: (e, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.error_outline_rounded, size: 40, color: cs.error),
-                  const SizedBox(height: 14),
-                  Text(
-                    context.l10n.couldNotBuildClusters,
-                    style: tt.titleSmall?.copyWith(color: cs.onSurface),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$e',
-                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          data: (themes) {
-            if (_displayClustersForThemes(themes).isEmpty) {
-              return const _MindmapEmptyState();
-            }
-
-            return _MindmapCanvas(
-              themes: themes,
-              scrollBottomPadding: scrollBottomPadding,
-            );
-          },
-        ),
       ),
     );
   }
