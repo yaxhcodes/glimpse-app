@@ -14,6 +14,7 @@ import android.view.PixelCopy
 import android.view.ScrollCaptureCallback
 import android.view.ScrollCaptureSession
 import android.view.Surface
+import android.view.View
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
@@ -34,33 +35,35 @@ class ScrollCaptureBridge(
 ) {
     private val channel = MethodChannel(messenger, CHANNEL_NAME)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val usesOplusNativeScrollCapture = isOplusFamilyDevice()
     private var rootLayout: ScrollCaptureRootLayout? = null
     private var isRegistered = false
-
-    init {
-        attachRootLayout(rootLayout)
-        channel.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "updateViewMetrics" -> {
-                    rootLayout?.updateVerticalScrollMetrics(
-                        call.arguments.asVerticalScrollMetrics(),
-                    )
-                    result.success(null)
-                }
-                "resetProxy" -> {
-                    rootLayout?.resetProxySession()
-                    result.success(null)
-                }
-                else -> result.notImplemented()
-            }
-        }
-    }
+    private var previousRootScrollCaptureHint: Int? = null
+    private var previousProxyScrollCaptureHint: Int? = null
 
     fun attachRootLayout(layout: ScrollCaptureRootLayout?) {
         if (rootLayout === layout) return
-        rootLayout?.setOnProxyScrollRequested(null)
-        rootLayout?.setOnProxySessionEnded(null)
+        rootLayout?.let { previousLayout ->
+            detachPreferredTarget(previousLayout)
+            previousLayout.setOnProxySessionPreparing(null)
+            previousLayout.setOnProxyScrollRequested(null)
+            previousLayout.setOnProxySessionEnded(null)
+        }
         rootLayout = layout
+        layout?.setOnProxySessionPreparing { onComplete ->
+            channel.invokeMethod("proxyPrepare", null, object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    onComplete(result == true)
+                }
+
+                override fun error(code: String, message: String?, details: Any?) {
+                    Log.w(TAG, "Proxy preparation failed: $code $message")
+                    onComplete(false)
+                }
+
+                override fun notImplemented() = onComplete(false)
+            })
+        }
         layout?.setOnProxyScrollRequested { offset, onComplete ->
             channel.invokeMethod("proxyScrollTo", offset, object : MethodChannel.Result {
                 override fun success(result: Any?) {
@@ -86,6 +89,9 @@ class ScrollCaptureBridge(
                 override fun notImplemented() = Unit
             })
         }
+        if (isRegistered && layout != null) {
+            attachPreferredTarget(layout)
+        }
     }
 
     private val callback = object : ScrollCaptureCallback {
@@ -94,25 +100,10 @@ class ScrollCaptureBridge(
             onReady: Consumer<Rect>,
         ) {
             if (signal.isCanceled) return
-            channel.invokeMethod("getMetrics", null, object : MethodChannel.Result {
-                override fun success(result: Any?) {
-                    if (signal.isCanceled) return
-                    val scrollBounds = result.asRect() ?: Rect()
-                    activity.window.decorView.let { decorView ->
-                        scrollBounds.intersect(0, 0, decorView.width, decorView.height)
-                    }
-                    onReady.accept(scrollBounds)
-                }
-
-                override fun error(code: String, message: String?, details: Any?) {
-                    Log.w(TAG, "Scroll capture search failed: $code $message")
-                    if (!signal.isCanceled) onReady.accept(Rect())
-                }
-
-                override fun notImplemented() {
-                    if (!signal.isCanceled) onReady.accept(Rect())
-                }
-            })
+            // Android and OPlus impose a short discovery timeout. Metrics are
+            // published ahead of time so search never waits on Dart or a frame.
+            val scrollBounds = rootLayout?.currentScrollCaptureBounds() ?: Rect()
+            onReady.accept(scrollBounds)
         }
 
         override fun onScrollCaptureStart(
@@ -190,29 +181,100 @@ class ScrollCaptureBridge(
         }
     }
 
-    fun registerWhenReady() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || isRegistered) return
-        activity.window.decorView.post {
-            if (isRegistered || !activity.window.decorView.isAttachedToWindow) {
-                return@post
+    private val rootCallback = object : ScrollCaptureCallback {
+        override fun onScrollCaptureSearch(
+            signal: CancellationSignal,
+            onReady: Consumer<Rect>,
+        ) {
+            if (signal.isCanceled) return
+            val scrollBounds = rootLayout?.currentRootScrollCaptureBounds() ?: Rect()
+            onReady.accept(scrollBounds)
+        }
+
+        override fun onScrollCaptureStart(
+            session: ScrollCaptureSession,
+            signal: CancellationSignal,
+            onReady: Runnable,
+        ) = callback.onScrollCaptureStart(session, signal, onReady)
+
+        override fun onScrollCaptureImageRequest(
+            session: ScrollCaptureSession,
+            signal: CancellationSignal,
+            captureArea: Rect,
+            onComplete: Consumer<Rect>,
+        ) = callback.onScrollCaptureImageRequest(
+            session,
+            signal,
+            captureArea,
+            onComplete,
+        )
+
+        override fun onScrollCaptureEnd(onReady: Runnable) =
+            callback.onScrollCaptureEnd(onReady)
+    }
+
+    init {
+        attachRootLayout(rootLayout)
+        channel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "updateViewMetrics" -> {
+                    this.rootLayout?.updateVerticalScrollMetrics(
+                        call.arguments.asVerticalScrollMetrics(),
+                    )
+                    result.success(null)
+                }
+                "resetProxy" -> {
+                    this.rootLayout?.resetProxySession()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
-            activity.window.registerScrollCaptureCallback(callback)
-            isRegistered = true
         }
     }
 
+    fun registerWhenReady() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || isRegistered) return
+        val layout = rootLayout ?: return
+        isRegistered = true
+        attachPreferredTarget(layout)
+    }
+
     fun dispose() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isRegistered) {
-            try {
-                activity.window.unregisterScrollCaptureCallback(callback)
-            } catch (error: IllegalStateException) {
-                Log.w(TAG, "Could not unregister scroll capture callback", error)
-            }
-        }
         channel.setMethodCallHandler(null)
         rootLayout?.updateVerticalScrollMetrics(null)
         attachRootLayout(null)
         isRegistered = false
+    }
+
+    private fun attachPreferredTarget(layout: ScrollCaptureRootLayout) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val target = layout.preferredScrollCaptureTarget()
+        previousRootScrollCaptureHint = layout.scrollCaptureHint
+        previousProxyScrollCaptureHint = target.scrollCaptureHint
+        if (usesOplusNativeScrollCapture) {
+            // ColorOS/OxygenOS routes platform ScrollView support through its
+            // gesture-stitch pipeline, but leaves app callbacks in an AOSP
+            // pipeline that never opens the connection on affected builds.
+            target.scrollCaptureHint = View.SCROLL_CAPTURE_HINT_INCLUDE
+            layout.setScrollCaptureCallback(null)
+            target.setScrollCaptureCallback(null)
+            return
+        }
+        layout.scrollCaptureHint = View.SCROLL_CAPTURE_HINT_INCLUDE
+        target.scrollCaptureHint = View.SCROLL_CAPTURE_HINT_INCLUDE
+        layout.setScrollCaptureCallback(rootCallback)
+        target.setScrollCaptureCallback(callback)
+    }
+
+    private fun detachPreferredTarget(layout: ScrollCaptureRootLayout) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val target = layout.preferredScrollCaptureTarget()
+        layout.setScrollCaptureCallback(null)
+        target.setScrollCaptureCallback(null)
+        previousRootScrollCaptureHint?.let { layout.scrollCaptureHint = it }
+        previousProxyScrollCaptureHint?.let { target.scrollCaptureHint = it }
+        previousRootScrollCaptureHint = null
+        previousProxyScrollCaptureHint = null
     }
 
     private fun readyResult(
@@ -337,6 +399,7 @@ class ScrollCaptureBridge(
             (map["viewportTopInset"] as? Number)?.toDouble() ?: 0.0
         val viewportBottomInset =
             (map["viewportBottomInset"] as? Number)?.toDouble() ?: 0.0
+        val scrollBounds = asRect() ?: return null
         if (maximumOffset <= minimumOffset || viewportDimension <= 0.0) return null
         return ScrollCaptureRootLayout.VerticalScrollMetrics(
             minimumOffset = minimumOffset,
@@ -345,12 +408,22 @@ class ScrollCaptureBridge(
             viewportDimension = viewportDimension,
             viewportTopInset = viewportTopInset.coerceAtLeast(0.0),
             viewportBottomInset = viewportBottomInset.coerceAtLeast(0.0),
+            scrollBounds = scrollBounds,
         )
     }
 
-    private companion object {
-        const val CHANNEL_NAME = "com.shinrinyoku.glimpse/scroll_capture"
-        const val TAG = "GlimpseScrollCapture"
-        const val POST_SCROLL_CAPTURE_DELAY_MS = 60L
+    companion object {
+        private const val CHANNEL_NAME = "com.shinrinyoku.glimpse/scroll_capture"
+        private const val TAG = "GlimpseScrollCapture"
+        private const val POST_SCROLL_CAPTURE_DELAY_MS = 60L
+
+        internal fun isOplusFamilyDevice(): Boolean {
+            return sequenceOf(Build.MANUFACTURER, Build.BRAND).any { value ->
+                value.equals("OnePlus", ignoreCase = true) ||
+                    value.equals("OPPO", ignoreCase = true) ||
+                    value.equals("realme", ignoreCase = true) ||
+                    value.equals("OPlus", ignoreCase = true)
+            }
+        }
     }
 }

@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.widget.FrameLayout
 import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.android.RenderMode
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
@@ -47,6 +48,17 @@ class MainActivity : FlutterFragmentActivity() {
     private var scrollCaptureBridge: ScrollCaptureBridge? = null
     private var scrollCaptureRootLayout: ScrollCaptureRootLayout? = null
 
+    override fun getRenderMode(): RenderMode {
+        return if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            ScrollCaptureBridge.isOplusFamilyDevice()
+        ) {
+            RenderMode.image
+        } else {
+            super.getRenderMode()
+        }
+    }
+
     override fun provideRootLayout(context: Context): FrameLayout {
         return ScrollCaptureRootLayout(context).also {
             scrollCaptureRootLayout = it
@@ -83,7 +95,7 @@ class MainActivity : FlutterFragmentActivity() {
                 activity = this,
                 messenger = flutterEngine.dartExecutor.binaryMessenger,
                 rootLayout = scrollCaptureRootLayout,
-            )
+            ).also { it.registerWhenReady() }
         }
 
         backupMethodChannel = MethodChannel(

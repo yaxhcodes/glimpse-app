@@ -708,6 +708,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final isEmpty = urls.isEmpty;
     final scrollCaptureActive = ScrollCaptureScope.isCapturingOf(context);
+    final shellOverlayObstruction =
+        (Theme.of(context).navigationBarTheme.height ?? 80) +
+        MediaQuery.viewPaddingOf(context).bottom +
+        kFloatingActionButtonMargin +
+        56;
     final selectedUrls = urls
         .where((url) => selectionState.selectedIds.contains(url.id))
         .toList();
@@ -734,240 +739,250 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ref.invalidate(categoriesProvider);
               await ref.read(urlStreamProvider.future);
             },
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverAppBar(
-                  pinned: selectionState.isActive,
-                  floating: !scrollCaptureActive,
-                  snap: !scrollCaptureActive,
-                  centerTitle: false,
-                  backgroundColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  flexibleSpace: const AppGlassSurface(),
-                  foregroundColor: theme.colorScheme.onSurfaceVariant,
-                  leading: selectionState.isActive
-                      ? IconButton(
-                          icon: const Icon(Icons.arrow_back_rounded),
-                          tooltip: context.l10n.exitSelection,
-                          onPressed: selectionNotifier.clear,
-                        )
-                      : null,
-                  title: selectionState.isActive
-                      ? BulkSelectionTitle(count: selectedUrls.length)
-                      : _buildGlimpseTitle(context),
-                  actions: selectionState.isActive
-                      ? [
-                          BulkSelectionActionButtons(
-                            scope: selectionScope,
-                            selectedUrls: selectedUrls,
-                            visibleUrls: urls,
-                            onDone: selectionNotifier.clear,
-                            onViewPinned: () {
-                              _scrollController.animateTo(
-                                0,
-                                duration: const Duration(milliseconds: 260),
-                                curve: Curves.easeOutCubic,
-                              );
-                            },
-                          ),
-                        ]
-                      : [
-                          IconButton(
-                            icon: const AppIcon(AppIcons.addLink),
-                            tooltip: context.l10n.addUrl,
-                            onPressed: () => context.push('/add'),
-                          ),
-                          if (!isEmpty)
-                            IconButton(
-                              icon: Badge.count(
-                                count: _unreadDigests,
-                                maxCount: 9,
-                                isLabelVisible: _unreadDigests > 0,
-                                backgroundColor: theme.colorScheme.primary,
-                                textColor: theme.colorScheme.onPrimary,
-                                largeSize: 18,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.0,
-                                ),
-                                child: const AppIcon(AppIcons.notifications),
-                              ),
-                              tooltip: context.l10n.notifications,
-                              onPressed: () async {
-                                await context.push('/notifications');
-                                _refreshUnreadBadge();
+            child: ScrollCaptureFixedOverlayScope(
+              bottomObstruction: isEmpty ? 0 : shellOverlayObstruction,
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverAppBar(
+                    pinned: selectionState.isActive,
+                    floating: !scrollCaptureActive,
+                    snap: !scrollCaptureActive,
+                    centerTitle: false,
+                    backgroundColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    flexibleSpace: const AppGlassSurface(),
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    leading: selectionState.isActive
+                        ? IconButton(
+                            icon: const Icon(Icons.arrow_back_rounded),
+                            tooltip: context.l10n.exitSelection,
+                            onPressed: selectionNotifier.clear,
+                          )
+                        : null,
+                    title: selectionState.isActive
+                        ? BulkSelectionTitle(count: selectedUrls.length)
+                        : _buildGlimpseTitle(context),
+                    actions: selectionState.isActive
+                        ? [
+                            BulkSelectionActionButtons(
+                              scope: selectionScope,
+                              selectedUrls: selectedUrls,
+                              visibleUrls: urls,
+                              onDone: selectionNotifier.clear,
+                              onViewPinned: () {
+                                _scrollController.animateTo(
+                                  0,
+                                  duration: const Duration(milliseconds: 260),
+                                  curve: Curves.easeOutCubic,
+                                );
                               },
                             ),
-                          IconButton(
-                            icon: const AppIcon(AppIcons.settings),
-                            tooltip: context.l10n.settings,
-                            onPressed: () => context.push('/settings'),
-                          ),
-                        ],
-                ),
-                if (showGuideCard) const SliverToBoxAdapter(child: GuideCard()),
-                if (!simulateFirstSave &&
-                    !forceEmptyLibrary &&
-                    actualUrls.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: RediscoverySection(
-                      loadJourneys: _deferredDiscoveryReady,
-                    ),
+                          ]
+                        : [
+                            IconButton(
+                              icon: const AppIcon(AppIcons.addLink),
+                              tooltip: context.l10n.addUrl,
+                              onPressed: () => context.push('/add'),
+                            ),
+                            if (!isEmpty)
+                              IconButton(
+                                icon: Badge.count(
+                                  count: _unreadDigests,
+                                  maxCount: 9,
+                                  isLabelVisible: _unreadDigests > 0,
+                                  backgroundColor: theme.colorScheme.primary,
+                                  textColor: theme.colorScheme.onPrimary,
+                                  largeSize: 18,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.0,
+                                  ),
+                                  child: const AppIcon(AppIcons.notifications),
+                                ),
+                                tooltip: context.l10n.notifications,
+                                onPressed: () async {
+                                  await context.push('/notifications');
+                                  _refreshUnreadBadge();
+                                },
+                              ),
+                            IconButton(
+                              icon: const AppIcon(AppIcons.settings),
+                              tooltip: context.l10n.settings,
+                              onPressed: () => context.push('/settings'),
+                            ),
+                          ],
                   ),
-                if (sourceClusters.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () => context.push('/sources'),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          context.l10n.sources,
-                                          style: theme.textTheme.labelMedium
-                                              ?.copyWith(
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                      ],
+                  if (showGuideCard)
+                    const SliverToBoxAdapter(child: GuideCard()),
+                  if (!simulateFirstSave &&
+                      !forceEmptyLibrary &&
+                      actualUrls.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: RediscoverySection(
+                        loadJourneys: _deferredDiscoveryReady,
+                      ),
+                    ),
+                  if (sourceClusters.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () => context.push('/sources'),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 4,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            context.l10n.sources,
+                                            style: theme.textTheme.labelMedium
+                                                ?.copyWith(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              IconButton(
-                                onPressed: () => context.push('/sources'),
-                                tooltip: context.l10n.viewAllSources,
-                                alignment: Alignment.centerRight,
-                                padding: EdgeInsets.zero,
-                                icon: Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 20,
-                                  color: theme.colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.48),
+                                IconButton(
+                                  onPressed: () => context.push('/sources'),
+                                  tooltip: context.l10n.viewAllSources,
+                                  alignment: Alignment.centerRight,
+                                  padding: EdgeInsets.zero,
+                                  icon: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 20,
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.48),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        SizedBox(
-                          height: 34,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            clipBehavior: Clip.none,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: sourceClusters.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 6),
-                            itemBuilder: (context, index) {
-                              final source = sourceClusters[index];
-                              final name = source.name;
-                              final fav = faviconUrl(name) ?? source.faviconUrl;
-                              final iconSpec = resolveSourceIcon(name);
-                              return FilterChip(
-                                showCheckmark: false,
-                                avatar: _SourceChipAvatar(
-                                  label: name,
-                                  faviconUrl: fav,
-                                  iconSpec: iconSpec,
-                                  size: 14,
-                                ),
-                                label: Text(name),
-                                color: WidgetStatePropertyAll(
-                                  theme.colorScheme.surfaceContainerLow,
-                                ),
-                                labelStyle: theme.textTheme.labelSmall
-                                    ?.copyWith(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.1,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                backgroundColor:
+                          SizedBox(
+                            height: 34,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              clipBehavior: Clip.none,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              itemCount: sourceClusters.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 6),
+                              itemBuilder: (context, index) {
+                                final source = sourceClusters[index];
+                                final name = source.name;
+                                final fav =
+                                    faviconUrl(name) ?? source.faviconUrl;
+                                final iconSpec = resolveSourceIcon(name);
+                                return FilterChip(
+                                  showCheckmark: false,
+                                  avatar: _SourceChipAvatar(
+                                    label: name,
+                                    faviconUrl: fav,
+                                    iconSpec: iconSpec,
+                                    size: 14,
+                                  ),
+                                  label: Text(name),
+                                  color: WidgetStatePropertyAll(
                                     theme.colorScheme.surfaceContainerLow,
-                                side: BorderSide.none,
-                                selected: false,
-                                onSelected: (_) => context.push(
-                                  '/sources/${Uri.encodeComponent(name)}',
-                                ),
-                              );
-                            },
+                                  ),
+                                  labelStyle: theme.textTheme.labelSmall
+                                      ?.copyWith(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        letterSpacing: 0.1,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                  backgroundColor:
+                                      theme.colorScheme.surfaceContainerLow,
+                                  side: BorderSide.none,
+                                  selected: false,
+                                  onSelected: (_) => context.push(
+                                    '/sources/${Uri.encodeComponent(name)}',
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                if (sourceClusters.isEmpty &&
-                    showSourcesSkeleton &&
-                    actualUrls.isNotEmpty)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
-                      child: HomeSourcesSkeleton(),
+                  if (sourceClusters.isEmpty &&
+                      showSourcesSkeleton &&
+                      actualUrls.isNotEmpty)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
+                        child: HomeSourcesSkeleton(),
+                      ),
                     ),
-                  ),
-                for (final section in sections) ...[
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-                      child: Text(
-                        section.label,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.3,
+                  for (final section in sections) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                        child: Text(
+                          section.label,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final url = section.urls[index];
-                      return SwipeableUrlCard(
-                        key: ValueKey(url.id),
-                        url: url,
-                        contentPadding: const EdgeInsets.all(10),
-                        selectionMode: selectionState.isActive,
-                        isSelected: selectionState.isSelected(url.id),
-                        onSelectionStart: () =>
-                            selectionNotifier.startWith(url.id),
-                        onSelectionToggle: () =>
-                            selectionNotifier.toggle(url.id),
-                        onTap: () =>
-                            context.push('/url/${url.id}', extra: section.ids),
-                        onViewPinned: () {
-                          _scrollController.animateTo(
-                            0,
-                            duration: const Duration(milliseconds: 260),
-                            curve: Curves.easeOutCubic,
-                          );
-                        },
-                      );
-                    }, childCount: section.urls.length),
-                  ),
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final url = section.urls[index];
+                        return SwipeableUrlCard(
+                          key: ValueKey(url.id),
+                          url: url,
+                          contentPadding: const EdgeInsets.all(10),
+                          selectionMode: selectionState.isActive,
+                          isSelected: selectionState.isSelected(url.id),
+                          onSelectionStart: () =>
+                              selectionNotifier.startWith(url.id),
+                          onSelectionToggle: () =>
+                              selectionNotifier.toggle(url.id),
+                          onTap: () => context.push(
+                            '/url/${url.id}',
+                            extra: section.ids,
+                          ),
+                          onViewPinned: () {
+                            _scrollController.animateTo(
+                              0,
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeOutCubic,
+                            );
+                          },
+                        );
+                      }, childCount: section.urls.length),
+                    ),
+                  ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 96)),
                 ],
-                const SliverToBoxAdapter(child: SizedBox(height: 96)),
-              ],
+              ),
             ),
           ),
         ],

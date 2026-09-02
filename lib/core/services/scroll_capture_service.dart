@@ -84,6 +84,22 @@ class ScrollCaptureViewportScope extends InheritedWidget {
   }
 }
 
+/// Describes fixed chrome owned by one particular scrolling surface.
+class ScrollCaptureFixedOverlayScope extends InheritedWidget {
+  const ScrollCaptureFixedOverlayScope({
+    required this.bottomObstruction,
+    required super.child,
+    super.key,
+  });
+
+  final double bottomObstruction;
+
+  @override
+  bool updateShouldNotify(ScrollCaptureFixedOverlayScope oldWidget) {
+    return bottomObstruction != oldWidget.bottomObstruction;
+  }
+}
+
 class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
   static const _channel = MethodChannel(
     'com.shinrinyoku.glimpse/scroll_capture',
@@ -93,10 +109,8 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
   int _sequence = 0;
   bool _nativeMetricsUpdateScheduled = false;
   bool _isCaptureUiActive = false;
-  Timer? _searchResetTimer;
   Timer? _proxyResetTimer;
   _ProxyScrollSession? _proxySession;
-  _ScrollCaptureCandidate? _searchedCandidate;
   _ScrollCaptureSession? _session;
   late final Future<void> _nativeProxyReady;
 
@@ -110,7 +124,6 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
 
   @override
   void dispose() {
-    _searchResetTimer?.cancel();
     _proxyResetTimer?.cancel();
     _channel.setMethodCallHandler(null);
     super.dispose();
@@ -187,9 +200,9 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
     });
   }
 
-  Future<void> _pushNativeViewMetrics() async {
+  Future<bool> _pushNativeViewMetrics() async {
     await _nativeProxyReady;
-    if (!mounted) return;
+    if (!mounted) return false;
     final candidate = _selectCandidate();
     Map<String, Object>? arguments;
     if (candidate != null &&
@@ -201,23 +214,43 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
       final bottomObstruction = candidate.notificationContext
           .getInheritedWidgetOfExactType<ScrollCaptureViewportScope>()
           ?.bottomObstruction;
+      final shellOverlayObstruction =
+          candidate.notificationContext
+              .getInheritedWidgetOfExactType<ScrollCaptureFixedOverlayScope>()
+              ?.bottomObstruction ??
+          0;
+      final effectiveBottomObstruction = math.max(
+        bottomObstruction ?? 0,
+        shellOverlayObstruction,
+      );
+      final bottomObstructionPixels = effectiveBottomObstruction * ratio;
+      final scrollableBottom = bounds == null
+          ? 0
+          : math.max(bounds.top, bounds.bottom - bottomObstructionPixels);
       arguments = {
+        'left': bounds?.left.round() ?? 0,
+        'top': bounds?.top.round() ?? 0,
+        'right': bounds?.right.round() ?? 0,
+        'bottom': scrollableBottom.round(),
         'minimumOffset': position.minScrollExtent * ratio,
         'maximumOffset': position.maxScrollExtent * ratio,
         'offset': position.pixels * ratio,
         'viewportDimension': position.viewportDimension * ratio,
         'viewportTopInset': bounds?.top ?? 0,
-        'viewportBottomInset': (bottomObstruction ?? 0) * ratio,
+        'viewportBottomInset': bottomObstructionPixels,
       };
     }
 
     try {
       await _channel.invokeMethod<void>('updateViewMetrics', arguments);
+      return arguments != null;
     } on MissingPluginException {
       // Android versions before the native bridge was introduced are safe to
       // run without OEM view metrics; the official callback remains optional.
+      return false;
     } on PlatformException catch (error) {
       debugPrint('Could not update Android scroll metrics: $error');
+      return false;
     }
   }
 
@@ -234,8 +267,6 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
 
   Future<Object?> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
-      case 'getMetrics':
-        return _prepareSearch();
       case 'start':
         return _startCapture();
       case 'capture':
@@ -249,6 +280,8 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
         final offset = call.arguments;
         if (offset is! num) return false;
         return _handleProxyScroll(offset.toDouble());
+      case 'proxyPrepare':
+        return _prepareProxyScroll();
       case 'proxyScrollEnd':
         await _finishProxyScroll();
         return true;
@@ -257,6 +290,10 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
           'Unknown scroll capture method: ${call.method}',
         );
     }
+  }
+
+  Future<bool> _prepareProxyScroll() async {
+    return _pushNativeViewMetrics();
   }
 
   Future<bool> _handleProxyScroll(double physicalOffset) async {
@@ -276,20 +313,20 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
     );
     final needsScroll =
         (position.pixels - targetOffset).abs() > precisionErrorTolerance;
-    if (!_isCaptureUiActive) {
-      setState(() => _isCaptureUiActive = true);
-    }
     if (needsScroll) {
       position.jumpTo(targetOffset);
-    }
-    if (needsScroll || _isCaptureUiActive) {
       await _waitForPaint();
     }
+
+    if (!mounted || !_isUsable(candidate)) return false;
+    final didReachTarget =
+        (candidate.scrollable.position.pixels - targetOffset).abs() <=
+        precisionErrorTolerance;
 
     _proxyResetTimer = Timer(const Duration(seconds: 2), () {
       unawaited(_finishProxyScroll());
     });
-    return true;
+    return didReachTarget;
   }
 
   Future<void> _finishProxyScroll() async {
@@ -321,60 +358,21 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
     }
   }
 
-  Future<Map<String, Object>?> _prepareSearch() async {
-    _searchResetTimer?.cancel();
+  Future<bool> _startCapture() async {
     if (!_isCaptureUiActive) {
       setState(() => _isCaptureUiActive = true);
       await _waitForPaint();
     }
+    if (!mounted) return false;
 
-    final metrics = _getMetrics();
-    if (metrics == null) {
-      _deactivateCaptureUi();
-      return null;
-    }
-
-    _searchResetTimer = Timer(const Duration(seconds: 3), () {
-      if (!mounted || _session != null) return;
-      _searchedCandidate = null;
-      _deactivateCaptureUi();
-    });
-    return metrics;
-  }
-
-  Map<String, Object>? _getMetrics() {
     final candidate = _selectCandidate();
-    if (candidate == null) {
-      _searchedCandidate = null;
-      return null;
-    }
-
-    final bounds = _physicalBoundsFor(candidate);
-    if (bounds == null || bounds.isEmpty) {
-      _searchedCandidate = null;
-      return null;
-    }
-
-    _searchedCandidate = candidate;
-    return {
-      'left': bounds.left.round(),
-      'top': bounds.top.round(),
-      'right': bounds.right.round(),
-      'bottom': bounds.bottom.round(),
-    };
-  }
-
-  bool _startCapture() {
-    _searchResetTimer?.cancel();
-    _searchResetTimer = null;
-    final candidate = _searchedCandidate ?? _selectCandidate();
     if (candidate == null || !_isUsable(candidate)) {
       _deactivateCaptureUi();
       return false;
     }
 
     final position = candidate.scrollable.position;
-    final pixelRatio = View.of(candidate.notificationContext).devicePixelRatio;
+    final pixelRatio = View.of(context).devicePixelRatio;
     _session = _ScrollCaptureSession(
       candidate: candidate,
       originalOffset: position.pixels,
@@ -449,11 +447,8 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
   }
 
   Future<void> _endCapture() async {
-    _searchResetTimer?.cancel();
-    _searchResetTimer = null;
     final session = _session;
     _session = null;
-    _searchedCandidate = null;
     try {
       if (session == null || !_isUsable(session.candidate)) return;
 
@@ -468,7 +463,14 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
       position.jumpTo(restoredOffset);
       await _waitForPaint();
     } finally {
+      final needsUiRestore = _isCaptureUiActive;
       _deactivateCaptureUi();
+      if (mounted && needsUiRestore) {
+        await _waitForPaint();
+      }
+      if (mounted) {
+        await _pushNativeViewMetrics();
+      }
     }
   }
 
