@@ -1,9 +1,10 @@
 import 'dart:convert';
 
 import '../../core/models/saved_url.dart';
+import '../../core/models/music_song.dart';
 import '../../core/services/transcript_enrichment_service.dart';
 
-enum LibraryEntityKind { book, movie, place }
+enum LibraryEntityKind { book, movie, place, music }
 
 enum LibraryItemStatus { unlisted, planning, active, dropped, completed }
 
@@ -13,14 +14,17 @@ extension LibraryItemStatusX on LibraryItemStatus {
       'Not in reading list',
     (LibraryItemStatus.unlisted, LibraryEntityKind.movie) => 'Not in watchlist',
     (LibraryItemStatus.unlisted, LibraryEntityKind.place) => 'Not listed',
+    (LibraryItemStatus.unlisted, LibraryEntityKind.music) => 'Not listed',
     (LibraryItemStatus.planning, _) => 'Planning',
     (LibraryItemStatus.active, LibraryEntityKind.book) => 'Reading',
     (LibraryItemStatus.active, LibraryEntityKind.movie) => 'Watching',
     (LibraryItemStatus.active, LibraryEntityKind.place) => 'In progress',
+    (LibraryItemStatus.active, LibraryEntityKind.music) => 'In progress',
     (LibraryItemStatus.dropped, _) => 'Dropped',
     (LibraryItemStatus.completed, LibraryEntityKind.book) => 'Read',
     (LibraryItemStatus.completed, LibraryEntityKind.movie) => 'Watched',
     (LibraryItemStatus.completed, LibraryEntityKind.place) => 'Visited',
+    (LibraryItemStatus.completed, LibraryEntityKind.music) => 'Done',
   };
 
   static LibraryItemStatus fromStorage(String? raw) {
@@ -37,12 +41,14 @@ extension LibraryEntityKindX on LibraryEntityKind {
     LibraryEntityKind.book => 'Books',
     LibraryEntityKind.movie => 'Movies & Shows',
     LibraryEntityKind.place => 'Places',
+    LibraryEntityKind.music => 'Music',
   };
 
   String get singularLabel => switch (this) {
     LibraryEntityKind.book => 'Book',
     LibraryEntityKind.movie => 'Movie',
     LibraryEntityKind.place => 'Place',
+    LibraryEntityKind.music => 'Music',
   };
 }
 
@@ -120,6 +126,7 @@ class LibraryEntity {
           mention.genres.isEmpty,
     LibraryEntityKind.place =>
       mention.catalogId == null || !mention.hasCoordinates,
+    LibraryEntityKind.music => false,
   };
 
   Map<String, dynamic> toResolverJson() {
@@ -205,9 +212,38 @@ class LibraryIndex {
       );
       if (result == null) return const [];
       final candidates = <_LibraryCandidate>[];
-      for (final mention in result.mentions) {
+      final mentions = [
+        ...result.mentions,
+        for (final item in result.notableItems.where(
+          (item) =>
+              MusicSongQuery.tryCreate(
+                title: item.text,
+                artist: item.attribution,
+                type: item.type,
+                label: item.label,
+              ) !=
+              null,
+        ))
+          EnrichedMention(
+            title: item.text,
+            type: 'music',
+            subtype: 'song',
+            creator: item.attribution,
+            whyMentioned: item.whyImportant,
+          ),
+      ];
+      for (final mention in mentions) {
         final kind = kindForMention(mention);
         if (kind == null || !_isV1Subtype(kind, mention.subtype)) continue;
+        if (kind == LibraryEntityKind.music &&
+            MusicSongQuery.tryCreate(
+                  title: mention.title,
+                  artist: mention.creator,
+                  type: mention.subtype,
+                ) ==
+                null) {
+          continue;
+        }
         final provisional = provisionalKeyFor(kind, mention);
         if (provisional.isEmpty) continue;
         candidates.add(
@@ -286,6 +322,7 @@ class LibraryIndex {
       'book' => LibraryEntityKind.book,
       'movie' => LibraryEntityKind.movie,
       'place' => LibraryEntityKind.place,
+      'music' => LibraryEntityKind.music,
       _ => null,
     };
   }
@@ -294,7 +331,9 @@ class LibraryIndex {
     LibraryEntityKind kind,
     EnrichedMention mention,
   ) {
-    final title = _normalized(mention.title);
+    final title = kind == LibraryEntityKind.music
+        ? MusicSongQuery.normalize(mention.title)
+        : _normalized(mention.title);
     if (title.isEmpty) return '';
     return switch (kind) {
       LibraryEntityKind.book =>
@@ -305,6 +344,8 @@ class LibraryIndex {
       LibraryEntityKind.place =>
         'place:$title|${_normalized(mention.city ?? '')}|'
             '${_normalized(mention.country ?? '')}',
+      LibraryEntityKind.music =>
+        'music:$title|${MusicSongQuery.normalize(mention.creator ?? '')}|track',
     };
   }
 
@@ -574,7 +615,9 @@ class LibraryGenreNormalizer {
   };
 
   static List<String> normalize(LibraryEntityKind kind, Iterable<String> raw) {
-    if (kind == LibraryEntityKind.place) return const [];
+    if (kind == LibraryEntityKind.place || kind == LibraryEntityKind.music) {
+      return const [];
+    }
     final taxonomy = kind == LibraryEntityKind.book
         ? _bookGenres
         : _movieGenres;

@@ -9,15 +9,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/engagement_event.dart';
-import '../../core/models/music_provider.dart';
-import '../../core/providers/music_provider_preference_provider.dart';
 import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/providers/usage_providers.dart';
 import '../../core/services/category_resolver.dart';
 import '../../core/services/category_taxonomy.dart';
 import '../../core/services/intent_classifier.dart';
-import '../../core/services/music_destination_service.dart';
 import '../../core/services/recipe_state_service.dart';
 import '../../core/services/rediscover_utility_profile.dart';
 import '../../core/services/saved_media_resolver.dart';
@@ -39,7 +36,7 @@ import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/enrichment_retry_button.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
-import '../../shared/widgets/music_provider_sheet.dart';
+import '../../shared/widgets/music_actions.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/swipeable_url_card.dart'
     show deleteUrlWithUndo, togglePinnedUrl;
@@ -371,7 +368,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _recipeStateLoading = false;
   Set<String> _checkedIngredientKeys = {};
   List<ShoppingListItem> _shoppingList = const [];
-  final Set<int> _musicPromptAttemptedUrlIds = {};
   bool _musicProviderSheetOpen = false;
   bool? _hadNoteWhenOpened;
   bool _noteOutcomeRecorded = false;
@@ -529,67 +525,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     }
   }
 
-  void _scheduleMusicProviderPrompt(
-    TranscriptEnrichmentResult? enrichment,
-    MusicProviderPreferenceState preference,
-  ) {
-    if (!widget.isActive ||
-        !preference.isLoaded ||
-        preference.provider != null ||
-        enrichment == null ||
-        !enrichment.notableItems.any((item) => item.isMusicItem) ||
-        !_musicPromptAttemptedUrlIds.add(widget.urlId)) {
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      if (!widget.isActive) {
-        _musicPromptAttemptedUrlIds.remove(widget.urlId);
-        return;
-      }
-      await _chooseMusicProvider();
-    });
-  }
-
-  Future<MusicProvider?> _chooseMusicProvider() async {
-    if (_musicProviderSheetOpen || !mounted) return null;
+  Future<void> _openMusicItem(EnrichedNotableItem item) async {
+    if (_musicProviderSheetOpen) return;
     _musicProviderSheetOpen = true;
     try {
-      final current = ref.read(musicProviderPreferenceProvider).provider;
-      final selected = await showMusicProviderSheet(context, selected: current);
-      if (selected != null && mounted) {
-        await ref
-            .read(musicProviderPreferenceProvider.notifier)
-            .setProvider(selected);
-      }
-      return selected;
+      await openMusicItem(
+        context,
+        ref,
+        title: item.text,
+        artist: item.attribution,
+      );
     } finally {
       _musicProviderSheetOpen = false;
-    }
-  }
-
-  Future<void> _openMusicItem(EnrichedNotableItem item) async {
-    final preferenceNotifier = ref.read(
-      musicProviderPreferenceProvider.notifier,
-    );
-    await preferenceNotifier.ensureLoaded();
-    if (!mounted) return;
-
-    var provider = ref.read(musicProviderPreferenceProvider).provider;
-    provider ??= await _chooseMusicProvider();
-    if (provider == null || !mounted) return;
-
-    final locale = Localizations.maybeLocaleOf(context);
-    final uri = MusicDestinationService.searchUri(
-      provider: provider,
-      title: item.text,
-      artist: item.attribution,
-      countryCode: locale?.countryCode,
-    );
-    final launched = await _launchExternalUri(uri);
-    if (!launched && mounted) {
-      _showSnack("Couldn't open ${provider.label}");
     }
   }
 
@@ -1391,7 +1338,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   Widget build(BuildContext context) {
     final urlAsync = ref.watch(urlDetailProvider(widget.urlId));
     final tagFreq = ref.watch(tagOccurrenceMapProvider);
-    final musicPreference = ref.watch(musicProviderPreferenceProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -1566,7 +1512,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               child: Center(child: Text('URL not found')),
             )
           else
-            _buildBody(url, theme, colorScheme, tagFreq, musicPreference),
+            _buildBody(url, theme, colorScheme, tagFreq),
         ],
       ),
     );
@@ -1577,7 +1523,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ThemeData theme,
     ColorScheme colorScheme,
     Map<String, int> tagFreq,
-    MusicProviderPreferenceState musicPreference,
   ) {
     if (!_notesEdited && !_notesFocusNode.hasFocus) {
       _notesController.text = _localNotesOverride ?? url.userNotes ?? '';
@@ -1587,7 +1532,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       url,
       hasAiSaveAccess: ref.watch(aiSaveAvailableProvider),
     );
-    _scheduleMusicProviderPrompt(live, musicPreference);
     final creatorUsername = _extractCreatorUsername(
       description: url.description,
       creator: live?.creator,

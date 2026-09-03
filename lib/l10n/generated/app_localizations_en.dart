@@ -9,6 +9,27 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get musicDetailsUnavailable =>
+      'Some song details could not be loaded.';
+
+  @override
+  String get loadingMusicDetails => 'Loading song details…';
+
+  @override
+  String get couldNotSaveMusicProvider =>
+      'Could not save your music app. Please try again.';
+
+  @override
+  String get libraryMusicEmptyDescription =>
+      'Songs found in your saved links will appear here.';
+
+  @override
+  String get libraryMusicDescription => 'Songs found in your saves';
+
+  @override
+  String get libraryMusic => 'Music';
+
+  @override
   String get appName => 'Glimpse';
 
   @override
@@ -1267,7 +1288,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get library => 'Library';
 
   @override
-  String get libraryDescription => 'Books, movies & places found in your saves';
+  String get libraryDescription =>
+      'Books, movies, places & music found in your saves';
 
   @override
   String get buildsQuietly => 'Builds quietly as you save';
@@ -1939,7 +1961,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get libraryEmptyDescription =>
-      'Save recommendations for books, movies, and places. Glimpse will organize the things inside them here.';
+      'Save recommendations for books, movies, places, and music. Glimpse will organize the things inside them here.';
 
   @override
   String get libraryUnavailable => 'Library is unavailable right now';

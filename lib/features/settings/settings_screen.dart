@@ -9,8 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_environment.dart';
 import '../../core/models/app_user.dart';
-import '../../core/models/music_provider.dart';
-import '../../core/providers/music_provider_preference_provider.dart';
 import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/service_providers.dart';
@@ -31,7 +29,6 @@ import '../../core/services/tag_analyzer.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
-import '../../shared/widgets/music_provider_sheet.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
 import 'bin_provider.dart';
@@ -46,17 +43,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isDeletingAccount = false;
-
-  Future<void> _chooseMusicProvider() async {
-    final notifier = ref.read(musicProviderPreferenceProvider.notifier);
-    await notifier.ensureLoaded();
-    if (!mounted) return;
-    final current = ref.read(musicProviderPreferenceProvider).provider;
-    final selected = await showMusicProviderSheet(context, selected: current);
-    if (selected != null && mounted) {
-      await notifier.setProvider(selected);
-    }
-  }
 
   Future<void> _chooseLanguage() async {
     final current = ref.read(appLocaleProvider).preference;
@@ -264,7 +250,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final authState = ref.watch(authControllerProvider);
     final accountUser = authState.valueOrNull;
     final isPro = ref.watch(isProUserProvider);
-    final musicPreference = ref.watch(musicProviderPreferenceProvider);
     final strings = context.l10n;
     final localeState = ref.watch(appLocaleProvider);
     final aiSaveRemaining = ref.watch(
@@ -356,16 +341,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: strings.language,
                       subtitle: _languageLabel(strings, localeState.preference),
                       onTap: _chooseLanguage,
-                    ),
-                    SettingsTile(
-                      icon: AppIcons.musicProvider,
-                      iconColor: SettingsAccents.rose,
-                      title: strings.musicApp,
-                      subtitle: musicPreference.isLoaded
-                          ? musicPreference.provider?.label ??
-                                strings.chooseWhereSongsOpen
-                          : strings.loadingPreference,
-                      onTap: _chooseMusicProvider,
                     ),
                   ],
                 ),

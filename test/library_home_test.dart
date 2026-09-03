@@ -8,12 +8,48 @@ import 'package:glimpse/core/services/transcript_enrichment_service.dart';
 import 'package:glimpse/features/library/library_entity.dart';
 import 'package:glimpse/features/library/library_entity_detail_screen.dart';
 import 'package:glimpse/features/library/library_home.dart';
+import 'package:glimpse/features/library/library_music_screen.dart';
 import 'package:glimpse/features/library/library_places_screen.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 import 'package:glimpse/features/library/library_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('opens Music from the Library before any discoveries', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const LibraryScreen()),
+        GoRoute(
+          path: '/library/music',
+          builder: (_, _) => const LibraryMusicScreen(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          analyticsServiceProvider.overrideWithValue(_FakeAnalytics()),
+          librarySnapshotProvider.overrideWith(
+            (ref) => const AsyncValue.data(LibrarySnapshot(entities: [])),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Music'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LibraryMusicScreen), findsOneWidget);
+    expect(find.text('Where do you listen?'), findsOneWidget);
+    expect(find.text('Music app'), findsNothing);
+    expect(find.byTooltip('Music options'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows the compact-phone empty state', (tester) async {
     tester.view.physicalSize = const Size(360, 720);
     tester.view.devicePixelRatio = 1;

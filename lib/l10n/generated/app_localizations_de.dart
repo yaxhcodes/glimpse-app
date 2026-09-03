@@ -9,6 +9,27 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String get musicDetailsUnavailable =>
+      'Einige Songdetails konnten nicht geladen werden.';
+
+  @override
+  String get loadingMusicDetails => 'Songdetails werden geladen…';
+
+  @override
+  String get couldNotSaveMusicProvider =>
+      'Deine Musik-App konnte nicht gespeichert werden. Bitte versuche es erneut.';
+
+  @override
+  String get libraryMusicEmptyDescription =>
+      'Songs aus deinen gespeicherten Links erscheinen hier.';
+
+  @override
+  String get libraryMusicDescription => 'Songs aus deinen gespeicherten Links';
+
+  @override
+  String get libraryMusic => 'Musik';
+
+  @override
   String get appName => 'Glimpse';
 
   @override
@@ -1285,7 +1306,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get libraryDescription =>
-      'Bücher, Filme und Orte aus deinen Speicherungen';
+      'Bücher, Filme, Orte & Musik aus deinen gespeicherten Links';
 
   @override
   String get buildsQuietly => 'Wächst unauffällig beim Speichern';
@@ -1967,7 +1988,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get libraryEmptyDescription =>
-      'Speichere Empfehlungen für Bücher, Filme und Orte. Glimpse organisiert die darin enthaltenen Dinge hier.';
+      'Speichere Empfehlungen für Bücher, Filme, Orte und Musik. Glimpse ordnet die Inhalte hier für dich.';
 
   @override
   String get libraryUnavailable => 'Bibliothek ist derzeit nicht verfügbar';

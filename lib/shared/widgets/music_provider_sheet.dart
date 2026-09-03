@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/models/music_provider.dart';
 import '../../l10n/l10n.dart';
+import 'music_provider_icon.dart';
 
 Future<MusicProvider?> showMusicProviderSheet(
   BuildContext context, {
@@ -68,7 +68,7 @@ class _MusicProviderSheet extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        _ProviderIcon(provider: provider),
+                        MusicProviderIcon(provider: provider),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Text(
@@ -100,22 +100,5 @@ class _MusicProviderSheet extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _ProviderIcon extends StatelessWidget {
-  const _ProviderIcon({required this.provider});
-
-  final MusicProvider provider;
-
-  @override
-  Widget build(BuildContext context) {
-    final asset = switch (provider) {
-      MusicProvider.spotify => 'assets/brands/spotify.svg',
-      MusicProvider.youtubeMusic => 'assets/brands/youtube-music.svg',
-      MusicProvider.appleMusic => 'assets/brands/apple-music.svg',
-    };
-
-    return SizedBox(width: 42, height: 42, child: SvgPicture.asset(asset));
   }
 }

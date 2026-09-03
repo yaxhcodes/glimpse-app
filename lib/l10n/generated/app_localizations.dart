@@ -106,6 +106,42 @@ abstract class AppLocalizations {
     Locale('pt'),
   ];
 
+  /// No description provided for @musicDetailsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Some song details could not be loaded.'**
+  String get musicDetailsUnavailable;
+
+  /// No description provided for @loadingMusicDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading song details…'**
+  String get loadingMusicDetails;
+
+  /// No description provided for @couldNotSaveMusicProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save your music app. Please try again.'**
+  String get couldNotSaveMusicProvider;
+
+  /// No description provided for @libraryMusicEmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Songs found in your saved links will appear here.'**
+  String get libraryMusicEmptyDescription;
+
+  /// No description provided for @libraryMusicDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Songs found in your saves'**
+  String get libraryMusicDescription;
+
+  /// No description provided for @libraryMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get libraryMusic;
+
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:
@@ -2371,7 +2407,7 @@ abstract class AppLocalizations {
   /// No description provided for @libraryDescription.
   ///
   /// In en, this message translates to:
-  /// **'Books, movies & places found in your saves'**
+  /// **'Books, movies, places & music found in your saves'**
   String get libraryDescription;
 
   /// No description provided for @buildsQuietly.
@@ -3409,7 +3445,7 @@ abstract class AppLocalizations {
   /// No description provided for @libraryEmptyDescription.
   ///
   /// In en, this message translates to:
-  /// **'Save recommendations for books, movies, and places. Glimpse will organize the things inside them here.'**
+  /// **'Save recommendations for books, movies, places, and music. Glimpse will organize the things inside them here.'**
   String get libraryEmptyDescription;
 
   /// No description provided for @libraryUnavailable.

@@ -211,6 +211,7 @@ class _ArtworkFallback extends StatelessWidget {
       LibraryEntityKind.book => Icons.menu_book_rounded,
       LibraryEntityKind.movie => Icons.movie_rounded,
       LibraryEntityKind.place => Icons.place_rounded,
+      LibraryEntityKind.music => Icons.music_note_rounded,
     };
     final initial = entity.title.trim().isEmpty
         ? ''

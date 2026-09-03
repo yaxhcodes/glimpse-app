@@ -1,4 +1,10 @@
 {
+  "musicDetailsUnavailable": "Some song details could not be loaded.",
+  "loadingMusicDetails": "Loading song details…",
+  "couldNotSaveMusicProvider": "Could not save your music app. Please try again.",
+  "libraryMusicEmptyDescription": "Songs found in your saved links will appear here.",
+  "libraryMusicDescription": "Songs found in your saves",
+  "libraryMusic": "Music",
   "@@locale": "en",
   "appName": "Glimpse",
   "home": "Home",
@@ -383,7 +389,7 @@
   "termsMentioned": "Terms mentioned",
   "notableDetails": "Notable details"
   ,"library": "Library",
-  "libraryDescription": "Books, movies & places found in your saves",
+  "libraryDescription": "Books, movies, places & music found in your saves",
   "buildsQuietly": "Builds quietly as you save",
   "itemCount": "{count, plural, =1{1 item} other{{count} items}}",
   "addedTime": "Added · {time}",
@@ -556,7 +562,7 @@
   "savedDetailsRemainAvailable": "Saved details remain available",
   "waitingToRetry": "{count} waiting to retry",
   "libraryBuildsAsYouSave": "It builds as you save",
-  "libraryEmptyDescription": "Save recommendations for books, movies, and places. Glimpse will organize the things inside them here.",
+  "libraryEmptyDescription": "Save recommendations for books, movies, places, and music. Glimpse will organize the things inside them here.",
   "libraryUnavailable": "Library is unavailable right now",
   "yourPlaces": "Your places",
   "placesAreasSummary": "{places, plural, =1{1 place} other{{places} places}} · {areas, plural, =1{1 area} other{{areas} areas}}",

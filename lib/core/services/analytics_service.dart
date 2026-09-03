@@ -14,6 +14,7 @@ enum AnalyticsEvent {
   libraryBooksOpened('library_books_opened'),
   libraryMoviesOpened('library_movies_opened'),
   libraryPlacesOpened('library_places_opened'),
+  libraryMusicOpened('library_music_opened'),
   libraryPlaceAreaSelected('library_place_area_selected'),
   libraryPlaceStatusChanged('library_place_status_changed'),
   placeItineraryCreated('place_itinerary_created'),

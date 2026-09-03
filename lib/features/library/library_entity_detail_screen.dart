@@ -10,6 +10,7 @@ import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../shared/widgets/music_actions.dart';
 import 'library_entity.dart';
 import 'library_localization.dart';
 import 'library_places_map.dart';
@@ -250,7 +251,7 @@ class _MediaHeader extends StatelessWidget {
             SizedBox(
               width: artworkWidth,
               child: AspectRatio(
-                aspectRatio: 0.68,
+                aspectRatio: entity.kind == LibraryEntityKind.music ? 1 : 0.68,
                 child: Hero(
                   tag: 'library-artwork-${entity.key}',
                   child: LibraryArtwork(
@@ -293,26 +294,34 @@ class _MediaHeader extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => _chooseStatus(context),
-                      icon: Icon(libraryStatusIcon(entity.status, entity.kind)),
-                      label: Text(
-                        entity.status == LibraryItemStatus.unlisted
-                            ? entity.kind == LibraryEntityKind.book
-                                  ? context.l10n.addToReadingList
-                                  : context.l10n.addToWatchlist
-                            : localizedLibraryStatus(
-                                context.l10n,
-                                entity.status,
-                                entity.kind,
-                              ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  if (entity.kind == LibraryEntityKind.music)
+                    MusicOpenButton(
+                      title: entity.title,
+                      artist: entity.mention.creator,
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => _chooseStatus(context),
+                        icon: Icon(
+                          libraryStatusIcon(entity.status, entity.kind),
+                        ),
+                        label: Text(
+                          entity.status == LibraryItemStatus.unlisted
+                              ? entity.kind == LibraryEntityKind.book
+                                    ? context.l10n.addToReadingList
+                                    : context.l10n.addToWatchlist
+                              : localizedLibraryStatus(
+                                  context.l10n,
+                                  entity.status,
+                                  entity.kind,
+                                ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -622,6 +631,7 @@ String _metadata(BuildContext context, LibraryEntity entity) {
       localizedLibrarySubtype(context.l10n, entity.mention.subtype),
     ],
     LibraryEntityKind.place => [entity.mention.city, entity.mention.country],
+    LibraryEntityKind.music => [entity.mention.creator, entity.mention.year],
   };
   final label = values
       .whereType<String>()

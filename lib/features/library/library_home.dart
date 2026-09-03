@@ -122,11 +122,13 @@ class _LibraryHomeState extends ConsumerState<LibraryHome> {
       LibraryEntityKind.book => '/library/books',
       LibraryEntityKind.movie => '/library/movies',
       LibraryEntityKind.place => '/library/places',
+      LibraryEntityKind.music => '/library/music',
     };
     final event = switch (kind) {
       LibraryEntityKind.book => AnalyticsEvent.libraryBooksOpened,
       LibraryEntityKind.movie => AnalyticsEvent.libraryMoviesOpened,
       LibraryEntityKind.place => AnalyticsEvent.libraryPlacesOpened,
+      LibraryEntityKind.music => AnalyticsEvent.libraryMusicOpened,
     };
     unawaited(
       ref
@@ -174,7 +176,11 @@ class _LibraryDashboard extends StatelessWidget {
                 height: 246,
                 child: Row(
                   children: [
-                    for (final kind in LibraryEntityKind.values) ...[
+                    for (final kind in const [
+                      LibraryEntityKind.book,
+                      LibraryEntityKind.movie,
+                      LibraryEntityKind.place,
+                    ]) ...[
                       Expanded(
                         child: _LibraryDestinationCard(
                           kind: kind,
@@ -227,7 +233,49 @@ class _LibraryDashboard extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: 12),
+        _MusicDestinationCard(
+          count: snapshot.ofKind(LibraryEntityKind.music).length,
+          onTap: () => onOpen(LibraryEntityKind.music),
+        ),
       ],
+    );
+  }
+}
+
+class _MusicDestinationCard extends StatelessWidget {
+  const _MusicDestinationCard({required this.count, this.onTap});
+
+  final int count;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      color: cs.surfaceContainerLow,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+        leading: Icon(Icons.music_note_rounded, color: cs.primary, size: 32),
+        title: Text(
+          context.l10n.libraryMusic,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          count == 0
+              ? context.l10n.libraryMusicDescription
+              : context.l10n.itemCount(count),
+        ),
+        trailing: Icon(Icons.arrow_forward_rounded, color: cs.primary),
+        onTap: onTap ?? () => context.push('/library/music'),
+      ),
     );
   }
 }
@@ -629,6 +677,8 @@ class _LibraryEmptyState extends StatelessWidget {
                 height: 1.45,
               ),
             ),
+            const SizedBox(height: 24),
+            const _MusicDestinationCard(count: 0),
           ],
         ),
       ),

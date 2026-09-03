@@ -9,6 +9,7 @@ import 'package:glimpse/features/library/library_browser_screen.dart';
 import 'package:glimpse/features/library/library_entity.dart';
 import 'package:glimpse/features/library/library_entity_detail_screen.dart';
 import 'package:glimpse/features/library/library_home.dart';
+import 'package:glimpse/features/library/library_music_screen.dart';
 import 'package:glimpse/features/library/library_places_screen.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 import 'package:glimpse/features/library/library_widgets.dart';
@@ -16,6 +17,7 @@ import 'package:glimpse/features/library/place_itinerary_editor_screen.dart';
 import 'package:glimpse/features/library/place_itinerary_provider.dart';
 import 'package:glimpse/shared/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _goldenBoundaryKey = ValueKey('library-golden-boundary');
 const _seed = Color(0xFF6750A4);
@@ -23,6 +25,11 @@ const _seed = Color(0xFF6750A4);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
+  setUp(
+    () => SharedPreferences.setMockInitialValues({
+      'glimpse_default_music_provider': 'spotify',
+    }),
+  );
 
   setUpAll(() async {
     final materialIcons = FontLoader('MaterialIcons')
@@ -36,10 +43,34 @@ void main() {
       await _pumpGolden(
         tester,
         layout: layout,
-        snapshot: LibrarySnapshot(entities: fixtures),
-        child: const LibraryHome(),
+        snapshot: LibrarySnapshot(entities: [...fixtures, ..._musicFixtures()]),
+        child: const LibraryScreen(),
       );
       await _expectGolden(tester, 'goldens/library_home_${layout.name}.png');
+    });
+
+    testWidgets('Library music ${layout.name}', (tester) async {
+      await _pumpGolden(
+        tester,
+        layout: layout,
+        snapshot: LibrarySnapshot(entities: _musicFixtures()),
+        child: const LibraryMusicScreen(),
+      );
+      await _expectGolden(tester, 'goldens/library_music_${layout.name}.png');
+    });
+
+    testWidgets('Library music detail ${layout.name}', (tester) async {
+      final music = _musicFixtures();
+      await _pumpGolden(
+        tester,
+        layout: layout,
+        snapshot: LibrarySnapshot(entities: music),
+        child: LibraryEntityDetailScreen(entityKey: music.first.key),
+      );
+      await _expectGolden(
+        tester,
+        'goldens/library_music_detail_${layout.name}.png',
+      );
     });
 
     testWidgets('Library browser ${layout.name}', (tester) async {
@@ -72,6 +103,21 @@ void main() {
       await _expectGolden(tester, 'goldens/library_places_${layout.name}.png');
     });
   }
+
+  testWidgets('Library music provider menu compactDark', (tester) async {
+    await _pumpGolden(
+      tester,
+      layout: _GoldenLayout.compactDark,
+      snapshot: LibrarySnapshot(entities: _musicFixtures()),
+      child: const LibraryMusicScreen(),
+    );
+    await tester.tap(find.byTooltip('Music options'));
+    await tester.pumpAndSettle();
+    await _expectGolden(
+      tester,
+      'goldens/library_music_provider_menu_compactDark.png',
+    );
+  });
 
   testWidgets('Library places expanded compactDark', (tester) async {
     await _pumpGolden(
@@ -258,6 +304,31 @@ List<LibraryEntity> _fixtures() => [
     latitude: 28.6271,
     longitude: 77.2166,
     discoveredAt: DateTime(2026, 8, 1),
+  ),
+];
+
+List<LibraryEntity> _musicFixtures() => [
+  _entity(
+    key: 'music-teardrop',
+    kind: LibraryEntityKind.music,
+    title: 'Teardrop',
+    creator: 'Massive Attack',
+    discoveredAt: DateTime(2026, 8, 6),
+    why: 'A trip-hop recommendation for a quiet evening.',
+  ),
+  _entity(
+    key: 'music-radiohead',
+    kind: LibraryEntityKind.music,
+    title: 'Everything In Its Right Place',
+    creator: 'Radiohead',
+    discoveredAt: DateTime(2026, 8, 5),
+  ),
+  _entity(
+    key: 'music-sade',
+    kind: LibraryEntityKind.music,
+    title: 'No Ordinary Love',
+    creator: 'Sade',
+    discoveredAt: DateTime(2026, 8, 4),
   ),
 ];
 

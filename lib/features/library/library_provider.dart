@@ -12,6 +12,7 @@ import '../../core/services/analytics_service.dart';
 import '../../core/services/transcript_enrichment_service.dart';
 import '../home/home_provider.dart';
 import 'library_entity.dart';
+import 'music_library_provider.dart';
 
 const libraryHiddenEntityKeysPrefsKey = 'glimpse_library_hidden_entity_keys';
 
@@ -75,7 +76,7 @@ final _libraryIndexCacheProvider = Provider<LibraryIndexCache>(
   (ref) => LibraryIndexCache(),
 );
 
-final librarySnapshotProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
+final libraryCandidatesProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
   final hidden = ref.watch(
     libraryPreferencesProvider.select((state) => state.hiddenEntityKeys),
   );
@@ -85,12 +86,32 @@ final librarySnapshotProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
       .whenData((urls) => cache.build(urls, hiddenKeys: hidden));
 });
 
+final librarySnapshotProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
+  ref.listen(libraryCandidatesProvider, (_, next) {
+    unawaited(
+      ref
+          .read(musicLibraryProvider.notifier)
+          .synchronize(
+            next.valueOrNull?.ofKind(LibraryEntityKind.music) ?? const [],
+          ),
+    );
+  }, fireImmediately: true);
+  final entries = ref.watch(
+    musicLibraryProvider.select((state) => state.entries),
+  );
+  final catalog = MusicLibraryState(entries: entries);
+  return ref.watch(libraryCandidatesProvider).whenData(catalog.applyTo);
+});
+
 Future<LibrarySnapshot> loadLibrarySnapshot(WidgetRef ref) async {
   final current = ref.read(librarySnapshotProvider).valueOrNull;
   if (current != null) return current;
   final urls = await ref.read(urlStreamProvider.future);
   final hidden = ref.read(libraryPreferencesProvider).hiddenEntityKeys;
-  return ref.read(_libraryIndexCacheProvider).build(urls, hiddenKeys: hidden);
+  final snapshot = ref
+      .read(_libraryIndexCacheProvider)
+      .build(urls, hiddenKeys: hidden);
+  return ref.read(musicLibraryProvider).applyTo(snapshot);
 }
 
 class LibraryEntityActions {

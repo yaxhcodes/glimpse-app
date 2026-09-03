@@ -6,6 +6,7 @@ String localizedLibraryKind(AppLocalizations strings, LibraryEntityKind kind) =>
       LibraryEntityKind.book => strings.libraryBooks,
       LibraryEntityKind.movie => strings.libraryMoviesShows,
       LibraryEntityKind.place => strings.libraryPlaces,
+      LibraryEntityKind.music => strings.libraryMusic,
     };
 
 String localizedLibraryKindSingular(
@@ -15,6 +16,7 @@ String localizedLibraryKindSingular(
   LibraryEntityKind.book => strings.libraryBook,
   LibraryEntityKind.movie => strings.libraryMovie,
   LibraryEntityKind.place => strings.libraryPlace,
+  LibraryEntityKind.music => strings.libraryMusic,
 };
 
 String localizedLibraryListName(
@@ -24,6 +26,7 @@ String localizedLibraryListName(
   LibraryEntityKind.book => strings.libraryReadingList,
   LibraryEntityKind.movie => strings.libraryWatchlist,
   LibraryEntityKind.place => strings.libraryPlaces,
+  LibraryEntityKind.music => strings.libraryMusic,
 };
 
 String localizedLibraryStatus(
@@ -37,11 +40,15 @@ String localizedLibraryStatus(
     strings.libraryNotInWatchlist,
   (LibraryItemStatus.unlisted, LibraryEntityKind.place) =>
     strings.libraryNotListed,
+  (LibraryItemStatus.unlisted, LibraryEntityKind.music) =>
+    strings.libraryNotListed,
   (LibraryItemStatus.planning, _) => strings.libraryPlanning,
   (LibraryItemStatus.active, LibraryEntityKind.book) => strings.libraryReading,
   (LibraryItemStatus.active, LibraryEntityKind.movie) =>
     strings.libraryWatching,
   (LibraryItemStatus.active, LibraryEntityKind.place) =>
+    strings.libraryInProgress,
+  (LibraryItemStatus.active, LibraryEntityKind.music) =>
     strings.libraryInProgress,
   (LibraryItemStatus.dropped, _) => strings.libraryDropped,
   (LibraryItemStatus.completed, LibraryEntityKind.book) => strings.libraryRead,
@@ -49,6 +56,7 @@ String localizedLibraryStatus(
     strings.libraryWatched,
   (LibraryItemStatus.completed, LibraryEntityKind.place) =>
     strings.libraryVisited,
+  (LibraryItemStatus.completed, LibraryEntityKind.music) => strings.done,
 };
 
 String localizedLibraryCount(
@@ -59,6 +67,7 @@ String localizedLibraryCount(
   LibraryEntityKind.book => strings.libraryBookCount(count),
   LibraryEntityKind.movie => strings.libraryMovieCount(count),
   LibraryEntityKind.place => strings.libraryPlaceCount(count),
+  LibraryEntityKind.music => strings.itemCount(count),
 };
 
 String localizedLibraryGenre(AppLocalizations strings, String genre) =>
