@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
@@ -372,7 +371,13 @@ class _PlaceHeader extends StatelessWidget {
         SizedBox(
           height: 248,
           width: double.infinity,
-          child: _PlaceDetailHero(entity: entity),
+          child: LibraryPlacesMap(
+            entities: [entity],
+            selectedKey: entity.key,
+            onEntityTapped: (_) {},
+            borderRadius: BorderRadius.circular(24),
+            showFitAllControl: false,
+          ),
         ),
         const SizedBox(height: 22),
         Text(
@@ -462,45 +467,6 @@ class _PlaceHeader extends StatelessWidget {
       'query': '$latitude,$longitude',
     });
     await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-}
-
-class _PlaceDetailHero extends StatelessWidget {
-  const _PlaceDetailHero({required this.entity});
-
-  final LibraryEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = entity.placeImageUrl?.trim() ?? '';
-    final map = LibraryPlacesMap(
-      entities: [entity],
-      selectedKey: entity.key,
-      onEntityTapped: (_) {},
-      borderRadius: BorderRadius.circular(24),
-      showFitAllControl: false,
-    );
-    if (imageUrl.isEmpty) return map;
-    final cs = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: CachedNetworkImage(
-        imageUrl: imageUrl,
-        fit: BoxFit.cover,
-        fadeInDuration: const Duration(milliseconds: 180),
-        placeholder: (_, _) => ColoredBox(
-          color: cs.surfaceContainerHigh,
-          child: Center(
-            child: Icon(
-              Icons.landscape_outlined,
-              size: 42,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ),
-        errorWidget: (_, _, _) => map,
-      ),
-    );
   }
 }
 
