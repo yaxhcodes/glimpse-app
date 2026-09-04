@@ -3349,7 +3349,7 @@ abstract class AppLocalizations {
   /// No description provided for @recognizedOrganizedByType.
   ///
   /// In en, this message translates to:
-  /// **'Recognized and organized by type'**
+  /// **'Automatically organized by type'**
   String get recognizedOrganizedByType;
 
   /// No description provided for @libraryBookCount.
@@ -3361,7 +3361,7 @@ abstract class AppLocalizations {
   /// No description provided for @libraryMovieCount.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 movie} other{{count} movies}}'**
+  /// **'{count, plural, =1{1 title} other{{count} titles}}'**
   String libraryMovieCount(num count);
 
   /// No description provided for @libraryPlaceCount.

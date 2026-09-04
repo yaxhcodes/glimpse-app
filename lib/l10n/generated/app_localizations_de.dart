@@ -1889,7 +1889,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get foundInYourSaves => 'In deinen Speicherungen gefunden';
 
   @override
-  String get recognizedOrganizedByType => 'Nach Typ erkannt und organisiert';
+  String get recognizedOrganizedByType => 'Automatisch nach Typ sortiert';
 
   @override
   String libraryBookCount(num count) {
@@ -1907,8 +1907,8 @@ class AppLocalizationsDe extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count Filme',
-      one: '1 Film',
+      other: '$count Titel',
+      one: '1 Titel',
     );
     return '$_temp0';
   }

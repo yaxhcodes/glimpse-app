@@ -38,6 +38,19 @@ void main() {
   });
 
   final fixtures = _fixtures();
+  testWidgets('Library home compactAmoled', (tester) async {
+    await _pumpGolden(
+      tester,
+      layout: _GoldenLayout.compactDark,
+      snapshot: LibrarySnapshot(entities: [...fixtures, ..._musicFixtures()]),
+      darkTheme: AppTheme.amoledTheme(
+        AppAccentColor.monochrome.seedColor!,
+        schemeVariant: AppAccentColor.monochrome.schemeVariant,
+      ),
+      child: const LibraryScreen(),
+    );
+    await _expectGolden(tester, 'goldens/library_home_compactAmoled.png');
+  });
   for (final layout in _GoldenLayout.values) {
     testWidgets('Library home ${layout.name}', (tester) async {
       await _pumpGolden(
@@ -209,6 +222,7 @@ Future<void> _pumpGolden(
   required _GoldenLayout layout,
   required LibrarySnapshot snapshot,
   required Widget child,
+  ThemeData? darkTheme,
 }) async {
   tester.view.physicalSize = layout.size;
   tester.view.devicePixelRatio = 1;
@@ -227,7 +241,7 @@ Future<void> _pumpGolden(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme(_seed),
-          darkTheme: AppTheme.darkTheme(_seed),
+          darkTheme: darkTheme ?? AppTheme.darkTheme(_seed),
           themeMode: layout.dark ? ThemeMode.dark : ThemeMode.light,
           home: child,
         ),

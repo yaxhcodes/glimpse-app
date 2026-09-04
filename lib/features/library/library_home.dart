@@ -149,16 +149,11 @@ class _LibraryDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final places = snapshot.ofKind(LibraryEntityKind.place);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          context.l10n.foundInYourSaves,
-          style: tt.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.25,
-          ),
-        ),
+        Text(context.l10n.foundInYourSaves, style: tt.headlineSmall),
         const SizedBox(height: 3),
         Text(
           context.l10n.recognizedOrganizedByType,
@@ -170,68 +165,64 @@ class _LibraryDashboard extends StatelessWidget {
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
-            final expanded = constraints.maxWidth >= AppLayout.mediumWidth;
-            if (expanded) {
-              return SizedBox(
-                height: 246,
-                child: Row(
-                  children: [
-                    for (final kind in const [
-                      LibraryEntityKind.book,
-                      LibraryEntityKind.movie,
-                      LibraryEntityKind.place,
-                    ]) ...[
-                      Expanded(
-                        child: _LibraryDestinationCard(
-                          kind: kind,
-                          entities: snapshot.ofKind(kind),
-                          onTap: () => onOpen(kind),
-                        ),
-                      ),
-                      if (kind != LibraryEntityKind.place)
-                        const SizedBox(width: 14),
-                    ],
-                  ],
+            final horizontal =
+                constraints.maxWidth < 300 ||
+                MediaQuery.textScalerOf(context).scale(18) > 25;
+            final artworkHeight = ((constraints.maxWidth - 12) / 2 * 0.85)
+                .clamp(148.0, 208.0);
+            final cards = [
+              for (final (kind, entities) in [
+                (
+                  LibraryEntityKind.book,
+                  snapshot.ofKind(LibraryEntityKind.book),
                 ),
+                (
+                  LibraryEntityKind.movie,
+                  snapshot.ofKind(LibraryEntityKind.movie),
+                ),
+              ])
+                _LibraryDestinationCard(
+                  kind: kind,
+                  count: entities.length,
+                  onTap: entities.isEmpty ? null : () => onOpen(kind),
+                  horizontal: horizontal,
+                  preview: SizedBox(
+                    width: horizontal ? 72 : null,
+                    height: horizontal ? 96 : artworkHeight,
+                    child: _EditorialArtworkPreview(
+                      kind: kind,
+                      entities: entities,
+                    ),
+                  ),
+                ),
+            ];
+            if (horizontal) {
+              return Column(
+                children: [cards.first, const SizedBox(height: 12), cards.last],
               );
             }
-            return Column(
-              children: [
-                SizedBox(
-                  height: 224,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _LibraryDestinationCard(
-                          kind: LibraryEntityKind.book,
-                          entities: snapshot.ofKind(LibraryEntityKind.book),
-                          onTap: () => onOpen(LibraryEntityKind.book),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _LibraryDestinationCard(
-                          kind: LibraryEntityKind.movie,
-                          entities: snapshot.ofKind(LibraryEntityKind.movie),
-                          onTap: () => onOpen(LibraryEntityKind.movie),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 166,
-                  child: _LibraryDestinationCard(
-                    kind: LibraryEntityKind.place,
-                    entities: snapshot.ofKind(LibraryEntityKind.place),
-                    onTap: () => onOpen(LibraryEntityKind.place),
-                    horizontal: true,
-                  ),
-                ),
-              ],
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: cards.first),
+                  const SizedBox(width: 12),
+                  Expanded(child: cards.last),
+                ],
+              ),
             );
           },
+        ),
+        const SizedBox(height: 12),
+        _LibraryDestinationCard(
+          kind: LibraryEntityKind.place,
+          count: places.length,
+          onTap: places.isEmpty ? null : () => onOpen(LibraryEntityKind.place),
+          horizontal: true,
+          preview: const SizedBox.square(
+            dimension: 64,
+            child: _PlacesPreview(),
+          ),
         ),
         const SizedBox(height: 12),
         _MusicDestinationCard(
@@ -252,29 +243,20 @@ class _MusicDestinationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      color: cs.surfaceContainerLow,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
+    return _LibraryDestinationCard(
+      kind: LibraryEntityKind.music,
+      count: count,
+      horizontal: true,
+      onTap: onTap ?? () => context.push('/library/music'),
+      preview: SizedBox.square(
+        dimension: 64,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(Icons.music_note_rounded, color: cs.primary, size: 28),
         ),
-        leading: Icon(Icons.music_note_rounded, color: cs.primary, size: 32),
-        title: Text(
-          context.l10n.libraryMusic,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          count == 0
-              ? context.l10n.libraryMusicDescription
-              : context.l10n.itemCount(count),
-        ),
-        trailing: Icon(Icons.arrow_forward_rounded, color: cs.primary),
-        onTap: onTap ?? () => context.push('/library/music'),
       ),
     );
   }
@@ -283,44 +265,42 @@ class _MusicDestinationCard extends StatelessWidget {
 class _LibraryDestinationCard extends StatelessWidget {
   const _LibraryDestinationCard({
     required this.kind,
-    required this.entities,
+    required this.count,
+    required this.preview,
     required this.onTap,
     this.horizontal = false,
   });
 
   final LibraryEntityKind kind;
-  final List<LibraryEntity> entities;
-  final VoidCallback onTap;
+  final int count;
+  final Widget preview;
+  final VoidCallback? onTap;
   final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final countLabel = localizedLibraryCount(
-      context.l10n,
-      kind,
-      entities.length,
-    );
     return Semantics(
       button: true,
-      label: '${localizedLibraryKind(context.l10n, kind)}, $countLabel',
-      child: Card(
+      enabled: onTap != null,
+      child: Card.filled(
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        color: cs.surfaceContainerLow,
+        color: cs.surfaceContainer,
         child: InkWell(
-          onTap: entities.isEmpty ? null : onTap,
+          onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             child: horizontal
                 ? Row(
                     children: [
-                      Expanded(child: _PlacesPreview(entities: entities)),
+                      ExcludeSemantics(child: preview),
                       const SizedBox(width: 16),
                       Expanded(
                         child: _DestinationLabel(
                           kind: kind,
-                          count: entities.length,
+                          count: count,
+                          enabled: onTap != null,
                         ),
                       ),
                     ],
@@ -328,13 +308,15 @@ class _LibraryDestinationCard extends StatelessWidget {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: kind == LibraryEntityKind.place
-                            ? _PlacesPreview(entities: entities)
-                            : _EditorialArtworkPreview(entities: entities),
+                      ExcludeSemantics(child: preview),
+                      const SizedBox(height: 16),
+                      const Spacer(),
+                      _DestinationLabel(
+                        kind: kind,
+                        count: count,
+                        enabled: onTap != null,
+                        trailingBelowTitle: true,
                       ),
-                      const SizedBox(height: 12),
-                      _DestinationLabel(kind: kind, count: entities.length),
                     ],
                   ),
           ),
@@ -345,107 +327,146 @@ class _LibraryDestinationCard extends StatelessWidget {
 }
 
 class _DestinationLabel extends StatelessWidget {
-  const _DestinationLabel({required this.kind, required this.count});
+  const _DestinationLabel({
+    required this.kind,
+    required this.count,
+    required this.enabled,
+    this.trailingBelowTitle = false,
+  });
 
   final LibraryEntityKind kind;
   final int count;
+  final bool enabled;
+  final bool trailingBelowTitle;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final title = Text(
+      localizedLibraryKind(context.l10n, kind),
+      style: tt.titleMedium?.copyWith(
+        fontWeight: FontWeight.w500,
+        color: cs.onSurface,
+      ),
+    );
+    final subtitle = Text(
+      count == 0
+          ? kind == LibraryEntityKind.music
+                ? context.l10n.libraryMusicDescription
+                : context.l10n.nothingRecognizedYet
+          : localizedLibraryCount(context.l10n, kind, count),
+      style: tt.bodySmall?.copyWith(
+        color: cs.onSurfaceVariant,
+        fontWeight: FontWeight.w400,
+      ),
+    );
+    final chevron = Icon(
+      Icons.chevron_right_rounded,
+      size: 20,
+      color: enabled
+          ? cs.onSurfaceVariant
+          : cs.onSurface.withValues(alpha: 0.38),
+    );
+    if (trailingBelowTitle) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          title,
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Expanded(child: subtitle),
+              const SizedBox(width: 8),
+              chevron,
+            ],
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
         Expanded(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                localizedLibraryKind(context.l10n, kind),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: tt.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                count == 0
-                    ? context.l10n.nothingRecognizedYet
-                    : localizedLibraryCount(context.l10n, kind, count),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ],
+            children: [title, const SizedBox(height: 2), subtitle],
           ),
         ),
-        Icon(
-          Icons.arrow_forward_rounded,
-          size: 22,
-          color: count == 0 ? cs.onSurface.withValues(alpha: 0.28) : cs.primary,
-        ),
+        const SizedBox(width: 8),
+        chevron,
       ],
     );
   }
 }
 
 class _EditorialArtworkPreview extends StatelessWidget {
-  const _EditorialArtworkPreview({required this.entities});
+  const _EditorialArtworkPreview({required this.kind, required this.entities});
 
+  final LibraryEntityKind kind;
   final List<LibraryEntity> entities;
 
   @override
   Widget build(BuildContext context) {
     if (entities.isEmpty) {
-      return _DestinationPlaceholder(
-        icon: Icons.auto_awesome_mosaic_rounded,
-        label: context.l10n.recognizedTitlesGatherHere,
+      return Center(
+        child: Icon(
+          kind == LibraryEntityKind.book
+              ? Icons.menu_book_rounded
+              : Icons.movie_rounded,
+          size: 36,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       );
     }
-    final preview = entities
+    final withArtwork = entities
         .where((entity) => (entity.artworkUrl ?? '').trim().isNotEmpty)
         .take(2)
         .toList(growable: false);
-    if (preview.isEmpty) {
-      return _DestinationPlaceholder(
-        icon: Icons.auto_awesome_mosaic_rounded,
-        label: context.l10n.recognizedCount(entities.length),
-      );
-    }
+    final preview = withArtwork.isEmpty
+        ? entities.take(2).toList(growable: false)
+        : withArtwork;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            if (preview.length > 1)
-              Transform.translate(
-                offset: Offset(width * 0.12, 0),
-                child: Opacity(
-                  opacity: 0.48,
-                  child: FractionallySizedBox(
-                    widthFactor: 0.58,
-                    child: LibraryArtwork(
-                      entity: preview[1],
-                      borderRadius: BorderRadius.circular(12),
+        final stackFactor = preview.length > 1 ? 1.28 : 1.0;
+        final coverWidth = (constraints.maxHeight * 2 / 3).clamp(
+          0.0,
+          constraints.maxWidth / stackFactor,
+        );
+        final coverHeight = coverWidth * 3 / 2;
+        return Center(
+          child: SizedBox(
+            width: coverWidth * stackFactor,
+            height: coverHeight,
+            child: Stack(
+              children: [
+                if (preview.length > 1)
+                  Positioned(
+                    right: 0,
+                    top: coverHeight * 0.06,
+                    bottom: coverHeight * 0.06,
+                    width: coverWidth * 0.88,
+                    child: Opacity(
+                      opacity: 0.72,
+                      child: LibraryArtwork(
+                        entity: preview[1],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: coverWidth,
+                  child: LibraryArtwork(
+                    entity: preview.first,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-              ),
-            Transform.translate(
-              offset: Offset(preview.length > 1 ? -width * 0.08 : 0, 0),
-              child: FractionallySizedBox(
-                widthFactor: 0.62,
-                child: LibraryArtwork(
-                  entity: preview.first,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -453,38 +474,22 @@ class _EditorialArtworkPreview extends StatelessWidget {
 }
 
 class _PlacesPreview extends StatelessWidget {
-  const _PlacesPreview({required this.entities});
-
-  final List<LibraryEntity> entities;
+  const _PlacesPreview();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [cs.tertiaryContainer, cs.primaryContainer],
-          ),
-        ),
+      borderRadius: BorderRadius.circular(14),
+      child: ColoredBox(
+        color: cs.surfaceContainerHigh,
         child: CustomPaint(
           painter: _MapPreviewPainter(
-            line: cs.onTertiaryContainer.withValues(alpha: 0.18),
-            pin: cs.primary,
-            pinCount: entities
-                .where((entity) => entity.mention.hasCoordinates)
-                .length
-                .clamp(0, 6),
+            line: cs.outlineVariant.withValues(alpha: 0.5),
           ),
-          child: entities.isEmpty
-              ? _DestinationPlaceholder(
-                  icon: Icons.map_rounded,
-                  label: context.l10n.savedPlacesAppearOnMap,
-                )
-              : const SizedBox.expand(),
+          child: Center(
+            child: Icon(Icons.place_rounded, color: cs.primary, size: 28),
+          ),
         ),
       ),
     );
@@ -492,22 +497,16 @@ class _PlacesPreview extends StatelessWidget {
 }
 
 class _MapPreviewPainter extends CustomPainter {
-  const _MapPreviewPainter({
-    required this.line,
-    required this.pin,
-    required this.pinCount,
-  });
+  const _MapPreviewPainter({required this.line});
 
   final Color line;
-  final Color pin;
-  final int pinCount;
 
   @override
   void paint(Canvas canvas, Size size) {
     final roadPaint = Paint()
       ..color = line
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4;
+      ..strokeWidth = 1.5;
     for (var index = 0; index < 5; index++) {
       final path = Path()
         ..moveTo(0, size.height * (0.15 + index * 0.18))
@@ -521,58 +520,11 @@ class _MapPreviewPainter extends CustomPainter {
         );
       canvas.drawPath(path, roadPaint);
     }
-    const positions = <Offset>[
-      Offset(0.22, 0.34),
-      Offset(0.52, 0.22),
-      Offset(0.76, 0.54),
-      Offset(0.38, 0.68),
-      Offset(0.67, 0.79),
-      Offset(0.14, 0.76),
-    ];
-    final pinPaint = Paint()..color = pin;
-    for (final position in positions.take(pinCount)) {
-      final center = Offset(
-        position.dx * size.width,
-        position.dy * size.height,
-      );
-      canvas.drawCircle(center, 7, pinPaint);
-      canvas.drawCircle(center, 2.5, Paint()..color = Colors.white);
-    }
   }
 
   @override
   bool shouldRepaint(covariant _MapPreviewPainter oldDelegate) =>
-      oldDelegate.line != line ||
-      oldDelegate.pin != pin ||
-      oldDelegate.pinCount != pinCount;
-}
-
-class _DestinationPlaceholder extends StatelessWidget {
-  const _DestinationPlaceholder({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 42, color: cs.onSurfaceVariant),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
+      oldDelegate.line != line;
 }
 
 class _BackfillStatus extends StatelessWidget {

@@ -1733,7 +1733,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get foundInYourSaves => '保存から見つかったもの';
 
   @override
-  String get recognizedOrganizedByType => '種類ごとに認識・整理されています';
+  String get recognizedOrganizedByType => '種類ごとに自動で整理';
 
   @override
   String libraryBookCount(num count) {
@@ -1742,7 +1742,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String libraryMovieCount(num count) {
-    return '$count本';
+    return '$count作品';
   }
 
   @override

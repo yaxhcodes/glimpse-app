@@ -12,6 +12,7 @@ import 'package:glimpse/features/library/library_music_screen.dart';
 import 'package:glimpse/features/library/library_places_screen.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 import 'package:glimpse/features/library/library_widgets.dart';
+import 'package:glimpse/l10n/l10n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -113,6 +114,62 @@ void main() {
     expect(find.text('4 places'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets(
+      'keeps Library destinations readable at $width with large text',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final snapshot = LibrarySnapshot(
+          entities: [
+            for (final kind in LibraryEntityKind.values)
+              _entity(
+                key: kind.name,
+                kind: kind,
+                mention: EnrichedMention(
+                  title: 'A saved ${kind.name}',
+                  type: kind.name,
+                  catalogId: kind.name,
+                  catalogSource: 'test',
+                ),
+              ),
+          ],
+        );
+
+        for (final locale in AppLocalizations.supportedLocales) {
+          final strings = await AppLocalizations.delegate.load(locale);
+          await tester.pumpWidget(
+            _app(
+              snapshot,
+              locale: locale,
+              textScaler: const TextScaler.linear(2),
+            ),
+          );
+          await tester.pump();
+
+          for (final label in [
+            strings.libraryBooks,
+            strings.libraryMoviesShows,
+            strings.libraryPlaces,
+            strings.libraryMusic,
+          ]) {
+            final destination = find.text(label);
+            expect(destination, findsOneWidget);
+            await tester.ensureVisible(destination);
+            await tester.pump();
+            expect(tester.takeException(), isNull, reason: '$locale: $label');
+            expect(
+              find.ancestor(of: destination, matching: find.byType(InkWell)),
+              findsOneWidget,
+            );
+          }
+          expect(find.text(strings.libraryMovieCount(1)), findsOneWidget);
+        }
+      },
+    );
+  }
 
   testWidgets('uses a typographic placeholder when artwork is missing', (
     tester,
@@ -413,7 +470,12 @@ void main() {
   });
 }
 
-Widget _app(LibrarySnapshot snapshot, {ThemeData? theme}) {
+Widget _app(
+  LibrarySnapshot snapshot, {
+  ThemeData? theme,
+  Locale? locale,
+  TextScaler textScaler = TextScaler.noScaling,
+}) {
   return ProviderScope(
     overrides: [
       analyticsServiceProvider.overrideWithValue(_FakeAnalytics()),
@@ -421,6 +483,13 @@ Widget _app(LibrarySnapshot snapshot, {ThemeData? theme}) {
     ],
     child: MaterialApp(
       theme: theme ?? ThemeData(useMaterial3: true),
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: const Scaffold(body: LibraryHome()),
     ),
   );
