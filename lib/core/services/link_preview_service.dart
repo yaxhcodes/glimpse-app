@@ -3,9 +3,12 @@ import 'dart:developer' as developer;
 
 import 'package:any_link_preview/any_link_preview.dart';
 import 'package:dio/dio.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
 
 import '../utils/network/url_security_validator.dart';
 import 'recipe_schema_parser.dart';
+import 'source_evidence.dart';
 import 'text_cleaner.dart';
 import 'transcript_enrichment_service.dart';
 
@@ -18,6 +21,7 @@ class LinkMetadata {
   final String? siteName;
   final String? author;
   final EnrichedRecipe? recipe;
+  final SourceEvidence? sourceEvidence;
 
   /// Tags extracted by platform-specific parsers (e.g. Instagram hashtags).
   final List<String>? extractedTags;
@@ -30,6 +34,7 @@ class LinkMetadata {
     this.siteName,
     this.author,
     this.recipe,
+    this.sourceEvidence,
     this.extractedTags,
   });
 }
@@ -203,6 +208,7 @@ class LinkPreviewService {
 
       final html = response.data?.toString() ?? '';
       var meta = _parseOgTags(html, domain);
+      final sourceEvidence = sourceEvidenceFromHtml(html, pageUrl: normalized);
       final recipe = RecipeSchemaParser.parse(
         html,
         pageUrl: normalized,
@@ -220,7 +226,10 @@ class LinkPreviewService {
           author: recipe.author ?? meta.author,
           recipe: recipe,
           extractedTags: meta.extractedTags,
+          sourceEvidence: sourceEvidence.isEmpty ? null : sourceEvidence,
         );
+      } else if (!sourceEvidence.isEmpty) {
+        meta = _copyMetadata(meta, sourceEvidence: sourceEvidence);
       }
       // If title is still generic, fall through
       if (recipe != null || !_isGenericTitle(meta.title.toLowerCase(), host)) {
@@ -531,7 +540,7 @@ class LinkPreviewService {
   /// Fetches X/Twitter post metadata via the oEmbed endpoint.
   Future<LinkMetadata?> _fetchXEmbed(String url, String domain) async {
     try {
-      final fullTweetFromApi = await _fetchFullXPostText(url);
+      final fullPostEvidence = await _fetchFullXPostEvidence(url);
       final embedUrl =
           'https://publish.twitter.com/oembed?url=${Uri.encodeComponent(url)}&omit_script=true';
 
@@ -561,8 +570,9 @@ class LinkPreviewService {
 
         final normalizedOEmbed = _normalizeLargeText(tweetText);
         final resolvedTweetText =
-            (fullTweetFromApi != null && fullTweetFromApi.trim().isNotEmpty)
-            ? _normalizeLargeText(fullTweetFromApi)
+            (fullPostEvidence != null &&
+                fullPostEvidence.readableText.trim().isNotEmpty)
+            ? _normalizeLargeText(fullPostEvidence.readableText)
             : normalizedOEmbed;
 
         // Use tweet content as title (more informative than just @author)
@@ -600,6 +610,10 @@ class LinkPreviewService {
           domain: domain,
           siteName: 'X',
           author: author != null ? '@$author' : null,
+          sourceEvidence: SourceEvidence(
+            readableText: resolvedTweetText,
+            outboundLinks: fullPostEvidence?.outboundLinks ?? const [],
+          ),
         );
       }
     } catch (e) {
@@ -607,9 +621,10 @@ class LinkPreviewService {
     }
 
     // Fallback path for when oEmbed fails: still try to return full tweet text.
-    final fallbackText = await _fetchFullXPostText(url);
-    if (fallbackText != null && fallbackText.trim().isNotEmpty) {
-      final normalized = _normalizeLargeText(fallbackText);
+    final fallbackEvidence = await _fetchFullXPostEvidence(url);
+    if (fallbackEvidence != null &&
+        fallbackEvidence.readableText.trim().isNotEmpty) {
+      final normalized = _normalizeLargeText(fallbackEvidence.readableText);
       final shortText = normalized
           .substring(0, normalized.length.clamp(0, 80))
           .trim();
@@ -618,35 +633,40 @@ class LinkPreviewService {
         description: normalized,
         domain: domain,
         siteName: 'X',
+        sourceEvidence: SourceEvidence(
+          readableText: normalized,
+          outboundLinks: fallbackEvidence.outboundLinks,
+        ),
       );
     }
 
     return null;
   }
 
-  Future<String?> _fetchFullXPostText(String url) async {
+  Future<SourceEvidence?> _fetchFullXPostEvidence(String url) async {
     final postId = _extractXPostId(url);
     if (postId == null) return null;
 
-    final fromSyndication = await _fetchXTextFromSyndication(postId);
-    if (fromSyndication != null && fromSyndication.trim().isNotEmpty) {
+    final fromSyndication = await _fetchXEvidenceFromSyndication(postId);
+    if (fromSyndication != null &&
+        fromSyndication.readableText.trim().isNotEmpty) {
       return fromSyndication;
     }
 
-    final fromFxTwitter = await _fetchXTextFromFxTwitter(postId);
-    if (fromFxTwitter != null && fromFxTwitter.trim().isNotEmpty) {
+    final fromFxTwitter = await _fetchXEvidenceFromFxTwitter(postId);
+    if (fromFxTwitter != null && fromFxTwitter.readableText.trim().isNotEmpty) {
       return fromFxTwitter;
     }
 
-    final fromVxTwitter = await _fetchXTextFromVxTwitter(postId);
-    if (fromVxTwitter != null && fromVxTwitter.trim().isNotEmpty) {
+    final fromVxTwitter = await _fetchXEvidenceFromVxTwitter(postId);
+    if (fromVxTwitter != null && fromVxTwitter.readableText.trim().isNotEmpty) {
       return fromVxTwitter;
     }
 
     return null;
   }
 
-  Future<String?> _fetchXTextFromSyndication(String postId) async {
+  Future<SourceEvidence?> _fetchXEvidenceFromSyndication(String postId) async {
     try {
       final response = await _safeGet(
         'https://cdn.syndication.twimg.com/tweet-result?id=$postId&lang=en',
@@ -665,14 +685,17 @@ class LinkPreviewService {
       final data = response.data as Map;
       final text = (data['text'] ?? data['full_text'])?.toString();
       if (text == null || text.trim().isEmpty) return null;
-      return _decodeHtmlEntities(text);
+      return SourceEvidence(
+        readableText: _decodeHtmlEntities(text),
+        outboundLinks: _expandedReferencesFromJson(data),
+      );
     } catch (e) {
       developer.log('X syndication fetch failed: $e', name: 'LinkPreview');
       return null;
     }
   }
 
-  Future<String?> _fetchXTextFromFxTwitter(String postId) async {
+  Future<SourceEvidence?> _fetchXEvidenceFromFxTwitter(String postId) async {
     try {
       final response = await _safeGet(
         'https://api.fxtwitter.com/i/status/$postId',
@@ -694,14 +717,17 @@ class LinkPreviewService {
 
       final text = (tweet['text'] ?? tweet['raw_text']?['text'])?.toString();
       if (text == null || text.trim().isEmpty) return null;
-      return _decodeHtmlEntities(text);
+      return SourceEvidence(
+        readableText: _decodeHtmlEntities(text),
+        outboundLinks: _expandedReferencesFromJson(tweet),
+      );
     } catch (e) {
       developer.log('FxTwitter fetch failed: $e', name: 'LinkPreview');
       return null;
     }
   }
 
-  Future<String?> _fetchXTextFromVxTwitter(String postId) async {
+  Future<SourceEvidence?> _fetchXEvidenceFromVxTwitter(String postId) async {
     try {
       final response = await _safeGet(
         'https://api.vxtwitter.com/i/status/$postId',
@@ -720,7 +746,10 @@ class LinkPreviewService {
       final data = response.data as Map;
       final text = data['text']?.toString();
       if (text == null || text.trim().isEmpty) return null;
-      return _decodeHtmlEntities(text);
+      return SourceEvidence(
+        readableText: _decodeHtmlEntities(text),
+        outboundLinks: _expandedReferencesFromJson(data),
+      );
     } catch (e) {
       developer.log('VxTwitter fetch failed: $e', name: 'LinkPreview');
       return null;
@@ -869,7 +898,195 @@ class LinkPreviewService {
       author: meta.author,
       recipe: meta.recipe,
       extractedTags: meta.extractedTags,
+      sourceEvidence: meta.sourceEvidence,
     );
+  }
+
+  LinkMetadata _copyMetadata(
+    LinkMetadata metadata, {
+    SourceEvidence? sourceEvidence,
+  }) {
+    return LinkMetadata(
+      title: metadata.title,
+      description: metadata.description,
+      imageUrl: metadata.imageUrl,
+      domain: metadata.domain,
+      siteName: metadata.siteName,
+      author: metadata.author,
+      recipe: metadata.recipe,
+      extractedTags: metadata.extractedTags,
+      sourceEvidence: sourceEvidence ?? metadata.sourceEvidence,
+    );
+  }
+
+  static SourceEvidence sourceEvidenceFromHtml(
+    String rawHtml, {
+    required String pageUrl,
+  }) {
+    if (rawHtml.trim().isEmpty) {
+      return const SourceEvidence(readableText: '');
+    }
+    final pageUri = Uri.tryParse(pageUrl);
+    if (pageUri == null) return const SourceEvidence(readableText: '');
+
+    final document = html_parser.parse(rawHtml);
+    final articleBody = _articleBodyFromJsonLd(document);
+    final root =
+        document.querySelector('article') ??
+        document.querySelector('main') ??
+        document.querySelector('[role="main"]') ??
+        document.body;
+    if (root == null && articleBody.isEmpty) {
+      return const SourceEvidence(readableText: '');
+    }
+
+    final outboundLinks = <SourceReference>[];
+    final seenLinks = <String>{};
+    if (root != null) {
+      for (final element in root.querySelectorAll(
+        'script, style, nav, header, footer, aside, form, button, svg, noscript',
+      )) {
+        element.remove();
+      }
+
+      for (final anchor in root.querySelectorAll('a[href]')) {
+        final href = anchor.attributes['href']?.trim() ?? '';
+        if (href.isEmpty || href.startsWith('#')) continue;
+        final resolved = pageUri.resolve(href);
+        final normalized = resolved.toString().split('#').first;
+        if (!UrlSecurityValidator.hasAllowedPublicUrlSyntax(normalized)) {
+          continue;
+        }
+        if (!seenLinks.add(normalized)) continue;
+        final label = _cleanEvidenceText(anchor.text);
+        outboundLinks.add(
+          SourceReference(
+            label: label.isEmpty
+                ? resolved.host.replaceFirst('www.', '')
+                : label,
+            url: normalized,
+          ),
+        );
+        if (outboundLinks.length >= 24) break;
+      }
+    }
+
+    final blocks =
+        root
+            ?.querySelectorAll('h1, h2, h3, p, li, blockquote')
+            .map((element) => _cleanEvidenceText(element.text))
+            .where((text) => text.length >= 24)
+            .toList() ??
+        const <String>[];
+    final semanticText = blocks.isNotEmpty
+        ? blocks.join('\n\n')
+        : _cleanEvidenceText(root?.text ?? '');
+    final readable = articleBody.isNotEmpty ? articleBody : semanticText;
+
+    return SourceEvidence(
+      readableText: _limitEvidence(readable),
+      outboundLinks: outboundLinks,
+    );
+  }
+
+  static String _articleBodyFromJsonLd(dom.Document document) {
+    for (final script in document.querySelectorAll(
+      'script[type="application/ld+json"]',
+    )) {
+      final raw = script.text.trim();
+      if (raw.isEmpty) continue;
+      try {
+        final found = _findArticleBody(jsonDecode(raw));
+        if (found.isNotEmpty) return _limitEvidence(found);
+      } catch (_) {
+        // Malformed structured data is common; semantic HTML remains usable.
+      }
+    }
+    return '';
+  }
+
+  static String _findArticleBody(Object? value) {
+    if (value is Map) {
+      final body = value['articleBody'] ?? value['article_body'];
+      final text = _cleanEvidenceText(body?.toString() ?? '');
+      if (text.isNotEmpty) return text;
+      for (final nested in value.values) {
+        final found = _findArticleBody(nested);
+        if (found.isNotEmpty) return found;
+      }
+    } else if (value is List) {
+      for (final nested in value) {
+        final found = _findArticleBody(nested);
+        if (found.isNotEmpty) return found;
+      }
+    }
+    return '';
+  }
+
+  static String _cleanEvidenceText(String value) {
+    return value
+        .replaceAll('\u00a0', ' ')
+        .replaceAll(RegExp(r'[\t ]+'), ' ')
+        .replaceAll(RegExp(r'\s*\n\s*'), '\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+  }
+
+  static String _limitEvidence(String text) {
+    const maxCharacters = 20000;
+    final cleaned = _cleanEvidenceText(text);
+    if (cleaned.length <= maxCharacters) return cleaned;
+    final boundary = cleaned.lastIndexOf(' ', maxCharacters);
+    return cleaned.substring(0, boundary > 16000 ? boundary : maxCharacters);
+  }
+
+  static SourceEvidence sourceEvidenceFromXJson(
+    Object? value, {
+    String readableText = '',
+  }) {
+    return SourceEvidence(
+      readableText: _limitEvidence(_cleanEvidenceText(readableText)),
+      outboundLinks: _expandedReferencesFromJson(value),
+    );
+  }
+
+  static List<SourceReference> _expandedReferencesFromJson(Object? value) {
+    final references = <SourceReference>[];
+    final seen = <String>{};
+
+    void visit(Object? current) {
+      if (references.length >= 24) return;
+      if (current is Map) {
+        final expanded =
+            current['expanded_url'] ??
+            current['expandedUrl'] ??
+            current['unwound_url'] ??
+            current['unwoundUrl'];
+        final raw = expanded?.toString().trim() ?? '';
+        if (raw.isNotEmpty &&
+            UrlSecurityValidator.hasAllowedPublicUrlSyntax(raw) &&
+            seen.add(raw)) {
+          final label =
+              (current['display_url'] ??
+                      current['displayUrl'] ??
+                      Uri.tryParse(raw)?.host ??
+                      raw)
+                  .toString()
+                  .trim();
+          references.add(SourceReference(label: label, url: raw));
+        }
+        for (final nested in current.values) {
+          visit(nested);
+        }
+      } else if (current is List) {
+        for (final nested in current) {
+          visit(nested);
+        }
+      }
+    }
+
+    visit(value);
+    return references;
   }
 
   /// Parses Open Graph and standard HTML meta-tags from raw [html].

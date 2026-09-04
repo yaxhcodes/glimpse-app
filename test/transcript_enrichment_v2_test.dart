@@ -4,6 +4,24 @@ import 'package:glimpse/core/services/transcript_enrichment_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('schema v5 keeps notification blurbs and notable destinations', () {
+    final result = TranscriptEnrichmentResult.fromJson({
+      'schema_version': 5,
+      'meaningful_title': 'Research tools',
+      'summary': 'A useful collection of research tools.',
+      'notification_blurb':
+          'A concise guide to useful research tools and their practical strengths.',
+      'notable_items': [
+        {'text': 'OpenAlex', 'type': 'dataset', 'url': 'https://openalex.org/'},
+      ],
+    });
+
+    expect(result?.schemaVersion, 5);
+    expect(result?.notificationBlurb, contains('research tools'));
+    expect(result?.notableItems.single.destinationUri?.host, 'openalex.org');
+    expect(result?.toJson()['notification_blurb'], result?.notificationBlurb);
+  });
+
   group('TranscriptEnrichmentResult v2', () {
     test('parses and serializes ordered content sections', () {
       final result = TranscriptEnrichmentResult.fromJson({

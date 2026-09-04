@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -188,6 +190,7 @@ This block has no question.''';
       expect(find.byType(OutlinedButton), findsNothing);
       expect(find.byType(FilledButton), findsOneWidget);
       expect(find.text('Tags'), findsNothing);
+      expect(find.text('Resources & references'), findsNothing);
       expect(find.widgetWithText(TextButton, 'Edit'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
 
@@ -253,9 +256,7 @@ Use **structured curation**.
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final url = _savedUrl()
       ..id = 13
-      ..askNotes = [
-        _askNote(body: List.filled(180, 'i').join()),
-      ];
+      ..askNotes = [_askNote(body: List.filled(180, 'i').join())];
     final database = _MemoryIsarService(url);
 
     await tester.pumpWidget(
@@ -286,6 +287,106 @@ Use **structured curation**.
     await tester.pumpAndSettle();
     expect(find.widgetWithText(TextButton, 'Show more'), findsOneWidget);
   });
+
+  testWidgets(
+    'rich detail reader stays complete at compact width and large text',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final url = _savedUrl()
+        ..id = 14
+        ..summary = 'A concise fallback summary.'
+        ..tags = ['reading', 'evidence']
+        ..enrichmentJson = jsonEncode({
+          'schema_version': 5,
+          'meaningful_title': 'A useful article with a fully wrapping title',
+          'summary': 'A concise fallback summary.',
+          'brief': 'A complete brief that frames the saved article.',
+          'category': 'Technology',
+          'tags': ['reading', 'evidence'],
+          'transcript': 'Raw evidence that should remain collapsed.',
+          'steps': [
+            {
+              'title': 'Keep the central idea distinct',
+              'description': 'Supporting context remains easy to scan.',
+            },
+          ],
+          'content_sections': [
+            {
+              'title': 'How the idea works',
+              'points': [
+                'The explanation is rendered inline as continuous prose.',
+                'Longer evidence remains bounded and readable.',
+              ],
+            },
+          ],
+          'notable_items': [
+            {
+              'type': 'website',
+              'text': 'Flutter documentation',
+              'label': 'Flutter documentation',
+              'url': 'https://docs.flutter.dev',
+            },
+            {
+              'type': 'book',
+              'text': 'A named book without an explicit destination',
+              'label': 'A named book without an explicit destination',
+            },
+          ],
+        });
+      final database = _MemoryIsarService(url);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            isarServiceProvider.overrideWithValue(database),
+            savedNotesServiceProvider.overrideWithValue(
+              SavedNotesService(database),
+            ),
+            urlDetailProvider(14).overrideWith((ref) async => database.url),
+            tagOccurrenceMapProvider.overrideWithValue(const {}),
+          ],
+          child: MaterialApp(
+            theme: ThemeData(useMaterial3: true),
+            builder: (context, child) {
+              final media = MediaQuery.of(context);
+              return MediaQuery(
+                data: media.copyWith(textScaler: const TextScaler.linear(1.6)),
+                child: child!,
+              );
+            },
+            home: const UrlDetailScreen(urlId: 14),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('In brief'), findsOneWidget);
+      expect(find.text('Key Takeaways'), findsOneWidget);
+      expect(find.text('Full explanation'), findsOneWidget);
+      expect(find.text('How the idea works'), findsOneWidget);
+      expect(find.text('Resources & references'), findsOneWidget);
+      expect(find.text('Original source'), findsNothing);
+      expect(find.text('Flutter documentation'), findsOneWidget);
+      expect(find.text('Search'), findsOneWidget);
+      expect(find.text('Raw source material'), findsOneWidget);
+      expect(
+        find.text('Raw evidence that should remain collapsed.'),
+        findsNothing,
+      );
+
+      final briefY = tester.getTopLeft(find.text('In brief')).dy;
+      final keyIdeasY = tester.getTopLeft(find.text('Key Takeaways')).dy;
+      final explanationY = tester.getTopLeft(find.text('Full explanation')).dy;
+      final resourcesY = tester
+          .getTopLeft(find.text('Resources & references'))
+          .dy;
+      expect(briefY, lessThan(keyIdeasY));
+      expect(keyIdeasY, lessThan(explanationY));
+      expect(explanationY, lessThan(resourcesY));
+    },
+  );
 
   testWidgets('detail overflow toggles the saved item pin', (tester) async {
     SharedPreferences.setMockInitialValues({});

@@ -1582,6 +1582,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         summaryDisplayText.isNotEmpty && live?.recipe?.hasUsefulContent != true;
     final showSummaryAddNote =
         showSummary && !_hasNoteContent(url) && !_notesEditing;
+    final resourceItems = (live?.notableItems ?? const <EnrichedNotableItem>[])
+        .where(_isReferenceItem)
+        .toList(growable: false);
     final noteSuggestions = _buildNoteSuggestions(
       url: url,
       live: live,
@@ -1595,10 +1598,19 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
-            maxWidth: AppLayout.maxReadableContentWidth,
+            maxWidth: AppLayout.maxReaderContentWidth + 48,
           ),
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
+            padding: EdgeInsets.fromLTRB(
+              MediaQuery.sizeOf(context).width >= AppLayout.mediumWidth
+                  ? 24
+                  : 16,
+              8,
+              MediaQuery.sizeOf(context).width >= AppLayout.mediumWidth
+                  ? 24
+                  : 16,
+              bottomPad,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1625,8 +1637,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     color: colorScheme.onSurface,
                     letterSpacing: 0,
                   ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 12),
 
@@ -1651,7 +1661,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 _buildOpenButton(url, displaySourceName),
 
                 if (showSummary) ...[
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 28),
                   _buildSummarySection(
                     summary: summaryDisplayText,
                     theme: theme,
@@ -1660,10 +1670,26 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                 ],
 
+                ..._buildEnrichmentSections(
+                  url: url,
+                  live: live,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                ),
+
+                if (resourceItems.isNotEmpty) ...[
+                  const SizedBox(height: 28),
+                  _buildResourcesSection(
+                    items: resourceItems,
+                    theme: theme,
+                    colorScheme: colorScheme,
+                  ),
+                ],
+
                 _buildAnimatedNotesRegion(
                   expanded: !showSummaryAddNote,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 20),
+                    padding: const EdgeInsets.only(top: 28),
                     child: _buildNotesSection(
                       url: url,
                       suggestions: noteSuggestions,
@@ -1673,20 +1699,21 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ),
                 ),
 
-                ..._buildEnrichmentSections(
-                  url: url,
-                  live: live,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                ),
-
                 if (visibleTags.isNotEmpty) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
                   TagGroup(
                     tags: visibleTags,
                     onTap: _openTagSearch,
                     onLongPress: (tag) => _showTagMenu(url, tag),
                     accent: _recipeAccent(colorScheme),
+                  ),
+                ],
+                if (live != null && _hasSourceMaterial(live)) ...[
+                  const SizedBox(height: 28),
+                  _buildSourceMaterialSection(
+                    live: live,
+                    theme: theme,
+                    colorScheme: colorScheme,
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -2083,7 +2110,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           children: [
             Expanded(
               child: SectionHeader(
-                title: context.l10n.summary,
+                title: context.l10n.inBrief,
                 accent: _recipeAccent(colorScheme),
               ),
             ),
@@ -2119,7 +2146,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         Text(
           summary,
           style: theme.textTheme.bodyMedium?.copyWith(
-            height: 1.5,
+            height: 1.55,
             color: colorScheme.onSurfaceVariant,
           ),
         ),
@@ -2581,7 +2608,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           ? live.steps.map((s) => s.title).where((t) => t.isNotEmpty).toList()
           : const <String>[];
       sections.addAll([
-        const SizedBox(height: 20),
+        const SizedBox(height: 28),
         _buildRecipeSection(
           url: url,
           recipe: recipe,
@@ -2596,7 +2623,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final showContentSteps = _shouldShowKeyTakeaways(live);
     if (showContentSteps) {
       sections.addAll([
-        const SizedBox(height: 20),
+        const SizedBox(height: 28),
         _buildContentStepsSection(
           steps: live.steps,
           theme: theme,
@@ -2609,7 +2636,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         live.contentSections.isNotEmpty && recipe?.hasUsefulContent != true;
     if (showContentSections) {
       sections.addAll([
-        const SizedBox(height: 20),
+        const SizedBox(height: 28),
         _buildFullBreakdownSection(
           sections: live.contentSections,
           theme: theme,
@@ -2618,11 +2645,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       ]);
     }
 
-    if (live.notableItems.isNotEmpty) {
+    final knowledgeItems = live.notableItems
+        .where((item) => !_isReferenceItem(item))
+        .toList(growable: false);
+    if (knowledgeItems.isNotEmpty) {
       sections.addAll([
-        const SizedBox(height: 20),
+        const SizedBox(height: 28),
         _buildNotableItemsSection(
-          items: live.notableItems,
+          items: knowledgeItems,
           theme: theme,
           colorScheme: colorScheme,
         ),
@@ -2639,7 +2669,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       final items = grouped[key] ?? const <EnrichedMention>[];
       if (items.isEmpty) continue;
       sections.addAll([
-        const SizedBox(height: 20),
+        const SizedBox(height: 28),
         ContentRecommendationSection<EnrichedMention>(
           title: _mentionSectionTitle(key),
           subtitle: key == 'person'
@@ -2656,18 +2686,22 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       ]);
     }
 
-    if (_hasSourceMaterial(live)) {
-      sections.addAll([
-        const SizedBox(height: 20),
-        _buildSourceMaterialSection(
-          live: live,
-          theme: theme,
-          colorScheme: colorScheme,
-        ),
-      ]);
-    }
-
     return sections;
+  }
+
+  bool _isReferenceItem(EnrichedNotableItem item) {
+    return const {
+      'website',
+      'tool',
+      'app',
+      'product',
+      'repository',
+      'dataset',
+      'book',
+      'film',
+      'place',
+      'reference',
+    }.contains(item.type.trim().toLowerCase());
   }
 
   TranscriptEnrichmentResult? _savedEnrichment(SavedUrl url) {
@@ -2813,7 +2847,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               text,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
-                height: 1.45,
+                height: 1.55,
               ),
             ),
           ),
@@ -2827,32 +2861,33 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    return DetailExpansionSection(
-      title: context.l10n.fullBreakdown,
-      accent: _recipeAccent(colorScheme),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var index = 0; index < sections.length; index++) ...[
-            if (index > 0) const SizedBox(height: 22),
-            Text(
-              sections[index].title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w500,
-                height: 1.3,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: context.l10n.fullExplanation,
+          accent: _recipeAccent(colorScheme),
+        ),
+        const SizedBox(height: 12),
+        for (var index = 0; index < sections.length; index++) ...[
+          if (index > 0) const SizedBox(height: 24),
+          Text(
+            sections[index].title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
             ),
-            const SizedBox(height: 8),
-            for (final point in sections[index].points)
-              _buildBreakdownPoint(
-                point: point,
-                theme: theme,
-                colorScheme: colorScheme,
-              ),
-          ],
+          ),
+          const SizedBox(height: 8),
+          for (final point in sections[index].points)
+            _buildBreakdownPoint(
+              point: point,
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
         ],
-      ),
+      ],
     );
   }
 
@@ -2863,31 +2898,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Container(
-              width: 4,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _recipeAccent(colorScheme),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              point,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                height: 1.45,
-              ),
-            ),
-          ),
-        ],
+      child: Text(
+        point,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          height: 1.55,
+        ),
       ),
     );
   }
@@ -2913,7 +2929,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         (context.l10n.onScreenText, live.ocrText!.trim(), false),
     ];
     return DetailExpansionSection(
-      title: context.l10n.transcriptAndCaption,
+      title: context.l10n.rawSourceMaterial,
       accent: _recipeAccent(colorScheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3077,6 +3093,48 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
       ],
     );
+  }
+
+  Widget _buildResourcesSection({
+    required List<EnrichedNotableItem> items,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: context.l10n.resourcesAndReferences,
+          accent: _recipeAccent(colorScheme),
+        ),
+        const SizedBox(height: 10),
+        for (final item in items)
+          NotableItemCard(
+            item: item,
+            accent: _recipeAccent(colorScheme),
+            actionIcon: item.destinationUri == null
+                ? Icons.search_rounded
+                : Icons.open_in_new_rounded,
+            actionLabel: item.destinationUri == null
+                ? context.l10n.searchForResource
+                : context.l10n.open,
+            actionText: item.destinationUri == null
+                ? context.l10n.search
+                : null,
+            onTap: _referenceItemAction(item),
+          ),
+      ],
+    );
+  }
+
+  VoidCallback _referenceItemAction(EnrichedNotableItem item) {
+    final destination = item.destinationUri;
+    if (destination != null) return () => _openNotableWebsite(destination);
+    final query = (item.label?.trim().isNotEmpty == true
+        ? item.label!.trim()
+        : item.text.trim());
+    final searchUri = Uri.https('www.google.com', '/search', {'q': query});
+    return () => _openNotableWebsite(searchUri);
   }
 
   VoidCallback? _notableItemAction(EnrichedNotableItem item) {

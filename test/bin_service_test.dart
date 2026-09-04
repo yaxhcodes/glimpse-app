@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ffi';
 
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +12,7 @@ import 'package:glimpse/core/models/engagement_event.dart';
 import 'package:glimpse/core/models/place_itinerary.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/user_collection.dart';
+import 'package:glimpse/core/services/notification_action_handler.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +70,82 @@ void main() {
       expect(SavedUrlSchema.indexes, contains('deletedAt'));
     },
   );
+
+  test('notification Done archives once without opening the UI', () async {
+    final url = _url('https://example.com/done-from-notification');
+    await service.saveUrl(url);
+    final response = NotificationResponse(
+      notificationResponseType:
+          NotificationResponseType.selectedNotificationAction,
+      actionId: NotificationActions.markDone,
+      payload: jsonEncode({
+        'linkIds': [url.id],
+        'notifId': 'done-${url.id}',
+      }),
+    );
+
+    expect(await NotificationActionHandler.handleIfAction(response), isTrue);
+    expect(await NotificationActionHandler.handleIfAction(response), isTrue);
+
+    final updated = await service.getUrlById(url.id);
+    expect(updated?.intentStatus, 'done');
+    expect(updated?.intentAction, 'notif_done');
+    expect(updated?.openedAt, isNotNull);
+    expect(await database.engagementEvents.count(), 1);
+  });
+
+  test('notification Later queues the save three days out', () async {
+    final url = _url('https://example.com/later-from-notification');
+    await service.saveUrl(url);
+    final before = DateTime.now();
+
+    await NotificationActionHandler.handleIfAction(
+      NotificationResponse(
+        notificationResponseType:
+            NotificationResponseType.selectedNotificationAction,
+        actionId: NotificationActions.snooze,
+        payload: jsonEncode({
+          'linkIds': [url.id],
+          'notifId': 'later-${url.id}',
+        }),
+      ),
+    );
+
+    final updated = await service.getUrlById(url.id);
+    expect(updated?.intentStatus, 'queued');
+    expect(updated?.intentAction, 'snoozed');
+    expect(updated!.revisitAfter, isNotNull);
+    expect(
+      updated.revisitAfter!.difference(before),
+      greaterThanOrEqualTo(
+        const Duration(days: 3) - const Duration(seconds: 2),
+      ),
+    );
+  });
+
+  test('startup replay safely completes a persisted action receipt', () async {
+    final url = _url('https://example.com/replayed-notification');
+    await service.saveUrl(url);
+    SharedPreferences.setMockInitialValues({
+      'pending_notification_action_receipts_v1': [
+        jsonEncode({
+          'id': 'mark_done:replay-${url.id}',
+          'actionId': NotificationActions.markDone,
+          'linkIds': [url.id],
+          'logicalNotificationId': 'replay-${url.id}',
+        }),
+      ],
+    });
+
+    await NotificationActionHandler.replayPendingActions();
+
+    expect((await service.getUrlById(url.id))?.intentStatus, 'done');
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getStringList('pending_notification_action_receipts_v1'),
+      isEmpty,
+    );
+  });
 
   test(
     'move and direct restore preserve lifecycle and collection membership',

@@ -198,7 +198,7 @@ void main() {
     test(
       'a known action with no link ids is consumed but is a no-op',
       () async {
-        // Empty payload returns before any database access, so no Isar needed.
+        SharedPreferences.setMockInitialValues({});
         final consumed = await NotificationActionHandler.handleIfAction(
           resp(actionId: NotificationActions.markDone, payload: null),
         );
@@ -410,10 +410,7 @@ void main() {
         historyTypeFromNotificationMap(const {'type': 'rediscover'}),
         'rediscover',
       );
-      expect(
-        historyTypeFromNotificationMap(const {'type': 'R'}),
-        'rediscover',
-      );
+      expect(historyTypeFromNotificationMap(const {'type': 'R'}), 'rediscover');
     });
   });
 
@@ -478,12 +475,14 @@ void main() {
       expect(await NotifBandit.recordOpenOnce('E', 'notif_2'), isTrue);
     });
 
-    test('recordOpenOnce without an id still counts (legacy payloads)',
-        () async {
-      await NotifBandit.recordSend('C');
-      expect(await NotifBandit.recordOpenOnce('C', null), isTrue);
-      expect(await NotifBandit.recordOpenOnce('C', ''), isTrue);
-    });
+    test(
+      'recordOpenOnce without an id still counts (legacy payloads)',
+      () async {
+        await NotifBandit.recordSend('C');
+        expect(await NotifBandit.recordOpenOnce('C', null), isTrue);
+        expect(await NotifBandit.recordOpenOnce('C', ''), isTrue);
+      },
+    );
 
     test('migrates v1 stats clamping inflated opens to sends', () async {
       // v1 counted hub re-taps as new rewards, so opens could exceed sends.

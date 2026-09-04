@@ -1121,6 +1121,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get summary => '要約';
 
   @override
+  String get inBrief => '概要';
+
+  @override
+  String get fullExplanation => '詳しい解説';
+
+  @override
+  String get resourcesAndReferences => 'リソースと参照元';
+
+  @override
+  String get searchForResource => 'このリソースを検索';
+
+  @override
+  String get rawSourceMaterial => '元の資料';
+
+  @override
   String get addNote => 'メモを追加';
 
   @override

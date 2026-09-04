@@ -1201,6 +1201,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get summary => 'Zusammenfassung';
 
   @override
+  String get inBrief => 'Kurz gesagt';
+
+  @override
+  String get fullExplanation => 'Ausführliche Erklärung';
+
+  @override
+  String get resourcesAndReferences => 'Ressourcen & Verweise';
+
+  @override
+  String get searchForResource => 'Nach dieser Ressource suchen';
+
+  @override
+  String get rawSourceMaterial => 'Rohes Quellenmaterial';
+
+  @override
   String get addNote => 'Notiz hinzufügen';
 
   @override

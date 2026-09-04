@@ -687,7 +687,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     unawaited(ref.read(analyticsServiceProvider).handleLifecycleState(state));
     if (state == AppLifecycleState.resumed) {
-      unawaited(DigestNotifications.reconcileGroupSummary());
+      unawaited(DigestNotifications.replayPendingActionsAndReconcile());
       if (!_hasCompletedInitialResume) {
         _hasCompletedInitialResume = true;
         return;

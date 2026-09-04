@@ -1195,6 +1195,21 @@ class AppLocalizationsPt extends AppLocalizations {
   String get summary => 'Resumo';
 
   @override
+  String get inBrief => 'Em resumo';
+
+  @override
+  String get fullExplanation => 'Explicação completa';
+
+  @override
+  String get resourcesAndReferences => 'Recursos e referências';
+
+  @override
+  String get searchForResource => 'Pesquisar este recurso';
+
+  @override
+  String get rawSourceMaterial => 'Material de origem';
+
+  @override
   String get addNote => 'Adicionar nota';
 
   @override

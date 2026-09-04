@@ -2218,6 +2218,36 @@ abstract class AppLocalizations {
   /// **'Summary'**
   String get summary;
 
+  /// No description provided for @inBrief.
+  ///
+  /// In en, this message translates to:
+  /// **'In brief'**
+  String get inBrief;
+
+  /// No description provided for @fullExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Full explanation'**
+  String get fullExplanation;
+
+  /// No description provided for @resourcesAndReferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Resources & references'**
+  String get resourcesAndReferences;
+
+  /// No description provided for @searchForResource.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for this resource'**
+  String get searchForResource;
+
+  /// No description provided for @rawSourceMaterial.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw source material'**
+  String get rawSourceMaterial;
+
   /// No description provided for @addNote.
   ///
   /// In en, this message translates to:

@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import '../models/saved_url.dart';
 import 'digest_notifications.dart';
+import 'notification_summary_formatter.dart';
 import 'summary_rewriter.dart';
-import 'summary_trimmer.dart';
 import 'title_resolver.dart';
 import 'transcript_enrichment_service.dart';
 import '../../l10n/l10n.dart';
@@ -39,7 +39,7 @@ class UrlSaveNotifications {
 
   static Future<void> showCaptureReady(SavedUrl url) async {
     final strings = await loadBackgroundLocalizations();
-    final body = _notificationBody(url) ?? strings.enrichmentComplete;
+    final body = notificationBody(url) ?? strings.enrichmentComplete;
 
     final title = _notificationTitle(url);
     final payload = _urlPayload(
@@ -55,6 +55,7 @@ class UrlSaveNotifications {
       body: body,
       payloadJson: jsonEncode(payload),
       notificationId: notificationIdForSavedUrl(url.id),
+      withActions: true,
     );
   }
 
@@ -110,38 +111,36 @@ class UrlSaveNotifications {
     return TitleResolver.truncateTitle(resolved, maxLength: 52);
   }
 
-  static String? _notificationBody(SavedUrl url) {
-    final recipe = _savedEnrichment(url)?.recipe;
+  static String? notificationBody(SavedUrl url) {
+    final enrichment = _savedEnrichment(url);
+    final notificationBlurb = SummaryRewriter.clean(
+      enrichment?.notificationBlurb,
+    );
+    if (notificationBlurb.isNotEmpty) {
+      return NotificationSummaryFormatter.format(notificationBlurb);
+    }
+
+    final recipe = enrichment?.recipe;
     if (recipe != null) {
       final recipeSummary = SummaryRewriter.clean(
         recipe.summary ?? recipe.description,
       );
       if (recipeSummary.isNotEmpty) {
-        return SummaryTrimmer.trim(recipeSummary, maxLength: 150);
+        return NotificationSummaryFormatter.format(recipeSummary);
       }
     }
 
     final summary = SummaryRewriter.clean(url.summary);
     if (summary.isNotEmpty) {
-      return _microSummary(summary);
+      return NotificationSummaryFormatter.format(summary);
     }
 
     final description = SummaryRewriter.clean(url.description);
     if (description.isNotEmpty) {
-      return _microSummary(description);
+      return NotificationSummaryFormatter.format(description);
     }
 
     return null;
-  }
-
-  static String _microSummary(String text) {
-    final sentence = SummaryTrimmer.trim(
-      text,
-      maxLength: 96,
-    ).replaceAll(RegExp(r'\s+'), ' ').trim();
-    final words = sentence.split(' ').where((word) => word.isNotEmpty).toList();
-    if (words.length <= 12) return sentence;
-    return '${words.take(12).join(' ')}.';
   }
 
   static TranscriptEnrichmentResult? _savedEnrichment(SavedUrl url) {

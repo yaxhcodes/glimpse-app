@@ -18,6 +18,7 @@ import 'link_preview_service.dart';
 import 'memory_intent_resolver.dart';
 import 'recipe_nutrition_service.dart';
 import 'saved_url_enrichment_state.dart';
+import 'source_evidence.dart';
 import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
 import 'title_resolver.dart';
@@ -51,6 +52,7 @@ class EnrichmentService {
   final bool _isPro;
   final String _outputLocale;
   final void Function()? _onEnriched;
+  final Map<int, SourceEvidence> _pendingSourceEvidence = {};
   late final DomainCentroidService _domainCentroidService;
 
   EnrichmentService({
@@ -320,6 +322,10 @@ class EnrichmentService {
 
     try {
       final metadata = await _linkService.fetchMetadata(url.rawUrl);
+      final sourceEvidence = metadata.sourceEvidence;
+      if (sourceEvidence != null && !sourceEvidence.isEmpty) {
+        _pendingSourceEvidence[urlId] = sourceEvidence;
+      }
       developer.log(
         'enrichMetadata FETCH OK: "${metadata.title}"',
         name: 'Enrichment',
@@ -365,7 +371,7 @@ class EnrichmentService {
           if ((recipe.category ?? '').isNotEmpty) recipe.category!,
         ]);
         final result = TranscriptEnrichmentResult(
-          schemaVersion: 4,
+          schemaVersion: 5,
           outputLocale: existing?.outputLocale ?? _outputLocale,
           meaningfulTitle: recipe.title,
           summary: recipe.summary ?? recipe.description ?? '',
@@ -499,6 +505,10 @@ class EnrichmentService {
     String? categoryEvidence;
     double? categoryConfidence;
     List<String> topics = const [];
+    String? brief;
+    String? notificationBlurb;
+    List<EnrichedContentSection> contentSections = const [];
+    List<EnrichedNotableItem> notableItems = const [];
     MemoryIntentMetadata? memoryIntent;
     String? aiFailure;
     var replaceExistingTags = false;
@@ -633,7 +643,7 @@ class EnrichmentService {
       enrichedThumbnailUrl = enhancedRecipe.image;
       enrichmentJson = jsonEncode(
         TranscriptEnrichmentResult(
-          schemaVersion: 4,
+          schemaVersion: 5,
           outputLocale: baseEnrichment.outputLocale,
           meaningfulTitle: enrichedTitle ?? baseEnrichment.meaningfulTitle,
           summary: summary ?? '',
@@ -666,6 +676,7 @@ class EnrichmentService {
           title: url.title,
           description: url.description,
           url: url.rawUrl,
+          sourceEvidence: _pendingSourceEvidence.remove(urlId),
         );
         developer.log(
           '_enrichAi Gemini RESULT: cat=${result.category}, '
@@ -684,6 +695,12 @@ class EnrichmentService {
         topics = result.topics;
         memoryIntent = result.memoryIntent;
         summary = result.summary.trim();
+        brief = result.brief.trim().isEmpty ? null : result.brief.trim();
+        notificationBlurb = result.notificationBlurb.trim().isEmpty
+            ? null
+            : result.notificationBlurb.trim();
+        contentSections = result.contentSections;
+        notableItems = result.notableItems;
         enrichedTitle = result.meaningfulTitle.trim().isEmpty
             ? null
             : result.meaningfulTitle.trim();
@@ -812,7 +829,7 @@ class EnrichmentService {
         summary?.trim().isNotEmpty == true) {
       enrichmentJson = jsonEncode(
         TranscriptEnrichmentResult(
-          schemaVersion: 4,
+          schemaVersion: 5,
           outputLocale: _outputLocale,
           meaningfulTitle:
               TitleResolver.isLowSignalTitle(
@@ -822,10 +839,14 @@ class EnrichmentService {
               ? ''
               : freshUrl.title,
           summary: summary!,
+          brief: brief,
+          notificationBlurb: notificationBlurb,
           category: category,
           tags: enrichedTags,
           contentType: 'generic',
           keyPoints: keyPoints,
+          contentSections: contentSections,
+          notableItems: notableItems,
           categoryEvidence: categoryEvidence,
           categoryConfidence: categoryConfidence,
           topics: topics,
@@ -1386,7 +1407,7 @@ class EnrichmentService {
     );
     if (!validation.isReliable && !validation.hasCorrectionSuggestion) return;
 
-    final fields = {
+    final fields = <String, dynamic>{
       'claimed_category': claimedCategory,
       'centroid_similarity': validation.similarity,
       'centroid_sample_size': validation.centroidSampleSize,
@@ -1400,8 +1421,10 @@ class EnrichmentService {
         'suggested_similarity': validation.suggestedSimilarity,
       if (validation.suggestedCategory != null)
         'suggested_sample_size': validation.suggestedSampleSize,
-      if (claimedConfidence != null) 'category_confidence': claimedConfidence,
     };
+    if (claimedConfidence != null) {
+      fields['category_confidence'] = claimedConfidence;
+    }
     if (validation.suggestedCategory != null) {
       final originalCategory = url.category;
       final corrected = CategoryTaxonomy.byName(validation.suggestedCategory!);

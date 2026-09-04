@@ -10,6 +10,7 @@ class TranscriptEnrichmentResult {
     required this.tags,
     this.contentType = 'generic',
     this.brief,
+    this.notificationBlurb,
     this.steps = const [],
     this.mentions = const [],
     this.notableItems = const [],
@@ -42,6 +43,7 @@ class TranscriptEnrichmentResult {
   final List<String> tags;
   final String contentType;
   final String? brief;
+  final String? notificationBlurb;
   final List<EnrichedContentStep> steps;
   final List<EnrichedMention> mentions;
   final List<EnrichedNotableItem> notableItems;
@@ -124,6 +126,7 @@ class TranscriptEnrichmentResult {
     List<String>? tags,
     String? contentType,
     String? brief,
+    String? notificationBlurb,
     List<EnrichedContentStep>? steps,
     List<EnrichedMention>? mentions,
     List<EnrichedNotableItem>? notableItems,
@@ -156,6 +159,7 @@ class TranscriptEnrichmentResult {
       tags: tags ?? this.tags,
       contentType: contentType ?? this.contentType,
       brief: brief ?? this.brief,
+      notificationBlurb: notificationBlurb ?? this.notificationBlurb,
       steps: steps ?? this.steps,
       mentions: mentions ?? this.mentions,
       notableItems: notableItems ?? this.notableItems,
@@ -192,6 +196,7 @@ class TranscriptEnrichmentResult {
       'tags': tags,
       'content_type': contentType,
       'brief': brief,
+      'notification_blurb': notificationBlurb,
       'steps': steps.map((item) => item.toJson()).toList(),
       'mentions': mentions.map((item) => item.toJson()).toList(),
       'notable_items': notableItems.map((item) => item.toJson()).toList(),
@@ -243,6 +248,9 @@ class TranscriptEnrichmentResult {
         json['brief'] ??
             json['short_description'] ??
             json['content_description'],
+      ),
+      notificationBlurb: TranscriptEnrichmentService._cleanNullableText(
+        json['notification_blurb'] ?? json['notificationBlurb'],
       ),
       steps: TranscriptEnrichmentService._extractContentSteps(json),
       mentions: mentions,
@@ -1258,7 +1266,16 @@ class EnrichedNotableItem {
   Uri? get websiteUri {
     if (type.trim().toLowerCase() != 'website') return null;
 
-    for (final candidate in [destinationUrl, text, label, attribution]) {
+    return destinationUri;
+  }
+
+  Uri? get destinationUri {
+    for (final candidate in [
+      destinationUrl,
+      if (type.trim().toLowerCase() == 'website') text,
+      if (type.trim().toLowerCase() == 'website') label,
+      if (type.trim().toLowerCase() == 'website') attribution,
+    ]) {
       final value = candidate?.trim() ?? '';
       if (value.isEmpty) continue;
       final match = RegExp(
@@ -1274,7 +1291,8 @@ class EnrichedNotableItem {
       final uri = Uri.tryParse(normalized);
       if (uri != null &&
           (uri.scheme == 'http' || uri.scheme == 'https') &&
-          uri.host.contains('.')) {
+          uri.host.contains('.') &&
+          UrlSecurityValidator.hasAllowedPublicUrlSyntax(uri.toString())) {
         return uri;
       }
     }

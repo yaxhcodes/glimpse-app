@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/network/url_security_validator.dart';
 import 'ai/ai_transport.dart';
 import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
@@ -43,7 +44,7 @@ class TranscriptEnrichmentService {
 
   final AiTransport _transport;
   static final Map<String, TranscriptEnrichmentResult> _memoryCache = {};
-  static const _cachePrefix = 'transcript_enrichment_v5_';
+  static const _cachePrefix = 'transcript_enrichment_v6_';
 
   static bool supportsUrl(String rawUrl) {
     final uri = Uri.tryParse(rawUrl);

@@ -1196,6 +1196,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get summary => 'Resumen';
 
   @override
+  String get inBrief => 'En breve';
+
+  @override
+  String get fullExplanation => 'Explicación completa';
+
+  @override
+  String get resourcesAndReferences => 'Recursos y referencias';
+
+  @override
+  String get searchForResource => 'Buscar este recurso';
+
+  @override
+  String get rawSourceMaterial => 'Material original';
+
+  @override
   String get addNote => 'Añadir nota';
 
   @override

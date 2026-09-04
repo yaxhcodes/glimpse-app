@@ -1021,6 +1021,7 @@ class IsarService {
     required String status,
     String? action,
     DateTime? revisitAfter,
+    bool awaitEngagement = false,
   }) async {
     final isar = await _db;
     SavedUrl? changed;
@@ -1038,7 +1039,15 @@ class IsarService {
       changed = url;
     });
     if (changed != null) {
-      unawaited(logEvent(type: EngagementEventType.intentSet, url: changed));
+      final engagement = logEvent(
+        type: EngagementEventType.intentSet,
+        url: changed,
+      );
+      if (awaitEngagement) {
+        await engagement;
+      } else {
+        unawaited(engagement);
+      }
     }
   }
 

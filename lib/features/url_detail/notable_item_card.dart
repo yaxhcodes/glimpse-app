@@ -10,12 +10,18 @@ class NotableItemCard extends StatelessWidget {
     required this.accent,
     this.compact = false,
     this.onTap,
+    this.actionIcon = Icons.open_in_new_rounded,
+    this.actionLabel,
+    this.actionText,
   });
 
   final EnrichedNotableItem item;
   final Color accent;
   final bool compact;
   final VoidCallback? onTap;
+  final IconData actionIcon;
+  final String? actionLabel;
+  final String? actionText;
 
   @override
   Widget build(BuildContext context) {
@@ -93,12 +99,28 @@ class NotableItemCard extends StatelessWidget {
                       const SizedBox(width: 10),
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
-                        child: Icon(
-                          Icons.open_in_new_rounded,
-                          size: 18,
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.58,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (actionText?.isNotEmpty == true) ...[
+                              Text(
+                                actionText!,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            Icon(
+                              actionIcon,
+                              size: 18,
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.58,
+                              ),
+                              semanticLabel: actionLabel,
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -131,7 +153,6 @@ class NotableItemCard extends StatelessWidget {
     final host = uri.host.replaceFirst(RegExp(r'^www\.'), '');
     final hasFriendlyLabel =
         label.isNotEmpty &&
-        label != item.text &&
         !label.contains('://') &&
         !label.startsWith('www.');
     final title = hasFriendlyLabel ? label : host;
@@ -202,11 +223,12 @@ class NotableItemCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 1),
                     child: Icon(
-                      Icons.open_in_new_rounded,
+                      actionIcon,
                       size: 18,
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.58,
                       ),
+                      semanticLabel: actionLabel,
                     ),
                   ),
                 ],

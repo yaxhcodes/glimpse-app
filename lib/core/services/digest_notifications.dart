@@ -14,12 +14,17 @@ import 'notification_action_handler.dart';
 /// Background-isolate entry point for action-button taps when the app is
 /// terminated. Must be top-level and vm:entry-point so the plugin can find it.
 @pragma('vm:entry-point')
-void notificationBackgroundResponse(NotificationResponse response) {
-  unawaited(() async {
-    await NotificationActionHandler.handleIfAction(response);
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    await DigestNotifications.reconcileGroupSummary();
-  }());
+void notificationBackgroundResponse(NotificationResponse response) async {
+  try {
+    await DigestNotifications.dispatchResponse(response);
+  } catch (error, stackTrace) {
+    developer.log(
+      'Could not finish a background notification action.',
+      name: 'DigestNotifications',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
 }
 
 /// Notification types used for copy generation and routing.
@@ -69,12 +74,7 @@ class DigestNotifications {
     await _plugin.initialize(
       InitializationSettings(android: android),
       onDidReceiveNotificationResponse: (details) async {
-        // Action buttons (Done / Later) mutate intent without routing; a plain
-        // body tap falls through to open the app.
-        final handled = await NotificationActionHandler.handleIfAction(details);
-        if (!handled) onOpenNotification(details.payload);
-        await Future<void>.delayed(const Duration(milliseconds: 250));
-        await reconcileGroupSummary();
+        await dispatchResponse(details, onOpenNotification: onOpenNotification);
       },
       onDidReceiveBackgroundNotificationResponse:
           notificationBackgroundResponse,
@@ -86,9 +86,14 @@ class DigestNotifications {
         >()
         ?.requestNotificationsPermission();
 
+    await NotificationActionHandler.replayPendingActions();
     final launch = await _plugin.getNotificationAppLaunchDetails();
-    if (launch?.didNotificationLaunchApp == true) {
-      onOpenNotification(launch?.notificationResponse?.payload);
+    final launchResponse = launch?.notificationResponse;
+    if (launch?.didNotificationLaunchApp == true && launchResponse != null) {
+      await dispatchResponse(
+        launchResponse,
+        onOpenNotification: onOpenNotification,
+      );
     }
 
     // Ensure the channel exists with the correct importance BEFORE any
@@ -107,6 +112,20 @@ class DigestNotifications {
           notificationBackgroundResponse,
     );
     await _ensureChannel();
+  }
+
+  static Future<void> dispatchResponse(
+    NotificationResponse response, {
+    void Function(String? payload)? onOpenNotification,
+  }) async {
+    final handled = await NotificationActionHandler.handleIfAction(response);
+    if (!handled) onOpenNotification?.call(response.payload);
+    await reconcileGroupSummary();
+  }
+
+  static Future<void> replayPendingActionsAndReconcile() async {
+    await NotificationActionHandler.replayPendingActions();
+    await reconcileGroupSummary();
   }
 
   static Future<void> _ensureChannel() async {

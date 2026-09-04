@@ -19,6 +19,9 @@ abstract final class AppLayout {
   /// Comfortable reading width for settings, forms, and detail-like pages.
   static const double maxReadableContentWidth = 760;
 
+  /// Editorial measure for long-form saved-item reading.
+  static const double maxReaderContentWidth = 680;
+
   static bool usesNavigationRail(double width) => width >= mediumWidth;
 
   static bool usesExtendedNavigationRail(double width) => width >= largeWidth;

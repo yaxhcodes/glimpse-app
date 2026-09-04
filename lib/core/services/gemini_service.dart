@@ -5,6 +5,7 @@ import 'ai/ai_transport.dart';
 import 'ai_proxy_client.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
+import 'source_evidence.dart';
 import 'tag_noise_filter.dart';
 import 'transcript_enrichment_service.dart';
 
@@ -17,7 +18,11 @@ class CategorizationResult {
   final String emoji;
   final List<String> tags;
   final String summary;
+  final String brief;
+  final String notificationBlurb;
   final List<String> keyPoints;
+  final List<EnrichedContentSection> contentSections;
+  final List<EnrichedNotableItem> notableItems;
   final String categoryEvidence;
   final double? categoryConfidence;
   final List<String> topics;
@@ -29,7 +34,11 @@ class CategorizationResult {
     required this.emoji,
     required this.tags,
     required this.summary,
+    this.brief = '',
+    this.notificationBlurb = '',
     this.keyPoints = const [],
+    this.contentSections = const [],
+    this.notableItems = const [],
     this.categoryEvidence = '',
     this.categoryConfidence,
     this.topics = const [],
@@ -246,11 +255,18 @@ $prompt''';
     required String title,
     required String description,
     required String url,
+    SourceEvidence? sourceEvidence,
   }) async {
-    final content = _untrustedBlock('''
+    final evidenceText = sourceEvidence?.readableText.trim() ?? '';
+    final evidenceLinks = sourceEvidence?.outboundLinks ?? const [];
+    final content = _untrustedBlock(
+      '''
 Title: ${title.isEmpty ? '(not available)' : title}
 Description: ${description.isEmpty ? '(not available)' : description}
-URL: $url''');
+URL: $url
+${evidenceText.isEmpty ? '' : 'Readable source evidence:\n$evidenceText'}
+${evidenceLinks.isEmpty ? '' : 'Explicit outbound links:\n${evidenceLinks.map((link) => '- ${link.label}: ${link.url}').join('\n')}'}''',
+    );
 
     final prompt =
         '''You are the content-understanding engine for Glimpse, an app that helps people rediscover things they saved.
@@ -260,7 +276,11 @@ Your job is to extract what a saved page is fundamentally about, not to pattern-
 Return one valid JSON object. Keep this field order:
 - "meaningful_title": a concise, content-first title, normally 4-9 words. Remove website names, repository paths, SEO fragments, clickbait framing, and format labels such as "article" or "post". Preserve important product, project, person, and place names. Use only claims supported by the supplied title and description. Do not add a subtitle or separator.
 - "summary": 2-3 sentences explaining what this page is substantively about in plain language. Never open with "This page", "This post", "This video", or "This article"; start with the substance.
+- "brief": a warm, direct 1-2 sentence overview, no more than 55 words.
+- "notification_blurb": one complete, high-information sentence of 14-22 words. It must stand alone without an ellipsis or platform preamble.
 - "key_points": 2-5 concise strings capturing the useful claims, items, or takeaways.
+- "content_sections": for explanatory, educational, analytical, or narrative evidence, 2-8 ordered objects shaped as {"title":"","points":[""]}. Preserve the source's progression and write complete, readable sentences. Omit when the evidence is too thin.
+- "notable_items": every explicitly named useful website, tool, app, product, repository, dataset, term, claim, or reference, shaped as {"text":"","type":"","label":"","attribution":"","why_important":"","url":""}. Copy a URL only from the URL or explicit outbound links above; otherwise omit url. Do not invent destinations.
 - "category_evidence": one sentence describing what the content is actually trying to teach, show, argue, or help the saver do. Write this in your own words; do not quote a single source phrase as evidence.
 - "category": choose exactly one category from the allowed list below, based on the summary and key_points you just wrote, not isolated raw words.
 - "emoji": use the matching emoji for that category from the allowed list below
@@ -288,9 +308,11 @@ Allowed categories:
 ${CategoryTaxonomy.promptOptions()}
 
 Important rules:
-- Use only the title, description, and URL provided below. Do not infer unseen video/article content from the title alone.
+- Use only the supplied title, description, URL, readable evidence, and explicit outbound links. Do not infer unseen content from the title alone.
 - If the description is unavailable or too thin, make the summary conservative: say it is a saved item with the provided title and summarize only what the title/platform safely imply.
 - Never invent specifics such as people, locations, stunts, tools, claims, or plot details unless they appear in the title or description.
+- Extract every useful named resource supported by the evidence. A missing direct URL is valid and must not cause the resource to be omitted.
+- Do not repeat identical wording across summary, key_points, content_sections, and notable_items.
 - If your only justification for a category would be a specific word or idiom rather than the substance of the summary/key_points, that category is wrong.
 - Classify by subject matter, not explanatory tone. A post that explains a philosophical, spiritual, metaphysical, or religious idea is Philosophy, not Education, unless the save is mainly about study methods, courses, school, language learning, or skill acquisition.
 - Brahman, Advaita, Vedanta, non-duality, dharma, scripture, free will, consciousness, existentialism, and similar questions about reality or meaning belong in Philosophy even when the format feels educational.
@@ -323,6 +345,8 @@ Output valid JSON only. No markdown, no explanation.''';
           : <String>[];
       final keyPoints = _stringList(data['key_points']).take(5).toList();
       final topics = _stringList(data['topics']).take(3).toList();
+      final contentSections = _contentSections(data['content_sections']);
+      final notableItems = _notableItems(data['notable_items']);
 
       final normalized = CategoryTaxonomy.normalize(
         category: (data['category'] as String? ?? 'Other').trim(),
@@ -336,7 +360,11 @@ Output valid JSON only. No markdown, no explanation.''';
         emoji: normalized.emoji,
         tags: tags,
         summary: (data['summary'] as String? ?? '').trim(),
+        brief: (data['brief'] as String? ?? '').trim(),
+        notificationBlurb: (data['notification_blurb'] as String? ?? '').trim(),
         keyPoints: keyPoints,
+        contentSections: contentSections,
+        notableItems: notableItems,
         categoryEvidence:
             (data['category_evidence'] ?? data['domain_evidence'] ?? '')
                 .toString()
@@ -370,6 +398,34 @@ Output valid JSON only. No markdown, no explanation.''';
     return raw
         .map((item) => item?.toString().trim() ?? '')
         .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
+  static List<EnrichedContentSection> _contentSections(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) =>
+              EnrichedContentSection.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .whereType<EnrichedContentSection>()
+        .take(8)
+        .toList();
+  }
+
+  static List<EnrichedNotableItem> _notableItems(Object? raw) {
+    if (raw is! List) return const [];
+    final seen = <String>{};
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) =>
+              EnrichedNotableItem.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .where((item) => item.hasUsefulContent)
+        .where((item) => seen.add(item.text.trim().toLowerCase()))
+        .take(12)
         .toList();
   }
 
