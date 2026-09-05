@@ -19,20 +19,25 @@ class SectionHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isPrimary = emphasis == SectionHeaderEmphasis.primary;
-    return Text(
-      title,
-      style:
-          (isPrimary ? theme.textTheme.titleMedium : theme.textTheme.titleSmall)
-              ?.copyWith(
-                color: isPrimary
-                    ? accent
-                    : Color.alphaBlend(
-                        accent.withValues(alpha: 0.16),
-                        colorScheme.onSurface,
-                      ),
-                fontWeight: FontWeight.w700,
-                height: isPrimary ? 1.18 : 1.22,
-              ),
+    return Semantics(
+      header: true,
+      child: Text(
+        title,
+        style:
+            (isPrimary
+                    ? theme.textTheme.titleMedium
+                    : theme.textTheme.titleSmall)
+                ?.copyWith(
+                  color: isPrimary
+                      ? accent
+                      : Color.alphaBlend(
+                          accent.withValues(alpha: 0.16),
+                          colorScheme.onSurface,
+                        ),
+                  fontWeight: FontWeight.w700,
+                  height: isPrimary ? 1.18 : 1.22,
+                ),
+      ),
     );
   }
 }

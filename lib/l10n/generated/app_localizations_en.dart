@@ -1202,7 +1202,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addNote => 'Add note';
 
   @override
-  String get keyTakeaways => 'Key Takeaways';
+  String get keyTakeaways => 'Key takeaways';
 
   @override
   String get fullBreakdown => 'Full breakdown';
@@ -2548,4 +2548,23 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'No backup file in this folder yet. Use Create backup above after picking this location.';
+
+  @override
+  String get highlight => 'Highlight';
+
+  @override
+  String get removeHighlight => 'Remove highlight';
+
+  @override
+  String get highlightAdded => 'Highlight saved';
+
+  @override
+  String get highlightRemoved => 'Highlight removed';
+
+  @override
+  String get highlightFailed => 'Could not update the highlight.';
+
+  @override
+  String get readerOverviewOnly =>
+      'Only a brief overview is available for this save. Open the source for the full content.';
 }

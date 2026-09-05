@@ -730,5 +730,11 @@
   "setStorageBeforeAutoBackup": "Defina um local acima antes de executar backups automáticos.",
   "folderBackup": "Backup da pasta",
   "lastSavedToFolder": "Último salvamento na pasta: {time}",
-  "noBackupFileInFolder": "Ainda não há backup nesta pasta. Escolha o local e use Criar backup acima."
+  "noBackupFileInFolder": "Ainda não há backup nesta pasta. Escolha o local e use Criar backup acima.",
+  "highlight": "Destacar",
+  "removeHighlight": "Remover destaque",
+  "highlightAdded": "Destaque salvo",
+  "highlightRemoved": "Destaque removido",
+  "highlightFailed": "Não foi possível atualizar o destaque.",
+  "readerOverviewOnly": "Há apenas um breve resumo deste item salvo. Abra a fonte para ver o conteúdo completo."
 }

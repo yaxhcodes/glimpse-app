@@ -13,6 +13,7 @@ import 'package:glimpse/core/models/place_itinerary.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/user_collection.dart';
 import 'package:glimpse/core/services/notification_action_handler.dart';
+import 'package:glimpse/core/services/saved_highlights_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -70,6 +71,24 @@ void main() {
       expect(SavedUrlSchema.indexes, contains('deletedAt'));
     },
   );
+
+  test('reader highlights persist through the real Isar schema', () async {
+    final url = _url('https://example.com/highlighted');
+    await service.saveUrl(url);
+
+    final mutation = await SavedHighlightsService(service).add(
+      urlId: url.id,
+      sectionKey: 'brief',
+      sourceText: 'A complete sentence worth keeping.',
+      selectedText: 'sentence worth keeping',
+    );
+
+    final restored = await service.getUrlById(url.id);
+    final highlights = SavedHighlightsCodec.decode(restored?.highlightsJson);
+    expect(mutation?.changed, isTrue);
+    expect(highlights, hasLength(1));
+    expect(highlights.single.quote, 'sentence worth keeping');
+  });
 
   test('notification Done archives once without opening the UI', () async {
     final url = _url('https://example.com/done-from-notification');

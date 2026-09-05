@@ -736,5 +736,11 @@
   "setStorageBeforeAutoBackup": "Lege oben einen Speicherort fest, bevor automatische Sicherungen ausgeführt werden können.",
   "folderBackup": "Ordnersicherung",
   "lastSavedToFolder": "Zuletzt im Ordner gespeichert: {time}",
-  "noBackupFileInFolder": "Noch keine Sicherungsdatei in diesem Ordner. Wähle zuerst diesen Ort und tippe dann oben auf „Sicherung erstellen“."
+  "noBackupFileInFolder": "Noch keine Sicherungsdatei in diesem Ordner. Wähle zuerst diesen Ort und tippe dann oben auf „Sicherung erstellen“.",
+  "highlight": "Markieren",
+  "removeHighlight": "Markierung entfernen",
+  "highlightAdded": "Markierung gespeichert",
+  "highlightRemoved": "Markierung entfernt",
+  "highlightFailed": "Markierung konnte nicht aktualisiert werden.",
+  "readerOverviewOnly": "Für diesen Eintrag ist nur eine kurze Übersicht verfügbar. Öffne die Quelle für den vollständigen Inhalt."
 }

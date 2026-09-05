@@ -11,9 +11,10 @@ import 'package:share_plus/share_plus.dart';
 import '../../database/isar_service.dart';
 import '../../models/place_itinerary.dart';
 import '../../models/saved_url.dart';
-import '../saved_notes_codec.dart';
-import '../../services/session_tracking_service.dart';
 import '../../services/rediscover_utility_profile.dart';
+import '../../services/session_tracking_service.dart';
+import '../saved_highlights_service.dart';
+import '../saved_notes_codec.dart';
 import 'backup_models.dart';
 
 class BackupService {
@@ -54,6 +55,7 @@ class BackupService {
           .toList(),
       summary: url.summary,
       enrichmentJson: url.enrichmentJson,
+      highlightsJson: url.highlightsJson,
       processingStatus: url.processingStatus,
       processingId: url.processingId,
       processingAttempt: url.processingAttempt,
@@ -129,6 +131,7 @@ class BackupService {
           .toList()
       ..summary = b.summary
       ..enrichmentJson = b.enrichmentJson
+      ..highlightsJson = b.highlightsJson
       ..processingStatus = b.processingStatus
       ..processingId = b.processingId
       ..processingAttempt = b.processingAttempt
@@ -575,6 +578,36 @@ class BackupService {
         } catch (_) {
           throw BackupValidationException(
             'Invalid backup: link ${index + 1} has damaged enrichment data.',
+          );
+        }
+      }
+
+      final highlightsJson = raw['highlightsJson'];
+      if (highlightsJson != null) {
+        if (highlightsJson is! String ||
+            highlightsJson.length > SavedHighlightsCodec.maxPersistedLength) {
+          throw BackupValidationException(
+            'Invalid backup: link ${index + 1} has invalid highlight data.',
+          );
+        }
+        try {
+          final decodedHighlights = jsonDecode(highlightsJson);
+          if (decodedHighlights is! List ||
+              decodedHighlights.length >
+                  SavedHighlightsCodec.maxHighlightsPerSave ||
+              decodedHighlights.any(
+                (item) =>
+                    item is! Map ||
+                    SavedTextHighlight.fromJson(
+                          Map<String, dynamic>.from(item),
+                        ) ==
+                        null,
+              )) {
+            throw const FormatException('Invalid highlight entries');
+          }
+        } on Object {
+          throw BackupValidationException(
+            'Invalid backup: link ${index + 1} has damaged highlight data.',
           );
         }
       }
@@ -1073,6 +1106,10 @@ class BackupService {
       )
       ..summary = incoming.summary ?? existing.summary
       ..enrichmentJson = incoming.enrichmentJson ?? existing.enrichmentJson
+      ..highlightsJson = SavedHighlightsCodec.mergeJson(
+        existing.highlightsJson,
+        normalizedIncoming.highlightsJson,
+      )
       ..processingStatus = useIncomingProcessing
           ? incoming.processingStatus
           : existing.processingStatus

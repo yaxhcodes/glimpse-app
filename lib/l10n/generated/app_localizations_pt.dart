@@ -2571,4 +2571,23 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'Ainda não há backup nesta pasta. Escolha o local e use Criar backup acima.';
+
+  @override
+  String get highlight => 'Destacar';
+
+  @override
+  String get removeHighlight => 'Remover destaque';
+
+  @override
+  String get highlightAdded => 'Destaque salvo';
+
+  @override
+  String get highlightRemoved => 'Destaque removido';
+
+  @override
+  String get highlightFailed => 'Não foi possível atualizar o destaque.';
+
+  @override
+  String get readerOverviewOnly =>
+      'Há apenas um breve resumo deste item salvo. Abra a fonte para ver o conteúdo completo.';
 }

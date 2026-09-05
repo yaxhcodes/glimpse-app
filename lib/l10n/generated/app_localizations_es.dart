@@ -2572,4 +2572,23 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'Todavía no hay una copia en esta carpeta. Elige la ubicación y usa Crear copia arriba.';
+
+  @override
+  String get highlight => 'Resaltar';
+
+  @override
+  String get removeHighlight => 'Quitar resaltado';
+
+  @override
+  String get highlightAdded => 'Resaltado guardado';
+
+  @override
+  String get highlightRemoved => 'Resaltado eliminado';
+
+  @override
+  String get highlightFailed => 'No se pudo actualizar el resaltado.';
+
+  @override
+  String get readerOverviewOnly =>
+      'Solo hay un breve resumen de este contenido guardado. Abre la fuente para ver el contenido completo.';
 }

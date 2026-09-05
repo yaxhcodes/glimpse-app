@@ -2584,4 +2584,23 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'Ce dossier ne contient encore aucune sauvegarde. Choisissez la destination, puis utilisez Créer une sauvegarde ci-dessus.';
+
+  @override
+  String get highlight => 'Surligner';
+
+  @override
+  String get removeHighlight => 'Supprimer le surlignage';
+
+  @override
+  String get highlightAdded => 'Surlignage enregistré';
+
+  @override
+  String get highlightRemoved => 'Surlignage supprimé';
+
+  @override
+  String get highlightFailed => 'Impossible de modifier le surlignage.';
+
+  @override
+  String get readerOverviewOnly =>
+      'Seul un bref aperçu est disponible pour cet élément. Ouvrez la source pour consulter le contenu complet.';
 }

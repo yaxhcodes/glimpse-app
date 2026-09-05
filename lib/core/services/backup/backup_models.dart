@@ -1,5 +1,5 @@
 class BackupData {
-  static const int currentVersion = 5;
+  static const int currentVersion = 6;
 
   final int version;
   final String createdAt;
@@ -92,6 +92,7 @@ class SavedUrlBackup {
   final List<SavedAskNoteBackup> askNotes;
   final String? summary;
   final String? enrichmentJson;
+  final String? highlightsJson;
   final String? processingStatus;
   final String? processingId;
   final int? processingAttempt;
@@ -122,6 +123,7 @@ class SavedUrlBackup {
     this.askNotes = const [],
     this.summary,
     this.enrichmentJson,
+    this.highlightsJson,
     this.processingStatus,
     this.processingId,
     this.processingAttempt,
@@ -157,6 +159,7 @@ class SavedUrlBackup {
         'askNotes': askNotes.map((note) => note.toJson()).toList(),
       if (summary != null) 'summary': summary,
       if (enrichmentJson != null) 'enrichmentJson': enrichmentJson,
+      if (highlightsJson != null) 'highlightsJson': highlightsJson,
       if (processingStatus != null) 'processingStatus': processingStatus,
       if (processingId != null) 'processingId': processingId,
       if (processingAttempt != null) 'processingAttempt': processingAttempt,
@@ -218,6 +221,7 @@ class SavedUrlBackup {
         const [],
     summary: json['summary'] as String?,
     enrichmentJson: json['enrichmentJson'] as String?,
+    highlightsJson: json['highlightsJson'] as String?,
     processingStatus: json['processingStatus'] as String?,
     processingId: json['processingId'] as String?,
     processingAttempt: json['processingAttempt'] as int?,

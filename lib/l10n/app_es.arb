@@ -730,5 +730,11 @@
   "setStorageBeforeAutoBackup": "Configura arriba una ubicación antes de usar las copias automáticas.",
   "folderBackup": "Copia en carpeta",
   "lastSavedToFolder": "Último guardado en la carpeta: {time}",
-  "noBackupFileInFolder": "Todavía no hay una copia en esta carpeta. Elige la ubicación y usa Crear copia arriba."
+  "noBackupFileInFolder": "Todavía no hay una copia en esta carpeta. Elige la ubicación y usa Crear copia arriba.",
+  "highlight": "Resaltar",
+  "removeHighlight": "Quitar resaltado",
+  "highlightAdded": "Resaltado guardado",
+  "highlightRemoved": "Resaltado eliminado",
+  "highlightFailed": "No se pudo actualizar el resaltado.",
+  "readerOverviewOnly": "Solo hay un breve resumen de este contenido guardado. Abre la fuente para ver el contenido completo."
 }

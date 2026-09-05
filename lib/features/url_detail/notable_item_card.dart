@@ -10,7 +10,7 @@ class NotableItemCard extends StatelessWidget {
     required this.accent,
     this.compact = false,
     this.onTap,
-    this.actionIcon = Icons.open_in_new_rounded,
+    this.actionIcon = AppIcons.externalLink,
     this.actionLabel,
     this.actionText,
   });
@@ -152,9 +152,7 @@ class NotableItemCard extends StatelessWidget {
     final label = item.label?.trim() ?? '';
     final host = uri.host.replaceFirst(RegExp(r'^www\.'), '');
     final hasFriendlyLabel =
-        label.isNotEmpty &&
-        !label.contains('://') &&
-        !label.startsWith('www.');
+        label.isNotEmpty && !label.contains('://') && !label.startsWith('www.');
     final title = hasFriendlyLabel ? label : host;
     final attribution = item.attribution?.trim() ?? '';
     final why = item.whyImportant?.trim() ?? '';

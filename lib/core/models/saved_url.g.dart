@@ -68,98 +68,103 @@ const SavedUrlSchema = CollectionSchema(
       name: r'enrichmentJson',
       type: IsarType.string,
     ),
-    r'intentAction': PropertySchema(
+    r'highlightsJson': PropertySchema(
       id: 10,
+      name: r'highlightsJson',
+      type: IsarType.string,
+    ),
+    r'intentAction': PropertySchema(
+      id: 11,
       name: r'intentAction',
       type: IsarType.string,
     ),
     r'intentSetAt': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'intentSetAt',
       type: IsarType.dateTime,
     ),
     r'intentStatus': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'intentStatus',
       type: IsarType.string,
     ),
     r'openedAt': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'openedAt',
       type: IsarType.dateTime,
     ),
     r'processingAttempt': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'processingAttempt',
       type: IsarType.long,
     ),
     r'processingError': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'processingError',
       type: IsarType.string,
     ),
     r'processingId': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'processingId',
       type: IsarType.string,
     ),
     r'processingStatus': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'processingStatus',
       type: IsarType.string,
     ),
     r'processingUpdatedAt': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'processingUpdatedAt',
       type: IsarType.dateTime,
     ),
     r'rawUrl': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'rawUrl',
       type: IsarType.string,
     ),
     r'rediscoverDismissedAt': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'rediscoverDismissedAt',
       type: IsarType.dateTime,
     ),
     r'resurfacedAt': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'resurfacedAt',
       type: IsarType.dateTime,
     ),
     r'revisitAfter': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'revisitAfter',
       type: IsarType.dateTime,
     ),
     r'savedAt': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'savedAt',
       type: IsarType.dateTime,
     ),
     r'summary': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'summary',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'title',
       type: IsarType.string,
     ),
     r'userNotes': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'userNotes',
       type: IsarType.string,
     )
@@ -289,6 +294,12 @@ int _savedUrlEstimateSize(
     }
   }
   {
+    final value = object.highlightsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.intentAction;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -369,25 +380,26 @@ void _savedUrlSerialize(
   writer.writeStringList(offsets[7], object.effectiveCategories);
   writer.writeDoubleList(offsets[8], object.embedding);
   writer.writeString(offsets[9], object.enrichmentJson);
-  writer.writeString(offsets[10], object.intentAction);
-  writer.writeDateTime(offsets[11], object.intentSetAt);
-  writer.writeString(offsets[12], object.intentStatus);
-  writer.writeDateTime(offsets[13], object.openedAt);
-  writer.writeLong(offsets[14], object.processingAttempt);
-  writer.writeString(offsets[15], object.processingError);
-  writer.writeString(offsets[16], object.processingId);
-  writer.writeString(offsets[17], object.processingStatus);
-  writer.writeDateTime(offsets[18], object.processingUpdatedAt);
-  writer.writeString(offsets[19], object.rawUrl);
-  writer.writeDateTime(offsets[20], object.rediscoverDismissedAt);
-  writer.writeDateTime(offsets[21], object.resurfacedAt);
-  writer.writeDateTime(offsets[22], object.revisitAfter);
-  writer.writeDateTime(offsets[23], object.savedAt);
-  writer.writeString(offsets[24], object.summary);
-  writer.writeStringList(offsets[25], object.tags);
-  writer.writeString(offsets[26], object.thumbnailUrl);
-  writer.writeString(offsets[27], object.title);
-  writer.writeString(offsets[28], object.userNotes);
+  writer.writeString(offsets[10], object.highlightsJson);
+  writer.writeString(offsets[11], object.intentAction);
+  writer.writeDateTime(offsets[12], object.intentSetAt);
+  writer.writeString(offsets[13], object.intentStatus);
+  writer.writeDateTime(offsets[14], object.openedAt);
+  writer.writeLong(offsets[15], object.processingAttempt);
+  writer.writeString(offsets[16], object.processingError);
+  writer.writeString(offsets[17], object.processingId);
+  writer.writeString(offsets[18], object.processingStatus);
+  writer.writeDateTime(offsets[19], object.processingUpdatedAt);
+  writer.writeString(offsets[20], object.rawUrl);
+  writer.writeDateTime(offsets[21], object.rediscoverDismissedAt);
+  writer.writeDateTime(offsets[22], object.resurfacedAt);
+  writer.writeDateTime(offsets[23], object.revisitAfter);
+  writer.writeDateTime(offsets[24], object.savedAt);
+  writer.writeString(offsets[25], object.summary);
+  writer.writeStringList(offsets[26], object.tags);
+  writer.writeString(offsets[27], object.thumbnailUrl);
+  writer.writeString(offsets[28], object.title);
+  writer.writeString(offsets[29], object.userNotes);
 }
 
 SavedUrl _savedUrlDeserialize(
@@ -412,26 +424,27 @@ SavedUrl _savedUrlDeserialize(
   object.domain = reader.readString(offsets[6]);
   object.embedding = reader.readDoubleList(offsets[8]);
   object.enrichmentJson = reader.readStringOrNull(offsets[9]);
+  object.highlightsJson = reader.readStringOrNull(offsets[10]);
   object.id = id;
-  object.intentAction = reader.readStringOrNull(offsets[10]);
-  object.intentSetAt = reader.readDateTimeOrNull(offsets[11]);
-  object.intentStatus = reader.readStringOrNull(offsets[12]);
-  object.openedAt = reader.readDateTimeOrNull(offsets[13]);
-  object.processingAttempt = reader.readLongOrNull(offsets[14]);
-  object.processingError = reader.readStringOrNull(offsets[15]);
-  object.processingId = reader.readStringOrNull(offsets[16]);
-  object.processingStatus = reader.readStringOrNull(offsets[17]);
-  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[18]);
-  object.rawUrl = reader.readString(offsets[19]);
-  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[20]);
-  object.resurfacedAt = reader.readDateTimeOrNull(offsets[21]);
-  object.revisitAfter = reader.readDateTimeOrNull(offsets[22]);
-  object.savedAt = reader.readDateTime(offsets[23]);
-  object.summary = reader.readStringOrNull(offsets[24]);
-  object.tags = reader.readStringList(offsets[25]) ?? [];
-  object.thumbnailUrl = reader.readStringOrNull(offsets[26]);
-  object.title = reader.readString(offsets[27]);
-  object.userNotes = reader.readStringOrNull(offsets[28]);
+  object.intentAction = reader.readStringOrNull(offsets[11]);
+  object.intentSetAt = reader.readDateTimeOrNull(offsets[12]);
+  object.intentStatus = reader.readStringOrNull(offsets[13]);
+  object.openedAt = reader.readDateTimeOrNull(offsets[14]);
+  object.processingAttempt = reader.readLongOrNull(offsets[15]);
+  object.processingError = reader.readStringOrNull(offsets[16]);
+  object.processingId = reader.readStringOrNull(offsets[17]);
+  object.processingStatus = reader.readStringOrNull(offsets[18]);
+  object.processingUpdatedAt = reader.readDateTimeOrNull(offsets[19]);
+  object.rawUrl = reader.readString(offsets[20]);
+  object.rediscoverDismissedAt = reader.readDateTimeOrNull(offsets[21]);
+  object.resurfacedAt = reader.readDateTimeOrNull(offsets[22]);
+  object.revisitAfter = reader.readDateTimeOrNull(offsets[23]);
+  object.savedAt = reader.readDateTime(offsets[24]);
+  object.summary = reader.readStringOrNull(offsets[25]);
+  object.tags = reader.readStringList(offsets[26]) ?? [];
+  object.thumbnailUrl = reader.readStringOrNull(offsets[27]);
+  object.title = reader.readString(offsets[28]);
+  object.userNotes = reader.readStringOrNull(offsets[29]);
   return object;
 }
 
@@ -471,40 +484,42 @@ P _savedUrlDeserializeProp<P>(
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
-    case 13:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 14:
-      return (reader.readLongOrNull(offset)) as P;
-    case 15:
+    case 13:
       return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 15:
+      return (reader.readLongOrNull(offset)) as P;
     case 16:
       return (reader.readStringOrNull(offset)) as P;
     case 17:
       return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 19:
-      return (reader.readString(offset)) as P;
-    case 20:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 20:
+      return (reader.readString(offset)) as P;
     case 21:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 22:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 23:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 24:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 25:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 26:
       return (reader.readStringOrNull(offset)) as P;
+    case 26:
+      return (reader.readStringList(offset) ?? []) as P;
     case 27:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 28:
+      return (reader.readString(offset)) as P;
+    case 29:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2467,6 +2482,159 @@ extension SavedUrlQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'enrichmentJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'highlightsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'highlightsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> highlightsJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'highlightsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'highlightsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'highlightsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> highlightsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'highlightsJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'highlightsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'highlightsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'highlightsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition> highlightsJsonMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'highlightsJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'highlightsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterFilterCondition>
+      highlightsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'highlightsJson',
         value: '',
       ));
     });
@@ -4849,6 +5017,18 @@ extension SavedUrlQuerySortBy on QueryBuilder<SavedUrl, SavedUrl, QSortBy> {
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByHighlightsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'highlightsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByHighlightsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'highlightsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> sortByIntentAction() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'intentAction', Sort.asc);
@@ -5139,6 +5319,18 @@ extension SavedUrlQuerySortThenBy
   QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByEnrichmentJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'enrichmentJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByHighlightsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'highlightsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SavedUrl, SavedUrl, QAfterSortBy> thenByHighlightsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'highlightsJson', Sort.desc);
     });
   }
 
@@ -5436,6 +5628,14 @@ extension SavedUrlQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByHighlightsJson(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'highlightsJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<SavedUrl, SavedUrl, QDistinct> distinctByIntentAction(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -5631,6 +5831,12 @@ extension SavedUrlQueryProperty
   QueryBuilder<SavedUrl, String?, QQueryOperations> enrichmentJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'enrichmentJson');
+    });
+  }
+
+  QueryBuilder<SavedUrl, String?, QQueryOperations> highlightsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'highlightsJson');
     });
   }
 

@@ -730,5 +730,11 @@
   "setStorageBeforeAutoBackup": "自動バックアップを使用するには、上で保存場所を設定してください。",
   "folderBackup": "フォルダーのバックアップ",
   "lastSavedToFolder": "フォルダーへの最終保存：{time}",
-  "noBackupFileInFolder": "このフォルダーにはまだバックアップがありません。保存場所を選んだ後、上の「バックアップを作成」を使用してください。"
+  "noBackupFileInFolder": "このフォルダーにはまだバックアップがありません。保存場所を選んだ後、上の「バックアップを作成」を使用してください。",
+  "highlight": "ハイライト",
+  "removeHighlight": "ハイライトを削除",
+  "highlightAdded": "ハイライトを保存しました",
+  "highlightRemoved": "ハイライトを削除しました",
+  "highlightFailed": "ハイライトを更新できませんでした。",
+  "readerOverviewOnly": "この保存には短い概要のみがあります。内容の全体は元のページでご確認ください。"
 }

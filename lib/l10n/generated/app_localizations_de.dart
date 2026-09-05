@@ -2584,4 +2584,23 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'Noch keine Sicherungsdatei in diesem Ordner. Wähle zuerst diesen Ort und tippe dann oben auf „Sicherung erstellen“.';
+
+  @override
+  String get highlight => 'Markieren';
+
+  @override
+  String get removeHighlight => 'Markierung entfernen';
+
+  @override
+  String get highlightAdded => 'Markierung gespeichert';
+
+  @override
+  String get highlightRemoved => 'Markierung entfernt';
+
+  @override
+  String get highlightFailed => 'Markierung konnte nicht aktualisiert werden.';
+
+  @override
+  String get readerOverviewOnly =>
+      'Für diesen Eintrag ist nur eine kurze Übersicht verfügbar. Öffne die Quelle für den vollständigen Inhalt.';
 }

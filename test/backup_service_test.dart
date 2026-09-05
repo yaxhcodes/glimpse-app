@@ -81,6 +81,9 @@ void main() {
       ..intentAction = 'read_later'
       ..intentSetAt = intentSetAt
       ..revisitAfter = revisitAfter
+      ..highlightsJson =
+          '[{"id":"highlight-1","section_key":"brief","quote":"Example",'
+          '"prefix":"","suffix":" article","created_at":"2026-07-06T00:00:00.000Z"}]'
       ..askNotes = [
         SavedAskNote()
           ..id = 'ask-1'
@@ -93,7 +96,7 @@ void main() {
     final json = service.toBackup(original).toJson();
     final restored = service.fromBackup(SavedUrlBackup.fromJson(json));
 
-    expect(BackupData.currentVersion, 5);
+    expect(BackupData.currentVersion, 6);
     expect(restored.deletedAt, deletedAt);
     expect(restored.processingStatus, original.processingStatus);
     expect(restored.processingId, original.processingId);
@@ -105,6 +108,7 @@ void main() {
     expect(restored.intentAction, original.intentAction);
     expect(restored.intentSetAt, intentSetAt);
     expect(restored.revisitAfter, revisitAfter);
+    expect(restored.highlightsJson, original.highlightsJson);
     expect(restored.askNotes, hasLength(1));
     expect(restored.askNotes.single.id, 'ask-1');
     expect(restored.askNotes.single.sourceMessageId, 'message-1');
@@ -142,8 +146,41 @@ void main() {
       expect(backup.links.single.intentStatus, isNull);
       expect(backup.links.single.processingStatus, isNull);
       expect(backup.links.single.deletedAt, isNull);
+      expect(backup.links.single.highlightsJson, isNull);
     },
   );
+
+  test('validation rejects damaged saved highlights', () async {
+    expect(
+      () => service.validateBackup(
+        jsonEncode({
+          'version': BackupData.currentVersion,
+          'createdAt': '2026-07-31T16:25:08.256634',
+          'appVersion': '1.0.7',
+          'links': [
+            {
+              'rawUrl': 'https://example.com/highlighted',
+              'domain': 'example.com',
+              'title': 'Highlighted link',
+              'description': '',
+              'savedAt': '2026-07-01T10:00:00.000',
+              'highlightsJson': '[{"quote":"missing anchor data"}]',
+            },
+          ],
+          'collections': <Object>[],
+          'saveSessions': <Object>[],
+          'settings': <String, Object>{},
+        }),
+      ),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (error) => error.message,
+          'message',
+          contains('damaged highlight data'),
+        ),
+      ),
+    );
+  });
 
   test('validation rejects overlapping duplicate link records', () async {
     final link = {

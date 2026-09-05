@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,7 @@ import '../../core/services/category_taxonomy.dart';
 import '../../core/services/intent_classifier.dart';
 import '../../core/services/recipe_state_service.dart';
 import '../../core/services/rediscover_utility_profile.dart';
+import '../../core/services/saved_highlights_service.dart';
 import '../../core/services/saved_media_resolver.dart';
 import '../../core/services/saved_url_enrichment_state.dart';
 import '../../core/services/summary_rewriter.dart';
@@ -52,6 +55,7 @@ import '../rediscover/rediscover_open_context.dart';
 import 'detail_expansion_section.dart';
 import 'notable_item_card.dart';
 import 'notable_term_grid.dart';
+import 'reader_selectable_text.dart';
 import 'source_saved_metadata_row.dart';
 import 'url_detail_provider.dart';
 import '../../l10n/l10n.dart';
@@ -358,6 +362,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool _retryingEnrichment = false;
   int _mediaPageIndex = 0;
   String? _localNotesOverride;
+  List<SavedTextHighlight>? _localHighlightsOverride;
+  String? _decodedHighlightsJson;
+  List<SavedTextHighlight> _decodedHighlights = const [];
   // Reflects the intent chip the user just tapped, before the provider refetches
   // (avoids reloading the whole detail body just to flip a chip's set-state).
   // Sentinel '' means "explicitly cleared".
@@ -378,6 +385,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     if (oldWidget.urlId != widget.urlId) {
       _showExactSavedDate = false;
       _localNotesOverride = null;
+      _localHighlightsOverride = null;
+      _decodedHighlightsJson = null;
+      _decodedHighlights = const [];
       _notesEditing = false;
       _showAllAskNotes = false;
       _noteSaveStatus = _NoteSaveStatus.idle;
@@ -762,6 +772,107 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
+  }
+
+  List<SavedTextHighlight> _highlightsFor(SavedUrl url) {
+    final local = _localHighlightsOverride;
+    if (local != null) return local;
+    if (_decodedHighlightsJson != url.highlightsJson) {
+      _decodedHighlightsJson = url.highlightsJson;
+      _decodedHighlights = SavedHighlightsCodec.decode(url.highlightsJson);
+    }
+    return _decodedHighlights;
+  }
+
+  Widget _buildReaderText({
+    required SavedUrl url,
+    required String sectionKey,
+    required String text,
+    TextStyle? style,
+    TextAlign? textAlign,
+    bool isHeading = false,
+  }) {
+    return ReaderSelectableText(
+      key: ValueKey('reader-text-$sectionKey'),
+      text: text,
+      sectionKey: sectionKey,
+      highlights: _highlightsFor(url),
+      style: style,
+      textAlign: textAlign,
+      isHeading: isHeading,
+      onAddHighlight: (selectedText, selectionStart) => _addHighlight(
+        urlId: url.id,
+        sectionKey: sectionKey,
+        sourceText: text,
+        selectedText: selectedText,
+        selectionStart: selectionStart,
+      ),
+      onRemoveHighlight: (highlight) =>
+          _removeHighlight(urlId: url.id, highlight: highlight),
+    );
+  }
+
+  Future<void> _addHighlight({
+    required int urlId,
+    required String sectionKey,
+    required String sourceText,
+    required String selectedText,
+    required int selectionStart,
+  }) async {
+    SavedHighlightMutation? mutation;
+    try {
+      mutation = await ref
+          .read(savedHighlightsServiceProvider)
+          .add(
+            urlId: urlId,
+            sectionKey: sectionKey,
+            sourceText: sourceText,
+            selectedText: selectedText,
+            selectionStart: selectionStart,
+          );
+    } on Object catch (error, stack) {
+      developer.log(
+        'Could not save reader highlight',
+        name: 'UrlDetailScreen',
+        error: error,
+        stackTrace: stack,
+      );
+    }
+    if (!mounted || widget.urlId != urlId) return;
+    if (mutation?.changed != true) {
+      _showSnack(context.l10n.highlightFailed);
+      return;
+    }
+    setState(() => _localHighlightsOverride = mutation!.highlights);
+    ref.invalidate(urlDetailProvider(urlId));
+    _showSnack(context.l10n.highlightAdded);
+  }
+
+  Future<void> _removeHighlight({
+    required int urlId,
+    required SavedTextHighlight highlight,
+  }) async {
+    SavedHighlightMutation? mutation;
+    try {
+      mutation = await ref
+          .read(savedHighlightsServiceProvider)
+          .remove(urlId: urlId, highlightId: highlight.id);
+    } on Object catch (error, stack) {
+      developer.log(
+        'Could not remove reader highlight',
+        name: 'UrlDetailScreen',
+        error: error,
+        stackTrace: stack,
+      );
+    }
+    if (!mounted || widget.urlId != urlId) return;
+    if (mutation?.changed != true) {
+      _showSnack(context.l10n.highlightFailed);
+      return;
+    }
+    setState(() => _localHighlightsOverride = mutation!.highlights);
+    ref.invalidate(urlDetailProvider(urlId));
+    _showSnack(context.l10n.highlightRemoved);
   }
 
   Future<void> _retryEnrichment() async {
@@ -1501,9 +1612,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               ],
             ],
           ),
-          if (urlAsync.isLoading)
+          if (urlAsync.isLoading && url == null)
             const SliverFillRemaining(child: LoadingIndicator())
-          else if (urlAsync.hasError)
+          else if (urlAsync.hasError && url == null)
             SliverFillRemaining(
               child: Center(child: Text('Error: ${urlAsync.error}')),
             )
@@ -1627,8 +1738,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 const SizedBox(height: 16),
 
                 // ── Hero recognition ────────────────────────────────────────
-                Text(
-                  displayTitle,
+                _buildReaderText(
+                  url: url,
+                  sectionKey: 'title',
+                  isHeading: true,
+                  text: displayTitle,
                   style: AppTypography.editorial(
                     theme.textTheme.titleLarge,
                     fontSize: 22,
@@ -1663,11 +1777,28 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 if (showSummary) ...[
                   const SizedBox(height: 28),
                   _buildSummarySection(
+                    url: url,
                     summary: summaryDisplayText,
                     theme: theme,
                     colorScheme: colorScheme,
                     onAddNote: showSummaryAddNote ? _beginEditingNotes : null,
                   ),
+                  if (live != null &&
+                      live.steps.isEmpty &&
+                      live.contentSections.isEmpty &&
+                      live.mentions.isEmpty &&
+                      live.notableItems.isEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      context.l10n.readerOverviewOnly,
+                      key: const ValueKey('reader-overview-only'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ],
 
                 ..._buildEnrichmentSections(
@@ -1711,6 +1842,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 if (live != null && _hasSourceMaterial(live)) ...[
                   const SizedBox(height: 28),
                   _buildSourceMaterialSection(
+                    url: url,
                     live: live,
                     theme: theme,
                     colorScheme: colorScheme,
@@ -1743,7 +1875,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       width: double.infinity,
       child: FilledButton.tonalIcon(
         onPressed: () => _launchUrl(url.rawUrl),
-        icon: const Icon(Icons.open_in_new_rounded, size: 18),
+        icon: const Icon(AppIcons.externalLink, size: 18),
         label: Text(_openButtonLabel(displaySourceName)),
         style: FilledButton.styleFrom(
           foregroundColor: accent,
@@ -2098,6 +2230,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildSummarySection({
+    required SavedUrl url,
     required String summary,
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -2123,7 +2256,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   : TextButton.icon(
                       key: const ValueKey('summary-add-note-action'),
                       onPressed: onAddNote,
-                      icon: const Icon(Icons.note_add_outlined, size: 14),
+                      icon: const Icon(AppIcons.addNote, size: 16),
                       label: Text(context.l10n.addNote),
                       style: TextButton.styleFrom(
                         foregroundColor: colorScheme.onSurfaceVariant,
@@ -2143,8 +2276,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          summary,
+        _buildReaderText(
+          url: url,
+          sectionKey: 'brief',
+          text: summary,
           style: theme.textTheme.bodyMedium?.copyWith(
             height: 1.55,
             color: colorScheme.onSurfaceVariant,
@@ -2625,6 +2760,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       sections.addAll([
         const SizedBox(height: 28),
         _buildContentStepsSection(
+          url: url,
           steps: live.steps,
           theme: theme,
           colorScheme: colorScheme,
@@ -2638,6 +2774,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       sections.addAll([
         const SizedBox(height: 28),
         _buildFullBreakdownSection(
+          url: url,
           sections: live.contentSections,
           theme: theme,
           colorScheme: colorScheme,
@@ -2672,9 +2809,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         const SizedBox(height: 28),
         ContentRecommendationSection<EnrichedMention>(
           title: _mentionSectionTitle(key),
-          subtitle: key == 'person'
-              ? context.l10n.peopleMentionedCount(items.length)
-              : null,
           accent: _sectionAccent(key, colorScheme),
           items: items,
           itemBuilder: (context, mention) => _buildMentionRow(
@@ -2798,6 +2932,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildContentStepsSection({
+    required SavedUrl url,
     required List<EnrichedContentStep> steps,
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -2810,13 +2945,21 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           accent: _recipeAccent(colorScheme),
         ),
         const SizedBox(height: 10),
-        for (final step in steps)
-          _buildContentStep(step: step, theme: theme, colorScheme: colorScheme),
+        for (var index = 0; index < steps.length; index++)
+          _buildContentStep(
+            url: url,
+            index: index,
+            step: steps[index],
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
       ],
     );
   }
 
   Widget _buildContentStep({
+    required SavedUrl url,
+    required int index,
     required EnrichedContentStep step,
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -2843,8 +2986,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              text,
+            child: _buildReaderText(
+              url: url,
+              sectionKey: 'key_idea:$index',
+              text: text,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 height: 1.55,
@@ -2857,6 +3002,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildFullBreakdownSection({
+    required SavedUrl url,
     required List<EnrichedContentSection> sections,
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -2871,8 +3017,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         const SizedBox(height: 12),
         for (var index = 0; index < sections.length; index++) ...[
           if (index > 0) const SizedBox(height: 24),
-          Text(
-            sections[index].title,
+          _buildReaderText(
+            url: url,
+            sectionKey: 'explanation:$index:title',
+            isHeading: true,
+            text: sections[index].title,
             style: theme.textTheme.titleSmall?.copyWith(
               color: colorScheme.onSurface,
               fontWeight: FontWeight.w600,
@@ -2880,9 +3029,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          for (final point in sections[index].points)
+          for (
+            var pointIndex = 0;
+            pointIndex < sections[index].points.length;
+            pointIndex++
+          )
             _buildBreakdownPoint(
-              point: point,
+              url: url,
+              sectionIndex: index,
+              pointIndex: pointIndex,
+              point: sections[index].points[pointIndex],
               theme: theme,
               colorScheme: colorScheme,
             ),
@@ -2892,14 +3048,19 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildBreakdownPoint({
+    required SavedUrl url,
+    required int sectionIndex,
+    required int pointIndex,
     required String point,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        point,
+      child: _buildReaderText(
+        url: url,
+        sectionKey: 'explanation:$sectionIndex:point:$pointIndex',
+        text: point,
         style: theme.textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
           height: 1.55,
@@ -2916,18 +3077,35 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildSourceMaterialSection({
+    required SavedUrl url,
     required TranscriptEnrichmentResult live,
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final sourceBlocks = <(String, String, bool)>[
-      if (live.caption?.trim().isNotEmpty == true)
-        (context.l10n.caption, live.caption!.trim(), false),
-      if (live.transcript?.trim().isNotEmpty == true)
-        (context.l10n.transcript, live.transcript!.trim(), true),
-      if (live.ocrText?.trim().isNotEmpty == true)
-        (context.l10n.onScreenText, live.ocrText!.trim(), false),
-    ];
+    final sourceBlocks =
+        <({String key, String label, String text, bool isTranscript})>[
+          if (live.caption?.trim().isNotEmpty == true)
+            (
+              key: 'caption',
+              label: context.l10n.caption,
+              text: live.caption!.trim(),
+              isTranscript: false,
+            ),
+          if (live.transcript?.trim().isNotEmpty == true)
+            (
+              key: 'transcript',
+              label: context.l10n.transcript,
+              text: live.transcript!.trim(),
+              isTranscript: true,
+            ),
+          if (live.ocrText?.trim().isNotEmpty == true)
+            (
+              key: 'ocr',
+              label: context.l10n.onScreenText,
+              text: live.ocrText!.trim(),
+              isTranscript: false,
+            ),
+        ];
     return DetailExpansionSection(
       title: context.l10n.rawSourceMaterial,
       accent: _recipeAccent(colorScheme),
@@ -2937,21 +3115,20 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           for (var index = 0; index < sourceBlocks.length; index++) ...[
             if (index > 0) const SizedBox(height: 16),
             Text(
-              sourceBlocks[index].$1,
+              sourceBlocks[index].label,
               style: theme.textTheme.labelLarge?.copyWith(
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 6),
-            SelectionArea(
-              child: _buildSourceText(
-                label: sourceBlocks[index].$1,
-                text: sourceBlocks[index].$2,
-                isTranscript: sourceBlocks[index].$3,
-                theme: theme,
-                colorScheme: colorScheme,
-              ),
+            _buildSourceText(
+              url: url,
+              sectionKey: 'raw:${sourceBlocks[index].key}',
+              text: sourceBlocks[index].text,
+              isTranscript: sourceBlocks[index].isTranscript,
+              theme: theme,
+              colorScheme: colorScheme,
             ),
           ],
         ],
@@ -3019,7 +3196,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Widget _buildSourceText({
-    required String label,
+    required SavedUrl url,
+    required String sectionKey,
     required String text,
     required bool isTranscript,
     required ThemeData theme,
@@ -3029,7 +3207,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       color: colorScheme.onSurfaceVariant,
       height: 1.5,
     );
-    if (!isTranscript) return Text(text, style: style);
+    if (!isTranscript) {
+      return _buildReaderText(
+        url: url,
+        sectionKey: sectionKey,
+        text: text,
+        style: style,
+      );
+    }
 
     final paragraphs = splitTranscriptParagraphs(text);
     return Column(
@@ -3037,7 +3222,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       children: [
         for (var index = 0; index < paragraphs.length; index++) ...[
           if (index > 0) const SizedBox(height: 12),
-          Text(paragraphs[index], style: style),
+          _buildReaderText(
+            url: url,
+            sectionKey: '$sectionKey:$index',
+            text: paragraphs[index],
+            style: style,
+          ),
         ],
       ],
     );
@@ -3113,8 +3303,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             item: item,
             accent: _recipeAccent(colorScheme),
             actionIcon: item.destinationUri == null
-                ? Icons.search_rounded
-                : Icons.open_in_new_rounded,
+                ? AppIcons.search
+                : AppIcons.externalLink,
             actionLabel: item.destinationUri == null
                 ? context.l10n.searchForResource
                 : context.l10n.open,
@@ -4103,19 +4293,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     children: [
                       Text(
                         mention.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            (isPerson
-                                    ? theme.textTheme.titleMedium
-                                    : theme.textTheme.bodyLarge)
-                                ?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: isPerson
-                                      ? FontWeight.w500
-                                      : FontWeight.w700,
-                                  height: isPerson ? 1.3 : 1.25,
-                                ),
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
                       ),
                       if (metadata.isNotEmpty) ...[
                         const SizedBox(height: 3),
@@ -4129,17 +4311,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         ),
                       ],
                       if (reason.isNotEmpty) ...[
-                        SizedBox(height: isPerson ? 6 : 5),
+                        const SizedBox(height: 5),
                         Text(
                           _sentenceCase(reason),
-                          style:
-                              (isPerson
-                                      ? theme.textTheme.bodyMedium
-                                      : theme.textTheme.bodySmall)
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    height: isPerson ? 1.45 : 1.42,
-                                  ),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.5,
+                          ),
                         ),
                       ],
                     ],
@@ -4150,9 +4328,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Icon(
-                  Icons.open_in_new_rounded,
+                  AppIcons.search,
                   size: 18,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.58),
+                  color: colorScheme.onSurfaceVariant,
+                  semanticLabel: context.l10n.searchForResource,
                 ),
               ),
             ],
@@ -4167,7 +4346,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     required String posterUrl,
     required ColorScheme colorScheme,
   }) {
-    const size = 52.0;
+    const size = 44.0;
     if (posterUrl.isNotEmpty) {
       return ClipOval(
         child: SizedBox(

@@ -730,5 +730,11 @@
   "setStorageBeforeAutoBackup": "Définissez une destination ci-dessus avant d’activer les sauvegardes automatiques.",
   "folderBackup": "Sauvegarde du dossier",
   "lastSavedToFolder": "Dernier enregistrement dans le dossier : {time}",
-  "noBackupFileInFolder": "Ce dossier ne contient encore aucune sauvegarde. Choisissez la destination, puis utilisez Créer une sauvegarde ci-dessus."
+  "noBackupFileInFolder": "Ce dossier ne contient encore aucune sauvegarde. Choisissez la destination, puis utilisez Créer une sauvegarde ci-dessus.",
+  "highlight": "Surligner",
+  "removeHighlight": "Supprimer le surlignage",
+  "highlightAdded": "Surlignage enregistré",
+  "highlightRemoved": "Surlignage supprimé",
+  "highlightFailed": "Impossible de modifier le surlignage.",
+  "readerOverviewOnly": "Seul un bref aperçu est disponible pour cet élément. Ouvrez la source pour consulter le contenu complet."
 }

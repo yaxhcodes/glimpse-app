@@ -2357,4 +2357,22 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'このフォルダーにはまだバックアップがありません。保存場所を選んだ後、上の「バックアップを作成」を使用してください。';
+
+  @override
+  String get highlight => 'ハイライト';
+
+  @override
+  String get removeHighlight => 'ハイライトを削除';
+
+  @override
+  String get highlightAdded => 'ハイライトを保存しました';
+
+  @override
+  String get highlightRemoved => 'ハイライトを削除しました';
+
+  @override
+  String get highlightFailed => 'ハイライトを更新できませんでした。';
+
+  @override
+  String get readerOverviewOnly => 'この保存には短い概要のみがあります。内容の全体は元のページでご確認ください。';
 }

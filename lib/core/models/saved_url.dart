@@ -47,6 +47,10 @@ class SavedUrl {
   /// creator, stats, and captions so Details can remain stable after app restarts.
   String? enrichmentJson;
 
+  /// User-created text highlights anchored to reader sections.
+  /// Stored separately from AI enrichment so refreshes cannot erase them.
+  String? highlightsJson;
+
   /// Durable lifecycle state for the URL ingestion/enrichment pipeline.
   ///
   /// Older rows may have this null; new saves move through

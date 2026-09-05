@@ -12,6 +12,7 @@ import 'package:glimpse/core/services/saved_notes_service.dart';
 import 'package:glimpse/features/home/home_provider.dart';
 import 'package:glimpse/features/url_detail/url_detail_provider.dart';
 import 'package:glimpse/features/url_detail/url_detail_screen.dart';
+import 'package:glimpse/features/url_detail/reader_selectable_text.dart';
 import 'package:glimpse/l10n/l10n.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
 import 'package:glimpse/shared/widgets/lightweight_markdown_text.dart';
@@ -363,7 +364,7 @@ Use **structured curation**.
 
       expect(tester.takeException(), isNull);
       expect(find.text('In brief'), findsOneWidget);
-      expect(find.text('Key Takeaways'), findsOneWidget);
+      expect(find.text('Key takeaways'), findsOneWidget);
       expect(find.text('Full explanation'), findsOneWidget);
       expect(find.text('How the idea works'), findsOneWidget);
       expect(find.text('Resources & references'), findsOneWidget);
@@ -377,7 +378,7 @@ Use **structured curation**.
       );
 
       final briefY = tester.getTopLeft(find.text('In brief')).dy;
-      final keyIdeasY = tester.getTopLeft(find.text('Key Takeaways')).dy;
+      final keyIdeasY = tester.getTopLeft(find.text('Key takeaways')).dy;
       final explanationY = tester.getTopLeft(find.text('Full explanation')).dy;
       final resourcesY = tester
           .getTopLeft(find.text('Resources & references'))
@@ -385,6 +386,38 @@ Use **structured curation**.
       expect(briefY, lessThan(keyIdeasY));
       expect(keyIdeasY, lessThan(explanationY));
       expect(explanationY, lessThan(resourcesY));
+
+      await tester.ensureVisible(find.text('Raw source material'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Raw source material'));
+      await tester.pumpAndSettle();
+      final rawReader = find.byKey(
+        const ValueKey('reader-text-raw:transcript:0'),
+      );
+      await tester.ensureVisible(rawReader);
+      await tester.pumpAndSettle();
+      final scroll = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView),
+      );
+      final offset = scroll.controller!.offset;
+      expect(offset, greaterThan(0));
+      await tester
+          .widget<ReaderSelectableText>(rawReader)
+          .onAddHighlight('Raw evidence', 0);
+      await tester.pumpAndSettle();
+      expect(scroll.controller!.offset, closeTo(offset, 1));
+      expect(rawReader, findsOneWidget);
+      final highlightedReader = tester.widget<ReaderSelectableText>(rawReader);
+      expect(highlightedReader.highlights, hasLength(1));
+      await highlightedReader.onRemoveHighlight(
+        highlightedReader.highlights.single,
+      );
+      await tester.pumpAndSettle();
+      expect(scroll.controller!.offset, closeTo(offset, 1));
+      expect(
+        tester.widget<ReaderSelectableText>(rawReader).highlights,
+        isEmpty,
+      );
     },
   );
 

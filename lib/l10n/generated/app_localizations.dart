@@ -2257,7 +2257,7 @@ abstract class AppLocalizations {
   /// No description provided for @keyTakeaways.
   ///
   /// In en, this message translates to:
-  /// **'Key Takeaways'**
+  /// **'Key takeaways'**
   String get keyTakeaways;
 
   /// No description provided for @fullBreakdown.
@@ -4491,6 +4491,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No backup file in this folder yet. Use Create backup above after picking this location.'**
   String get noBackupFileInFolder;
+
+  /// No description provided for @highlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight'**
+  String get highlight;
+
+  /// No description provided for @removeHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove highlight'**
+  String get removeHighlight;
+
+  /// No description provided for @highlightAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight saved'**
+  String get highlightAdded;
+
+  /// No description provided for @highlightRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight removed'**
+  String get highlightRemoved;
+
+  /// No description provided for @highlightFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update the highlight.'**
+  String get highlightFailed;
+
+  /// No description provided for @readerOverviewOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Only a brief overview is available for this save. Open the source for the full content.'**
+  String get readerOverviewOnly;
 }
 
 class _AppLocalizationsDelegate

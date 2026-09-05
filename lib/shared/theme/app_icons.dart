@@ -48,6 +48,8 @@ abstract final class AppIcons {
   static const check = PhosphorIconsRegular.check;
   static const close = PhosphorIconsRegular.x;
   static const copy = PhosphorIconsRegular.copy;
+  static const externalLink = PhosphorIconsRegular.arrowSquareOut;
+  static const addNote = PhosphorIconsRegular.notePencil;
   static const image = PhosphorIconsRegular.image;
   static const share = PhosphorIconsRegular.shareNetwork;
   static const link = PhosphorIconsRegular.link;

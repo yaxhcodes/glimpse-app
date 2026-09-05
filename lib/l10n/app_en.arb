@@ -364,7 +364,7 @@
   "searchForResource": "Search for this resource",
   "rawSourceMaterial": "Raw source material",
   "addNote": "Add note",
-  "keyTakeaways": "Key Takeaways",
+  "keyTakeaways": "Key takeaways",
   "fullBreakdown": "Full breakdown",
   "transcriptAndCaption": "Transcript & Caption",
   "caption": "Caption",
@@ -736,5 +736,11 @@
   "setStorageBeforeAutoBackup": "Set a storage location above before automatic backups can run.",
   "folderBackup": "Folder backup",
   "lastSavedToFolder": "Last saved to folder: {time}",
-  "noBackupFileInFolder": "No backup file in this folder yet. Use Create backup above after picking this location."
+  "noBackupFileInFolder": "No backup file in this folder yet. Use Create backup above after picking this location.",
+  "highlight": "Highlight",
+  "removeHighlight": "Remove highlight",
+  "highlightAdded": "Highlight saved",
+  "highlightRemoved": "Highlight removed",
+  "highlightFailed": "Could not update the highlight.",
+  "readerOverviewOnly": "Only a brief overview is available for this save. Open the source for the full content."
 }

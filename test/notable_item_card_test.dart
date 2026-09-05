@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/services/transcript_enrichment_service.dart';
 import 'package:glimpse/features/url_detail/notable_item_card.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
   Widget buildCard(EnrichedNotableItem item, {VoidCallback? onTap}) {
@@ -70,7 +71,7 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.open_in_new_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.externalLink), findsOneWidget);
     await tester.tap(find.byType(NotableItemCard));
 
     expect(taps, 1);
@@ -94,7 +95,7 @@ void main() {
     );
 
     expect(find.byIcon(Icons.language_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.open_in_new_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.externalLink), findsOneWidget);
     expect(find.text('GI Registry Search'), findsOneWidget);
     expect(find.text('search.ipindia.gov.in'), findsOneWidget);
     expect(
