@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/features/mindmap/cluster_card.dart';
@@ -52,11 +54,12 @@ void main() {
     expect(find.text('7 saves'), findsOneWidget);
     expect(find.text('Dominant interest'), findsNothing);
     expect(find.textContaining('strongest pattern'), findsNothing);
+    expect(find.byType(TopSignalArtwork), findsOneWidget);
     final title = tester.widget<Text>(find.text('Nutrition & Wellness'));
     expect(title.maxLines, 2);
     expect(title.style?.fontSize, 22);
     expect(title.style?.fontWeight, FontWeight.w700);
-    expect(tester.getSize(find.byType(ClusterCard)).height, 176);
+    expect(tester.getSize(find.byType(ClusterCard)).height, 200);
     expect(tester.takeException(), isNull);
   });
 
@@ -102,11 +105,10 @@ void main() {
         expect(title.style?.fontWeight, FontWeight.w600);
         expect(title.style?.height, 1.2);
       }
-      expect(mediumClusterTileHeight(growingCluster), 168);
-      expect(mediumClusterTileHeight(strongGrowingCluster), 200);
-      final chip = tester.widget<Text>(find.text('GitHub'));
-      expect(chip.style?.fontSize, 10.5);
-      expect(chip.style?.fontWeight, FontWeight.w500);
+      expect(mediumClusterTileHeight(growingCluster), 184);
+      expect(mediumClusterTileHeight(strongGrowingCluster), 208);
+      final subtopics = tester.widget<Text>(find.text('GitHub · OSS'));
+      expect(subtopics.style?.fontSize, 12);
       expect(tester.takeException(), isNull);
     },
   );
@@ -153,11 +155,55 @@ void main() {
       accentColor: null,
     );
 
-    expect(mediumClusterTileHeight(clusterWith(3)), 168);
-    expect(mediumClusterTileHeight(clusterWith(6)), 168);
-    expect(mediumClusterTileHeight(clusterWith(7)), 184);
-    expect(mediumClusterTileHeight(clusterWith(12)), 184);
-    expect(mediumClusterTileHeight(clusterWith(13)), 200);
-    expect(mediumClusterTileHeight(clusterWith(40)), 200);
+    expect(mediumClusterTileHeight(clusterWith(3)), 184);
+    expect(mediumClusterTileHeight(clusterWith(6)), 184);
+    expect(mediumClusterTileHeight(clusterWith(7)), 196);
+    expect(mediumClusterTileHeight(clusterWith(12)), 196);
+    expect(mediumClusterTileHeight(clusterWith(13)), 208);
+    expect(mediumClusterTileHeight(clusterWith(40)), 208);
   });
+
+  testWidgets(
+    'all interest tiers support large text and accessible activation',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      for (final tier in ClusterCardTier.values) {
+        for (final scale in [2.0, 3.0]) {
+          var taps = 0;
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Scaffold(
+                  body: SingleChildScrollView(
+                    child: SizedBox(
+                      width: tier == ClusterCardTier.medium ? 170 : 320,
+                      child: ClusterCard(
+                        cluster: growingCluster,
+                        tier: tier,
+                        onTap: () => taps++,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          expect(tester.takeException(), isNull, reason: '$tier at ${scale}x');
+          final card = find.byType(ClusterCard);
+          expect(
+            tester
+                .getSemantics(card)
+                .getSemanticsData()
+                .hasAction(ui.SemanticsAction.tap),
+            isTrue,
+          );
+          await tester.tap(card);
+          await tester.pumpAndSettle();
+          expect(taps, 1);
+        }
+      }
+      semantics.dispose();
+    },
+  );
 }

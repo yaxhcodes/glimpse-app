@@ -317,6 +317,8 @@ class _DailyMemoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final sharedCardHeight =
+        RediscoverArtworkCard.resolvedHeight(context, 220, hero: true) + 24;
     return Stack(
       children: [
         RediscoverArtworkCard(
@@ -324,11 +326,14 @@ class _DailyMemoryCard extends StatelessWidget {
           title: memory.rediscoverCopy.title,
           supportingText: memory.copyIdentity.reasonForToday,
           metadata: _metadata(context, memory),
-          height: primary ? 220 : 182,
+          height: 220,
+          fixedHeight: sharedCardHeight,
+          hero: primary,
+          hasMenu: true,
           onTap: onOpen,
         ),
         Positioned(
-          top: 8,
+          bottom: 8,
           right: 8,
           child: Material(
             color: cs.surface.withValues(alpha: 0.82),

@@ -295,8 +295,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         'assets/glimpse.svg',
                         width: 22,
                         height: 22,
-                        colorFilter: const ColorFilter.mode(
-                          SettingsAccents.gold,
+                        colorFilter: ColorFilter.mode(
+                          cs.tertiary,
                           BlendMode.srcIn,
                         ),
                       ),

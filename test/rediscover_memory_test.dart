@@ -76,6 +76,31 @@ RediscoveryItem _item(SavedUrl url) {
 }
 
 void main() {
+  test('visible philosophy topic wins over stale technology metadata', () {
+    final journey = RediscoverJourney(
+      kind: RediscoverJourneyKind.forgottenGems,
+      title: 'Technical notes on productivity',
+      subtitle: '',
+      icon: Icons.bookmark,
+      items: const [],
+      signal: 50,
+      topicAnchor: 'software',
+      categoryLabel: 'Technology',
+    );
+    expect(
+      artworkThemeForJourney(journey, displayTitle: 'Hindu Philosophy'),
+      RediscoverArtworkTheme.philosophy,
+    );
+    expect(
+      artworkThemeForJourney(journey, displayTitle: 'Reading Recommendations'),
+      RediscoverArtworkTheme.books,
+    );
+    expect(
+      artworkThemeForJourney(journey, displayTitle: 'Worth another look'),
+      RediscoverArtworkTheme.software,
+    );
+  });
+
   test('journey topics map across the complete artwork library', () {
     const expectations = {
       'AI agents': RediscoverArtworkTheme.software,
@@ -123,7 +148,7 @@ void main() {
   testWidgets('artwork cards fit compact light and dark layouts', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(360, 260));
+    await tester.binding.setSurfaceSize(const Size(360, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final items = [
@@ -192,59 +217,56 @@ void main() {
     }
   });
 
-  testWidgets('compact artwork cards balance titles without orphaned words', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(360, 260));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'compact artwork cards keep copy alongside visible illustrations',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 260));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final journey = RediscoverJourney(
-      kind: RediscoverJourneyKind.becauseYouSaved,
-      title: 'High-Protein Vegetarian Meals',
-      subtitle: 'Ideas on nutrition and fitness.',
-      icon: Icons.restaurant_rounded,
-      items: const [],
-      signal: 70,
-      topicAnchor: 'vegetarian meals',
-    );
+      final journey = RediscoverJourney(
+        kind: RediscoverJourneyKind.becauseYouSaved,
+        title: 'High-Protein Vegetarian Meals',
+        subtitle: 'Ideas on nutrition and fitness.',
+        icon: Icons.restaurant_rounded,
+        items: const [],
+        signal: 70,
+        topicAnchor: 'vegetarian meals',
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 296,
-              child: RediscoverArtworkCard(
-                journey: journey,
-                title: journey.title,
-                supportingText: journey.subtitle,
-                metadata: '4 waiting · 1w ago',
-                height: 196,
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 296,
+                child: RediscoverArtworkCard(
+                  journey: journey,
+                  title: journey.title,
+                  supportingText: journey.subtitle,
+                  metadata: '4 waiting · 1w ago',
+                  height: 196,
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    final title = tester.widget<Text>(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Text && widget.data?.contains('High-Protein') == true,
-      ),
-    );
-    expect(title.data, 'High-Protein\nVegetarian Meals');
-    expect(title.style?.fontSize, 23);
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is SizedBox && widget.height == 5,
-      ),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+      final title = tester.widget<Text>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text && widget.data?.contains('High-Protein') == true,
+        ),
+      );
+      expect(title.data, 'High-Protein Vegetarian Meals');
+      expect(title.style?.fontSize, 23);
+      expect(find.byType(RediscoverIllustration), findsOneWidget);
+      expect(find.text('4 waiting · 1w ago'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   test('RediscoverMemory fully describes a resurfacing candidate', () {
     final first = _url(

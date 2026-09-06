@@ -32,6 +32,7 @@ import '../library/library_entity.dart';
 import '../library/library_provider.dart';
 import '../library/place_itinerary_provider.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../shared/theme/app_icons.dart';
 import 'ask_itinerary_builder.dart';
 import 'ask_empty_suggestions_provider.dart';
 import 'ask_greeting_service.dart';
@@ -315,7 +316,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         titleSpacing: 0,
         leading: !widget.embedded && context.canPop()
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                icon: const AppIcon(AppIcons.arrowBack),
                 onPressed: () => context.pop(),
               )
             : null,

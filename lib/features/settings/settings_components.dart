@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../shared/theme/app_icons.dart';
+import '../../shared/widgets/expressive_tap_scale.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────────
 /// Android 16 / Material 3 Expressive settings building blocks.
@@ -117,7 +118,9 @@ class SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final accent = destructive ? cs.error : iconColor;
+    final accent = destructive
+        ? cs.error
+        : SettingsAccents.resolve(cs, iconColor);
     final effectiveTitleColor =
         titleColor ?? (destructive ? cs.error : cs.onSurface);
 
@@ -178,12 +181,15 @@ class SettingsTile extends StatelessWidget {
     );
 
     if (onTap == null) return row;
-    return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap!();
-      },
-      child: row,
+    return ExpressiveTapScale(
+      pressedScale: .99,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap!();
+        },
+        child: row,
+      ),
     );
   }
 }
@@ -251,6 +257,13 @@ WidgetStateProperty<Icon?> settingsSwitchThumbIcon() {
 /// competing with the settings content.
 class SettingsAccents {
   const SettingsAccents._();
+
+  static Color resolve(ColorScheme cs, Color accent) {
+    if (accent == cs.error) return cs.error;
+    if (accent == amber || accent == rose || accent == gold) return cs.tertiary;
+    if (accent == slate) return cs.onSurfaceVariant;
+    return cs.primary;
+  }
 
   static const Color violet = Color(0xFF917EDD);
   static const Color teal = Color(0xFF3B8783);

@@ -10,6 +10,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/upgrade_gate.dart';
@@ -386,7 +387,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           scrolledUnderElevation: 0,
           leading: selectionState.isActive
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
+                  icon: const AppIcon(AppIcons.arrowBack),
                   tooltip: context.l10n.exitSelection,
                   onPressed: selectionNotifier.clear,
                 )

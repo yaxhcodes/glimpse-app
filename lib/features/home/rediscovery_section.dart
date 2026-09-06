@@ -8,6 +8,7 @@ import '../../core/providers/dev_simulation_providers.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/skeleton.dart';
+import '../../shared/widgets/expressive_tap_scale.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_daily_set.dart';
 import '../rediscover/rediscover_journey_provider.dart';
@@ -53,13 +54,10 @@ class RediscoverySection extends ConsumerWidget {
     final seenTip = ref.watch(hasSeenRediscoverTipProvider);
     final size = MediaQuery.sizeOf(context);
     final isTablet = size.width > 600;
-    // Proportional sizing: the card width is a fixed share of the viewport
-    // (leaving a peek of the next card to signal the row scrolls), and the
-    // height is derived from a locked aspect ratio and clamped so it stays
-    // balanced from compact phones up through tablets.
+    // Keep the next card visible, while reserving height for enlarged text.
     const hPad = 16.0;
     final cardWidth = isTablet ? 320.0 : (size.width - hPad * 2) * 0.80;
-    final cardHeight = (cardWidth / 1.7).clamp(168.0, 196.0) + 24.0;
+    final cardHeight = RediscoverArtworkCard.resolvedHeight(context, 224);
     final previewCount = isTablet
         ? memories.length
         : memories.length.clamp(0, 3);
@@ -170,9 +168,18 @@ class RediscoverySection extends ConsumerWidget {
                           },
                           children: [
                             for (var i = 0; i < previewCount; i++)
-                              _RediscoverJourneyCard(
-                                memory: memories[i],
-                                height: cardHeight,
+                              ClipRect(
+                                child: OverflowBox(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  minWidth: cardWidth,
+                                  maxWidth: cardWidth,
+                                  child: ExpressiveTapScale(
+                                    child: _RediscoverJourneyCard(
+                                      memory: memories[i],
+                                      height: 224,
+                                    ),
+                                  ),
+                                ),
                               ),
                           ],
                         ),

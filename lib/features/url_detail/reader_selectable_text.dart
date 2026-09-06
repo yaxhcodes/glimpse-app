@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/saved_highlights_service.dart';
 import '../../l10n/l10n.dart';
+import '../../shared/theme/readable_surface.dart';
 
 class ReaderSelectableText extends StatefulWidget {
   const ReaderSelectableText({
@@ -46,9 +47,12 @@ class _ReaderSelectableTextState extends State<ReaderSelectableText> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final highlightColor =
-        widget.highlightColor ??
-        colorScheme.primaryContainer.withValues(alpha: 0.78);
+    final highlightColor = readableTintedSurface(
+      base: colorScheme.surface,
+      tint: widget.highlightColor ?? colorScheme.primary,
+      foregrounds: [colorScheme.onSurface],
+      opacity: widget.highlightColor == null ? .18 : 1,
+    );
     return SelectionArea(
       contextMenuBuilder: _buildContextMenu,
       child: SelectionListener(
@@ -57,7 +61,7 @@ class _ReaderSelectableTextState extends State<ReaderSelectableText> {
           header: widget.isHeading,
           child: Text.rich(
             TextSpan(
-              children: _buildSpans(highlightColor),
+              children: _buildSpans(highlightColor, colorScheme.onSurface),
               style: widget.style,
             ),
             textAlign: widget.textAlign,
@@ -68,7 +72,10 @@ class _ReaderSelectableTextState extends State<ReaderSelectableText> {
     );
   }
 
-  List<InlineSpan> _buildSpans(Color highlightColor) {
+  List<InlineSpan> _buildSpans(
+    Color highlightColor,
+    Color highlightForeground,
+  ) {
     final ranges = SavedHighlightsCodec.rangesFor(
       sectionKey: widget.sectionKey,
       sourceText: widget.text,
@@ -85,7 +92,10 @@ class _ReaderSelectableTextState extends State<ReaderSelectableText> {
       spans.add(
         TextSpan(
           text: widget.text.substring(range.start, range.end),
-          style: TextStyle(backgroundColor: highlightColor),
+          style: TextStyle(
+            backgroundColor: highlightColor,
+            color: highlightForeground,
+          ),
         ),
       );
       cursor = range.end;

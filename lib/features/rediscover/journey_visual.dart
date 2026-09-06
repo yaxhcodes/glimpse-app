@@ -1,6 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import '../../shared/theme/app_shapes.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/theme/topic_visual.dart';
+import '../../shared/widgets/expressive_tap_scale.dart';
+import '../../shared/widgets/surface_grain.dart';
+import '../../shared/widgets/hyphenated_title.dart';
 import 'rediscover_journey_provider.dart';
 
 enum RediscoverArtworkTheme {
@@ -21,38 +28,26 @@ enum RediscoverArtworkTheme {
   design,
   home,
   fashion,
-  general,
+  general;
+
+  String get assetPath => 'assets/rediscover/illustrations/$name.webp';
 }
 
-extension RediscoverArtworkThemeAsset on RediscoverArtworkTheme {
-  String get assetPath => 'assets/rediscover/$name.webp';
-}
-
-class RediscoverArtworkVisual {
-  const RediscoverArtworkVisual({
-    required this.theme,
-    required this.eyebrow,
-    this.alignment = Alignment.center,
-  });
-
-  final RediscoverArtworkTheme theme;
-  final String eyebrow;
-  final Alignment alignment;
-
-  String get assetPath => theme.assetPath;
-}
-
-RediscoverArtworkTheme artworkThemeForJourney(RediscoverJourney journey) {
-  final primaryText = [
+RediscoverArtworkTheme artworkThemeForJourney(
+  RediscoverJourney journey, {
+  String? displayTitle,
+}) {
+  // Prefer the topic the reader sees before broad or stale category metadata.
+  for (final text in [
+    displayTitle,
     journey.topicAnchor,
-    journey.categoryLabel,
     journey.title,
-  ].whereType<String>().join(' ').toLowerCase();
-  final primaryTheme = _artworkThemeForText(primaryText);
-  if (primaryTheme != null) return primaryTheme;
-
-  final supportingText = [
-    primaryText,
+    journey.categoryLabel,
+  ].whereType<String>()) {
+    final match = _artworkThemeForText(text.toLowerCase());
+    if (match != null) return match;
+  }
+  final supporting = [
     for (final item in journey.items.take(5)) ...[
       item.url.title,
       item.url.category,
@@ -60,15 +55,7 @@ RediscoverArtworkTheme artworkThemeForJourney(RediscoverJourney journey) {
       ...item.url.tags,
     ],
   ].join(' ').toLowerCase();
-
-  return _artworkThemeForText(supportingText) ?? RediscoverArtworkTheme.general;
-}
-
-RediscoverArtworkVisual visualForJourney(RediscoverJourney journey) {
-  return RediscoverArtworkVisual(
-    theme: artworkThemeForJourney(journey),
-    eyebrow: _eyebrowFor(journey.kind),
-  );
+  return _artworkThemeForText(supporting) ?? RediscoverArtworkTheme.general;
 }
 
 class RediscoverArtworkCard extends StatelessWidget {
@@ -82,6 +69,8 @@ class RediscoverArtworkCard extends StatelessWidget {
     this.onTap,
     this.hero = false,
     this.borderRadius = 24,
+    this.hasMenu = false,
+    this.fixedHeight,
   });
 
   final RediscoverJourney journey;
@@ -92,75 +81,130 @@ class RediscoverArtworkCard extends StatelessWidget {
   final VoidCallback? onTap;
   final bool hero;
   final double borderRadius;
+  final bool hasMenu;
+
+  /// Optional shared height for a stack of cards that should align visually.
+  final double? fixedHeight;
+
+  static double resolvedHeight(
+    BuildContext context,
+    double minimum, {
+    bool hero = false,
+  }) {
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    return math.max(minimum, hero ? 252 : 224) +
+        math.max(0, scale - 1) * (hero ? 210 : 190);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final visual = visualForJourney(journey);
-    final radius = BorderRadius.circular(borderRadius);
-    final semanticsLabel = [
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final artwork = artworkThemeForJourney(journey, displayTitle: title);
+    final visual = TopicVisual.forCategory(artwork.name);
+    final surface = visual.cardSurface(cs, opacity: .58);
+    final titleSize = hero ? 28.0 : 23.0;
+    final imageSize = hero ? 132.0 : 112.0;
+    final label = [
       title,
       supportingText,
       metadata,
-    ].where((value) => value.trim().isNotEmpty).join('. ');
+    ].where((s) => s.trim().isNotEmpty).join('. ');
 
     return Semantics(
       button: onTap != null,
+      onTap: onTap,
       container: true,
       excludeSemantics: true,
-      label: semanticsLabel,
-      child: SizedBox(
-        height: height,
+      label: label,
+      child: ExpressiveTapScale(
+        enabled: onTap != null,
         child: Material(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: radius,
+          color: surface,
+          borderRadius: BorderRadius.circular(borderRadius),
           clipBehavior: Clip.antiAlias,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final logicalWidth = constraints.hasBoundedWidth
-                  ? constraints.maxWidth
-                  : MediaQuery.sizeOf(context).width;
-              final decodedWidth =
-                  (logicalWidth * MediaQuery.devicePixelRatioOf(context))
-                      .ceil()
-                      .clamp(1, 1600);
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(
-                    visual.assetPath,
-                    fit: BoxFit.cover,
-                    alignment: visual.alignment,
-                    cacheWidth: decodedWidth,
-                    filterQuality: FilterQuality.medium,
-                    gaplessPlayback: true,
-                    excludeFromSemantics: true,
-                    errorBuilder: (context, error, stackTrace) => ColoredBox(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                    ),
-                  ),
-                  const _ArtworkScrim(),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: onTap,
-                      splashColor: Colors.white.withValues(alpha: 0.12),
-                      highlightColor: Colors.white.withValues(alpha: 0.06),
-                      child: Padding(
-                        padding: hero
-                            ? const EdgeInsets.fromLTRB(22, 20, 22, 22)
-                            : const EdgeInsets.fromLTRB(18, 16, 18, 18),
-                        child: _ArtworkTypography(
-                          title: title,
-                          supportingText: supportingText,
-                          metadata: metadata,
-                          hero: hero,
+          child: SurfaceGrain(
+            child: InkWell(
+              onTap: onTap,
+              child: SizedBox(
+                height:
+                    fixedHeight ??
+                    resolvedHeight(context, height, hero: hero) +
+                        (hasMenu ? 24 : 0),
+                child: Padding(
+                  padding: EdgeInsets.all(hero ? 22 : 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Align(
+                                alignment: AlignmentDirectional.bottomStart,
+                                child: HyphenatedTitle(
+                                  text: title,
+                                  maxLines: 4,
+                                  style: AppTypography.editorial(
+                                    theme.textTheme.headlineSmall,
+                                    fontSize: titleSize,
+                                    height: 1.08,
+                                    color: cs.onSurface,
+                                    letterSpacing: -.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            RediscoverIllustration(
+                              artwork: artwork,
+                              size: imageSize,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                      if (supportingText.trim().isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          supportingText,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                      if (metadata.trim().isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: EdgeInsetsDirectional.only(
+                            end: hasMenu ? 40 : 0,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: hasMenu ? 40 : 0,
+                            ),
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Text(
+                                metadata,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              );
-            },
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -168,202 +212,69 @@ class RediscoverArtworkCard extends StatelessWidget {
   }
 }
 
-class _ArtworkScrim extends StatelessWidget {
-  const _ArtworkScrim();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final surface = theme.colorScheme.surface;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: isDark
-                  ? const [
-                      Color(0x18000000),
-                      Color(0x10000000),
-                      Color(0x52000000),
-                      Color(0xE0000000),
-                    ]
-                  : [
-                      surface.withValues(alpha: 0.08),
-                      surface.withValues(alpha: 0.16),
-                      surface.withValues(alpha: 0.74),
-                      surface.withValues(alpha: 0.97),
-                    ],
-              stops: [0, 0.34, 0.68, 1],
-            ),
-          ),
-        ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: isDark
-                  ? const [Color(0x52000000), Color(0x00000000)]
-                  : [
-                      surface.withValues(alpha: 0.38),
-                      surface.withValues(alpha: 0),
-                    ],
-              stops: [0, 0.78],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ArtworkTypography extends StatelessWidget {
-  const _ArtworkTypography({
-    required this.title,
-    required this.supportingText,
-    required this.metadata,
-    required this.hero,
+class RediscoverIllustration extends StatelessWidget {
+  const RediscoverIllustration({
+    super.key,
+    required this.artwork,
+    required this.size,
   });
-
-  final String title;
-  final String supportingText;
-  final String metadata;
-  final bool hero;
+  final RediscoverArtworkTheme artwork;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryText = isDark ? Colors.white : theme.colorScheme.onSurface;
-    final secondaryText = primaryText.withValues(alpha: 0.82);
-    final tertiaryText = primaryText.withValues(alpha: 0.64);
-    final shadows = isDark ? _darkTextShadows : const <Shadow>[];
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final showSupporting =
-        supportingText.trim().isNotEmpty && textScale <= (hero ? 1.65 : 1.5);
-    final showMetadata =
-        metadata.trim().isNotEmpty && textScale <= (hero ? 1.4 : 1.3);
-    final titleStyle = AppTypography.editorial(
-      hero ? textTheme.headlineMedium : textTheme.headlineSmall,
-      color: primaryText,
-      fontSize: hero ? 30 : 23,
-      fontWeight: FontWeight.w600,
-      height: 1.02,
-      letterSpacing: -0.2,
-    ).copyWith(shadows: shadows);
-
-    return Align(
-      alignment: Alignment.bottomLeft,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final displayTitle = hero
-                  ? title
-                  : _balancedTwoLineTitle(
-                      title: title,
-                      style: titleStyle,
-                      maxWidth: constraints.maxWidth,
-                      textScaler: MediaQuery.textScalerOf(context),
-                      textDirection: Directionality.of(context),
-                    );
-              return Text(
-                displayTitle,
-                maxLines: hero && textScale <= 1.3 ? 3 : 2,
-                overflow: TextOverflow.ellipsis,
-                style: titleStyle,
-              );
-            },
-          ),
-          if (showSupporting) ...[
-            SizedBox(height: hero ? 8 : 5),
-            Text(
-              supportingText,
-              maxLines: hero ? 2 : 1,
-              overflow: TextOverflow.ellipsis,
-              style: (hero ? textTheme.bodyMedium : textTheme.bodySmall)
-                  ?.copyWith(
-                    color: secondaryText,
-                    fontWeight: FontWeight.w500,
-                    height: 1.25,
-                    letterSpacing: 0,
-                    shadows: shadows,
-                  ),
+    final visual = TopicVisual.forCategory(artwork.name);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final shape = AppShapes.border(visual.shape);
+    final backdropColor = isDark
+        ? Color.lerp(visual.container(cs), cs.onSurface, .12)!
+        : visual.container(cs);
+    return ExcludeSemantics(
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Transform.rotate(
+              angle: -.12,
+              child: DecoratedBox(
+                decoration: ShapeDecoration(
+                  color: backdropColor,
+                  shape: shape,
+                  shadows: [
+                    if (isDark)
+                      BoxShadow(
+                        color: cs.shadow.withValues(alpha: .38),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                        offset: const Offset(1, 3),
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ],
-          if (showMetadata) ...[
-            const SizedBox(height: 6),
-            Text(
-              metadata,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.labelSmall?.copyWith(
-                color: tertiaryText,
-                fontSize: hero ? 11 : 10,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0,
-                shadows: shadows,
+            Padding(
+              padding: const EdgeInsets.all(4),
+              child: ClipPath(
+                clipper: ShapeBorderClipper(shape: shape),
+                child: Image.asset(
+                  artwork.assetPath,
+                  fit: BoxFit.cover,
+                  cacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+                      .ceil()
+                      .clamp(1, 768),
+                  excludeFromSemantics: true,
+                  filterQuality: FilterQuality.medium,
+                ),
               ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
 }
-
-String _balancedTwoLineTitle({
-  required String title,
-  required TextStyle style,
-  required double maxWidth,
-  required TextScaler textScaler,
-  required TextDirection textDirection,
-}) {
-  final clean = title.trim().replaceAll(RegExp(r'\s+'), ' ');
-  final words = clean.split(' ');
-  if (words.length < 3 || !maxWidth.isFinite || maxWidth <= 0) return clean;
-
-  double measuredWidth(String text) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      maxLines: 1,
-      textDirection: textDirection,
-      textScaler: textScaler,
-    )..layout();
-    return painter.width;
-  }
-
-  if (measuredWidth(clean) <= maxWidth) return clean;
-
-  String? best;
-  var bestImbalance = double.infinity;
-  for (var split = 1; split < words.length; split += 1) {
-    final firstLine = words.take(split).join(' ');
-    final secondLine = words.skip(split).join(' ');
-    final firstWidth = measuredWidth(firstLine);
-    final secondWidth = measuredWidth(secondLine);
-    if (firstWidth > maxWidth || secondWidth > maxWidth) continue;
-
-    final imbalance = (firstWidth - secondWidth).abs();
-    if (imbalance < bestImbalance) {
-      best = '$firstLine\n$secondLine';
-      bestImbalance = imbalance;
-    }
-  }
-  return best ?? clean;
-}
-
-const _darkTextShadows = [
-  Shadow(color: Color(0x70000000), blurRadius: 14, offset: Offset(0, 2)),
-];
 
 RediscoverArtworkTheme? _artworkThemeForText(String text) {
   bool has(List<String> words) => words.any((word) {
@@ -596,16 +507,4 @@ RediscoverArtworkTheme? _artworkThemeForText(String text) {
     return RediscoverArtworkTheme.fashion;
   }
   return null;
-}
-
-String _eyebrowFor(RediscoverJourneyKind kind) {
-  return switch (kind) {
-    RediscoverJourneyKind.returningTopic => 'Back in view',
-    RediscoverJourneyKind.continueLearning => 'Continue learning',
-    RediscoverJourneyKind.forgottenGems => 'Worth another look',
-    RediscoverJourneyKind.neverOpened => 'Still waiting',
-    RediscoverJourneyKind.onThisDay => 'From before',
-    RediscoverJourneyKind.memoryGoal => 'Keep moving',
-    RediscoverJourneyKind.becauseYouSaved => 'A pattern in your saves',
-  };
 }

@@ -14,6 +14,7 @@ class AppMotion {
 
   // ── Durations (M3 Expressive spatial scale) ────────────────────────────────
   static const Duration short = Duration(milliseconds: 180);
+  static const Duration press = Duration(milliseconds: 85);
   static const Duration medium = Duration(milliseconds: 320);
   static const Duration long = Duration(milliseconds: 480);
 

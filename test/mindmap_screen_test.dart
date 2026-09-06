@@ -24,7 +24,15 @@ void main() {
       ..addFont(rootBundle.load('assets/fonts/InstrumentSans-Bold.ttf'));
     final materialIcons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    await Future.wait([instrumentSans.load(), materialIcons.load()]);
+    final phosphorIcons =
+        FontLoader('packages/phosphor_flutter/PhosphorRegular')..addFont(
+          rootBundle.load('packages/phosphor_flutter/lib/fonts/Phosphor.ttf'),
+        );
+    await Future.wait([
+      instrumentSans.load(),
+      materialIcons.load(),
+      phosphorIcons.load(),
+    ]);
   });
 
   testWidgets('defers the initial interest load until after the first frame', (

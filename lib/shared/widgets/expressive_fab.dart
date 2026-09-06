@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
-
-import '../theme/app_motion.dart';
+import 'expressive_tap_scale.dart';
 
 /// Extended FAB with a Material 3 Expressive press response: on
 /// touch it springs down in scale and morphs its corners tighter, then springs
@@ -85,7 +83,7 @@ class ExpressiveFab extends StatelessWidget {
   }
 }
 
-class _ExpressiveFabMotion extends StatefulWidget {
+class _ExpressiveFabMotion extends StatelessWidget {
   const _ExpressiveFabMotion({
     required this.builder,
     required this.idleRadius,
@@ -97,71 +95,11 @@ class _ExpressiveFabMotion extends StatefulWidget {
   final double pressedRadius;
 
   @override
-  State<_ExpressiveFabMotion> createState() => _ExpressiveFabMotionState();
-}
-
-class _ExpressiveFabMotionState extends State<_ExpressiveFabMotion>
-    with SingleTickerProviderStateMixin {
-  static const double _slop = 18.0;
-
-  // 0 = idle, 1 = fully pressed. Unbounded so the release spring can briefly
-  // overshoot past idle for a lively settle.
-  late final AnimationController _press = AnimationController.unbounded(
-    vsync: this,
-    value: 0.0,
-  );
-  Offset? _downPosition;
-
-  @override
-  void dispose() {
-    _press.dispose();
-    super.dispose();
-  }
-
-  void _pressDown() {
-    _press.animateTo(
-      1.0,
-      duration: AppMotion.short,
-      curve: AppMotion.emphasizedAccelerate,
-    );
-  }
-
-  void _release() {
-    if (_downPosition == null) return;
-    _downPosition = null;
-    _press.animateWith(
-      SpringSimulation(AppMotion.springExpressive, _press.value, 0.0, 0.0),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: (event) {
-        _downPosition = event.position;
-        _pressDown();
-      },
-      onPointerMove: (event) {
-        final start = _downPosition;
-        if (start != null && (event.position - start).distance > _slop) {
-          _release();
-        }
-      },
-      onPointerUp: (_) => _release(),
-      onPointerCancel: (_) => _release(),
-      child: AnimatedBuilder(
-        animation: _press,
-        builder: (context, _) {
-          final clamped = _press.value.clamp(0.0, 1.0);
-          // Uses the raw (possibly overshooting) value so release pops slightly
-          // above idle scale.
-          final scale = 1 - 0.04 * _press.value;
-          final radius =
-              widget.idleRadius +
-              (widget.pressedRadius - widget.idleRadius) * clamped;
-          return Transform.scale(scale: scale, child: widget.builder(radius));
-        },
-      ),
+    return ExpressiveTapScale(
+      pressedScale: 0.96,
+      builder: (context, press) =>
+          builder(idleRadius + (pressedRadius - idleRadius) * press),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/url_processing_status.dart';
 import 'package:glimpse/features/home/home_provider.dart';
+import 'package:glimpse/features/home/rediscovery_section.dart';
 import 'package:glimpse/features/rediscover/rediscover_daily_set.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_detail_screen.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
@@ -105,6 +106,55 @@ void main() {
     expect(find.text(memories.first.rediscoverCopy.title), findsOneWidget);
     expect(find.text(memories.last.rediscoverCopy.title), findsOneWidget);
     expect(find.text('Back in view · 1 save'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    for (final width in [320.0, 400.0]) {
+      tester.view.physicalSize = Size(width, 1000);
+      for (final scale in [1.0, 2.0]) {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              rediscoverDailySetProvider.overrideWith(
+                (ref) async => RediscoverDailySet(
+                  localDate: DateTime(2026, 8, 14),
+                  memories: memories,
+                ),
+              ),
+              rediscoverDailySetControllerProvider.overrideWithValue(
+                _NoopDailySetController(),
+              ),
+            ],
+            child: MaterialApp(
+              home: MediaQuery(
+                data: MediaQueryData(
+                  size: Size(width, 1000),
+                  textScaler: TextScaler.linear(scale),
+                ),
+                child: const Scaffold(
+                  body: SingleChildScrollView(child: RediscoverySection()),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'Home at $width dp and ${scale}x text',
+        );
+        await tester.drag(find.byType(CarouselView), const Offset(-180, 0));
+        await tester.pumpAndSettle();
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'Carousel scroll at $width dp and ${scale}x text',
+        );
+      }
+    }
   });
 
   testWidgets('journey detail renders each save exactly once', (tester) async {

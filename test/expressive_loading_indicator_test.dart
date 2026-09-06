@@ -3,6 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/shared/widgets/expressive_loading_indicator.dart';
 
 void main() {
+  testWidgets(
+    'reduced motion keeps the loading cue without a repeating ticker',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: true),
+            child: Center(child: ExpressiveLoadingIndicator()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ExpressiveLoadingIndicator), findsOneWidget);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    },
+  );
+
   testWidgets('blob loader preserves sizing and loading semantics', (
     tester,
   ) async {
