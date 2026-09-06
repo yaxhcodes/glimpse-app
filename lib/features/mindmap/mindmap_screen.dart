@@ -173,8 +173,8 @@ List<InterestCluster> _displayClustersForThemes(List<ClusterTheme> themes) {
 String _interestMapSubtitle(
   AppLocalizations strings,
   List<ClusterTheme> themes,
+  List<InterestCluster> clusters,
 ) {
-  final clusters = _displayClustersForThemes(themes);
   final totalSaveCount = {
     for (final theme in themes)
       for (final url in theme.urls) url.id,
@@ -774,16 +774,46 @@ class _MindmapEmptyState extends StatelessWidget {
 
 // ─── Main screen ───────────────────────────────────────────────────────────
 
-class MindmapScreen extends ConsumerWidget {
+class MindmapScreen extends ConsumerStatefulWidget {
   const MindmapScreen({super.key, this.embedded = false});
 
   final bool embedded;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MindmapScreen> createState() => _MindmapScreenState();
+}
+
+class _MindmapScreenState extends ConsumerState<MindmapScreen> {
+  bool _loadStarted = false;
+  List<ClusterTheme>? _cachedThemes;
+  List<InterestCluster> _cachedClusters = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _loadStarted = true);
+    });
+  }
+
+  List<InterestCluster> _clustersFor(List<ClusterTheme> themes) {
+    if (identical(themes, _cachedThemes)) return _cachedClusters;
+    _cachedThemes = themes;
+    return _cachedClusters = _displayClustersForThemes(themes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final themesAsync = ref.watch(interestClusterThemesProvider);
+    final AsyncValue<List<ClusterTheme>> themesAsync = _loadStarted
+        ? ref.watch(interestClusterThemesProvider)
+        : const AsyncLoading();
+    final themes = themesAsync.valueOrNull;
+    final clusters = themes == null
+        ? const <InterestCluster>[]
+        : _clustersFor(themes);
     final horizontalPadding = AppLayout.pageHorizontalPadding(
       MediaQuery.sizeOf(context).width,
       compactPadding: 16,
@@ -791,13 +821,13 @@ class MindmapScreen extends ConsumerWidget {
     final usesRail = AppLayout.usesNavigationRail(
       MediaQuery.sizeOf(context).width,
     );
-    final shellBottomInset = embedded && !usesRail
+    final shellBottomInset = widget.embedded && !usesRail
         ? MediaQuery.paddingOf(context).bottom
         : 0.0;
     final scrollBottomPadding = 32.0 + shellBottomInset;
     final scrollCaptureActive = ScrollCaptureScope.isCapturingOf(context);
     final subtitle = themesAsync.maybeWhen(
-      data: (themes) => _interestMapSubtitle(context.l10n, themes),
+      data: (themes) => _interestMapSubtitle(context.l10n, themes, clusters),
       orElse: () => context.l10n.learningInterests,
     );
     final bodySlivers = themesAsync.when<List<Widget>>(
@@ -836,7 +866,6 @@ class MindmapScreen extends ConsumerWidget {
         ),
       ],
       data: (themes) {
-        final clusters = _displayClustersForThemes(themes);
         if (clusters.isEmpty) {
           return const [
             SliverFillRemaining(
@@ -867,8 +896,8 @@ class MindmapScreen extends ConsumerWidget {
             pinned: usesRail,
             floating: !usesRail && !scrollCaptureActive,
             snap: !usesRail && !scrollCaptureActive,
-            automaticallyImplyLeading: !embedded,
-            titleSpacing: embedded ? horizontalPadding : 0,
+            automaticallyImplyLeading: !widget.embedded,
+            titleSpacing: widget.embedded ? horizontalPadding : 0,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

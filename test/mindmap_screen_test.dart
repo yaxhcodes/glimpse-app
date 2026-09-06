@@ -27,6 +27,33 @@ void main() {
     await Future.wait([instrumentSans.load(), materialIcons.load()]);
   });
 
+  testWidgets('defers the initial interest load until after the first frame', (
+    tester,
+  ) async {
+    var loadCount = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          interestClusterThemesProvider.overrideWith((ref) async {
+            loadCount++;
+            return _fixtureThemes();
+          }),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: const MindmapScreen(embedded: true),
+        ),
+      ),
+    );
+
+    expect(loadCount, 0);
+
+    await tester.pump();
+
+    expect(loadCount, 1);
+  });
+
   testWidgets('embedded interests stay above the shell navigation', (
     tester,
   ) async {
