@@ -11,6 +11,7 @@ class TranscriptEnrichmentResult {
     this.contentType = 'generic',
     this.brief,
     this.notificationBlurb,
+    this.evidenceBasis,
     this.steps = const [],
     this.mentions = const [],
     this.notableItems = const [],
@@ -44,6 +45,13 @@ class TranscriptEnrichmentResult {
   final String contentType;
   final String? brief;
   final String? notificationBlurb;
+  final String? evidenceBasis;
+
+  bool get hasPartialMediaEvidence => const {
+    'on_screen',
+    'caption_only',
+    'metadata_only',
+  }.contains(evidenceBasis);
   final List<EnrichedContentStep> steps;
   final List<EnrichedMention> mentions;
   final List<EnrichedNotableItem> notableItems;
@@ -93,6 +101,13 @@ class TranscriptEnrichmentResult {
       (recipe?.steps.isNotEmpty == true);
 
   bool get hasStructuredEnrichment {
+    // Explicitly limited media previews need not manufacture extra sections
+    // or takeaways just to satisfy the full-reader quality gate.
+    if (hasPartialMediaEvidence &&
+        hasReliableMediaEvidence &&
+        summary.trim().isNotEmpty) {
+      return true;
+    }
     if (mentions.isNotEmpty ||
         steps.isNotEmpty ||
         notableItems.isNotEmpty ||
@@ -127,6 +142,7 @@ class TranscriptEnrichmentResult {
     String? contentType,
     String? brief,
     String? notificationBlurb,
+    String? evidenceBasis,
     List<EnrichedContentStep>? steps,
     List<EnrichedMention>? mentions,
     List<EnrichedNotableItem>? notableItems,
@@ -160,6 +176,7 @@ class TranscriptEnrichmentResult {
       contentType: contentType ?? this.contentType,
       brief: brief ?? this.brief,
       notificationBlurb: notificationBlurb ?? this.notificationBlurb,
+      evidenceBasis: evidenceBasis ?? this.evidenceBasis,
       steps: steps ?? this.steps,
       mentions: mentions ?? this.mentions,
       notableItems: notableItems ?? this.notableItems,
@@ -197,6 +214,7 @@ class TranscriptEnrichmentResult {
       'content_type': contentType,
       'brief': brief,
       'notification_blurb': notificationBlurb,
+      if (evidenceBasis != null) 'evidence_basis': evidenceBasis,
       'steps': steps.map((item) => item.toJson()).toList(),
       'mentions': mentions.map((item) => item.toJson()).toList(),
       'notable_items': notableItems.map((item) => item.toJson()).toList(),
@@ -248,6 +266,9 @@ class TranscriptEnrichmentResult {
         json['brief'] ??
             json['short_description'] ??
             json['content_description'],
+      ),
+      evidenceBasis: TranscriptEnrichmentService._cleanNullableText(
+        json['evidence_basis'],
       ),
       notificationBlurb: TranscriptEnrichmentService._cleanNullableText(
         json['notification_blurb'] ?? json['notificationBlurb'],

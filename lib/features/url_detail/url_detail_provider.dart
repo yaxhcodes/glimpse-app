@@ -7,7 +7,11 @@ import '../../core/services/entitlement_service.dart';
 import '../../core/services/saved_url_enrichment_state.dart';
 import '../../core/services/usage_limits.dart';
 
-/// Provider for a single URL detail by ID.
+final urlDetailChangesProvider = StreamProvider.autoDispose.family<void, int>(
+  (ref, id) => ref.watch(isarServiceProvider).watchUrlChanges(id),
+);
+
+/// Provider for a single URL detail by ID, kept current with database writes.
 ///
 /// `autoDispose` so the detail screen re-reads from disk every time it's
 /// reopened. Without it the family cache holds a stale [SavedUrl] instance —
@@ -18,8 +22,14 @@ final urlDetailProvider = FutureProvider.autoDispose.family<SavedUrl?, int>((
   id,
 ) async {
   final isarService = ref.watch(isarServiceProvider);
+  ref.listen(urlDetailChangesProvider(id), (previous, next) {
+    if (next is AsyncData<void>) ref.invalidateSelf();
+  });
   return isarService.getUrlById(id);
 });
+
+/// Explicit retries shared by Home and Details for this app session.
+final retryingUrlIdsProvider = StateProvider<Set<int>>((ref) => const {});
 
 /// Notifier for update actions on a URL.
 class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
@@ -65,6 +75,9 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<bool> retryEnrichment(int id) async {
+    final retries = _ref.read(retryingUrlIdsProvider.notifier);
+    if (retries.state.contains(id)) return false;
+    retries.state = {...retries.state, id};
     state = const AsyncLoading();
     try {
       final isarService = _ref.read(isarServiceProvider);
@@ -118,6 +131,8 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
     } catch (e, stack) {
       state = AsyncError(e, stack);
       return false;
+    } finally {
+      retries.state = {...retries.state}..remove(id);
     }
   }
 

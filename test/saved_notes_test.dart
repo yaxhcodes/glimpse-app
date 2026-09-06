@@ -11,14 +11,109 @@ import 'package:glimpse/core/services/saved_notes_codec.dart';
 import 'package:glimpse/core/services/saved_notes_service.dart';
 import 'package:glimpse/features/home/home_provider.dart';
 import 'package:glimpse/features/url_detail/url_detail_provider.dart';
+import 'package:glimpse/features/url_detail/reader_enrichment_progress.dart';
+import 'package:glimpse/shared/widgets/enrichment_retry_button.dart';
 import 'package:glimpse/features/url_detail/url_detail_screen.dart';
 import 'package:glimpse/features/url_detail/reader_selectable_text.dart';
 import 'package:glimpse/l10n/l10n.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
 import 'package:glimpse/shared/widgets/lightweight_markdown_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
+import 'package:glimpse/features/ask/ask_launch_request.dart';
 
 void main() {
+  testWidgets('Details Ask opens with this save and no prefilled question', (
+    tester,
+  ) async {
+    final url = _savedUrl()
+      ..id = 19
+      ..enrichmentJson = jsonEncode({
+        'summary': 'A useful explanation.',
+        'content_sections': [
+          {
+            'title': 'Context',
+            'points': ['Source evidence.'],
+          },
+        ],
+      });
+    final database = _MemoryIsarService(url);
+    AskLaunchRequest? request;
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const UrlDetailScreen(urlId: 19)),
+        GoRoute(
+          path: '/ask',
+          builder: (_, state) {
+            request = state.extra! as AskLaunchRequest;
+            return const Scaffold(body: Text('Ask draft'));
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isarServiceProvider.overrideWithValue(database),
+          urlDetailProvider(19).overrideWith((ref) async => database.url),
+          tagOccurrenceMapProvider.overrideWithValue(const {}),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final action = find.text('Ask about this save');
+    await tester.ensureVisible(action);
+    await tester.pumpAndSettle();
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(request?.source?.id, 19);
+    expect(request?.initialPrompt, isNull);
+    expect(find.text('Ask draft'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final retrying in [false, true]) {
+    testWidgets(
+      'detail distinguishes fresh processing from Home retry: $retrying',
+      (tester) async {
+        final url = _savedUrl()
+          ..id = 18
+          ..summary = null
+          ..processingStatus = 'ENRICHING'
+          ..processingUpdatedAt = DateTime.now();
+        final database = _MemoryIsarService(url);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              isarServiceProvider.overrideWithValue(database),
+              urlDetailProvider(18).overrideWith((ref) async => database.url),
+              retryingUrlIdsProvider.overrideWith(
+                (ref) => retrying ? {18} : <int>{},
+              ),
+              tagOccurrenceMapProvider.overrideWithValue(const {}),
+            ],
+            child: const MaterialApp(home: UrlDetailScreen(urlId: 18)),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.byType(ReaderEnrichmentProgress),
+          retrying ? findsNothing : findsOneWidget,
+        );
+        if (retrying) {
+          final button = tester.widget<EnrichmentRetryButton>(
+            find.byType(EnrichmentRetryButton),
+          );
+          expect(button.retrying, isTrue);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   test('Markdown previews remove model formatting markers', () {
     const markdown = '''### Shared Themes
 Across the sources, **structured curation** matters.
@@ -289,6 +384,41 @@ Use **structured curation**.
     expect(find.widgetWithText(TextButton, 'Show more'), findsOneWidget);
   });
 
+  testWidgets('partial media notice remains visible with extracted mentions', (
+    tester,
+  ) async {
+    final url = _savedUrl()
+      ..id = 15
+      ..summary = 'Details from the caption.'
+      ..enrichmentJson = jsonEncode({
+        'schema_version': 5,
+        'meaningful_title': 'Saved video',
+        'summary': 'Details from the caption.',
+        'evidence_basis': 'caption_only',
+        'notable_items': [
+          {'text': 'Example tool', 'type': 'tool'},
+        ],
+      });
+    final database = _MemoryIsarService(url);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isarServiceProvider.overrideWithValue(database),
+          urlDetailProvider(15).overrideWith((ref) async => database.url),
+          tagOccurrenceMapProvider.overrideWithValue(const {}),
+        ],
+        child: const MaterialApp(home: UrlDetailScreen(urlId: 15)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reader-audio-unavailable')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('reader-overview-only')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'rich detail reader stays complete at compact width and large text',
     (tester) async {
@@ -386,6 +516,9 @@ Use **structured curation**.
       expect(briefY, lessThan(keyIdeasY));
       expect(keyIdeasY, lessThan(explanationY));
       expect(explanationY, lessThan(resourcesY));
+      final askY = tester.getTopLeft(find.text('Ask about this save')).dy;
+      final lastReferenceY = tester.getBottomLeft(find.text('Search')).dy;
+      expect(askY, greaterThan(lastReferenceY));
 
       await tester.ensureVisible(find.text('Raw source material'));
       await tester.pumpAndSettle();

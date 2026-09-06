@@ -106,6 +106,24 @@ abstract class AppLocalizations {
     Locale('pt'),
   ];
 
+  /// No description provided for @readerAskAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about this save'**
+  String get readerAskAbout;
+
+  /// No description provided for @readerEnrichingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You caught us mid-glimpse.'**
+  String get readerEnrichingTitle;
+
+  /// No description provided for @readerEnrichingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved already. Just gathering the useful details.'**
+  String get readerEnrichingBody;
+
   /// No description provided for @musicDetailsUnavailable.
   ///
   /// In en, this message translates to:
@@ -4491,6 +4509,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No backup file in this folder yet. Use Create backup above after picking this location.'**
   String get noBackupFileInFolder;
+
+  /// No description provided for @readerAudioUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Your save is safe. Audio text wasn’t available, so this preview may miss details from the video. Open the source for the full story, or add a note with what mattered to you.'**
+  String get readerAudioUnavailable;
 
   /// No description provided for @highlight.
   ///

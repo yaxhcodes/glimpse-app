@@ -9,6 +9,16 @@ class AppLocalizationsPt extends AppLocalizations {
   AppLocalizationsPt([String locale = 'pt']) : super(locale);
 
   @override
+  String get readerAskAbout => 'Pergunte sobre este conteúdo';
+
+  @override
+  String get readerEnrichingTitle => 'Você nos pegou preparando seu Glimpse.';
+
+  @override
+  String get readerEnrichingBody =>
+      'Já está salvo. Estamos reunindo os detalhes úteis.';
+
+  @override
   String get musicDetailsUnavailable =>
       'Não foi possível carregar os detalhes de algumas músicas.';
 
@@ -2571,6 +2581,10 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'Ainda não há backup nesta pasta. Escolha o local e use Criar backup acima.';
+
+  @override
+  String get readerAudioUnavailable =>
+      'Seu conteúdo está salvo. O texto do áudio não estava disponível, então esta prévia pode omitir detalhes do vídeo. Abra a fonte para assistir ao conteúdo completo ou adicione uma nota sobre o que chamou sua atenção.';
 
   @override
   String get highlight => 'Destacar';

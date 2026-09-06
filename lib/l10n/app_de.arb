@@ -1,4 +1,7 @@
 {
+  "readerAskAbout": "Zu diesem Inhalt fragen",
+  "readerEnrichingTitle": "Dein Glimpse nimmt gerade Form an.",
+  "readerEnrichingBody": "Schon gespeichert. Wir sammeln noch die nützlichen Details.",
   "musicDetailsUnavailable": "Einige Songdetails konnten nicht geladen werden.",
   "loadingMusicDetails": "Songdetails werden geladen…",
   "couldNotSaveMusicProvider": "Deine Musik-App konnte nicht gespeichert werden. Bitte versuche es erneut.",
@@ -737,6 +740,7 @@
   "folderBackup": "Ordnersicherung",
   "lastSavedToFolder": "Zuletzt im Ordner gespeichert: {time}",
   "noBackupFileInFolder": "Noch keine Sicherungsdatei in diesem Ordner. Wähle zuerst diesen Ort und tippe dann oben auf „Sicherung erstellen“.",
+  "readerAudioUnavailable": "Dein Inhalt ist gespeichert. Der Audiotext war nicht verfügbar, daher fehlen dieser Vorschau möglicherweise Details aus dem Video. Öffne die Quelle für den vollständigen Inhalt oder halte Wichtiges in einer Notiz fest.",
   "highlight": "Markieren",
   "removeHighlight": "Markierung entfernen",
   "highlightAdded": "Markierung gespeichert",

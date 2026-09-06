@@ -4,6 +4,81 @@ import 'package:glimpse/core/services/transcript_enrichment_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'live response preserves coverage and notification through storage',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = TranscriptEnrichmentService(
+        transport: _StaticEnrichmentTransport({
+          'schema_version': 5,
+          'meaningful_title': 'The pursuit of excellence',
+          'summary': 'The creator defends the pursuit of excellence.',
+          'caption': 'Excellence is worth defending.',
+          'evidence_basis': 'caption_only',
+          'notification_blurb': 'A short reflection on defending excellence.',
+        }),
+      );
+      final result = await service.enrichUrl(
+        rawUrl: 'https://www.instagram.com/reel/COVERAGE_TEST/',
+        title: '',
+        description: '',
+        thumbnailUrl: null,
+        domain: 'instagram.com',
+        forceRefresh: true,
+      );
+      expect(result, isNotNull);
+      final restored = TranscriptEnrichmentResult.fromJson(result!.toJson())!;
+      expect(restored.evidenceBasis, 'caption_only');
+      expect(restored.hasPartialMediaEvidence, isTrue);
+      expect(
+        restored.notificationBlurb,
+        'A short reflection on defending excellence.',
+      );
+    },
+  );
+
+  test('partial coverage survives storage without changing legacy saves', () {
+    for (final data in [
+      <String, dynamic>{
+        'summary': 'A brief preview.',
+        'caption': 'Short caption',
+      },
+      <String, dynamic>{
+        'summary': 'A brief preview.',
+        'evidence_basis': 'caption_only',
+      },
+    ]) {
+      expect(
+        TranscriptEnrichmentResult.fromJson(data)!.hasStructuredEnrichment,
+        isFalse,
+      );
+    }
+    for (final basis in [
+      'caption_only',
+      'on_screen',
+      'metadata_only',
+      'transcript',
+    ]) {
+      final result = TranscriptEnrichmentResult.fromJson({
+        'schema_version': 5,
+        'meaningful_title': 'Saved video',
+        'summary': 'Available details.',
+        'evidence_basis': basis,
+      })!;
+      final restored = TranscriptEnrichmentResult.fromJson(
+        result.copyWith().toJson(),
+      )!;
+      expect(restored.evidenceBasis, basis);
+      expect(restored.hasPartialMediaEvidence, basis != 'transcript');
+    }
+    final legacy = TranscriptEnrichmentResult.fromJson({
+      'meaningful_title': 'Older save',
+      'summary': 'Existing summary.',
+    })!;
+    expect(legacy.hasPartialMediaEvidence, isFalse);
+    expect(legacy.toJson().containsKey('evidence_basis'), isFalse);
+  });
+
   test('schema v5 keeps notification blurbs and notable destinations', () {
     final result = TranscriptEnrichmentResult.fromJson({
       'schema_version': 5,

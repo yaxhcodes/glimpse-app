@@ -975,7 +975,7 @@ class LinkPreviewService {
         root
             ?.querySelectorAll('h1, h2, h3, p, li, blockquote')
             .map((element) => _cleanEvidenceText(element.text))
-            .where((text) => text.length >= 24)
+            .where((text) => text.isNotEmpty)
             .toList() ??
         const <String>[];
     final semanticText = blocks.isNotEmpty
@@ -1036,8 +1036,11 @@ class LinkPreviewService {
     const maxCharacters = 20000;
     final cleaned = _cleanEvidenceText(text);
     if (cleaned.length <= maxCharacters) return cleaned;
-    final boundary = cleaned.lastIndexOf(' ', maxCharacters);
-    return cleaned.substring(0, boundary > 16000 ? boundary : maxCharacters);
+    const marker =
+        '\n[Source excerpt ends here; remaining text was not captured.]';
+    final limit = maxCharacters - marker.length;
+    final boundary = cleaned.lastIndexOf(' ', limit);
+    return '${cleaned.substring(0, boundary > 16000 ? boundary : limit)}$marker';
   }
 
   static SourceEvidence sourceEvidenceFromXJson(

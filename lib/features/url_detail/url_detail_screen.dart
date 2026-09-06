@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/models/saved_url.dart';
+import '../../core/models/url_processing_status.dart';
 import '../../core/models/engagement_event.dart';
 import '../../core/providers/pinned_urls_provider.dart';
 import '../../core/providers/service_providers.dart';
@@ -45,6 +46,7 @@ import '../../shared/widgets/swipeable_url_card.dart'
     show deleteUrlWithUndo, togglePinnedUrl;
 import '../../shared/widgets/tag_group.dart';
 import '../collections/add_to_collection_sheet.dart';
+import '../ask/ask_launch_request.dart';
 import '../home/home_provider.dart';
 import '../library/library_entity.dart';
 import '../library/library_places_model.dart';
@@ -56,6 +58,8 @@ import 'detail_expansion_section.dart';
 import 'notable_item_card.dart';
 import 'notable_term_grid.dart';
 import 'reader_selectable_text.dart';
+import 'reader_enrichment_progress.dart';
+import 'reader_ask_actions.dart';
 import 'source_saved_metadata_row.dart';
 import 'url_detail_provider.dart';
 import '../../l10n/l10n.dart';
@@ -1639,6 +1643,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       _notesController.text = _localNotesOverride ?? url.userNotes ?? '';
     }
     final live = _savedEnrichment(url);
+    final retrying =
+        _retryingEnrichment ||
+        ref.watch(retryingUrlIdsProvider.select((ids) => ids.contains(url.id)));
+    final showEnriching =
+        retrying ||
+        (UrlProcessingStatus.isActive(url.processingStatus) &&
+            !url.hasTimedOutProcessing);
+    final showFirstSaveProgress =
+        showEnriching &&
+        !retrying &&
+        !SavedUrlEnrichmentState.hasAiEnrichment(url);
     final showEnrichmentRetry = SavedUrlEnrichmentState.shouldOfferRetry(
       url,
       hasAiSaveAccess: ref.watch(aiSaveAvailableProvider),
@@ -1762,12 +1777,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   creatorUsername: creatorUsername,
                 ),
 
-                if (showEnrichmentRetry) ...[
+                if (showFirstSaveProgress) ...[
+                  const SizedBox(height: 16),
+                  const ReaderEnrichmentProgress(),
+                ] else if (showEnriching || showEnrichmentRetry) ...[
                   const SizedBox(height: 12),
                   _buildEnrichmentRetryPanel(
                     theme,
                     colorScheme,
                     failed: url.isProcessingFailed,
+                    enriching: showEnriching,
                   ),
                 ],
 
@@ -1783,7 +1802,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     colorScheme: colorScheme,
                     onAddNote: showSummaryAddNote ? _beginEditingNotes : null,
                   ),
-                  if (live != null &&
+                  if (live?.hasPartialMediaEvidence == true) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      context.l10n.readerAudioUnavailable,
+                      key: const ValueKey('reader-audio-unavailable'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                      ),
+                    ),
+                  ] else if (live != null &&
                       live.steps.isEmpty &&
                       live.contentSections.isEmpty &&
                       live.mentions.isEmpty &&
@@ -1814,6 +1843,19 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     items: resourceItems,
                     theme: theme,
                     colorScheme: colorScheme,
+                  ),
+                ],
+
+                if (live != null && !showEnriching) ...[
+                  const SizedBox(height: 28),
+                  ReaderAskActions(
+                    onOpen: () => context.push(
+                      '/ask',
+                      extra: AskLaunchRequest(
+                        source: url,
+                        autofocus: true,
+                      ),
+                    ),
                   ),
                 ],
 
@@ -1894,8 +1936,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ThemeData theme,
     ColorScheme colorScheme, {
     required bool failed,
+    bool enriching = false,
   }) {
-    final accent = failed ? colorScheme.error : colorScheme.primary;
+    final accent = failed && !enriching
+        ? colorScheme.error
+        : colorScheme.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -1915,7 +1960,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
             alignment: Alignment.center,
             child: Icon(
-              failed ? Icons.error_outline_rounded : Icons.auto_awesome_rounded,
+              failed && !enriching
+                  ? Icons.error_outline_rounded
+                  : Icons.auto_awesome_rounded,
               color: accent,
               size: 17,
             ),
@@ -1923,7 +1970,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              failed
+              enriching
+                  ? context.l10n.enriching
+                  : failed
                   ? context.l10n.enrichmentNeedsAttention
                   : context.l10n.aiDetailsAvailable,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -1934,7 +1983,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           ),
           const SizedBox(width: 8),
           EnrichmentRetryButton(
-            retrying: _retryingEnrichment,
+            retrying: enriching,
             onPressed: _retryEnrichment,
             color: accent,
             icon: null,
@@ -2835,6 +2884,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       'film',
       'place',
       'reference',
+      'document',
+      'paper',
+      'report',
     }.contains(item.type.trim().toLowerCase());
   }
 
@@ -3320,9 +3372,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   VoidCallback _referenceItemAction(EnrichedNotableItem item) {
     final destination = item.destinationUri;
     if (destination != null) return () => _openNotableWebsite(destination);
-    final query = (item.label?.trim().isNotEmpty == true
-        ? item.label!.trim()
-        : item.text.trim());
+    final query = item.text.trim();
     final searchUri = Uri.https('www.google.com', '/search', {'q': query});
     return () => _openNotableWebsite(searchUri);
   }

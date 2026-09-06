@@ -256,6 +256,10 @@ class NotableItemCard extends StatelessWidget {
       'quote' => Icons.format_quote_rounded,
       'claim' => Icons.lightbulb_outline_rounded,
       'website' => Icons.language_rounded,
+      'reference' ||
+      'document' ||
+      'paper' ||
+      'report' => AppIcons.termMentioned,
       'tool' || 'app' => Icons.apps_rounded,
       'product' => Icons.shopping_bag_outlined,
       _ => Icons.bookmark_border_rounded,

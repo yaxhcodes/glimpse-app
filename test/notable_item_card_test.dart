@@ -5,6 +5,14 @@ import 'package:glimpse/features/url_detail/notable_item_card.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
+  testWidgets('document references use the shared reading icon', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: NotableItemCard(
+      item: const EnrichedNotableItem(text: 'A named historical document', type: 'reference'),
+      accent: Colors.purple,
+    ))));
+    expect(find.byIcon(AppIcons.termMentioned), findsOneWidget);
+  });
+
   Widget buildCard(EnrichedNotableItem item, {VoidCallback? onTap}) {
     return MaterialApp(
       home: Scaffold(

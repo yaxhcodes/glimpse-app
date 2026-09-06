@@ -9,6 +9,16 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get readerAskAbout => 'Ask about this save';
+
+  @override
+  String get readerEnrichingTitle => 'You caught us mid-glimpse.';
+
+  @override
+  String get readerEnrichingBody =>
+      'Saved already. Just gathering the useful details.';
+
+  @override
   String get musicDetailsUnavailable =>
       'Some song details could not be loaded.';
 
@@ -2548,6 +2558,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'No backup file in this folder yet. Use Create backup above after picking this location.';
+
+  @override
+  String get readerAudioUnavailable =>
+      'Your save is safe. Audio text wasn’t available, so this preview may miss details from the video. Open the source for the full story, or add a note with what mattered to you.';
 
   @override
   String get highlight => 'Highlight';

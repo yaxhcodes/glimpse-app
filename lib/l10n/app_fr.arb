@@ -1,4 +1,7 @@
 {
+  "readerAskAbout": "Poser une question sur ce contenu",
+  "readerEnrichingTitle": "Votre Glimpse prend forme.",
+  "readerEnrichingBody": "Déjà enregistré. Nous rassemblons les informations utiles.",
   "musicDetailsUnavailable": "Les détails de certaines chansons n’ont pas pu être chargés.",
   "loadingMusicDetails": "Chargement des détails des chansons…",
   "couldNotSaveMusicProvider": "Impossible d’enregistrer votre appli de musique. Réessayez.",
@@ -731,6 +734,7 @@
   "folderBackup": "Sauvegarde du dossier",
   "lastSavedToFolder": "Dernier enregistrement dans le dossier : {time}",
   "noBackupFileInFolder": "Ce dossier ne contient encore aucune sauvegarde. Choisissez la destination, puis utilisez Créer une sauvegarde ci-dessus.",
+  "readerAudioUnavailable": "Votre contenu est bien enregistré. Le texte de l’audio n’était pas disponible : cet aperçu peut donc omettre des détails de la vidéo. Ouvrez la source pour la voir en entier ou ajoutez une note sur ce qui vous a intéressé.",
   "highlight": "Surligner",
   "removeHighlight": "Supprimer le surlignage",
   "highlightAdded": "Surlignage enregistré",

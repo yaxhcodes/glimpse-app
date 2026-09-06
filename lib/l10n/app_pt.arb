@@ -1,4 +1,7 @@
 {
+  "readerAskAbout": "Pergunte sobre este conteúdo",
+  "readerEnrichingTitle": "Você nos pegou preparando seu Glimpse.",
+  "readerEnrichingBody": "Já está salvo. Estamos reunindo os detalhes úteis.",
   "musicDetailsUnavailable": "Não foi possível carregar os detalhes de algumas músicas.",
   "loadingMusicDetails": "Carregando detalhes das músicas…",
   "couldNotSaveMusicProvider": "Não foi possível salvar seu app de música. Tente novamente.",
@@ -731,6 +734,7 @@
   "folderBackup": "Backup da pasta",
   "lastSavedToFolder": "Último salvamento na pasta: {time}",
   "noBackupFileInFolder": "Ainda não há backup nesta pasta. Escolha o local e use Criar backup acima.",
+  "readerAudioUnavailable": "Seu conteúdo está salvo. O texto do áudio não estava disponível, então esta prévia pode omitir detalhes do vídeo. Abra a fonte para assistir ao conteúdo completo ou adicione uma nota sobre o que chamou sua atenção.",
   "highlight": "Destacar",
   "removeHighlight": "Remover destaque",
   "highlightAdded": "Destaque salvo",

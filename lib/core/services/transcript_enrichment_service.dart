@@ -169,6 +169,10 @@ class TranscriptEnrichmentService {
             : outputLocale,
         meaningfulTitle: _cleanText(data['meaningful_title']),
         summary: _cleanText(data['summary']),
+        evidenceBasis: _cleanNullableText(data['evidence_basis']),
+        notificationBlurb: _cleanNullableText(
+          data['notification_blurb'] ?? data['notificationBlurb'],
+        ),
         category: _cleanText(data['category']),
         tags: usefulTags,
         contentType: recipe != null ? 'recipe' : _contentTypeFromJson(data),

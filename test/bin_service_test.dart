@@ -4,6 +4,9 @@ import 'dart:ffi';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:glimpse/core/providers/service_providers.dart';
+import 'package:glimpse/features/url_detail/url_detail_provider.dart';
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -58,6 +61,39 @@ void main() {
       await tempDirectory.delete(recursive: true);
     }
   });
+
+  test(
+    'open detail follows persisted retry states without manual refresh',
+    () async {
+      final url = _url('https://example.com/live-detail');
+      await database.writeTxn(() => database.savedUrls.put(url));
+      final container = ProviderContainer(
+        overrides: [isarServiceProvider.overrideWithValue(service)],
+      );
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        urlDetailProvider(url.id),
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+      await container.read(urlDetailProvider(url.id).future);
+      await container.read(urlDetailChangesProvider(url.id).future);
+      for (final status in [
+        'QUEUED',
+        'ENRICHING',
+        'PARTIAL',
+        'FAILED',
+        'READY',
+      ]) {
+        url.processingStatus = status;
+        await database.writeTxn(() => database.savedUrls.put(url));
+        // Let the native Isar change notification reach Riverpod.
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        final current = await container.read(urlDetailProvider(url.id).future);
+        expect(current?.processingStatus, status);
+      }
+    },
+  );
 
   test(
     'existing rows default to active and the schema indexes deletedAt',

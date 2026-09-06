@@ -1737,6 +1737,11 @@ class IsarService {
 
   // --------------- STREAM ---------------
 
+  Stream<void> watchUrlChanges(int id) async* {
+    final isar = await _db;
+    yield* isar.savedUrls.watchObjectLazy(id, fireImmediately: true);
+  }
+
   Stream<List<SavedUrl>> watchAllUrls() async* {
     final isar = await _db;
     yield* isar.savedUrls.filter().deletedAtIsNull().sortBySavedAtDesc().watch(

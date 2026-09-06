@@ -9,6 +9,16 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String get readerAskAbout => 'Zu diesem Inhalt fragen';
+
+  @override
+  String get readerEnrichingTitle => 'Dein Glimpse nimmt gerade Form an.';
+
+  @override
+  String get readerEnrichingBody =>
+      'Schon gespeichert. Wir sammeln noch die nützlichen Details.';
+
+  @override
   String get musicDetailsUnavailable =>
       'Einige Songdetails konnten nicht geladen werden.';
 
@@ -2584,6 +2594,10 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'Noch keine Sicherungsdatei in diesem Ordner. Wähle zuerst diesen Ort und tippe dann oben auf „Sicherung erstellen“.';
+
+  @override
+  String get readerAudioUnavailable =>
+      'Dein Inhalt ist gespeichert. Der Audiotext war nicht verfügbar, daher fehlen dieser Vorschau möglicherweise Details aus dem Video. Öffne die Quelle für den vollständigen Inhalt oder halte Wichtiges in einer Notiz fest.';
 
   @override
   String get highlight => 'Markieren';

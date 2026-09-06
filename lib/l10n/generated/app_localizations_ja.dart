@@ -9,6 +9,15 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get readerAskAbout => 'この保存について聞く';
+
+  @override
+  String get readerEnrichingTitle => 'まだ、ひと目の途中です。';
+
+  @override
+  String get readerEnrichingBody => '保存済みです。役立つ情報をまとめています。';
+
+  @override
   String get musicDetailsUnavailable => '一部の曲の詳細を読み込めませんでした。';
 
   @override
@@ -2357,6 +2366,10 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get noBackupFileInFolder =>
       'このフォルダーにはまだバックアップがありません。保存場所を選んだ後、上の「バックアップを作成」を使用してください。';
+
+  @override
+  String get readerAudioUnavailable =>
+      '保存は完了しています。音声のテキストを取得できなかったため、このプレビューには動画の詳細が含まれていない場合があります。元の動画を開くか、気になった内容をメモに残せます。';
 
   @override
   String get highlight => 'ハイライト';

@@ -1,4 +1,7 @@
 {
+  "readerAskAbout": "Ask about this save",
+  "readerEnrichingTitle": "You caught us mid-glimpse.",
+  "readerEnrichingBody": "Saved already. Just gathering the useful details.",
   "musicDetailsUnavailable": "Some song details could not be loaded.",
   "loadingMusicDetails": "Loading song details…",
   "couldNotSaveMusicProvider": "Could not save your music app. Please try again.",
@@ -737,6 +740,7 @@
   "folderBackup": "Folder backup",
   "lastSavedToFolder": "Last saved to folder: {time}",
   "noBackupFileInFolder": "No backup file in this folder yet. Use Create backup above after picking this location.",
+  "readerAudioUnavailable": "Your save is safe. Audio text wasn’t available, so this preview may miss details from the video. Open the source for the full story, or add a note with what mattered to you.",
   "highlight": "Highlight",
   "removeHighlight": "Remove highlight",
   "highlightAdded": "Highlight saved",

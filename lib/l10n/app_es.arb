@@ -1,4 +1,7 @@
 {
+  "readerAskAbout": "Pregunta sobre este guardado",
+  "readerEnrichingTitle": "Nos pillaste preparando tu Glimpse.",
+  "readerEnrichingBody": "Ya está guardado. Estamos reuniendo los detalles útiles.",
   "musicDetailsUnavailable": "No se pudieron cargar los detalles de algunas canciones.",
   "loadingMusicDetails": "Cargando detalles de las canciones…",
   "couldNotSaveMusicProvider": "No se pudo guardar tu app de música. Inténtalo de nuevo.",
@@ -731,6 +734,7 @@
   "folderBackup": "Copia en carpeta",
   "lastSavedToFolder": "Último guardado en la carpeta: {time}",
   "noBackupFileInFolder": "Todavía no hay una copia en esta carpeta. Elige la ubicación y usa Crear copia arriba.",
+  "readerAudioUnavailable": "Tu contenido está guardado. No se pudo obtener el texto del audio, por lo que esta vista previa puede omitir detalles del vídeo. Abre la fuente para verlo completo o añade una nota con lo que te interesó.",
   "highlight": "Resaltar",
   "removeHighlight": "Quitar resaltado",
   "highlightAdded": "Resaltado guardado",

@@ -1,4 +1,7 @@
 {
+  "readerAskAbout": "この保存について聞く",
+  "readerEnrichingTitle": "まだ、ひと目の途中です。",
+  "readerEnrichingBody": "保存済みです。役立つ情報をまとめています。",
   "musicDetailsUnavailable": "一部の曲の詳細を読み込めませんでした。",
   "loadingMusicDetails": "曲の詳細を読み込み中…",
   "couldNotSaveMusicProvider": "音楽アプリの設定を保存できませんでした。もう一度お試しください。",
@@ -731,6 +734,7 @@
   "folderBackup": "フォルダーのバックアップ",
   "lastSavedToFolder": "フォルダーへの最終保存：{time}",
   "noBackupFileInFolder": "このフォルダーにはまだバックアップがありません。保存場所を選んだ後、上の「バックアップを作成」を使用してください。",
+  "readerAudioUnavailable": "保存は完了しています。音声のテキストを取得できなかったため、このプレビューには動画の詳細が含まれていない場合があります。元の動画を開くか、気になった内容をメモに残せます。",
   "highlight": "ハイライト",
   "removeHighlight": "ハイライトを削除",
   "highlightAdded": "ハイライトを保存しました",
