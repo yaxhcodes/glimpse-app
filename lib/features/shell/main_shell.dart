@@ -24,9 +24,11 @@ import '../search/search_provider.dart';
 import '../search/search_screen.dart';
 import 'navigation_discovery_icon.dart';
 import 'navigation_discovery_provider.dart';
+import 'navigation_tab_bounce.dart';
 import 'shell_bottom_navigation_transition.dart';
 import 'shell_chrome_provider.dart';
 import 'shell_status_bar_accent.dart';
+import 'shell_tab_transition.dart';
 import '../../shared/widgets/expressive_fab.dart';
 import '../../l10n/l10n.dart';
 
@@ -243,9 +245,12 @@ class _MainShellState extends ConsumerState<MainShell> {
                                               destinations[index].label,
                                           discoveryLabel:
                                               strings.notificationNewDiscovery,
-                                          icon: AppIcon(
-                                            destinations[index].icon,
-                                            selected: true,
+                                          icon: NavigationTabBounce(
+                                            selected: _currentIndex == index,
+                                            child: AppIcon(
+                                              destinations[index].icon,
+                                              selected: true,
+                                            ),
                                           ),
                                         ),
                                         label: Text(destinations[index].label),
@@ -351,9 +356,12 @@ class _MainShellState extends ConsumerState<MainShell> {
                                       semanticsLabel: destinations[index].label,
                                       discoveryLabel:
                                           strings.notificationNewDiscovery,
-                                      icon: AppIcon(
-                                        destinations[index].icon,
-                                        selected: true,
+                                      icon: NavigationTabBounce(
+                                        selected: _currentIndex == index,
+                                        child: AppIcon(
+                                          destinations[index].icon,
+                                          selected: true,
+                                        ),
                                       ),
                                     ),
                                     label: destinations[index].label,
@@ -374,17 +382,21 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget _buildShellContent({required bool constrainWidth}) {
     final content = NotificationListener<ScrollNotification>(
       onNotification: _handleShellScrollNotification,
-      child: IndexedStack(
-        index: _currentIndex,
-        children: [
-          for (var index = 0; index < _screens.length; index += 1)
-            ScrollCaptureVisibilityScope(
-              isVisible: index == _currentIndex,
-              child: _loadedTabIndexes.contains(index)
-                  ? _screens[index]
-                  : const SizedBox.shrink(),
-            ),
-        ],
+      child: ShellTabTransition(
+        selectedIndex: _currentIndex,
+        enabled: !ScrollCaptureScope.isCapturingOf(context),
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [
+            for (var index = 0; index < _screens.length; index += 1)
+              ScrollCaptureVisibilityScope(
+                isVisible: index == _currentIndex,
+                child: _loadedTabIndexes.contains(index)
+                    ? _screens[index]
+                    : const SizedBox.shrink(),
+              ),
+          ],
+        ),
       ),
     );
     if (!constrainWidth) return content;
