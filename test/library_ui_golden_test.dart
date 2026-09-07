@@ -32,9 +32,15 @@ void main() {
   );
 
   setUpAll(() async {
-    final materialIcons = FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    await materialIcons.load();
+    for (final (family, asset) in [
+      ('PhosphorBold', 'Phosphor-Bold.ttf'),
+      ('PhosphorFill', 'Phosphor-Fill.ttf'),
+    ]) {
+      await (FontLoader('packages/phosphor_flutter/$family')..addFont(
+            rootBundle.load('packages/phosphor_flutter/lib/fonts/$asset'),
+          ))
+          .load();
+    }
   });
 
   final fixtures = _fixtures();

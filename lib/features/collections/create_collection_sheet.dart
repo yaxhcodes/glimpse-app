@@ -8,6 +8,7 @@ import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 Future<UserCollection?> showCreateCollectionSheet(
   BuildContext context, {
@@ -182,11 +183,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                 const SizedBox(height: 22),
                 Row(
                   children: [
-                    CollectionVisual(
-                      style: visual,
-                      size: 44,
-                      seed: _nameController.text,
-                    ),
+                    CollectionVisual(style: visual, size: 44),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -218,7 +215,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
                       onPressed: _creating
                           ? null
                           : () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const Icon(AppIcons.close),
                     ),
                   ],
                 ),

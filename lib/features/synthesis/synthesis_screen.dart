@@ -6,6 +6,7 @@ import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../home/home_provider.dart';
 import 'synthesis_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class SynthesisScreen extends ConsumerStatefulWidget {
   /// URLs pre-selected before navigating here.
@@ -16,6 +17,7 @@ class SynthesisScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SynthesisScreen> createState() => _SynthesisScreenState();
 }
+
 class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
   final _questionController = TextEditingController();
 
@@ -46,7 +48,7 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
         actions: [
           if (state.result != null)
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(AppIcons.refresh),
               tooltip: 'Re-synthesize',
               onPressed: () => ref
                   .read(synthesisProvider.notifier)
@@ -62,25 +64,30 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
             // ─── Selected links ────────────────────────────────────────
             Text(
               '${state.selectedUrls.length} links selected',
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(color: theme.colorScheme.primary),
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 8),
-            ...state.selectedUrls.map((u) => Card(
-                  color: theme.colorScheme.surfaceContainerLow,
-                  margin: const EdgeInsets.only(bottom: 6),
-                  child: ListTile(
-                    dense: true,
-                    title: Text(
-                        TitleResolver.resolveDetailTitle(u, tagFrequency: tagFreq),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                    subtitle: Text(u.domain,
-                        style: theme.textTheme.bodySmall),
-                    leading: Text(u.categoryEmoji,
-                        style: const TextStyle(fontSize: 20)),
+            ...state.selectedUrls.map(
+              (u) => Card(
+                color: theme.colorScheme.surfaceContainerLow,
+                margin: const EdgeInsets.only(bottom: 6),
+                child: ListTile(
+                  dense: true,
+                  title: Text(
+                    TitleResolver.resolveDetailTitle(u, tagFrequency: tagFreq),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                )),
+                  subtitle: Text(u.domain, style: theme.textTheme.bodySmall),
+                  leading: Text(
+                    u.categoryEmoji,
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
 
             // ─── Optional question ──────────────────────────────────────
@@ -99,17 +106,16 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
               onPressed: state.isLoading
                   ? null
                   : () => ref
-                      .read(synthesisProvider.notifier)
-                      .synthesize(question: _questionController.text),
+                        .read(synthesisProvider.notifier)
+                        .synthesize(question: _questionController.text),
               icon: state.isLoading
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: ExpressiveLoadingIndicator(size: 18),
                     )
-                  : const Icon(Icons.auto_awesome),
-              label:
-                  Text(state.isLoading ? 'Synthesizing...' : 'Synthesize'),
+                  : const Icon(AppIcons.sparkle),
+              label: Text(state.isLoading ? 'Synthesizing...' : 'Synthesize'),
             ),
 
             // ─── Result ─────────────────────────────────────────────────
@@ -137,16 +143,20 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
                     child: Text(
                       state.error!,
                       style: TextStyle(
-                          color: theme.colorScheme.onErrorContainer),
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
                     ),
                   ),
                 ),
             ],
             if (state.result != null) ...[
               const SizedBox(height: 20),
-              Text('Synthesis',
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(color: theme.colorScheme.primary)),
+              Text(
+                'Synthesis',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
               const SizedBox(height: 8),
               Card(
                 color: theme.colorScheme.surfaceContainerLow,
@@ -157,8 +167,8 @@ class _SynthesisScreenState extends ConsumerState<SynthesisScreen> {
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
-),
-             ],
+              ),
+            ],
           ],
         ),
       ),
@@ -184,11 +194,7 @@ class _ProFeatureErrorCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.merge_type_rounded,
-              size: 40,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            Icon(AppIcons.merge, size: 40, color: colorScheme.onSurfaceVariant),
             const SizedBox(height: 12),
             Text(
               'Multi-link synthesis is a Pro feature',
@@ -209,7 +215,7 @@ class _ProFeatureErrorCard extends StatelessWidget {
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onUpgrade,
-              icon: const Icon(Icons.auto_awesome, size: 18),
+              icon: const Icon(AppIcons.sparkle, size: 18),
               label: const Text('Upgrade for synthesis'),
             ),
           ],

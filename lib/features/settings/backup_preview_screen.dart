@@ -7,6 +7,7 @@ import '../../core/providers/backup_provider.dart';
 import '../../core/services/backup/backup_models.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../shell/navigation_discovery_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class BackupPreviewScreen extends ConsumerStatefulWidget {
   const BackupPreviewScreen({super.key});
@@ -144,7 +145,7 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
                       _SectionHeader(text: 'Restore Mode'),
                       const SizedBox(height: 12),
                       _RestoreModeOption(
-                        icon: Icons.merge_outlined,
+                        icon: AppIcons.merge,
                         title: 'Merge with existing library',
                         subtitle:
                             'Adds new links from the backup (including ones you\u2019ve deleted) and updates existing ones. Nothing in your current library is removed.',
@@ -154,7 +155,7 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
                       ),
                       const SizedBox(height: 8),
                       _RestoreModeOption(
-                        icon: Icons.swap_horiz,
+                        icon: AppIcons.swapHorizontal,
                         title: 'Replace current library',
                         subtitle:
                             'Replaces all current data with the backup. Your current library will be deleted.',
@@ -557,7 +558,7 @@ class _RestoreModeOption extends StatelessWidget {
                       : cs.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
+                child: AppIcon(
                   icon,
                   size: 20,
                   color: isSelected
@@ -591,7 +592,7 @@ class _RestoreModeOption extends StatelessWidget {
               ),
               if (isSelected)
                 Icon(
-                  Icons.check_circle,
+                  AppIcons.checkCircle,
                   color: isDestructive ? cs.error : cs.primary,
                   size: 22,
                 ),

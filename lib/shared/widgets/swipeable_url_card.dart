@@ -15,6 +15,7 @@ import '../../l10n/l10n.dart';
 import 'app_snackbar.dart';
 import 'premium_swipe_card.dart';
 import 'url_card.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class SwipeableUrlCard extends ConsumerWidget {
   const SwipeableUrlCard({
@@ -338,10 +339,7 @@ class _PinLimitSheet extends ConsumerWidget {
                     );
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        Icons.push_pin_outlined,
-                        color: cs.onSurfaceVariant,
-                      ),
+                      leading: Icon(AppIcons.pin, color: cs.onSurfaceVariant),
                       title: Text(
                         title,
                         maxLines: 1,
@@ -366,7 +364,7 @@ class _PinLimitSheet extends ConsumerWidget {
                 Navigator.pop(context);
                 onViewPinned?.call();
               },
-              icon: const Icon(Icons.vertical_align_top_rounded),
+              icon: const Icon(AppIcons.moveToTop),
               label: const Text('View pinned items'),
             ),
           ],

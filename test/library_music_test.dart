@@ -20,6 +20,7 @@ import 'package:glimpse/features/library/music_library_provider.dart';
 import 'package:glimpse/shared/widgets/music_provider_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -252,7 +253,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Music app'), findsOneWidget);
       expect(find.text('Spotify'), findsNothing);
-      expect(find.byIcon(Icons.headphones_rounded), findsNothing);
+      expect(find.byIcon(AppIcons.musicProvider), findsNothing);
       expect(
         tester
             .widget<MusicProviderIcon>(find.byType(MusicProviderIcon))
@@ -262,7 +263,7 @@ void main() {
       expect(find.bySemanticsLabel('Music app: Spotify'), findsOneWidget);
       await tester.tap(find.text('Music app'));
       await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(find.byIcon(AppIcons.checkCircle), findsOneWidget);
       await tester.tap(find.text('Apple Music'));
       await tester.pumpAndSettle();
       final preferences = await SharedPreferences.getInstance();

@@ -11,6 +11,7 @@ import '../../features/collections/collections_provider.dart';
 import '../../features/home/home_provider.dart';
 import '../../l10n/l10n.dart';
 import 'app_snackbar.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class BulkSelectionTitle extends StatelessWidget {
   const BulkSelectionTitle({super.key, required this.count});
@@ -67,7 +68,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           padding: EdgeInsets.zero,
           tooltip: strings.selectAll,
-          icon: const Icon(Icons.select_all_rounded),
+          icon: const Icon(AppIcons.selectAll),
           onPressed: visibleUrls.isEmpty
               ? null
               : () {
@@ -81,7 +82,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           padding: EdgeInsets.zero,
           tooltip: readLabel,
-          icon: Icon(_readActionIcon(selectedUrls)),
+          icon: AppIcon(_readActionIcon(selectedUrls)),
           onPressed: selectedUrls.isEmpty
               ? null
               : () => _markReadState(context, ref, selectedUrls, onDone),
@@ -89,7 +90,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
         PopupMenuButton<_BulkSelectionMenuAction>(
           enabled: selectedUrls.isNotEmpty,
           tooltip: strings.moreSelectionActions,
-          icon: const Icon(Icons.more_vert_rounded),
+          icon: const Icon(AppIcons.more),
           onSelected: (action) async {
             switch (action) {
               case _BulkSelectionMenuAction.addToCollection:
@@ -114,7 +115,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
             PopupMenuItem(
               value: _BulkSelectionMenuAction.addToCollection,
               child: ListTile(
-                leading: const Icon(Icons.create_new_folder_outlined),
+                leading: const AppIcon(AppIcons.addToCollection),
                 title: Text(strings.addToCollection),
               ),
             ),
@@ -122,21 +123,21 @@ class BulkSelectionActionButtons extends ConsumerWidget {
               PopupMenuItem(
                 value: _BulkSelectionMenuAction.moveToCollection,
                 child: ListTile(
-                  leading: const Icon(Icons.drive_file_move_outline),
+                  leading: const Icon(AppIcons.moveToCollection),
                   title: Text(strings.moveToCollection),
                 ),
               ),
             PopupMenuItem(
               value: _BulkSelectionMenuAction.pin,
               child: ListTile(
-                leading: Icon(_pinActionIcon(selectedUrls, pinnedIds)),
+                leading: AppIcon(_pinActionIcon(selectedUrls, pinnedIds)),
                 title: Text(pinLabel),
               ),
             ),
             PopupMenuItem(
               value: _BulkSelectionMenuAction.delete,
               child: ListTile(
-                leading: Icon(Icons.delete_outline_rounded, color: cs.error),
+                leading: AppIcon(AppIcons.clearData, color: cs.error),
                 title: Text(strings.delete, style: TextStyle(color: cs.error)),
               ),
             ),
@@ -159,9 +160,9 @@ String _readActionLabel(AppLocalizations strings, List<SavedUrl> urls) {
 
 IconData _readActionIcon(List<SavedUrl> urls) {
   if (urls.isNotEmpty && urls.every((url) => url.openedAt != null)) {
-    return Icons.mark_email_unread_outlined;
+    return AppIcons.unread;
   }
-  return Icons.mark_email_read_outlined;
+  return AppIcons.read;
 }
 
 String _pinActionLabel(
@@ -177,9 +178,9 @@ String _pinActionLabel(
 
 IconData _pinActionIcon(List<SavedUrl> urls, List<int> pinnedIds) {
   if (urls.isNotEmpty && urls.every((url) => pinnedIds.contains(url.id))) {
-    return Icons.push_pin_rounded;
+    return AppIcons.pinFilled;
   }
-  return Icons.push_pin_outlined;
+  return AppIcons.pin;
 }
 
 Future<void> _markReadState(
@@ -298,7 +299,7 @@ void _showPinLimitReached(BuildContext context, VoidCallback? onViewPinned) {
                 Navigator.pop(context);
                 onViewPinned?.call();
               },
-              icon: const Icon(Icons.vertical_align_top_rounded),
+              icon: const Icon(AppIcons.moveToTop),
               label: const Text('View Pinned Items'),
             ),
           ],

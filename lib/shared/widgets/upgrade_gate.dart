@@ -11,6 +11,7 @@ import '../../core/providers/usage_providers.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 import '../../core/services/usage_service.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 /// The feature context that triggered the upgrade gate.
 ///
@@ -54,12 +55,12 @@ extension UpgradeFeatureCopy on UpgradeFeature {
   };
 
   IconData get icon => switch (this) {
-    UpgradeFeature.aiTagging => Icons.auto_awesome_outlined,
-    UpgradeFeature.ask => Icons.chat_bubble_outline_rounded,
-    UpgradeFeature.search => Icons.search_rounded,
-    UpgradeFeature.semanticSearch => Icons.psychology_outlined,
-    UpgradeFeature.recap => Icons.auto_stories_outlined,
-    UpgradeFeature.synthesis => Icons.merge_type_rounded,
+    UpgradeFeature.aiTagging => AppIcons.sparkle,
+    UpgradeFeature.ask => AppIcons.chat,
+    UpgradeFeature.search => AppIcons.search,
+    UpgradeFeature.semanticSearch => AppIcons.brain,
+    UpgradeFeature.recap => AppIcons.bookOpen,
+    UpgradeFeature.synthesis => AppIcons.merge,
   };
 }
 
@@ -179,7 +180,7 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
               borderRadius: BorderRadius.circular(16),
             ),
             alignment: Alignment.center,
-            child: Icon(
+            child: AppIcon(
               feature.icon,
               size: 28,
               color: colorScheme.onPrimaryContainer,
@@ -213,22 +214,19 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
             child: Column(
               children: [
                 _benefitRow(
-                  Icons.category_outlined,
+                  AppIcons.category,
                   '500 AI-enriched saves each month',
                 ),
                 const SizedBox(height: 8),
-                _benefitRow(
-                  Icons.chat_bubble_outline_rounded,
-                  'Generous Ask Glimpse access',
-                ),
+                _benefitRow(AppIcons.chat, 'Generous Ask Glimpse access'),
                 const SizedBox(height: 8),
                 _benefitRow(
-                  Icons.psychology_outlined,
+                  AppIcons.brain,
                   'Semantic search across your library',
                 ),
                 const SizedBox(height: 8),
                 _benefitRow(
-                  Icons.auto_stories_outlined,
+                  AppIcons.bookOpen,
                   'Weekly Recap & multi-link synthesis',
                 ),
               ],
@@ -276,7 +274,7 @@ class _UpgradeGateDialogState extends ConsumerState<_UpgradeGateDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, size: 18, color: colorScheme.primary),
+        AppIcon(icon, size: 18, color: colorScheme.primary),
         const SizedBox(width: 10),
         Expanded(
           child: Text(

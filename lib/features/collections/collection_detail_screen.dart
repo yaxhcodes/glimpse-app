@@ -65,7 +65,7 @@ class _CollectionDetailScreenState
         appBar: AppBar(
           leading: selectionState.isActive
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
+                  icon: const Icon(AppIcons.arrowBack),
                   tooltip: context.l10n.exitSelection,
                   onPressed: selectionNotifier.clear,
                 )
@@ -114,11 +114,12 @@ class _CollectionDetailScreenState
                           ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined),
+                    icon: const Icon(AppIcons.edit),
                     tooltip: context.l10n.editCollection,
                     onPressed: () => _edit(context, metaAsync.valueOrNull),
                   ),
                   PopupMenuButton<String>(
+                    icon: const Icon(AppIcons.more),
                     onSelected: (value) async {
                       switch (value) {
                         case 'delete':
@@ -133,7 +134,7 @@ class _CollectionDetailScreenState
                       PopupMenuItem(
                         value: 'delete',
                         child: ListTile(
-                          leading: const Icon(Icons.delete_outline),
+                          leading: const AppIcon(AppIcons.clearData),
                           title: Text(context.l10n.deleteCollection),
                           contentPadding: EdgeInsets.zero,
                         ),

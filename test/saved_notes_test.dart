@@ -21,6 +21,7 @@ import 'package:glimpse/shared/widgets/lightweight_markdown_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:glimpse/features/ask/ask_launch_request.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
   testWidgets('Details Ask opens with this save and no prefilled question', (
@@ -253,7 +254,7 @@ This block has no question.''';
     );
 
     expect(find.text('A concise personal reminder'), findsOneWidget);
-    expect(find.byIcon(Icons.sticky_note_2_outlined), findsOneWidget);
+    expect(find.byIcon(AppIcons.note), findsOneWidget);
   });
 
   testWidgets(
@@ -581,7 +582,7 @@ Use **structured curation**.
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert_rounded));
+    await tester.tap(find.byIcon(AppIcons.more));
     await tester.pumpAndSettle();
     expect(find.text('Pin'), findsOneWidget);
 
@@ -591,7 +592,7 @@ Use **structured curation**.
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert_rounded));
+    await tester.tap(find.byIcon(AppIcons.more));
     await tester.pumpAndSettle();
     expect(find.text('Unpin'), findsOneWidget);
   });

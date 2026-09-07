@@ -40,21 +40,21 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 enum AppAccentColor {
   dynamic('Dynamic', AppIcons.automaticTheme, null), // uses wallpaper
   // Seeds aligned to the Google / Material You palette Pixel renders.
-  purple('Purple', Icons.circle, Color(0xFF6750A4)), // M3 default
-  blue('Blue', Icons.circle, Color(0xFF0B57D0)), // Google Blue
-  teal('Teal', Icons.circle, Color(0xFF006A6A)), // M3 teal
-  green('Green', Icons.circle, Color(0xFF146C2E)), // Google Green
-  lime('Lime', Icons.circle, Color(0xFF7CB342)),
-  yellow('Yellow', Icons.circle, Color(0xFFF9AB00)), // Google Yellow
-  orange('Orange', Icons.circle, Color(0xFFE8710A)),
-  red('Red', Icons.circle, Color(0xFFD93025)), // Google Red
-  pink('Pink', Icons.circle, Color(0xFFB4255E)),
-  sakura('Sakura', Icons.circle, Color(0xFFE68A95)),
-  indigo('Indigo', Icons.circle, Color(0xFF3F51B5)),
-  slate('Slate', Icons.circle, Color(0xFF5B7083)),
+  purple('Purple', AppIcons.circleFilled, Color(0xFF6750A4)), // M3 default
+  blue('Blue', AppIcons.circleFilled, Color(0xFF0B57D0)), // Google Blue
+  teal('Teal', AppIcons.circleFilled, Color(0xFF006A6A)), // M3 teal
+  green('Green', AppIcons.circleFilled, Color(0xFF146C2E)), // Google Green
+  lime('Lime', AppIcons.circleFilled, Color(0xFF7CB342)),
+  yellow('Yellow', AppIcons.circleFilled, Color(0xFFF9AB00)), // Google Yellow
+  orange('Orange', AppIcons.circleFilled, Color(0xFFE8710A)),
+  red('Red', AppIcons.circleFilled, Color(0xFFD93025)), // Google Red
+  pink('Pink', AppIcons.circleFilled, Color(0xFFB4255E)),
+  sakura('Sakura', AppIcons.circleFilled, Color(0xFFE68A95)),
+  indigo('Indigo', AppIcons.circleFilled, Color(0xFF3F51B5)),
+  slate('Slate', AppIcons.circleFilled, Color(0xFF5B7083)),
   monochrome(
     'Monochrome',
-    Icons.circle,
+    AppIcons.circleFilled,
     Color(0xFF5F6368),
     schemeVariant: DynamicSchemeVariant.monochrome,
   );
@@ -283,6 +283,12 @@ class AppTheme {
       splashFactory: InkSparkle.splashFactory,
       materialTapTargetSize: MaterialTapTargetSize.padded,
       visualDensity: VisualDensity.standard,
+      actionIconTheme: ActionIconThemeData(
+        backButtonIconBuilder: (_) => const AppIcon(AppIcons.arrowBack),
+        closeButtonIconBuilder: (_) => const AppIcon(AppIcons.close),
+        drawerButtonIconBuilder: (_) => const AppIcon(AppIcons.menu),
+        endDrawerButtonIconBuilder: (_) => const AppIcon(AppIcons.menu),
+      ),
       appBarTheme: AppBarTheme(
         centerTitle: false,
         backgroundColor: colorScheme.surface.withValues(

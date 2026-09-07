@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'batch_save_models.dart';
 import 'batch_save_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 /// The batch preview screen: a cinematic review surface for a captured
 /// "rabbit hole" of URLs before saving them as one session.
@@ -58,29 +59,29 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
                       children: [
                         IconButton(
                           onPressed: isSaving ? null : () => context.pop(),
-                          icon: const Icon(Icons.arrow_back_rounded),
+                          icon: const Icon(AppIcons.arrowBack),
                           style: IconButton.styleFrom(
                             foregroundColor: cs.onSurfaceVariant,
                           ),
                         ),
                         const Spacer(),
-                    if (isSaving)
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: ExpressiveLoadingIndicator(
-                          size: 18,
-                          color: cs.primary,
-                        ),
-                      ),
-                    if (!isSaving && !isDone)
-                      TextButton(
-                        onPressed: () => context.pop(),
-                        child: Text(
-                          'Close',
-                          style: TextStyle(color: cs.onSurfaceVariant),
-                        ),
-                      ),
+                        if (isSaving)
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: ExpressiveLoadingIndicator(
+                              size: 18,
+                              color: cs.primary,
+                            ),
+                          ),
+                        if (!isSaving && !isDone)
+                          TextButton(
+                            onPressed: () => context.pop(),
+                            child: Text(
+                              'Close',
+                              style: TextStyle(color: cs.onSurfaceVariant),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -137,17 +138,14 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final item = state.items[index];
-                  return _BatchItemCard(
-                    item: item,
-                    isFirst: index == 0,
-                    isLast: index == state.items.length - 1,
-                  );
-                },
-                childCount: state.items.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final item = state.items[index];
+                return _BatchItemCard(
+                  item: item,
+                  isFirst: index == 0,
+                  isLast: index == state.items.length - 1,
+                );
+              }, childCount: state.items.length),
             ),
           ),
         ],
@@ -161,9 +159,7 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
           decoration: BoxDecoration(
             color: cs.surfaceContainerLowest.withValues(alpha: 0.95),
             border: Border(
-              top: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.25),
-              ),
+              top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.25)),
             ),
           ),
           child: Column(
@@ -173,11 +169,7 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
               if (isError) ...[
                 Row(
                   children: [
-                    Icon(
-                      Icons.lock_outline_rounded,
-                      color: cs.error,
-                      size: 20,
-                    ),
+                    Icon(AppIcons.lock, color: cs.error, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -204,7 +196,7 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
               ] else if (isDone) ...[
                 Row(
                   children: [
-                    Icon(Icons.check_circle, color: cs.primary, size: 20),
+                    Icon(AppIcons.checkCircle, color: cs.primary, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -220,9 +212,7 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Organizing your rabbit hole...',
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 const SizedBox(height: 12),
                 FilledButton(
@@ -319,7 +309,9 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: Text('Save ${state.readyCount} link${state.readyCount == 1 ? '' : 's'}'),
+                  child: Text(
+                    'Save ${state.readyCount} link${state.readyCount == 1 ? '' : 's'}',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton(
@@ -412,15 +404,13 @@ class _BatchItemCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final tt = theme.textTheme;
 
-    final isLoading = item.status == BatchItemStatus.fetching ||
+    final isLoading =
+        item.status == BatchItemStatus.fetching ||
         item.status == BatchItemStatus.pending;
     final isDuplicate = item.isDuplicate;
 
     return Padding(
-      padding: EdgeInsets.only(
-        top: isFirst ? 4 : 6,
-        bottom: isLast ? 4 : 6,
-      ),
+      padding: EdgeInsets.only(top: isFirst ? 4 : 6, bottom: isLast ? 4 : 6),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
@@ -430,10 +420,7 @@ class _BatchItemCard extends StatelessWidget {
               : cs.surfaceContainerLow,
           borderRadius: BorderRadius.circular(16),
           border: isDuplicate
-              ? Border.all(
-                  color: cs.error.withValues(alpha: 0.25),
-                  width: 1,
-                )
+              ? Border.all(color: cs.error.withValues(alpha: 0.25), width: 1)
               : null,
         ),
         child: Padding(
@@ -476,7 +463,9 @@ class _BatchItemCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: tt.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
                             ),
                           ),
@@ -485,10 +474,7 @@ class _BatchItemCard extends StatelessWidget {
                     ],
                     const SizedBox(height: 8),
                     // Status chip
-                    _StatusChip(
-                      status: item.status,
-                      error: item.error,
-                    ),
+                    _StatusChip(status: item.status, error: item.error),
                   ],
                 ),
               ),
@@ -519,7 +505,8 @@ class _Thumbnail extends StatelessWidget {
           height: size,
           fit: BoxFit.cover,
           placeholder: (context, url) => _Placeholder(size: size, cs: cs),
-          errorWidget: (context, url, error) => _Placeholder(size: size, cs: cs),
+          errorWidget: (context, url, error) =>
+              _Placeholder(size: size, cs: cs),
         ),
       );
     }
@@ -601,6 +588,7 @@ class _Placeholder extends StatelessWidget {
     );
   }
 }
+
 class _ShimmerLine extends StatelessWidget {
   final double width;
   final ColorScheme cs;
@@ -633,35 +621,35 @@ class _StatusChip extends StatelessWidget {
 
     final (label, color, textColor, icon) = switch (status) {
       BatchItemStatus.pending => (
-          'Waiting',
-          cs.surfaceContainerHighest.withValues(alpha: 0.5),
-          cs.onSurfaceVariant,
-          null,
-        ),
+        'Waiting',
+        cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        cs.onSurfaceVariant,
+        null,
+      ),
       BatchItemStatus.fetching => (
-          'Fetching preview',
-          cs.primaryContainer.withValues(alpha: 0.45),
-          cs.onPrimaryContainer,
-          null,
-        ),
+        'Fetching preview',
+        cs.primaryContainer.withValues(alpha: 0.45),
+        cs.onPrimaryContainer,
+        null,
+      ),
       BatchItemStatus.ready => (
-          'Ready',
-          cs.primaryContainer.withValues(alpha: 0.35),
-          cs.onPrimaryContainer.withValues(alpha: 0.8),
-          Icons.check_rounded,
-        ),
+        'Ready',
+        cs.primaryContainer.withValues(alpha: 0.35),
+        cs.onPrimaryContainer.withValues(alpha: 0.8),
+        AppIcons.check,
+      ),
       BatchItemStatus.duplicate => (
-          'Already saved',
-          cs.errorContainer.withValues(alpha: 0.6),
-          cs.onErrorContainer,
-          Icons.bookmark_added_rounded,
-        ),
+        'Already saved',
+        cs.errorContainer.withValues(alpha: 0.6),
+        cs.onErrorContainer,
+        AppIcons.bookmarkSaved,
+      ),
       BatchItemStatus.error => (
-          error ?? 'Preview failed',
-          cs.tertiaryContainer.withValues(alpha: 0.5),
-          cs.onTertiaryContainer,
-          null,
-        ),
+        error ?? 'Preview failed',
+        cs.tertiaryContainer.withValues(alpha: 0.5),
+        cs.onTertiaryContainer,
+        null,
+      ),
     };
 
     return Container(
@@ -674,7 +662,7 @@ class _StatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 12, color: textColor),
+            AppIcon(icon, size: 12, color: textColor),
             const SizedBox(width: 4),
           ],
           Text(

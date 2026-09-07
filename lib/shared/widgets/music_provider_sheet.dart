@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/music_provider.dart';
 import '../../l10n/l10n.dart';
 import 'music_provider_icon.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 Future<MusicProvider?> showMusicProviderSheet(
   BuildContext context, {
@@ -80,13 +81,13 @@ class _MusicProviderSheet extends StatelessWidget {
                         ),
                         if (provider == selected)
                           Icon(
-                            Icons.check_circle_rounded,
+                            AppIcons.checkCircle,
                             color: colorScheme.primary,
                             size: 22,
                           )
                         else
                           Icon(
-                            Icons.chevron_right_rounded,
+                            AppIcons.chevronRight,
                             color: colorScheme.onSurfaceVariant.withValues(
                               alpha: 0.55,
                             ),

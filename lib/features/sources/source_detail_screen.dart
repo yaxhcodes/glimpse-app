@@ -14,11 +14,12 @@ import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import 'sources_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 enum _SourceItemFilter {
-  all(Icons.filter_list_rounded),
-  unread(Icons.mark_email_unread_outlined),
-  read(Icons.done_all_rounded);
+  all(AppIcons.filter),
+  unread(AppIcons.unread),
+  read(AppIcons.checks);
 
   const _SourceItemFilter(this.icon);
 
@@ -26,9 +27,9 @@ enum _SourceItemFilter {
 }
 
 enum _SourceSort {
-  newest(Icons.sort_rounded),
-  oldest(Icons.history_rounded),
-  recentlyOpened(Icons.schedule_rounded);
+  newest(AppIcons.sort),
+  oldest(AppIcons.rediscover),
+  recentlyOpened(AppIcons.clock);
 
   const _SourceSort(this.icon);
 
@@ -140,7 +141,7 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
                         ),
                   leading: selectionState.isActive
                       ? IconButton(
-                          icon: const Icon(Icons.arrow_back_rounded),
+                          icon: const Icon(AppIcons.arrowBack),
                           tooltip: context.l10n.exitSelection,
                           onPressed: selectionNotifier.clear,
                         )
@@ -616,7 +617,7 @@ class _SourceControlChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 15, color: cs.onSurfaceVariant),
+              AppIcon(icon, size: 15, color: cs.onSurfaceVariant),
               const SizedBox(width: 7),
               Text(
                 label,
@@ -626,11 +627,7 @@ class _SourceControlChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 16,
-                color: cs.onSurfaceVariant,
-              ),
+              Icon(AppIcons.chevronDown, size: 16, color: cs.onSurfaceVariant),
             ],
           ),
         ),
@@ -682,7 +679,7 @@ class _SourceChoiceSheet<T> extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                leading: Icon(
+                leading: AppIcon(
                   iconFor(option),
                   size: 20,
                   color: cs.onSurfaceVariant,
@@ -697,7 +694,7 @@ class _SourceChoiceSheet<T> extends StatelessWidget {
                   ),
                 ),
                 trailing: option == selected
-                    ? Icon(Icons.check_rounded, size: 20, color: cs.onSurface)
+                    ? Icon(AppIcons.check, size: 20, color: cs.onSurface)
                     : const SizedBox(width: 20),
                 onTap: () => Navigator.of(context).pop(option),
               ),

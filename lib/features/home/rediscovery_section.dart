@@ -106,7 +106,7 @@ class RediscoverySection extends ConsumerWidget {
                       ),
                     ),
                     Icon(
-                      Icons.chevron_right_rounded,
+                      AppIcons.chevronRight,
                       size: 20,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
@@ -268,7 +268,7 @@ class _RediscoverTip extends StatelessWidget {
           IconButton(
             onPressed: onDismiss,
             tooltip: context.l10n.dismissRediscoverTip,
-            icon: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
+            icon: Icon(AppIcons.close, size: 16, color: cs.onSurfaceVariant),
           ),
         ],
       ),

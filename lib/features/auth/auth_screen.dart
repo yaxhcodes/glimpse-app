@@ -12,6 +12,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/dev_auth_service.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key, this.isOnboardingEntry = false});
@@ -501,7 +502,7 @@ class _AuthActions extends StatelessWidget {
               ? 'Continue in local dev'
               : 'Continue with Google',
           leading: isLocalDevAuth
-              ? const Icon(Icons.developer_mode_rounded, size: 22)
+              ? const Icon(AppIcons.code, size: 22)
               : SvgPicture.asset('assets/brands/google.svg', width: 24),
           enabled: canSubmit,
           loading: isLoading && (accountHint == null || isLocalDevAuth),
@@ -511,7 +512,7 @@ class _AuthActions extends StatelessWidget {
           const SizedBox(height: 12),
           _AuthPillButton(
             label: 'Continue with Apple',
-            leading: const Icon(Icons.apple_rounded, size: 22),
+            leading: const Icon(AppIcons.apple, size: 22),
             enabled: canSubmit,
             loading: false,
             onPressed: onContinueApple,

@@ -537,7 +537,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                   if (widget.onSaveAnswerToNotesTap != null &&
                       _saveActionVisible)
                     _AssistantUtilityAction(
-                      icon: Icons.note_add_outlined,
+                      icon: AppIcons.addNote,
                       label: widget.message.sources.length == 1
                           ? 'Save to this save'
                           : 'Save to ${widget.message.sources.length} saves',
@@ -545,7 +545,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                     ),
                   if (widget.message.noteSaved)
                     const _AssistantUtilityAction(
-                      icon: Icons.check_rounded,
+                      icon: AppIcons.check,
                       label: 'Saved',
                     ),
                 ],
@@ -599,7 +599,7 @@ class _AssistantUtilityAction extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return OutlinedButton.icon(
       onPressed: onTap,
-      icon: Icon(icon, size: 16),
+      icon: AppIcon(icon, size: 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
         foregroundColor: colorScheme.primary,
@@ -627,6 +627,7 @@ class _SourceDisclosure extends StatelessWidget {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          trailing: const AppExpansionChevron(),
           tilePadding: const EdgeInsets.symmetric(horizontal: 12),
           childrenPadding: const EdgeInsets.only(bottom: 4),
           minTileHeight: 44,
@@ -638,11 +639,7 @@ class _SourceDisclosure extends StatelessWidget {
             side: BorderSide(color: colorScheme.outlineVariant),
             borderRadius: BorderRadius.circular(14),
           ),
-          leading: Icon(
-            Icons.library_books_outlined,
-            size: 18,
-            color: colorScheme.primary,
-          ),
+          leading: Icon(AppIcons.library, size: 18, color: colorScheme.primary),
           title: Text(count == 1 ? '1 source' : '$count sources'),
           subtitle: const Text('Used for this answer'),
           children: children,
@@ -698,7 +695,7 @@ class _FollowUpChips extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Icon(
-                      Icons.north_west_rounded,
+                      AppIcons.arrowUpLeft,
                       size: 16,
                       color: colorScheme.onSecondaryContainer.withValues(
                         alpha: 0.7,
@@ -765,11 +762,7 @@ class _ProactiveTipNudge extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.lightbulb_outline_rounded,
-                size: 18,
-                color: colorScheme.primary,
-              ),
+              Icon(AppIcons.idea, size: 18, color: colorScheme.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -857,7 +850,7 @@ class _AnswerSectionCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 8, top: 2),
                   child: Icon(
-                    Icons.grid_view_rounded,
+                    AppIcons.grid,
                     size: 14,
                     color: cs.onSurfaceVariant,
                   ),
@@ -963,7 +956,7 @@ class _SourceCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 8, top: 2),
                   child: Icon(
-                    Icons.grid_view_rounded,
+                    AppIcons.grid,
                     size: 14,
                     color: cs.onSurfaceVariant,
                   ),
@@ -1035,7 +1028,7 @@ class _SourceCardFooter extends StatelessWidget {
           TextButton.icon(
             onPressed: onOpen,
             iconAlignment: IconAlignment.end,
-            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            icon: const Icon(AppIcons.externalLink, size: 16),
             label: const Text('Open'),
           ),
         ],
@@ -1297,10 +1290,7 @@ class _ComposerBar extends StatelessWidget {
                                         color: colorScheme.onPrimary,
                                       ),
                                     )
-                                  : const Icon(
-                                      Icons.arrow_upward_rounded,
-                                      size: 20,
-                                    ),
+                                  : const Icon(AppIcons.arrowUp, size: 20),
                             );
                           },
                         ),
@@ -1347,7 +1337,7 @@ class _AttachedSourceBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.link_rounded, size: 18, color: cs.primary),
+          Icon(AppIcons.link, size: 18, color: cs.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1406,19 +1396,13 @@ class _ChatActionChip extends StatelessWidget {
 
     final (icon, label) = switch (action) {
       ChatAction.saveToCollection => (
-        Icons.bookmark_add_outlined,
+        AppIcons.bookmarkAdd,
         'Save these to a collection',
       ),
-      ChatAction.synthesize => (
-        Icons.auto_awesome_outlined,
-        'Synthesize these',
-      ),
-      ChatAction.buildPlan => (
-        Icons.calendar_today_outlined,
-        'Build a plan from these',
-      ),
+      ChatAction.synthesize => (AppIcons.sparkle, 'Synthesize these'),
+      ChatAction.buildPlan => (AppIcons.calendar, 'Build a plan from these'),
       ChatAction.saveItinerary => (
-        Icons.route_rounded,
+        AppIcons.route,
         'Save as editable itinerary',
       ),
       ChatAction.none => (null, ''),
@@ -1428,7 +1412,7 @@ class _ChatActionChip extends StatelessWidget {
 
     return OutlinedButton.icon(
       onPressed: onTap,
-      icon: Icon(icon, size: 16),
+      icon: AppIcon(icon, size: 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
         foregroundColor: cs.primary,
@@ -1469,7 +1453,7 @@ class _CollectionTile extends StatelessWidget {
         alignment: Alignment.center,
         child: CollectionVisual(
           style: visualStyle,
-          seed: name,
+
           selected: isCreate,
           size: 40,
           iconSize: isCreate ? 19 : 18,
@@ -1491,7 +1475,7 @@ class _CollectionTile extends StatelessWidget {
         ),
       ),
       trailing: Icon(
-        isCreate ? Icons.add_rounded : Icons.chevron_right_rounded,
+        isCreate ? AppIcons.add : AppIcons.chevronRight,
         size: 18,
         color: isCreate ? cs.primary : cs.onSurface.withValues(alpha: 0.3),
       ),

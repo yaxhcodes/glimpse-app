@@ -43,6 +43,10 @@ glimpse-enrichment-backend/
 /coverage/
 /test/failures/
 
+# Local design reviews and isolated tool state.
+/output/
+/.codex-temp-appdata/
+
 # Symbolication related
 app.*.symbols
 

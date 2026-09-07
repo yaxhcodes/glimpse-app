@@ -519,7 +519,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
-                                            Icons.auto_awesome,
+                                            AppIcons.sparkle,
                                             size: 16,
                                             color: colorScheme.primary,
                                           ),
@@ -550,7 +550,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(
-                                              Icons.search_off_rounded,
+                                              AppIcons.searchEmpty,
                                               size: 52,
                                               color:
                                                   colorScheme.onSurfaceVariant,
@@ -629,10 +629,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
+                                AppIcon(
                                   isLimit
-                                      ? Icons.lock_clock_outlined
-                                      : Icons.cloud_off_outlined,
+                                      ? AppIcons.lockedClock
+                                      : AppIcons.cloudOff,
                                   size: 48,
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -672,9 +672,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                         }
                                       }
                                     },
-                                    icon: const Icon(
-                                      Icons.workspace_premium_outlined,
-                                    ),
+                                    icon: const Icon(AppIcons.premium),
                                     label: Text(context.l10n.upgradeToPro),
                                   )
                                 else
@@ -687,7 +685,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                             .search(t);
                                       }
                                     },
-                                    icon: const Icon(Icons.refresh),
+                                    icon: const Icon(AppIcons.refresh),
                                     label: Text(context.l10n.tryAgain),
                                   ),
                               ],
@@ -731,7 +729,7 @@ class _FilterIconButton extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 Icon(
-                  Icons.tune_rounded,
+                  AppIcons.adjust,
                   size: 22,
                   color: active
                       ? colorScheme.onSecondaryContainer
@@ -869,6 +867,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                       widget.collections.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     DropdownButtonFormField<int>(
+                      icon: const Icon(AppIcons.chevronDown),
                       initialValue:
                           _draft.collectionId ??
                           widget.collections.first.collection.id,

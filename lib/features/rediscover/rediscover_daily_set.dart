@@ -19,6 +19,7 @@ import 'rediscover_open_context.dart';
 import 'rediscover_provider.dart';
 import 'rediscover_topic_pulse.dart';
 import 'rediscover_topic_pulse_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class RediscoverDailySet {
   const RediscoverDailySet({
@@ -390,7 +391,7 @@ List<RediscoverMemory> buildRediscoverDailyMemories({
       title: pulse.topicLabel,
       subtitle:
           'You’ve started saving about ${pulse.topicLabel.toLowerCase()} again',
-      icon: Icons.history_toggle_off_rounded,
+      icon: AppIcons.history,
       items: archive
           .map(
             (url) => RediscoveryItem(
@@ -707,9 +708,9 @@ RediscoverJourney _singleJourney(
     title: topic,
     subtitle: reason,
     icon: switch (kind) {
-      RediscoverJourneyKind.onThisDay => Icons.history_rounded,
-      RediscoverJourneyKind.forgottenGems => Icons.diamond_outlined,
-      _ => Icons.play_circle_outline_rounded,
+      RediscoverJourneyKind.onThisDay => AppIcons.rediscover,
+      RediscoverJourneyKind.forgottenGems => AppIcons.gem,
+      _ => AppIcons.play,
     },
     items: [
       RediscoveryItem(
@@ -920,11 +921,11 @@ String _timeAgo(DateTime date, DateTime now) {
 }
 
 IconData _iconFor(RediscoverJourneyKind kind) => switch (kind) {
-  RediscoverJourneyKind.returningTopic => Icons.history_toggle_off_rounded,
-  RediscoverJourneyKind.onThisDay => Icons.history_rounded,
-  RediscoverJourneyKind.forgottenGems => Icons.diamond_outlined,
-  RediscoverJourneyKind.continueLearning => Icons.playlist_play_rounded,
-  _ => Icons.auto_awesome_mosaic_outlined,
+  RediscoverJourneyKind.returningTopic => AppIcons.history,
+  RediscoverJourneyKind.onThisDay => AppIcons.rediscover,
+  RediscoverJourneyKind.forgottenGems => AppIcons.gem,
+  RediscoverJourneyKind.continueLearning => AppIcons.listPlay,
+  _ => AppIcons.discover,
 };
 
 String rediscoverDateKey(DateTime date) {

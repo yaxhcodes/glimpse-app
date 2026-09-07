@@ -8,24 +8,27 @@ class NotificationTypeStyle {
     required this.accent,
     required this.icon,
     required this.labelColorWeight,
+    this.isDigestHighlight = false,
   });
 
   final Color accent;
   final IconData icon;
   final double labelColorWeight;
+  final bool isDigestHighlight;
 
   static NotificationTypeStyle forHistoryType(String? type, ColorScheme cs) {
     switch (type) {
       case 'digest':
         return NotificationTypeStyle(
           accent: cs.tertiaryContainer,
-          icon: Icons.auto_stories_rounded,
+          icon: AppIcons.bookOpen,
           labelColorWeight: 1,
+          isDigestHighlight: true,
         );
       case 'geo':
         return NotificationTypeStyle(
           accent: cs.primaryContainer,
-          icon: Icons.flight_rounded,
+          icon: AppIcons.flight,
           labelColorWeight: 0.85,
         );
       case 'new_interest':
@@ -37,19 +40,19 @@ class NotificationTypeStyle {
       case 'collector':
         return NotificationTypeStyle(
           accent: cs.surfaceContainerHigh,
-          icon: Icons.menu_book_rounded,
+          icon: AppIcons.bookOpen,
           labelColorWeight: 0.75,
         );
       case 'resurface':
         return NotificationTypeStyle(
           accent: cs.surfaceContainerHighest,
-          icon: Icons.history_rounded,
+          icon: AppIcons.rediscover,
           labelColorWeight: 0.7,
         );
       case 'revisit':
         return NotificationTypeStyle(
           accent: cs.primaryContainer,
-          icon: Icons.bookmark_added_rounded,
+          icon: AppIcons.bookmarkSaved,
           labelColorWeight: 1,
         );
       case 'streak':
@@ -58,17 +61,15 @@ class NotificationTypeStyle {
             cs.errorContainer.withValues(alpha: 0.35),
             cs.surfaceContainerLow,
           ),
-          icon: Icons.local_fire_department_rounded,
+          icon: AppIcons.fire,
           labelColorWeight: 0.95,
         );
       default:
         return NotificationTypeStyle(
           accent: cs.surfaceContainerLow,
-          icon: Icons.notifications_rounded,
+          icon: AppIcons.notifications,
           labelColorWeight: 0.65,
         );
     }
   }
-
-  bool get isDigestHighlight => icon == Icons.auto_stories_rounded;
 }

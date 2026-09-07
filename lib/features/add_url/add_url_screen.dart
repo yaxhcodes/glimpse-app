@@ -19,6 +19,7 @@ import '../../shared/widgets/upgrade_gate.dart';
 import '../collections/share_capture_sheet.dart';
 import 'add_url_provider.dart';
 import '../../l10n/l10n.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class ManualAddArguments {
   const ManualAddArguments({this.initialCollection});
@@ -226,7 +227,7 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
                     color: colorScheme.primary,
                   ),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.content_paste_go_rounded),
+                    icon: const Icon(AppIcons.paste),
                     tooltip: context.l10n.pasteFromClipboard,
                     onPressed: isEnabled ? _pasteFromClipboard : null,
                   ),
@@ -388,7 +389,7 @@ class _CollectionSelector extends StatelessWidget {
               floatingLabelBehavior: FloatingLabelBehavior.always,
               enabled: enabled,
               suffixIcon: Icon(
-                Icons.keyboard_arrow_down_rounded,
+                AppIcons.chevronDown,
                 color: enabled
                     ? colorScheme.onSurfaceVariant
                     : colorScheme.onSurface.withValues(alpha: 0.38),

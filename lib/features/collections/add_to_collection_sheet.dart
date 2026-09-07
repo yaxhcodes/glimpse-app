@@ -12,6 +12,7 @@ import '../home/home_provider.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class AddToCollectionSheet extends ConsumerStatefulWidget {
   const AddToCollectionSheet({super.key, required this.url, this.onAdded});
@@ -131,7 +132,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                       const SizedBox(height: 12),
                       FilledButton.tonalIcon(
                         onPressed: _createCollection,
-                        icon: const Icon(Icons.add_rounded),
+                        icon: const Icon(AppIcons.add),
                         label: const Text('New collection'),
                       ),
                     ],
@@ -143,7 +144,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                   children: [
                     FilledButton.tonalIcon(
                       onPressed: _createCollection,
-                      icon: const Icon(Icons.add_rounded),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('New collection'),
                     ),
                     const SizedBox(height: 12),
@@ -160,7 +161,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                             minLeadingWidth: 44,
                             leading: CollectionVisual(
                               style: resolveCollectionVisual(c),
-                              seed: c.name,
+
                               size: 40,
                               iconSize: 18,
                             ),
@@ -249,7 +250,7 @@ class AddManyToCollectionSheet extends ConsumerWidget {
                       urls,
                       onCompleted: onCompleted,
                     ),
-                    icon: const Icon(Icons.add_rounded),
+                    icon: const Icon(AppIcons.add),
                     label: const Text('New collection'),
                   );
                 }
@@ -264,7 +265,7 @@ class AddManyToCollectionSheet extends ConsumerWidget {
                         urls,
                         onCompleted: onCompleted,
                       ),
-                      icon: const Icon(Icons.add_rounded),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('New collection'),
                     ),
                     const SizedBox(height: 12),
@@ -280,7 +281,7 @@ class AddManyToCollectionSheet extends ConsumerWidget {
                             minLeadingWidth: 44,
                             leading: CollectionVisual(
                               style: resolveCollectionVisual(c),
-                              seed: c.name,
+
                               size: 40,
                               iconSize: 18,
                             ),

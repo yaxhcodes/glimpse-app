@@ -12,6 +12,7 @@ import '../../shared/widgets/notifications/curated_notification_media.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/url_card.dart';
 import '../home/home_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 /// Shows links for a single notification by exact Isar IDs (no category filter).
 class NotificationDetailScreen extends ConsumerStatefulWidget {
@@ -231,7 +232,7 @@ class _NotificationDetailScreenState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.link_off_outlined,
+                      AppIcons.linkOff,
                       size: 56,
                       color: cs.onSurfaceVariant,
                     ),

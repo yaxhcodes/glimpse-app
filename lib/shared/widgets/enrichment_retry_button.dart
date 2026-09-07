@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
 import 'expressive_loading_indicator.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class EnrichmentRetryButton extends StatelessWidget {
   const EnrichmentRetryButton({
@@ -9,7 +10,7 @@ class EnrichmentRetryButton extends StatelessWidget {
     required this.retrying,
     required this.onPressed,
     this.color,
-    this.icon = Icons.auto_awesome_rounded,
+    this.icon = AppIcons.sparkle,
     this.label,
     this.retryingLabel,
     this.tonal = false,
@@ -38,7 +39,7 @@ class EnrichmentRetryButton extends StatelessWidget {
             child: ExpressiveLoadingIndicator(size: 14, color: foreground),
           )
         else if (icon != null)
-          Icon(icon, size: 16),
+          AppIcon(icon, size: 16),
         if (retrying || icon != null) const SizedBox(width: 6),
         Text(
           retrying

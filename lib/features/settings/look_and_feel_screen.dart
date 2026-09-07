@@ -400,7 +400,7 @@ class _AccentSwatch extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          Icons.check_rounded,
+                          AppIcons.check,
                           size: 18,
                           color: cs.primary,
                         ),

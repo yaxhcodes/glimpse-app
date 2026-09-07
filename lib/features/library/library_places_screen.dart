@@ -18,6 +18,7 @@ import 'library_provider.dart';
 import 'library_widgets.dart';
 import 'place_itinerary_editor_screen.dart';
 import 'place_itinerary_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryPlacesScreen extends ConsumerStatefulWidget {
   const LibraryPlacesScreen({super.key});
@@ -75,7 +76,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
               onPressed: () => _createPlanForFocusedArea(
                 snapshot.value!.ofKind(LibraryEntityKind.place),
               ),
-              icon: const Icon(Icons.route_rounded),
+              icon: const Icon(AppIcons.route),
             ),
           const SizedBox(width: 4),
         ],
@@ -418,7 +419,7 @@ class _PlacesSheet extends StatelessWidget {
                           ),
                           focusedEntityKey: focused?.key,
                         ),
-                        icon: const Icon(Icons.route_rounded),
+                        icon: const Icon(AppIcons.route),
                       ),
                   ],
                 ),
@@ -443,13 +444,13 @@ class _PlacesSheet extends StatelessWidget {
                   child: SearchBar(
                     controller: searchController,
                     hintText: context.l10n.searchSavedPlaces,
-                    leading: const Icon(Icons.search_rounded),
+                    leading: const AppIcon(AppIcons.search),
                     trailing: [
                       if (query.isNotEmpty)
                         IconButton(
                           tooltip: context.l10n.clearSearch,
                           onPressed: onClearQuery,
-                          icon: const Icon(Icons.close_rounded),
+                          icon: const Icon(AppIcons.close),
                         ),
                     ],
                     onChanged: onQueryChanged,
@@ -470,10 +471,7 @@ class _PlacesSheet extends StatelessWidget {
                       trailing: selectedAreaKey == allPlacesAreaKey
                           ? TextButton.icon(
                               onPressed: () => onCreatePlan(group),
-                              icon: const Icon(
-                                Icons.add_road_rounded,
-                                size: 18,
-                              ),
+                              icon: const Icon(AppIcons.route, size: 18),
                               label: Text(context.l10n.plan),
                             )
                           : null,
@@ -587,7 +585,7 @@ class _FocusedPlace extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.only(right: 10),
-                child: Icon(Icons.chevron_right_rounded),
+                child: Icon(AppIcons.chevronRight),
               ),
             ],
           ),
@@ -625,7 +623,7 @@ class _AreaSelector extends StatelessWidget {
           const SizedBox(width: 8),
           for (final area in areas) ...[
             ChoiceChip(
-              avatar: const Icon(Icons.location_on_outlined, size: 17),
+              avatar: const AppIcon(AppIcons.place, size: 17),
               label: Text('${area.title}  ${area.entities.length}'),
               selected: selectedKey == area.key,
               side: BorderSide.none,
@@ -709,7 +707,7 @@ class _PlaceListRow extends StatelessWidget {
                 IconButton(
                   tooltip: context.l10n.openNamedItem(entity.title),
                   onPressed: onOpen,
-                  icon: const Icon(Icons.arrow_forward_rounded),
+                  icon: const Icon(AppIcons.arrowForward),
                 ),
               ],
             ),
@@ -730,19 +728,19 @@ class _PlaceStatusLabel extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final (icon, label) = switch (entity.status) {
       LibraryItemStatus.planning => (
-        Icons.bookmark_added_rounded,
+        AppIcons.bookmarkSaved,
         context.l10n.wantToVisit,
       ),
       LibraryItemStatus.completed => (
-        Icons.check_circle_rounded,
+        AppIcons.checkCircle,
         context.l10n.libraryVisited,
       ),
-      _ => (Icons.bookmark_border_rounded, context.l10n.savedPlace),
+      _ => (AppIcons.bookmark, context.l10n.savedPlace),
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 15, color: cs.onSurfaceVariant),
+        AppIcon(icon, size: 15, color: cs.onSurfaceVariant),
         const SizedBox(width: 4),
         Text(
           label,
@@ -778,14 +776,14 @@ class _ItineraryRow extends StatelessWidget {
           child: firstImage == null
               ? ColoredBox(
                   color: cs.surfaceContainerHigh,
-                  child: const Icon(Icons.route_rounded),
+                  child: const Icon(AppIcons.route),
                 )
               : CachedNetworkImage(
                   imageUrl: firstImage,
                   fit: BoxFit.cover,
                   errorWidget: (_, _, _) => ColoredBox(
                     color: cs.surfaceContainerHigh,
-                    child: const Icon(Icons.route_rounded),
+                    child: const Icon(AppIcons.route),
                   ),
                 ),
         ),
@@ -799,7 +797,7 @@ class _ItineraryRow extends StatelessWidget {
       subtitle: Text(
         '${context.l10n.libraryStopCount(plan.stops.length)}${plan.date == null ? '' : ' · ${MaterialLocalizations.of(context).formatMediumDate(plan.date!)}'}',
       ),
-      trailing: const Icon(Icons.chevron_right_rounded),
+      trailing: const Icon(AppIcons.chevronRight),
       onTap: onTap,
     );
   }
@@ -916,7 +914,7 @@ class _PlacesEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.travel_explore_rounded,
+              AppIcons.explorePlaces,
               size: 52,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),

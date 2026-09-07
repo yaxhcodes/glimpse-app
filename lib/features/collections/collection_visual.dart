@@ -1,149 +1,38 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/user_collection.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 enum CollectionVisualStyle {
-  travel(
-    'travel',
-    'Travel',
-    Icons.flight_takeoff_rounded,
-  ),
-  places(
-    'places',
-    'Places',
-    Icons.travel_explore_outlined,
-  ),
-  outdoors(
-    'outdoors',
-    'Outdoors',
-    Icons.terrain_outlined,
-  ),
-  systems(
-    'systems',
-    'Systems',
-    Icons.hub_outlined,
-  ),
-  research(
-    'research',
-    'Research',
-    Icons.menu_book_rounded,
-  ),
-  development(
-    'development',
-    'Code',
-    Icons.code_rounded,
-  ),
-  design(
-    'design',
-    'Design',
-    Icons.palette_outlined,
-  ),
-  knowledge(
-    'knowledge',
-    'Ideas',
-    Icons.psychology_alt_outlined,
-  ),
-  launch(
-    'launch',
-    'Launch',
-    Icons.rocket_launch_outlined,
-  ),
-  finance(
-    'finance',
-    'Finance',
-    Icons.account_balance_wallet_outlined,
-  ),
-  health(
-    'health',
-    'Health',
-    Icons.favorite_border_rounded,
-  ),
-  food(
-    'food',
-    'Food',
-    Icons.restaurant_rounded,
-  ),
-  music(
-    'music',
-    'Music',
-    Icons.headphones_rounded,
-  ),
-  media(
-    'media',
-    'Media',
-    Icons.movie_creation_outlined,
-  ),
-  shopping(
-    'shopping',
-    'Shopping',
-    Icons.shopping_bag_outlined,
-  ),
-  work(
-    'work',
-    'Work',
-    Icons.work_outline_rounded,
-  ),
-  learning(
-    'learning',
-    'Learning',
-    Icons.school_outlined,
-  ),
-  science(
-    'science',
-    'Science',
-    Icons.science_outlined,
-  ),
-  news(
-    'news',
-    'Articles',
-    Icons.article_outlined,
-  ),
-  people(
-    'people',
-    'People',
-    Icons.groups_outlined,
-  ),
-  sports(
-    'sports',
-    'Sports',
-    Icons.sports_soccer_outlined,
-  ),
-  gaming(
-    'gaming',
-    'Gaming',
-    Icons.sports_esports_outlined,
-  ),
-  security(
-    'security',
-    'Security',
-    Icons.shield_outlined,
-  ),
-  legal(
-    'legal',
-    'Legal',
-    Icons.gavel_outlined,
-  ),
-  productivity(
-    'productivity',
-    'Productivity',
-    Icons.checklist_rounded,
-  ),
-  home(
-    'home',
-    'Home',
-    Icons.home_work_outlined,
-  ),
-  fallback(
-    'space',
-    'General',
-    Icons.topic_outlined,
-  );
+  travel('travel', 'Travel', AppIcons.takeoff),
+  places('places', 'Places', AppIcons.explorePlaces),
+  outdoors('outdoors', 'Outdoors', AppIcons.mountains),
+  systems('systems', 'Systems', AppIcons.hierarchy),
+  research('research', 'Research', AppIcons.bookOpen),
+  development('development', 'Code', AppIcons.code),
+  design('design', 'Design', AppIcons.appearance),
+  knowledge('knowledge', 'Ideas', AppIcons.brain),
+  launch('launch', 'Launch', AppIcons.rocket),
+  finance('finance', 'Finance', AppIcons.wallet),
+  health('health', 'Health', AppIcons.heart),
+  food('food', 'Food', AppIcons.food),
+  music('music', 'Music', AppIcons.musicProvider),
+  media('media', 'Media', AppIcons.movie),
+  shopping('shopping', 'Shopping', AppIcons.shoppingBag),
+  work('work', 'Work', AppIcons.work),
+  learning('learning', 'Learning', AppIcons.education),
+  science('science', 'Science', AppIcons.science),
+  news('news', 'Articles', AppIcons.article),
+  people('people', 'People', AppIcons.people),
+  sports('sports', 'Sports', AppIcons.football),
+  gaming('gaming', 'Gaming', AppIcons.game),
+  security('security', 'Security', AppIcons.shield),
+  legal('legal', 'Legal', AppIcons.legal),
+  productivity('productivity', 'Productivity', AppIcons.checklist),
+  home('home', 'Home', AppIcons.buildings),
+  fallback('space', 'General', AppIcons.topic);
 
-  const CollectionVisualStyle(
-    this.key,
-    this.label,
-    this.icon,
-  );
+  const CollectionVisualStyle(this.key, this.label, this.icon);
 
   final String key;
   final String label;
@@ -374,12 +263,7 @@ const _visualKeywords = <CollectionVisualStyle, List<String>>{
     'notes',
     'mind',
   ],
-  CollectionVisualStyle.launch: [
-    'launch',
-    'startup',
-    'growth',
-    'product',
-  ],
+  CollectionVisualStyle.launch: ['launch', 'startup', 'growth', 'product'],
   CollectionVisualStyle.finance: [
     'money',
     'finance',
@@ -691,7 +575,6 @@ class CollectionVisual extends StatelessWidget {
     this.iconSize = 22,
     this.selected = false,
     this.semanticLabel,
-    this.seed,
   });
 
   final CollectionVisualStyle style;
@@ -699,7 +582,6 @@ class CollectionVisual extends StatelessWidget {
   final double iconSize;
   final bool selected;
   final String? semanticLabel;
-  final String? seed;
 
   @override
   Widget build(BuildContext context) {
@@ -727,8 +609,9 @@ class CollectionVisual extends StatelessWidget {
                 ]
               : null,
         ),
-        child: Icon(
+        child: AppIcon(
           style.icon,
+          filled: true,
           size: iconSize,
           color: cs.onSecondaryContainer,
         ),

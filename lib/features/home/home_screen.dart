@@ -423,7 +423,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.wifi_tethering_error_rounded,
+                  AppIcons.offline,
                   size: 52,
                   color: theme.colorScheme.error,
                 ),
@@ -446,7 +446,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(height: 24),
                 FilledButton.tonalIcon(
                   onPressed: () => ref.invalidate(urlStreamProvider),
-                  icon: const Icon(Icons.refresh),
+                  icon: const Icon(AppIcons.refresh),
                   label: const Text('Try again'),
                 ),
               ],
@@ -756,7 +756,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     foregroundColor: theme.colorScheme.onSurfaceVariant,
                     leading: selectionState.isActive
                         ? IconButton(
-                            icon: const Icon(Icons.arrow_back_rounded),
+                            icon: const Icon(AppIcons.arrowBack),
                             tooltip: context.l10n.exitSelection,
                             onPressed: selectionNotifier.clear,
                           )
@@ -869,7 +869,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   alignment: Alignment.centerRight,
                                   padding: EdgeInsets.zero,
                                   icon: Icon(
-                                    Icons.chevron_right_rounded,
+                                    AppIcons.chevronRight,
                                     size: 20,
                                     color: theme.colorScheme.onSurfaceVariant
                                         .withValues(alpha: 0.48),
@@ -1041,7 +1041,7 @@ class _SourceChipAvatar extends StatelessWidget {
             size: size,
             color: color,
           )
-        : Icon(iconSpec.icon, size: size, color: color);
+        : AppIcon(iconSpec.icon, size: size, color: color);
 
     if (faviconUrl == null) return fallback;
 
@@ -1184,7 +1184,7 @@ class _CaptureButton extends StatelessWidget {
           width: 48,
           height: 48,
           child: Icon(
-            Icons.arrow_forward_rounded,
+            AppIcons.arrowForward,
             size: 20,
             color: enabled
                 ? cs.onPrimary
@@ -1254,7 +1254,7 @@ class _ClipboardSuggestion extends StatelessWidget {
               ),
               IconButton(
                 icon: Icon(
-                  Icons.close,
+                  AppIcons.close,
                   size: 16,
                   color: colorScheme.onSecondaryContainer.withValues(
                     alpha: 0.7,
@@ -1393,12 +1393,12 @@ class _InlineSaveInput extends StatelessWidget {
                     height: 22,
                     fit: BoxFit.contain,
                     placeholder: (_, _) => Icon(
-                      Icons.public,
+                      AppIcons.globe,
                       size: 18,
                       color: colorScheme.onSurfaceVariant,
                     ),
                     errorWidget: (_, _, _) => Icon(
-                      Icons.public,
+                      AppIcons.globe,
                       size: 18,
                       color: colorScheme.onSurfaceVariant,
                     ),

@@ -5,12 +5,26 @@ import 'package:glimpse/features/url_detail/notable_item_card.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
-  testWidgets('document references use the shared reading icon', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: NotableItemCard(
-      item: const EnrichedNotableItem(text: 'A named historical document', type: 'reference'),
-      accent: Colors.purple,
-    ))));
-    expect(find.byIcon(AppIcons.termMentioned), findsOneWidget);
+  testWidgets('document references use the shared reading icon', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NotableItemCard(
+            item: const EnrichedNotableItem(
+              text: 'A named historical document',
+              type: 'reference',
+            ),
+            accent: Colors.purple,
+          ),
+        ),
+      ),
+    );
+    expect(
+      find.byIcon(AppIcons.filledVariant(AppIcons.termMentioned)),
+      findsOneWidget,
+    );
   });
 
   Widget buildCard(EnrichedNotableItem item, {VoidCallback? onTap}) {
@@ -61,8 +75,8 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.bookmark_border_rounded), findsNothing);
+    expect(find.byIcon(AppIcons.filledVariant(AppIcons.music)), findsOneWidget);
+    expect(find.byIcon(AppIcons.bookmark), findsNothing);
   });
 
   testWidgets('makes an actionable song card visibly tappable', (tester) async {
@@ -102,7 +116,7 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.language_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.filledVariant(AppIcons.globe)), findsOneWidget);
     expect(find.byIcon(AppIcons.externalLink), findsOneWidget);
     expect(find.text('GI Registry Search'), findsOneWidget);
     expect(find.text('search.ipindia.gov.in'), findsOneWidget);

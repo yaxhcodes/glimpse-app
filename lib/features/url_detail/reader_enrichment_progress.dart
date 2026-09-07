@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 /// A quiet, responsive waiting state that keeps the saved source accessible.
 class ReaderEnrichmentProgress extends StatelessWidget {
@@ -22,11 +23,7 @@ class ReaderEnrichmentProgress extends StatelessWidget {
           children: [
             ExcludeSemantics(
               child: MediaQuery.disableAnimationsOf(context)
-                  ? Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 24,
-                      color: colors.primary,
-                    )
+                  ? Icon(AppIcons.sparkle, size: 24, color: colors.primary)
                   : ExpressiveLoadingIndicator(size: 24, color: colors.primary),
             ),
             const SizedBox(width: 12),

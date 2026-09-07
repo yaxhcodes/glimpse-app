@@ -22,6 +22,7 @@ import 'link_card_thumbnail.dart';
 import 'selection_badge.dart';
 import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 /// Card widget for displaying a saved URL entry.
 class UrlCard extends ConsumerStatefulWidget {
@@ -247,7 +248,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                               Padding(
                                 padding: const EdgeInsets.only(top: 1),
                                 child: Icon(
-                                  Icons.push_pin_rounded,
+                                  AppIcons.pinFilled,
                                   size: 13,
                                   color: cs.primary.withValues(alpha: 0.68),
                                 ),
@@ -302,10 +303,10 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              Icon(
+                              AppIcon(
                                 widget.savedUrl.notePreviewIsAsk
-                                    ? Icons.auto_awesome_rounded
-                                    : Icons.sticky_note_2_outlined,
+                                    ? AppIcons.sparkle
+                                    : AppIcons.note,
                                 size: 13,
                                 color: cs.onSurfaceVariant.withValues(
                                   alpha: 0.72,
@@ -464,7 +465,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.copy_outlined),
+              leading: const Icon(AppIcons.copy),
               title: Text(context.l10n.copyLink),
               onTap: () {
                 Navigator.pop(ctx);
@@ -481,7 +482,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.share_outlined),
+              leading: const Icon(AppIcons.share),
               title: Text(context.l10n.share),
               onTap: () {
                 Navigator.pop(ctx);
@@ -489,7 +490,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.open_in_new_rounded),
+              leading: const Icon(AppIcons.externalLink),
               title: Text(context.l10n.openOriginal),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -541,7 +542,7 @@ class _ProcessingStatusPanel extends StatelessWidget {
         child: Row(
           children: [
             if (failed) ...[
-              Icon(Icons.error_outline_rounded, size: 15, color: accent),
+              Icon(AppIcons.error, size: 15, color: accent),
               const SizedBox(width: 8),
             ],
             Expanded(

@@ -19,6 +19,7 @@ import 'rediscover_journey_provider.dart';
 import 'rediscover_memory.dart';
 import 'rediscover_open_context.dart';
 import 'rediscover_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class RediscoverJourneyDetailScreen extends ConsumerWidget {
   const RediscoverJourneyDetailScreen({
@@ -346,7 +347,7 @@ class _MemoryActions extends StatelessWidget {
           Expanded(
             child: OutlinedButton.icon(
               onPressed: onSnooze,
-              icon: const Icon(Icons.schedule_rounded, size: 18),
+              icon: const Icon(AppIcons.clock, size: 18),
               label: const Text('Not now'),
             ),
           ),
@@ -354,7 +355,7 @@ class _MemoryActions extends StatelessWidget {
           Expanded(
             child: OutlinedButton.icon(
               onPressed: onLessLikeThis,
-              icon: const Icon(Icons.thumb_down_alt_outlined, size: 18),
+              icon: const Icon(AppIcons.dislike, size: 18),
               label: const Text('Less like this'),
             ),
           ),
@@ -461,7 +462,7 @@ class _MemorySaveTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+              Icon(AppIcons.chevronRight, color: cs.onSurfaceVariant),
             ],
           ),
         ),
@@ -472,7 +473,7 @@ class _MemorySaveTile extends StatelessWidget {
   Widget _fallback(ColorScheme cs) {
     return ColoredBox(
       color: cs.surfaceContainerHighest,
-      child: Icon(Icons.bookmark_outline_rounded, color: cs.onSurfaceVariant),
+      child: AppIcon(AppIcons.bookmark, color: cs.onSurfaceVariant),
     );
   }
 }

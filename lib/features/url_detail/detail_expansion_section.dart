@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_expansion_chevron.dart';
 
 List<String> splitTranscriptParagraphs(String raw) {
   final normalized = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
@@ -79,6 +80,7 @@ class DetailExpansionSection extends StatelessWidget {
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          trailing: const AppExpansionChevron(),
           key: PageStorageKey<String>('url-detail-$title'),
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

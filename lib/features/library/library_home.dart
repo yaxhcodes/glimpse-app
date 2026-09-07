@@ -13,6 +13,7 @@ import 'library_entity.dart';
 import 'library_localization.dart';
 import 'library_provider.dart';
 import 'library_widgets.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
@@ -255,7 +256,7 @@ class _MusicDestinationCard extends StatelessWidget {
             color: cs.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(Icons.music_note_rounded, color: cs.primary, size: 28),
+          child: Icon(AppIcons.music, color: cs.primary, size: 28),
         ),
       ),
     );
@@ -362,7 +363,7 @@ class _DestinationLabel extends StatelessWidget {
       ),
     );
     final chevron = Icon(
-      Icons.chevron_right_rounded,
+      AppIcons.chevronRight,
       size: 20,
       color: enabled
           ? cs.onSurfaceVariant
@@ -411,9 +412,7 @@ class _EditorialArtworkPreview extends StatelessWidget {
     if (entities.isEmpty) {
       return Center(
         child: Icon(
-          kind == LibraryEntityKind.book
-              ? Icons.menu_book_rounded
-              : Icons.movie_rounded,
+          kind == LibraryEntityKind.book ? AppIcons.bookOpen : AppIcons.movie,
           size: 36,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
@@ -488,7 +487,7 @@ class _PlacesPreview extends StatelessWidget {
             line: cs.outlineVariant.withValues(alpha: 0.5),
           ),
           child: Center(
-            child: Icon(Icons.place_rounded, color: cs.primary, size: 28),
+            child: AppIcon(AppIcons.place, color: cs.primary, size: 28),
           ),
         ),
       ),
@@ -561,10 +560,8 @@ class _BackfillStatus extends StatelessWidget {
               child: ExpressiveLoadingIndicator(size: 16),
             )
           else
-            Icon(
-              serviceUnavailable
-                  ? Icons.info_outline_rounded
-                  : Icons.cloud_off_rounded,
+            AppIcon(
+              serviceUnavailable ? AppIcons.about : AppIcons.cloudOff,
               size: 20,
               color: cs.onSurfaceVariant,
             ),
@@ -611,7 +608,7 @@ class _LibraryEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_awesome_rounded, size: 64, color: cs.primary),
+            Icon(AppIcons.sparkle, size: 64, color: cs.primary),
             const SizedBox(height: 20),
             Text(
               context.l10n.libraryBuildsAsYouSave,

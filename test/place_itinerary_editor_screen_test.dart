@@ -6,6 +6,7 @@ import 'package:glimpse/features/library/library_entity.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 import 'package:glimpse/features/library/place_itinerary_editor_screen.dart';
 import 'package:glimpse/features/library/place_itinerary_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
   testWidgets('starts an area plan with focused and want-to-visit places', (
@@ -46,8 +47,13 @@ void main() {
     expect(find.text('Plan with Ask Glimpse'), findsOneWidget);
     expect(find.text('temple'), findsOneWidget);
     expect(find.text('garden'), findsOneWidget);
-    expect(find.byIcon(Icons.drag_handle_rounded), findsNWidgets(2));
-    expect(find.byIcon(Icons.place_rounded), findsNWidgets(2));
+    expect(find.byIcon(AppIcons.dragHandle), findsNWidgets(2));
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is AppIcon && widget.icon == AppIcons.place,
+      ),
+      findsNWidgets(2),
+    );
     final nameField = tester.widget<TextField>(find.byType(TextField).first);
     expect(nameField.decoration?.filled, isFalse);
     expect(find.text('Open route'), findsOneWidget);

@@ -56,7 +56,7 @@ class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
+          icon: const Icon(AppIcons.close),
           onPressed: () => Navigator.pop(context),
           tooltip: 'Close',
         ),
@@ -68,7 +68,7 @@ class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
               child: Center(
                 child: _CookModePill(
                   label: '${_index + 1}/${steps.length}',
-                  icon: Icons.format_list_numbered_rounded,
+                  icon: AppIcons.numberedList,
                   color: cookAccent,
                   colorScheme: colorScheme,
                   theme: theme,
@@ -125,7 +125,7 @@ class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
               Row(
                 children: [
                   _CookNavButton(
-                    icon: Icons.arrow_back_rounded,
+                    icon: AppIcons.arrowBack,
                     onPressed: isFirst ? null : () => _goTo(_index - 1),
                     colorScheme: colorScheme,
                   ),
@@ -136,9 +136,7 @@ class _RecipeCookingModeScreenState extends State<_RecipeCookingModeScreen> {
                           ? () => Navigator.pop(context)
                           : () => _goTo(_index + 1),
                       icon: Icon(
-                        isLast
-                            ? Icons.check_rounded
-                            : Icons.arrow_forward_rounded,
+                        isLast ? AppIcons.check : AppIcons.arrowForward,
                       ),
                       label: Text(isLast ? 'Done' : 'Next Step'),
                       style: FilledButton.styleFrom(
@@ -194,7 +192,7 @@ class _CookModeHeader extends StatelessWidget {
       if ((recipe.totalTime ?? '').trim().isNotEmpty)
         _CookModePill(
           label: recipe.totalTime!.trim(),
-          icon: Icons.timer_outlined,
+          icon: AppIcons.timer,
           color: accent,
           colorScheme: colorScheme,
           theme: theme,
@@ -202,7 +200,7 @@ class _CookModeHeader extends StatelessWidget {
       if ((recipe.difficulty ?? '').trim().isNotEmpty)
         _CookModePill(
           label: recipe.difficulty!.trim(),
-          icon: Icons.local_fire_department_outlined,
+          icon: AppIcons.fire,
           color: accent,
           colorScheme: colorScheme,
           theme: theme,
@@ -408,7 +406,7 @@ class _CookNavButton extends StatelessWidget {
             color: colorScheme.outlineVariant.withValues(alpha: 0.72),
           ),
         ),
-        child: Icon(icon),
+        child: AppIcon(icon),
       ),
     );
   }
@@ -440,7 +438,7 @@ class _CookModePill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: color),
+          AppIcon(icon, size: 15, color: color),
           const SizedBox(width: 6),
           Text(
             label,

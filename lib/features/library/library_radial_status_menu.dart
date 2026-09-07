@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/l10n.dart';
+import '../../shared/theme/app_icons.dart';
 import 'library_entity.dart';
 import 'library_localization.dart';
 import 'library_status_picker.dart';
@@ -235,7 +236,7 @@ class _LibraryRadialStatusTargetState extends State<LibraryRadialStatusTarget> {
               ),
             ],
           ),
-          child: Icon(
+          child: AppIcon(
             libraryStatusIcon(option.status, widget.entity.kind),
             color: selected ? cs.onPrimary : cs.onSurface,
             size: 25,

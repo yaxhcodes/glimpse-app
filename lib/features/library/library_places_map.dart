@@ -8,6 +8,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../l10n/l10n.dart';
 import '../../core/services/ai_proxy_config.dart';
 import 'library_entity.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryPlacesMap extends StatefulWidget {
   const LibraryPlacesMap({
@@ -185,7 +186,7 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
               child: IconButton.filledTonal(
                 tooltip: context.l10n.fitAllPlaces,
                 onPressed: _styleLoaded ? () => unawaited(_fitAll()) : null,
-                icon: const Icon(Icons.center_focus_strong_rounded),
+                icon: const Icon(AppIcons.recenter),
               ),
             ),
           if (widget.showAttribution)
@@ -553,7 +554,7 @@ class _MapFallback extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.map_outlined, size: 42, color: cs.onSurfaceVariant),
+              Icon(AppIcons.map, size: 42, color: cs.onSurfaceVariant),
               const SizedBox(height: 10),
               Text(
                 noLocations

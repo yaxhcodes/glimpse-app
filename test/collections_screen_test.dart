@@ -14,6 +14,7 @@ import 'package:glimpse/features/library/library_entity.dart';
 import 'package:glimpse/features/library/library_home.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -85,13 +86,19 @@ void main() {
 
     expect(find.text('VIEW'), findsNothing);
     expect(find.text('SORT'), findsNothing);
-    expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.view_list_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.swap_vert_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.schedule_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.sort_by_alpha_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.drag_indicator_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.check_rounded), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byWidgetPredicate((widget) => widget is PopupMenuEntry),
+        matching: find.byIcon(AppIcons.grid),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(AppIcons.list), findsOneWidget);
+    expect(find.byIcon(AppIcons.sortDirection), findsOneWidget);
+    expect(find.byIcon(AppIcons.clock), findsOneWidget);
+    expect(find.byIcon(AppIcons.sortAlphabetical), findsOneWidget);
+    expect(find.byIcon(AppIcons.dragDots), findsOneWidget);
+    expect(find.byIcon(AppIcons.check), findsNWidgets(2));
   });
 
   testWidgets('Library gateway opens a dedicated screen without repetition', (

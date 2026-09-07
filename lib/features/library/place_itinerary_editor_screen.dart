@@ -15,6 +15,7 @@ import 'library_entity.dart';
 import 'library_places_model.dart';
 import 'library_provider.dart';
 import 'place_itinerary_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class PlaceItineraryDraft {
   const PlaceItineraryDraft({
@@ -112,7 +113,7 @@ class _PlaceItineraryEditorScreenState
                   IconButton(
                     tooltip: 'Delete itinerary',
                     onPressed: _delete,
-                    icon: const Icon(Icons.delete_outline_rounded),
+                    icon: const AppIcon(AppIcons.clearData),
                   ),
                 TextButton(
                   onPressed: () => _done(places),
@@ -240,6 +241,8 @@ class _PlaceItineraryEditorScreenState
     final now = DateTime.now();
     final selected = await showDatePicker(
       context: context,
+      switchToInputEntryModeIcon: const Icon(AppIcons.edit),
+      switchToCalendarEntryModeIcon: const AppMaterialIcon(AppIcons.calendar),
       initialDate: _date ?? now,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 10),
@@ -577,7 +580,7 @@ class _EditorHeader extends StatelessWidget {
             children: [
               TextButton.icon(
                 onPressed: onChooseDate,
-                icon: const Icon(Icons.calendar_today_rounded, size: 18),
+                icon: const AppIcon(AppIcons.calendar, size: 18),
                 label: Text(
                   date == null
                       ? 'Add a date'
@@ -588,7 +591,7 @@ class _EditorHeader extends StatelessWidget {
               ),
               FilledButton.tonalIcon(
                 onPressed: onAskGlimpse,
-                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                icon: const Icon(AppIcons.sparkle, size: 18),
                 label: const Text('Plan with Ask Glimpse'),
               ),
             ],
@@ -742,14 +745,14 @@ class _StopRow extends StatelessWidget {
                         if (canRemove)
                           PopupMenuButton<String>(
                             tooltip: 'Stop options',
-                            icon: const Icon(Icons.more_horiz_rounded),
+                            icon: const Icon(AppIcons.moreHorizontal),
                             onSelected: (_) => onRemove(),
                             itemBuilder: (context) => const [
                               PopupMenuItem(
                                 value: 'remove',
                                 child: ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  leading: Icon(Icons.remove_circle_outline),
+                                  leading: Icon(AppIcons.removeCircle),
                                   title: Text('Remove stop'),
                                 ),
                               ),
@@ -759,7 +762,7 @@ class _StopRow extends StatelessWidget {
                           index: index,
                           child: const Padding(
                             padding: EdgeInsets.all(10),
-                            child: Icon(Icons.drag_handle_rounded),
+                            child: Icon(AppIcons.dragHandle),
                           ),
                         ),
                       ],
@@ -784,8 +787,8 @@ class _StopFallback extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      child: Icon(
-        mapped ? Icons.place_rounded : Icons.location_off_outlined,
+      child: AppIcon(
+        mapped ? AppIcons.place : AppIcons.placeOff,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
@@ -837,7 +840,7 @@ class _EditorActions extends StatelessWidget {
                   Expanded(
                     child: FilledButton.tonalIcon(
                       onPressed: saving ? null : onAddStops,
-                      icon: const Icon(Icons.add_rounded),
+                      icon: const Icon(AppIcons.add),
                       label: Text(hasStops ? 'Edit stops' : 'Choose stops'),
                     ),
                   ),
@@ -847,7 +850,7 @@ class _EditorActions extends StatelessWidget {
                       onPressed: routeSegments > 0 && !saving
                           ? onOpenRoute
                           : null,
-                      icon: const Icon(Icons.route_rounded),
+                      icon: const Icon(AppIcons.route),
                       label: Text(
                         routeSegments > 1 ? 'Route parts' : 'Open route',
                       ),

@@ -120,7 +120,7 @@ class _CollectionCardState extends State<CollectionCard> {
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      CollectionVisual(style: visual, seed: collection.name),
+                      CollectionVisual(style: visual),
                       if (widget.selectionMode)
                         Positioned(
                           top: -4,
@@ -291,12 +291,7 @@ class _CollectionListCardState extends State<CollectionListCard> {
                     Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        CollectionVisual(
-                          style: visual,
-                          seed: collection.name,
-                          size: 64,
-                          iconSize: 28,
-                        ),
+                        CollectionVisual(style: visual, size: 64, iconSize: 28),
                         if (widget.selectionMode)
                           Positioned(
                             top: -5,

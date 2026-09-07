@@ -205,7 +205,7 @@ class _AboutScreenState extends State<AboutScreen> {
                       icon: AppIcons.terms,
                       iconColor: SettingsAccents.indigo,
                       title: strings.termsOfService,
-                      trailing: const _ActionIcon(Icons.open_in_new_rounded),
+                      trailing: const _ActionIcon(AppIcons.externalLink),
                       onTap: () => _openExternal(
                         Uri.parse('https://www.getglimpse.xyz/terms'),
                       ),
@@ -214,9 +214,20 @@ class _AboutScreenState extends State<AboutScreen> {
                       icon: AppIcons.privacy,
                       iconColor: SettingsAccents.green,
                       title: strings.privacyPolicy,
-                      trailing: const _ActionIcon(Icons.open_in_new_rounded),
+                      trailing: const _ActionIcon(AppIcons.externalLink),
                       onTap: () => _openExternal(
                         Uri.parse('https://www.getglimpse.xyz/privacy'),
+                      ),
+                    ),
+                    SettingsTile(
+                      icon: AppIcons.document,
+                      iconColor: SettingsAccents.indigo,
+                      title: MaterialLocalizations.of(
+                        context,
+                      ).licensesPageTitle,
+                      onTap: () => showLicensePage(
+                        context: context,
+                        applicationName: 'Glimpse',
                       ),
                     ),
                   ],
@@ -229,28 +240,28 @@ class _AboutScreenState extends State<AboutScreen> {
                       icon: AppIcons.feedback,
                       iconColor: SettingsAccents.rose,
                       title: strings.sendFeedback,
-                      trailing: const _ActionIcon(Icons.open_in_new_rounded),
+                      trailing: const _ActionIcon(AppIcons.externalLink),
                       onTap: _sendFeedback,
                     ),
                     SettingsTile(
                       icon: AppIcons.rate,
                       iconColor: SettingsAccents.gold,
                       title: strings.rateOnPlayStore,
-                      trailing: const _ActionIcon(Icons.open_in_new_rounded),
+                      trailing: const _ActionIcon(AppIcons.externalLink),
                       onTap: _rateOnPlayStore,
                     ),
                     SettingsTile(
                       icon: AppIcons.share,
                       iconColor: SettingsAccents.teal,
                       title: strings.shareGlimpse,
-                      trailing: const _ActionIcon(Icons.share_rounded),
+                      trailing: const _ActionIcon(AppIcons.share),
                       onTap: _shareApp,
                     ),
                     SettingsTile(
                       icon: AppIcons.help,
                       iconColor: SettingsAccents.blue,
                       title: strings.faq,
-                      trailing: const _ActionIcon(Icons.open_in_new_rounded),
+                      trailing: const _ActionIcon(AppIcons.externalLink),
                       onTap: () => _openExternal(
                         Uri.parse('https://www.getglimpse.xyz/faq'),
                       ),
@@ -304,7 +315,7 @@ class _KeepsakeScreen extends StatelessWidget {
               child: IconButton.filledTonal(
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => Navigator.maybePop(context),
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(AppIcons.arrowBack),
               ),
             ),
             Center(
@@ -350,7 +361,7 @@ class _ActionIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Icon(
+    return AppIcon(
       icon,
       size: 20,
       color: cs.onSurfaceVariant.withValues(alpha: 0.7),

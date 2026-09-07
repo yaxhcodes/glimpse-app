@@ -1,0 +1,40 @@
+Iconly Light and Bold icons by Piqo Design
+
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/
+
+Sources:
+https://www.iconbolt.com/iconsets/iconly-light
+https://www.iconbolt.com/iconsets/iconly-bold
+https://thenounproject.com/browse/collection-icon/iconly-essential-icons-112852/
+
+Included icons: bookmark, notification, calendar, setting, document, message,
+heart, game, location, wallet, star, shield-done, delete, info-circle and logout.
+Both Light and Bold SVGs were acquired from Iconbolt's attributed Piqo editions.
+Modifications: colors follow Glimpse's theme; Light stroke widths were increased
+from 1.5 to 2 on the original 24-unit grid. Bold geometry is unchanged. The
+info-circle pair is rotated 180 degrees to read as an information mark.
+
+Interests icons by Epic Icon Designs from Noun Project
+
+Licensed under Creative Commons Attribution 3.0 Unported (CC BY 3.0).
+https://creativecommons.org/licenses/by/3.0/
+
+Sources:
+https://thenounproject.com/icon/interests-6799086/
+https://thenounproject.com/icon/interests-6799140/
+
+Modifications: vector redraw of the square, triangle, circle and heart design;
+normalized spacing, curves and stroke for Glimpse's 24-unit grid. The outline
+and filled states share contours. These are adaptations of the credited designs,
+not the original downloadable SVG files. Colors follow the app theme.
+
+Home, Collections, Search, Add link and Add to collection are original Glimpse
+vector drawings.
+Remaining interface symbols use Phosphor, licensed under MIT by its authors;
+the phosphor_flutter package includes its license separately.
+
+Creative Commons attribution licenses permit sharing and adaptation, including
+commercial use, subject to attribution, linking the applicable license, and
+indicating changes. No endorsement by the original creators is implied.
+The links above provide the complete legal terms for each licensed work.

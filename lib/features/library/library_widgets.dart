@@ -5,6 +5,7 @@ import '../../l10n/l10n.dart';
 import 'library_entity.dart';
 import 'library_localization.dart';
 import 'library_radial_status_menu.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryArtwork extends StatelessWidget {
   const LibraryArtwork({
@@ -208,10 +209,10 @@ class _ArtworkFallback extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final icon = switch (entity.kind) {
-      LibraryEntityKind.book => Icons.menu_book_rounded,
-      LibraryEntityKind.movie => Icons.movie_rounded,
-      LibraryEntityKind.place => Icons.place_rounded,
-      LibraryEntityKind.music => Icons.music_note_rounded,
+      LibraryEntityKind.book => AppIcons.bookOpen,
+      LibraryEntityKind.movie => AppIcons.movie,
+      LibraryEntityKind.place => AppIcons.place,
+      LibraryEntityKind.music => AppIcons.music,
     };
     final initial = entity.title.trim().isEmpty
         ? ''
@@ -246,7 +247,7 @@ class _ArtworkFallback extends StatelessWidget {
               Positioned(
                 right: compact ? -8 : -14,
                 bottom: compact ? -10 : -18,
-                child: Icon(
+                child: AppIcon(
                   icon,
                   size: compact ? 58 : 104,
                   color: cs.onPrimaryContainer.withValues(alpha: 0.1),
@@ -326,7 +327,7 @@ class _PlaceArtworkFallback extends StatelessWidget {
         road: cs.outlineVariant.withValues(alpha: 0.68),
         pin: cs.onSurfaceVariant.withValues(alpha: 0.72),
       ),
-      child: const Center(child: Icon(Icons.place_rounded, size: 30)),
+      child: const Center(child: AppIcon(AppIcons.place, size: 30)),
     );
   }
 }

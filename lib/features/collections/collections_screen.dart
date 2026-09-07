@@ -121,7 +121,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     ? IconButton(
                         tooltip: context.l10n.exitSelection,
                         onPressed: selectionNotifier.clear,
-                        icon: const Icon(Icons.close_rounded),
+                        icon: const Icon(AppIcons.close),
                       )
                     : null,
                 title: selectionState.isActive
@@ -143,7 +143,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                               (summary) => summary.collection.id,
                             ),
                           ),
-                          icon: const Icon(Icons.select_all_rounded),
+                          icon: const Icon(AppIcons.selectAll),
                         ),
                         if (selectedCollections.length == 1)
                           IconButton(
@@ -153,7 +153,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                               selectedCollections.single,
                               selectionNotifier,
                             ),
-                            icon: const Icon(Icons.edit_outlined),
+                            icon: const Icon(AppIcons.edit),
                           ),
                         IconButton(
                           tooltip: context.l10n.moveContents,
@@ -166,7 +166,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                                   preferencesNotifier,
                                 )
                               : null,
-                          icon: const Icon(Icons.drive_file_move_outline),
+                          icon: const Icon(AppIcons.moveToCollection),
                         ),
                         IconButton(
                           tooltip: context.l10n.deleteSelectedCollections,
@@ -179,7 +179,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                                   selectionNotifier,
                                   preferencesNotifier,
                                 ),
-                          icon: const Icon(Icons.delete_outline_rounded),
+                          icon: const AppIcon(AppIcons.clearData),
                         ),
                       ]
                     : [
@@ -648,7 +648,7 @@ class _LibraryGatewayCard extends StatelessWidget {
                     child: _LibraryGatewayArtwork(entities: artworkEntities),
                   );
                   final arrow = Icon(
-                    Icons.arrow_forward_rounded,
+                    AppIcons.arrowForward,
                     size: 22,
                     color: cs.onSurfaceVariant,
                   );
@@ -754,11 +754,7 @@ class _LibraryGatewayArtwork extends StatelessWidget {
           color: cs.surfaceContainerHighest.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Icon(
-          Icons.auto_awesome_mosaic_rounded,
-          size: 34,
-          color: cs.onSurfaceVariant,
-        ),
+        child: Icon(AppIcons.discover, size: 34, color: cs.onSurfaceVariant),
       );
     }
 
@@ -800,14 +796,14 @@ class _CollectionsOptionsMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<_CollectionsMenuAction>(
       tooltip: context.l10n.collectionOptions,
-      icon: const Icon(Icons.more_vert_rounded),
+      icon: const Icon(AppIcons.more),
       onSelected: onSelected,
       itemBuilder: (context) => [
         PopupMenuItem(
           value: _CollectionsMenuAction.viewGrid,
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
-            icon: Icons.grid_view_rounded,
+            icon: AppIcons.grid,
             label: context.l10n.grid,
             selected: preferences.layout == CollectionsLayout.grid,
           ),
@@ -816,7 +812,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           value: _CollectionsMenuAction.viewList,
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
-            icon: Icons.view_list_rounded,
+            icon: AppIcons.list,
             label: context.l10n.list,
             selected: preferences.layout == CollectionsLayout.list,
           ),
@@ -826,7 +822,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           value: _CollectionsMenuAction.sortManual,
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
-            icon: Icons.swap_vert_rounded,
+            icon: AppIcons.sortDirection,
             label: context.l10n.manual,
             selected: preferences.sort == CollectionsSort.manual,
           ),
@@ -835,7 +831,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           value: _CollectionsMenuAction.sortNewest,
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
-            icon: Icons.schedule_rounded,
+            icon: AppIcons.clock,
             label: context.l10n.newest,
             selected: preferences.sort == CollectionsSort.newest,
           ),
@@ -844,7 +840,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           value: _CollectionsMenuAction.sortName,
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
-            icon: Icons.sort_by_alpha_rounded,
+            icon: AppIcons.sortAlphabetical,
             label: context.l10n.alphabetical,
             selected: preferences.sort == CollectionsSort.name,
           ),
@@ -855,7 +851,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
           enabled: canReorder,
           padding: EdgeInsets.zero,
           child: _CollectionsMenuRow(
-            icon: Icons.drag_indicator_rounded,
+            icon: AppIcons.dragDots,
             label: context.l10n.reorder,
             enabled: canReorder,
           ),
@@ -892,14 +888,14 @@ class _CollectionsMenuRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: iconColor),
+          AppIcon(icon, size: 20, color: iconColor),
           const SizedBox(width: 10),
           Expanded(
             child: Text(label, style: TextStyle(color: textColor)),
           ),
           if (selected) ...[
             const SizedBox(width: 12),
-            Icon(Icons.check_rounded, size: 20, color: colorScheme.primary),
+            Icon(AppIcons.check, size: 20, color: colorScheme.primary),
           ],
         ],
       ),

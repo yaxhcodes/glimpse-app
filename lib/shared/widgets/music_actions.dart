@@ -11,6 +11,7 @@ import '../../core/services/music_destination_service.dart';
 import '../../l10n/l10n.dart';
 import 'music_provider_icon.dart';
 import 'music_provider_sheet.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 Future<MusicProvider?> choosePreferredMusicProvider(
   BuildContext context,
@@ -127,6 +128,7 @@ class _MusicProviderMenuButtonState
         ? context.l10n.chooseWhereSongsOpen
         : '${context.l10n.musicApp}: ${provider.label}';
     return PopupMenuButton<String>(
+      icon: const Icon(AppIcons.more),
       tooltip: context.l10n.libraryOptions(context.l10n.libraryMusic),
       enabled: preference.isLoaded && !_choosing,
       onSelected: (_) => _chooseProvider(),
@@ -144,7 +146,7 @@ class _MusicProviderMenuButtonState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     provider == null
-                        ? const Icon(Icons.music_note_rounded, size: 32)
+                        ? const Icon(AppIcons.music, size: 32)
                         : MusicProviderIcon(provider: provider, size: 32),
                     const SizedBox(width: 12),
                     Flexible(child: Text(context.l10n.musicApp)),
@@ -188,7 +190,7 @@ class _MusicOpenButtonState extends ConsumerState<MusicOpenButton> {
               );
               if (mounted) setState(() => _opening = false);
             },
-      icon: const Icon(Icons.open_in_new_rounded),
+      icon: const Icon(AppIcons.externalLink),
       label: Text(
         provider == null
             ? context.l10n.chooseWhereSongsOpen

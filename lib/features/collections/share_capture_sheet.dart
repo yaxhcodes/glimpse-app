@@ -11,6 +11,7 @@ import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 const _defaultCollectionName = 'Inbox';
 
@@ -231,10 +232,10 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
                     children: [
-                      Icon(
+                      AppIcon(
                         _hasCollections == false
-                            ? Icons.create_new_folder_outlined
-                            : Icons.folder_outlined,
+                            ? AppIcons.addToCollection
+                            : AppIcons.folder,
                         size: 22,
                         color: colors.primary,
                       ),
@@ -249,7 +250,7 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
                         ),
                       ),
                       Icon(
-                        Icons.keyboard_arrow_down_rounded,
+                        AppIcons.chevronDown,
                         color: colors.onSurfaceVariant,
                       ),
                     ],
@@ -283,9 +284,7 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    outcome.saved
-                        ? Icons.check_circle_rounded
-                        : Icons.error_outline_rounded,
+                    outcome.saved ? AppIcons.checkCircle : AppIcons.error,
                     color: outcome.saved ? colors.primary : colors.error,
                   ),
                   const SizedBox(width: 12),
@@ -395,7 +394,7 @@ class _CollectionPickerSheet extends ConsumerWidget {
                   ).pop(CollectionPickerSelection(collection));
                 }
               },
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(AppIcons.add),
               label: Text(context.l10n.newCollection),
             ),
             const SizedBox(height: 8),
@@ -403,15 +402,12 @@ class _CollectionPickerSheet extends ConsumerWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
-                  Icons.folder_off_outlined,
+                  AppIcons.folderOff,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 title: Text(context.l10n.noCollection),
                 trailing: selectedCollectionId == null
-                    ? Icon(
-                        Icons.check_rounded,
-                        color: theme.colorScheme.primary,
-                      )
+                    ? Icon(AppIcons.check, color: theme.colorScheme.primary)
                     : null,
                 onTap: () => Navigator.of(
                   context,
@@ -440,7 +436,7 @@ class _CollectionPickerSheet extends ConsumerWidget {
                       contentPadding: EdgeInsets.zero,
                       leading: CollectionVisual(
                         style: resolveCollectionVisual(collection),
-                        seed: collection.name,
+
                         size: 40,
                         iconSize: 18,
                       ),
@@ -450,7 +446,7 @@ class _CollectionPickerSheet extends ConsumerWidget {
                       ),
                       trailing: selectedCollectionId == collection.id
                           ? Icon(
-                              Icons.check_rounded,
+                              AppIcons.check,
                               color: theme.colorScheme.primary,
                             )
                           : null,

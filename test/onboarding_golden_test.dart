@@ -16,17 +16,19 @@ void main() {
   GoogleFonts.config.allowRuntimeFetching = false;
 
   setUpAll(() async {
-    final phosphorRegular =
-        FontLoader('packages/phosphor_flutter/PhosphorRegular')..addFont(
-          rootBundle.load('packages/phosphor_flutter/lib/fonts/Phosphor.ttf'),
-        );
+    final phosphorBold = FontLoader('packages/phosphor_flutter/PhosphorBold')
+      ..addFont(
+        rootBundle.load(
+          'packages/phosphor_flutter/lib/fonts/Phosphor-Bold.ttf',
+        ),
+      );
     final phosphorFill = FontLoader('packages/phosphor_flutter/PhosphorFill')
       ..addFont(
         rootBundle.load(
           'packages/phosphor_flutter/lib/fonts/Phosphor-Fill.ttf',
         ),
       );
-    await Future.wait([phosphorRegular.load(), phosphorFill.load()]);
+    await Future.wait([phosphorBold.load(), phosphorFill.load()]);
   });
 
   testWidgets('discovery story frame', (tester) async {

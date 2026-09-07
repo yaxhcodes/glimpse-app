@@ -14,6 +14,7 @@ import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import 'category_provider.dart';
 import '../../l10n/l10n.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class CategoryScreen extends ConsumerWidget {
   final String categoryName;
@@ -129,7 +130,7 @@ class CategoryScreen extends ConsumerWidget {
                         ),
                   leading: selectionState.isActive
                       ? IconButton(
-                          icon: const Icon(Icons.arrow_back_rounded),
+                          icon: const Icon(AppIcons.arrowBack),
                           tooltip: 'Exit selection',
                           onPressed: selectionNotifier.clear,
                         )
@@ -151,7 +152,7 @@ class CategoryScreen extends ConsumerWidget {
                       : [
                           if (canDeleteStoredCategory)
                             IconButton(
-                              icon: const Icon(Icons.delete_outline),
+                              icon: const AppIcon(AppIcons.clearData),
                               tooltip: 'Delete category',
                               onPressed: () => _deleteCategory(
                                 context,

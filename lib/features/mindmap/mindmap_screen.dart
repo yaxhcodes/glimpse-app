@@ -19,6 +19,7 @@ import 'cluster_theme.dart';
 import 'interest_cluster_service.dart' show interestThemeMergeKey;
 import 'interest_clusters_provider.dart';
 import 'title_cleaner.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -678,7 +679,7 @@ class _ClusterUrlRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Icon(
-                Icons.chevron_right_rounded,
+                AppIcons.chevronRight,
                 size: 18,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.5),
               ),
@@ -846,7 +847,7 @@ class _MindmapScreenState extends ConsumerState<MindmapScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline_rounded, size: 40, color: cs.error),
+                  Icon(AppIcons.error, size: 40, color: cs.error),
                   const SizedBox(height: 14),
                   Text(
                     context.l10n.couldNotBuildClusters,
@@ -922,7 +923,7 @@ class _MindmapScreenState extends ConsumerState<MindmapScreen> {
             surfaceTintColor: Colors.transparent,
             actions: [
               IconButton(
-                icon: const Icon(Icons.refresh_rounded),
+                icon: const Icon(AppIcons.refresh),
                 tooltip: context.l10n.rebuildMap,
                 onPressed: () async {
                   HapticFeedback.lightImpact();

@@ -18,8 +18,12 @@ void main() {
       ('Instrument Sans', 'assets/fonts/InstrumentSans-Regular.ttf'),
       ('Newsreader', 'assets/fonts/Newsreader-SemiBold.ttf'),
       (
-        'packages/phosphor_flutter/PhosphorRegular',
-        'packages/phosphor_flutter/lib/fonts/Phosphor.ttf',
+        'packages/phosphor_flutter/PhosphorBold',
+        'packages/phosphor_flutter/lib/fonts/Phosphor-Bold.ttf',
+      ),
+      (
+        'packages/phosphor_flutter/PhosphorFill',
+        'packages/phosphor_flutter/lib/fonts/Phosphor-Fill.ttf',
       ),
     ]) {
       await (FontLoader(family)..addFont(rootBundle.load(asset))).load();

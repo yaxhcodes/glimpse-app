@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import 'recap_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class RecapScreen extends ConsumerStatefulWidget {
   const RecapScreen({super.key});
@@ -11,6 +12,7 @@ class RecapScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<RecapScreen> createState() => _RecapScreenState();
 }
+
 class _RecapScreenState extends ConsumerState<RecapScreen> {
   @override
   void initState() {
@@ -30,15 +32,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar.large(
-            title: Text(
-              'Weekly Recap',
-              style: theme.textTheme.headlineMedium,
-            ),
+            title: Text('Weekly Recap', style: theme.textTheme.headlineMedium),
             actions: [
               IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () =>
-                    ref.read(recapProvider.notifier).loadRecap(),
+                icon: const Icon(AppIcons.refresh),
+                onPressed: () => ref.read(recapProvider.notifier).loadRecap(),
               ),
             ],
           ),
@@ -46,7 +44,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             const SliverFillRemaining(
               child: Center(child: ExpressiveLoadingIndicator()),
             )
-else if (state.error != null)
+          else if (state.error != null)
             SliverFillRemaining(
               child: Center(
                 child: Padding(
@@ -55,9 +53,7 @@ else if (state.error != null)
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        state.isProFeature
-                            ? Icons.auto_stories_outlined
-                            : Icons.error_outline_rounded,
+                        state.isProFeature ? AppIcons.bookOpen : AppIcons.error,
                         size: 48,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -94,14 +90,14 @@ else if (state.error != null)
                               ref.read(recapProvider.notifier).loadRecap();
                             }
                           },
-                          icon: const Icon(Icons.auto_stories_outlined),
+                          icon: const Icon(AppIcons.bookOpen),
                           label: const Text('Upgrade for Weekly Recap'),
                         )
                       else
                         FilledButton.tonalIcon(
                           onPressed: () =>
                               ref.read(recapProvider.notifier).loadRecap(),
-                          icon: const Icon(Icons.refresh),
+                          icon: const Icon(AppIcons.refresh),
                           label: const Text('Try again'),
                         ),
                     ],
@@ -120,13 +116,14 @@ else if (state.error != null)
                       _StatChip(
                         label: '${state.urls.length}',
                         sublabel: 'links saved',
-                        icon: Icons.bookmark_added_outlined,
+                        icon: AppIcons.bookmarkSaved,
                       ),
                       const SizedBox(width: 12),
                       _StatChip(
                         label: '${state.topicCounts.length}',
-                        sublabel: 'topic${state.topicCounts.length == 1 ? '' : 's'}',
-                        icon: Icons.category_outlined,
+                        sublabel:
+                            'topic${state.topicCounts.length == 1 ? '' : 's'}',
+                        icon: AppIcons.category,
                       ),
                     ],
                   ),
@@ -134,9 +131,12 @@ else if (state.error != null)
 
                   // ─── AI Narrative ─────────────────────────────────────
                   if (state.narrative != null) ...[
-                    Text('AI Summary',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(color: theme.colorScheme.primary)),
+                    Text(
+                      'AI Summary',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Card(
                       color: theme.colorScheme.surfaceContainerLow,
@@ -153,18 +153,23 @@ else if (state.error != null)
 
                   // ─── Topics breakdown ─────────────────────────────────
                   if (state.topicCounts.isNotEmpty) ...[
-                    Text('Topics This Week',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(color: theme.colorScheme.primary)),
+                    Text(
+                      'Topics This Week',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     ...() {
                       final sorted = state.topicCounts.entries.toList()
                         ..sort((a, b) => b.value.compareTo(a.value));
-                      return sorted.map((e) => _TopicRow(
-                            category: e.key,
-                            count: e.value,
-                            total: state.urls.length,
-                          ));
+                      return sorted.map(
+                        (e) => _TopicRow(
+                          category: e.key,
+                          count: e.value,
+                          total: state.urls.length,
+                        ),
+                      );
                     }(),
                     const SizedBox(height: 20),
                   ],
@@ -176,10 +181,11 @@ else if (state.error != null)
                         padding: const EdgeInsets.all(32),
                         child: Column(
                           children: [
-                            Icon(Icons.inbox_outlined,
-                                size: 56,
-                                color: theme.colorScheme.primary
-                                    .withAlpha(100)),
+                            Icon(
+                              AppIcons.inbox,
+                              size: 56,
+                              color: theme.colorScheme.primary.withAlpha(100),
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               'No links saved this week',
@@ -190,13 +196,13 @@ else if (state.error != null)
                               'Share some links into Glimpse to start building your knowledge base.',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                  color:
-                                      theme.colorScheme.onSurfaceVariant),
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                             ),
                             const SizedBox(height: 20),
                             FilledButton.icon(
                               onPressed: () => context.push('/add'),
-                              icon: const Icon(Icons.add_link),
+                              icon: const AppIcon(AppIcons.addLink),
                               label: const Text('Add a link'),
                             ),
                           ],
@@ -234,7 +240,7 @@ class _StatChip extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Icon(icon, color: theme.colorScheme.onPrimaryContainer),
+              AppIcon(icon, color: theme.colorScheme.onPrimaryContainer),
               const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,7 +255,8 @@ class _StatChip extends StatelessWidget {
                   Text(
                     sublabel,
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer),
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ],
               ),

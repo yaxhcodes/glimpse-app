@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/saved_url.dart';
 import '../link_card_thumbnail.dart';
 import 'notification_preview_resolver.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 /// Full-width hero: widescreen media, square PFP (X), or neutral fallback.
 class CuratedNotificationHero extends StatelessWidget {
@@ -350,7 +351,7 @@ class CuratedMissingLinkHero extends StatelessWidget {
         child: ColoredBox(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
           child: Icon(
-            Icons.link_off_rounded,
+            AppIcons.linkOff,
             color: cs.onSurfaceVariant.withValues(alpha: 0.35),
             size: 32,
           ),

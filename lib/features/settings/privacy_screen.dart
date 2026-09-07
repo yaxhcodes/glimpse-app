@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class PrivacyScreen extends StatelessWidget {
   const PrivacyScreen({super.key});
@@ -100,7 +101,7 @@ class _PrivacyRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Icon(Icons.check_rounded, size: 20, color: cs.primary),
+          Icon(AppIcons.check, size: 20, color: cs.primary),
           const SizedBox(width: 12),
           Expanded(child: Text(label)),
         ],

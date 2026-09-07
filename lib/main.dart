@@ -6,6 +6,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'app.dart';
+import 'core/constants/icon_licenses.dart';
 import 'digest_callback.dart';
 import 'core/services/backup_scheduler.dart';
 import 'core/config/app_environment.dart';
@@ -23,6 +24,7 @@ import 'core/services/url_enrichment_job.dart';
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  registerIconLicenses();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Only services required to choose the first screen belong on the native

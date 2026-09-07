@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/l10n.dart';
 import 'library_entity.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryReadingProgressCard extends StatelessWidget {
   const LibraryReadingProgressCard({
@@ -38,8 +39,8 @@ class LibraryReadingProgressCard extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(10),
-                    child: Icon(
-                      Icons.bookmark_rounded,
+                    child: AppIcon(
+                      AppIcons.bookmarkFilled,
                       size: 22,
                       color: cs.onPrimaryContainer,
                     ),
@@ -90,7 +91,7 @@ class LibraryReadingProgressCard extends StatelessWidget {
               width: double.infinity,
               child: FilledButton.tonalIcon(
                 onPressed: () => _choosePage(context),
-                icon: const Icon(Icons.bookmark_add_outlined),
+                icon: const Icon(AppIcons.bookmarkAdd),
                 label: Text(
                   currentPage == null
                       ? context.l10n.setCurrentPage
@@ -200,7 +201,7 @@ class _ReadingPageSheetState extends State<_ReadingPageSheet> {
               hintText: context.l10n.enterPageNumber,
               errorText: _errorText,
               counterText: '',
-              prefixIcon: const Icon(Icons.bookmark_outline_rounded),
+              prefixIcon: const AppIcon(AppIcons.bookmark),
             ),
             onSubmitted: (_) => _save(),
           ),

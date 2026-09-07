@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/l10n.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 Future<List<int>?> showCollectionReorderSheet(
   BuildContext context,
@@ -67,7 +68,7 @@ class _CollectionReorderSheetState extends State<_CollectionReorderSheet> {
                 IconButton(
                   tooltip: context.l10n.close,
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(AppIcons.close),
                 ),
               ],
             ),
@@ -92,7 +93,7 @@ class _CollectionReorderSheetState extends State<_CollectionReorderSheet> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                   leading: CollectionVisual(
                     style: resolveCollectionVisual(collection),
-                    seed: collection.name,
+
                     size: 42,
                     iconSize: 19,
                   ),
@@ -106,7 +107,7 @@ class _CollectionReorderSheetState extends State<_CollectionReorderSheet> {
                     index: index,
                     child: const Padding(
                       padding: EdgeInsets.all(12),
-                      child: Icon(Icons.drag_handle_rounded),
+                      child: Icon(AppIcons.dragHandle),
                     ),
                   ),
                 );

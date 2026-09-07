@@ -10,6 +10,7 @@ import 'library_entity.dart';
 import 'library_provider.dart';
 import 'library_widgets.dart';
 import 'music_library_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryMusicScreen extends ConsumerStatefulWidget {
   const LibraryMusicScreen({super.key});
@@ -110,7 +111,7 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
                           setState(() => _query = value.trim().toLowerCase()),
                       decoration: InputDecoration(
                         hintText: context.l10n.searchYourLibrary,
-                        prefixIcon: const Icon(Icons.search_rounded),
+                        prefixIcon: const AppIcon(AppIcons.search),
                       ),
                     ),
                   ),
@@ -164,7 +165,7 @@ class _MusicTile extends StatelessWidget {
       subtitle: creator.isEmpty
           ? null
           : Text(creator, maxLines: 2, overflow: TextOverflow.ellipsis),
-      trailing: const Icon(Icons.chevron_right_rounded),
+      trailing: const Icon(AppIcons.chevronRight),
       onTap: () =>
           context.push('/library/entity/${Uri.encodeComponent(entity.key)}'),
     );

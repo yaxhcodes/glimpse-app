@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/user_collection.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class CollectionMoveTargetSheet extends StatefulWidget {
   const CollectionMoveTargetSheet({
@@ -72,7 +73,7 @@ class _CollectionMoveTargetSheetState extends State<CollectionMoveTargetSheet> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     leading: CollectionVisual(
                       style: resolveCollectionVisual(collection),
-                      seed: collection.name,
+
                       size: 40,
                       iconSize: 18,
                     ),
@@ -87,7 +88,7 @@ class _CollectionMoveTargetSheetState extends State<CollectionMoveTargetSheet> {
                     ),
                     trailing: selected
                         ? Icon(
-                            Icons.check_circle_rounded,
+                            AppIcons.checkCircle,
                             color: theme.colorScheme.primary,
                           )
                         : null,
@@ -103,7 +104,7 @@ class _CollectionMoveTargetSheetState extends State<CollectionMoveTargetSheet> {
               onPressed: selectedTarget == null
                   ? null
                   : () => Navigator.pop(context, selectedTarget.collection),
-              icon: const Icon(Icons.drive_file_move_outline),
+              icon: const Icon(AppIcons.moveToCollection),
               label: Text(widget.actionLabel),
             ),
           ],

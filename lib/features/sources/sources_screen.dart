@@ -11,12 +11,13 @@ import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import 'sources_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 /// Lets the user narrow the source list to where saves actually came from.
 enum _SourceFilter {
-  all(Icons.all_inclusive_rounded),
-  apps(Icons.apps_rounded),
-  websites(Icons.language_rounded);
+  all(AppIcons.infinity),
+  apps(AppIcons.apps),
+  websites(AppIcons.globe);
 
   const _SourceFilter(this.icon);
   final IconData icon;
@@ -116,13 +117,13 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 actions: [
                   IconButton(
                     tooltip: strings.done,
-                    icon: const Icon(Icons.check_circle_outline_rounded),
+                    icon: const Icon(AppIcons.checkCircle),
                     onPressed: () => context.push('/archive'),
                   ),
                   PopupMenuButton<_SourceFilter>(
                     tooltip: strings.filterSources,
                     icon: Icon(
-                      Icons.tune_rounded,
+                      AppIcons.adjust,
                       color: _filter == _SourceFilter.all
                           ? cs.onSurfaceVariant
                           : cs.primary,
@@ -137,7 +138,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                         value: f,
                         child: Row(
                           children: [
-                            Icon(
+                            AppIcon(
                               f.icon,
                               size: 18,
                               color: active ? cs.primary : cs.onSurfaceVariant,
@@ -154,11 +155,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                             ),
                             if (active) ...[
                               const Spacer(),
-                              Icon(
-                                Icons.check_rounded,
-                                size: 18,
-                                color: cs.primary,
-                              ),
+                              Icon(AppIcons.check, size: 18, color: cs.primary),
                             ],
                           ],
                         ),
@@ -320,7 +317,7 @@ class _EmptyFilter extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            AppIcon(
               filter.icon,
               size: 36,
               color: cs.onSurfaceVariant.withValues(alpha: 0.6),
@@ -383,7 +380,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                   _ClusterIcon(
                     label: source.name,
                     faviconUrl: fav,
-                    fallbackIcon: iconSpec.icon ?? Icons.folder_outlined,
+                    fallbackIcon: iconSpec.icon ?? AppIcons.folder,
                     brandColor: brandColor,
                   ),
                   const SizedBox(width: 10),
@@ -454,7 +451,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                   ),
                   if (!isEmpty)
                     Icon(
-                      Icons.chevron_right,
+                      AppIcons.chevronRight,
                       size: 18,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.35),
                     ),
@@ -568,7 +565,7 @@ class _TopSourceCard extends StatelessWidget {
                 _ClusterIcon(
                   label: cluster.name,
                   faviconUrl: fav,
-                  fallbackIcon: iconSpec.icon ?? Icons.folder_outlined,
+                  fallbackIcon: iconSpec.icon ?? AppIcons.folder,
                   brandColor: brandColor,
                 ),
                 const SizedBox(height: 10),
@@ -636,7 +633,7 @@ class _ClusterIcon extends StatelessWidget {
     final iconColor = brandColor ?? cs.onSurfaceVariant;
     final fallback = faviconUrl != null && brandColor == null
         ? _DomainInitialIcon(label: label)
-        : Icon(fallbackIcon, size: 18, color: iconColor);
+        : AppIcon(fallbackIcon, size: 18, color: iconColor);
 
     return Container(
       width: 38,

@@ -140,7 +140,7 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome_rounded, size: 18, color: accent),
+              Icon(AppIcons.sparkle, size: 18, color: accent),
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
@@ -234,7 +234,7 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
                             ),
                           ],
                           icon: Icon(
-                            Icons.more_horiz_rounded,
+                            AppIcons.moreHorizontal,
                             size: 20,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -331,7 +331,7 @@ class _NoteSuggestionChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  selected ? Icons.check_rounded : icon,
+                  selected ? AppIcons.check : icon,
                   size: 15,
                   color: fgColor,
                 ),
@@ -1070,8 +1070,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                                   alignment: Alignment.centerRight,
                                   padding: const EdgeInsets.only(right: 20),
                                   color: colorScheme.errorContainer,
-                                  child: Icon(
-                                    Icons.delete_outline_rounded,
+                                  child: AppIcon(
+                                    AppIcons.clearData,
                                     color: colorScheme.onErrorContainer,
                                   ),
                                 ),
@@ -1132,7 +1132,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                                   isThreeLine: qtyLabel.isNotEmpty,
                                   secondary: IconButton(
                                     tooltip: 'Remove',
-                                    icon: const Icon(Icons.close_rounded),
+                                    icon: const Icon(AppIcons.close),
                                     onPressed: () async {
                                       await service.removeShoppingItem(item.id);
                                       setSheetState(
@@ -1201,7 +1201,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 const SizedBox(height: 8),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.travel_explore_rounded),
+                  leading: const Icon(AppIcons.explorePlaces),
                   title: const Text('Related saves'),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1211,7 +1211,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
-                    Icons.remove_circle_outline_rounded,
+                    AppIcons.removeCircle,
                     color: colorScheme.error,
                   ),
                   title: Text(
@@ -1485,7 +1485,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   onPressed: () => _showAddToCollection(url),
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded),
+                  icon: const Icon(AppIcons.more),
                   tooltip: context.l10n.more,
                   onSelected: (value) {
                     if (value == 'open_original') {
@@ -1510,7 +1510,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.open_in_new_rounded,
+                            AppIcons.externalLink,
                             size: 20,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1524,7 +1524,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.copy_rounded,
+                            AppIcons.copy,
                             size: 20,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1538,7 +1538,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.share_outlined,
+                            AppIcons.share,
                             size: 20,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1553,9 +1553,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            isPinned
-                                ? Icons.push_pin_rounded
-                                : Icons.push_pin_outlined,
+                            isPinned ? AppIcons.pinFilled : AppIcons.pin,
                             size: 20,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1571,7 +1569,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.sell_outlined,
+                            AppIcons.tag,
                             size: 20,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1585,7 +1583,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.category_outlined,
+                            AppIcons.category,
                             size: 20,
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1598,8 +1596,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.delete_outline_rounded,
+                          AppIcon(
+                            AppIcons.clearData,
                             size: 20,
                             color: colorScheme.error,
                           ),
@@ -1851,10 +1849,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   ReaderAskActions(
                     onOpen: () => context.push(
                       '/ask',
-                      extra: AskLaunchRequest(
-                        source: url,
-                        autofocus: true,
-                      ),
+                      extra: AskLaunchRequest(source: url, autofocus: true),
                     ),
                   ),
                 ],
@@ -1960,9 +1955,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             ),
             alignment: Alignment.center,
             child: Icon(
-              failed && !enriching
-                  ? Icons.error_outline_rounded
-                  : Icons.auto_awesome_rounded,
+              failed && !enriching ? AppIcons.error : AppIcons.sparkle,
               color: accent,
               size: 17,
             ),
@@ -2405,7 +2398,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
           onPressed: _beginEditingNotes,
-          icon: const Icon(Icons.note_add_outlined, size: 18),
+          icon: const Icon(AppIcons.addNote, size: 18),
           label: Text(context.l10n.addNote),
           style: TextButton.styleFrom(
             foregroundColor: colorScheme.onSurfaceVariant,
@@ -2444,7 +2437,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: _beginEditingNotes,
-              icon: const Icon(Icons.add_rounded, size: 18),
+              icon: const Icon(AppIcons.add, size: 18),
               label: Text(context.l10n.addYourNote),
             ),
           ),
@@ -2541,7 +2534,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               const Spacer(),
               TextButton.icon(
                 onPressed: _beginEditingNotes,
-                icon: const Icon(Icons.edit_outlined, size: 16),
+                icon: const Icon(AppIcons.edit, size: 16),
                 label: Text(context.l10n.edit),
                 style: TextButton.styleFrom(
                   minimumSize: const Size(40, 36),
@@ -2655,12 +2648,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       padding: const EdgeInsets.only(top: 6, left: 4),
       child: Row(
         children: [
-          Icon(
+          AppIcon(
             _noteSaveStatus == _NoteSaveStatus.failed
-                ? Icons.error_outline_rounded
+                ? AppIcons.error
                 : _noteSaveStatus == _NoteSaveStatus.saved
-                ? Icons.check_rounded
-                : Icons.sync_rounded,
+                ? AppIcons.check
+                : AppIcons.sync,
             size: 14,
             color: _noteSaveStatus == _NoteSaveStatus.failed
                 ? colorScheme.error
@@ -2707,11 +2700,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.add_rounded,
-                size: 15,
-                color: colorScheme.onSurfaceVariant,
-              ),
+              Icon(AppIcons.add, size: 15, color: colorScheme.onSurfaceVariant),
               const SizedBox(width: 5),
               Text(
                 context.l10n.quickAdd,
@@ -3190,30 +3179,28 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   IconData _quickAddIconFor(String suggestion) {
     return switch (suggestion) {
-      'Try This Weekend' => Icons.event_available_outlined,
-      'Need Ingredients' => Icons.shopping_basket_outlined,
-      'Share With Someone' => Icons.ios_share_rounded,
-      'Already Tried' => Icons.task_alt_rounded,
-      'Watch Later' ||
-      'Read Later' ||
-      'Revisit Later' => Icons.schedule_rounded,
-      'Add to Watchlist' => Icons.playlist_add_rounded,
+      'Try This Weekend' => AppIcons.calendarCheck,
+      'Need Ingredients' => AppIcons.basket,
+      'Share With Someone' => AppIcons.share,
+      'Already Tried' => AppIcons.complete,
+      'Watch Later' || 'Read Later' || 'Revisit Later' => AppIcons.clock,
+      'Add to Watchlist' => AppIcons.listAdd,
       'Already Watched' ||
       'Already Read' ||
-      'Already Checked' => Icons.check_circle_outline_rounded,
-      'Add to Reading List' => Icons.menu_book_outlined,
-      'Research This' => Icons.manage_search_rounded,
-      'Try This Tool' || 'Worth Trying' => Icons.explore_outlined,
-      'Compare Alternatives' => Icons.compare_arrows_rounded,
-      'Use in Project' => Icons.handyman_outlined,
-      'Share With Team' => Icons.group_outlined,
-      'Plan Itinerary' => Icons.map_outlined,
-      'Check Best Season' => Icons.calendar_month_outlined,
-      'Save Route' => Icons.route_outlined,
-      'Practice Later' => Icons.school_outlined,
-      'Make Checklist' => Icons.checklist_rounded,
-      'Revisit Notes' => Icons.note_alt_outlined,
-      _ => Icons.add_circle_outline_rounded,
+      'Already Checked' => AppIcons.checkCircle,
+      'Add to Reading List' => AppIcons.bookOpen,
+      'Research This' => AppIcons.research,
+      'Try This Tool' || 'Worth Trying' => AppIcons.explore,
+      'Compare Alternatives' => AppIcons.compare,
+      'Use in Project' => AppIcons.tools,
+      'Share With Team' => AppIcons.people,
+      'Plan Itinerary' => AppIcons.map,
+      'Check Best Season' => AppIcons.calendar,
+      'Save Route' => AppIcons.route,
+      'Practice Later' => AppIcons.education,
+      'Make Checklist' => AppIcons.checklist,
+      'Revisit Notes' => AppIcons.addNote,
+      _ => AppIcons.addCircle,
     };
   }
 
@@ -3437,9 +3424,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             TextButton.icon(
               onPressed: _showShoppingList,
               icon: Icon(
-                _shoppingList.isEmpty
-                    ? Icons.shopping_cart_outlined
-                    : Icons.shopping_cart_rounded,
+                _shoppingList.isEmpty ? AppIcons.cart : AppIcons.cartFilled,
                 size: 17,
               ),
               label: Text(
@@ -3503,7 +3488,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     ),
                   ),
                 ),
-                icon: const Icon(Icons.soup_kitchen_outlined, size: 17),
+                icon: const Icon(AppIcons.bowl, size: 17),
                 label: const Text('Cook Mode'),
                 style: FilledButton.styleFrom(
                   backgroundColor: _recipeAccentSurface(colorScheme),
@@ -4098,7 +4083,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   recipe: recipe,
                   selectedOnly: true,
                 ),
-                icon: const Icon(Icons.playlist_add_rounded, size: 18),
+                icon: const Icon(AppIcons.listAdd, size: 18),
                 label: const Text('Add Selected'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: recipeAccent,
@@ -4117,7 +4102,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   recipe: recipe,
                   selectedOnly: false,
                 ),
-                icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                icon: const Icon(AppIcons.cartAdd, size: 18),
                 label: const Text('Add All'),
                 style: FilledButton.styleFrom(
                   backgroundColor: _recipeAccentSurface(colorScheme),
@@ -4160,7 +4145,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           Row(
             children: [
               Icon(
-                Icons.verified_outlined,
+                AppIcons.verified,
                 size: 14,
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -4184,7 +4169,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.check_rounded,
+                    AppIcons.check,
                     size: 13,
                     color: _recipeAccent(colorScheme),
                   ),
@@ -4298,11 +4283,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     color: accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    Icons.location_on_outlined,
-                    size: 22,
-                    color: accent,
-                  ),
+                  child: AppIcon(AppIcons.place, size: 22, color: accent),
                 )
               else if (usesCompactIcon)
                 Container(
@@ -4312,8 +4293,9 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     color: accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
+                  child: AppIcon(
                     _mentionIcon(mention.type),
+                    filled: true,
                     size: 22,
                     color: accent,
                   ),
@@ -4377,7 +4359,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               const SizedBox(width: 10),
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Icon(
+                child: AppIcon(
                   AppIcons.search,
                   size: 18,
                   color: colorScheme.onSurfaceVariant,
@@ -4448,11 +4430,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   IconData _mentionIcon(String rawType) {
     return switch (_mentionSectionKey(rawType)) {
-      'game' => Icons.sports_esports_outlined,
-      'music' => Icons.music_note_rounded,
-      'tool' || 'app' => Icons.apps_rounded,
-      'product' => Icons.shopping_bag_outlined,
-      _ => Icons.bookmark_border_rounded,
+      'game' => AppIcons.game,
+      'music' => AppIcons.music,
+      'tool' || 'app' => AppIcons.apps,
+      'product' => AppIcons.shoppingBag,
+      _ => AppIcons.bookmark,
     };
   }
 
@@ -4889,11 +4871,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           height: 14,
           fit: BoxFit.cover,
           errorWidget: (_, _, _) =>
-              Icon(Icons.public_outlined, size: 14, color: variant),
+              Icon(AppIcons.globe, size: 14, color: variant),
         ),
       );
     }
-    return Icon(Icons.public_outlined, size: 14, color: variant);
+    return Icon(AppIcons.globe, size: 14, color: variant);
   }
 
   String _formatDate(BuildContext context, DateTime date) {

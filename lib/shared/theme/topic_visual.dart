@@ -29,91 +29,86 @@ class TopicVisual {
 
   static TopicVisual forCategory(String category) => switch (category) {
     'programming' || 'software' || 'technology-gadgets' => const TopicVisual(
-      PhosphorIconsRegular.code,
+      PhosphorIconsBold.code,
       AppShape.square,
     ),
     'artificial-intelligence' => const TopicVisual(
-      PhosphorIconsRegular.cpu,
+      PhosphorIconsBold.cpu,
       AppShape.cookie,
     ),
-    'design' => const TopicVisual(PhosphorIconsRegular.shapes, AppShape.clover),
+    'design' => const TopicVisual(PhosphorIconsBold.shapes, AppShape.clover),
     'food-nutrition' || 'cooking-recipes' || 'food' => const TopicVisual(
-      PhosphorIconsRegular.bowlFood,
+      PhosphorIconsBold.bowlFood,
       AppShape.cookie,
       tertiary: true,
     ),
     'nature-outdoors' ||
-    'travel' => const TopicVisual(PhosphorIconsRegular.mountains, AppShape.gem),
+    'travel' => const TopicVisual(PhosphorIconsBold.mountains, AppShape.gem),
     'wildlife' || 'gardening' || 'nature' => const TopicVisual(
-      PhosphorIconsRegular.leaf,
+      PhosphorIconsBold.leaf,
       AppShape.clover,
       tertiary: true,
     ),
     'wellness' || 'fitness' => const TopicVisual(
-      PhosphorIconsRegular.heart,
+      PhosphorIconsBold.heart,
       AppShape.cookie,
       tertiary: true,
     ),
-    'movies' || 'tv-shows' || 'anime-comics' || 'film' => const TopicVisual(
-      PhosphorIconsRegular.filmSlate,
-      AppShape.square,
-    ),
+    'movies' ||
+    'tv-shows' ||
+    'anime-comics' ||
+    'film' => const TopicVisual(PhosphorIconsBold.filmSlate, AppShape.square),
     'books-reading' || 'writing' || 'books' => const TopicVisual(
-      PhosphorIconsRegular.bookOpen,
+      PhosphorIconsBold.bookOpen,
       AppShape.arch,
       tertiary: true,
     ),
     'music' || 'podcasts' => const TopicVisual(
-      PhosphorIconsRegular.musicNotes,
+      PhosphorIconsBold.musicNotes,
       AppShape.cookie,
     ),
     'science' || 'astronomy-space' => const TopicVisual(
-      PhosphorIconsRegular.planet,
+      PhosphorIconsBold.planet,
       AppShape.cookie,
     ),
     'business' ||
-    'finance' => const TopicVisual(PhosphorIconsRegular.trendUp, AppShape.gem),
+    'finance' => const TopicVisual(PhosphorIconsBold.trendUp, AppShape.gem),
     'education' => const TopicVisual(
-      PhosphorIconsRegular.graduationCap,
+      PhosphorIconsBold.graduationCap,
       AppShape.arch,
     ),
-    'philosophy' || 'psychology' => const TopicVisual(
-      PhosphorIconsRegular.brain,
-      AppShape.clover,
-    ),
+    'philosophy' ||
+    'psychology' => const TopicVisual(PhosphorIconsBold.brain, AppShape.clover),
     'history' => const TopicVisual(
-      PhosphorIconsRegular.columns,
+      PhosphorIconsBold.columns,
       AppShape.arch,
       tertiary: true,
     ),
     'photography' => const TopicVisual(
-      PhosphorIconsRegular.camera,
+      PhosphorIconsBold.camera,
       AppShape.circle,
     ),
     'fashion' || 'beauty' => const TopicVisual(
-      PhosphorIconsRegular.tShirt,
+      PhosphorIconsBold.tShirt,
       AppShape.clover,
       tertiary: true,
     ),
     'home-interiors' || 'home' => const TopicVisual(
-      PhosphorIconsRegular.houseSimple,
+      PhosphorIconsBold.houseSimple,
       AppShape.arch,
       tertiary: true,
     ),
-    'pets' => const TopicVisual(PhosphorIconsRegular.pawPrint, AppShape.cookie),
-    'cycling' => const TopicVisual(PhosphorIconsRegular.bicycle, AppShape.gem),
+    'pets' => const TopicVisual(PhosphorIconsBold.pawPrint, AppShape.cookie),
+    'cycling' => const TopicVisual(PhosphorIconsBold.bicycle, AppShape.gem),
     'automotive' || 'motorsport' || 'motorcycles' => const TopicVisual(
-      PhosphorIconsRegular.steeringWheel,
+      PhosphorIconsBold.steeringWheel,
       AppShape.circle,
     ),
-    'diy-tools' => const TopicVisual(
-      PhosphorIconsRegular.wrench,
-      AppShape.square,
-    ),
+    'diy-tools' => const TopicVisual(PhosphorIconsBold.wrench, AppShape.square),
     'productivity' => const TopicVisual(
-      PhosphorIconsRegular.checkSquare,
+      PhosphorIconsBold.checkSquare,
       AppShape.square,
     ),
-    _ => const TopicVisual(PhosphorIconsRegular.sparkle, AppShape.cookie),
+    _ => const TopicVisual(PhosphorIconsBold.sparkle, AppShape.cookie),
   };
 }

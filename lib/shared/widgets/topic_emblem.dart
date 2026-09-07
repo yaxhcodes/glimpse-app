@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_shapes.dart';
+import '../theme/app_icons.dart';
 import '../theme/topic_visual.dart';
 
 class TopicEmblem extends StatelessWidget {
@@ -20,8 +21,9 @@ class TopicEmblem extends StatelessWidget {
             color: visual.container(cs),
             shape: AppShapes.border(visual.shape),
           ),
-          child: Icon(
+          child: AppIcon(
             visual.icon,
+            filled: true,
             color: visual.foreground(cs),
             size: size * .48,
           ),

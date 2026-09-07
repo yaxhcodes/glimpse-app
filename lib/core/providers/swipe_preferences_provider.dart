@@ -41,29 +41,17 @@ extension SwipeActionTypeInfo on SwipeActionType {
 
   IconData get icon {
     return switch (this) {
-      SwipeActionType.delete => Icons.delete_outline_rounded,
-      SwipeActionType.toggleRead => Icons.mark_email_read_outlined,
+      SwipeActionType.delete => AppIcons.clearData,
+      SwipeActionType.toggleRead => AppIcons.read,
       SwipeActionType.addToCollection => AppIcons.addToCollection,
-      SwipeActionType.pin => Icons.push_pin_outlined,
-      SwipeActionType.askGlimpse => Icons.auto_awesome_rounded,
-      SwipeActionType.share => Icons.share_outlined,
-      SwipeActionType.none => Icons.block_rounded,
+      SwipeActionType.pin => AppIcons.pin,
+      SwipeActionType.askGlimpse => AppIcons.sparkle,
+      SwipeActionType.share => AppIcons.share,
+      SwipeActionType.none => AppIcons.blocked,
     };
   }
 
-  IconData get filledIcon {
-    return switch (this) {
-      SwipeActionType.delete => Icons.delete_rounded,
-      SwipeActionType.toggleRead => Icons.mark_email_read_rounded,
-      SwipeActionType.addToCollection => AppIcons.filledVariant(
-        AppIcons.addToCollection,
-      ),
-      SwipeActionType.pin => Icons.push_pin_rounded,
-      SwipeActionType.askGlimpse => Icons.auto_awesome_rounded,
-      SwipeActionType.share => Icons.share_rounded,
-      SwipeActionType.none => Icons.block_rounded,
-    };
-  }
+  IconData get filledIcon => AppIcons.filledVariant(icon);
 
   /// Renders the action glyph. Ask Glimpse uses the brand mark instead of a
   /// stock icon so it reads as a first-class, premium action everywhere.
@@ -80,7 +68,7 @@ extension SwipeActionTypeInfo on SwipeActionType {
         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
       );
     }
-    return Icon(filled ? filledIcon : icon, size: size, color: color);
+    return AppIcon(filled ? filledIcon : icon, size: size, color: color);
   }
 
   /// Muted, desaturated accents that read clearly during a swipe without

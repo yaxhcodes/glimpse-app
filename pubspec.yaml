@@ -162,6 +162,8 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/icons/
+    - assets/licenses/
     - assets/glimpse.png
     - assets/glimpse.svg
     - assets/home.png

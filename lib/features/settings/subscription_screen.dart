@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
+import '../../core/constants/app_assets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,6 +15,7 @@ import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
@@ -60,7 +62,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48),
+              const Icon(AppIcons.error, size: 48),
               const SizedBox(height: 12),
               Text(strings.couldNotLoadSubscription),
               const SizedBox(height: 12),
@@ -389,7 +391,7 @@ class _PlanHero extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: SvgPicture.asset(
-                  'assets/glimpse.svg',
+                  AppAssets.brandMark,
                   width: 24,
                   height: 24,
                   colorFilter: ColorFilter.mode(
@@ -468,7 +470,7 @@ class _PlanFeatureTile extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Icon(
-              locked ? Icons.lock_outline_rounded : Icons.check_rounded,
+              locked ? AppIcons.lock : AppIcons.check,
               size: 19,
               color: locked ? cs.onSurfaceVariant : cs.primary,
             ),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
+import '../../core/constants/app_assets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -209,7 +210,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                                   leading: Padding(
                                     padding: const EdgeInsets.only(bottom: 18),
                                     child: SvgPicture.asset(
-                                      'assets/glimpse.svg',
+                                      AppAssets.brandMark,
                                       width: 28,
                                       height: 28,
                                       colorFilter: ColorFilter.mode(

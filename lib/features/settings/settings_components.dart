@@ -10,7 +10,7 @@ import '../../shared/widgets/expressive_tap_scale.dart';
 /// The look: small muted labels sitting *above* large, extra-rounded tonal
 /// containers (instead of bold colored headers inside flat cards). Every row
 /// carries a colorful tinted icon chip, generous touch targets, and big
-/// switches with a check / ✕ in the handle.
+/// switches with a check / âœ• in the handle.
 /// ─────────────────────────────────────────────────────────────────────────────
 
 /// Corner radius for grouped containers — the expressive "large" shape.
@@ -93,7 +93,7 @@ class SettingsTile extends StatelessWidget {
     this.destructive = false,
   }) : assert(icon != null || leading != null, 'Provide icon or leading');
 
-  /// Material icon for the chip. Ignored when [leading] is supplied.
+  /// Phosphor icon for the chip. Ignored when [leading] is supplied.
   final IconData? icon;
 
   /// Custom chip glyph (e.g. swipe-action icon). Takes precedence over [icon].
@@ -171,7 +171,7 @@ class SettingsTile extends StatelessWidget {
             const SizedBox(width: 12),
             trailing ??
                 Icon(
-                  Icons.chevron_right_rounded,
+                  AppIcons.chevronRight,
                   size: 24,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
@@ -226,7 +226,7 @@ class SettingsBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: fg),
+            AppIcon(icon, size: 14, color: fg),
             const SizedBox(width: 4),
           ],
           Text(
@@ -243,13 +243,13 @@ class SettingsBadge extends StatelessWidget {
   }
 }
 
-/// Android 16 switch handle: a check when on, a ✕ when off.
+/// Android 16 switch handle: a check when on, a âœ• when off.
 WidgetStateProperty<Icon?> settingsSwitchThumbIcon() {
   return WidgetStateProperty.resolveWith((states) {
     if (states.contains(WidgetState.selected)) {
-      return const Icon(Icons.check_rounded);
+      return const Icon(AppIcons.check);
     }
-    return const Icon(Icons.close_rounded);
+    return const Icon(AppIcons.close);
   });
 }
 
@@ -260,9 +260,10 @@ class SettingsAccents {
 
   static Color resolve(ColorScheme cs, Color accent) {
     if (accent == cs.error) return cs.error;
-    if (accent == amber || accent == rose || accent == gold) return cs.tertiary;
-    if (accent == slate) return cs.onSurfaceVariant;
-    return cs.primary;
+    final hsl = HSLColor.fromColor(accent);
+    return hsl
+        .withLightness(cs.brightness == Brightness.dark ? 0.72 : 0.40)
+        .toColor();
   }
 
   static const Color violet = Color(0xFF917EDD);

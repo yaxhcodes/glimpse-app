@@ -24,14 +24,22 @@ void main() {
       ..addFont(rootBundle.load('assets/fonts/InstrumentSans-Bold.ttf'));
     final materialIcons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    final phosphorIcons =
-        FontLoader('packages/phosphor_flutter/PhosphorRegular')..addFont(
-          rootBundle.load('packages/phosphor_flutter/lib/fonts/Phosphor.ttf'),
-        );
+    final phosphorIcons = FontLoader('packages/phosphor_flutter/PhosphorBold')
+      ..addFont(
+        rootBundle.load(
+          'packages/phosphor_flutter/lib/fonts/Phosphor-Bold.ttf',
+        ),
+      );
     await Future.wait([
       instrumentSans.load(),
       materialIcons.load(),
       phosphorIcons.load(),
+      (FontLoader('packages/phosphor_flutter/PhosphorFill')..addFont(
+            rootBundle.load(
+              'packages/phosphor_flutter/lib/fonts/Phosphor-Fill.ttf',
+            ),
+          ))
+          .load(),
     ]);
   });
 

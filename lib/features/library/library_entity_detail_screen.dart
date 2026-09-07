@@ -19,6 +19,8 @@ import 'library_reading_progress.dart';
 import 'library_status_picker.dart';
 import 'library_widgets.dart';
 import 'place_itinerary_editor_screen.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
+import 'package:glimpse/shared/widgets/app_expansion_chevron.dart';
 
 class LibraryEntityDetailScreen extends ConsumerWidget {
   const LibraryEntityDetailScreen({super.key, required this.entityKey});
@@ -145,6 +147,7 @@ class _EntityDetail extends StatelessWidget {
       appBar: AppBar(
         actions: [
           PopupMenuButton<String>(
+            icon: const Icon(AppIcons.more),
             tooltip: context.l10n.libraryItemOptions,
             onSelected: (value) {
               if (value == 'hide') onHide();
@@ -154,7 +157,7 @@ class _EntityDetail extends StatelessWidget {
                 value: 'hide',
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.visibility_off_outlined),
+                  leading: Icon(AppIcons.visibilityOff),
                   title: Text(context.l10n.hideFromLibrary),
                 ),
               ),
@@ -303,7 +306,7 @@ class _MediaHeader extends StatelessWidget {
                       width: double.infinity,
                       child: FilledButton.tonalIcon(
                         onPressed: () => _chooseStatus(context),
-                        icon: Icon(
+                        icon: AppIcon(
                           libraryStatusIcon(entity.status, entity.kind),
                         ),
                         label: Text(
@@ -346,7 +349,7 @@ class _ImdbRatingChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Chip(
-      avatar: Icon(Icons.star_rounded, size: 17, color: cs.tertiary),
+      avatar: AppIcon(AppIcons.rate, size: 17, color: cs.tertiary),
       label: Text('${rating.toStringAsFixed(1)} IMDb'),
       side: BorderSide.none,
       backgroundColor: cs.tertiaryContainer.withValues(alpha: 0.52),
@@ -398,7 +401,7 @@ class _PlaceHeader extends StatelessWidget {
           runSpacing: 8,
           children: [
             FilterChip(
-              avatar: const Icon(Icons.bookmark_add_outlined, size: 18),
+              avatar: const Icon(AppIcons.bookmarkAdd, size: 18),
               label: Text(context.l10n.wantToVisit),
               selected: entity.status == LibraryItemStatus.planning,
               side: BorderSide.none,
@@ -409,7 +412,7 @@ class _PlaceHeader extends StatelessWidget {
               ),
             ),
             FilterChip(
-              avatar: const Icon(Icons.check_circle_outline_rounded, size: 18),
+              avatar: const Icon(AppIcons.checkCircle, size: 18),
               label: Text(context.l10n.libraryVisited),
               selected: entity.status == LibraryItemStatus.completed,
               side: BorderSide.none,
@@ -427,7 +430,7 @@ class _PlaceHeader extends StatelessWidget {
             Expanded(
               child: FilledButton.icon(
                 onPressed: () => _planVisit(context),
-                icon: const Icon(Icons.route_rounded),
+                icon: const Icon(AppIcons.route),
                 label: Text(context.l10n.planAVisit),
               ),
             ),
@@ -435,7 +438,7 @@ class _PlaceHeader extends StatelessWidget {
               const SizedBox(width: 10),
               FilledButton.tonalIcon(
                 onPressed: () => _openInMaps(entity),
-                icon: const Icon(Icons.map_outlined),
+                icon: const Icon(AppIcons.map),
                 label: Text(context.l10n.maps),
               ),
             ],
@@ -564,9 +567,10 @@ class _SourceSaves extends StatelessWidget {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          trailing: const AppExpansionChevron(),
           shape: const RoundedRectangleBorder(side: BorderSide.none),
           collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
-          leading: const Icon(Icons.link_rounded),
+          leading: const Icon(AppIcons.link),
           title: Text(context.l10n.foundInYourSaves),
           subtitle: Text(context.l10n.saveCount(entity.sources.length)),
           children: [
@@ -579,7 +583,7 @@ class _SourceSaves extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: Text(source.domain),
-                trailing: const Icon(Icons.chevron_right_rounded),
+                trailing: const Icon(AppIcons.chevronRight),
                 onTap: () => context.push('/url/${source.urlId}'),
               ),
           ],

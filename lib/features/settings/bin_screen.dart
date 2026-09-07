@@ -274,7 +274,7 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                 leading: IconButton(
                   tooltip: context.l10n.exitSelection,
                   onPressed: selectionNotifier.clear,
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(AppIcons.close),
                 ),
                 title: BulkSelectionTitle(count: selectedUrls.length),
                 actions: [
@@ -288,14 +288,14 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                               urls.map((url) => url.id),
                             );
                           },
-                    icon: const Icon(Icons.select_all_rounded),
+                    icon: const Icon(AppIcons.selectAll),
                   ),
                   IconButton(
                     tooltip: 'Restore selected',
                     onPressed: selectedUrls.isEmpty
                         ? null
                         : () => unawaited(_restoreMany(selectedUrls)),
-                    icon: const Icon(Icons.restore_rounded),
+                    icon: const Icon(AppIcons.rediscover),
                   ),
                   IconButton(
                     tooltip: 'Delete selected permanently',
@@ -303,7 +303,7 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                     onPressed: selectedUrls.isEmpty
                         ? null
                         : () => unawaited(_deleteManyPermanently(selectedUrls)),
-                    icon: const Icon(Icons.delete_forever_rounded),
+                    icon: const Icon(AppIcons.deleteForever),
                   ),
                 ],
               )
@@ -315,6 +315,7 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                 actions: [
                   if (_maintenanceComplete && urls.isNotEmpty)
                     PopupMenuButton<String>(
+                      icon: const Icon(AppIcons.more),
                       tooltip: context.l10n.binActions,
                       onSelected: (value) {
                         if (value == 'restore') {
@@ -327,14 +328,14 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                         PopupMenuItem(
                           value: 'restore',
                           child: ListTile(
-                            leading: Icon(Icons.restore_rounded),
+                            leading: Icon(AppIcons.rediscover),
                             title: Text(context.l10n.restoreAll),
                           ),
                         ),
                         PopupMenuItem(
                           value: 'empty',
                           child: ListTile(
-                            leading: Icon(Icons.delete_forever_rounded),
+                            leading: Icon(AppIcons.deleteForever),
                             title: Text(context.l10n.emptyBin),
                           ),
                         ),
@@ -466,14 +467,14 @@ class _BinItem extends StatelessWidget {
         alignment: Alignment.centerLeft,
         backgroundColor: cs.tertiaryContainer,
         foregroundColor: cs.onTertiaryContainer,
-        icon: Icons.restore_rounded,
+        icon: AppIcons.rediscover,
         label: context.l10n.restore,
       ),
       secondaryBackground: _SwipeActionBackground(
         alignment: Alignment.centerRight,
         backgroundColor: cs.errorContainer,
         foregroundColor: cs.onErrorContainer,
-        icon: Icons.delete_forever_rounded,
+        icon: AppIcons.deleteForever,
         label: context.l10n.delete,
       ),
       confirmDismiss: (direction) {
@@ -558,6 +559,7 @@ class _BinItem extends StatelessWidget {
                   ),
                   if (!selectionMode)
                     PopupMenuButton<String>(
+                      icon: const Icon(AppIcons.more),
                       tooltip: context.l10n.itemActions,
                       onSelected: (value) {
                         if (value == 'restore') {
@@ -570,14 +572,14 @@ class _BinItem extends StatelessWidget {
                         PopupMenuItem(
                           value: 'restore',
                           child: _ItemMenuRow(
-                            icon: Icons.restore_rounded,
+                            icon: AppIcons.rediscover,
                             label: context.l10n.restore,
                           ),
                         ),
                         PopupMenuItem(
                           value: 'delete',
                           child: _ItemMenuRow(
-                            icon: Icons.delete_forever_rounded,
+                            icon: AppIcons.deleteForever,
                             label: context.l10n.deletePermanently,
                             color: cs.error,
                           ),
@@ -621,7 +623,7 @@ class _SelectionIndicator extends StatelessWidget {
             ),
           ),
           child: selected
-              ? Icon(Icons.check_rounded, size: 19, color: cs.onPrimary)
+              ? Icon(AppIcons.check, size: 19, color: cs.onPrimary)
               : null,
         ),
       ),
@@ -657,14 +659,14 @@ class _SwipeActionBackground extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: leftAligned
               ? [
-                  Icon(icon, color: foregroundColor),
+                  AppIcon(icon, color: foregroundColor),
                   const SizedBox(width: 8),
                   Text(label, style: TextStyle(color: foregroundColor)),
                 ]
               : [
                   Text(label, style: TextStyle(color: foregroundColor)),
                   const SizedBox(width: 8),
-                  Icon(icon, color: foregroundColor),
+                  AppIcon(icon, color: foregroundColor),
                 ],
         ),
       ),
@@ -683,7 +685,7 @@ class _ItemMenuRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: color),
+        AppIcon(icon, color: color),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -711,8 +713,8 @@ class _EmptyBin extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.delete_outline_rounded,
+            AppIcon(
+              AppIcons.clearData,
               size: 52,
               color: colorScheme.onSurfaceVariant,
             ),

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'platform_icons.dart';
 import 'source_icon_resolver.dart';
 import 'tag_group.dart' show tagChipColors;
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 bool _isDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
@@ -86,7 +87,7 @@ class MonochromeIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
-        child: Icon(icon, size: size, color: cs.onSurfaceVariant),
+        child: AppIcon(icon, size: size, color: cs.onSurfaceVariant),
       ),
     );
   }
@@ -127,7 +128,7 @@ class SourceIconContainer extends StatelessWidget {
             size: containerSize * 0.47,
             color: accent,
           )
-        : Icon(spec.icon, size: containerSize * 0.47, color: accent);
+        : AppIcon(spec.icon, size: containerSize * 0.47, color: accent);
 
     return Container(
       width: containerSize,
@@ -210,10 +211,18 @@ class PremiumSearchBar extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-          prefixIcon: Icon(Icons.search, size: 20, color: cs.onSurfaceVariant),
+          prefixIcon: AppIcon(
+            AppIcons.search,
+            size: 20,
+            color: cs.onSurfaceVariant,
+          ),
           suffixIcon: onClear != null
               ? IconButton(
-                  icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+                  icon: Icon(
+                    AppIcons.close,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
                   onPressed: onClear,
                 )
               : null,
@@ -495,7 +504,7 @@ class CinematicCard extends StatelessWidget {
                           ColoredBox(color: cs.surfaceContainerHighest),
                       errorWidget: (_, _, _) => Center(
                         child: Icon(
-                          Icons.image_outlined,
+                          AppIcons.image,
                           size: 26,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                         ),
@@ -503,8 +512,8 @@ class CinematicCard extends StatelessWidget {
                     )
                   else
                     Center(
-                      child: Icon(
-                        Icons.bookmark_outline_rounded,
+                      child: AppIcon(
+                        AppIcons.bookmark,
                         size: 26,
                         color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                       ),

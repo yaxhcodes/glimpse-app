@@ -74,8 +74,9 @@ class NotableItemCard extends StatelessWidget {
                               alignment: PlaceholderAlignment.middle,
                               child: Padding(
                                 padding: const EdgeInsets.only(right: 8),
-                                child: Icon(
+                                child: AppIcon(
                                   _iconFor(item),
+                                  filled: true,
                                   size: isQuote || itemType == 'term' ? 18 : 16,
                                   color: accent,
                                 ),
@@ -112,7 +113,7 @@ class NotableItemCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                             ],
-                            Icon(
+                            AppIcon(
                               actionIcon,
                               size: 18,
                               color: colorScheme.onSurfaceVariant.withValues(
@@ -176,7 +177,12 @@ class NotableItemCard extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Icon(Icons.language_rounded, size: 20, color: accent),
+                  child: AppIcon(
+                    AppIcons.globe,
+                    filled: true,
+                    size: 20,
+                    color: accent,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -220,7 +226,7 @@ class NotableItemCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Padding(
                     padding: const EdgeInsets.only(top: 1),
-                    child: Icon(
+                    child: AppIcon(
                       actionIcon,
                       size: 18,
                       color: colorScheme.onSurfaceVariant.withValues(
@@ -243,26 +249,26 @@ class NotableItemCard extends StatelessWidget {
     final label = item.label?.trim().toLowerCase() ?? '';
     final descriptor = '$type $label';
     if (RegExp(r'\balbum\b').hasMatch(descriptor)) {
-      return Icons.album_outlined;
+      return AppIcons.album;
     }
     if (item.isMusicItem) {
-      return Icons.music_note_rounded;
+      return AppIcons.music;
     }
     if (RegExp(r'\b(game|gaming)\b').hasMatch(descriptor)) {
-      return Icons.sports_esports_outlined;
+      return AppIcons.game;
     }
     return switch (type) {
       'term' => AppIcons.termMentioned,
-      'quote' => Icons.format_quote_rounded,
-      'claim' => Icons.lightbulb_outline_rounded,
-      'website' => Icons.language_rounded,
+      'quote' => AppIcons.quote,
+      'claim' => AppIcons.idea,
+      'website' => AppIcons.globe,
       'reference' ||
       'document' ||
       'paper' ||
       'report' => AppIcons.termMentioned,
-      'tool' || 'app' => Icons.apps_rounded,
-      'product' => Icons.shopping_bag_outlined,
-      _ => Icons.bookmark_border_rounded,
+      'tool' || 'app' => AppIcons.apps,
+      'product' => AppIcons.shoppingBag,
+      _ => AppIcons.bookmark,
     };
   }
 }

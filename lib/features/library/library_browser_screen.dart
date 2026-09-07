@@ -10,15 +10,16 @@ import 'library_localization.dart';
 import 'library_provider.dart';
 import 'library_status_picker.dart';
 import 'library_widgets.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 enum LibrarySortOrder { discovered, title, year, status }
 
 extension on LibrarySortOrder {
   IconData get icon => switch (this) {
-    LibrarySortOrder.discovered => Icons.schedule_rounded,
-    LibrarySortOrder.title => Icons.sort_by_alpha_rounded,
-    LibrarySortOrder.year => Icons.calendar_today_rounded,
-    LibrarySortOrder.status => Icons.playlist_add_check_rounded,
+    LibrarySortOrder.discovered => AppIcons.clock,
+    LibrarySortOrder.title => AppIcons.sortAlphabetical,
+    LibrarySortOrder.year => AppIcons.calendar,
+    LibrarySortOrder.status => AppIcons.checklist,
   };
 }
 
@@ -104,7 +105,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                           hintText: context.l10n.searchLibraryItems(
                             localizedLibraryKind(context.l10n, widget.kind),
                           ),
-                          leading: const Icon(Icons.search_rounded),
+                          leading: const AppIcon(AppIcons.search),
                           trailing: [
                             if (_query.isNotEmpty)
                               IconButton(
@@ -113,7 +114,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                                   _searchController.clear();
                                   setState(() => _query = '');
                                 },
-                                icon: const Icon(Icons.close_rounded),
+                                icon: const Icon(AppIcons.close),
                               ),
                           ],
                           onChanged: (value) => setState(() => _query = value),
@@ -127,6 +128,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                           children: [
                             if (_selectedStatus case final status?)
                               InputChip(
+                                deleteIcon: const Icon(AppIcons.close),
                                 label: Text(
                                   localizedLibraryStatus(
                                     context.l10n,
@@ -139,6 +141,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                               ),
                             if (_selectedGenre case final genre?)
                               InputChip(
+                                deleteIcon: const Icon(AppIcons.close),
                                 label: Text(
                                   localizedLibraryGenre(context.l10n, genre),
                                 ),
@@ -387,7 +390,7 @@ class _LibraryOptionsMenu extends StatelessWidget {
       icon: Badge.count(
         count: activeFilterCount,
         isLabelVisible: activeFilterCount > 0,
-        child: const Icon(Icons.more_vert_rounded),
+        child: const Icon(AppIcons.more),
       ),
       initialValue: _menuActionForSortOrder(sortOrder),
       onSelected: (action) {
@@ -403,7 +406,7 @@ class _LibraryOptionsMenu extends StatelessWidget {
           value: _LibraryMenuAction.filters,
           padding: EdgeInsets.zero,
           child: _LibraryMenuRow(
-            icon: Icons.tune_rounded,
+            icon: AppIcons.adjust,
             label: context.l10n.filters,
             selected: activeFilterCount > 0,
           ),
@@ -442,12 +445,12 @@ class _LibraryMenuRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: cs.onSurfaceVariant),
+          AppIcon(icon, size: 20, color: cs.onSurfaceVariant),
           const SizedBox(width: 10),
           Expanded(child: Text(label)),
           if (selected) ...[
             const SizedBox(width: 12),
-            Icon(Icons.check_rounded, size: 20, color: cs.primary),
+            Icon(AppIcons.check, size: 20, color: cs.primary),
           ],
         ],
       ),
@@ -537,7 +540,7 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                 ),
                 for (final status in LibraryItemStatus.values.skip(1))
                   ChoiceChip(
-                    avatar: Icon(
+                    avatar: AppIcon(
                       libraryStatusIcon(status, widget.kind),
                       size: 18,
                     ),
@@ -609,11 +612,7 @@ class _NoResults extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.search_off_rounded,
-              size: 44,
-              color: cs.onSurfaceVariant,
-            ),
+            Icon(AppIcons.searchEmpty, size: 44, color: cs.onSurfaceVariant),
             const SizedBox(height: 12),
             Text(
               hasFilters

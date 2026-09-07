@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
   testWidgets('selection keeps the URL thumbnail and overlays its circle', (
@@ -43,7 +44,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('selection-selected')), findsOneWidget);
-    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.check), findsOneWidget);
 
     await tester.tap(find.text('Selected save'));
     expect(toggles, 1);

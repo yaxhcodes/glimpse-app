@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class SelectionBadge extends StatelessWidget {
   const SelectionBadge({super.key, required this.selected});
@@ -30,7 +31,7 @@ class SelectionBadge extends StatelessWidget {
         ],
       ),
       child: selected
-          ? Icon(Icons.check_rounded, size: 18, color: colorScheme.onPrimary)
+          ? Icon(AppIcons.check, size: 18, color: colorScheme.onPrimary)
           : null,
     );
   }

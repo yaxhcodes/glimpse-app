@@ -16,6 +16,7 @@ import '../../core/models/user_collection.dart';
 import '../../core/providers/user_display_name_provider.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/widgets/upgrade_gate.dart';
+import '../../shared/widgets/app_expansion_chevron.dart';
 import '../../shared/widgets/usage_badge.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../core/database/isar_service.dart';
@@ -330,7 +331,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
           const UsageBadge(feature: UsageFeature.ask),
           if (askState.messages.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.edit_outlined),
+              icon: const Icon(AppIcons.edit),
               tooltip: context.l10n.newChat,
               onPressed: () {
                 HapticFeedback.lightImpact();

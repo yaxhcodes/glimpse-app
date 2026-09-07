@@ -4,6 +4,22 @@ class AppAssets {
 
   /// Primary brand icon used across all UI surfaces.
   static const String logo = 'assets/glimpse.png';
+  static const String homeIcon = 'assets/icons/home.svg';
+  static const String homeSelectedIcon = 'assets/icons/home-selected.svg';
+  static const String searchIcon = 'assets/icons/search.svg';
+  static const String searchSelectedIcon = 'assets/icons/search-selected.svg';
+  static const String collectionsIcon = 'assets/icons/collections.svg';
+  static const String collectionsSelectedIcon =
+      'assets/icons/collections-selected.svg';
+  static const String interestsIcon = 'assets/icons/interests.svg';
+  static const String interestsSelectedIcon =
+      'assets/icons/interests-selected.svg';
+  static const String brandMark = 'assets/glimpse.svg';
+  static const String addLinkIcon = 'assets/icons/add-link.svg';
+  static const String addToCollectionIcon =
+      'assets/icons/add-to-collection.svg';
+  static const String addToCollectionFilledIcon =
+      'assets/icons/add-to-collection-selected.svg';
 
   /// Exact Android launcher artwork used wherever onboarding shows Glimpse.
   static const String launcherIcon =

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../core/constants/app_assets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -69,10 +70,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 for (final language in AppLanguage.values)
                   ListTile(
-                    leading: Icon(
+                    leading: AppIcon(
                       language == current
-                          ? Icons.radio_button_checked_rounded
-                          : Icons.radio_button_unchecked_rounded,
+                          ? AppIcons.radioSelected
+                          : AppIcons.radioUnselected,
                     ),
                     title: Text(_languageLabel(strings, language)),
                     onTap: () => Navigator.pop(sheetContext, language),
@@ -292,7 +293,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     SettingsTile(
                       leading: SvgPicture.asset(
-                        'assets/glimpse.svg',
+                        AppAssets.brandMark,
                         width: 22,
                         height: 22,
                         colorFilter: ColorFilter.mode(
@@ -312,7 +313,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                           const SizedBox(width: 8),
                           Icon(
-                            Icons.chevron_right_rounded,
+                            AppIcons.chevronRight,
                             size: 24,
                             color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
@@ -387,7 +388,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             const SizedBox(width: 8),
                           ],
                           Icon(
-                            Icons.chevron_right_rounded,
+                            AppIcons.chevronRight,
                             size: 24,
                             color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
@@ -645,7 +646,7 @@ class _VersionTrailing extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Icon(
-          Icons.chevron_right_rounded,
+          AppIcons.chevronRight,
           size: 24,
           color: cs.onSurfaceVariant.withValues(alpha: 0.6),
         ),
@@ -667,7 +668,10 @@ class _SwipeActionsGroup extends ConsumerWidget {
       children: [
         SettingsTile(
           leading: prefs.leftSwipeAction.iconWidget(
-            color: SettingsAccents.rose,
+            color: SettingsAccents.resolve(
+              Theme.of(context).colorScheme,
+              SettingsAccents.rose,
+            ),
             size: 22,
             filled: true,
           ),
@@ -686,7 +690,10 @@ class _SwipeActionsGroup extends ConsumerWidget {
         ),
         SettingsTile(
           leading: prefs.rightSwipeAction.iconWidget(
-            color: SettingsAccents.teal,
+            color: SettingsAccents.resolve(
+              Theme.of(context).colorScheme,
+              SettingsAccents.teal,
+            ),
             size: 22,
             filled: true,
           ),
@@ -793,7 +800,7 @@ class _SwipeActionOption extends StatelessWidget {
                 child: action.iconWidget(
                   color: iconColor,
                   size: 22,
-                  filled: true,
+                  filled: selected,
                 ),
               ),
             ),
@@ -806,8 +813,7 @@ class _SwipeActionOption extends StatelessWidget {
                 ),
               ),
             ),
-            if (selected)
-              Icon(Icons.check_rounded, size: 20, color: cs.primary),
+            if (selected) Icon(AppIcons.check, size: 20, color: cs.primary),
           ],
         ),
       ),
@@ -934,7 +940,7 @@ class _DeveloperSection extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               title: const Text('Reset usage counters'),
               subtitle: const Text('Clear monthly AI counters'),
-              trailing: const Icon(Icons.restart_alt),
+              trailing: const Icon(AppIcons.refresh),
               onTap: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 await ref.read(usageServiceProvider).resetAll();
@@ -984,7 +990,7 @@ class _DeveloperSection extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               title: const Text('Reset Onboarding'),
               subtitle: const Text('Show onboarding on next launch'),
-              trailing: const Icon(Icons.replay),
+              trailing: const Icon(AppIcons.refresh),
               onTap: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 await ref.read(hasSeenOnboardingProvider.notifier).reset();
@@ -1014,7 +1020,7 @@ class _DeveloperSection extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               title: const Text('Reset First Save Celebration'),
               subtitle: const Text('Re-enable first-save celebration'),
-              trailing: const Icon(Icons.celebration_outlined),
+              trailing: const Icon(AppIcons.celebrate),
               onTap: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 await ref
@@ -1036,7 +1042,7 @@ class _DeveloperSection extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               title: const Text('Reset First Save Simulation'),
               subtitle: const Text('Reset simulation session'),
-              trailing: const Icon(Icons.replay),
+              trailing: const Icon(AppIcons.refresh),
               onTap: () {
                 final messenger = ScaffoldMessenger.of(context);
                 ref
@@ -1210,6 +1216,7 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
 
         // Type picker.
         DropdownButtonFormField<String>(
+          icon: const Icon(AppIcons.chevronDown),
           initialValue: _testType,
           decoration: InputDecoration(
             labelText: 'Notification type',
@@ -1250,7 +1257,7 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _testing ? null : _previewNow,
-                icon: const Icon(Icons.visibility_outlined, size: 18),
+                icon: const Icon(AppIcons.visibility, size: 18),
                 label: const Text('Preview'),
               ),
             ),
@@ -1267,7 +1274,7 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
                           color: cs.onPrimary,
                         ),
                       )
-                    : const Icon(Icons.send_outlined, size: 18),
+                    : const Icon(AppIcons.send, size: 18),
                 label: const Text('Fire now'),
               ),
             ),

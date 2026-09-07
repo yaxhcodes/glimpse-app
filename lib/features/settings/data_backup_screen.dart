@@ -15,6 +15,7 @@ import '../../core/services/backup_scheduler.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 String _localizedBackupInterval(BuildContext context, int hours) {
   if (hours == 0) return context.l10n.off;
@@ -202,7 +203,7 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
                                 ),
                               )
                             : Icon(
-                                Icons.chevron_right,
+                                AppIcons.chevronRight,
                                 color: cs.onSurfaceVariant,
                               ),
                         onTap: exportBusy ? null : _exportBackup,
@@ -425,7 +426,7 @@ class _Note extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline_rounded, size: 18, color: cs.tertiary),
+            AppIcon(AppIcons.about, size: 18, color: cs.tertiary),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -519,7 +520,7 @@ class _StorageLocationTile extends ConsumerWidget {
             if (hasLocation && isAndroid)
               IconButton(
                 tooltip: context.l10n.forgetFolder,
-                icon: const Icon(Icons.close_rounded),
+                icon: const Icon(AppIcons.close),
                 style: IconButton.styleFrom(
                   foregroundColor: cs.onSurfaceVariant,
                 ),
@@ -527,7 +528,7 @@ class _StorageLocationTile extends ConsumerWidget {
                     ref.read(backupProvider.notifier).clearStorageLocation(),
               )
             else if (!hasLocation && isAndroid)
-              Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+              Icon(AppIcons.chevronRight, color: cs.onSurfaceVariant),
           ],
         ),
       ),
@@ -580,10 +581,7 @@ class _AutoBackupSection extends ConsumerWidget {
                   color: cs.onSurfaceVariant,
                 ),
               ),
-              trailing: Icon(
-                Icons.expand_more_rounded,
-                color: cs.onSurfaceVariant,
-              ),
+              trailing: Icon(AppIcons.chevronDown, color: cs.onSurfaceVariant),
               onTap: android
                   ? () => _showFrequencySheet(context, ref, hours)
                   : null,
@@ -693,7 +691,7 @@ class _AutoBackupSection extends ConsumerWidget {
                   title: Text(_localizedBackupInterval(context, h)),
                   trailing: h == currentHours
                       ? Icon(
-                          Icons.check_rounded,
+                          AppIcons.check,
                           color: Theme.of(ctx).colorScheme.primary,
                         )
                       : null,

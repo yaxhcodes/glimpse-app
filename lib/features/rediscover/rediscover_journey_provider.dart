@@ -154,7 +154,7 @@ final rediscoverTodayProvider = FutureProvider<List<RediscoverTodaySlot>>((
         type: RediscoverTodaySlotType.continueFromHere,
         label: 'Continue from here',
         subtitle: TitleResolver.resolveDetailTitle(continueItem.url),
-        icon: Icons.play_circle_outline_rounded,
+        icon: AppIcons.play,
         item: continueItem,
       ),
     );
@@ -172,7 +172,7 @@ final rediscoverTodayProvider = FutureProvider<List<RediscoverTodaySlot>>((
         type: RediscoverTodaySlotType.stillWaiting,
         label: 'Still waiting',
         subtitle: TitleResolver.resolveDetailTitle(stillWaiting.url),
-        icon: Icons.hourglass_empty_rounded,
+        icon: AppIcons.hourglass,
         item: stillWaiting,
       ),
     );
@@ -185,7 +185,7 @@ final rediscoverTodayProvider = FutureProvider<List<RediscoverTodaySlot>>((
         type: RediscoverTodaySlotType.forgottenGem,
         label: 'Forgotten gem',
         subtitle: TitleResolver.resolveDetailTitle(gem.url),
-        icon: Icons.diamond_outlined,
+        icon: AppIcons.gem,
         item: gem,
       ),
     );
@@ -270,7 +270,7 @@ List<RediscoverJourney> buildRediscoverJourneys({
         kind: RediscoverJourneyKind.onThisDay,
         title: 'From another season',
         subtitle: '${anniversaryItems.length} saves from earlier cycles',
-        icon: Icons.history_rounded,
+        icon: AppIcons.rediscover,
         items: anniversaryItems.take(8).toList(),
         signal: 50,
       ),
@@ -562,9 +562,9 @@ double _framingBase(RediscoverJourneyKind framing) => switch (framing) {
 };
 
 IconData _framingIcon(RediscoverJourneyKind framing) => switch (framing) {
-  RediscoverJourneyKind.returningTopic => Icons.history_toggle_off_rounded,
-  RediscoverJourneyKind.continueLearning => Icons.playlist_play_rounded,
-  RediscoverJourneyKind.forgottenGems => Icons.diamond_outlined,
+  RediscoverJourneyKind.returningTopic => AppIcons.history,
+  RediscoverJourneyKind.continueLearning => AppIcons.listPlay,
+  RediscoverJourneyKind.forgottenGems => AppIcons.gem,
   _ => AppIcons.rediscover,
 };
 

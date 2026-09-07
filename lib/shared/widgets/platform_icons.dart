@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 typedef _PathBuilder = void Function(Path path, double size);
 
@@ -21,7 +22,7 @@ class PlatformIcon extends StatelessWidget {
         Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55);
     final builder = _glyphs[platform.toLowerCase()];
     if (builder == null) {
-      return Icon(Icons.circle_outlined, size: size, color: c);
+      return Icon(AppIcons.circle, size: size, color: c);
     }
     return CustomPaint(
       size: Size.square(size),

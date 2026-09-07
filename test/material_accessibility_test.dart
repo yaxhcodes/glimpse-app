@@ -6,6 +6,7 @@ import 'package:glimpse/shared/widgets/category_chip.dart';
 import 'package:glimpse/shared/widgets/content_attribution_disclaimer.dart';
 import 'package:glimpse/shared/widgets/creator_profile_link.dart';
 import 'package:glimpse/shared/widgets/tag_group.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 void main() {
   Widget themed(Widget child) {
@@ -53,9 +54,7 @@ void main() {
     expect(find.text('@glimpse'), findsOneWidget);
     expect(find.text('Creator'), findsNothing);
     final handleRect = tester.getRect(find.text('@glimpse'));
-    final externalIconRect = tester.getRect(
-      find.byIcon(Icons.north_east_rounded),
-    );
+    final externalIconRect = tester.getRect(find.byIcon(AppIcons.arrowUpRight));
     expect(externalIconRect.left, greaterThanOrEqualTo(handleRect.right));
     expect(externalIconRect.left - handleRect.right, lessThanOrEqualTo(8));
     final linkTarget = find.descendant(
@@ -212,7 +211,7 @@ void main() {
       find.text(ContentAttributionDisclaimer.attributionText),
       findsOneWidget,
     );
-    expect(find.byIcon(Icons.info_outline_rounded), findsNothing);
+    expect(find.byIcon(AppIcons.about), findsNothing);
     expect(
       tester
           .getTopLeft(find.text(ContentAttributionDisclaimer.accuracyText))

@@ -3,17 +3,16 @@ import 'package:flutter/material.dart';
 import '../../l10n/l10n.dart';
 import 'library_entity.dart';
 import 'library_localization.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 IconData libraryStatusIcon(LibraryItemStatus status, LibraryEntityKind kind) =>
     switch (status) {
-      LibraryItemStatus.unlisted => Icons.playlist_add_rounded,
-      LibraryItemStatus.planning => Icons.bookmark_add_outlined,
+      LibraryItemStatus.unlisted => AppIcons.listAdd,
+      LibraryItemStatus.planning => AppIcons.bookmark,
       LibraryItemStatus.active =>
-        kind == LibraryEntityKind.book
-            ? Icons.auto_stories_rounded
-            : Icons.play_circle_outline_rounded,
-      LibraryItemStatus.dropped => Icons.remove_circle_outline_rounded,
-      LibraryItemStatus.completed => Icons.check_circle_outline_rounded,
+        kind == LibraryEntityKind.book ? AppIcons.bookOpen : AppIcons.play,
+      LibraryItemStatus.dropped => AppIcons.removeCircle,
+      LibraryItemStatus.completed => AppIcons.checkCircle,
     };
 
 Future<LibraryItemStatus?> showLibraryStatusPicker(
@@ -65,12 +64,12 @@ Future<LibraryItemStatus?> showLibraryStatusPicker(
                 ),
                 selected: entity.status == status,
                 selectedTileColor: cs.secondaryContainer,
-                leading: Icon(libraryStatusIcon(status, entity.kind)),
+                leading: AppIcon(libraryStatusIcon(status, entity.kind)),
                 title: Text(
                   localizedLibraryStatus(context.l10n, status, entity.kind),
                 ),
                 trailing: entity.status == status
-                    ? const Icon(Icons.check_rounded)
+                    ? const Icon(AppIcons.check)
                     : null,
                 onTap: () => Navigator.pop(context, status),
               ),
@@ -82,7 +81,7 @@ Future<LibraryItemStatus?> showLibraryStatusPicker(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
-              leading: const Icon(Icons.playlist_remove_rounded),
+              leading: const Icon(AppIcons.listRemove),
               title: Text(
                 entity.kind == LibraryEntityKind.book
                     ? context.l10n.removeFromReadingList

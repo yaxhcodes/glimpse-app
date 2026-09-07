@@ -341,7 +341,7 @@ class _DailyMemoryCard extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: PopupMenuButton<_MemoryMenuAction>(
               tooltip: context.l10n.rediscoverOptions,
-              icon: Icon(Icons.more_horiz_rounded, color: cs.onSurface),
+              icon: Icon(AppIcons.moreHorizontal, color: cs.onSurface),
               onSelected: (action) {
                 switch (action) {
                   case _MemoryMenuAction.snooze:
@@ -355,7 +355,7 @@ class _DailyMemoryCard extends StatelessWidget {
                   value: _MemoryMenuAction.snooze,
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.schedule_rounded),
+                    leading: Icon(AppIcons.clock),
                     title: Text(context.l10n.notNow),
                     subtitle: Text(context.l10n.hideFor7Days),
                   ),
@@ -364,7 +364,7 @@ class _DailyMemoryCard extends StatelessWidget {
                   value: _MemoryMenuAction.lessLikeThis,
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.thumb_down_alt_outlined),
+                    leading: Icon(AppIcons.dislike),
                     title: Text(context.l10n.lessLikeThis),
                     subtitle: Text(context.l10n.reduceSimilarTopics),
                   ),
@@ -543,7 +543,7 @@ class _RecapCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+              Icon(AppIcons.chevronRight, color: cs.onSurfaceVariant),
             ],
           ),
         ),

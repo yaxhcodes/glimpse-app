@@ -274,7 +274,7 @@ class _ImageViewerScreenState extends State<_ImageViewerScreen> {
               shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
               child: IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                icon: const Icon(AppIcons.close, color: Colors.white),
                 tooltip: 'Close',
                 onPressed: () => Navigator.of(context).maybePop(),
               ),

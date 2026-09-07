@@ -6,6 +6,7 @@ import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import 'sources_provider.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 /// Lists saves the user marked "done" (Already Watched / Read / Tried /
 /// Checked). They're archived: hidden from the library, Rediscover and
@@ -41,22 +42,24 @@ class ArchiveScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.check_circle_outline_rounded,
+                          AppIcons.checkCircle,
                           size: 44,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 14),
                         Text(
                           'Nothing here yet',
-                          style: tt.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                          style: tt.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Saves you mark "Already watched/read/tried" land here.',
                           textAlign: TextAlign.center,
-                          style: tt.labelMedium
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: tt.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -74,22 +77,19 @@ class ArchiveScreen extends ConsumerWidget {
                 ),
               ),
               SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final url = urls[index];
-                    return SwipeableUrlCard(
-                      key: ValueKey(url.id),
-                      url: url,
-                      onTap: () => context.push('/url/${url.id}'),
-                      onDelete: (context, ref, url) async {
-                        await deleteUrlWithUndo(context, ref, url);
-                        ref.invalidate(archivedUrlsProvider);
-                      },
-                      onChanged: () => ref.invalidate(archivedUrlsProvider),
-                    );
-                  },
-                  childCount: urls.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final url = urls[index];
+                  return SwipeableUrlCard(
+                    key: ValueKey(url.id),
+                    url: url,
+                    onTap: () => context.push('/url/${url.id}'),
+                    onDelete: (context, ref, url) async {
+                      await deleteUrlWithUndo(context, ref, url);
+                      ref.invalidate(archivedUrlsProvider);
+                    },
+                    onChanged: () => ref.invalidate(archivedUrlsProvider),
+                  );
+                }, childCount: urls.length),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
             ],

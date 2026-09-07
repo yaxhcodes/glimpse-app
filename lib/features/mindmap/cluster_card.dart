@@ -6,6 +6,7 @@ import 'cluster_pattern.dart';
 import '../../shared/theme/topic_visual.dart';
 import '../../shared/widgets/topic_emblem.dart';
 import '../../shared/widgets/surface_grain.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class InterestCluster {
   const InterestCluster({
@@ -114,7 +115,7 @@ class ClusterCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Icon(
-                            Icons.chevron_right_rounded,
+                            AppIcons.chevronRight,
                             size: 20,
                             color: cs.onSurfaceVariant,
                           ),

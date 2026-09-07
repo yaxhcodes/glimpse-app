@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:glimpse/shared/theme/app_icons.dart';
 
 class CreatorProfileLink extends StatelessWidget {
   const CreatorProfileLink({
@@ -52,7 +53,7 @@ class CreatorProfileLink extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Icon(
-                    Icons.north_east_rounded,
+                    AppIcons.arrowUpRight,
                     size: 13,
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
                   ),
