@@ -191,18 +191,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 if (showRail) ...[
                   _SectionHeader(title: strings.topSources),
                   SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 134,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: topSources.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(width: 10),
-                        itemBuilder: (context, index) =>
-                            _TopSourceCard(cluster: topSources[index]),
-                      ),
-                    ),
+                    child: TopSourcesRail(sources: topSources),
                   ),
                 ],
                 _SectionHeader(title: listTitle, count: alphabetical.length),
@@ -530,6 +519,31 @@ class _KnowledgeClusterCard extends StatelessWidget {
       return strings.monthsAgo((diff.inDays / 30).floor());
     }
     return strings.yearsAgo((diff.inDays / 365).floor());
+  }
+}
+
+class TopSourcesRail extends StatelessWidget {
+  const TopSourcesRail({super.key, required this.sources});
+
+  final List<SourceCluster> sources;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var index = 0; index < sources.length; index++) ...[
+              if (index > 0) const SizedBox(width: 10),
+              _TopSourceCard(cluster: sources[index]),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 

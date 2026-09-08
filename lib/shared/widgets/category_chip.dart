@@ -1,3 +1,4 @@
+import '../theme/app_shapes.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../l10n/l10n.dart';
@@ -167,7 +168,7 @@ class CategoryChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: brandColor.withValues(alpha: isDark ? 0.14 : 0.10),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: AppShapes.borderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -211,7 +212,7 @@ class CategoryChip extends StatelessWidget {
           heightFactor: 1,
           child: Material(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: AppShapes.borderRadius,
             clipBehavior: Clip.antiAlias,
             child: InkWell(onTap: onTap, child: chip),
           ),

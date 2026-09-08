@@ -1,3 +1,4 @@
+import '../theme/app_shapes.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -48,7 +49,7 @@ class MonochromePill extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: chip.background,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppShapes.borderRadius,
       ),
       child: Text(
         label,

@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 enum AppShape { circle, cookie, clover, gem, arch, square }
 
 abstract final class AppShapes {
+  static const double cornerRadius = 14;
+  static const borderRadius = BorderRadius.all(Radius.circular(cornerRadius));
+  static const rounded = RoundedRectangleBorder(borderRadius: borderRadius);
+
   static final _borders = <AppShape, ShapeBorder>{};
 
   static ShapeBorder border(AppShape shape) => _borders.putIfAbsent(

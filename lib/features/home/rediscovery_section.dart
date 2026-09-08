@@ -7,8 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
-import '../../shared/widgets/skeleton.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
+import '../../shared/widgets/skeleton.dart';
 import '../rediscover/journey_visual.dart';
 import '../rediscover/rediscover_daily_set.dart';
 import '../rediscover/rediscover_journey_provider.dart';
@@ -22,16 +22,32 @@ class RediscoverySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 220);
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: duration,
+        child: _buildContent(context, ref, duration),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, WidgetRef ref, Duration duration) {
     final dailySetAsync = loadJourneys
         ? ref.watch(rediscoverDailySetProvider)
         : null;
     final memories =
         dailySetAsync?.valueOrNull?.memories ?? const <RediscoverMemory>[];
-    final dailySetPending =
-        !loadJourneys || (dailySetAsync?.isLoading ?? false);
-    final showJourneySkeleton = memories.isEmpty && dailySetPending;
-    if (memories.isEmpty && !showJourneySkeleton) {
-      return const SizedBox.shrink();
+    final pending = !loadJourneys || (dailySetAsync?.isLoading ?? false);
+    final hasSavedCards =
+        ref.watch(rediscoverHasSavedDailyCardsProvider).valueOrNull ?? false;
+    final showSkeleton = pending && memories.isEmpty && hasSavedCards;
+    if (memories.isEmpty && !showSkeleton) {
+      return const SizedBox.shrink(key: ValueKey('rediscover-empty'));
     }
     if (memories.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -63,11 +79,12 @@ class RediscoverySection extends ConsumerWidget {
         : memories.length.clamp(0, 3);
 
     return Padding(
+      key: const ValueKey('rediscover-content'),
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!seenTip)
+          if (!seenTip && memories.isNotEmpty)
             _RediscoverTip(
               onDismiss: () =>
                   ref.read(hasSeenRediscoverTipProvider.notifier).set(true),
@@ -116,15 +133,18 @@ class RediscoverySection extends ConsumerWidget {
               ),
             ),
           ),
-          if (previewCount > 0 || showJourneySkeleton)
+          if (previewCount > 0 || showSkeleton)
             SizedBox(
               height: cardHeight + 8,
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                child: previewCount > 0
-                    ? Padding(
+                duration: duration,
+                child: showSkeleton
+                    ? _RediscoverJourneySkeleton(
+                        key: const ValueKey('rediscover-journey-skeleton'),
+                        cardWidth: cardWidth,
+                        cardHeight: cardHeight,
+                      )
+                    : Padding(
                         key: const ValueKey('rediscover-journey-carousel'),
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: CarouselView(
@@ -183,11 +203,6 @@ class RediscoverySection extends ConsumerWidget {
                               ),
                           ],
                         ),
-                      )
-                    : _RediscoverJourneySkeleton(
-                        key: const ValueKey('rediscover-journey-skeleton'),
-                        cardWidth: cardWidth,
-                        cardHeight: cardHeight,
                       ),
               ),
             ),

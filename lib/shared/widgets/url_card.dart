@@ -1,3 +1,4 @@
+import '../theme/app_shapes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
@@ -20,6 +21,7 @@ import 'expressive_loading_indicator.dart';
 import 'enrichment_retry_button.dart';
 import 'link_card_thumbnail.dart';
 import 'selection_badge.dart';
+import 'surface_grain.dart';
 import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
@@ -71,7 +73,10 @@ class UrlCard extends ConsumerStatefulWidget {
     return cs.surfaceContainerLow;
   }
 
-  static ShapeBorder listCardShape(ThemeData _, {double radius = 14}) {
+  static ShapeBorder listCardShape(
+    ThemeData _, {
+    double radius = AppShapes.cornerRadius,
+  }) {
     return RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
   }
 
@@ -156,7 +161,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
       UrlCard.listCardFillColor(theme),
     );
     final cardShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: AppShapes.borderRadius,
       side: widget.isSelected
           ? BorderSide(color: cs.primary.withValues(alpha: 0.45))
           : BorderSide.none,
@@ -176,225 +181,229 @@ class _UrlCardState extends ConsumerState<UrlCard> {
           surfaceTintColor: Colors.transparent,
           shape: cardShape,
           clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              if (widget.selectionMode) {
-                widget.onSelectionTap?.call();
-              } else {
-                widget.onTap?.call();
-              }
-            },
-            onLongPress: () {
-              HapticFeedback.mediumImpact();
-              if (widget.onLongPress != null) {
-                widget.onLongPress?.call();
-              } else if (!widget.selectionMode) {
-                _showActions(context);
-              }
-            },
-            child: Padding(
-              padding: widget.contentPadding,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  widget.selectionMode
-                      ? _SelectionThumbnail(
-                          selected: widget.isSelected,
-                          size: 56,
-                          child: LinkCardThumbnail.build(
+          child: SurfaceGrain(
+            strength: 0.5,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                if (widget.selectionMode) {
+                  widget.onSelectionTap?.call();
+                } else {
+                  widget.onTap?.call();
+                }
+              },
+              onLongPress: () {
+                HapticFeedback.mediumImpact();
+                if (widget.onLongPress != null) {
+                  widget.onLongPress?.call();
+                } else if (!widget.selectionMode) {
+                  _showActions(context);
+                }
+              },
+              child: Padding(
+                padding: widget.contentPadding,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    widget.selectionMode
+                        ? _SelectionThumbnail(
+                            selected: widget.isSelected,
+                            size: 56,
+                            child: LinkCardThumbnail.build(
+                              url: widget.savedUrl,
+                              isRead: isRead,
+                              context: context,
+                              size: 56,
+                              borderRadius: 10,
+                            ),
+                          )
+                        : LinkCardThumbnail.build(
                             url: widget.savedUrl,
                             isRead: isRead,
                             context: context,
                             size: 56,
                             borderRadius: 10,
                           ),
-                        )
-                      : LinkCardThumbnail.build(
-                          url: widget.savedUrl,
-                          isRead: isRead,
-                          context: context,
-                          size: 56,
-                          borderRadius: 10,
-                        ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: AnimatedOpacity(
-                                opacity: (isRead && isLight) ? 0.45 : 1.0,
-                                duration: const Duration(milliseconds: 300),
-                                child: shimmerProcessingText
-                                    ? _SubtleTextShimmer(
-                                        text: resolvedTitle,
-                                        style: cardTitleStyle,
-                                        maxLines: 3,
-                                      )
-                                    : Text(
-                                        resolvedTitle,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: cardTitleStyle,
-                                      ),
-                              ),
-                            ),
-                            if (widget.isPinned) ...[
-                              const SizedBox(width: 8),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 1),
-                                child: Icon(
-                                  AppIcons.pinFilled,
-                                  size: 13,
-                                  color: cs.primary.withValues(alpha: 0.68),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Wrap(
-                                spacing: 0,
-                                runSpacing: 2,
-                                children: [
-                                  Text(displaySourceName, style: metaStyle),
-                                  Text(' · ', style: metaStyle),
-                                  Text(
-                                    UrlCard.timeAgoSaved(
-                                      context,
-                                      widget.savedUrl.savedAt,
-                                    ),
-                                    style: metaStyle,
-                                  ),
-                                  Text(' · ', style: metaStyle),
-                                  Text(
-                                    _retryingEnrichment
-                                        ? context.l10n.retrying
-                                        : isProcessing
-                                        ? context.l10n.processing
-                                        : isProcessingFailed
-                                        ? context.l10n.needsAttention
-                                        : isRead
-                                        ? context.l10n.read
-                                        : context.l10n.unread,
-                                    style: metaStyle,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (showEnrichmentRetry && !isProcessingFailed) ...[
-                              const SizedBox(width: 4),
-                              EnrichmentRetryButton(
-                                retrying: _retryingEnrichment,
-                                onPressed: _retryEnrichment,
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (notePreview != null) ...[
-                          const SizedBox(height: 6),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              AppIcon(
-                                widget.savedUrl.notePreviewIsAsk
-                                    ? AppIcons.sparkle
-                                    : AppIcons.note,
-                                size: 13,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.72,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
                               Expanded(
-                                child: Text(
-                                  notePreview,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.bodySmall?.copyWith(
-                                    fontSize: 11.5,
-                                    height: 1.25,
-                                    color: cs.onSurfaceVariant.withValues(
-                                      alpha: 0.82,
-                                    ),
-                                  ),
+                                child: AnimatedOpacity(
+                                  opacity: (isRead && isLight) ? 0.45 : 1.0,
+                                  duration: const Duration(milliseconds: 300),
+                                  child: shimmerProcessingText
+                                      ? _SubtleTextShimmer(
+                                          text: resolvedTitle,
+                                          style: cardTitleStyle,
+                                          maxLines: 3,
+                                        )
+                                      : Text(
+                                          resolvedTitle,
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: cardTitleStyle,
+                                        ),
                                 ),
                               ),
+                              if (widget.isPinned) ...[
+                                const SizedBox(width: 8),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 1),
+                                  child: Icon(
+                                    AppIcons.pinFilled,
+                                    size: 13,
+                                    color: cs.primary.withValues(alpha: 0.68),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
-                        ],
-                        if (chipData.visible.isNotEmpty ||
-                            chipData.overflow > 0) ...[
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 4,
-                            runSpacing: 3,
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              ...chipData.visible.map((tag) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: tagColors.background,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    localizedTagLabel(strings, tag),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: tagColors.foreground,
-                                      fontFamily: tt.labelSmall?.fontFamily,
-                                      letterSpacing: 0.1,
+                              Expanded(
+                                child: Wrap(
+                                  spacing: 0,
+                                  runSpacing: 2,
+                                  children: [
+                                    Text(displaySourceName, style: metaStyle),
+                                    Text(' · ', style: metaStyle),
+                                    Text(
+                                      UrlCard.timeAgoSaved(
+                                        context,
+                                        widget.savedUrl.savedAt,
+                                      ),
+                                      style: metaStyle,
                                     ),
+                                    Text(' · ', style: metaStyle),
+                                    Text(
+                                      _retryingEnrichment
+                                          ? context.l10n.retrying
+                                          : isProcessing
+                                          ? context.l10n.processing
+                                          : isProcessingFailed
+                                          ? context.l10n.needsAttention
+                                          : isRead
+                                          ? context.l10n.read
+                                          : context.l10n.unread,
+                                      style: metaStyle,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (showEnrichmentRetry &&
+                                  !isProcessingFailed) ...[
+                                const SizedBox(width: 4),
+                                EnrichmentRetryButton(
+                                  retrying: _retryingEnrichment,
+                                  onPressed: _retryEnrichment,
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (notePreview != null) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                AppIcon(
+                                  widget.savedUrl.notePreviewIsAsk
+                                      ? AppIcons.sparkle
+                                      : AppIcons.note,
+                                  size: 13,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.72,
                                   ),
-                                );
-                              }),
-                              if (chipData.overflow > 0)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: tagColors.background,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
                                   child: Text(
-                                    '+${chipData.overflow}',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: tagColors.foreground,
-                                      fontFamily: tt.labelSmall?.fontFamily,
+                                    notePreview,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: tt.bodySmall?.copyWith(
+                                      fontSize: 11.5,
+                                      height: 1.25,
+                                      color: cs.onSurfaceVariant.withValues(
+                                        alpha: 0.82,
+                                      ),
                                     ),
                                   ),
                                 ),
-                            ],
-                          ),
-                        ] else if (isProcessing || isProcessingFailed) ...[
-                          const SizedBox(height: 8),
-                          _ProcessingStatusPanel(
-                            presentation: processingPresentation!,
-                            retrying: _retryingEnrichment,
-                            onRetry: isProcessingFailed && showEnrichmentRetry
-                                ? () => _retryEnrichment()
-                                : null,
-                          ),
+                              ],
+                            ),
+                          ],
+                          if (chipData.visible.isNotEmpty ||
+                              chipData.overflow > 0) ...[
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 3,
+                              children: [
+                                ...chipData.visible.map((tag) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: tagColors.background,
+                                      borderRadius: AppShapes.borderRadius,
+                                    ),
+                                    child: Text(
+                                      localizedTagLabel(strings, tag),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color: tagColors.foreground,
+                                        fontFamily: tt.labelSmall?.fontFamily,
+                                        letterSpacing: 0.1,
+                                      ),
+                                    ),
+                                  );
+                                }),
+                                if (chipData.overflow > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: tagColors.background,
+                                      borderRadius: AppShapes.borderRadius,
+                                    ),
+                                    child: Text(
+                                      '+${chipData.overflow}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color: tagColors.foreground,
+                                        fontFamily: tt.labelSmall?.fontFamily,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ] else if (isProcessing || isProcessingFailed) ...[
+                            const SizedBox(height: 8),
+                            _ProcessingStatusPanel(
+                              presentation: processingPresentation!,
+                              retrying: _retryingEnrichment,
+                              onRetry: isProcessingFailed && showEnrichmentRetry
+                                  ? () => _retryEnrichment()
+                                  : null,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

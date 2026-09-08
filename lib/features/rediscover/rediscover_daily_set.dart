@@ -41,6 +41,14 @@ class RediscoverDailySet {
   }
 }
 
+/// Lightweight startup hint; reading this does not generate journeys.
+final rediscoverHasSavedDailyCardsProvider = FutureProvider<bool>((ref) async {
+  final records = await RediscoverMemoryPrefs.loadDailySet(
+    rediscoverDateKey(DateTime.now()),
+  );
+  return records.isNotEmpty;
+});
+
 final rediscoverDailySetProvider = FutureProvider<RediscoverDailySet>((
   ref,
 ) async {

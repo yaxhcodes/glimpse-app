@@ -102,6 +102,23 @@ class _AboutScreenState extends State<AboutScreen> {
     );
   }
 
+  void _showLicenses() {
+    // Keep the underlying settings route stationary across LicensePage's
+    // nested navigator and Android predictive-back transitions.
+    Navigator.of(context, rootNavigator: true).push<void>(
+      PageRouteBuilder<void>(
+        settings: const RouteSettings(name: 'licenses'),
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
+        pageBuilder: (_, _, _) => const LicensePage(applicationName: 'Glimpse'),
+        transitionsBuilder: (_, animation, _, child) => FadeTransition(
+          opacity: animation.drive(CurveTween(curve: Curves.easeOut)),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -225,10 +242,7 @@ class _AboutScreenState extends State<AboutScreen> {
                       title: MaterialLocalizations.of(
                         context,
                       ).licensesPageTitle,
-                      onTap: () => showLicensePage(
-                        context: context,
-                        applicationName: 'Glimpse',
-                      ),
+                      onTap: _showLicenses,
                     ),
                   ],
                 ),

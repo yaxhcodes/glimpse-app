@@ -1,3 +1,4 @@
+import '../theme/app_shapes.dart';
 import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
@@ -78,6 +79,7 @@ class TagGroup extends StatelessWidget {
             ),
             if (hiddenCount > 0)
               ActionChip(
+                shape: AppShapes.rounded,
                 label: Text('+$hiddenCount'),
                 backgroundColor: chipColor ?? chip.background,
                 labelStyle: theme.textTheme.labelMedium?.copyWith(
@@ -122,9 +124,9 @@ class _TagChip extends StatelessWidget {
       label: displayTag,
       child: Material(
         color: color ?? chip.background,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: AppShapes.borderRadius,
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: AppShapes.borderRadius,
           onTap: onTap,
           onLongPress: onLongPress,
           child: Padding(

@@ -151,6 +151,7 @@ class _LibraryDashboard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final places = snapshot.ofKind(LibraryEntityKind.place);
+    final music = snapshot.ofKind(LibraryEntityKind.music);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -225,11 +226,13 @@ class _LibraryDashboard extends StatelessWidget {
             child: _PlacesPreview(),
           ),
         ),
-        const SizedBox(height: 12),
-        _MusicDestinationCard(
-          count: snapshot.ofKind(LibraryEntityKind.music).length,
-          onTap: () => onOpen(LibraryEntityKind.music),
-        ),
+        if (music.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _MusicDestinationCard(
+            count: music.length,
+            onTap: () => onOpen(LibraryEntityKind.music),
+          ),
+        ],
       ],
     );
   }
@@ -626,8 +629,6 @@ class _LibraryEmptyState extends StatelessWidget {
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 24),
-            const _MusicDestinationCard(count: 0),
           ],
         ),
       ),

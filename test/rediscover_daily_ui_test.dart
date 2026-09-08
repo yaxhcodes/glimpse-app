@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,6 +42,60 @@ RediscoveryItem _item(SavedUrl url) {
 }
 
 void main() {
+  testWidgets('Home crossfades saved skeletons into daily cards', (
+    tester,
+  ) async {
+    final pending = Completer<RediscoverDailySet>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          rediscoverHasSavedDailyCardsProvider.overrideWith(
+            (ref) async => true,
+          ),
+          rediscoverDailySetProvider.overrideWith((ref) => pending.future),
+          rediscoverDailySetControllerProvider.overrideWithValue(
+            _NoopDailySetController(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: RediscoverySection()),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    final skeleton = find.byKey(const ValueKey('rediscover-journey-skeleton'));
+    expect(skeleton, findsOneWidget);
+    pending.complete(
+      RediscoverDailySet(
+        localDate: DateTime.now(),
+        memories: [
+          RediscoverMemory.fromJourney(
+            RediscoverJourney(
+              kind: RediscoverJourneyKind.forgottenGems,
+              title: 'Architecture notes',
+              subtitle: 'Worth reopening',
+              icon: Icons.book,
+              items: [_item(_url(1, 'Architecture notes'))],
+              signal: 80,
+              topicAnchor: 'architecture',
+            ),
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(skeleton, findsOneWidget);
+    expect(find.byType(CarouselView), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(skeleton, findsNothing);
+    expect(find.byType(CarouselView), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Rediscover renders only the shared daily set', (tester) async {
     final first = _url(3, 'Primary memory');
     final second = _url(

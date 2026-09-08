@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_icons.dart';
 import 'app_motion.dart';
+import 'app_shapes.dart';
 
 /// Mouse / trackpad friendly scrolling (desktop, web) + touch.
 class AppScrollBehavior extends MaterialScrollBehavior {
@@ -265,18 +266,15 @@ class AppTheme {
     final isDark = colorScheme.brightness == Brightness.dark;
     final statusBarIcons = isDark ? Brightness.light : Brightness.dark;
     final navBarIcons = isDark ? Brightness.light : Brightness.dark;
-    final controlShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-    );
-    final compactControlShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(14),
-    );
+    const controlShape = AppShapes.rounded;
+    const compactControlShape = AppShapes.rounded;
     final buttonTextStyle = textTheme.labelLarge?.copyWith(
       fontWeight: FontWeight.w600,
     );
 
     return ThemeData(
       useMaterial3: true,
+      chipTheme: const ChipThemeData(shape: AppShapes.rounded),
       colorScheme: colorScheme,
       scaffoldBackgroundColor: colorScheme.surface,
       textTheme: textTheme,
