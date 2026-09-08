@@ -343,17 +343,6 @@ bool _containsAnyWholePhrase(String text, List<String> phrases) {
   return false;
 }
 
-bool _isTrekLike(List<SavedUrl> urls, [String label = '']) {
-  final text = '${label.toLowerCase()} ${_textForUrls(urls)}';
-  return text.contains('trek') ||
-      text.contains('trail') ||
-      text.contains('himalaya') ||
-      text.contains('kanchenjunga') ||
-      text.contains('te araroa') ||
-      text.contains('iceland') ||
-      text.contains('mountain route');
-}
-
 String _trekRegionLabel(List<SavedUrl> urls) {
   final text = _textForUrls(urls);
   if (text.contains('iceland')) return 'Iceland';
@@ -590,7 +579,6 @@ String _heuristicSummaryForUrls(List<SavedUrl> urls, String label) {
 
 String _canonicalThemeKey(ClusterTheme theme) {
   final label = theme.label.trim().toLowerCase();
-  if (_isTrekLike(theme.urls, label)) return 'treks';
   if (!_isWeakClusterLabel(label)) return label;
   return _heuristicLabelForUrls(theme.urls).trim().toLowerCase();
 }
@@ -654,7 +642,7 @@ List<ClusterTheme> _mergeDuplicateThemes(List<ClusterTheme> themes) {
     final label = _isWeakClusterLabel(originalLabel)
         ? _heuristicLabelForUrls(urls, fallback: originalLabel)
         : originalLabel;
-    final subClusters = label == 'Treks' || _isTrekLike(urls, label)
+    final subClusters = label.toLowerCase() == 'treks'
         ? _trekSubClustersForUrls(urls)
         : _mergeSubClusters(allSubs);
 
@@ -830,13 +818,14 @@ List<ClusterTheme> _mergeThemesByLabel(List<ClusterTheme> themes) {
 /// contains better evidence for those durable interests, so repeated subjects
 /// are combined here while unclassified saves retain their embedding cluster.
 List<ClusterTheme> _aggregateResolvedSubjects(List<ClusterTheme> themes) {
+  final subjects = SavedUrlSubjectIndex();
   final urlsBySubject = <String, Map<int, SavedUrl>>{};
   final subjectByKey = <String, SavedUrlSubject>{};
   final sourceThemesBySubject = <String, Set<ClusterTheme>>{};
 
   for (final theme in themes) {
     for (final url in theme.urls) {
-      final subject = SavedUrlSubjectResolver.resolve(url);
+      final subject = subjects.resolve(url);
       if (subject == null) continue;
       urlsBySubject.putIfAbsent(subject.key, () => <int, SavedUrl>{})[url.id] =
           url;
@@ -856,7 +845,7 @@ List<ClusterTheme> _aggregateResolvedSubjects(List<ClusterTheme> themes) {
   final rebuilt = <ClusterTheme>[];
   for (final theme in themes) {
     final remaining = theme.urls.where((url) {
-      final subject = SavedUrlSubjectResolver.resolve(url);
+      final subject = subjects.resolve(url);
       return subject == null || !activeKeys.contains(subject.key);
     }).toList();
     if (remaining.isEmpty) continue;
@@ -882,9 +871,7 @@ List<ClusterTheme> _aggregateResolvedSubjects(List<ClusterTheme> themes) {
     final sources = sourceThemesBySubject[key]!;
     final sourceCanKeepItsLabel =
         sources.length == 1 &&
-        sources.single.urls.every(
-          (url) => SavedUrlSubjectResolver.resolve(url)?.key == key,
-        );
+        sources.single.urls.every((url) => subjects.resolve(url)?.key == key);
     final label =
         sourceCanKeepItsLabel && !_isWeakClusterLabel(sources.single.label)
         ? sources.single.label

@@ -8,6 +8,7 @@ import '../../core/models/engagement_event.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/usage_service.dart';
+import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/theme/app_icons.dart';
@@ -356,6 +357,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         const <CollectionSummary>[];
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final usesRail = AppLayout.usesNavigationRail(
+      MediaQuery.sizeOf(context).width,
+    );
+    final shellBottomInset = widget.embedded && !usesRail
+        ? MediaQuery.paddingOf(context).bottom
+        : 0.0;
+    final resultsBottomPadding = 24.0 + shellBottomInset;
     const selectionScope = 'search';
     final visibleResults = resultsAsync.valueOrNull == null
         ? const <SearchResult>[]
@@ -577,9 +585,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       ),
                                     )
                                   : ListView.builder(
-                                      padding: const EdgeInsets.only(
+                                      padding: EdgeInsets.only(
                                         top: 4,
-                                        bottom: 24,
+                                        bottom: resultsBottomPadding,
                                       ),
                                       itemCount: filtered.length,
                                       itemBuilder: (context, index) {

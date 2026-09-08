@@ -880,10 +880,8 @@ class _MindmapScreenState extends ConsumerState<MindmapScreen> {
           clusters: clusters,
           bottomPadding: scrollBottomPadding,
           onClusterTap: (cluster) {
-            final theme = _themeById(themes, int.tryParse(cluster.id) ?? -1);
-            if (theme == null) return;
             HapticFeedback.lightImpact();
-            context.push('/mindmap/cluster/${theme.index}');
+            context.push('/mindmap/cluster/${cluster.id}');
           },
         );
       },
@@ -979,7 +977,10 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
         ),
       ),
       data: (themes) {
-        final theme = _themeById(themes, widget.clusterId);
+        final theme = _themeById(
+          _mergeThemesForDisplay(themes),
+          widget.clusterId,
+        );
         if (theme == null) {
           return Scaffold(
             appBar: AppBar(),

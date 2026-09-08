@@ -6,6 +6,8 @@ import 'package:glimpse/features/mindmap/cluster_theme.dart';
 import 'package:glimpse/features/mindmap/interest_cluster_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'fixtures/interest_merge_fixtures.dart';
+
 SavedUrl _url(int id) {
   return SavedUrl()
     ..id = id
@@ -45,6 +47,55 @@ SavedUrl _interestUrl({
 
 void main() {
   group('interest cluster cache', () {
+    for (final combined in [false, true]) {
+      test(
+        'hydrates distinct wildlife saves (combined cache: $combined)',
+        () async {
+          final themes = interestThemesWithIncidentalTravel();
+          final urls = themes.expand((theme) => theme.urls).toList();
+          SharedPreferences.setMockInitialValues({
+            kInterestClusterUrlCountKey: urls.length,
+            kInterestClustersJsonKey: jsonEncode({
+              'version': 11,
+              'themes': combined
+                  ? [
+                      {
+                        'label': 'Spirituality',
+                        'summary': '',
+                        'urls': urls.map((url) => url.rawUrl).toList(),
+                        'subClusters': [],
+                      },
+                    ]
+                  : [
+                      for (final theme in themes)
+                        {
+                          'label': theme.label,
+                          'summary': '',
+                          'urls': theme.urls.map((url) => url.rawUrl).toList(),
+                          'subClusters': [],
+                        },
+                    ],
+            }),
+          });
+          final hydrated = await tryHydrateClustersFromPrefs(
+            prefs: await SharedPreferences.getInstance(),
+            embeddedUrls: urls,
+            currentEmbeddedCount: urls.length,
+          );
+          expect(hydrated, isNotNull);
+          final wildlife = hydrated!.singleWhere(
+            (theme) => theme.label == 'Wildlife & Nature',
+          );
+          expect(wildlife.urls.map((url) => url.id), [5, 6, 7, 8]);
+          expect(hydrated.expand((theme) => theme.urls), hasLength(8));
+          expect(
+            hydrated.map(interestThemeMergeKey).toSet(),
+            hasLength(hydrated.length),
+          );
+        },
+      );
+    }
+
     test('rebuilds on small-library embedded count changes', () async {
       SharedPreferences.setMockInitialValues({
         kInterestClusterUrlCountKey: 3,
@@ -175,6 +226,26 @@ void main() {
   });
 
   group('interest cluster labeling', () {
+    test('incidental travel words do not merge distinct named interests', () {
+      final themes = interestThemesWithIncidentalTravel();
+      expect(
+        interestThemeMergeKey(themes[0]),
+        isNot(interestThemeMergeKey(themes[1])),
+      );
+      final finalized = debugFinalizeInterestThemes(themes);
+      expect(
+        finalized.map((theme) => theme.label),
+        containsAll(['Spirituality', 'Wildlife & Nature']),
+      );
+      expect(
+        finalized
+            .singleWhere((theme) => theme.label == 'Wildlife & Nature')
+            .urls
+            .map((url) => url.id),
+        [5, 6, 7, 8],
+      );
+    });
+
     test(
       'buckets nutrition saves as Health even when stored category is wrong',
       () {

@@ -9,6 +9,9 @@ import 'package:glimpse/features/mindmap/interest_clusters_provider.dart';
 import 'package:glimpse/features/mindmap/mindmap_screen.dart';
 import 'package:glimpse/shared/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
+
+import 'fixtures/interest_merge_fixtures.dart';
 
 const _goldenBoundaryKey = ValueKey('interests-golden-boundary');
 
@@ -219,6 +222,113 @@ void main() {
     expect(find.text('1 pattern · 3 of 4 saves grouped'), findsOneWidget);
   });
 
+  testWidgets('merged interest rows open their matching details', (
+    tester,
+  ) async {
+    final themes = [
+      _theme(index: 0, label: 'Top Signal', firstUrlId: 1, urlCount: 12),
+      _theme(index: 1, label: 'Spirituality', firstUrlId: 20, urlCount: 10),
+      _theme(index: 2, label: 'Wildlife & Nature', firstUrlId: 40, urlCount: 4),
+      _theme(index: 3, label: 'Wildlife & Nature', firstUrlId: 50, urlCount: 4),
+      _theme(index: 4, label: 'Music', firstUrlId: 60, urlCount: 6),
+      _theme(
+        index: 5,
+        label: 'Finance & Economics',
+        firstUrlId: 70,
+        urlCount: 5,
+      ),
+    ];
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const MindmapScreen(embedded: true),
+        ),
+        GoRoute(
+          path: '/mindmap/cluster/:id',
+          builder: (_, state) => MindmapClusterScreen(
+            clusterId: int.parse(state.pathParameters['id']!),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          interestClusterThemesProvider.overrideWith((ref) async => themes),
+        ],
+        child: MaterialApp.router(
+          theme: ThemeData(useMaterial3: true),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Music'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Music'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Music'), findsOneWidget);
+    expect(find.text('Wildlife & Nature'), findsNothing);
+
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Finance & Economics'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Finance & Economics'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Finance & Economics'), findsOneWidget);
+    expect(find.text('Music'), findsNothing);
+  });
+
+  testWidgets(
+    'wildlife remains visible and opens its own saves after travel mentions',
+    (tester) async {
+      final themes = interestThemesWithIncidentalTravel();
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const MindmapScreen(embedded: true),
+          ),
+          GoRoute(
+            path: '/mindmap/cluster/:id',
+            builder: (_, state) => MindmapClusterScreen(
+              clusterId: int.parse(state.pathParameters['id']!),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            interestClusterThemesProvider.overrideWith((ref) async => themes),
+          ],
+          child: MaterialApp.router(
+            theme: ThemeData(useMaterial3: true),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Spirituality'), findsOneWidget);
+      expect(find.text('Wildlife & Nature'), findsOneWidget);
+      await tester.ensureVisible(find.text('Wildlife & Nature'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wildlife & Nature'));
+      await tester.pumpAndSettle();
+      expect(find.text('Wildlife & Nature'), findsOneWidget);
+      expect(find.text('Puffling Rescue Patrol'), findsWidgets);
+      expect(find.text('Reflection'), findsNothing);
+    },
+  );
+
   testWidgets('AMOLED interests overview', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(400, 800);
@@ -316,4 +426,18 @@ SavedUrl _savedUrl(int id, {List<String> tags = const ['Topic']}) {
     ..categories = const ['Other']
     ..tags = tags
     ..savedAt = DateTime(2026);
+}
+
+ClusterTheme _theme({
+  required int index,
+  required String label,
+  required int firstUrlId,
+  required int urlCount,
+}) {
+  return ClusterTheme(
+    index: index,
+    label: label,
+    summary: '',
+    urls: List.generate(urlCount, (offset) => _savedUrl(firstUrlId + offset)),
+  );
 }
