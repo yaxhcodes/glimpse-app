@@ -327,7 +327,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   heroTag: 'collections-create',
                   tooltip: context.l10n.newCollection,
                   onPressed: () => _createCollection(context),
-                  child: const AppIcon(AppIcons.addToCollection),
+                  child: const AppIcon(AppIcons.addToCollection, filled: true),
                 ),
               )
             : null,
@@ -796,7 +796,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<_CollectionsMenuAction>(
       tooltip: context.l10n.collectionOptions,
-      icon: const Icon(AppIcons.more),
+      icon: const Icon(AppIcons.more, size: 26),
       onSelected: onSelected,
       itemBuilder: (context) => [
         PopupMenuItem(

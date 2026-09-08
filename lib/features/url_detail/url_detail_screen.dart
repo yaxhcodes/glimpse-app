@@ -1480,12 +1480,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
             actions: [
               if (url != null) ...[
                 IconButton(
-                  icon: const AppIcon(AppIcons.addToCollection),
+                  icon: const AppIcon(AppIcons.addToCollection, filled: true),
                   tooltip: context.l10n.addToCollection,
                   onPressed: () => _showAddToCollection(url),
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(AppIcons.more),
+                  icon: const Icon(AppIcons.more, size: 26),
                   tooltip: context.l10n.more,
                   onSelected: (value) {
                     if (value == 'open_original') {
