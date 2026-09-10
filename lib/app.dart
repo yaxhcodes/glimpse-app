@@ -1,3 +1,6 @@
+import 'features/glimpses/glimpse_service.dart';
+import 'features/glimpses/glimpse_detail_screen.dart';
+import 'features/glimpses/glimpse_history_screen.dart';
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
@@ -287,6 +290,16 @@ final _router = GoRouter(
         final urls = (state.extra as List<SavedUrl>?) ?? [];
         return SynthesisScreen(initialUrls: urls);
       },
+    ),
+    GoRoute(
+      path: '/glimpses/history',
+      builder: (context, state) => const GlimpseHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/glimpses/detail',
+      builder: (context, state) => GlimpseDetailScreen(
+        glimpseKey: state.extra is String ? state.extra as String : '',
+      ),
     ),
     GoRoute(
       path: '/rediscover',
@@ -687,7 +700,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     unawaited(ref.read(analyticsServiceProvider).handleLifecycleState(state));
     if (state == AppLifecycleState.resumed) {
-      unawaited(DigestNotifications.replayPendingActionsAndReconcile());
+      unawaited(
+        DigestNotifications.replayPendingActionsAndReconcile().then((_) {
+          if (!mounted) return;
+          ref.invalidate(glimpsesProvider);
+          ref.invalidate(glimpseSourcesProvider);
+        }),
+      );
       if (!_hasCompletedInitialResume) {
         _hasCompletedInitialResume = true;
         return;

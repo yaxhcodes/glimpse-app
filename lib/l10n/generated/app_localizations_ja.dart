@@ -2388,4 +2388,264 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get readerOverviewOnly => 'この保存には短い概要のみがあります。内容の全体は元のページでご確認ください。';
+
+  @override
+  String get glimpsesTitle => 'あなたのGlimpses';
+
+  @override
+  String get glimpsesIntro => '気になったことを振り返る。';
+
+  @override
+  String get glimpsesConnection => '新しく保存した内容とのつながり';
+
+  @override
+  String get glimpsesIdea => '覚えておきたいアイデア';
+
+  @override
+  String get glimpsesIntention => '見返したかったもの';
+
+  @override
+  String get glimpsesBriefs => 'あなたの振り返り';
+
+  @override
+  String get glimpsesPrevious => 'これまでのGlimpses';
+
+  @override
+  String get glimpsesEmpty => '今すぐ確認するものはありません。保存するたびに振り返りが充実します。';
+
+  @override
+  String get glimpsesGotIt => '確認した';
+
+  @override
+  String get glimpsesReflect => '振り返る';
+
+  @override
+  String get glimpsesRecall => 'このアイデアについて何を覚えていますか？表示する前に少し考えてみましょう。';
+
+  @override
+  String get glimpsesReveal => 'アイデアを表示';
+
+  @override
+  String get glimpsesNote => '自分のメモ';
+
+  @override
+  String get glimpsesHighlight => 'ハイライト';
+
+  @override
+  String get glimpsesExpand => '振り返りを詳しく';
+
+  @override
+  String get glimpsesExplain => 'つながりを詳しく';
+
+  @override
+  String get glimpsesAiConsent =>
+      '選択した抜粋だけをAIに送り、出典付きの説明を作成します。Askの利用枠を使用します。個人メモは、下で選択しない限り送信されません。';
+
+  @override
+  String get glimpsesIncludeNotes => '個人メモを含める';
+
+  @override
+  String get glimpsesGenerate => '説明を作成';
+
+  @override
+  String get glimpsesAiUnavailable => '今は説明を作成できません。保存したアイデアは引き続き利用できます。';
+
+  @override
+  String get glimpsesAiLimit => 'Askの利用上限に達しました。この端末内の振り返りは引き続き読めます。';
+
+  @override
+  String get glimpsesAiLabel => 'AIの説明 · この抜粋に基づく';
+
+  @override
+  String get glimpsesMissing => 'このGlimpseは利用できなくなりました。出典が変更された可能性があります。';
+
+  @override
+  String get glimpsesLaterFeedback => '3日後に再表示';
+
+  @override
+  String get glimpsesHistoryNote => 'この端末に記録された利用履歴に基づきます。';
+
+  @override
+  String get glimpsesReturned => '見返したもの';
+
+  @override
+  String get glimpsesNoted => 'メモを追加';
+
+  @override
+  String get glimpsesCompleted => '完了した予定';
+
+  @override
+  String get glimpsesRelatedReason =>
+      'これらの保存には具体的な共通テーマがあります。以前のアイデアと新しい保存を並べて読んでみましょう。';
+
+  @override
+  String get glimpsesSynthesisSources => '送信する抜粋';
+
+  @override
+  String get glimpsesDay => '日';
+
+  @override
+  String get glimpsesWeek => '週';
+
+  @override
+  String get glimpsesMonth => '月';
+
+  @override
+  String get glimpsesThreads => '今月のテーマのつながり';
+
+  @override
+  String get glimpsesActionFailed => 'このGlimpseを更新できませんでした。もう一度お試しください。';
+
+  @override
+  String get glimpsesTopTopics => 'よく保存したトピック';
+
+  @override
+  String get glimpsesActivity => '日ごとの保存数';
+
+  @override
+  String get glimpsesChartHint => '日付を選ぶと、その日の保存を振り返れます。';
+
+  @override
+  String get glimpsesBrowsePeriod => 'この期間の保存を見る';
+
+  @override
+  String get glimpsesNoSavesPeriod => 'この期間にはまだ保存がありません。';
+
+  @override
+  String glimpsesPeriodCount(int count) {
+    return 'この期間に$count件保存しました。';
+  }
+
+  @override
+  String glimpsesPeriodSummary(int count, String topics) {
+    return '$count件保存しました。トピックには$topicsなどがありました。';
+  }
+
+  @override
+  String get glimpsesPreviousDay => '前の日';
+
+  @override
+  String get glimpsesNextDay => '次の日';
+
+  @override
+  String get glimpsesPreviousMonth => '前の月';
+
+  @override
+  String get glimpsesNextMonth => '次の月';
+
+  @override
+  String get glimpsesClear => '消去';
+
+  @override
+  String get glimpsesNotificationCleared => '通知を消去しました';
+
+  @override
+  String get glimpsesTopicRecipes => 'レシピ・料理';
+
+  @override
+  String get glimpsesTopicAnime => 'アニメ・マンガ';
+
+  @override
+  String get glimpsesTopicMotorcycles => 'バイク';
+
+  @override
+  String get glimpsesTopicMusic => '音楽';
+
+  @override
+  String get glimpsesTopicFitness => '健康・フィットネス';
+
+  @override
+  String get glimpsesTopicNature => '野生動物・自然';
+
+  @override
+  String get glimpsesTopicTravel => '旅行・場所';
+
+  @override
+  String get glimpsesTopicMovies => '観たい映画';
+
+  @override
+  String get glimpsesTopicBooks => '本・読書';
+
+  @override
+  String get glimpsesTopicSpirituality => 'スピリチュアリティ';
+
+  @override
+  String get glimpsesTopicHistory => '歴史・社会';
+
+  @override
+  String get glimpsesTopicGrowth => '自己成長・哲学';
+
+  @override
+  String get glimpsesTopicFinance => '金融・経済';
+
+  @override
+  String get glimpsesTopicDesign => 'デザイン・創造性';
+
+  @override
+  String get glimpsesTopicSoftware => 'ソフトウェア・AI';
+
+  @override
+  String get glimpsesTopicScience => '科学';
+
+  @override
+  String get glimpsesWeeklyReview => '今週の振り返り';
+
+  @override
+  String get glimpsesHistorySubtitle => '保存の履歴と繰り返し気になったこと';
+
+  @override
+  String get glimpsesPastReviews => 'これまでの週';
+
+  @override
+  String glimpsesReviewPreview(String title) {
+    return 'まずは「$title」から';
+  }
+
+  @override
+  String get glimpsesWhyToday => '今日のおすすめの理由';
+
+  @override
+  String get glimpsesStartHere => 'ここから始める';
+
+  @override
+  String get glimpsesMoreToExplore => 'ほかの保存も見る';
+
+  @override
+  String glimpsesWhyConnection(String title, String topic) {
+    return '新しく保存した「$title」をきっかけに、$topicについての以前の保存が見つかりました。';
+  }
+
+  @override
+  String get glimpsesWhyHighlight => 'この保存には、あなたが選んだハイライトがあります。そこから振り返ってみましょう。';
+
+  @override
+  String get glimpsesWhyNote => 'この保存にはあなたのメモがあります。書いたことを振り返ってみましょう。';
+
+  @override
+  String get glimpsesWhyEarlier => '以前の保存から';
+
+  @override
+  String get glimpsesWhatExplored => '気になったアイデア';
+
+  @override
+  String get glimpsesReviewStartReason => '今週の保存を振り返る入り口です。';
+
+  @override
+  String get glimpsesReviewConnection => 'つながりをたどる';
+
+  @override
+  String get glimpsesReviewSettings => 'AIによる週のまとめ';
+
+  @override
+  String get glimpsesEnableReviews => '文章の振り返りを有効にする';
+
+  @override
+  String get glimpsesDisableReviews => '文章の振り返りを無効にする';
+
+  @override
+  String get glimpsesReviewDescription => 'Rediscoverを開くと、先週保存した内容をまとめます。';
+
+  @override
+  String get glimpsesReviewConsent =>
+      '選択した要約とハイライトをクラウドAIに送信します。個人メモは端末内に残ります。週に最大1回のAskリクエストを使用します。オフでも端末内の履歴は利用できます。';
 }

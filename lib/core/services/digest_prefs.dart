@@ -90,7 +90,14 @@ class DigestPrefs {
     final p = await SharedPreferences.getInstance();
     final history = await loadHistory();
     final now = DateTime.now();
-    final historyId = now.microsecondsSinceEpoch.toString();
+    final existing = notifId == null
+        ? null
+        : history.where((entry) => entry['notifId'] == notifId).firstOrNull;
+    final historyId =
+        existing?['id']?.toString() ?? now.microsecondsSinceEpoch.toString();
+    if (notifId != null) {
+      history.removeWhere((entry) => entry['notifId'] == notifId);
+    }
     history.insert(0, {
       'id': historyId,
       'date': now.toIso8601String(),

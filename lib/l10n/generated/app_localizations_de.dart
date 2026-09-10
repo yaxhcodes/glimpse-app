@@ -2617,4 +2617,291 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get readerOverviewOnly =>
       'Für diesen Eintrag ist nur eine kurze Übersicht verfügbar. Öffne die Quelle für den vollständigen Inhalt.';
+
+  @override
+  String get glimpsesTitle => 'Deine Glimpses';
+
+  @override
+  String get glimpsesIntro =>
+      'Ein Rückblick auf das, was deine Aufmerksamkeit geweckt hat.';
+
+  @override
+  String get glimpsesConnection => 'Passend zu deinem neuen Fund';
+
+  @override
+  String get glimpsesIdea => 'Eine Idee zum Behalten';
+
+  @override
+  String get glimpsesIntention => 'Hierzu wolltest du zurückkehren';
+
+  @override
+  String get glimpsesBriefs => 'Deine Rückblicke';
+
+  @override
+  String get glimpsesPrevious => 'Frühere Glimpses';
+
+  @override
+  String get glimpsesEmpty =>
+      'Im Moment wartet nichts auf dich. Deine Rückblicke wachsen mit deinen gespeicherten Inhalten.';
+
+  @override
+  String get glimpsesGotIt => 'Verstanden';
+
+  @override
+  String get glimpsesReflect => 'Nachdenken';
+
+  @override
+  String get glimpsesRecall =>
+      'Was weißt du noch über diese Idee? Nimm dir einen Moment, bevor du sie aufdeckst.';
+
+  @override
+  String get glimpsesReveal => 'Idee aufdecken';
+
+  @override
+  String get glimpsesNote => 'Deine Notiz';
+
+  @override
+  String get glimpsesHighlight => 'Deine Markierung';
+
+  @override
+  String get glimpsesExpand => 'Rückblick vertiefen';
+
+  @override
+  String get glimpsesExplain => 'Verbindung erklären';
+
+  @override
+  String get glimpsesAiConsent =>
+      'Sende nur diese ausgewählten Auszüge an die KI, um eine Erklärung mit Quellen zu erhalten. Dies nutzt dein Ask-Kontingent. Persönliche Notizen bleiben ausgeschlossen, sofern du sie nicht unten auswählst.';
+
+  @override
+  String get glimpsesIncludeNotes => 'Meine persönlichen Notizen einbeziehen';
+
+  @override
+  String get glimpsesGenerate => 'Erklärung erstellen';
+
+  @override
+  String get glimpsesAiUnavailable =>
+      'Die Erklärung ist gerade nicht verfügbar. Deine gespeicherten Ideen bleiben hier.';
+
+  @override
+  String get glimpsesAiLimit =>
+      'Dein Ask-Kontingent ist aufgebraucht. Du kannst diesen lokalen Rückblick weiterhin lesen.';
+
+  @override
+  String get glimpsesAiLabel => 'KI-Erklärung · auf Grundlage dieser Auszüge';
+
+  @override
+  String get glimpsesMissing =>
+      'Dieser Glimpse ist nicht mehr verfügbar. Seine Quellen könnten sich geändert haben.';
+
+  @override
+  String get glimpsesLaterFeedback => 'Für drei Tage zurückgestellt';
+
+  @override
+  String get glimpsesHistoryNote =>
+      'Basierend auf der auf diesem Gerät erfassten Aktivität.';
+
+  @override
+  String get glimpsesReturned => 'Wieder aufgerufen';
+
+  @override
+  String get glimpsesNoted => 'Notizen ergänzt';
+
+  @override
+  String get glimpsesCompleted => 'Erledigte Vorhaben';
+
+  @override
+  String get glimpsesRelatedReason =>
+      'Diese Inhalte teilen ein konkretes Thema. Lies die frühere Idee neben deinem neuen Fund.';
+
+  @override
+  String get glimpsesSynthesisSources => 'Zu sendende Auszüge';
+
+  @override
+  String get glimpsesDay => 'Tag';
+
+  @override
+  String get glimpsesWeek => 'Woche';
+
+  @override
+  String get glimpsesMonth => 'Monat';
+
+  @override
+  String get glimpsesThreads => 'Themen deines Monats';
+
+  @override
+  String get glimpsesActionFailed =>
+      'Dieser Glimpse konnte nicht aktualisiert werden. Bitte versuche es erneut.';
+
+  @override
+  String get glimpsesTopTopics => 'Häufigste Themen';
+
+  @override
+  String get glimpsesActivity => 'Gespeichert pro Tag';
+
+  @override
+  String get glimpsesChartHint =>
+      'Wähle einen Tag, um seine gespeicherten Inhalte anzusehen.';
+
+  @override
+  String get glimpsesBrowsePeriod => 'Diese Inhalte ansehen';
+
+  @override
+  String get glimpsesNoSavesPeriod =>
+      'In diesem Zeitraum noch nichts gespeichert.';
+
+  @override
+  String glimpsesPeriodCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Du hast in diesem Zeitraum $count Inhalte gespeichert.',
+      one: 'Du hast in diesem Zeitraum einen Inhalt gespeichert.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String glimpsesPeriodSummary(int count, String topics) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Du hast $count Inhalte gespeichert. Darunter: $topics.',
+      one: 'Du hast einen Inhalt gespeichert, zum Thema $topics.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get glimpsesPreviousDay => 'Vorheriger Tag';
+
+  @override
+  String get glimpsesNextDay => 'Nächster Tag';
+
+  @override
+  String get glimpsesPreviousMonth => 'Vorheriger Monat';
+
+  @override
+  String get glimpsesNextMonth => 'Nächster Monat';
+
+  @override
+  String get glimpsesClear => 'Entfernen';
+
+  @override
+  String get glimpsesNotificationCleared => 'Benachrichtigung entfernt';
+
+  @override
+  String get glimpsesTopicRecipes => 'Rezepte & Kochen';
+
+  @override
+  String get glimpsesTopicAnime => 'Anime & Manga';
+
+  @override
+  String get glimpsesTopicMotorcycles => 'Motorräder';
+
+  @override
+  String get glimpsesTopicMusic => 'Musik';
+
+  @override
+  String get glimpsesTopicFitness => 'Gesundheit & Fitness';
+
+  @override
+  String get glimpsesTopicNature => 'Tierwelt & Natur';
+
+  @override
+  String get glimpsesTopicTravel => 'Reisen & Orte';
+
+  @override
+  String get glimpsesTopicMovies => 'Filme zum Ansehen';
+
+  @override
+  String get glimpsesTopicBooks => 'Bücher & Lesen';
+
+  @override
+  String get glimpsesTopicSpirituality => 'Spiritualität';
+
+  @override
+  String get glimpsesTopicHistory => 'Geschichte & Gesellschaft';
+
+  @override
+  String get glimpsesTopicGrowth => 'Persönliche Entwicklung & Philosophie';
+
+  @override
+  String get glimpsesTopicFinance => 'Finanzen & Wirtschaft';
+
+  @override
+  String get glimpsesTopicDesign => 'Design & Kreativität';
+
+  @override
+  String get glimpsesTopicSoftware => 'Software & KI';
+
+  @override
+  String get glimpsesTopicScience => 'Wissenschaft';
+
+  @override
+  String get glimpsesWeeklyReview => 'Wochenrückblick';
+
+  @override
+  String get glimpsesHistorySubtitle =>
+      'Deine gespeicherten Inhalte und wiederkehrenden Interessen';
+
+  @override
+  String get glimpsesPastReviews => 'Vergangene Wochen';
+
+  @override
+  String glimpsesReviewPreview(String title) {
+    return 'Beginne mit $title';
+  }
+
+  @override
+  String get glimpsesWhyToday => 'Warum heute';
+
+  @override
+  String get glimpsesStartHere => 'Hier beginnen';
+
+  @override
+  String get glimpsesMoreToExplore => 'Mehr entdecken';
+
+  @override
+  String glimpsesWhyConnection(String title, String topic) {
+    return 'Dein neuer Inhalt „$title“ bringt frühere Inhalte zu $topic wieder ins Blickfeld.';
+  }
+
+  @override
+  String get glimpsesWhyHighlight =>
+      'Du hast hier eine Passage markiert. Beginne damit.';
+
+  @override
+  String get glimpsesWhyNote =>
+      'Du hast hierzu eine Notiz verfasst. Schau noch einmal hinein.';
+
+  @override
+  String get glimpsesWhyEarlier => 'Aus deinen früher gespeicherten Inhalten';
+
+  @override
+  String get glimpsesWhatExplored => 'Was dich beschäftigt hat';
+
+  @override
+  String get glimpsesReviewStartReason =>
+      'Ein Einstieg aus den gespeicherten Inhalten dieser Woche.';
+
+  @override
+  String get glimpsesReviewConnection => 'Eine Verbindung zum Weiterverfolgen';
+
+  @override
+  String get glimpsesReviewSettings => 'Wöchentliche KI-Zusammenfassung';
+
+  @override
+  String get glimpsesEnableReviews => 'Schriftliche Rückblicke aktivieren';
+
+  @override
+  String get glimpsesDisableReviews => 'Schriftliche Rückblicke deaktivieren';
+
+  @override
+  String get glimpsesReviewDescription =>
+      'Fasst beim Öffnen von Rediscover deine gespeicherten Inhalte der letzten Woche zusammen.';
+
+  @override
+  String get glimpsesReviewConsent =>
+      'Ausgewählte Zusammenfassungen und Markierungen werden an eine Cloud-KI gesendet. Persönliche Notizen bleiben auf deinem Gerät. Nutzt bis zu 1 Ask-Anfrage pro Woche. Dein lokaler Verlauf funktioniert auch ohne diese Option.';
 }

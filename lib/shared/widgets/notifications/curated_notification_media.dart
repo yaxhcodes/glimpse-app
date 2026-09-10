@@ -199,9 +199,11 @@ class CuratedNotificationThumbStack extends StatelessWidget {
     this.squareRadius = 9,
     this.gapWidth = 2,
     this.gapColor,
+    this.maxVisible,
   }) : assert(size > 0),
        assert(overlap >= 0),
-       assert(gapWidth >= 0);
+       assert(gapWidth >= 0),
+       assert(maxVisible == null || maxVisible > 0);
 
   final List<SavedUrl> urls;
   final double size;
@@ -209,6 +211,7 @@ class CuratedNotificationThumbStack extends StatelessWidget {
   final double squareRadius;
   final double gapWidth;
   final Color? gapColor;
+  final int? maxVisible;
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +219,10 @@ class CuratedNotificationThumbStack extends StatelessWidget {
 
     final effectiveOverlap = overlap.clamp(0, size - 1).toDouble();
     final tileStep = size - effectiveOverlap;
-    final stackWidth = size + (urls.length - 1) * tileStep;
+    final visibleCount = (maxVisible ?? urls.length).clamp(1, urls.length);
+    final remaining = urls.length - visibleCount;
+    final tileCount = visibleCount + (remaining > 0 ? 1 : 0);
+    final stackWidth = size + (tileCount - 1) * tileStep;
     final separatorColor = gapColor ?? Theme.of(context).colorScheme.surface;
 
     return SizedBox(
@@ -225,9 +231,10 @@ class CuratedNotificationThumbStack extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          for (var i = 0; i < urls.length; i++)
-            Positioned(
-              left: i * tileStep,
+          for (var i = 0; i < visibleCount; i++)
+            Positioned.directional(
+              textDirection: Directionality.of(context),
+              start: i * tileStep,
               child: CuratedNotificationThumbStripItem(
                 url: urls[i],
                 size: size,
@@ -235,6 +242,31 @@ class CuratedNotificationThumbStack extends StatelessWidget {
                 emphasized: true,
                 overlayGapWidth: gapWidth,
                 overlayGapColor: separatorColor,
+              ),
+            ),
+          if (remaining > 0)
+            Positioned.directional(
+              textDirection: Directionality.of(context),
+              start: visibleCount * tileStep,
+              child: Container(
+                width: size,
+                height: size,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(squareRadius),
+                  border: Border.all(color: separatorColor, width: gapWidth),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '+$remaining',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ),
+                ),
               ),
             ),
         ],

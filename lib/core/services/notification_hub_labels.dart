@@ -7,6 +7,8 @@ class NotificationHubLabels {
   /// History entries use [type] values: geo, new_interest, collector, streak, resurface, digest.
   static String forHistoryType(AppLocalizations strings, String? type) {
     switch (type) {
+      case 'glimpse':
+        return strings.glimpsesTitle;
       case 'geo':
         return strings.notificationTravelPlaces;
       case 'new_interest':

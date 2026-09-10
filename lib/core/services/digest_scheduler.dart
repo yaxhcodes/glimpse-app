@@ -104,9 +104,10 @@ class DigestScheduler {
   static Future<Duration> _nextDelay() async {
     final peak = await TagAnalyzer.peakOpenHour();
     // Fire 1 hour before peak. Clamp to 8–22 range.
-    var fireHour = (peak - 1).clamp(8, 22);
+    var fireHour = (peak - 1).clamp(9, 20);
 
     final now = DateTime.now();
+    if (now.weekday == DateTime.sunday) fireHour = 19;
     var target = DateTime(now.year, now.month, now.day, fireHour);
 
     // If today's window already passed, schedule for tomorrow.
@@ -114,6 +115,9 @@ class DigestScheduler {
       target = target.add(const Duration(days: 1));
     }
 
+    if (target.weekday == DateTime.sunday) {
+      target = DateTime(target.year, target.month, target.day, 19);
+    }
     var d = target.difference(now);
     if (d.isNegative) d = const Duration(minutes: 15);
     return d;

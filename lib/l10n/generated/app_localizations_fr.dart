@@ -2617,4 +2617,291 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get readerOverviewOnly =>
       'Seul un bref aperçu est disponible pour cet élément. Ouvrez la source pour consulter le contenu complet.';
+
+  @override
+  String get glimpsesTitle => 'Vos Glimpses';
+
+  @override
+  String get glimpsesIntro => 'Un regard sur ce qui a retenu votre attention.';
+
+  @override
+  String get glimpsesConnection => 'Un lien avec votre nouvel enregistrement';
+
+  @override
+  String get glimpsesIdea => 'Une idée à retenir';
+
+  @override
+  String get glimpsesIntention => 'Vous souhaitiez y revenir';
+
+  @override
+  String get glimpsesBriefs => 'Vos récapitulatifs';
+
+  @override
+  String get glimpsesPrevious => 'Glimpses précédents';
+
+  @override
+  String get glimpsesEmpty =>
+      'Rien ne demande votre attention pour le moment. Vos récapitulatifs grandiront au fil de vos enregistrements.';
+
+  @override
+  String get glimpsesGotIt => 'Compris';
+
+  @override
+  String get glimpsesReflect => 'Réfléchir';
+
+  @override
+  String get glimpsesRecall =>
+      'Que retenez-vous de cette idée ? Prenez un instant avant de la révéler.';
+
+  @override
+  String get glimpsesReveal => 'Révéler l’idée';
+
+  @override
+  String get glimpsesNote => 'Votre note';
+
+  @override
+  String get glimpsesHighlight => 'Votre passage surligné';
+
+  @override
+  String get glimpsesExpand => 'Approfondir ce récapitulatif';
+
+  @override
+  String get glimpsesExplain => 'Expliquer ce lien';
+
+  @override
+  String get glimpsesAiConsent =>
+      'Envoyez uniquement ces extraits sélectionnés à l’IA pour obtenir une explication avec des sources. Cela utilise votre quota Ask. Les notes personnelles sont exclues sauf si vous les ajoutez ci-dessous.';
+
+  @override
+  String get glimpsesIncludeNotes => 'Inclure mes notes personnelles';
+
+  @override
+  String get glimpsesGenerate => 'Générer l’explication';
+
+  @override
+  String get glimpsesAiUnavailable =>
+      'L’explication est indisponible pour le moment. Vos idées enregistrées restent ici.';
+
+  @override
+  String get glimpsesAiLimit =>
+      'Votre quota Ask est atteint. Vous pouvez toujours lire ce récapitulatif local.';
+
+  @override
+  String get glimpsesAiLabel => 'Explication IA · fondée sur ces extraits';
+
+  @override
+  String get glimpsesMissing =>
+      'Ce Glimpse n’est plus disponible. Ses sources ont peut-être changé.';
+
+  @override
+  String get glimpsesLaterFeedback => 'Mis de côté pour trois jours';
+
+  @override
+  String get glimpsesHistoryNote =>
+      'D’après l’activité enregistrée sur cet appareil.';
+
+  @override
+  String get glimpsesReturned => 'Revisités';
+
+  @override
+  String get glimpsesNoted => 'Notes ajoutées';
+
+  @override
+  String get glimpsesCompleted => 'Intentions réalisées';
+
+  @override
+  String get glimpsesRelatedReason =>
+      'Ces contenus partagent un sujet précis. Relisez l’idée précédente avec votre nouvel enregistrement.';
+
+  @override
+  String get glimpsesSynthesisSources => 'Extraits à envoyer';
+
+  @override
+  String get glimpsesDay => 'Jour';
+
+  @override
+  String get glimpsesWeek => 'Semaine';
+
+  @override
+  String get glimpsesMonth => 'Mois';
+
+  @override
+  String get glimpsesThreads => 'Les fils de votre mois';
+
+  @override
+  String get glimpsesActionFailed =>
+      'Impossible de mettre à jour ce Glimpse. Réessayez.';
+
+  @override
+  String get glimpsesTopTopics => 'Thèmes principaux';
+
+  @override
+  String get glimpsesActivity => 'Enregistrements par jour';
+
+  @override
+  String get glimpsesChartHint =>
+      'Choisissez un jour pour retrouver ses enregistrements.';
+
+  @override
+  String get glimpsesBrowsePeriod => 'Explorer ces enregistrements';
+
+  @override
+  String get glimpsesNoSavesPeriod =>
+      'Aucun enregistrement sur cette période pour le moment.';
+
+  @override
+  String glimpsesPeriodCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Vous avez enregistré $count éléments sur cette période.',
+      one: 'Vous avez enregistré un élément sur cette période.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String glimpsesPeriodSummary(int count, String topics) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Vous avez enregistré $count éléments. Parmi les thèmes : $topics.',
+      one: 'Vous avez enregistré un élément sur $topics.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get glimpsesPreviousDay => 'Jour précédent';
+
+  @override
+  String get glimpsesNextDay => 'Jour suivant';
+
+  @override
+  String get glimpsesPreviousMonth => 'Mois précédent';
+
+  @override
+  String get glimpsesNextMonth => 'Mois suivant';
+
+  @override
+  String get glimpsesClear => 'Effacer';
+
+  @override
+  String get glimpsesNotificationCleared => 'Notification effacée';
+
+  @override
+  String get glimpsesTopicRecipes => 'Recettes et cuisine';
+
+  @override
+  String get glimpsesTopicAnime => 'Anime et manga';
+
+  @override
+  String get glimpsesTopicMotorcycles => 'Motos';
+
+  @override
+  String get glimpsesTopicMusic => 'Musique';
+
+  @override
+  String get glimpsesTopicFitness => 'Santé et forme';
+
+  @override
+  String get glimpsesTopicNature => 'Faune et nature';
+
+  @override
+  String get glimpsesTopicTravel => 'Voyages et lieux';
+
+  @override
+  String get glimpsesTopicMovies => 'Films à voir';
+
+  @override
+  String get glimpsesTopicBooks => 'Livres et lecture';
+
+  @override
+  String get glimpsesTopicSpirituality => 'Spiritualité';
+
+  @override
+  String get glimpsesTopicHistory => 'Histoire et société';
+
+  @override
+  String get glimpsesTopicGrowth => 'Développement personnel et philosophie';
+
+  @override
+  String get glimpsesTopicFinance => 'Finance et économie';
+
+  @override
+  String get glimpsesTopicDesign => 'Design et créativité';
+
+  @override
+  String get glimpsesTopicSoftware => 'Logiciels et IA';
+
+  @override
+  String get glimpsesTopicScience => 'Science';
+
+  @override
+  String get glimpsesWeeklyReview => 'Revue de la semaine';
+
+  @override
+  String get glimpsesHistorySubtitle =>
+      'Votre historique et vos centres d’intérêt récurrents';
+
+  @override
+  String get glimpsesPastReviews => 'Semaines précédentes';
+
+  @override
+  String glimpsesReviewPreview(String title) {
+    return 'Commencez par $title';
+  }
+
+  @override
+  String get glimpsesWhyToday => 'Pourquoi aujourd’hui';
+
+  @override
+  String get glimpsesStartHere => 'Commencez ici';
+
+  @override
+  String get glimpsesMoreToExplore => 'À explorer aussi';
+
+  @override
+  String glimpsesWhyConnection(String title, String topic) {
+    return 'Votre nouvel enregistrement, « $title », fait écho à ces anciens enregistrements sur $topic.';
+  }
+
+  @override
+  String get glimpsesWhyHighlight =>
+      'Vous avez surligné un passage dans cet enregistrement. Commencez par là.';
+
+  @override
+  String get glimpsesWhyNote =>
+      'Vous avez ajouté une note à cet enregistrement. Retrouvez ce que vous avez écrit.';
+
+  @override
+  String get glimpsesWhyEarlier => 'Parmi vos anciens enregistrements';
+
+  @override
+  String get glimpsesWhatExplored => 'Ce que vous avez exploré';
+
+  @override
+  String get glimpsesReviewStartReason =>
+      'Un point de départ parmi les enregistrements de cette semaine.';
+
+  @override
+  String get glimpsesReviewConnection => 'Un lien à explorer';
+
+  @override
+  String get glimpsesReviewSettings => 'Résumé hebdomadaire par IA';
+
+  @override
+  String get glimpsesEnableReviews => 'Activer les revues écrites';
+
+  @override
+  String get glimpsesDisableReviews => 'Désactiver les revues écrites';
+
+  @override
+  String get glimpsesReviewDescription =>
+      'Résume vos enregistrements de la semaine passée à l’ouverture de Rediscover.';
+
+  @override
+  String get glimpsesReviewConsent =>
+      'Une sélection de résumés et de passages surlignés est envoyée à une IA dans le cloud. Vos notes personnelles restent sur votre appareil. Utilise au maximum 1 requête Ask par semaine. Votre historique local fonctionne aussi sans cette option.';
 }

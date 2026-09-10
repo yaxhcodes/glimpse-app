@@ -55,7 +55,6 @@ class UrlSaveNotifications {
       body: body,
       payloadJson: jsonEncode(payload),
       notificationId: notificationIdForSavedUrl(url.id),
-      withActions: true,
     );
   }
 

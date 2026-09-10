@@ -70,7 +70,13 @@
   "captureSchedulingFallback": "Gespeichert. Öffne Glimpse, um die Verarbeitung abzuschließen.",
   "captureCouldNotSave": "Dieser Link konnte nicht gespeichert werden",
   "savedToCollection": "In {collectionName} gespeichert",
-  "@savedToCollection": {"placeholders": {"collectionName": {"type": "String"}}},
+  "@savedToCollection": {
+    "placeholders": {
+      "collectionName": {
+        "type": "String"
+      }
+    }
+  },
   "savedWithoutAi": "Ohne KI-Anreicherung gespeichert",
   "aiLimitBody": "Du hast deine 30 lebenslangen KI-Speicherungen verbraucht. Tippe zum Upgraden.",
   "proAiLimitBody": "Du hast diesen Monat 500 KI-Speicherungen verbraucht. Dein Link wurde ohne KI-Anreicherung gespeichert.",
@@ -160,7 +166,13 @@
   "findingSavedVersion": "Gespeicherte Version wird gesucht…",
   "openSavedItem": "Gespeichertes Element öffnen",
   "collectionSelection": "Sammlung, {collectionName}",
-  "@collectionSelection": {"placeholders": {"collectionName": {"type": "String"}}},
+  "@collectionSelection": {
+    "placeholders": {
+      "collectionName": {
+        "type": "String"
+      }
+    }
+  },
   "capturedInGlimpse": "In Glimpse gespeichert",
   "firstCapturedReady": "Dein erstes gespeichertes Element ist unten bereit.",
   "shareAnyApp": "Teile aus jeder App — Glimpse sortiert es für dich.",
@@ -185,7 +197,13 @@
   "processingOpeningHeadline": "Inhalt wird geöffnet",
   "processingOpeningDetail": "Der gespeicherte Inhalt wird geprüft",
   "processingReadingHeadline": "{content} wird gelesen",
-  "@processingReadingHeadline": {"placeholders": {"content": {"type": "String"}}},
+  "@processingReadingHeadline": {
+    "placeholders": {
+      "content": {
+        "type": "String"
+      }
+    }
+  },
   "processingExtractingDetail": "Nützliche Details werden herausgearbeitet",
   "processingUnderstoodHeadline": "Inhalt verstanden",
   "processingUnderstoodDetail": "Der Inhalt wird in eine nützliche Speicherung verwandelt",
@@ -224,7 +242,13 @@
   "filterSources": "Quellen filtern",
   "couldNotLoadSources": "Quellen konnten nicht geladen werden",
   "noSourcesMatch": "Keine Quellen entsprechen „{query}“",
-  "@noSourcesMatch": {"placeholders": {"query": {"type": "String"}}},
+  "@noSourcesMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "noSavesFromApps": "Noch keine Speicherungen aus Apps",
   "noWebsiteSaves": "Noch keine Website-Speicherungen",
   "noSourcesYet": "Noch keine Quellen",
@@ -233,7 +257,13 @@
   "savesThisWeek": "+{count} diese Woche",
   "growing": "Zunehmend",
   "lastSaved": "Zuletzt gespeichert: {time}",
-  "@lastSaved": {"placeholders": {"time": {"type": "String"}}},
+  "@lastSaved": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "leftSwipe": "Nach links wischen",
   "rightSwipe": "Nach rechts wischen",
   "chooseSwipeAction": "Wischaktion auswählen",
@@ -255,7 +285,13 @@
   "accentColor": "Akzentfarbe",
   "dynamicAccentDescription": "Dynamisch verwendet auf unterstützten Geräten die Farben deines Hintergrundbilds.",
   "selectedAccent": "Ausgewählt: {accent}",
-  "@selectedAccent": {"placeholders": {"accent": {"type": "String"}}},
+  "@selectedAccent": {
+    "placeholders": {
+      "accent": {
+        "type": "String"
+      }
+    }
+  },
   "themePreview": "Designvorschau",
   "themePreviewDescription": "Akzent und Oberflächen werden anhand deiner Auswahl aktualisiert.",
   "accentDynamic": "Dynamisch",
@@ -746,5 +782,88 @@
   "highlightAdded": "Markierung gespeichert",
   "highlightRemoved": "Markierung entfernt",
   "highlightFailed": "Markierung konnte nicht aktualisiert werden.",
-  "readerOverviewOnly": "Für diesen Eintrag ist nur eine kurze Übersicht verfügbar. Öffne die Quelle für den vollständigen Inhalt."
+  "readerOverviewOnly": "Für diesen Eintrag ist nur eine kurze Übersicht verfügbar. Öffne die Quelle für den vollständigen Inhalt.",
+  "glimpsesTitle": "Deine Glimpses",
+  "glimpsesIntro": "Ein Rückblick auf das, was deine Aufmerksamkeit geweckt hat.",
+  "glimpsesConnection": "Passend zu deinem neuen Fund",
+  "glimpsesIdea": "Eine Idee zum Behalten",
+  "glimpsesIntention": "Hierzu wolltest du zurückkehren",
+  "glimpsesBriefs": "Deine Rückblicke",
+  "glimpsesPrevious": "Frühere Glimpses",
+  "glimpsesEmpty": "Im Moment wartet nichts auf dich. Deine Rückblicke wachsen mit deinen gespeicherten Inhalten.",
+  "glimpsesGotIt": "Verstanden",
+  "glimpsesReflect": "Nachdenken",
+  "glimpsesRecall": "Was weißt du noch über diese Idee? Nimm dir einen Moment, bevor du sie aufdeckst.",
+  "glimpsesReveal": "Idee aufdecken",
+  "glimpsesNote": "Deine Notiz",
+  "glimpsesHighlight": "Deine Markierung",
+  "glimpsesExpand": "Rückblick vertiefen",
+  "glimpsesExplain": "Verbindung erklären",
+  "glimpsesAiConsent": "Sende nur diese ausgewählten Auszüge an die KI, um eine Erklärung mit Quellen zu erhalten. Dies nutzt dein Ask-Kontingent. Persönliche Notizen bleiben ausgeschlossen, sofern du sie nicht unten auswählst.",
+  "glimpsesIncludeNotes": "Meine persönlichen Notizen einbeziehen",
+  "glimpsesGenerate": "Erklärung erstellen",
+  "glimpsesAiUnavailable": "Die Erklärung ist gerade nicht verfügbar. Deine gespeicherten Ideen bleiben hier.",
+  "glimpsesAiLimit": "Dein Ask-Kontingent ist aufgebraucht. Du kannst diesen lokalen Rückblick weiterhin lesen.",
+  "glimpsesAiLabel": "KI-Erklärung · auf Grundlage dieser Auszüge",
+  "glimpsesMissing": "Dieser Glimpse ist nicht mehr verfügbar. Seine Quellen könnten sich geändert haben.",
+  "glimpsesLaterFeedback": "Für drei Tage zurückgestellt",
+  "glimpsesHistoryNote": "Basierend auf der auf diesem Gerät erfassten Aktivität.",
+  "glimpsesReturned": "Wieder aufgerufen",
+  "glimpsesNoted": "Notizen ergänzt",
+  "glimpsesCompleted": "Erledigte Vorhaben",
+  "glimpsesRelatedReason": "Diese Inhalte teilen ein konkretes Thema. Lies die frühere Idee neben deinem neuen Fund.",
+  "glimpsesSynthesisSources": "Zu sendende Auszüge",
+  "glimpsesDay": "Tag",
+  "glimpsesWeek": "Woche",
+  "glimpsesMonth": "Monat",
+  "glimpsesThreads": "Themen deines Monats",
+  "glimpsesActionFailed": "Dieser Glimpse konnte nicht aktualisiert werden. Bitte versuche es erneut.",
+  "glimpsesTopTopics": "Häufigste Themen",
+  "glimpsesActivity": "Gespeichert pro Tag",
+  "glimpsesChartHint": "Wähle einen Tag, um seine gespeicherten Inhalte anzusehen.",
+  "glimpsesBrowsePeriod": "Diese Inhalte ansehen",
+  "glimpsesNoSavesPeriod": "In diesem Zeitraum noch nichts gespeichert.",
+  "glimpsesPeriodCount": "{count, plural, one{Du hast in diesem Zeitraum einen Inhalt gespeichert.} other{Du hast in diesem Zeitraum {count} Inhalte gespeichert.}}",
+  "glimpsesPeriodSummary": "{count, plural, one{Du hast einen Inhalt gespeichert, zum Thema {topics}.} other{Du hast {count} Inhalte gespeichert. Darunter: {topics}.}}",
+  "glimpsesPreviousDay": "Vorheriger Tag",
+  "glimpsesNextDay": "Nächster Tag",
+  "glimpsesPreviousMonth": "Vorheriger Monat",
+  "glimpsesNextMonth": "Nächster Monat",
+  "glimpsesClear": "Entfernen",
+  "glimpsesNotificationCleared": "Benachrichtigung entfernt",
+  "glimpsesTopicRecipes": "Rezepte & Kochen",
+  "glimpsesTopicAnime": "Anime & Manga",
+  "glimpsesTopicMotorcycles": "Motorräder",
+  "glimpsesTopicMusic": "Musik",
+  "glimpsesTopicFitness": "Gesundheit & Fitness",
+  "glimpsesTopicNature": "Tierwelt & Natur",
+  "glimpsesTopicTravel": "Reisen & Orte",
+  "glimpsesTopicMovies": "Filme zum Ansehen",
+  "glimpsesTopicBooks": "Bücher & Lesen",
+  "glimpsesTopicSpirituality": "Spiritualität",
+  "glimpsesTopicHistory": "Geschichte & Gesellschaft",
+  "glimpsesTopicGrowth": "Persönliche Entwicklung & Philosophie",
+  "glimpsesTopicFinance": "Finanzen & Wirtschaft",
+  "glimpsesTopicDesign": "Design & Kreativität",
+  "glimpsesTopicSoftware": "Software & KI",
+  "glimpsesTopicScience": "Wissenschaft",
+  "glimpsesWeeklyReview": "Wochenrückblick",
+  "glimpsesHistorySubtitle": "Deine gespeicherten Inhalte und wiederkehrenden Interessen",
+  "glimpsesPastReviews": "Vergangene Wochen",
+  "glimpsesReviewPreview": "Beginne mit {title}",
+  "glimpsesWhyToday": "Warum heute",
+  "glimpsesStartHere": "Hier beginnen",
+  "glimpsesMoreToExplore": "Mehr entdecken",
+  "glimpsesWhyConnection": "Dein neuer Inhalt „{title}“ bringt frühere Inhalte zu {topic} wieder ins Blickfeld.",
+  "glimpsesWhyHighlight": "Du hast hier eine Passage markiert. Beginne damit.",
+  "glimpsesWhyNote": "Du hast hierzu eine Notiz verfasst. Schau noch einmal hinein.",
+  "glimpsesWhyEarlier": "Aus deinen früher gespeicherten Inhalten",
+  "glimpsesWhatExplored": "Was dich beschäftigt hat",
+  "glimpsesReviewStartReason": "Ein Einstieg aus den gespeicherten Inhalten dieser Woche.",
+  "glimpsesReviewConnection": "Eine Verbindung zum Weiterverfolgen",
+  "glimpsesReviewSettings": "Wöchentliche KI-Zusammenfassung",
+  "glimpsesEnableReviews": "Schriftliche Rückblicke aktivieren",
+  "glimpsesDisableReviews": "Schriftliche Rückblicke deaktivieren",
+  "glimpsesReviewDescription": "Fasst beim Öffnen von Rediscover deine gespeicherten Inhalte der letzten Woche zusammen.",
+  "glimpsesReviewConsent": "Ausgewählte Zusammenfassungen und Markierungen werden an eine Cloud-KI gesendet. Persönliche Notizen bleiben auf deinem Gerät. Nutzt bis zu 1 Ask-Anfrage pro Woche. Dein lokaler Verlauf funktioniert auch ohne diese Option."
 }

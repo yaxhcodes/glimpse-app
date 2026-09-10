@@ -2581,4 +2581,288 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get readerOverviewOnly =>
       'Only a brief overview is available for this save. Open the source for the full content.';
+
+  @override
+  String get glimpsesTitle => 'Your Glimpses';
+
+  @override
+  String get glimpsesIntro => 'A look back at what caught your attention.';
+
+  @override
+  String get glimpsesConnection => 'Connected to your new save';
+
+  @override
+  String get glimpsesIdea => 'An idea worth keeping';
+
+  @override
+  String get glimpsesIntention => 'You wanted to return to this';
+
+  @override
+  String get glimpsesBriefs => 'Your briefs';
+
+  @override
+  String get glimpsesPrevious => 'Previous glimpses';
+
+  @override
+  String get glimpsesEmpty =>
+      'Nothing needs your attention right now. Your briefs will grow as you save.';
+
+  @override
+  String get glimpsesGotIt => 'Got it';
+
+  @override
+  String get glimpsesReflect => 'Reflect';
+
+  @override
+  String get glimpsesRecall =>
+      'What do you remember about this idea? Take a moment before revealing it.';
+
+  @override
+  String get glimpsesReveal => 'Reveal the idea';
+
+  @override
+  String get glimpsesNote => 'Your note';
+
+  @override
+  String get glimpsesHighlight => 'Your highlight';
+
+  @override
+  String get glimpsesExpand => 'Expand this brief';
+
+  @override
+  String get glimpsesExplain => 'Explain this connection';
+
+  @override
+  String get glimpsesAiConsent =>
+      'Send only these selected excerpts to AI to write a source-linked explanation. This uses your Ask allowance. Personal notes are excluded unless you include them below.';
+
+  @override
+  String get glimpsesIncludeNotes => 'Include my personal notes';
+
+  @override
+  String get glimpsesGenerate => 'Generate explanation';
+
+  @override
+  String get glimpsesAiUnavailable =>
+      'The explanation is unavailable right now. Your saved ideas are still here.';
+
+  @override
+  String get glimpsesAiLimit =>
+      'Your Ask allowance has been reached. You can still read this local brief.';
+
+  @override
+  String get glimpsesAiLabel => 'AI explanation · based on these excerpts';
+
+  @override
+  String get glimpsesMissing =>
+      'This glimpse is no longer available. Its sources may have changed.';
+
+  @override
+  String get glimpsesLaterFeedback => 'Set aside for three days';
+
+  @override
+  String get glimpsesHistoryNote =>
+      'Based on activity recorded on this device.';
+
+  @override
+  String get glimpsesReturned => 'Revisited';
+
+  @override
+  String get glimpsesNoted => 'Added notes';
+
+  @override
+  String get glimpsesCompleted => 'Completed intentions';
+
+  @override
+  String get glimpsesRelatedReason =>
+      'These saves share a specific subject. Read the earlier idea alongside your new save.';
+
+  @override
+  String get glimpsesSynthesisSources => 'Excerpts to send';
+
+  @override
+  String get glimpsesDay => 'Day';
+
+  @override
+  String get glimpsesWeek => 'Week';
+
+  @override
+  String get glimpsesMonth => 'Month';
+
+  @override
+  String get glimpsesThreads => 'Threads through your month';
+
+  @override
+  String get glimpsesActionFailed =>
+      'Could not update this glimpse. Please try again.';
+
+  @override
+  String get glimpsesTopTopics => 'Top topics';
+
+  @override
+  String get glimpsesActivity => 'Saves by day';
+
+  @override
+  String get glimpsesChartHint => 'Choose a day to revisit its saves.';
+
+  @override
+  String get glimpsesBrowsePeriod => 'Explore these saves';
+
+  @override
+  String get glimpsesNoSavesPeriod => 'No saves in this period yet.';
+
+  @override
+  String glimpsesPeriodCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You saved $count items in this period.',
+      one: 'You saved one item in this period.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String glimpsesPeriodSummary(int count, String topics) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'You saved $count items. Topics included $topics.',
+      one: 'You saved one item, about $topics.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get glimpsesPreviousDay => 'Previous day';
+
+  @override
+  String get glimpsesNextDay => 'Next day';
+
+  @override
+  String get glimpsesPreviousMonth => 'Previous month';
+
+  @override
+  String get glimpsesNextMonth => 'Next month';
+
+  @override
+  String get glimpsesClear => 'Clear';
+
+  @override
+  String get glimpsesNotificationCleared => 'Notification cleared';
+
+  @override
+  String get glimpsesTopicRecipes => 'Recipes & Cooking';
+
+  @override
+  String get glimpsesTopicAnime => 'Anime & Manga';
+
+  @override
+  String get glimpsesTopicMotorcycles => 'Motorcycles';
+
+  @override
+  String get glimpsesTopicMusic => 'Music';
+
+  @override
+  String get glimpsesTopicFitness => 'Health & Fitness';
+
+  @override
+  String get glimpsesTopicNature => 'Wildlife & Nature';
+
+  @override
+  String get glimpsesTopicTravel => 'Travel & Places';
+
+  @override
+  String get glimpsesTopicMovies => 'Movies To Watch';
+
+  @override
+  String get glimpsesTopicBooks => 'Books & Reading';
+
+  @override
+  String get glimpsesTopicSpirituality => 'Spirituality';
+
+  @override
+  String get glimpsesTopicHistory => 'History & Society';
+
+  @override
+  String get glimpsesTopicGrowth => 'Personal Growth & Philosophy';
+
+  @override
+  String get glimpsesTopicFinance => 'Finance & Economics';
+
+  @override
+  String get glimpsesTopicDesign => 'Design & Creativity';
+
+  @override
+  String get glimpsesTopicSoftware => 'Software & AI';
+
+  @override
+  String get glimpsesTopicScience => 'Science';
+
+  @override
+  String get glimpsesWeeklyReview => 'Weekly review';
+
+  @override
+  String get glimpsesHistorySubtitle =>
+      'Your saving history and recurring interests';
+
+  @override
+  String get glimpsesPastReviews => 'Past weeks';
+
+  @override
+  String glimpsesReviewPreview(String title) {
+    return 'Start with $title';
+  }
+
+  @override
+  String get glimpsesWhyToday => 'Why today';
+
+  @override
+  String get glimpsesStartHere => 'Start here';
+
+  @override
+  String get glimpsesMoreToExplore => 'More to explore';
+
+  @override
+  String glimpsesWhyConnection(String title, String topic) {
+    return 'Your new save, “$title”, brought these earlier saves about $topic back into view.';
+  }
+
+  @override
+  String get glimpsesWhyHighlight =>
+      'You highlighted a passage in this save. Start with it.';
+
+  @override
+  String get glimpsesWhyNote =>
+      'You left a note on this save. Return to what you wrote.';
+
+  @override
+  String get glimpsesWhyEarlier => 'From your earlier saves';
+
+  @override
+  String get glimpsesWhatExplored => 'What you explored';
+
+  @override
+  String get glimpsesReviewStartReason =>
+      'A starting point from this week’s saves.';
+
+  @override
+  String get glimpsesReviewConnection => 'A connection worth following';
+
+  @override
+  String get glimpsesReviewSettings => 'Weekly AI summary';
+
+  @override
+  String get glimpsesEnableReviews => 'Enable written reviews';
+
+  @override
+  String get glimpsesDisableReviews => 'Turn off written reviews';
+
+  @override
+  String get glimpsesReviewDescription =>
+      'Summarize last week’s saves when you open Rediscover.';
+
+  @override
+  String get glimpsesReviewConsent =>
+      'Selected summaries and highlights are sent to cloud AI. Personal notes stay on your device. Uses up to 1 Ask request per week. Your local history works with this off.';
 }

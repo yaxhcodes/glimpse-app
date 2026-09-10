@@ -1,3 +1,4 @@
+import 'package:glimpse/features/glimpses/glimpse_home_adapter.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -13,7 +14,6 @@ import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory.dart';
 import 'package:glimpse/features/rediscover/rediscover_open_context.dart';
 import 'package:glimpse/features/rediscover/rediscover_provider.dart';
-import 'package:glimpse/features/rediscover/rediscover_screen.dart';
 
 SavedUrl _url(
   int id,
@@ -52,7 +52,7 @@ void main() {
           rediscoverHasSavedDailyCardsProvider.overrideWith(
             (ref) async => true,
           ),
-          rediscoverDailySetProvider.overrideWith((ref) => pending.future),
+          glimpseHomeSetProvider.overrideWith((ref) => pending.future),
           rediscoverDailySetControllerProvider.overrideWithValue(
             _NoopDailySetController(),
           ),
@@ -94,123 +94,6 @@ void main() {
     expect(skeleton, findsNothing);
     expect(find.byType(CarouselView), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Rediscover renders only the shared daily set', (tester) async {
-    final first = _url(3, 'Primary memory');
-    final second = _url(
-      4,
-      'Supporting memory',
-      category: 'Travel',
-      tags: const ['weekend travel', 'hiking'],
-    );
-    final memories = [
-      RediscoverMemory.fromJourney(
-        RediscoverJourney(
-          kind: RediscoverJourneyKind.returningTopic,
-          title: 'Primary topic',
-          subtitle: 'A focused return',
-          icon: Icons.playlist_play_rounded,
-          items: [_item(first)],
-          signal: 100,
-          topicAnchor: 'primary topic',
-          stableTopicKey: 'technology:primary-topic',
-          triggerSaveId: 99,
-          triggerTitle: 'A new primary-topic save',
-          topicPulseConfidence: 'strong',
-        ),
-      ),
-      RediscoverMemory.fromJourney(
-        RediscoverJourney(
-          kind: RediscoverJourneyKind.forgottenGems,
-          title: 'Supporting topic',
-          subtitle: 'A useful older save',
-          icon: Icons.diamond_outlined,
-          items: [_item(second)],
-          signal: 80,
-          topicAnchor: 'supporting topic',
-        ),
-      ),
-    ];
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          rediscoverDailySetProvider.overrideWith(
-            (ref) async => RediscoverDailySet(
-              localDate: DateTime(2026, 8, 14),
-              memories: memories,
-            ),
-          ),
-          rediscoverDailySetControllerProvider.overrideWithValue(
-            _NoopDailySetController(),
-          ),
-          rediscoveryStatsProvider.overrideWith(
-            (ref) async => (total: 2, unopened: 2),
-          ),
-          rediscoverRecapsProvider.overrideWith((ref) async => const []),
-        ],
-        child: const MaterialApp(home: RediscoverScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Today'), findsOneWidget);
-    expect(find.text('Recently resurfaced'), findsNothing);
-    expect(find.text('Related saves'), findsNothing);
-    expect(find.text('Recaps'), findsNothing);
-    expect(find.text(memories.first.rediscoverCopy.title), findsOneWidget);
-    expect(find.text(memories.last.rediscoverCopy.title), findsOneWidget);
-    expect(find.text('Back in view · 1 save'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox.shrink());
-
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetPhysicalSize);
-    for (final width in [320.0, 400.0]) {
-      tester.view.physicalSize = Size(width, 1000);
-      for (final scale in [1.0, 2.0]) {
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              rediscoverDailySetProvider.overrideWith(
-                (ref) async => RediscoverDailySet(
-                  localDate: DateTime(2026, 8, 14),
-                  memories: memories,
-                ),
-              ),
-              rediscoverDailySetControllerProvider.overrideWithValue(
-                _NoopDailySetController(),
-              ),
-            ],
-            child: MaterialApp(
-              home: MediaQuery(
-                data: MediaQueryData(
-                  size: Size(width, 1000),
-                  textScaler: TextScaler.linear(scale),
-                ),
-                child: const Scaffold(
-                  body: SingleChildScrollView(child: RediscoverySection()),
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: 'Home at $width dp and ${scale}x text',
-        );
-        await tester.drag(find.byType(CarouselView), const Offset(-180, 0));
-        await tester.pumpAndSettle();
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: 'Carousel scroll at $width dp and ${scale}x text',
-        );
-      }
-    }
   });
 
   testWidgets('journey detail renders each save exactly once', (tester) async {

@@ -70,7 +70,13 @@
   "captureSchedulingFallback": "Saved. Open Glimpse to finish organizing it.",
   "captureCouldNotSave": "Couldn’t save this link",
   "savedToCollection": "Saved to {collectionName}",
-  "@savedToCollection": {"placeholders": {"collectionName": {"type": "String"}}},
+  "@savedToCollection": {
+    "placeholders": {
+      "collectionName": {
+        "type": "String"
+      }
+    }
+  },
   "savedWithoutAi": "Saved without AI enrichment",
   "aiLimitBody": "You’ve used your 30 lifetime AI saves. Tap to upgrade.",
   "proAiLimitBody": "You’ve used 500 AI saves this month. Your link was saved without AI enrichment.",
@@ -160,7 +166,13 @@
   "findingSavedVersion": "Finding the saved version…",
   "openSavedItem": "Open saved item",
   "collectionSelection": "Collection, {collectionName}",
-  "@collectionSelection": {"placeholders": {"collectionName": {"type": "String"}}},
+  "@collectionSelection": {
+    "placeholders": {
+      "collectionName": {
+        "type": "String"
+      }
+    }
+  },
   "capturedInGlimpse": "Captured in Glimpse",
   "firstCapturedReady": "Your first captured item is ready below.",
   "shareAnyApp": "Share from any app — Glimpse sorts it for you.",
@@ -185,7 +197,13 @@
   "processingOpeningHeadline": "Opening the content",
   "processingOpeningDetail": "Checking what this save contains",
   "processingReadingHeadline": "Reading the {content}",
-  "@processingReadingHeadline": {"placeholders": {"content": {"type": "String"}}},
+  "@processingReadingHeadline": {
+    "placeholders": {
+      "content": {
+        "type": "String"
+      }
+    }
+  },
   "processingExtractingDetail": "Pulling out the useful details",
   "processingUnderstoodHeadline": "Content understood",
   "processingUnderstoodDetail": "Turning content into a useful save",
@@ -224,7 +242,13 @@
   "filterSources": "Filter sources",
   "couldNotLoadSources": "Could not load sources",
   "noSourcesMatch": "No sources match \"{query}\"",
-  "@noSourcesMatch": {"placeholders": {"query": {"type": "String"}}},
+  "@noSourcesMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "noSavesFromApps": "No saves from apps yet",
   "noWebsiteSaves": "No website saves yet",
   "noSourcesYet": "No sources yet",
@@ -233,7 +257,13 @@
   "savesThisWeek": "+{count} this week",
   "growing": "Growing",
   "lastSaved": "Last saved {time}",
-  "@lastSaved": {"placeholders": {"time": {"type": "String"}}},
+  "@lastSaved": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "leftSwipe": "Left swipe",
   "rightSwipe": "Right swipe",
   "chooseSwipeAction": "Choose swipe action",
@@ -255,7 +285,13 @@
   "accentColor": "Accent color",
   "dynamicAccentDescription": "Dynamic uses your wallpaper palette on supported devices.",
   "selectedAccent": "Selected: {accent}",
-  "@selectedAccent": {"placeholders": {"accent": {"type": "String"}}},
+  "@selectedAccent": {
+    "placeholders": {
+      "accent": {
+        "type": "String"
+      }
+    }
+  },
   "themePreview": "Theme preview",
   "themePreviewDescription": "Accent and surfaces update from your choices below.",
   "accentDynamic": "Dynamic",
@@ -291,8 +327,8 @@
   "sortBy": "Sort by",
   "noItemsFromSource": "No items from this source",
   "noUnreadItems": "No unread items",
-  "noReadItems": "No read items"
-  ,"lastSavedLabel": "Last saved",
+  "noReadItems": "No read items",
+  "lastSavedLabel": "Last saved",
   "markAllRead": "Mark all read",
   "back": "Back",
   "subscription": "Subscription",
@@ -379,12 +415,12 @@
   "quotes": "Quotes",
   "tags": "Tags",
   "informationMayBeInaccurate": "Information may be inaccurate",
-  "originalContentAttribution": "Original content belongs to its creator."
-  ,"everyHours": "Every {count} hours",
-  "weekly": "Weekly"
-  ,"addTag": "Add tag",
-  "changeCategory": "Change category"
-  ,"worthWatching": "Worth watching",
+  "originalContentAttribution": "Original content belongs to its creator.",
+  "everyHours": "Every {count} hours",
+  "weekly": "Weekly",
+  "addTag": "Add tag",
+  "changeCategory": "Change category",
+  "worthWatching": "Worth watching",
   "worthReading": "Worth reading",
   "gamesMentioned": "Games mentioned",
   "musicMentioned": "Music mentioned",
@@ -395,8 +431,8 @@
   "websitesMentioned": "Websites mentioned",
   "claimsToRemember": "Claims to remember",
   "termsMentioned": "Terms mentioned",
-  "notableDetails": "Notable details"
-  ,"library": "Library",
+  "notableDetails": "Notable details",
+  "library": "Library",
   "libraryDescription": "Books, movies, places & music found in your saves",
   "buildsQuietly": "Builds quietly as you save",
   "itemCount": "{count, plural, =1{1 item} other{{count} items}}",
@@ -746,5 +782,122 @@
   "highlightAdded": "Highlight saved",
   "highlightRemoved": "Highlight removed",
   "highlightFailed": "Could not update the highlight.",
-  "readerOverviewOnly": "Only a brief overview is available for this save. Open the source for the full content."
+  "readerOverviewOnly": "Only a brief overview is available for this save. Open the source for the full content.",
+  "glimpsesTitle": "Your Glimpses",
+  "glimpsesIntro": "A look back at what caught your attention.",
+  "glimpsesConnection": "Connected to your new save",
+  "glimpsesIdea": "An idea worth keeping",
+  "glimpsesIntention": "You wanted to return to this",
+  "glimpsesBriefs": "Your briefs",
+  "glimpsesPrevious": "Previous glimpses",
+  "glimpsesEmpty": "Nothing needs your attention right now. Your briefs will grow as you save.",
+  "glimpsesGotIt": "Got it",
+  "glimpsesReflect": "Reflect",
+  "glimpsesRecall": "What do you remember about this idea? Take a moment before revealing it.",
+  "glimpsesReveal": "Reveal the idea",
+  "glimpsesNote": "Your note",
+  "glimpsesHighlight": "Your highlight",
+  "glimpsesExpand": "Expand this brief",
+  "glimpsesExplain": "Explain this connection",
+  "glimpsesAiConsent": "Send only these selected excerpts to AI to write a source-linked explanation. This uses your Ask allowance. Personal notes are excluded unless you include them below.",
+  "glimpsesIncludeNotes": "Include my personal notes",
+  "glimpsesGenerate": "Generate explanation",
+  "glimpsesAiUnavailable": "The explanation is unavailable right now. Your saved ideas are still here.",
+  "glimpsesAiLimit": "Your Ask allowance has been reached. You can still read this local brief.",
+  "glimpsesAiLabel": "AI explanation · based on these excerpts",
+  "glimpsesMissing": "This glimpse is no longer available. Its sources may have changed.",
+  "glimpsesLaterFeedback": "Set aside for three days",
+  "glimpsesHistoryNote": "Based on activity recorded on this device.",
+  "glimpsesReturned": "Revisited",
+  "glimpsesNoted": "Added notes",
+  "glimpsesCompleted": "Completed intentions",
+  "glimpsesRelatedReason": "These saves share a specific subject. Read the earlier idea alongside your new save.",
+  "glimpsesSynthesisSources": "Excerpts to send",
+  "glimpsesDay": "Day",
+  "glimpsesWeek": "Week",
+  "glimpsesMonth": "Month",
+  "glimpsesThreads": "Threads through your month",
+  "glimpsesActionFailed": "Could not update this glimpse. Please try again.",
+  "glimpsesTopTopics": "Top topics",
+  "glimpsesActivity": "Saves by day",
+  "glimpsesChartHint": "Choose a day to revisit its saves.",
+  "glimpsesBrowsePeriod": "Explore these saves",
+  "glimpsesNoSavesPeriod": "No saves in this period yet.",
+  "glimpsesPeriodCount": "{count, plural, one{You saved one item in this period.} other{You saved {count} items in this period.}}",
+  "glimpsesPeriodSummary": "{count, plural, one{You saved one item, about {topics}.} other{You saved {count} items. Topics included {topics}.}}",
+  "glimpsesPreviousDay": "Previous day",
+  "glimpsesNextDay": "Next day",
+  "glimpsesPreviousMonth": "Previous month",
+  "glimpsesNextMonth": "Next month",
+  "glimpsesClear": "Clear",
+  "glimpsesNotificationCleared": "Notification cleared",
+  "glimpsesTopicRecipes": "Recipes & Cooking",
+  "glimpsesTopicAnime": "Anime & Manga",
+  "glimpsesTopicMotorcycles": "Motorcycles",
+  "glimpsesTopicMusic": "Music",
+  "glimpsesTopicFitness": "Health & Fitness",
+  "glimpsesTopicNature": "Wildlife & Nature",
+  "glimpsesTopicTravel": "Travel & Places",
+  "glimpsesTopicMovies": "Movies To Watch",
+  "glimpsesTopicBooks": "Books & Reading",
+  "glimpsesTopicSpirituality": "Spirituality",
+  "glimpsesTopicHistory": "History & Society",
+  "glimpsesTopicGrowth": "Personal Growth & Philosophy",
+  "glimpsesTopicFinance": "Finance & Economics",
+  "glimpsesTopicDesign": "Design & Creativity",
+  "glimpsesTopicSoftware": "Software & AI",
+  "glimpsesTopicScience": "Science",
+  "@glimpsesPeriodCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@glimpsesPeriodSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "topics": {
+        "type": "String"
+      }
+    }
+  },
+  "glimpsesWeeklyReview": "Weekly review",
+  "glimpsesHistorySubtitle": "Your saving history and recurring interests",
+  "glimpsesPastReviews": "Past weeks",
+  "glimpsesReviewPreview": "Start with {title}",
+  "glimpsesWhyToday": "Why today",
+  "glimpsesStartHere": "Start here",
+  "glimpsesMoreToExplore": "More to explore",
+  "glimpsesWhyConnection": "Your new save, “{title}”, brought these earlier saves about {topic} back into view.",
+  "glimpsesWhyHighlight": "You highlighted a passage in this save. Start with it.",
+  "glimpsesWhyNote": "You left a note on this save. Return to what you wrote.",
+  "glimpsesWhyEarlier": "From your earlier saves",
+  "glimpsesWhatExplored": "What you explored",
+  "glimpsesReviewStartReason": "A starting point from this week’s saves.",
+  "glimpsesReviewConnection": "A connection worth following",
+  "glimpsesReviewSettings": "Weekly AI summary",
+  "glimpsesEnableReviews": "Enable written reviews",
+  "glimpsesDisableReviews": "Turn off written reviews",
+  "glimpsesReviewDescription": "Summarize last week’s saves when you open Rediscover.",
+  "glimpsesReviewConsent": "Selected summaries and highlights are sent to cloud AI. Personal notes stay on your device. Uses up to 1 Ask request per week. Your local history works with this off.",
+  "@glimpsesReviewPreview": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "@glimpsesWhyConnection": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "topic": {
+        "type": "String"
+      }
+    }
+  }
 }

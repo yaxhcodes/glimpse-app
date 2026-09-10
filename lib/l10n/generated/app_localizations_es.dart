@@ -2605,4 +2605,289 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get readerOverviewOnly =>
       'Solo hay un breve resumen de este contenido guardado. Abre la fuente para ver el contenido completo.';
+
+  @override
+  String get glimpsesTitle => 'Tus Glimpses';
+
+  @override
+  String get glimpsesIntro => 'Una mirada a lo que llamó tu atención.';
+
+  @override
+  String get glimpsesConnection => 'Relacionado con lo que acabas de guardar';
+
+  @override
+  String get glimpsesIdea => 'Una idea para recordar';
+
+  @override
+  String get glimpsesIntention => 'Querías volver a esto';
+
+  @override
+  String get glimpsesBriefs => 'Tus resúmenes';
+
+  @override
+  String get glimpsesPrevious => 'Glimpses anteriores';
+
+  @override
+  String get glimpsesEmpty =>
+      'Nada requiere tu atención ahora. Tus resúmenes crecerán con lo que guardes.';
+
+  @override
+  String get glimpsesGotIt => 'Entendido';
+
+  @override
+  String get glimpsesReflect => 'Reflexionar';
+
+  @override
+  String get glimpsesRecall =>
+      '¿Qué recuerdas de esta idea? Tómate un momento antes de verla.';
+
+  @override
+  String get glimpsesReveal => 'Ver la idea';
+
+  @override
+  String get glimpsesNote => 'Tu nota';
+
+  @override
+  String get glimpsesHighlight => 'Tu subrayado';
+
+  @override
+  String get glimpsesExpand => 'Ampliar este resumen';
+
+  @override
+  String get glimpsesExplain => 'Explicar esta conexión';
+
+  @override
+  String get glimpsesAiConsent =>
+      'Envía solo estos fragmentos seleccionados a la IA para obtener una explicación con fuentes. Usa tu cupo de Ask. Las notas personales se excluyen salvo que las incluyas abajo.';
+
+  @override
+  String get glimpsesIncludeNotes => 'Incluir mis notas personales';
+
+  @override
+  String get glimpsesGenerate => 'Generar explicación';
+
+  @override
+  String get glimpsesAiUnavailable =>
+      'La explicación no está disponible ahora. Tus ideas guardadas siguen aquí.';
+
+  @override
+  String get glimpsesAiLimit =>
+      'Has alcanzado tu cupo de Ask. Puedes seguir leyendo este resumen local.';
+
+  @override
+  String get glimpsesAiLabel =>
+      'Explicación de IA · basada en estos fragmentos';
+
+  @override
+  String get glimpsesMissing =>
+      'Este Glimpse ya no está disponible. Sus fuentes pueden haber cambiado.';
+
+  @override
+  String get glimpsesLaterFeedback => 'Pospuesto tres días';
+
+  @override
+  String get glimpsesHistoryNote =>
+      'Basado en la actividad registrada en este dispositivo.';
+
+  @override
+  String get glimpsesReturned => 'Revisitados';
+
+  @override
+  String get glimpsesNoted => 'Notas añadidas';
+
+  @override
+  String get glimpsesCompleted => 'Intenciones completadas';
+
+  @override
+  String get glimpsesRelatedReason =>
+      'Estos contenidos comparten un tema concreto. Lee la idea anterior junto a lo que acabas de guardar.';
+
+  @override
+  String get glimpsesSynthesisSources => 'Fragmentos que se enviarán';
+
+  @override
+  String get glimpsesDay => 'Día';
+
+  @override
+  String get glimpsesWeek => 'Semana';
+
+  @override
+  String get glimpsesMonth => 'Mes';
+
+  @override
+  String get glimpsesThreads => 'Temas de tu mes';
+
+  @override
+  String get glimpsesActionFailed =>
+      'No se pudo actualizar este Glimpse. Inténtalo de nuevo.';
+
+  @override
+  String get glimpsesTopTopics => 'Temas principales';
+
+  @override
+  String get glimpsesActivity => 'Guardados por día';
+
+  @override
+  String get glimpsesChartHint => 'Elige un día para volver a sus guardados.';
+
+  @override
+  String get glimpsesBrowsePeriod => 'Explorar estos guardados';
+
+  @override
+  String get glimpsesNoSavesPeriod => 'Aún no hay guardados en este período.';
+
+  @override
+  String glimpsesPeriodCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Guardaste $count elementos en este período.',
+      one: 'Guardaste un elemento en este período.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String glimpsesPeriodSummary(int count, String topics) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Guardaste $count elementos. Entre los temas: $topics.',
+      one: 'Guardaste un elemento sobre $topics.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get glimpsesPreviousDay => 'Día anterior';
+
+  @override
+  String get glimpsesNextDay => 'Día siguiente';
+
+  @override
+  String get glimpsesPreviousMonth => 'Mes anterior';
+
+  @override
+  String get glimpsesNextMonth => 'Mes siguiente';
+
+  @override
+  String get glimpsesClear => 'Quitar';
+
+  @override
+  String get glimpsesNotificationCleared => 'Notificación eliminada';
+
+  @override
+  String get glimpsesTopicRecipes => 'Recetas y cocina';
+
+  @override
+  String get glimpsesTopicAnime => 'Anime y manga';
+
+  @override
+  String get glimpsesTopicMotorcycles => 'Motocicletas';
+
+  @override
+  String get glimpsesTopicMusic => 'Música';
+
+  @override
+  String get glimpsesTopicFitness => 'Salud y ejercicio';
+
+  @override
+  String get glimpsesTopicNature => 'Fauna y naturaleza';
+
+  @override
+  String get glimpsesTopicTravel => 'Viajes y lugares';
+
+  @override
+  String get glimpsesTopicMovies => 'Películas para ver';
+
+  @override
+  String get glimpsesTopicBooks => 'Libros y lectura';
+
+  @override
+  String get glimpsesTopicSpirituality => 'Espiritualidad';
+
+  @override
+  String get glimpsesTopicHistory => 'Historia y sociedad';
+
+  @override
+  String get glimpsesTopicGrowth => 'Crecimiento personal y filosofía';
+
+  @override
+  String get glimpsesTopicFinance => 'Finanzas y economía';
+
+  @override
+  String get glimpsesTopicDesign => 'Diseño y creatividad';
+
+  @override
+  String get glimpsesTopicSoftware => 'Software e IA';
+
+  @override
+  String get glimpsesTopicScience => 'Ciencia';
+
+  @override
+  String get glimpsesWeeklyReview => 'Repaso semanal';
+
+  @override
+  String get glimpsesHistorySubtitle =>
+      'Tu historial y tus intereses recurrentes';
+
+  @override
+  String get glimpsesPastReviews => 'Semanas anteriores';
+
+  @override
+  String glimpsesReviewPreview(String title) {
+    return 'Empieza con $title';
+  }
+
+  @override
+  String get glimpsesWhyToday => 'Por qué hoy';
+
+  @override
+  String get glimpsesStartHere => 'Empieza aquí';
+
+  @override
+  String get glimpsesMoreToExplore => 'Más para explorar';
+
+  @override
+  String glimpsesWhyConnection(String title, String topic) {
+    return 'Tu nuevo guardado, «$title», vuelve a conectar con estos guardados anteriores sobre $topic.';
+  }
+
+  @override
+  String get glimpsesWhyHighlight =>
+      'Destacaste un pasaje en este guardado. Empieza por él.';
+
+  @override
+  String get glimpsesWhyNote =>
+      'Dejaste una nota en este guardado. Vuelve a lo que escribiste.';
+
+  @override
+  String get glimpsesWhyEarlier => 'De tus guardados anteriores';
+
+  @override
+  String get glimpsesWhatExplored => 'Lo que exploraste';
+
+  @override
+  String get glimpsesReviewStartReason =>
+      'Un punto de partida entre tus guardados de la semana.';
+
+  @override
+  String get glimpsesReviewConnection => 'Una conexión para explorar';
+
+  @override
+  String get glimpsesReviewSettings => 'Resumen semanal con IA';
+
+  @override
+  String get glimpsesEnableReviews => 'Activar repasos escritos';
+
+  @override
+  String get glimpsesDisableReviews => 'Desactivar repasos escritos';
+
+  @override
+  String get glimpsesReviewDescription =>
+      'Resume lo que guardaste la semana pasada al abrir Rediscover.';
+
+  @override
+  String get glimpsesReviewConsent =>
+      'Se envían resúmenes y destacados seleccionados a una IA en la nube. Tus notas personales permanecen en tu dispositivo. Usa hasta 1 consulta de Ask por semana. Tu historial local funciona con esta opción desactivada.';
 }

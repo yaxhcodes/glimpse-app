@@ -1,21 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/theme/app_icons.dart';
-
 import '../../core/models/saved_url.dart';
-import '../../core/providers/service_providers.dart';
-import '../../core/services/digest_prefs.dart';
-import '../../core/services/notification_category_summary.dart';
-import '../../core/services/notification_hub_labels.dart';
-import '../../core/services/notification_router.dart';
-import '../../shared/widgets/notifications/curated_notification_media.dart';
-import '../../shared/widgets/notifications/notification_type_style.dart';
 import '../../core/providers/swipe_preferences_provider.dart';
 import '../../shared/widgets/premium_swipe_card.dart';
-import '../../shared/widgets/expressive_tap_scale.dart';
+import '../../shared/widgets/notifications/curated_notification_media.dart';
+import '../home/home_provider.dart';
+
+import '../../core/services/digest_prefs.dart';
+import '../../core/services/notification_hub_labels.dart';
+import '../../core/services/notification_router.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../l10n/l10n.dart';
 
@@ -30,7 +28,6 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     with WidgetsBindingObserver {
   List<Map<String, dynamic>> _history = [];
-  Map<int, SavedUrl> _urlById = {};
   bool _loading = true;
   StreamSubscription<void>? _historySubscription;
   int _loadGeneration = 0;
@@ -59,27 +56,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     }
   }
 
-  /// First id = hero; up to three more for strip (`take(3)` downstream).
-  List<int> _idsFromEntry(Map<String, dynamic> entry) {
-    final raw = entry['ids'] as List<dynamic>? ?? [];
-    return raw.map((e) => (e as num).toInt()).take(4).toList();
-  }
-
   Future<void> _load() async {
     final generation = ++_loadGeneration;
     final history = await DigestPrefs.loadHistory();
-    final isar = ref.read(isarServiceProvider);
-    final idSet = <int>{};
-    for (final e in history) {
-      for (final id in _idsFromEntry(e)) {
-        idSet.add(id);
-      }
-    }
-    final urls = await isar.getUrlsByIds(idSet);
     if (!mounted || generation != _loadGeneration) return;
     setState(() {
       _history = history;
-      _urlById = urls;
       _loading = false;
     });
   }
@@ -92,7 +74,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(context.l10n.deleted),
+          content: Text(context.l10n.glimpsesNotificationCleared),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 4),
           action: SnackBarAction(
@@ -125,6 +107,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final urls = {
+      for (final url
+          in ref.watch(urlStreamProvider).valueOrNull ?? <SavedUrl>[])
+        url.id: url,
+    };
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -142,32 +129,25 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
               itemCount: _history.length,
               itemBuilder: (context, index) {
                 final entry = _history[index];
-                final ids = _idsFromEntry(entry);
-                final heroUrl = ids.isNotEmpty ? _urlById[ids.first] : null;
-                final stripUrls = ids
-                    .skip(1)
-                    .take(3)
-                    .map((id) => _urlById[id])
-                    .whereType<SavedUrl>()
-                    .toList();
-
+                final rawIds = entry['linkIds'] ?? entry['ids'];
+                final ids = rawIds is List
+                    ? rawIds.whereType<num>().map((id) => id.toInt()).toSet()
+                    : <int>{};
                 return _StaggerReveal(
+                  key: ValueKey(entry['id']),
                   index: index,
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 14),
-                    child: PremiumSwipeCard(
-                      key: ValueKey(entry['id']),
-                      leftSwipeAction: SwipeActionType.delete,
-                      rightSwipeAction: SwipeActionType.none,
-                      borderRadius: BorderRadius.circular(20),
-                      onAction: (_) => true,
-                      onDismissed: (_) => _deleteWithUndo(entry, index),
-                      child: CuratedNotificationListTile(
-                        entry: entry,
-                        heroUrl: heroUrl,
-                        stripUrls: stripUrls,
-                        onTap: () => _openEntry(entry),
-                      ),
+                    child: CuratedNotificationListTile(
+                      entry: entry,
+                      sources: ids.length > 1
+                          ? ids
+                                .map((id) => urls[id])
+                                .whereType<SavedUrl>()
+                                .toList()
+                          : const [],
+                      onTap: () => _openEntry(entry),
+                      onClear: () => _deleteWithUndo(entry, index),
                     ),
                   ),
                 );
@@ -219,7 +199,7 @@ class _EmptyNotifications extends StatelessWidget {
 }
 
 class _StaggerReveal extends StatefulWidget {
-  const _StaggerReveal({required this.index, required this.child});
+  const _StaggerReveal({super.key, required this.index, required this.child});
 
   final int index;
   final Widget child;
@@ -272,309 +252,157 @@ class CuratedNotificationListTile extends StatelessWidget {
   const CuratedNotificationListTile({
     super.key,
     required this.entry,
-    required this.heroUrl,
-    required this.stripUrls,
+    required this.onClear,
     required this.onTap,
+    this.sources = const [],
   });
 
   final Map<String, dynamic> entry;
-  final SavedUrl? heroUrl;
-  final List<SavedUrl> stripUrls;
+  final FutureOr<void> Function() onClear;
   final VoidCallback onTap;
-
-  static String _formatDate(BuildContext context, DateTime d) {
-    final now = DateTime.now();
-    final diff = now.difference(d);
-
-    if (diff.inMinutes < 60) return context.l10n.minutesAgo(diff.inMinutes);
-    if (diff.inHours < 24) return context.l10n.hoursAgo(diff.inHours);
-    if (diff.inDays == 1) return context.l10n.yesterday;
-    if (diff.inDays < 7) return context.l10n.daysAgo(diff.inDays);
-
-    return MaterialLocalizations.of(context).formatMediumDate(d);
-  }
-
-  static String _fallbackContext(String topic, SavedUrl? hero) {
-    if (hero == null) return '';
-    final snippet = hero.summary?.trim();
-    if (snippet != null && snippet.isNotEmpty && snippet != topic) {
-      return snippet.length > 140 ? '${snippet.substring(0, 137)}…' : snippet;
-    }
-    final d = hero.description.trim();
-    if (d.isNotEmpty && d != topic) {
-      return d.length > 140 ? '${d.substring(0, 137)}…' : d;
-    }
-    final platform = hero.domain.trim();
-    if (platform.isNotEmpty) return 'From $platform';
-    return '';
-  }
-
-  /// One bundle-level line when several links are grouped (no tag pills).
-  static String? _bundleHintLine(List<SavedUrl> urls) {
-    if (urls.length < 2) return null;
-    final ranked = NotificationCategorySummary.ranked(urls);
-    if (ranked.isEmpty) return null;
-    final primary = ranked.first.label;
-    if (ranked.length >= 2 && ranked[1].count >= 2) {
-      return 'Mostly $primary and ${ranked[1].label}.';
-    }
-    return 'Mostly about $primary.';
-  }
+  final List<SavedUrl> sources;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final date = DateTime.tryParse(entry['date']?.toString() ?? '');
+    Color mutedAccent(Color color) {
+      final hsl = HSLColor.fromColor(color);
+      return hsl.withSaturation(hsl.saturation * .5).toColor();
+    }
 
-    final dateStr = entry['date'] as String? ?? '';
-    final date = DateTime.tryParse(dateStr);
-    final formatted = date != null ? _formatDate(context, date) : '';
-
-    final topic = entry['topic'] as String? ?? 'Notification';
-    final body = entry['body'] as String?;
-    final type = entry['type'] as String?;
-    final isRead = entry['read'] == true;
-    final typeStyle = NotificationTypeStyle.forHistoryType(
-      type,
-      Theme.of(context).colorScheme,
-    );
-
-    final channelLabel = NotificationHubLabels.forHistoryType(
+    final label = NotificationHubLabels.forHistoryType(
       context.l10n,
-      type,
+      entry['type'] as String?,
     );
-    final contextLine = (body != null && body.trim().isNotEmpty)
-        ? body.trim()
-        : _fallbackContext(topic, heroUrl);
-
-    final bundleUrls = <SavedUrl>[
-      ...[heroUrl].whereType<SavedUrl>(),
-      ...stripUrls,
-    ];
-    final rawHint = _bundleHintLine(bundleUrls);
-    String? bundleHint;
-    if (rawHint != null) {
-      final a = rawHint.trim().toLowerCase();
-      final b = contextLine.trim().toLowerCase();
-      final redundant =
-          b.isNotEmpty && (a == b || b.contains(a) || a.contains(b));
-      bundleHint = redundant ? null : rawHint;
-    }
-
-    const kStateAnim = Duration(milliseconds: 180);
-
-    final cardColor = cs.surfaceContainerLow;
-
-    final titleWeight = isRead ? FontWeight.w400 : FontWeight.w600;
-
-    late final Widget hero;
-    if (heroUrl != null) {
-      hero = CuratedNotificationHero(
-        url: heroUrl!,
-        radius: 14,
-        blendBottomEdge: true,
-        showUnreadIndicator: !isRead,
-      );
-    } else {
-      hero = const CuratedMissingLinkHero(radius: 14);
-    }
-
-    final paddingOuter = EdgeInsets.fromLTRB(
-      14,
-      typeStyle.isDigestHighlight ? 15 : 13,
-      14,
-      13,
-    );
-
-    final secondaryMuted = theme.brightness == Brightness.light ? 0.88 : 0.84;
-
-    return ExpressiveTapScale(
-      child: AnimatedContainer(
-        duration: kStateAnim,
-        curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: isRead
-              ? const []
-              : [
-                  BoxShadow(
-                    color: cs.shadow.withValues(alpha: 0.1),
-                    blurRadius: 9,
-                    offset: const Offset(0, 2),
-                    spreadRadius: -1,
-                  ),
-                ],
-        ),
+    return Semantics(
+      customSemanticsActions: {
+        CustomSemanticsAction(label: context.l10n.glimpsesClear): () {
+          unawaited(Future<void>.sync(onClear));
+        },
+      },
+      child: PremiumSwipeCard(
+        leftSwipeAction: SwipeActionType.delete,
+        rightSwipeAction: SwipeActionType.delete,
+        actionLabel: context.l10n.glimpsesClear,
+        borderRadius: BorderRadius.circular(20),
+        onDismissed: (_) => onClear(),
         child: Material(
-          type: MaterialType.transparency,
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(20),
             child: Padding(
-              padding: paddingOuter,
+              padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  hero,
-                  const SizedBox(height: 16),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: AnimatedDefaultTextStyle(
-                          duration: kStateAnim,
-                          curve: Curves.easeOutCubic,
-                          style:
-                              (theme.textTheme.titleMedium ?? const TextStyle())
-                                  .copyWith(
-                                    fontWeight: titleWeight,
-                                    height: 1.22,
-                                    color: cs.onSurface,
-                                    fontSize:
-                                        (theme
-                                            .textTheme
-                                            .titleMedium
-                                            ?.fontSize ??
-                                        16),
-                                  ),
-                          child: Text(
-                            topic,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                        child: Text(
+                          entry['topic']?.toString() ??
+                              context.l10n.notification,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: entry['read'] == true
+                                ? FontWeight.w500
+                                : FontWeight.w600,
+                            height: 1.3,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  if (contextLine.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    AnimatedOpacity(
-                      duration: kStateAnim,
-                      curve: Curves.easeOut,
-                      opacity: isRead ? secondaryMuted : 1.0,
-                      child: Text(
-                        contextLine,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant.withValues(
-                            alpha: isRead ? 0.78 : 1,
-                          ),
-                          height: 1.4,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (bundleHint != null) ...[
-                    const SizedBox(height: 4),
-                    AnimatedOpacity(
-                      duration: kStateAnim,
-                      curve: Curves.easeOut,
-                      opacity: isRead ? 0.82 : 1.0,
-                      child: Text(
-                        bundleHint,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.3,
-                          fontSize:
-                              (theme.textTheme.bodySmall?.fontSize ?? 12) +
-                              0.75,
-                          fontWeight: FontWeight.w500,
-                          fontStyle: FontStyle.italic,
-                          letterSpacing: 0.15,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (stripUrls.isNotEmpty) ...[
-                    SizedBox(
-                      height: bundleHint != null
-                          ? 8
-                          : (contextLine.isNotEmpty ? 10 : 11),
-                    ),
-                    CuratedNotificationThumbStack(
-                      urls: stripUrls,
-                      size: 50,
-                      overlap: 14,
-                      squareRadius: 9,
-                      gapWidth: 2,
-                      gapColor: cardColor,
-                    ),
-                    const SizedBox(height: 18),
-                    Divider(
-                      height: 1,
-                      thickness: 0.5,
-                      color: cs.outlineVariant.withValues(alpha: 0.32),
-                    ),
-                    const SizedBox(height: 11),
-                  ] else ...[
-                    const SizedBox(height: 16),
-                  ],
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _TypeBadge(label: channelLabel),
-                      const Spacer(),
-                      if (formatted.isNotEmpty)
-                        AnimatedOpacity(
-                          duration: kStateAnim,
-                          curve: Curves.easeOut,
-                          opacity: isRead ? 0.78 : 0.92,
-                          child: Text(
-                            formatted,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.12,
-                              color: cs.outline,
+                      if (entry['read'] != true) ...[
+                        const SizedBox(width: 12),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Semantics(
+                            label: context.l10n.unread,
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: mutedAccent(theme.colorScheme.primary),
+                                shape: BoxShape.circle,
+                              ),
                             ),
                           ),
                         ),
+                      ],
                     ],
+                  ),
+                  if ((entry['body']?.toString() ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      entry['body'].toString(),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  if (sources.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    ExcludeSemantics(
+                      child: CuratedNotificationThumbStack(
+                        urls: sources,
+                        size: 40,
+                        overlap: 8,
+                        squareRadius: 8,
+                        maxVisible: 2,
+                        gapColor: theme.colorScheme.surfaceContainerLow,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: ShapeDecoration(
+                            color: mutedAccent(
+                              theme.colorScheme.primaryContainer,
+                            ),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: Text(
+                            label,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (date != null)
+                          Text(
+                            MaterialLocalizations.of(
+                              context,
+                            ).formatMediumDate(date),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    final bg = cs.secondaryContainer;
-    final fg = cs.onSecondaryContainer;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-      decoration: ShapeDecoration(
-        color: bg,
-        shape: StadiumBorder(side: BorderSide(color: cs.outlineVariant)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelMedium?.copyWith(
-          fontSize: 11.75,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.12,
-          height: 1.1,
-          color: fg,
         ),
       ),
     );

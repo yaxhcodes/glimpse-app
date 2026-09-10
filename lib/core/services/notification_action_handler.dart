@@ -6,7 +6,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/isar_service.dart';
-import 'notif_bandit.dart';
+import '../../features/glimpses/glimpse.dart';
+import '../../features/glimpses/glimpse_service.dart';
 
 /// Action-button ids used on actionable notifications (resurface / revisit).
 /// "Open" is the default body tap — it has no button id.
@@ -15,6 +16,7 @@ class NotificationActions {
 
   static const markDone = 'mark_done';
   static const snooze = 'snooze';
+  static const gotIt = 'glimpse_got_it';
 
   /// How far out a snoozed save is pushed before it's due again.
   static const snoozeWindow = Duration(days: 3);
@@ -37,7 +39,8 @@ class NotificationActionHandler {
   static Future<bool> handleIfAction(NotificationResponse response) async {
     final actionId = response.actionId;
     if (actionId != NotificationActions.markDone &&
-        actionId != NotificationActions.snooze) {
+        actionId != NotificationActions.snooze &&
+        actionId != NotificationActions.gotIt) {
       return false;
     }
 
@@ -93,10 +96,27 @@ class NotificationActionHandler {
       return;
     }
 
-    if (receipt.linkIds.isNotEmpty) {
+    if (receipt.glimpseKey != null) {
+      final service = GlimpseService(IsarService());
+      final item = (await service.store.load())
+          .where((s) => s.glimpse.key == receipt.glimpseKey)
+          .firstOrNull;
+      if (item != null) {
+        await service.act(item.glimpse, switch (receipt.actionId) {
+          NotificationActions.snooze => GlimpseAction.later,
+          NotificationActions.markDone when item.glimpse.isReminder =>
+            GlimpseAction.done,
+          _ => GlimpseAction.gotIt,
+        }, at: receipt.actedAt);
+      }
+    } else if (receipt.linkIds.length == 1 &&
+        !(receipt.notificationType?.startsWith('url_') ?? false) &&
+        receipt.actionId != NotificationActions.gotIt) {
       final isar = IsarService();
       await isar.ensureInitialized();
-      final revisitAfter = DateTime.now().add(NotificationActions.snoozeWindow);
+      final revisitAfter = (receipt.actedAt ?? DateTime.now()).add(
+        NotificationActions.snoozeWindow,
+      );
       for (final id in receipt.linkIds) {
         if (receipt.actionId == NotificationActions.markDone) {
           await isar.updateIntent(
@@ -117,12 +137,6 @@ class NotificationActionHandler {
       }
     }
 
-    if (receipt.notificationType?.length == 1) {
-      await NotifBandit.recordOpenOnce(
-        receipt.notificationType!,
-        receipt.logicalNotificationId,
-      );
-    }
     if (receipt.notificationId != null) {
       await FlutterLocalNotificationsPlugin().cancel(receipt.notificationId!);
     }
@@ -184,6 +198,8 @@ class _ActionReceipt {
     this.notificationId,
     this.notificationType,
     this.logicalNotificationId,
+    this.glimpseKey,
+    this.actedAt,
   });
 
   factory _ActionReceipt.fromResponse(
@@ -200,12 +216,14 @@ class _ActionReceipt {
     final stableNotificationId =
         response.id?.toString() ?? logicalId ?? legacyIdentity;
     return _ActionReceipt(
-      id: '$actionId:$stableNotificationId',
+      id: '$actionId:$stableNotificationId:${payload?['firedAt'] ?? ''}',
       actionId: actionId,
       linkIds: linkIds,
       notificationId: response.id,
       notificationType: payload?['type']?.toString(),
       logicalNotificationId: logicalId,
+      glimpseKey: payload?['glimpseKey']?.toString(),
+      actedAt: DateTime.now(),
     );
   }
 
@@ -215,6 +233,8 @@ class _ActionReceipt {
   final int? notificationId;
   final String? notificationType;
   final String? logicalNotificationId;
+  final String? glimpseKey;
+  final DateTime? actedAt;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -223,6 +243,8 @@ class _ActionReceipt {
     'notificationId': notificationId,
     'notificationType': notificationType,
     'logicalNotificationId': logicalNotificationId,
+    'glimpseKey': glimpseKey,
+    'actedAt': actedAt?.toIso8601String(),
   };
 
   static _ActionReceipt? tryParse(String raw) {
@@ -242,6 +264,8 @@ class _ActionReceipt {
             : int.tryParse('${map['notificationId']}'),
         notificationType: map['notificationType']?.toString(),
         logicalNotificationId: map['logicalNotificationId']?.toString(),
+        glimpseKey: map['glimpseKey']?.toString(),
+        actedAt: DateTime.tryParse(map['actedAt']?.toString() ?? ''),
       );
     } catch (_) {
       return null;

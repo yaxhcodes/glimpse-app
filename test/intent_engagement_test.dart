@@ -404,7 +404,7 @@ void main() {
 
   group('NotificationRouter history type mapping', () {
     test('maps Rediscover memory payloads to rediscover history', () {
-      expect(NotificationScheduler.labelFor('R'), 'Rediscover Memory');
+      expect(NotificationScheduler.labelFor('R'), 'Connections');
       expect(historyTypeFromPayloadLetter('R'), 'rediscover');
       expect(
         historyTypeFromNotificationMap(const {'type': 'rediscover'}),

@@ -1,3 +1,4 @@
+import 'package:glimpse/core/models/glimpse_record.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ffi';
@@ -47,6 +48,7 @@ void main() {
     tempDirectory = await Directory.systemTemp.createTemp('glimpse-bin-test-');
     database = await Isar.open([
       SavedUrlSchema,
+      GlimpseRecordSchema,
       UserCollectionSchema,
       EngagementEventSchema,
       PlaceItinerarySchema,

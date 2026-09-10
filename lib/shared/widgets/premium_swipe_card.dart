@@ -20,6 +20,7 @@ class PremiumSwipeCard extends StatefulWidget {
     this.onDismissed,
     this.dismissibleActions = const {SwipeActionType.delete},
     this.borderRadius = const BorderRadius.all(Radius.circular(14)),
+    this.actionLabel,
   });
 
   /// Action triggered when the card is dragged left.
@@ -33,6 +34,9 @@ class PremiumSwipeCard extends StatefulWidget {
   final SwipeDismissedCallback? onDismissed;
   final Set<SwipeActionType> dismissibleActions;
   final BorderRadius borderRadius;
+
+  /// Optional text in place of the swipe action glyph.
+  final String? actionLabel;
 
   @override
   State<PremiumSwipeCard> createState() => _PremiumSwipeCardState();
@@ -283,6 +287,7 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
                 revealFromRight: sign < 0,
                 borderRadius: widget.borderRadius,
                 armed: progress >= _softThreshold,
+                label: widget.actionLabel,
               ),
             ),
             content,
@@ -300,12 +305,14 @@ class _SwipeRevealSurface extends StatelessWidget {
     required this.revealFromRight,
     required this.borderRadius,
     required this.armed,
+    this.label,
   });
 
   final SwipeActionType action;
   final double progress;
   final bool revealFromRight;
   final BorderRadius borderRadius;
+  final String? label;
 
   /// True once the drag has passed the trigger threshold — the action will
   /// fire on release. Mirrors Gmail's "let go now" colour commit.
@@ -324,7 +331,9 @@ class _SwipeRevealSurface extends StatelessWidget {
 
     // A restrained wash that deepens slightly as the action arms — just enough
     // colour to read the intent, never loud.
-    final bgAlpha = (armed ? 0.10 : progress * 0.07).clamp(0.0, 0.10).toDouble();
+    final bgAlpha = (armed ? 0.10 : progress * 0.07)
+        .clamp(0.0, 0.10)
+        .toDouble();
 
     // The glyph eases in, sits on a soft neutral disc, and lifts a touch on arm.
     final reveal = ((progress - 0.08) / 0.26).clamp(0.0, 1.0).toDouble();
@@ -354,10 +363,7 @@ class _SwipeRevealSurface extends StatelessWidget {
       borderRadius: borderRadius,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            tint.withValues(alpha: bgAlpha),
-            cs.surface,
-          ),
+          color: Color.alphaBlend(tint.withValues(alpha: bgAlpha), cs.surface),
         ),
         child: Align(
           alignment: revealFromRight
@@ -365,7 +371,12 @@ class _SwipeRevealSurface extends StatelessWidget {
               : Alignment.centerLeft,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: chip,
+            child: label == null
+                ? chip
+                : Text(
+                    label!,
+                    style: theme.textTheme.labelLarge?.copyWith(color: tint),
+                  ),
           ),
         ),
       ),

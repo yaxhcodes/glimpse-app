@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../features/glimpses/glimpse_open.dart';
 
 import '../database/isar_service.dart';
 import '../models/engagement_event.dart';
@@ -103,6 +104,15 @@ class NotificationRouter {
   }
 
   static void _navigateWithMap(BuildContext context, Map<String, dynamic> map) {
+    if (map['route'] == 'glimpse' && map['glimpseKey'] is String) {
+      openGlimpse(
+        context,
+        map['glimpseKey'] as String,
+        _parseLinkIds(map),
+        homeBackStack: true,
+      );
+      return;
+    }
     final ids = _parseLinkIds(map);
     final title = map['title'] as String? ?? 'Notification';
 
@@ -139,6 +149,10 @@ class NotificationRouter {
     }
     if (ids.isEmpty) {
       _openNotificationsHub(context);
+      return;
+    }
+    if (ids.toSet().length == 1) {
+      context.push('/url/${ids.first}');
       return;
     }
     context.push(

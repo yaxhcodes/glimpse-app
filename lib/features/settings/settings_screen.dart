@@ -22,7 +22,6 @@ import '../shell/navigation_discovery_provider.dart';
 import '../../core/services/digest_background.dart';
 import '../../core/services/digest_prefs.dart';
 import '../../core/services/digest_scheduler.dart';
-import '../../core/services/notif_bandit.dart';
 import '../../core/services/notification_scheduler.dart';
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/providers/usage_providers.dart';
@@ -1098,7 +1097,7 @@ class _DigestTestingContent extends ConsumerStatefulWidget {
 
 class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
   bool _testing = false;
-  String _testType = 'A';
+  String _testType = 'R';
   String? _previewTitle;
   String? _previewBody;
 
@@ -1107,18 +1106,13 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
   int? _peakHour;
   bool _firedToday = false;
   String? _lastRun;
-  Map<String, double> _openRates = const {};
   List<NotifDiag> _diagnostics = const [];
 
   static const _testTypes = {
-    'R': 'Rediscover Memory',
-    'A': 'Geography Collector',
-    'B': 'New Interest',
-    'C': 'Deep Collector',
-    'D': 'Saving Streak',
-    'E': 'Resurface Link',
-    'F': 'Weekly Digest',
-    'G': 'Revisit Due',
+    'R': 'Connections',
+    'E': 'Saved ideas',
+    'F': 'Weekly brief',
+    'G': 'Revisit reminders',
   };
 
   @override
@@ -1133,13 +1127,11 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
     final lastTs = await DigestPrefs.lastFiredTimestamp();
     final peak = await TagAnalyzer.peakOpenHour();
     final canFire = await DigestPrefs.canFireToday();
-    final openRates = await NotifBandit.openRates();
     final diagnostics = await NotificationScheduler.diagnostics(
       ref.read(isarServiceProvider),
     );
     if (!mounted) return;
     setState(() {
-      _openRates = openRates;
       _diagnostics = diagnostics;
       _lastRun = lastRun;
       _lastFiredType = lastType != null
@@ -1324,32 +1316,6 @@ class _DigestTestingContentState extends ConsumerState<_DigestTestingContent> {
             style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
           ),
 
-        // What the on-device bandit has learned (open rate per type).
-        if (_openRates.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-          Text(
-            'What Glimpse has learned',
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Text(
-            'How often you open each type. Higher = surfaced more often.',
-            style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
-          ),
-          const SizedBox(height: 10),
-          ...(_openRates.entries.toList()
-                ..sort((a, b) => b.value.compareTo(a.value)))
-              .map(
-                (e) => _BanditRateRow(
-                  label: _testTypes[e.key] ?? e.key,
-                  rate: e.value,
-                ),
-              ),
-        ],
-
         // Per-type readiness: which of the 7 types can fire right now, and why.
         if (_diagnostics.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -1430,52 +1396,6 @@ class _DiagRow extends StatelessWidget {
 }
 
 /// One row of the bandit diagnostics: type label + open-rate bar.
-class _BanditRateRow extends StatelessWidget {
-  const _BanditRateRow({required this.label, required this.rate});
-  final String label;
-  final double rate;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurface),
-            ),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: rate.clamp(0.0, 1.0),
-                minHeight: 6,
-                backgroundColor: cs.surfaceContainerHighest,
-                color: cs.primary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '${(rate * 100).round()}%',
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.label, required this.value});

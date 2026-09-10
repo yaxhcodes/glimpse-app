@@ -4551,6 +4551,504 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only a brief overview is available for this save. Open the source for the full content.'**
   String get readerOverviewOnly;
+
+  /// No description provided for @glimpsesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Glimpses'**
+  String get glimpsesTitle;
+
+  /// No description provided for @glimpsesIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'A look back at what caught your attention.'**
+  String get glimpsesIntro;
+
+  /// No description provided for @glimpsesConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to your new save'**
+  String get glimpsesConnection;
+
+  /// No description provided for @glimpsesIdea.
+  ///
+  /// In en, this message translates to:
+  /// **'An idea worth keeping'**
+  String get glimpsesIdea;
+
+  /// No description provided for @glimpsesIntention.
+  ///
+  /// In en, this message translates to:
+  /// **'You wanted to return to this'**
+  String get glimpsesIntention;
+
+  /// No description provided for @glimpsesBriefs.
+  ///
+  /// In en, this message translates to:
+  /// **'Your briefs'**
+  String get glimpsesBriefs;
+
+  /// No description provided for @glimpsesPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous glimpses'**
+  String get glimpsesPrevious;
+
+  /// No description provided for @glimpsesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing needs your attention right now. Your briefs will grow as you save.'**
+  String get glimpsesEmpty;
+
+  /// No description provided for @glimpsesGotIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get glimpsesGotIt;
+
+  /// No description provided for @glimpsesReflect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reflect'**
+  String get glimpsesReflect;
+
+  /// No description provided for @glimpsesRecall.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you remember about this idea? Take a moment before revealing it.'**
+  String get glimpsesRecall;
+
+  /// No description provided for @glimpsesReveal.
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal the idea'**
+  String get glimpsesReveal;
+
+  /// No description provided for @glimpsesNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your note'**
+  String get glimpsesNote;
+
+  /// No description provided for @glimpsesHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Your highlight'**
+  String get glimpsesHighlight;
+
+  /// No description provided for @glimpsesExpand.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand this brief'**
+  String get glimpsesExpand;
+
+  /// No description provided for @glimpsesExplain.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain this connection'**
+  String get glimpsesExplain;
+
+  /// No description provided for @glimpsesAiConsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Send only these selected excerpts to AI to write a source-linked explanation. This uses your Ask allowance. Personal notes are excluded unless you include them below.'**
+  String get glimpsesAiConsent;
+
+  /// No description provided for @glimpsesIncludeNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Include my personal notes'**
+  String get glimpsesIncludeNotes;
+
+  /// No description provided for @glimpsesGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate explanation'**
+  String get glimpsesGenerate;
+
+  /// No description provided for @glimpsesAiUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The explanation is unavailable right now. Your saved ideas are still here.'**
+  String get glimpsesAiUnavailable;
+
+  /// No description provided for @glimpsesAiLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Ask allowance has been reached. You can still read this local brief.'**
+  String get glimpsesAiLimit;
+
+  /// No description provided for @glimpsesAiLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'AI explanation · based on these excerpts'**
+  String get glimpsesAiLabel;
+
+  /// No description provided for @glimpsesMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This glimpse is no longer available. Its sources may have changed.'**
+  String get glimpsesMissing;
+
+  /// No description provided for @glimpsesLaterFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Set aside for three days'**
+  String get glimpsesLaterFeedback;
+
+  /// No description provided for @glimpsesHistoryNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Based on activity recorded on this device.'**
+  String get glimpsesHistoryNote;
+
+  /// No description provided for @glimpsesReturned.
+  ///
+  /// In en, this message translates to:
+  /// **'Revisited'**
+  String get glimpsesReturned;
+
+  /// No description provided for @glimpsesNoted.
+  ///
+  /// In en, this message translates to:
+  /// **'Added notes'**
+  String get glimpsesNoted;
+
+  /// No description provided for @glimpsesCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed intentions'**
+  String get glimpsesCompleted;
+
+  /// No description provided for @glimpsesRelatedReason.
+  ///
+  /// In en, this message translates to:
+  /// **'These saves share a specific subject. Read the earlier idea alongside your new save.'**
+  String get glimpsesRelatedReason;
+
+  /// No description provided for @glimpsesSynthesisSources.
+  ///
+  /// In en, this message translates to:
+  /// **'Excerpts to send'**
+  String get glimpsesSynthesisSources;
+
+  /// No description provided for @glimpsesDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Day'**
+  String get glimpsesDay;
+
+  /// No description provided for @glimpsesWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Week'**
+  String get glimpsesWeek;
+
+  /// No description provided for @glimpsesMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get glimpsesMonth;
+
+  /// No description provided for @glimpsesThreads.
+  ///
+  /// In en, this message translates to:
+  /// **'Threads through your month'**
+  String get glimpsesThreads;
+
+  /// No description provided for @glimpsesActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update this glimpse. Please try again.'**
+  String get glimpsesActionFailed;
+
+  /// No description provided for @glimpsesTopTopics.
+  ///
+  /// In en, this message translates to:
+  /// **'Top topics'**
+  String get glimpsesTopTopics;
+
+  /// No description provided for @glimpsesActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Saves by day'**
+  String get glimpsesActivity;
+
+  /// No description provided for @glimpsesChartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a day to revisit its saves.'**
+  String get glimpsesChartHint;
+
+  /// No description provided for @glimpsesBrowsePeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore these saves'**
+  String get glimpsesBrowsePeriod;
+
+  /// No description provided for @glimpsesNoSavesPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'No saves in this period yet.'**
+  String get glimpsesNoSavesPeriod;
+
+  /// No description provided for @glimpsesPeriodCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{You saved one item in this period.} other{You saved {count} items in this period.}}'**
+  String glimpsesPeriodCount(int count);
+
+  /// No description provided for @glimpsesPeriodSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{You saved one item, about {topics}.} other{You saved {count} items. Topics included {topics}.}}'**
+  String glimpsesPeriodSummary(int count, String topics);
+
+  /// No description provided for @glimpsesPreviousDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous day'**
+  String get glimpsesPreviousDay;
+
+  /// No description provided for @glimpsesNextDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Next day'**
+  String get glimpsesNextDay;
+
+  /// No description provided for @glimpsesPreviousMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous month'**
+  String get glimpsesPreviousMonth;
+
+  /// No description provided for @glimpsesNextMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Next month'**
+  String get glimpsesNextMonth;
+
+  /// No description provided for @glimpsesClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get glimpsesClear;
+
+  /// No description provided for @glimpsesNotificationCleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification cleared'**
+  String get glimpsesNotificationCleared;
+
+  /// No description provided for @glimpsesTopicRecipes.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipes & Cooking'**
+  String get glimpsesTopicRecipes;
+
+  /// No description provided for @glimpsesTopicAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime & Manga'**
+  String get glimpsesTopicAnime;
+
+  /// No description provided for @glimpsesTopicMotorcycles.
+  ///
+  /// In en, this message translates to:
+  /// **'Motorcycles'**
+  String get glimpsesTopicMotorcycles;
+
+  /// No description provided for @glimpsesTopicMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get glimpsesTopicMusic;
+
+  /// No description provided for @glimpsesTopicFitness.
+  ///
+  /// In en, this message translates to:
+  /// **'Health & Fitness'**
+  String get glimpsesTopicFitness;
+
+  /// No description provided for @glimpsesTopicNature.
+  ///
+  /// In en, this message translates to:
+  /// **'Wildlife & Nature'**
+  String get glimpsesTopicNature;
+
+  /// No description provided for @glimpsesTopicTravel.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel & Places'**
+  String get glimpsesTopicTravel;
+
+  /// No description provided for @glimpsesTopicMovies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies To Watch'**
+  String get glimpsesTopicMovies;
+
+  /// No description provided for @glimpsesTopicBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Books & Reading'**
+  String get glimpsesTopicBooks;
+
+  /// No description provided for @glimpsesTopicSpirituality.
+  ///
+  /// In en, this message translates to:
+  /// **'Spirituality'**
+  String get glimpsesTopicSpirituality;
+
+  /// No description provided for @glimpsesTopicHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'History & Society'**
+  String get glimpsesTopicHistory;
+
+  /// No description provided for @glimpsesTopicGrowth.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal Growth & Philosophy'**
+  String get glimpsesTopicGrowth;
+
+  /// No description provided for @glimpsesTopicFinance.
+  ///
+  /// In en, this message translates to:
+  /// **'Finance & Economics'**
+  String get glimpsesTopicFinance;
+
+  /// No description provided for @glimpsesTopicDesign.
+  ///
+  /// In en, this message translates to:
+  /// **'Design & Creativity'**
+  String get glimpsesTopicDesign;
+
+  /// No description provided for @glimpsesTopicSoftware.
+  ///
+  /// In en, this message translates to:
+  /// **'Software & AI'**
+  String get glimpsesTopicSoftware;
+
+  /// No description provided for @glimpsesTopicScience.
+  ///
+  /// In en, this message translates to:
+  /// **'Science'**
+  String get glimpsesTopicScience;
+
+  /// No description provided for @glimpsesWeeklyReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly review'**
+  String get glimpsesWeeklyReview;
+
+  /// No description provided for @glimpsesHistorySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saving history and recurring interests'**
+  String get glimpsesHistorySubtitle;
+
+  /// No description provided for @glimpsesPastReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Past weeks'**
+  String get glimpsesPastReviews;
+
+  /// No description provided for @glimpsesReviewPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with {title}'**
+  String glimpsesReviewPreview(String title);
+
+  /// No description provided for @glimpsesWhyToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Why today'**
+  String get glimpsesWhyToday;
+
+  /// No description provided for @glimpsesStartHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Start here'**
+  String get glimpsesStartHere;
+
+  /// No description provided for @glimpsesMoreToExplore.
+  ///
+  /// In en, this message translates to:
+  /// **'More to explore'**
+  String get glimpsesMoreToExplore;
+
+  /// No description provided for @glimpsesWhyConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Your new save, “{title}”, brought these earlier saves about {topic} back into view.'**
+  String glimpsesWhyConnection(String title, String topic);
+
+  /// No description provided for @glimpsesWhyHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'You highlighted a passage in this save. Start with it.'**
+  String get glimpsesWhyHighlight;
+
+  /// No description provided for @glimpsesWhyNote.
+  ///
+  /// In en, this message translates to:
+  /// **'You left a note on this save. Return to what you wrote.'**
+  String get glimpsesWhyNote;
+
+  /// No description provided for @glimpsesWhyEarlier.
+  ///
+  /// In en, this message translates to:
+  /// **'From your earlier saves'**
+  String get glimpsesWhyEarlier;
+
+  /// No description provided for @glimpsesWhatExplored.
+  ///
+  /// In en, this message translates to:
+  /// **'What you explored'**
+  String get glimpsesWhatExplored;
+
+  /// No description provided for @glimpsesReviewStartReason.
+  ///
+  /// In en, this message translates to:
+  /// **'A starting point from this week’s saves.'**
+  String get glimpsesReviewStartReason;
+
+  /// No description provided for @glimpsesReviewConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'A connection worth following'**
+  String get glimpsesReviewConnection;
+
+  /// No description provided for @glimpsesReviewSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly AI summary'**
+  String get glimpsesReviewSettings;
+
+  /// No description provided for @glimpsesEnableReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable written reviews'**
+  String get glimpsesEnableReviews;
+
+  /// No description provided for @glimpsesDisableReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off written reviews'**
+  String get glimpsesDisableReviews;
+
+  /// No description provided for @glimpsesReviewDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Summarize last week’s saves when you open Rediscover.'**
+  String get glimpsesReviewDescription;
+
+  /// No description provided for @glimpsesReviewConsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected summaries and highlights are sent to cloud AI. Personal notes stay on your device. Uses up to 1 Ask request per week. Your local history works with this off.'**
+  String get glimpsesReviewConsent;
 }
 
 class _AppLocalizationsDelegate

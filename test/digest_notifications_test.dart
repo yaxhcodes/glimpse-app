@@ -1,3 +1,4 @@
+import 'glimpse_engine_test.dart' show save;
 import 'dart:convert';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -19,6 +20,61 @@ void main() {
 
   tearDown(() {
     messenger.setMockMethodCallHandler(notificationsChannel, null);
+  });
+
+  test('new save completion has no revisit actions', () async {
+    SharedPreferences.setMockInitialValues({'glimpse_app_language': 'en'});
+    MethodCall? shown;
+    messenger.setMockMethodCallHandler(notificationsChannel, (call) async {
+      if (call.method == 'show') shown = call;
+      if (call.method == 'getActiveNotifications') return <Object>[];
+      return null;
+    });
+    await UrlSaveNotifications.showCaptureReady(save(42, DateTime.now()));
+    final args = shown!.arguments as Map;
+    expect((args['platformSpecifics'] as Map)['actions'], isNull);
+  });
+
+  test('Glimpses use a quiet separate channel and informational actions', () async {
+    SharedPreferences.setMockInitialValues({'glimpse_app_language': 'en'});
+    MethodCall? shown;
+    messenger.setMockMethodCallHandler(notificationsChannel, (call) async {
+      if (call.method == 'show') shown = call;
+      return null;
+    });
+    final posted = await DigestNotifications.show(type: NotifType.resurface,
+      title: 'A specific saved idea', body: 'Its actual useful content.',
+      payloadJson: '{"type":"glimpse","linkIds":[1]}',
+      isGlimpse: true, informationActions: true);
+    final platform = (shown!.arguments as Map)['platformSpecifics'] as Map;
+    expect(posted, isTrue);
+    expect(platform['channelId'], 'glimpse_insights_v1');
+    expect(platform['importance'], Importance.defaultImportance.value);
+    expect(platform['onlyAlertOnce'], isTrue);
+    expect((platform['actions'] as List).first['id'], 'glimpse_got_it');
+  });
+
+  test('publication failure is observable and leaves no false history', () async {
+    SharedPreferences.setMockInitialValues({'glimpse_app_language': 'en'});
+    messenger.setMockMethodCallHandler(notificationsChannel, (call) async {
+      if (call.method == 'show') throw PlatformException(code: 'post_failed');
+      return null;
+    });
+    final posted = await DigestNotifications.show(type: NotifType.resurface,
+      title: 'A saved idea', body: 'Useful evidence.',
+      payloadJson: '{"type":"glimpse","linkIds":[1]}',
+      isGlimpse: true, persistInHistory: true);
+    expect(posted, isFalse);
+    expect(await DigestPrefs.loadHistory(), isEmpty);
+  });
+
+  test('retries keep a single history entry for a logical notification', () async {
+    SharedPreferences.setMockInitialValues({});
+    for (var i = 0; i < 2; i++) {
+      await DigestPrefs.addDigestToHistory(ids: [1], summaries: ['An idea'],
+        topic: 'Idea', type: 'glimpse', notifId: 'idea:1');
+    }
+    expect(await DigestPrefs.loadHistory(), hasLength(1));
   });
 
   group('notification group summary', () {

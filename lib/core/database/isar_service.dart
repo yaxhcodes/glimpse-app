@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/engagement_event.dart';
+import '../models/glimpse_record.dart';
 import '../models/place_itinerary.dart';
 import '../models/saved_url.dart';
 import '../services/link_preview_service.dart';
@@ -47,6 +48,7 @@ class IsarService {
       SavedUrlSchema,
       UserCollectionSchema,
       EngagementEventSchema,
+      GlimpseRecordSchema,
       PlaceItinerarySchema,
     ], directory: dir.path);
   }
@@ -65,6 +67,9 @@ class IsarService {
 
   /// Await the database so it's ready before the first frame.
   Future<void> ensureInitialized() => _db;
+
+  /// Database access for cohesive repositories sharing this Isar instance.
+  Future<Isar> get database => _db;
 
   // --------------- CREATE ---------------
 
@@ -1720,6 +1725,7 @@ class IsarService {
       await isar.savedUrls.clear();
       await isar.userCollections.clear();
       await isar.engagementEvents.clear();
+      await isar.glimpseRecords.clear();
       await isar.placeItinerarys.clear();
     });
     _canonicalUrlToId = null;

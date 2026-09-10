@@ -1,3 +1,5 @@
+import '../glimpses/glimpse_home_adapter.dart';
+import '../glimpses/glimpse_open.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -38,7 +40,7 @@ class RediscoverySection extends ConsumerWidget {
 
   Widget _buildContent(BuildContext context, WidgetRef ref, Duration duration) {
     final dailySetAsync = loadJourneys
-        ? ref.watch(rediscoverDailySetProvider)
+        ? ref.watch(glimpseHomeSetProvider)
         : null;
     final memories =
         dailySetAsync?.valueOrNull?.memories ?? const <RediscoverMemory>[];
@@ -163,27 +165,12 @@ class RediscoverySection extends ConsumerWidget {
                           itemClipBehavior: Clip.antiAlias,
                           onTap: (i) {
                             final memory = memories[i];
-                            final controller = ref.read(
-                              rediscoverDailySetControllerProvider,
-                            );
-                            final openContext = RediscoverOpenContext.forMemory(
-                              memory,
-                              surface: RediscoverSurface.home,
-                              position: i,
-                            );
-                            unawaited(
-                              markRediscoverMemoryOpened(
-                                controller,
-                                memory,
-                                openContext: openContext,
-                              ),
-                            );
-                            context.push(
-                              '/rediscover/journey',
-                              extra: RediscoverJourneyRouteArgs(
-                                journey: memory.journey,
-                                openContext: openContext,
-                              ),
+                            openGlimpse(
+                              context,
+                              memory.id,
+                              memory.journey.items
+                                  .map((item) => item.url.id)
+                                  .toList(),
                             );
                           },
                           children: [

@@ -46,6 +46,7 @@ enum NotifType {
 const _groupKey = 'glimpse_notifications';
 const _channelId = 'glimpse_notifications';
 const _channelName = 'Glimpse';
+const _glimpsesChannelId = 'glimpse_insights_v1';
 
 /// Fixed notification ID used for the group summary.
 const _summaryNotifId = 0;
@@ -145,6 +146,14 @@ class DigestNotifications {
         importance: Importance.high,
       ),
     );
+    await androidPlugin.createNotificationChannel(
+      AndroidNotificationChannel(
+        _glimpsesChannelId,
+        l10n.glimpsesTitle,
+        description: l10n.glimpsesIntro,
+        importance: Importance.defaultImportance,
+      ),
+    );
   }
 
   static Future<bool> areNotificationsEnabled() async {
@@ -179,12 +188,14 @@ class DigestNotifications {
   /// [payloadJson] must be the full serialized notification payload (type, linkIds, title, …).
   /// [persistInHistory] is reserved for curated/scheduled notifications; save
   /// and capture status notifications belong in the system tray only.
-  static Future<void> show({
+  static Future<bool> show({
     required NotifType type,
     required String title,
     required String body,
     required String payloadJson,
     bool withActions = false,
+    bool isGlimpse = false,
+    bool informationActions = false,
     bool persistInHistory = false,
     String? historyType,
     String? historySignature,
@@ -213,21 +224,24 @@ class DigestNotifications {
     }
 
     final androidDetails = AndroidNotificationDetails(
-      _channelId,
-      _channelName,
+      isGlimpse ? _glimpsesChannelId : _channelId,
+      isGlimpse ? l10n.glimpsesTitle : _channelName,
       channelDescription: l10n.smartNotificationsDescription,
-      importance: Importance.high,
-      priority: Priority.high,
-      groupKey: _groupKey,
+      importance: isGlimpse ? Importance.defaultImportance : Importance.high,
+      priority: isGlimpse ? Priority.defaultPriority : Priority.high,
+      groupKey: isGlimpse ? null : _groupKey,
+      onlyAlertOnce: isGlimpse,
       styleInformation: BigTextStyleInformation(body),
       icon: 'ic_notification',
       // Quick triage on single-link notifications: archive or push out the
       // revisit without opening the app. The plain body tap still opens it.
-      actions: withActions
+      actions: withActions || informationActions
           ? [
               AndroidNotificationAction(
-                NotificationActions.markDone,
-                l10n.done,
+                informationActions
+                    ? NotificationActions.gotIt
+                    : NotificationActions.markDone,
+                informationActions ? l10n.glimpsesGotIt : l10n.done,
                 showsUserInterface: false,
                 cancelNotification: true,
               ),
@@ -260,11 +274,11 @@ class DigestNotifications {
         error: e,
         stackTrace: st,
       );
-      return;
+      return false;
     }
 
     try {
-      await _updateGroupSummary();
+      if (!isGlimpse) await _updateGroupSummary();
     } on PlatformException catch (e, st) {
       developer.log(
         'Failed to update notification group summary.',
@@ -273,6 +287,7 @@ class DigestNotifications {
         stackTrace: st,
       );
     }
+    return true;
   }
 
   static Map<String, dynamic> _decodePayload(String payloadJson) {
@@ -423,4 +438,6 @@ class DigestNotifications {
   }
 
   static Future<void> reconcileGroupSummary() => _updateGroupSummary();
+
+  static Future<void> cancel(int id) => _plugin.cancel(id);
 }

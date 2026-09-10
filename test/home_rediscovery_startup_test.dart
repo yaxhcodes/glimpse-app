@@ -1,3 +1,4 @@
+import 'package:glimpse/features/glimpses/glimpse_home_adapter.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -26,7 +27,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              rediscoverDailySetProvider.overrideWith((ref) {
+              glimpseHomeSetProvider.overrideWith((ref) {
                 builds++;
                 return pending.future;
               }),
@@ -62,7 +63,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          rediscoverDailySetProvider.overrideWith((ref) => pending.future),
+          glimpseHomeSetProvider.overrideWith((ref) => pending.future),
         ],
         child: const MaterialApp(home: Scaffold(body: RediscoverySection())),
       ),
@@ -89,7 +90,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          rediscoverDailySetProvider.overrideWith((ref) async {
+          glimpseHomeSetProvider.overrideWith((ref) async {
             dailySetBuilds++;
             return RediscoverDailySet(
               localDate: DateTime(2026, 8, 14),
@@ -119,7 +120,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          rediscoverDailySetProvider.overrideWith((ref) async {
+          glimpseHomeSetProvider.overrideWith((ref) async {
             dailySetBuilds++;
             return RediscoverDailySet(
               localDate: DateTime(2026, 8, 14),
