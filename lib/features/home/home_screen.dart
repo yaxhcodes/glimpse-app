@@ -1137,7 +1137,7 @@ class _LandingIdentityState extends State<_LandingIdentity>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    cs.primary.withValues(alpha: 0.16),
+                    cs.primary.withValues(alpha: 0.05),
                     cs.primary.withValues(alpha: 0.0),
                   ],
                 ),
@@ -1154,6 +1154,7 @@ class _LandingIdentityState extends State<_LandingIdentity>
                 width: 156,
                 height: 156,
                 fit: BoxFit.contain,
+                excludeFromSemantics: true,
               ),
             ),
           ],

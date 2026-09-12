@@ -122,13 +122,13 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/glimpse.png"
+  image_path: "assets/play_store_icon.png"
   min_sdk_android: 21
 
 # ── Splash Screen ─────────────────────────────────────────────────────────────
 # `assets/splash_icon.png` and `assets/splash_branding*.png` are regenerated
-# by tools/generate_android_icons.py. The icon uses a 1152x1152 transparent
-# canvas with the glimpse character at 64% (inside Android 12's circular safe
+# by tools/generate_mascot_assets.py. The icon uses a 1152x1152 transparent
+# canvas with the glimpse character at 58% (inside Android 12's circular safe
 # zone, so nothing is clipped on any density).
 flutter_native_splash:
   color: "#F5F4F0"
@@ -167,13 +167,10 @@ flutter:
     - assets/licenses/
     - assets/glimpse.png
     - assets/glimpse.svg
-    - assets/home.png
     - assets/splash_icon.png
     - assets/splash_branding.png
     - assets/splash_branding_dark.png
-    - assets/search.png
-    - assets/mindmap.png
-    - assets/empty_collection.png
+    - assets/mascot/
     - assets/onboarding_kyoto.webp
     - android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
     - assets/brands/

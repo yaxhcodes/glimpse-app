@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/constants/app_assets.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/scroll_capture_service.dart';
@@ -936,10 +937,11 @@ class _CollectionsEmptyState extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Image.asset(
-                'assets/empty_collection.png',
+                AppAssets.emptyCollections,
                 width: 132,
                 height: 132,
                 fit: BoxFit.contain,
+                excludeFromSemantics: true,
               ),
               const SizedBox(height: 18),
               Text(

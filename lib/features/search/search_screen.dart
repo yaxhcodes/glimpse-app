@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/constants/app_assets.dart';
 import '../../core/models/engagement_event.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
@@ -455,10 +456,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset(
-                              'assets/search.png',
+                              AppAssets.emptySearch,
                               width: 132,
                               height: 132,
                               fit: BoxFit.contain,
+                              excludeFromSemantics: true,
                             ),
                             const SizedBox(height: 18),
                             Text(

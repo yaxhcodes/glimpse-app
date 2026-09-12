@@ -422,4 +422,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    from generate_mascot_assets import main as generate_mascot_assets
+
+    generate_mascot_assets()

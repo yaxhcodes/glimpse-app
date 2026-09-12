@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/theme/app_icons.dart';
+import '../constants/app_assets.dart';
 
 const _kLeftSwipeActionKey = 'glimpse_left_swipe_action';
 const _kRightSwipeActionKey = 'glimpse_right_swipe_action';
@@ -62,7 +63,7 @@ extension SwipeActionTypeInfo on SwipeActionType {
   }) {
     if (this == SwipeActionType.askGlimpse) {
       return SvgPicture.asset(
-        'assets/glimpse.svg',
+        AppAssets.brandMark,
         width: size,
         height: size,
         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),

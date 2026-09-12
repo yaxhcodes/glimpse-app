@@ -68,6 +68,10 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Flutter continues this same pose; an OS fade would flash it twice.
+            splashScreen.setOnExitAnimationListener { view -> view.remove() }
+        }
         preferHighestRefreshRate()
     }
 

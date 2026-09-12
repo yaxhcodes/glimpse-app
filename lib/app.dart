@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'core/providers/analytics_provider.dart';
+import 'shared/widgets/startup_reveal.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/providers/backup_provider.dart';
 import 'core/providers/dev_simulation_providers.dart';
@@ -998,9 +999,6 @@ class _RootGateState extends ConsumerState<_RootGate> {
     final authState = ref.watch(authControllerProvider);
     final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
     final destinationReady = !hasSeenOnboarding || !authState.isLoading;
-    if (destinationReady) {
-      _removeSplashAfterDestinationFrame();
-    }
     final child = !hasSeenOnboarding
         ? const OnboardingScreen(key: ValueKey('onboarding'))
         : authState.when(
@@ -1020,11 +1018,16 @@ class _RootGateState extends ConsumerState<_RootGate> {
             loading: () => const _StartupProgress(key: ValueKey('startup')),
             error: (_, _) => const AuthScreen(key: ValueKey('auth-error')),
           );
-    return AnimatedSwitcher(
+    final destination = AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeOutCubic,
       child: child,
+    );
+    return StartupReveal(
+      ready: destinationReady,
+      onPrepared: _removeSplashAfterDestinationFrame,
+      child: destination,
     );
   }
 }

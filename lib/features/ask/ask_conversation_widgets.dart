@@ -36,11 +36,15 @@ class _GlimpseMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      AppAssets.logo,
+    return SvgPicture.asset(
+      AppAssets.brandMark,
       width: 60,
       height: 60,
-      fit: BoxFit.cover,
+      colorFilter: ColorFilter.mode(
+        Theme.of(context).colorScheme.primary,
+        BlendMode.srcIn,
+      ),
+      excludeFromSemantics: true,
     );
   }
 }

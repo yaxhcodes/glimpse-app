@@ -296,7 +296,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                         context.push('/ask');
                       },
                       icon: SvgPicture.asset(
-                        'assets/glimpse.svg',
+                        AppAssets.brandMark,
                         width: 20,
                         height: 20,
                         colorFilter: ColorFilter.mode(

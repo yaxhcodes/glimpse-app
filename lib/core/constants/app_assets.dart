@@ -3,7 +3,7 @@ class AppAssets {
   AppAssets._();
 
   /// Primary brand icon used across all UI surfaces.
-  static const String logo = 'assets/glimpse.png';
+  static const String logo = 'assets/mascot/home.webp';
   static const String homeIcon = 'assets/icons/home.svg';
   static const String homeSelectedIcon = 'assets/icons/home-selected.svg';
   static const String searchIcon = 'assets/icons/search.svg';
@@ -14,7 +14,7 @@ class AppAssets {
   static const String interestsIcon = 'assets/icons/interests.svg';
   static const String interestsSelectedIcon =
       'assets/icons/interests-selected.svg';
-  static const String brandMark = 'assets/glimpse.svg';
+  static const String brandMark = 'assets/mascot/brand-mark.svg';
   static const String addLinkIcon = 'assets/icons/add-link.svg';
   static const String addToCollectionIcon =
       'assets/icons/add-to-collection.svg';
@@ -25,8 +25,10 @@ class AppAssets {
   static const String launcherIcon =
       'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png';
 
-  /// Richer mascot illustration (mascot + content types) for the home hero.
-  static const String homeHero = 'assets/home.png';
+  static const String homeHero = 'assets/mascot/home.webp';
+  static const String emptyCollections = 'assets/mascot/collections.webp';
+  static const String emptyInterests = 'assets/mascot/interests.webp';
+  static const String emptySearch = 'assets/mascot/search.webp';
 
   /// Original, offline artwork used by the first-run living-memory story.
   static const String onboardingKyoto = 'assets/onboarding_kyoto.webp';
