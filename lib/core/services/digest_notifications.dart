@@ -81,12 +81,6 @@ class DigestNotifications {
           notificationBackgroundResponse,
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission();
-
     await NotificationActionHandler.replayPendingActions();
     final launch = await _plugin.getNotificationAppLaunchDetails();
     final launchResponse = launch?.notificationResponse;
@@ -174,6 +168,11 @@ class DigestNotifications {
       return false;
     }
   }
+
+  /// Only call after an explicit foreground opt-in, never during initialization.
+  static Future<bool?> requestPermission() => _plugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.requestNotificationsPermission() ?? Future.value(false);
 
   /// Generates a unique notification ID that fits inside Android's 32-bit
   /// signed int. `DateTime.now().millisecondsSinceEpoch` overflows that range,

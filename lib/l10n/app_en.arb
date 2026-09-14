@@ -899,5 +899,122 @@
         "type": "String"
       }
     }
-  }
+  },
+  "obTitle1": "Keep what catches your mind.",
+  "obTitle2": "More than a saved link.",
+  "obTitle3": "A library that takes shape.",
+  "obTitle4": "Find it. Ask about it.",
+  "obTitle5": "Come back with a reason.",
+  "obTitle6": "Start free. Go further with Pro.",
+  "obBody1": "Keep what you find. Make more of it.",
+  "obBody2": "Turn saved links into clear ideas and useful details.",
+  "obBody3": "Related ideas gather into interests, naturally.",
+  "obBody4": "Ask in your own words. Find answers in your saves.",
+  "obBody5": "Return through new connections, or a moment you choose.",
+  "obBody6": "Save freely. Make more room for AI with Pro.",
+  "obBegin": "See what becomes possible",
+  "obContinue": "Continue",
+  "obSkip": "Skip",
+  "obBack": "Previous chapter",
+  "obExample": "Illustrative example",
+  "obOverview": "Overview",
+  "obPlaces": "Places",
+  "obBooks": "Books",
+  "obMovies": "Movies",
+  "obMusic": "Music",
+  "obSummary": "Explore lesser-known French destinations for a more authentic trip, while easing pressure on the most visited places.",
+  "obPoint": "Look beyond the busiest sites: France has many places worth discovering.",
+  "obPlaceNote": "Featured by the creator as a recommended destination.",
+  "obShare": "Share → Glimpse, or paste a link",
+  "obCollected": "Discovered in your saves",
+  "obCollection": "Your collection · A slower weekend",
+  "obInterests": "Emerging interests · Travel & creativity",
+  "obBookExample": "A field guide to everyday creativity",
+  "obMovieExample": "A film for a quiet evening",
+  "obMusicExample": "A song for the journey",
+  "obQuestion": "What were those places in France I saved?",
+  "obAnswer": "I found them in your France guide:\n\n**Gorges du Tarn** — a gorge landscape.\n\n**Cascade de l’Éventail** — a waterfall stop.\n\n**Abbaye de Moissac** — a historic abbey.\n\nThe guide looks beyond the usual tourist stops, bringing together nature and history. These three are a starting point for that kind of trip.",
+  "obSemantic": "Pro · Find by meaning, beyond exact words",
+  "obRediscover": "Beyond the busiest places",
+  "obRevisit": "Make this recipe over the weekend.",
+  "obFree": "Free",
+  "obUnlimited": "Unlimited ordinary link saving",
+  "obFairUse": "Expanded Ask and search access, subject to fair use",
+  "obStartFree": "Start with Free",
+  "obExplorePro": "Explore Pro",
+  "obContinuePro": "Continue with Pro",
+  "obError": "Couldn’t save your progress. Please try again.",
+  "obDismiss": "Dismiss guide",
+  "obFirstSave": "Save your first find",
+  "obCopy": "Copy a link, then paste it into Glimpse",
+  "obReaderGuide": "Read the ideas here, then use Ask to explore your save with its sources.",
+  "obLibraryGuide": "These items come from your saves. Your own collections keep the links you choose together.",
+  "obRediscoverGuide": "Open an idea to return to its sources. Revisit intentions help you come back when you choose.",
+  "obNotifyTitle": "Make room for a useful reminder",
+  "obNotifyBody": "Enable alerts for revisit intentions and useful ideas from your saves. You can change this in Settings.",
+  "obNotifyEnable": "Enable notifications",
+  "obNotNow": "Not now",
+  "obAlertsOff": "Device alerts are off. Your revisit intentions stay in the app.",
+  "obOpenSettings": "Open notification settings",
+  "obPermissionError": "Couldn’t update notifications. Please try again.",
+  "obPosition": "Chapter {current} of {total}",
+  "@obPosition": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "obFreeAi": "{count} lifetime AI-enriched saves",
+  "@obFreeAi": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "obMonthlyAsk": "{count} Ask questions per month",
+  "@obMonthlyAsk": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "obMonthlySearch": "{count} searches per month",
+  "@obMonthlySearch": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "obProAi": "{count} AI-enriched saves per month",
+  "@obProAi": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "obTakeaway2": "Sharing quieter locations can also put them at risk of overcrowding.",
+  "obTakeaway3": "The creator presents rural travel as rewarding enough to return for.",
+  "obCooking": "Recipes & Cooking",
+  "obSoftware": "Software & AI",
+  "obTravel": "Travel",
+  "obInterestNote": "Related saves gather around shared concepts, so your interests stay readable as your library grows.",
+  "obAutomatic": "Connections, found for you",
+  "obAutomaticNote": "Your new countryside save connects with this earlier guide to France.",
+  "obChosen": "A return you choose",
+  "obChosenNote": "Keep a save for a moment you choose. Reminders are optional.",
+  "obSaveTitle": "Authentic France · Lesser-Known Travel Destinations",
+  "obSaveSearch": "France",
+  "obPlaceOne": "Gorges du Tarn",
+  "obPlaceTwo": "Cascade de l’Éventail",
+  "obRealExample": "From a real save · shortened preview",
+  "obPreparedAnswer": "Prepared example answer",
+  "obLibraryBody": "Books, films, music, and places—found inside your saves."
 }

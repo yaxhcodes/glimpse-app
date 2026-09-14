@@ -5049,6 +5049,480 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Selected summaries and highlights are sent to cloud AI. Personal notes stay on your device. Uses up to 1 Ask request per week. Your local history works with this off.'**
   String get glimpsesReviewConsent;
+
+  /// No description provided for @obTitle1.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep what catches your mind.'**
+  String get obTitle1;
+
+  /// No description provided for @obTitle2.
+  ///
+  /// In en, this message translates to:
+  /// **'More than a saved link.'**
+  String get obTitle2;
+
+  /// No description provided for @obTitle3.
+  ///
+  /// In en, this message translates to:
+  /// **'A library that takes shape.'**
+  String get obTitle3;
+
+  /// No description provided for @obTitle4.
+  ///
+  /// In en, this message translates to:
+  /// **'Find it. Ask about it.'**
+  String get obTitle4;
+
+  /// No description provided for @obTitle5.
+  ///
+  /// In en, this message translates to:
+  /// **'Come back with a reason.'**
+  String get obTitle5;
+
+  /// No description provided for @obTitle6.
+  ///
+  /// In en, this message translates to:
+  /// **'Start free. Go further with Pro.'**
+  String get obTitle6;
+
+  /// No description provided for @obBody1.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep what you find. Make more of it.'**
+  String get obBody1;
+
+  /// No description provided for @obBody2.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn saved links into clear ideas and useful details.'**
+  String get obBody2;
+
+  /// No description provided for @obBody3.
+  ///
+  /// In en, this message translates to:
+  /// **'Related ideas gather into interests, naturally.'**
+  String get obBody3;
+
+  /// No description provided for @obBody4.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask in your own words. Find answers in your saves.'**
+  String get obBody4;
+
+  /// No description provided for @obBody5.
+  ///
+  /// In en, this message translates to:
+  /// **'Return through new connections, or a moment you choose.'**
+  String get obBody5;
+
+  /// No description provided for @obBody6.
+  ///
+  /// In en, this message translates to:
+  /// **'Save freely. Make more room for AI with Pro.'**
+  String get obBody6;
+
+  /// No description provided for @obBegin.
+  ///
+  /// In en, this message translates to:
+  /// **'See what becomes possible'**
+  String get obBegin;
+
+  /// No description provided for @obContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get obContinue;
+
+  /// No description provided for @obSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get obSkip;
+
+  /// No description provided for @obBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous chapter'**
+  String get obBack;
+
+  /// No description provided for @obExample.
+  ///
+  /// In en, this message translates to:
+  /// **'Illustrative example'**
+  String get obExample;
+
+  /// No description provided for @obOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get obOverview;
+
+  /// No description provided for @obPlaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Places'**
+  String get obPlaces;
+
+  /// No description provided for @obBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Books'**
+  String get obBooks;
+
+  /// No description provided for @obMovies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies'**
+  String get obMovies;
+
+  /// No description provided for @obMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get obMusic;
+
+  /// No description provided for @obSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore lesser-known French destinations for a more authentic trip, while easing pressure on the most visited places.'**
+  String get obSummary;
+
+  /// No description provided for @obPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Look beyond the busiest sites: France has many places worth discovering.'**
+  String get obPoint;
+
+  /// No description provided for @obPlaceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured by the creator as a recommended destination.'**
+  String get obPlaceNote;
+
+  /// No description provided for @obShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share → Glimpse, or paste a link'**
+  String get obShare;
+
+  /// No description provided for @obCollected.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovered in your saves'**
+  String get obCollected;
+
+  /// No description provided for @obCollection.
+  ///
+  /// In en, this message translates to:
+  /// **'Your collection · A slower weekend'**
+  String get obCollection;
+
+  /// No description provided for @obInterests.
+  ///
+  /// In en, this message translates to:
+  /// **'Emerging interests · Travel & creativity'**
+  String get obInterests;
+
+  /// No description provided for @obBookExample.
+  ///
+  /// In en, this message translates to:
+  /// **'A field guide to everyday creativity'**
+  String get obBookExample;
+
+  /// No description provided for @obMovieExample.
+  ///
+  /// In en, this message translates to:
+  /// **'A film for a quiet evening'**
+  String get obMovieExample;
+
+  /// No description provided for @obMusicExample.
+  ///
+  /// In en, this message translates to:
+  /// **'A song for the journey'**
+  String get obMusicExample;
+
+  /// No description provided for @obQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'What were those places in France I saved?'**
+  String get obQuestion;
+
+  /// No description provided for @obAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'I found them in your France guide:\n\n**Gorges du Tarn** — a gorge landscape.\n\n**Cascade de l’Éventail** — a waterfall stop.\n\n**Abbaye de Moissac** — a historic abbey.\n\nThe guide looks beyond the usual tourist stops, bringing together nature and history. These three are a starting point for that kind of trip.'**
+  String get obAnswer;
+
+  /// No description provided for @obSemantic.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro · Find by meaning, beyond exact words'**
+  String get obSemantic;
+
+  /// No description provided for @obRediscover.
+  ///
+  /// In en, this message translates to:
+  /// **'Beyond the busiest places'**
+  String get obRediscover;
+
+  /// No description provided for @obRevisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Make this recipe over the weekend.'**
+  String get obRevisit;
+
+  /// No description provided for @obFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get obFree;
+
+  /// No description provided for @obUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited ordinary link saving'**
+  String get obUnlimited;
+
+  /// No description provided for @obFairUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Expanded Ask and search access, subject to fair use'**
+  String get obFairUse;
+
+  /// No description provided for @obStartFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with Free'**
+  String get obStartFree;
+
+  /// No description provided for @obExplorePro.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore Pro'**
+  String get obExplorePro;
+
+  /// No description provided for @obContinuePro.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Pro'**
+  String get obContinuePro;
+
+  /// No description provided for @obError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t save your progress. Please try again.'**
+  String get obError;
+
+  /// No description provided for @obDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss guide'**
+  String get obDismiss;
+
+  /// No description provided for @obFirstSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save your first find'**
+  String get obFirstSave;
+
+  /// No description provided for @obCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy a link, then paste it into Glimpse'**
+  String get obCopy;
+
+  /// No description provided for @obReaderGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the ideas here, then use Ask to explore your save with its sources.'**
+  String get obReaderGuide;
+
+  /// No description provided for @obLibraryGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'These items come from your saves. Your own collections keep the links you choose together.'**
+  String get obLibraryGuide;
+
+  /// No description provided for @obRediscoverGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'Open an idea to return to its sources. Revisit intentions help you come back when you choose.'**
+  String get obRediscoverGuide;
+
+  /// No description provided for @obNotifyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make room for a useful reminder'**
+  String get obNotifyTitle;
+
+  /// No description provided for @obNotifyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable alerts for revisit intentions and useful ideas from your saves. You can change this in Settings.'**
+  String get obNotifyBody;
+
+  /// No description provided for @obNotifyEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get obNotifyEnable;
+
+  /// No description provided for @obNotNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get obNotNow;
+
+  /// No description provided for @obAlertsOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Device alerts are off. Your revisit intentions stay in the app.'**
+  String get obAlertsOff;
+
+  /// No description provided for @obOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open notification settings'**
+  String get obOpenSettings;
+
+  /// No description provided for @obPermissionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t update notifications. Please try again.'**
+  String get obPermissionError;
+
+  /// No description provided for @obPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter {current} of {total}'**
+  String obPosition(int current, int total);
+
+  /// No description provided for @obFreeAi.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} lifetime AI-enriched saves'**
+  String obFreeAi(int count);
+
+  /// No description provided for @obMonthlyAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Ask questions per month'**
+  String obMonthlyAsk(int count);
+
+  /// No description provided for @obMonthlySearch.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} searches per month'**
+  String obMonthlySearch(int count);
+
+  /// No description provided for @obProAi.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} AI-enriched saves per month'**
+  String obProAi(int count);
+
+  /// No description provided for @obTakeaway2.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing quieter locations can also put them at risk of overcrowding.'**
+  String get obTakeaway2;
+
+  /// No description provided for @obTakeaway3.
+  ///
+  /// In en, this message translates to:
+  /// **'The creator presents rural travel as rewarding enough to return for.'**
+  String get obTakeaway3;
+
+  /// No description provided for @obCooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipes & Cooking'**
+  String get obCooking;
+
+  /// No description provided for @obSoftware.
+  ///
+  /// In en, this message translates to:
+  /// **'Software & AI'**
+  String get obSoftware;
+
+  /// No description provided for @obTravel.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel'**
+  String get obTravel;
+
+  /// No description provided for @obInterestNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Related saves gather around shared concepts, so your interests stay readable as your library grows.'**
+  String get obInterestNote;
+
+  /// No description provided for @obAutomatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Connections, found for you'**
+  String get obAutomatic;
+
+  /// No description provided for @obAutomaticNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your new countryside save connects with this earlier guide to France.'**
+  String get obAutomaticNote;
+
+  /// No description provided for @obChosen.
+  ///
+  /// In en, this message translates to:
+  /// **'A return you choose'**
+  String get obChosen;
+
+  /// No description provided for @obChosenNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep a save for a moment you choose. Reminders are optional.'**
+  String get obChosenNote;
+
+  /// No description provided for @obSaveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentic France · Lesser-Known Travel Destinations'**
+  String get obSaveTitle;
+
+  /// No description provided for @obSaveSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'France'**
+  String get obSaveSearch;
+
+  /// No description provided for @obPlaceOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Gorges du Tarn'**
+  String get obPlaceOne;
+
+  /// No description provided for @obPlaceTwo.
+  ///
+  /// In en, this message translates to:
+  /// **'Cascade de l’Éventail'**
+  String get obPlaceTwo;
+
+  /// No description provided for @obRealExample.
+  ///
+  /// In en, this message translates to:
+  /// **'From a real save · shortened preview'**
+  String get obRealExample;
+
+  /// No description provided for @obPreparedAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Prepared example answer'**
+  String get obPreparedAnswer;
+
+  /// No description provided for @obLibraryBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Books, films, music, and places—found inside your saves.'**
+  String get obLibraryBody;
 }
 
 class _AppLocalizationsDelegate

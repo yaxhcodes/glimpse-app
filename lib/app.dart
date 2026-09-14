@@ -21,6 +21,7 @@ import 'core/providers/pinned_urls_provider.dart';
 import 'core/providers/service_providers.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
+import 'features/onboarding/onboarding_progress.dart';
 import 'features/home/guide_detail_screen.dart';
 import 'core/services/backup/backup_intent_service.dart';
 import 'core/services/backup/backup_models.dart';
@@ -509,6 +510,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   }
 
   void _handleAppShortcut(AppShortcutAction action) {
+    unawaited(OnboardingProgress.clearPro());
     _pendingAppShortcut = (action: action, revision: ++_appShortcutRevision);
     _schedulePendingAppShortcut();
   }
@@ -571,6 +573,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
   void _handleSharedMedia(List<SharedMediaFile> files) {
     if (files.isEmpty) return;
+    unawaited(OnboardingProgress.clearPro());
 
     final sharedText = files.first.path;
     final extracted = UrlExtractor.extract(sharedText);
@@ -587,6 +590,10 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     _processingSharedUrls = true;
 
     try {
+      if (!ref.read(hasSeenOnboardingProvider)) {
+        _pendingSharedUrls = List.unmodifiable(urls);
+        return;
+      }
       final user =
           ref.read(authServiceProvider).currentUser ??
           await ref.read(authControllerProvider.future);
@@ -764,12 +771,64 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   }
 
   void _trackRouteOpen() {
+    unawaited(_openOnboardingPro());
     final location = _router.routeInformationProvider.value.uri.path;
     if (location == _lastTrackedLocation) return;
     _lastTrackedLocation = location;
     final screen = _screenForPath(location);
     if (screen == null) return;
     unawaited(ref.read(analyticsServiceProvider).trackScreen(screen));
+  }
+
+  bool _openingOnboardingPro = false;
+  Future<void> _openOnboardingPro() async {
+    if (_openingOnboardingPro) return;
+    _openingOnboardingPro = true;
+    try {
+      if (!await OnboardingProgress.pendingPro()) return;
+      if (!mounted) return;
+      final destination = OnboardingProgress.proDestination(
+        ready:
+            ref.read(hasSeenOnboardingProvider) &&
+            ref.read(authControllerProvider).valueOrNull != null,
+        externalIntent:
+            _pendingSharedUrls != null ||
+            _processingSharedUrls ||
+            _pendingAppShortcut != null ||
+            _appShortcutRevision > 0,
+        atHome: _router.routeInformationProvider.value.uri.path == '/',
+      );
+      if (destination == OnboardingProDestination.wait) return;
+      if (destination == OnboardingProDestination.cancel) {
+        await OnboardingProgress.clearPro();
+        return;
+      }
+      await OnboardingProgress.clearPro();
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            _processingSharedUrls ||
+            _pendingSharedUrls != null ||
+            _pendingAppShortcut != null ||
+            _router.routeInformationProvider.value.uri.path != '/' ||
+            ref.read(authControllerProvider).valueOrNull == null) {
+          return;
+        }
+        if (!ref.read(isProUserProvider)) {
+          _router.push('/settings/subscription');
+        }
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Could not restore onboarding destination',
+        name: 'Onboarding',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      _openingOnboardingPro = false;
+    }
   }
 
   AnalyticsScreen? _screenForPath(String path) {
@@ -793,6 +852,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       unawaited(EntitlementService.persistEffectiveProSnapshot(isPro));
     });
     ref.listen(authControllerProvider, (previous, next) {
+      if (next.valueOrNull != null) unawaited(_openOnboardingPro());
       final wasSignedIn = previous?.valueOrNull != null;
       final isSignedOut = next.valueOrNull == null && !next.isLoading;
       final pendingSharedUrls = _pendingSharedUrls;
@@ -816,6 +876,11 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       });
     });
     ref.listen<bool>(hasSeenOnboardingProvider, (previous, next) {
+      if (next) {
+        final shared = _pendingSharedUrls;
+        if (shared != null) unawaited(_handleSharedUrls(shared));
+        unawaited(_openOnboardingPro());
+      }
       if (next && _pendingAppShortcut != null) {
         _schedulePendingAppShortcut();
       }

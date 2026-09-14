@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../onboarding/onboarding_progress.dart';
 import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -412,6 +413,8 @@ class AddUrlNotifier extends StateNotifier<AddUrlState> {
             .read(analyticsServiceProvider)
             .trackEvent(AnalyticsEvent.saveCompleted),
       );
+      unawaited(OnboardingProgress.recordMilestone(
+        _ref.read(analyticsServiceProvider), AnalyticsEvent.onboardingFirstSave));
 
       return addedToCollection;
     } catch (e) {

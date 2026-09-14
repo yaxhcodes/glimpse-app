@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../core/services/demo_seed_service.dart';
 import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,6 +69,21 @@ class Search extends _$Search {
 
     try {
       final isar = ref.read(isarServiceProvider);
+      if (await DemoSeedService.demoId() != null) {
+        final urls = await isar.getAllUrls();
+        if (urls.isNotEmpty &&
+            urls.every((url) => DemoSeedService.isDemoUrl(url.rawUrl))) {
+          final scored = await isar.keywordSearchWithScores(query);
+          if (id != _requestId) return;
+          ref.read(searchModeProvider.notifier).state = SearchMode.keyword;
+          state = AsyncValue.data(
+            scored
+                .map((e) => SearchResult(url: e.key, score: e.value))
+                .toList(),
+          );
+          return;
+        }
+      }
       final embeddings = ref.read(embeddingServiceProvider);
       // Reactive tier from Riverpod — SubscriptionService.instance.getTier()
       // would serve a stale RC cache for up to 5 min after purchase.

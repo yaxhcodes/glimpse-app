@@ -1,4 +1,10 @@
 import 'dart:async';
+import '../../shared/widgets/notification_permission_prompt.dart';
+import '../onboarding/first_use_guide.dart';
+import '../onboarding/onboarding_progress.dart';
+import '../../core/providers/analytics_provider.dart';
+import '../../core/services/analytics_service.dart';
+import '../../core/services/demo_seed_service.dart';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
@@ -726,6 +732,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     if (!mounted) return;
     setState(() => _localIntentActionOverride = classified.action);
+    if (classified.kind == IntentKind.queue &&
+        !DemoSeedService.isDemoUrl(url.rawUrl)) {
+      await enableNotificationsInContext(context, ref);
+      return;
+    }
     _showSnack(
       classified.kind == IntentKind.done
           ? 'Marked as done — moved to Done'
@@ -1717,6 +1728,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       summary: summaryDisplayText,
     );
     final bottomPad = MediaQuery.paddingOf(context).bottom + 28;
+    if (!DemoSeedService.isDemoUrl(url.rawUrl) &&
+        live != null &&
+        !showEnriching) {
+      unawaited(
+        OnboardingProgress.recordMilestone(
+          ref.read(analyticsServiceProvider),
+          AnalyticsEvent.onboardingFirstRead,
+        ),
+      );
+    }
 
     return SliverToBoxAdapter(
       child: Center(
@@ -1739,6 +1760,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Image ───────────────────────────────────────────────────
+                if (DemoSeedService.isDemoUrl(url.rawUrl))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      context.l10n.obExample,
+                      style: theme.textTheme.labelMedium,
+                    ),
+                  ),
                 _buildDetailMedia(
                   url: url,
                   showImage: showImage,
@@ -1846,11 +1875,30 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
                 if (live != null && !showEnriching) ...[
                   const SizedBox(height: 28),
+                  if (!DemoSeedService.isDemoUrl(url.rawUrl))
+                    const FirstUseGuide(kind: FirstUseKind.reader),
                   ReaderAskActions(
-                    onOpen: () => context.push(
-                      '/ask',
-                      extra: AskLaunchRequest(source: url, autofocus: true),
-                    ),
+                    onOpen: () => DemoSeedService.isDemoUrl(url.rawUrl)
+                        ? showDialog<void>(
+                            context: context,
+                            builder: (dialog) => AlertDialog(
+                              title: Text(context.l10n.obExample),
+                              content: Text(context.l10n.obAnswer),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialog),
+                                  child: Text(context.l10n.obContinue),
+                                ),
+                              ],
+                            ),
+                          )
+                        : context.push(
+                            '/ask',
+                            extra: AskLaunchRequest(
+                              source: url,
+                              autofocus: true,
+                            ),
+                          ),
                   ),
                 ],
 

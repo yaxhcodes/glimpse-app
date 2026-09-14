@@ -86,7 +86,7 @@ final accentColorProvider =
 });
 
 class AccentColorNotifier extends StateNotifier<AppAccentColor> {
-  AccentColorNotifier() : super(AppAccentColor.dynamic) {
+  AccentColorNotifier() : super(AppAccentColor.lime) {
     _load();
   }
 

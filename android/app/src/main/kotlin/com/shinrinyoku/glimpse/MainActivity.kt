@@ -177,6 +177,36 @@ class MainActivity : FlutterFragmentActivity() {
                         }
                         result.success(null)
                     }
+                    "notificationPermissionRequestable" -> {
+                        val requested = getPreferences(Context.MODE_PRIVATE)
+                            .getBoolean("notification_permission_requested", false)
+                        result.success(Build.VERSION.SDK_INT >= 33 &&
+                            (!requested || shouldShowRequestPermissionRationale(
+                                "android.permission.POST_NOTIFICATIONS")))
+                    }
+                    "notificationPermissionRequested" -> {
+                        // A dismissed first dialog leaves the permission unchanged.
+                        // Remember a real decision, not merely an attempted prompt.
+                        if (Build.VERSION.SDK_INT >= 33 &&
+                            (shouldShowRequestPermissionRationale("android.permission.POST_NOTIFICATIONS") ||
+                                checkSelfPermission("android.permission.POST_NOTIFICATIONS") ==
+                                android.content.pm.PackageManager.PERMISSION_GRANTED)) {
+                            getPreferences(Context.MODE_PRIVATE).edit()
+                                .putBoolean("notification_permission_requested", true).apply()
+                        }
+                        result.success(null)
+                    }
+                    "openNotificationSettings" -> {
+                        val intent = if (Build.VERSION.SDK_INT >= 26) {
+                            Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                        } else {
+                            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:$packageName"))
+                        }
+                        startActivity(intent)
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }

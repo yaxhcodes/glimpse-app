@@ -1,5 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../shared/widgets/notification_permission_prompt.dart';
+import '../../core/services/digest_notifications.dart';
 import '../../core/constants/app_assets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -831,22 +834,28 @@ class _DigestToggle extends ConsumerStatefulWidget {
   ConsumerState<_DigestToggle> createState() => _DigestToggleState();
 }
 
-class _DigestToggleState extends ConsumerState<_DigestToggle> {
+class _DigestToggleState extends ConsumerState<_DigestToggle>
+    with WidgetsBindingObserver {
   bool _enabled = true;
   bool _loaded = false;
+  bool _osEnabled = false;
+  bool _busy = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
+    final osEnabled = await DigestNotifications.areNotificationsEnabled();
     if (!mounted) return;
     setState(() {
       _enabled = p.getBool(DigestPrefs.digestEnabledKey) ?? true;
       _loaded = true;
+      _osEnabled = osEnabled;
     });
   }
 
@@ -857,8 +866,28 @@ class _DigestToggleState extends ConsumerState<_DigestToggle> {
   }
 
   Future<void> _set(bool v) async {
-    setState(() => _enabled = v);
-    await _persist();
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      if (v) await enableNotificationsInContext(context, ref);
+      if (!mounted) return;
+      _enabled = v;
+      await _persist();
+      await _load();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -867,12 +896,14 @@ class _DigestToggleState extends ConsumerState<_DigestToggle> {
       icon: AppIcons.smartNotifications,
       iconColor: SettingsAccents.amber,
       title: context.l10n.smartNotifications,
-      subtitle: context.l10n.behaviorBasedAlerts,
-      onTap: _loaded ? () => _set(!_enabled) : null,
+      subtitle: _osEnabled
+          ? context.l10n.behaviorBasedAlerts
+          : context.l10n.obAlertsOff,
+      onTap: _loaded && !_busy ? () => _set(!(_enabled && _osEnabled)) : null,
       trailing: Switch(
-        value: _enabled,
+        value: _enabled && _osEnabled,
         thumbIcon: settingsSwitchThumbIcon(),
-        onChanged: _loaded ? _set : null,
+        onChanged: _loaded && !_busy ? _set : null,
       ),
     );
   }

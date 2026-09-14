@@ -1,350 +1,405 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:glimpse/features/onboarding/onboarding_visual_scene.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:glimpse/core/constants/app_assets.dart';
 import 'package:glimpse/core/services/analytics_service.dart';
+import 'package:glimpse/core/services/entitlement_service.dart';
 import 'package:glimpse/features/onboarding/onboarding_flow_controller.dart';
 import 'package:glimpse/features/onboarding/onboarding_screen.dart';
-import 'package:glimpse/features/onboarding/onboarding_story.dart';
-import 'package:glimpse/shared/theme/app_theme.dart';
+import 'package:glimpse/l10n/l10n.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:glimpse/core/providers/analytics_provider.dart';
+import 'package:glimpse/core/providers/dev_simulation_providers.dart';
+import 'package:glimpse/core/services/usage_limits.dart';
 
-void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+OnboardingFlowCoordinator flow({
+  Future<void> Function()? complete,
+  Future<int> Function()? seed,
+  Future<void> Function(bool)? prepare,
+  Future<void> Function(AnalyticsEvent)? track,
+}) => OnboardingFlowCoordinator(
+  seedDemo: seed ?? () async => 1,
+  markOnboardingSeen: complete ?? () async {},
+  prepareCompletion: prepare,
+  trackEvent: track ?? (_) async {},
+  criticalTimeout: const Duration(milliseconds: 100),
+);
 
-  testWidgets(
-    'one persistent story scene carries the link through completion',
-    (tester) async {
-      var seeds = 0;
-      var shareLessons = 0;
-      var completions = 0;
-      final events = <AnalyticsEvent>[];
-      final coordinator = OnboardingFlowCoordinator(
-        seedDemo: () async => ++seeds,
-        markShareLessonSeen: () async => shareLessons++,
-        markOnboardingSeen: () async => completions++,
-        trackEvent: (event) async => events.add(event),
-      );
-
-      await tester.pumpWidget(_app(coordinator));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(OnboardingStoryScene), findsOneWidget);
-      expect(find.text('Find something worth keeping.'), findsOneWidget);
-      expect(find.text('Skip'), findsOneWidget);
-      _expectStoryStep(tester, 1);
-      expect(events, contains(AnalyticsEvent.onboardingStarted));
-
-      await _tapCta(tester);
-      expect(find.byType(OnboardingStoryScene), findsOneWidget);
-      expect(find.text('Save it from anywhere.'), findsOneWidget);
-      _expectStoryStep(tester, 2);
-
-      await _tapVisible(tester, find.byTooltip('Previous step'));
-      await tester.pumpAndSettle();
-      expect(find.text('Find something worth keeping.'), findsOneWidget);
-
-      await _tapCta(tester);
-      await _tapVisible(
-        tester,
-        find.byKey(const ValueKey('onboarding-share-target')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Glimpse'), findsOneWidget);
-      expect(find.text('WhatsApp'), findsOneWidget);
-      expect(find.text('Gmail'), findsOneWidget);
-      expect(find.text('Messages'), findsOneWidget);
-      expect(find.text('Copy link'), findsOneWidget);
-      expect(
-        find.image(const AssetImage(AppAssets.launcherIcon)),
-        findsOneWidget,
-      );
-
-      await _tapCta(tester);
-      expect(find.text('Glimpse remembers the details.'), findsOneWidget);
-      _expectStoryStep(tester, 3);
-      await tester.pumpAndSettle();
-      expect(find.text('SEARCHABLE MEMORY'), findsOneWidget);
-      for (final label in const [
-        'Link received',
-        'Thumbnail found',
-        'Summary written',
-        'Tags created',
-        'Intent understood',
-      ]) {
-        expect(find.text(label), findsOneWidget);
-      }
-      expect(find.byKey(const ValueKey('ready-memory-card')), findsOneWidget);
-      expect(
-        events.where((event) => event == AnalyticsEvent.onboardingTransformed),
-        hasLength(1),
-      );
-
-      await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
-      await tester.pump();
-      expect(
-        find.text("Timed to when you'll actually need it."),
-        findsOneWidget,
-      );
-      expect(find.text('Not a random ping—a well-timed one.'), findsOneWidget);
-      _expectStoryStep(tester, 4);
-      tester
-          .state<OnboardingStorySceneState>(find.byType(OnboardingStoryScene))
-          .setTimePassage(0.58);
-      await tester.pumpAndSettle();
-      expect(find.text('OCTOBER'), findsOneWidget);
-      expect(find.text('Two weeks later'), findsOneWidget);
-      for (var day = 1; day <= 14; day++) {
-        expect(
-          find.byKey(ValueKey('onboarding-calendar-day-$day')),
-          findsOneWidget,
-        );
-      }
-      expect(
-        find.byKey(const ValueKey('onboarding-calendar-day-15')),
-        findsNothing,
-      );
-      tester
-          .state<OnboardingStorySceneState>(find.byType(OnboardingStoryScene))
-          .setTimePassage(1);
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('rediscover-notification')),
-        findsOneWidget,
-      );
-      expect(
-        find.image(const AssetImage(AppAssets.launcherIcon)),
-        findsNWidgets(2),
-      );
-
-      await _tapCta(tester);
-      expect(find.text('REDISCOVERED · 2 WEEKS LATER'), findsOneWidget);
-      expect(find.text('It comes back when it matters.'), findsOneWidget);
-      expect(find.text('Enter Glimpse'), findsOneWidget);
-      expect(find.text('Temples'), findsOneWidget);
-      expect(find.text('Gion nights'), findsOneWidget);
-      _expectStoryStep(tester, 5);
-
-      await _tapVisible(tester, find.byTooltip('Previous step'));
-      await tester.pumpAndSettle();
-      _expectStoryStep(tester, 4);
-      expect(
-        find.text("Timed to when you'll actually need it."),
-        findsOneWidget,
-      );
-
-      await _tapCta(tester);
-      _expectStoryStep(tester, 5);
-
-      await _tapCta(tester);
-      await tester.pump(const Duration(milliseconds: 100));
-
-      expect(seeds, 1);
-      expect(shareLessons, 1);
-      expect(completions, 1);
-      expect(events, contains(AnalyticsEvent.onboardingCompleted));
-    },
-  );
-
-  testWidgets(
-    'skip is always available and does not seed or suppress the share lesson',
-    (tester) async {
-      var seeds = 0;
-      var shareLessons = 0;
-      var completions = 0;
-      final coordinator = OnboardingFlowCoordinator(
-        seedDemo: () async => ++seeds,
-        markShareLessonSeen: () async => shareLessons++,
-        markOnboardingSeen: () async => completions++,
-        trackEvent: (_) async {},
-      );
-
-      await tester.pumpWidget(_app(coordinator));
-      await _tapCta(tester);
-      expect(find.text('Skip'), findsOneWidget);
-      await _tapVisible(tester, find.text('Skip'));
-      await tester.pumpAndSettle();
-
-      expect(seeds, 0);
-      expect(shareLessons, 0);
-      expect(completions, 1);
-    },
-  );
-
-  testWidgets('stalled completion exposes retry instead of a dead CTA', (
-    tester,
-  ) async {
-    var attempts = 0;
-    final coordinator = OnboardingFlowCoordinator(
-      seedDemo: () async => 1,
-      markShareLessonSeen: () async {},
-      markOnboardingSeen: () {
-        attempts++;
-        if (attempts == 1) return Completer<void>().future;
-        return Future.value();
-      },
-      trackEvent: (_) async {},
-      criticalTimeout: const Duration(milliseconds: 20),
-    );
-
-    await tester.pumpWidget(_app(coordinator, disableAnimations: true));
-    await _reachOpenedMemory(tester);
-    await _tapCta(tester);
-    await tester.pump(const Duration(milliseconds: 50));
-
-    expect(find.text('Try again'), findsOneWidget);
-    expect(
-      find.text('We couldn’t save your progress. Please try again.'),
-      findsOneWidget,
-    );
-
-    await _tapCta(tester);
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(attempts, 2);
-  });
-
-  testWidgets('compact phone and elevated text remain usable', (tester) async {
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final coordinator = _coordinator();
-    await tester.pumpWidget(
-      _app(coordinator, textScale: 1.3, disableAnimations: true),
-    );
-    await tester.pumpAndSettle();
-
-    expect(tester.takeException(), isNull);
-    expect(find.byType(OnboardingStoryScene), findsOneWidget);
-    final semantics = tester.getSemantics(
-      find.byKey(const ValueKey('onboarding-primary-cta')),
-    );
-    expect(semantics.getSemanticsData().flagsCollection.isButton, isTrue);
-
-    for (var step = 0; step < 4; step++) {
-      await _tapCta(tester);
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: 'chapter ${step + 1} must fit the compact layout',
-      );
-    }
-    expect(find.text('For your autumn in Kyoto'), findsOneWidget);
-    expect(find.text('Temples'), findsOneWidget);
-    expect(find.text('Gion nights'), findsOneWidget);
-  });
-
-  testWidgets('reduced motion renders completed product states directly', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_app(_coordinator(), disableAnimations: true));
-    await tester.pumpAndSettle();
-
-    await _tapCta(tester);
-    await _tapCta(tester);
-    await tester.pumpAndSettle();
-    expect(find.text('SEARCHABLE MEMORY'), findsOneWidget);
-
-    await _tapCta(tester);
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('rediscover-notification')),
-      findsOneWidget,
-    );
-  });
-
-  test('completion remains idempotent when optional work fails', () async {
-    var criticalWrites = 0;
-    final coordinator = OnboardingFlowCoordinator(
-      seedDemo: () async => throw StateError('seed unavailable'),
-      markShareLessonSeen: () async => throw StateError('prefs unavailable'),
-      markOnboardingSeen: () async => criticalWrites++,
-      trackEvent: (_) async => throw StateError('analytics unavailable'),
-    );
-
-    await coordinator.complete();
-    await coordinator.complete();
-
-    expect(criticalWrites, 1);
-  });
-
-  test('a hanging demo seed cannot block routing', () async {
-    final hangingSeed = Completer<int>();
-    var criticalWrites = 0;
-    final coordinator = OnboardingFlowCoordinator(
-      seedDemo: () => hangingSeed.future,
-      markShareLessonSeen: () async {},
-      markOnboardingSeen: () async => criticalWrites++,
-      trackEvent: (_) async {},
-    );
-
-    await coordinator.complete().timeout(const Duration(milliseconds: 250));
-
-    expect(criticalWrites, 1);
-    hangingSeed.complete(1);
-  });
-}
-
-OnboardingFlowCoordinator _coordinator() {
-  return OnboardingFlowCoordinator(
-    seedDemo: () async => 1,
-    markShareLessonSeen: () async {},
-    markOnboardingSeen: () async {},
-    trackEvent: (_) async {},
-  );
-}
-
-Widget _app(
+Widget app(
   OnboardingFlowCoordinator coordinator, {
-  double textScale = 1,
-  bool disableAnimations = false,
-}) {
-  return ProviderScope(
-    overrides: [
-      onboardingFlowCoordinatorProvider.overrideWithValue(coordinator),
-    ],
-    child: MaterialApp(
-      theme: AppTheme.darkTheme(Colors.green),
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(textScale),
-            disableAnimations: disableAnimations,
-          ),
-          child: child!,
-        );
-      },
-      home: const OnboardingScreen(),
+  bool pro = false,
+  Locale locale = const Locale('en'),
+  double scale = 1,
+  bool dark = false,
+  bool reducedMotion = true,
+}) => ProviderScope(
+  overrides: [
+    onboardingFlowCoordinatorProvider.overrideWithValue(coordinator),
+    isProUserProvider.overrideWithValue(pro),
+  ],
+  child: MaterialApp(
+    theme: ThemeData(brightness: dark ? Brightness.dark : Brightness.light),
+    locale: locale,
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(scale),
+        disableAnimations: reducedMotion,
+      ),
+      child: child!,
     ),
-  );
-}
+    home: const OnboardingScreen(),
+  ),
+);
 
-Future<void> _tapCta(WidgetTester tester) async {
-  await _tapVisible(
-    tester,
-    find.byKey(const ValueKey('onboarding-primary-cta')),
-  );
+Future<void> next(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
   await tester.pumpAndSettle();
 }
 
-Future<void> _reachOpenedMemory(WidgetTester tester) async {
-  await _tapCta(tester);
-  await _tapCta(tester);
-  await _tapCta(tester);
-  await _tapCta(tester);
-}
-
-Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
-  await tester.ensureVisible(finder);
-  await tester.pump();
-  await tester.tap(finder);
-}
-
-void _expectStoryStep(WidgetTester tester, int step) {
-  final semantics = tester.getSemantics(
-    find.byKey(const ValueKey('onboarding-position-indicator')),
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  GoogleFonts.config.allowRuntimeFetching = false;
+  testWidgets('seven visual chapters retain navigation and can finish free', (
+    tester,
+  ) async {
+    var finished = 0;
+    var seeded = 0;
+    final events = <AnalyticsEvent>[];
+    await tester.pumpWidget(
+      app(
+        flow(
+          complete: () async {
+            finished++;
+          },
+          seed: () async => ++seeded,
+          track: (e) async => events.add(e),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Keep what catches your mind.'), findsOneWidget);
+    await next(tester);
+    expect(
+      find.byKey(const ValueKey('onboarding-preview-1-0')),
+      findsOneWidget,
+    );
+    await next(tester);
+    await tester.tap(find.byTooltip('Previous chapter'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('onboarding-preview-1-0')),
+      findsOneWidget,
+    );
+    await next(tester);
+    await next(tester);
+    expect(find.text('Discovered in your saves'), findsOneWidget);
+    await next(tester);
+    expect(
+      find.byKey(const ValueKey('onboarding-preview-4-0')),
+      findsOneWidget,
+    );
+    await next(tester);
+    expect(find.text('Come back with a reason.'), findsOneWidget);
+    await next(tester);
+    expect(find.text('Start with Free'), findsOneWidget);
+    expect(find.text('Explore Pro'), findsOneWidget);
+    await tester.tap(find.text('Start with Free'));
+    await tester.pumpAndSettle();
+    expect(finished, 1);
+    expect(seeded, 1);
+    expect(
+      events.where((e) => e == AnalyticsEvent.onboardingChapterReader).length,
+      1,
+    );
+  });
+  testWidgets('primary action stays above the device inset on every chapter', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 915);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = FakeViewPadding(bottom: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    await tester.pumpWidget(app(flow()));
+    await tester.pumpAndSettle();
+    for (
+      var chapter = 0;
+      chapter < OnboardingChapterController.count;
+      chapter++
+    ) {
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('onboarding-primary-cta')))
+            .bottom,
+        883,
+      );
+      if (chapter < OnboardingChapterController.count - 1) await next(tester);
+    }
+  });
+  testWidgets('pricing transition keeps the page viewport stable', (tester) async {
+    await tester.pumpWidget(app(flow(), reducedMotion: false));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 5; i++) {
+      await next(tester);
+    }
+    final viewport = tester.getRect(find.byType(PageView));
+    await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
+    await tester.pump();
+    for (var frame = 0; frame < 8; frame++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.getRect(find.byType(PageView)), viewport);
+    }
+    await tester.pumpAndSettle();
+    expect(find.text('Start with Free').hitTestable(), findsOneWidget);
+    await tester.tap(find.byTooltip('Previous chapter'));
+    await tester.pump();
+    for (var frame = 0; frame < 8; frame++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.getRect(find.byType(PageView)), viewport);
+    }
+    await tester.pumpAndSettle();
+  });
+  testWidgets('visual motion finishes once and never gates navigation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(flow(), reducedMotion: false));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final scene = find.byKey(const ValueKey('onboarding-preview-1-0'));
+    final opacity = find
+        .ancestor(of: scene, matching: find.byType(Opacity))
+        .first;
+    expect(tester.widget<Opacity>(opacity).opacity, lessThan(1));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Opacity>(opacity).opacity, 1);
+    await next(tester);
+    await tester.tap(find.byTooltip('Previous chapter'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Opacity>(opacity).opacity, 1);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+  test('every locale and brightness has its complete image set', () async {
+    for (final locale in ['en', 'de', 'es', 'fr', 'pt', 'ja']) {
+      for (final brightness in ['light', 'dark']) {
+        for (var chapter = 1; chapter <= 5; chapter++) {
+          for (final part in OnboardingScene.partsFor(chapter)) {
+            final path = chapter <= 3
+                ? 'assets/onboarding/${const ['enrichment', 'interests', 'discovered'][chapter - 1]}.webp'
+                : 'assets/onboarding/previews/${locale}_${brightness}_${chapter}_$part.webp';
+            final data = await rootBundle.load(path);
+            expect(data.lengthInBytes, greaterThan(100));
+          }
+        }
+      }
+    }
+  });
+  test('replaying onboarding resets the completed coordinator', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer(
+      overrides: [
+        analyticsServiceProvider.overrideWithValue(_QuietAnalytics()),
+        hasSeenOnboardingProvider.overrideWith(
+          (ref) => HasSeenOnboardingNotifier(initial: false),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final coordinator = container.read(onboardingFlowCoordinatorProvider);
+    await coordinator.skip();
+    expect(container.read(hasSeenOnboardingProvider), isTrue);
+    await container.read(hasSeenOnboardingProvider.notifier).reset();
+    expect(container.read(hasSeenOnboardingProvider), isFalse);
+    await coordinator.skip();
+    expect(container.read(hasSeenOnboardingProvider), isTrue);
+  });
+  test('published plan allowances do not expose development ceilings', () {
+    expect(UsageLimits.planAllowance(UsageFeature.aiSave), 30);
+    expect(UsageLimits.planAllowance(UsageFeature.ask), 30);
+    expect(UsageLimits.planAllowance(UsageFeature.search), 30);
+    expect(UsageLimits.planAllowance(UsageFeature.aiSave, isPro: true), 500);
+  });
+  testWidgets(
+    'dark canvas follows app brightness with bundled editorial artwork',
+    (tester) async {
+      await tester.pumpWidget(app(flow(), dark: true));
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(Scaffold));
+      expect(Theme.of(context).brightness, Brightness.dark);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Image &&
+              w.image is AssetImage &&
+              (w.image as AssetImage).assetName.endsWith('opening.webp'),
+        ),
+        findsOneWidget,
+      );
+    },
   );
-  expect(semantics.label, 'Step $step of 5');
+  testWidgets(
+    'tap and swipe share one paged surface and repeated taps stay bounded',
+    (tester) async {
+      await tester.pumpWidget(app(flow(), reducedMotion: false));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final page = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!
+          .page!;
+      expect(page, greaterThan(0));
+      expect(page, lessThan(1));
+      await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller!.page,
+        1,
+      );
+      await tester.drag(find.byType(PageView), const Offset(-600, 0));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller!.page,
+        2,
+      );
+    },
+  );
+  testWidgets('skip does not seed or open Pro', (tester) async {
+    var seeds = 0;
+    bool? pro;
+    await tester.pumpWidget(
+      app(
+        flow(
+          seed: () async => ++seeds,
+          prepare: (v) async {
+            pro = v;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    expect(seeds, 0);
+    expect(pro, false);
+  });
+  testWidgets('Pro intent is prepared before routing', (tester) async {
+    final order = <String>[];
+    await tester.pumpWidget(
+      app(
+        flow(
+          prepare: (pro) async => order.add('pro:$pro'),
+          complete: () async => order.add('route'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (var i = 0; i < OnboardingChapterController.count - 1; i++) {
+      await next(tester);
+    }
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('onboarding-primary-cta')),
+          )
+          .child,
+      isA<Text>().having((text) => text.data, 'label', 'Explore Pro'),
+    );
+    await tester.tap(find.text('Explore Pro'));
+    await tester.pumpAndSettle();
+    expect(order, ['pro:true', 'route']);
+  });
+  testWidgets('existing subscribers can continue without an upsell', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(flow(), pro: true));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < OnboardingChapterController.count - 1; i++) {
+      await next(tester);
+    }
+    expect(find.text('Continue with Pro'), findsOneWidget);
+    expect(find.text('Explore Pro'), findsNothing);
+  });
+  testWidgets('failed completion remains retryable', (tester) async {
+    var attempts = 0;
+    await tester.pumpWidget(
+      app(
+        flow(
+          complete: () async {
+            if (++attempts == 1) throw StateError('disk');
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Couldn’t save your progress. Please try again.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+  });
+  for (final dark in [false, true]) {
+    for (final locale in ['en', 'ja', 'es', 'fr', 'pt', 'de']) {
+      testWidgets(
+        '$locale ${dark ? 'dark' : 'light'} compact phone and large text remain usable',
+        (tester) async {
+          tester.view.physicalSize = const Size(320, 640);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await tester.pumpWidget(
+            app(flow(), locale: Locale(locale), scale: 1.6, dark: dark),
+          );
+          await tester.pumpAndSettle();
+          for (var i = 0; i < OnboardingChapterController.count; i++) {
+            expect(tester.takeException(), isNull);
+            expect(
+              tester
+                  .getRect(find.byKey(const ValueKey('onboarding-primary-cta')))
+                  .bottom,
+              lessThanOrEqualTo(640),
+            );
+            if (i < OnboardingChapterController.count - 1) await next(tester);
+          }
+        },
+      );
+    }
+  }
+  test(
+    'completion is idempotent and optional seed cannot block routing',
+    () async {
+      var routes = 0;
+      final coordinator = flow(
+        complete: () async {
+          routes++;
+        },
+        seed: () => Completer<int>().future,
+      );
+      await Future.wait([coordinator.complete(), coordinator.complete()]);
+      await coordinator.complete();
+      expect(routes, 1);
+    },
+  );
+}
+
+class _QuietAnalytics implements AnalyticsService {
+  @override
+  Future<void> trackEvent(
+    AnalyticsEvent event, {
+    AnalyticsScreen? screen,
+  }) async {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

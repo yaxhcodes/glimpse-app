@@ -172,6 +172,8 @@ flutter:
     - assets/splash_branding_dark.png
     - assets/mascot/
     - assets/onboarding_kyoto.webp
+    - assets/onboarding/
+    - assets/onboarding/previews/
     - android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
     - assets/brands/
     - assets/fonts/

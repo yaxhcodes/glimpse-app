@@ -1028,12 +1028,12 @@ class _SourceCardFooter extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          TextButton(onPressed: onDetails, child: const Text('Details')),
+          TextButton(onPressed: onDetails, child: Text(context.l10n.details)),
           TextButton.icon(
             onPressed: onOpen,
             iconAlignment: IconAlignment.end,
             icon: const Icon(AppIcons.externalLink, size: 16),
-            label: const Text('Open'),
+            label: Text(context.l10n.open),
           ),
         ],
       ),
@@ -1683,4 +1683,26 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
       );
     }
   }
+}
+
+/// A side-effect-free composition of the real chat turns for bundled previews.
+class AskConversationPreview extends StatelessWidget {
+  const AskConversationPreview({super.key, required this.messages});
+  final List<ChatMessage> messages;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final message in messages)
+          _ChatTurn(
+            message: message,
+            animateAssistant: false,
+            onAssistantAnimationComplete: (_) {},
+          ),
+      ],
+    ),
+  );
 }

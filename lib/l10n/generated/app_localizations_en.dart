@@ -2865,4 +2865,269 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get glimpsesReviewConsent =>
       'Selected summaries and highlights are sent to cloud AI. Personal notes stay on your device. Uses up to 1 Ask request per week. Your local history works with this off.';
+
+  @override
+  String get obTitle1 => 'Keep what catches your mind.';
+
+  @override
+  String get obTitle2 => 'More than a saved link.';
+
+  @override
+  String get obTitle3 => 'A library that takes shape.';
+
+  @override
+  String get obTitle4 => 'Find it. Ask about it.';
+
+  @override
+  String get obTitle5 => 'Come back with a reason.';
+
+  @override
+  String get obTitle6 => 'Start free. Go further with Pro.';
+
+  @override
+  String get obBody1 => 'Keep what you find. Make more of it.';
+
+  @override
+  String get obBody2 => 'Turn saved links into clear ideas and useful details.';
+
+  @override
+  String get obBody3 => 'Related ideas gather into interests, naturally.';
+
+  @override
+  String get obBody4 => 'Ask in your own words. Find answers in your saves.';
+
+  @override
+  String get obBody5 =>
+      'Return through new connections, or a moment you choose.';
+
+  @override
+  String get obBody6 => 'Save freely. Make more room for AI with Pro.';
+
+  @override
+  String get obBegin => 'See what becomes possible';
+
+  @override
+  String get obContinue => 'Continue';
+
+  @override
+  String get obSkip => 'Skip';
+
+  @override
+  String get obBack => 'Previous chapter';
+
+  @override
+  String get obExample => 'Illustrative example';
+
+  @override
+  String get obOverview => 'Overview';
+
+  @override
+  String get obPlaces => 'Places';
+
+  @override
+  String get obBooks => 'Books';
+
+  @override
+  String get obMovies => 'Movies';
+
+  @override
+  String get obMusic => 'Music';
+
+  @override
+  String get obSummary =>
+      'Explore lesser-known French destinations for a more authentic trip, while easing pressure on the most visited places.';
+
+  @override
+  String get obPoint =>
+      'Look beyond the busiest sites: France has many places worth discovering.';
+
+  @override
+  String get obPlaceNote =>
+      'Featured by the creator as a recommended destination.';
+
+  @override
+  String get obShare => 'Share → Glimpse, or paste a link';
+
+  @override
+  String get obCollected => 'Discovered in your saves';
+
+  @override
+  String get obCollection => 'Your collection · A slower weekend';
+
+  @override
+  String get obInterests => 'Emerging interests · Travel & creativity';
+
+  @override
+  String get obBookExample => 'A field guide to everyday creativity';
+
+  @override
+  String get obMovieExample => 'A film for a quiet evening';
+
+  @override
+  String get obMusicExample => 'A song for the journey';
+
+  @override
+  String get obQuestion => 'What were those places in France I saved?';
+
+  @override
+  String get obAnswer =>
+      'I found them in your France guide:\n\n**Gorges du Tarn** — a gorge landscape.\n\n**Cascade de l’Éventail** — a waterfall stop.\n\n**Abbaye de Moissac** — a historic abbey.\n\nThe guide looks beyond the usual tourist stops, bringing together nature and history. These three are a starting point for that kind of trip.';
+
+  @override
+  String get obSemantic => 'Pro · Find by meaning, beyond exact words';
+
+  @override
+  String get obRediscover => 'Beyond the busiest places';
+
+  @override
+  String get obRevisit => 'Make this recipe over the weekend.';
+
+  @override
+  String get obFree => 'Free';
+
+  @override
+  String get obUnlimited => 'Unlimited ordinary link saving';
+
+  @override
+  String get obFairUse => 'Expanded Ask and search access, subject to fair use';
+
+  @override
+  String get obStartFree => 'Start with Free';
+
+  @override
+  String get obExplorePro => 'Explore Pro';
+
+  @override
+  String get obContinuePro => 'Continue with Pro';
+
+  @override
+  String get obError => 'Couldn’t save your progress. Please try again.';
+
+  @override
+  String get obDismiss => 'Dismiss guide';
+
+  @override
+  String get obFirstSave => 'Save your first find';
+
+  @override
+  String get obCopy => 'Copy a link, then paste it into Glimpse';
+
+  @override
+  String get obReaderGuide =>
+      'Read the ideas here, then use Ask to explore your save with its sources.';
+
+  @override
+  String get obLibraryGuide =>
+      'These items come from your saves. Your own collections keep the links you choose together.';
+
+  @override
+  String get obRediscoverGuide =>
+      'Open an idea to return to its sources. Revisit intentions help you come back when you choose.';
+
+  @override
+  String get obNotifyTitle => 'Make room for a useful reminder';
+
+  @override
+  String get obNotifyBody =>
+      'Enable alerts for revisit intentions and useful ideas from your saves. You can change this in Settings.';
+
+  @override
+  String get obNotifyEnable => 'Enable notifications';
+
+  @override
+  String get obNotNow => 'Not now';
+
+  @override
+  String get obAlertsOff =>
+      'Device alerts are off. Your revisit intentions stay in the app.';
+
+  @override
+  String get obOpenSettings => 'Open notification settings';
+
+  @override
+  String get obPermissionError =>
+      'Couldn’t update notifications. Please try again.';
+
+  @override
+  String obPosition(int current, int total) {
+    return 'Chapter $current of $total';
+  }
+
+  @override
+  String obFreeAi(int count) {
+    return '$count lifetime AI-enriched saves';
+  }
+
+  @override
+  String obMonthlyAsk(int count) {
+    return '$count Ask questions per month';
+  }
+
+  @override
+  String obMonthlySearch(int count) {
+    return '$count searches per month';
+  }
+
+  @override
+  String obProAi(int count) {
+    return '$count AI-enriched saves per month';
+  }
+
+  @override
+  String get obTakeaway2 =>
+      'Sharing quieter locations can also put them at risk of overcrowding.';
+
+  @override
+  String get obTakeaway3 =>
+      'The creator presents rural travel as rewarding enough to return for.';
+
+  @override
+  String get obCooking => 'Recipes & Cooking';
+
+  @override
+  String get obSoftware => 'Software & AI';
+
+  @override
+  String get obTravel => 'Travel';
+
+  @override
+  String get obInterestNote =>
+      'Related saves gather around shared concepts, so your interests stay readable as your library grows.';
+
+  @override
+  String get obAutomatic => 'Connections, found for you';
+
+  @override
+  String get obAutomaticNote =>
+      'Your new countryside save connects with this earlier guide to France.';
+
+  @override
+  String get obChosen => 'A return you choose';
+
+  @override
+  String get obChosenNote =>
+      'Keep a save for a moment you choose. Reminders are optional.';
+
+  @override
+  String get obSaveTitle =>
+      'Authentic France · Lesser-Known Travel Destinations';
+
+  @override
+  String get obSaveSearch => 'France';
+
+  @override
+  String get obPlaceOne => 'Gorges du Tarn';
+
+  @override
+  String get obPlaceTwo => 'Cascade de l’Éventail';
+
+  @override
+  String get obRealExample => 'From a real save · shortened preview';
+
+  @override
+  String get obPreparedAnswer => 'Prepared example answer';
+
+  @override
+  String get obLibraryBody =>
+      'Books, films, music, and places—found inside your saves.';
 }

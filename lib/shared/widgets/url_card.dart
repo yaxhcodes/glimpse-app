@@ -14,6 +14,7 @@ import '../../core/services/category_resolver.dart';
 import '../../core/services/saved_url_enrichment_state.dart';
 import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
+import '../../core/services/demo_seed_service.dart';
 import '../../features/home/home_provider.dart';
 import '../../features/url_detail/url_detail_provider.dart';
 import 'expressive_tap_scale.dart';
@@ -229,6 +230,16 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (DemoSeedService.isDemoUrl(widget.savedUrl.rawUrl))
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                context.l10n.obExample,
+                                style: tt.labelSmall?.copyWith(
+                                  color: cs.primary,
+                                ),
+                              ),
+                            ),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

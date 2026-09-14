@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
+import '../../l10n/l10n.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,7 +26,38 @@ class GuideCard extends ConsumerWidget {
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
-            context.push('/guide');
+            showModalBottomSheet<void>(
+              context: context,
+              showDragHandle: true,
+              builder: (sheet) => SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(context.l10n.obFirstSave, style: tt.headlineSmall),
+                      const SizedBox(height: 16),
+                      Text(
+                        Platform.isAndroid
+                            ? context.l10n.obShare
+                            : context.l10n.obCopy,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(context.l10n.obBody2),
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: () {
+                          Navigator.pop(sheet);
+                          context.push('/add');
+                        },
+                        child: Text(context.l10n.obFirstSave),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
           },
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
@@ -51,7 +84,7 @@ class GuideCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Save your first find',
+                        context.l10n.obFirstSave,
                         style: tt.titleSmall?.copyWith(
                           color: cs.onSecondaryContainer,
                           fontWeight: FontWeight.w600,
@@ -59,7 +92,9 @@ class GuideCard extends ConsumerWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Share in any app → Glimpse',
+                        Platform.isAndroid
+                            ? context.l10n.obShare
+                            : context.l10n.obCopy,
                         style: tt.bodySmall?.copyWith(
                           color: cs.onSecondaryContainer.withValues(
                             alpha: 0.76,
@@ -72,7 +107,7 @@ class GuideCard extends ConsumerWidget {
                 IconButton(
                   onPressed: () =>
                       ref.read(hasSeenGuideCardProvider.notifier).set(true),
-                  tooltip: 'Dismiss guide',
+                  tooltip: context.l10n.obDismiss,
                   icon: AppIcon(
                     AppIcons.close,
                     size: 19,

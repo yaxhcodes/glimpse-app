@@ -24,7 +24,7 @@ class UsageLimits {
   static int getLimit(UsageFeature feature, {bool isPro = false}) {
     final limit = _isDev
         ? _devLimit(feature, isPro: isPro)
-        : _prodLimit(feature, isPro: isPro);
+        : planAllowance(feature, isPro: isPro);
     if (kDebugMode) {
       developer.log(
         'Limit for ${feature.name}: $limit (dev: $_isDev)',
@@ -34,7 +34,8 @@ class UsageLimits {
     return limit;
   }
 
-  static int _prodLimit(UsageFeature feature, {required bool isPro}) {
+  /// Published plan allowances, independent of development test ceilings.
+  static int planAllowance(UsageFeature feature, {bool isPro = false}) {
     if (isPro && feature == UsageFeature.aiSave) return 500;
     return switch (feature) {
       UsageFeature.aiSave => 30,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../core/services/demo_seed_service.dart';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
@@ -226,10 +227,17 @@ class LibraryBackfillNotifier extends StateNotifier<LibraryBackfillState> {
 
   Future<void> start(Iterable<LibraryEntity> entities) async {
     if (state.isRunning) return;
+    final demoId = await DemoSeedService.demoId();
+    if (!mounted || state.isRunning) return;
     final pending = entities
         .where(
           (entity) =>
               entity.needsResolution &&
+              entity.sources.any(
+                (source) =>
+                    source.urlId != demoId &&
+                    source.thumbnailUrl != DemoSeedService.demoThumbnailAsset,
+              ) &&
               !_resolvedOrAttempted.contains(entity.key),
         )
         .toList(growable: false);

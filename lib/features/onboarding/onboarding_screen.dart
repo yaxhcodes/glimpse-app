@@ -1,462 +1,409 @@
 import 'dart:async';
-
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../core/constants/app_assets.dart';
-import '../../shared/theme/app_icons.dart';
+import '../../core/services/entitlement_service.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/theme/app_typography.dart';
 import 'onboarding_flow_controller.dart';
-import 'onboarding_story.dart';
+import 'onboarding_scenes.dart';
+import 'onboarding_visual_scene.dart';
+import 'onboarding_theme.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
-
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  final _storyKey = GlobalKey<OnboardingStorySceneState>();
-
-  int _chapter = 0;
-  bool _transitioning = false;
-  bool _memoryOpened = false;
+  final _state = OnboardingChapterController();
+  final _pages = PageController();
+  bool _moving = false;
+  String? _cachedAppearance;
   bool _finishing = false;
-  String? _completionError;
-  bool _heroPrecached = false;
-
+  bool _failed = false;
   @override
   void initState() {
     super.initState();
     unawaited(ref.read(onboardingFlowCoordinatorProvider).trackStarted());
+    unawaited(ref.read(onboardingFlowCoordinatorProvider).trackChapter(0));
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_heroPrecached) return;
-    _heroPrecached = true;
+    final appearance =
+        '${Theme.of(context).brightness.name}/${Localizations.localeOf(context).languageCode}';
+    if (_cachedAppearance == appearance) return;
+    _cachedAppearance = appearance;
     unawaited(
-      precacheImage(const AssetImage(AppAssets.onboardingKyoto), context),
+      precacheImage(AssetImage(OnboardingArtwork.artwork('opening')), context),
+    );
+    for (var chapter = 1; chapter <= 5; chapter++) {
+      for (final part in OnboardingScene.partsFor(chapter)) {
+        unawaited(
+          precacheImage(
+            AssetImage(OnboardingScene.previewPath(context, chapter, part)),
+            context,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _move(int delta) async {
+    if (_moving || _finishing) return;
+    final target = (_state.chapter + delta).clamp(
+      0,
+      OnboardingChapterController.count - 1,
+    );
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pages.jumpToPage(target);
+      return;
+    }
+    _moving = true;
+    try {
+      await _pages.animateToPage(
+        target,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+      );
+    } finally {
+      _moving = false;
+    }
+  }
+
+  void _onPageChanged(int chapter) {
+    setState(() {
+      _state.chapter = chapter;
+      _failed = false;
+    });
+    unawaited(
+      ref.read(onboardingFlowCoordinatorProvider).trackChapter(chapter),
     );
   }
 
-  Future<void> _primaryAction() async {
-    if (_transitioning || _finishing) return;
-    switch (_chapter) {
-      case 0:
-        _setChapter(1);
-        return;
-      case 1:
-        setState(() => _transitioning = true);
-        await _storyKey.currentState?.selectGlimpse();
-        if (!mounted) return;
-        setState(() => _transitioning = false);
-        _setChapter(2);
-        return;
-      case 2:
-        _storyKey.currentState?.finishEnrichment();
-        _setChapter(3);
-        return;
-      case 3:
-        if (!_memoryOpened) {
-          _storyKey.currentState?.openMemory();
-        } else {
-          await _complete();
-        }
-        return;
-    }
-  }
-
-  void _setChapter(int chapter) {
-    if (_finishing || chapter == _chapter || chapter < 0 || chapter > 3) {
-      return;
-    }
-    HapticFeedback.lightImpact();
-    setState(() {
-      _chapter = chapter;
-      _memoryOpened = false;
-      _completionError = null;
-    });
-  }
-
-  void _goBack() {
-    if (_finishing || _transitioning) return;
-    if (_chapter == 3 && _memoryOpened) {
-      HapticFeedback.lightImpact();
-      _storyKey.currentState?.closeMemory();
-      setState(() => _memoryOpened = false);
-      return;
-    }
-    _setChapter(_chapter - 1);
-  }
-
-  Future<void> _skip() async {
-    if (_finishing) return;
-    setState(() => _finishing = true);
-    HapticFeedback.lightImpact();
-    try {
-      await ref.read(onboardingFlowCoordinatorProvider).skip();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _finishing = false);
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('Couldn’t finish setup. Tap Skip to try again.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-    }
-  }
-
-  Future<void> _complete() async {
+  Future<void> _finish({bool skip = false, bool pro = false}) async {
     if (_finishing) return;
     setState(() {
       _finishing = true;
-      _completionError = null;
+      _failed = false;
     });
-    HapticFeedback.mediumImpact();
     try {
-      await ref.read(onboardingFlowCoordinatorProvider).complete();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _finishing = false;
-        _completionError = 'We couldn’t save your progress. Please try again.';
-      });
+      final flow = ref.read(onboardingFlowCoordinatorProvider);
+      if (skip) {
+        await flow.skip();
+      } else {
+        await flow.complete(explorePro: pro);
+      }
+    } catch (error, stackTrace) {
+      developer.log(
+        'Could not complete onboarding',
+        name: 'Onboarding',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        setState(() {
+          _failed = true;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _finishing = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final base = Theme.of(context);
-    final colorScheme =
-        ColorScheme.fromSeed(
-          seedColor: OnboardingPalette.sageDeep,
-          brightness: Brightness.dark,
-          surface: OnboardingPalette.ink,
-        ).copyWith(
-          primary: OnboardingPalette.sage,
-          onPrimary: OnboardingPalette.ink,
-          surface: OnboardingPalette.ink,
-          surfaceContainerLow: OnboardingPalette.raised,
-          surfaceContainer: OnboardingPalette.raised,
-          onSurface: OnboardingPalette.paper,
-        );
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final pro = ref.watch(isProUserProvider);
+    final titles = [
+      l.obTitle1,
+      l.obTitle2,
+      l.obTitle3,
+      l.obCollected,
+      l.obTitle4,
+      l.obTitle5,
+      l.obTitle6,
+    ];
+    final bodies = [
+      l.obBody1,
+      l.obBody2,
+      l.obBody3,
+      l.obLibraryBody,
+      l.obBody4,
+      l.obBody5,
+      l.obBody6,
+    ];
+    final chapter = _state.chapter;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final theme = OnboardingTheme.from(Theme.of(context));
+    final scheme = theme.colorScheme;
     return Theme(
-      data: base.copyWith(colorScheme: colorScheme),
+      data: theme,
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.light,
-          statusBarBrightness: Brightness.dark,
-          systemNavigationBarColor: OnboardingPalette.ink,
-          systemNavigationBarIconBrightness: Brightness.light,
-        ),
-        child: Scaffold(
-          backgroundColor: OnboardingPalette.ink,
-          body: SafeArea(
-            child: PopScope(
-              canPop: _chapter == 0 && !_finishing,
-              onPopInvokedWithResult: (didPop, result) {
-                if (!didPop && _chapter > 0 && !_finishing) {
-                  _goBack();
-                }
-              },
-              child: Column(
-                children: [
-                  _Navigation(
-                    showBack: _chapter > 0,
-                    backEnabled: !_finishing && !_transitioning,
-                    skipEnabled: !_finishing,
-                    onBack: _goBack,
-                    onSkip: _skip,
-                  ),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 520),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: OnboardingStoryScene(
-                            key: _storyKey,
-                            chapter: _chapter,
-                            onMemoryOpened: () {
-                              if (mounted) setState(() => _memoryOpened = true);
-                            },
-                            onEnrichmentComplete: () => unawaited(
-                              ref
-                                  .read(onboardingFlowCoordinatorProvider)
-                                  .trackTransformation(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  _StoryCopy(chapter: _chapter, memoryOpened: _memoryOpened),
-                  if (_completionError != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          _completionError!,
-                          textAlign: TextAlign.center,
-                          style: base.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ),
-                  _StoryPositionIndicator(activeIndex: _storyPosition),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 472),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: FilledButton(
-                          key: const ValueKey('onboarding-primary-cta'),
-                          onPressed: _primaryAction,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 160),
-                            layoutBuilder: (current, previous) =>
-                                current ?? const SizedBox.shrink(),
-                            child: _CtaLabel(
-                              key: ValueKey(
-                                'cta-$_chapter-$_transitioning-$_memoryOpened-$_finishing',
+        value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+            .copyWith(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: scheme.surface,
+            ),
+        child: PopScope(
+          canPop: chapter == 0 && !_finishing,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && chapter > 0 && !_finishing) _move(-1);
+          },
+          child: Scaffold(
+            body: SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 540),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: IconButton(
+                                  tooltip: l.obBack,
+                                  onPressed: chapter > 0 && !_finishing
+                                      ? () => _move(-1)
+                                      : null,
+                                  icon: const Icon(Icons.arrow_back),
+                                ),
                               ),
-                              label: _ctaLabel,
-                              icon: _ctaIcon,
                             ),
+                            Expanded(
+                              child: Semantics(
+                                liveRegion: true,
+                                label: l.obPosition(
+                                  chapter + 1,
+                                  OnboardingChapterController.count,
+                                ),
+                                child: ExcludeSemantics(
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(
+                                      OnboardingChapterController.count,
+                                      (i) => AnimatedContainer(
+                                        duration:
+                                            MediaQuery.disableAnimationsOf(
+                                              context,
+                                            )
+                                            ? Duration.zero
+                                            : const Duration(milliseconds: 280),
+                                        curve: Curves.easeInOutCubic,
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 3,
+                                        ),
+                                        width: i == chapter ? 20 : 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: i == chapter
+                                              ? scheme.primary
+                                              : scheme.outlineVariant,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: _finishing
+                                      ? null
+                                      : () => _finish(skip: true),
+                                  child: Text(l.obSkip),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: PageView.builder(
+                          controller: _pages,
+                          itemCount: OnboardingChapterController.count,
+                          onPageChanged: _onPageChanged,
+                          itemBuilder: (context, index) => Column(
+                            children: [
+                              Expanded(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) =>
+                                      SingleChildScrollView(
+                                        key: PageStorageKey(
+                                          'onboarding-chapter-$index',
+                                        ),
+                                        padding: const EdgeInsets.fromLTRB(
+                                          20,
+                                          10,
+                                          20,
+                                          12,
+                                        ),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            minHeight:
+                                                (constraints.maxHeight - 22)
+                                                    .clamp(
+                                                      0.0,
+                                                      double.infinity,
+                                                    ),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Semantics(
+                                                header: true,
+                                                child: Text(
+                                                  titles[index],
+                                                  style:
+                                                      AppTypography.editorial(
+                                                        theme
+                                                            .textTheme
+                                                            .headlineLarge,
+                                                        color: scheme.onSurface,
+                                                        fontSize: 40,
+                                                        fontWeight:
+                                                            FontWeight.w400,
+                                                        letterSpacing: -.8,
+                                                        height: 1.06,
+                                                      ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Text(
+                                                bodies[index],
+                                                style: theme.textTheme.bodyLarge
+                                                    ?.copyWith(
+                                                      color: scheme
+                                                          .onSurfaceVariant,
+                                                      height: 1.5,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 20),
+                                              OnboardingScene(
+                                                chapter: index,
+                                                active: index == chapter,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                ),
+                              ),
+                              if (index ==
+                                      OnboardingChapterController.count - 1 &&
+                                  !pro) ...[
+                                const SizedBox(height: 4),
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween(
+                                    begin: 0,
+                                    end: index == chapter ? 1 : 0,
+                                  ),
+                                  duration:
+                                      MediaQuery.disableAnimationsOf(context)
+                                      ? Duration.zero
+                                      : const Duration(milliseconds: 280),
+                                  curve: Curves.easeInOutCubic,
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: TextButton(
+                                      onPressed: _finishing
+                                          ? null
+                                          : () => _finish(),
+                                      child: Text(l.obStartFree),
+                                    ),
+                                  ),
+                                  builder: (context, value, child) => Opacity(
+                                    opacity: value,
+                                    child: Transform.translate(
+                                      offset: Offset(0, 6 * (1 - value)),
+                                      child: child,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_failed)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Semantics(
+                                  liveRegion: true,
+                                  child: Text(
+                                    l.obError,
+                                    style: TextStyle(color: scheme.error),
+                                  ),
+                                ),
+                              ),
+                            FilledButton(
+                              key: const ValueKey('onboarding-primary-cta'),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 17,
+                                ),
+                              ),
+                              onPressed: _finishing
+                                  ? null
+                                  : () {
+                                      if (chapter <
+                                          OnboardingChapterController.count -
+                                              1) {
+                                        _move(1);
+                                      } else {
+                                        unawaited(_finish(pro: !pro));
+                                      }
+                                    },
+                              child: Text(
+                                chapter == 0
+                                    ? l.obBegin
+                                    : chapter <
+                                          OnboardingChapterController.count - 1
+                                    ? l.obContinue
+                                    : pro
+                                    ? l.obContinuePro
+                                    : l.obExplorePro,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  int get _storyPosition {
-    if (_chapter < 3) return _chapter;
-    return _memoryOpened ? 4 : 3;
-  }
-
-  String get _ctaLabel {
-    if (_finishing) return 'Opening Glimpse';
-    if (_transitioning) return 'Saved to Glimpse';
-    if (_completionError != null) return 'Try again';
-    return switch (_chapter) {
-      0 => 'Show me how to save',
-      1 => 'Save to Glimpse',
-      2 => 'See it return',
-      _ => _memoryOpened ? 'Enter Glimpse' : 'Open the memory',
-    };
-  }
-
-  IconData? get _ctaIcon {
-    if (_finishing || _transitioning) return AppIcons.check;
-    return switch (_chapter) {
-      0 => AppIcons.arrowForward,
-      1 => AppIcons.bookmarkAdd,
-      2 => AppIcons.rediscover,
-      _ => _memoryOpened ? AppIcons.arrowForward : AppIcons.tap,
-    };
-  }
-}
-
-class _Navigation extends StatelessWidget {
-  const _Navigation({
-    required this.showBack,
-    required this.backEnabled,
-    required this.skipEnabled,
-    required this.onBack,
-    required this.onSkip,
-  });
-
-  final bool showBack;
-  final bool backEnabled;
-  final bool skipEnabled;
-  final VoidCallback onBack;
-  final VoidCallback onSkip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: SizedBox(
-        height: 56,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 48,
-              child: showBack
-                  ? IconButton(
-                      onPressed: backEnabled ? onBack : null,
-                      tooltip: 'Previous step',
-                      icon: const AppIcon(AppIcons.arrowBack),
-                    )
-                  : null,
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: skipEnabled ? onSkip : null,
-              child: const Text('Skip'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StoryCopy extends StatelessWidget {
-  const _StoryCopy({required this.chapter, required this.memoryOpened});
-
-  final int chapter;
-  final bool memoryOpened;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5);
-    final content = switch (chapter) {
-      0 => (
-        headline: 'Find something worth keeping.',
-        body: 'A trip, recipe, or idea worth returning to.',
-      ),
-      1 => (
-        headline: 'Save it from anywhere.',
-        body: 'Share. Choose Glimpse. Done.',
-      ),
-      2 => (
-        headline: 'Glimpse remembers the details.',
-        body: 'Summary, tags, and intent—organized automatically.',
-      ),
-      3 when !memoryOpened => (
-        headline: "Timed to when you'll actually need it.",
-        body: 'Not a random ping—a well-timed one.',
-      ),
-      _ => (
-        headline: 'It comes back when it matters.',
-        body: 'Not another forgotten bookmark.',
-      ),
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 472),
-        child: SizedBox(
-          width: double.infinity,
-          height: 112 * scale,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            layoutBuilder: (current, previous) =>
-                current ?? const SizedBox.shrink(),
-            child: Column(
-              key: ValueKey('copy-$chapter-$memoryOpened'),
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  content.headline,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.editorial(
-                    Theme.of(context).textTheme.headlineMedium,
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 29,
-                    fontWeight: FontWeight.w600,
-                    height: 1.06,
-                    letterSpacing: -0.25,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                Text(
-                  content.body,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StoryPositionIndicator extends StatelessWidget {
-  const _StoryPositionIndicator({required this.activeIndex});
-
-  final int activeIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      key: const ValueKey('onboarding-position-indicator'),
-      label: 'Step ${activeIndex + 1} of 5',
-      child: SizedBox(
-        height: 12,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var index = 0; index < 5; index++) ...[
-              AnimatedContainer(
-                key: ValueKey('onboarding-position-$index'),
-                duration: const Duration(milliseconds: 180),
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: index == activeIndex
-                      ? OnboardingPalette.sage
-                      : Colors.white.withValues(alpha: 0.24),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              if (index < 4) const SizedBox(width: 8),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CtaLabel extends StatelessWidget {
-  const _CtaLabel({super.key, required this.label, required this.icon});
-
-  final String label;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null) ...[
-          AppIcon(icon!, size: 20),
-          const SizedBox(width: 8),
-        ],
-        Text(label),
-      ],
     );
   }
 }

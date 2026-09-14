@@ -1,4 +1,6 @@
 import 'dart:developer' as developer;
+import '../../core/services/demo_seed_service.dart';
+import '../../l10n/l10n.dart';
 import 'dart:math' show Random, min;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -608,6 +610,31 @@ class AskNotifier extends StateNotifier<AskState> {
     final isarService = _ref.read(isarServiceProvider);
 
     try {
+      final hasSampleContext =
+          preloadedSources?.any(
+                (url) => DemoSeedService.isDemoUrl(url.rawUrl),
+              ) ==
+              true ||
+          await DemoSeedService.demoId() != null;
+      if (hasSampleContext) {
+        final sources = preloadedSources?.isNotEmpty == true
+            ? preloadedSources!
+            : await isarService.getAllUrls();
+        if (sources.isNotEmpty &&
+            sources.every((url) => DemoSeedService.isDemoUrl(url.rawUrl))) {
+          final l = await loadBackgroundLocalizations();
+          _addBotMessage(
+            '${l.obExample}\n\n${l.obSummary}',
+            sources: sources,
+            answerType: ChatAnswerType.fallback,
+            canSaveAsNote: false,
+          );
+          return;
+        }
+        preloadedSources = preloadedSources
+            ?.where((url) => !DemoSeedService.isDemoUrl(url.rawUrl))
+            .toList();
+      }
       if (await _ref.read(networkStatusServiceProvider).isDefinitelyOffline()) {
         final localContext = preloadedSources?.isNotEmpty == true
             ? preloadedSources!.take(3).toList()

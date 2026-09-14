@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../onboarding/first_use_guide.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,6 +90,7 @@ class _GlimpsesScreenState extends ConsumerState<GlimpsesScreen>
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 36),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
+                if (current.isNotEmpty) const FirstUseGuide(kind: FirstUseKind.rediscover),
                 Material(
                   color: theme.colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(24),

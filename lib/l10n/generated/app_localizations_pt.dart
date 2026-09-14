@@ -2889,4 +2889,275 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get glimpsesReviewConsent =>
       'Resumos e destaques selecionados são enviados para uma IA na nuvem. Suas notas pessoais ficam no dispositivo. Usa até 1 solicitação do Ask por semana. Seu histórico local funciona com esta opção desativada.';
+
+  @override
+  String get obTitle1 => 'Guarde o que desperta sua curiosidade.';
+
+  @override
+  String get obTitle2 => 'Mais que um link salvo.';
+
+  @override
+  String get obTitle3 => 'Uma biblioteca que ganha forma.';
+
+  @override
+  String get obTitle4 => 'Encontre. Pergunte sobre isso.';
+
+  @override
+  String get obTitle5 => 'Volte com um propósito.';
+
+  @override
+  String get obTitle6 => 'Comece grátis. Vá além com o Pro.';
+
+  @override
+  String get obBody1 => 'Guarde suas descobertas. Faça mais com elas.';
+
+  @override
+  String get obBody2 =>
+      'Transforme links salvos em ideias claras e detalhes úteis.';
+
+  @override
+  String get obBody3 =>
+      'Ideias relacionadas se reúnem em interesses, naturalmente.';
+
+  @override
+  String get obBody4 =>
+      'Pergunte com suas palavras. Encontre respostas no que salvou.';
+
+  @override
+  String get obBody5 =>
+      'Volte por uma nova conexão ou no momento que escolher.';
+
+  @override
+  String get obBody6 => 'Salve à vontade. O Pro dá mais espaço para a IA.';
+
+  @override
+  String get obBegin => 'Veja as possibilidades';
+
+  @override
+  String get obContinue => 'Continuar';
+
+  @override
+  String get obSkip => 'Pular';
+
+  @override
+  String get obBack => 'Capítulo anterior';
+
+  @override
+  String get obExample => 'Exemplo ilustrativo';
+
+  @override
+  String get obOverview => 'Visão geral';
+
+  @override
+  String get obPlaces => 'Lugares';
+
+  @override
+  String get obBooks => 'Livros';
+
+  @override
+  String get obMovies => 'Filmes';
+
+  @override
+  String get obMusic => 'Música';
+
+  @override
+  String get obSummary =>
+      'Explore destinos franceses menos conhecidos para uma viagem mais autêntica, aliviando a pressão sobre os lugares mais visitados.';
+
+  @override
+  String get obPoint =>
+      'Vá além dos pontos mais movimentados: a França tem muito a descobrir.';
+
+  @override
+  String get obPlaceNote =>
+      'Apresentado pelo criador como um destino recomendado.';
+
+  @override
+  String get obShare => 'Compartilhar → Glimpse, ou cole um link';
+
+  @override
+  String get obCollected => 'Descoberto nos seus links';
+
+  @override
+  String get obCollection => 'Sua coleção · Um fim de semana tranquilo';
+
+  @override
+  String get obInterests => 'Interesses surgindo · Viagens e criatividade';
+
+  @override
+  String get obBookExample => 'Um guia de criatividade no dia a dia';
+
+  @override
+  String get obMovieExample => 'Um filme para uma noite tranquila';
+
+  @override
+  String get obMusicExample => 'Uma música para a viagem';
+
+  @override
+  String get obQuestion =>
+      'Quais eram aqueles lugares na França que eu salvei?';
+
+  @override
+  String get obAnswer =>
+      'Encontrei no seu guia da França:\n\n**Gorges du Tarn** — uma paisagem de desfiladeiros.\n\n**Cascade de l’Éventail** — uma parada em uma cachoeira.\n\n**Abbaye de Moissac** — uma abadia histórica.\n\nO guia reúne natureza e história além dos pontos turísticos habituais. Esses três lugares são um ponto de partida para esse tipo de viagem.';
+
+  @override
+  String get obSemantic =>
+      'Pro · Encontre pelo significado, além das palavras exatas';
+
+  @override
+  String get obRediscover => 'Além dos lugares movimentados';
+
+  @override
+  String get obRevisit => 'Preparar esta receita no fim de semana.';
+
+  @override
+  String get obFree => 'Grátis';
+
+  @override
+  String get obUnlimited => 'Links comuns sem limite';
+
+  @override
+  String get obFairUse =>
+      'Mais acesso a perguntas e buscas, sujeito a uso justo';
+
+  @override
+  String get obStartFree => 'Começar grátis';
+
+  @override
+  String get obExplorePro => 'Conhecer o Pro';
+
+  @override
+  String get obContinuePro => 'Continuar com o Pro';
+
+  @override
+  String get obError =>
+      'Não foi possível salvar seu progresso. Tente novamente.';
+
+  @override
+  String get obDismiss => 'Fechar guia';
+
+  @override
+  String get obFirstSave => 'Salve sua primeira descoberta';
+
+  @override
+  String get obCopy => 'Copie um link e cole no Glimpse';
+
+  @override
+  String get obReaderGuide =>
+      'Leia as ideias aqui e use o Ask para explorar seu link com as fontes.';
+
+  @override
+  String get obLibraryGuide =>
+      'Estes itens vêm dos seus links. Suas coleções reúnem os links que você escolher.';
+
+  @override
+  String get obRediscoverGuide =>
+      'Abra uma ideia para voltar às fontes. As intenções ajudam você a retornar quando escolher.';
+
+  @override
+  String get obNotifyTitle => 'Abra espaço para um lembrete útil';
+
+  @override
+  String get obNotifyBody =>
+      'Ative alertas para intenções de retorno e ideias dos seus links. Você pode mudar isso nas configurações.';
+
+  @override
+  String get obNotifyEnable => 'Ativar notificações';
+
+  @override
+  String get obNotNow => 'Agora não';
+
+  @override
+  String get obAlertsOff =>
+      'Os alertas estão desativados. Suas intenções ficam no app.';
+
+  @override
+  String get obOpenSettings => 'Abrir configurações de notificações';
+
+  @override
+  String get obPermissionError =>
+      'Não foi possível atualizar as notificações. Tente novamente.';
+
+  @override
+  String obPosition(int current, int total) {
+    return 'Capítulo $current de $total';
+  }
+
+  @override
+  String obFreeAi(int count) {
+    return '$count links enriquecidos por IA no total';
+  }
+
+  @override
+  String obMonthlyAsk(int count) {
+    return '$count perguntas por mês';
+  }
+
+  @override
+  String obMonthlySearch(int count) {
+    return '$count buscas por mês';
+  }
+
+  @override
+  String obProAi(int count) {
+    return '$count links enriquecidos por IA por mês';
+  }
+
+  @override
+  String get obTakeaway2 =>
+      'Compartilhar lugares tranquilos também pode colocá-los em risco de superlotação.';
+
+  @override
+  String get obTakeaway3 =>
+      'O criador apresenta viagens rurais como experiências que dão vontade de voltar.';
+
+  @override
+  String get obCooking => 'Receitas e culinária';
+
+  @override
+  String get obSoftware => 'Software e IA';
+
+  @override
+  String get obTravel => 'Viagens';
+
+  @override
+  String get obInterestNote =>
+      'Conteúdos relacionados se agrupam por conceitos em comum, para que seus interesses continuem claros enquanto sua biblioteca cresce.';
+
+  @override
+  String get obAutomatic => 'Conexões encontradas para você';
+
+  @override
+  String get obAutomaticNote =>
+      'O novo conteúdo que você salvou sobre o campo se conecta a este guia anterior da França.';
+
+  @override
+  String get obChosen => 'Uma volta que você escolhe';
+
+  @override
+  String get obChosenNote =>
+      'Guarde algo para o momento que você escolher. Os lembretes são opcionais.';
+
+  @override
+  String get obSaveTitle => 'França autêntica · Destinos menos conhecidos';
+
+  @override
+  String get obSaveSearch => 'França';
+
+  @override
+  String get obPlaceOne => 'Gorges du Tarn';
+
+  @override
+  String get obPlaceTwo => 'Cascade de l’Éventail';
+
+  @override
+  String get obRealExample => 'De um conteúdo real · prévia resumida';
+
+  @override
+  String get obPreparedAnswer => 'Resposta de exemplo preparada';
+
+  @override
+  String get obLibraryBody =>
+      'Livros, filmes, músicas e lugares, descobertos no que você salva.';
 }

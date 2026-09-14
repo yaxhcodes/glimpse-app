@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../onboarding/first_use_guide.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,6 +72,8 @@ class _LibraryHomeState extends ConsumerState<LibraryHome> {
         return CustomScrollView(
           key: const PageStorageKey('automatic-library-home'),
           slivers: [
+            SliverPadding(padding: EdgeInsets.symmetric(horizontal: horizontal),
+              sliver: const SliverToBoxAdapter(child: FirstUseGuide(kind: FirstUseKind.library))),
             if (backfill.isRunning || backfill.failed > 0)
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(horizontal, 6, horizontal, 0),

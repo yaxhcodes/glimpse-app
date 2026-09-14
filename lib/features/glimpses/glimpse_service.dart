@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../core/services/demo_seed_service.dart';
 import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
@@ -46,7 +47,9 @@ class GlimpseService {
 
   Future<List<StoredGlimpse>> _refresh() async {
     final now = DateTime.now();
-    final urls = await isar.getAllUrls();
+    final urls = (await isar.getAllUrls())
+        .where((url) => !DemoSeedService.isDemoUrl(url.rawUrl))
+        .toList(growable: false);
     final byId = {for (final url in urls) url.id: url};
     final events = await isar.recentEvents();
     final candidates = await compute(

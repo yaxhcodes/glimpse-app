@@ -289,10 +289,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         messenger
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Tip: You can share links directly to Glimpse from any app',
-              ),
+            SnackBar(
+              content: Text(strings.obShare),
               behavior: SnackBarBehavior.floating,
               duration: Duration(seconds: 3),
             ),
@@ -704,7 +702,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         !ref.watch(hasSeenGuideCardProvider) &&
         !simulateFirstSave &&
         !forceEmptyLibrary &&
-        actualUrls.isNotEmpty;
+        actualUrls.length == 1 &&
+        DemoSeedService.isDemoUrl(actualUrls.single.rawUrl);
 
     final isEmpty = urls.isEmpty;
     final scrollCaptureActive = ScrollCaptureScope.isCapturingOf(context);

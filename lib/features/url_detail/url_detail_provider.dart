@@ -6,6 +6,7 @@ import '../../core/providers/usage_providers.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/saved_url_enrichment_state.dart';
 import '../../core/services/usage_limits.dart';
+import '../../core/services/demo_seed_service.dart';
 
 final urlDetailChangesProvider = StreamProvider.autoDispose.family<void, int>(
   (ref, id) => ref.watch(isarServiceProvider).watchUrlChanges(id),
@@ -88,6 +89,10 @@ class UrlDetailNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       final isPro = _ref.read(isProUserProvider);
+      if (DemoSeedService.isDemoUrl(url.rawUrl)) {
+        state = const AsyncData(null);
+        return false;
+      }
       final limitReached = await _ref
           .read(usageServiceProvider)
           .hasReachedLimit(UsageFeature.aiSave, isPro);
