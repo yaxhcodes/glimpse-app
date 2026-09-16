@@ -13,6 +13,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/dev_auth_service.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import 'auth_backdrop.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key, this.isOnboardingEntry = false});
@@ -82,117 +83,126 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             brightness: Brightness.dark,
           );
 
-    return Theme(
-      data: theme.copyWith(colorScheme: darkScheme),
-      child: Builder(
-        builder: (context) {
-          final localTheme = Theme.of(context);
-          final localCs = localTheme.colorScheme;
-          return Scaffold(
-            backgroundColor: const Color(0xFF050505),
-            body: AnimatedOpacity(
-              opacity: _exiting ? 0 : 1,
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              child: SafeArea(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final layout = _AuthLayoutMetrics.from(
-                      constraints,
-                      MediaQuery.textScalerOf(context),
-                    );
-                    final identity = _IdentityBlock(
-                      logo: _animatedLogo(size: layout.logoSize),
-                      titleStyle: localTheme.textTheme.displaySmall?.copyWith(
-                        color: localCs.onSurface,
-                        fontSize: layout.titleSize,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
-                      ),
-                      subtitleStyle: localTheme.textTheme.titleMedium?.copyWith(
-                        color: localCs.onSurfaceVariant,
-                        fontSize: layout.subtitleSize,
-                        height: 1.35,
-                      ),
-                      subtitle: widget.isOnboardingEntry
-                          ? 'Start private. Stay local-first.'
-                          : 'Your knowledge, ready whenever you are.',
-                    );
-                    final actions = _ActionBlock(
-                      accountHint: accountHint,
-                      isConfigured: isConfigured,
-                      isLoading: isLoading,
-                      isLocalDevAuth: isLocalDevAuth,
-                      helperInset: layout.copyInset,
-                      onContinueHint: () => unawaited(
-                        _startAuthentication(
-                          ref
-                              .read(authControllerProvider.notifier)
-                              .signInWithGoogleHint,
-                        ),
-                      ),
-                      onContinueGoogle: () => unawaited(
-                        _startAuthentication(
-                          ref
-                              .read(authControllerProvider.notifier)
-                              .signInWithGoogle,
-                        ),
-                      ),
-                      onContinueApple: () => unawaited(
-                        _startAuthentication(
-                          ref
-                              .read(authControllerProvider.notifier)
-                              .signInWithApple,
-                        ),
-                      ),
-                      onPrivacyPolicy: _openPrivacyPolicy,
-                    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemStatusBarContrastEnforced: false,
+      ),
+      child: Theme(
+        data: theme.copyWith(
+          colorScheme: darkScheme.copyWith(
+            primary: const Color(0xFFB8CBB0),
+            onSurface: const Color(0xFFF3EEDC),
+            onSurfaceVariant: const Color(0xFFC4C5BA),
+          ),
+        ),
+        child: Builder(
+          builder: (context) {
+            final localTheme = Theme.of(context);
+            final localCs = localTheme.colorScheme;
+            return Scaffold(
+              backgroundColor: const Color(0xFF050505),
+              body: AnimatedOpacity(
+                opacity: _exiting ? 0 : 1,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                child: Stack(
+                  children: [
+                    const Positioned.fill(child: AuthBackdrop()),
+                    SafeArea(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final compact = constraints.maxWidth < 390;
+                          final identity = _IdentityBlock(
+                            logo: _animatedLogo(size: compact ? 112 : 128),
+                            isOnboardingEntry: widget.isOnboardingEntry,
+                          );
+                          final actions = _ActionBlock(
+                            accountHint: accountHint,
+                            isConfigured: isConfigured,
+                            isLoading: isLoading,
+                            isLocalDevAuth: isLocalDevAuth,
+                            onContinueHint: () => unawaited(
+                              _startAuthentication(
+                                ref
+                                    .read(authControllerProvider.notifier)
+                                    .signInWithGoogleHint,
+                              ),
+                            ),
+                            onContinueGoogle: () => unawaited(
+                              _startAuthentication(
+                                ref
+                                    .read(authControllerProvider.notifier)
+                                    .signInWithGoogle,
+                              ),
+                            ),
+                            onContinueApple: () => unawaited(
+                              _startAuthentication(
+                                ref
+                                    .read(authControllerProvider.notifier)
+                                    .signInWithApple,
+                              ),
+                            ),
+                            onPrivacyPolicy: _openPrivacyPolicy,
+                          );
 
-                    return Padding(
-                      padding: layout.padding,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 430),
-                          child: layout.scrollable
-                              ? _ScrollableAuthContent(
-                                  identity: identity,
-                                  actions: actions,
-                                  topGap: layout.scrollTopGap,
-                                  middleGap: layout.scrollMiddleGap,
-                                  bottomGap: layout.scrollBottomGap,
-                                )
-                              : Column(
-                                  children: [
-                                    Expanded(
-                                      flex: 58,
-                                      child: Align(
-                                        alignment: const Alignment(0, 0.3),
-                                        child: identity,
+                          return Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 478),
+                              child: CustomScrollView(
+                                slivers: [
+                                  SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: Padding(
+                                      padding: EdgeInsets.fromLTRB(
+                                        compact ? 24 : 32,
+                                        24,
+                                        compact ? 24 : 32,
+                                        12,
                                       ),
-                                    ),
-                                    Expanded(
-                                      flex: 42,
-                                      child: Align(
-                                        alignment: Alignment.bottomCenter,
-                                        child: Padding(
-                                          padding: EdgeInsets.only(
-                                            bottom: layout.actionBottomInset,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Glimpse',
+                                            style: localTheme
+                                                .textTheme
+                                                .titleLarge
+                                                ?.copyWith(
+                                                  color: localCs.onSurface,
+                                                  fontWeight: FontWeight.w700,
+                                                  letterSpacing: -0.6,
+                                                ),
                                           ),
-                                          child: actions,
-                                        ),
+                                          const Spacer(),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 32,
+                                            ),
+                                            child: identity,
+                                          ),
+                                          const Spacer(),
+                                          actions,
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -247,97 +257,51 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 }
 
-class _AuthLayoutMetrics {
-  const _AuthLayoutMetrics({
-    required this.padding,
-    required this.logoSize,
-    required this.titleSize,
-    required this.subtitleSize,
-    required this.actionBottomInset,
-    required this.copyInset,
-    required this.scrollable,
-    required this.scrollTopGap,
-    required this.scrollMiddleGap,
-    required this.scrollBottomGap,
-  });
-
-  final EdgeInsets padding;
-  final double logoSize;
-  final double titleSize;
-  final double subtitleSize;
-  final double actionBottomInset;
-  final double copyInset;
-  final bool scrollable;
-  final double scrollTopGap;
-  final double scrollMiddleGap;
-  final double scrollBottomGap;
-
-  factory _AuthLayoutMetrics.from(
-    BoxConstraints constraints,
-    TextScaler textScaler,
-  ) {
-    final width = constraints.maxWidth;
-    final height = constraints.maxHeight;
-    final compactWidth = width < 390;
-    final textScale = textScaler.scale(1);
-    final scaledText = textScale > 1.18;
-
-    return _AuthLayoutMetrics(
-      padding: EdgeInsets.fromLTRB(
-        compactWidth ? 20 : 24,
-        24,
-        compactWidth ? 20 : 24,
-        20,
-      ),
-      logoSize: compactWidth || scaledText ? 80 : 86,
-      titleSize: compactWidth || scaledText ? 43 : 48,
-      subtitleSize: compactWidth || scaledText ? 20 : 22,
-      actionBottomInset: height < 720 ? 10 : 18,
-      copyInset: compactWidth ? 8 : 18,
-      scrollable: height < 640,
-      scrollTopGap: 48,
-      scrollMiddleGap: 76,
-      scrollBottomGap: 14,
-    );
-  }
-}
-
 class _IdentityBlock extends StatelessWidget {
-  const _IdentityBlock({
-    required this.logo,
-    required this.titleStyle,
-    required this.subtitleStyle,
-    required this.subtitle,
-  });
+  const _IdentityBlock({required this.logo, required this.isOnboardingEntry});
 
   final Widget logo;
-  final TextStyle? titleStyle;
-  final TextStyle? subtitleStyle;
-  final String subtitle;
+  final bool isOnboardingEntry;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         logo,
-        const SizedBox(height: 34),
-        Text(
-          'Glimpse',
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: titleStyle,
+        const SizedBox(height: 24),
+        Semantics(
+          header: true,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: 'Good finds.\n'),
+                TextSpan(
+                  text: 'Never forgotten.',
+                  style: TextStyle(color: cs.primary),
+                ),
+              ],
+            ),
+            style: theme.textTheme.displaySmall?.copyWith(
+              color: cs.onSurface,
+              fontSize: 38,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.4,
+              height: 1.12,
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: subtitleStyle,
+        const SizedBox(height: 18),
+        Text(
+          isOnboardingEntry
+              ? 'Save links. Find the ideas inside.\nBuild a library that stays with you.'
+              : 'Save links. Find the ideas inside.\nCome back to what matters.',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: cs.onSurfaceVariant,
+            height: 1.5,
           ),
         ),
       ],
@@ -351,7 +315,6 @@ class _ActionBlock extends StatelessWidget {
     required this.isConfigured,
     required this.isLoading,
     required this.isLocalDevAuth,
-    required this.helperInset,
     required this.onContinueHint,
     required this.onContinueGoogle,
     required this.onContinueApple,
@@ -362,7 +325,6 @@ class _ActionBlock extends StatelessWidget {
   final bool isConfigured;
   final bool isLoading;
   final bool isLocalDevAuth;
-  final double helperInset;
   final VoidCallback onContinueHint;
   final VoidCallback onContinueGoogle;
   final VoidCallback onContinueApple;
@@ -384,26 +346,14 @@ class _ActionBlock extends StatelessWidget {
           onContinueGoogle: onContinueGoogle,
           onContinueApple: onContinueApple,
         ),
-        const SizedBox(height: 16),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: helperInset),
-          child: Text(
-            'Private by default. Your knowledge belongs to you.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant.withValues(alpha: 0.82),
-              height: 1.35,
-            ),
-          ),
-        ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         TextButton(
           onPressed: onPrivacyPolicy,
           style: TextButton.styleFrom(
             foregroundColor: cs.primary.withValues(alpha: 0.9),
             textStyle: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
+              letterSpacing: 0,
             ),
           ),
           child: const Text('Privacy Policy'),
@@ -427,38 +377,6 @@ class _ActionBlock extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _ScrollableAuthContent extends StatelessWidget {
-  const _ScrollableAuthContent({
-    required this.identity,
-    required this.actions,
-    required this.topGap,
-    required this.middleGap,
-    required this.bottomGap,
-  });
-
-  final Widget identity;
-  final Widget actions;
-  final double topGap;
-  final double middleGap;
-  final double bottomGap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        children: [
-          SizedBox(height: topGap),
-          identity,
-          SizedBox(height: middleGap),
-          actions,
-          SizedBox(height: bottomGap),
-        ],
-      ),
     );
   }
 }
@@ -495,19 +413,30 @@ class _AuthActions extends StatelessWidget {
             loading: isLoading,
             onPressed: onContinueHint,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
         ],
-        _AuthPillButton(
-          label: isLocalDevAuth
-              ? 'Continue in local dev'
-              : 'Continue with Google',
-          leading: isLocalDevAuth
-              ? const Icon(AppIcons.code, size: 22)
-              : SvgPicture.asset('assets/brands/google.svg', width: 24),
-          enabled: canSubmit,
-          loading: isLoading && (accountHint == null || isLocalDevAuth),
-          onPressed: onContinueGoogle,
-        ),
+        if (accountHint != null && !isLocalDevAuth)
+          TextButton(
+            onPressed: canSubmit ? onContinueGoogle : null,
+            style: TextButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            child: const Text('Use another Google account'),
+          )
+        else
+          _AuthPillButton(
+            label: isLocalDevAuth
+                ? 'Continue in local dev'
+                : 'Continue with Google',
+            leading: isLocalDevAuth
+                ? const Icon(AppIcons.code, size: 22)
+                : SvgPicture.asset('assets/brands/google.svg', width: 24),
+            enabled: canSubmit,
+            loading: isLoading && (accountHint == null || isLocalDevAuth),
+            onPressed: onContinueGoogle,
+            primary: true,
+          ),
         if (Platform.isIOS || Platform.isMacOS) ...[
           const SizedBox(height: 12),
           _AuthPillButton(
@@ -544,10 +473,8 @@ class _AccountHintButton extends StatelessWidget {
     final accountName = name == null || name.isEmpty ? null : name;
     final title = accountName == null
         ? 'Continue with Google'
-        : 'Continue with this account';
-    final accountLine = accountName == null
-        ? hint.email
-        : '$accountName - ${hint.email}';
+        : 'Continue as $accountName';
+    final accountLine = hint.email;
     return Semantics(
       button: true,
       enabled: enabled,
@@ -556,13 +483,13 @@ class _AccountHintButton extends StatelessWidget {
         enabled: enabled,
         child: Material(
           color: enabled ? cs.onSurface : cs.onSurface.withValues(alpha: 0.34),
-          borderRadius: BorderRadius.circular(34),
+          borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: enabled ? onPressed : null,
             canRequestFocus: enabled,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 76),
+              constraints: const BoxConstraints(minHeight: 72),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,
@@ -583,7 +510,7 @@ class _AccountHintButton extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: cs.surface,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -627,8 +554,10 @@ class _AuthPillButton extends StatelessWidget {
     required this.enabled,
     required this.loading,
     required this.onPressed,
+    this.primary = false,
   });
 
+  final bool primary;
   final String label;
   final Widget leading;
   final bool enabled;
@@ -653,21 +582,22 @@ class _AuthPillButton extends StatelessWidget {
                   height: 18,
                   child: ExpressiveLoadingIndicator(
                     size: 18,
-                    color: cs.onSurface,
+                    color: primary ? cs.surface : cs.onSurface,
                   ),
                 )
               : leading,
           label: Text(label),
           style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(66),
-            foregroundColor: cs.onSurface,
+            minimumSize: const Size.fromHeight(60),
+            backgroundColor: primary ? cs.onSurface : null,
+            foregroundColor: primary ? cs.surface : cs.onSurface,
             disabledForegroundColor: cs.onSurface.withValues(alpha: 0.38),
             textStyle: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
             side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.38)),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(34),
+              borderRadius: BorderRadius.circular(24),
             ),
           ),
         ),
