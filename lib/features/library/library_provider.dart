@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/service_providers.dart';
+import '../../core/models/saved_url.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/ai/ai_transport.dart';
 import '../../core/services/analytics_service.dart';
@@ -73,19 +74,37 @@ final libraryPreferencesProvider =
       (ref) => LibraryPreferencesNotifier(),
     );
 
-final _libraryIndexCacheProvider = Provider<LibraryIndexCache>(
-  (ref) => LibraryIndexCache(),
-);
+class _AsyncLibraryIndex {
+  LibraryIndexCache? _cache;
 
-final libraryCandidatesProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
+  Future<LibrarySnapshot> build(
+    List<SavedUrl> urls,
+    Set<String> hiddenKeys,
+  ) async {
+    // Let the collections tab paint its loading state before the first large
+    // index build. The cache keeps subsequent switches incremental.
+    await Future<void>.delayed(Duration.zero);
+    final cache = _cache ??= LibraryIndexCache();
+    return cache.build(urls, hiddenKeys: hiddenKeys);
+  }
+}
+
+final _libraryIndexCacheProvider = Provider((ref) => _AsyncLibraryIndex());
+
+final _libraryCandidatesAsyncProvider = FutureProvider<LibrarySnapshot>((
+  ref,
+) async {
   final hidden = ref.watch(
     libraryPreferencesProvider.select((state) => state.hiddenEntityKeys),
   );
   final cache = ref.watch(_libraryIndexCacheProvider);
-  return ref
-      .watch(urlStreamProvider)
-      .whenData((urls) => cache.build(urls, hiddenKeys: hidden));
+  final urls = await ref.watch(urlStreamProvider.future);
+  return cache.build(urls, hidden);
 });
+
+final libraryCandidatesProvider = Provider<AsyncValue<LibrarySnapshot>>(
+  (ref) => ref.watch(_libraryCandidatesAsyncProvider),
+);
 
 final librarySnapshotProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
   ref.listen(libraryCandidatesProvider, (_, next) {
@@ -107,11 +126,7 @@ final librarySnapshotProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
 Future<LibrarySnapshot> loadLibrarySnapshot(WidgetRef ref) async {
   final current = ref.read(librarySnapshotProvider).valueOrNull;
   if (current != null) return current;
-  final urls = await ref.read(urlStreamProvider.future);
-  final hidden = ref.read(libraryPreferencesProvider).hiddenEntityKeys;
-  final snapshot = ref
-      .read(_libraryIndexCacheProvider)
-      .build(urls, hiddenKeys: hidden);
+  final snapshot = await ref.read(_libraryCandidatesAsyncProvider.future);
   return ref.read(musicLibraryProvider).applyTo(snapshot);
 }
 

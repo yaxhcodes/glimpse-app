@@ -35,7 +35,7 @@ import java.io.File
  *                                 new ACTION_VIEW intent arrives while
  *                                 the app is already running.
  */
-class MainActivity : FlutterFragmentActivity() {
+open class MainActivity : FlutterFragmentActivity() {
     private val backupChannelName = "com.shinrinyoku.glimpse/backup_intent"
     private val shortcutChannelName = "com.shinrinyoku.glimpse/app_shortcut"
     private val appTaskChannelName = "com.shinrinyoku.glimpse/app_task"
@@ -160,7 +160,14 @@ class MainActivity : FlutterFragmentActivity() {
                 when (call.method) {
                     // Keep the Activity and Flutter engine alive while returning
                     // the user to the app that opened Android's share sheet.
-                    "moveToBackground" -> result.success(moveTaskToBack(true))
+                    "moveToBackground" -> {
+                        if (this is ShareActivity) {
+                            result.success(true)
+                            finish()
+                        } else {
+                            result.success(moveTaskToBack(true))
+                        }
+                    }
                     "startEnrichmentKeepAlive" -> {
                         val processingId = call.arguments as? String
                         if (processingId.isNullOrBlank()) {

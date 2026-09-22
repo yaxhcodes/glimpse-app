@@ -4,6 +4,27 @@ import 'package:flutter/material.dart';
 
 import 'cluster_pattern_library.dart';
 
+final _nonPatternCharacters = RegExp('[^a-z0-9]+');
+final _patternWhitespace = RegExp(r'\s+');
+
+class _PatternText {
+  _PatternText(String value) : text = _normalize(value);
+
+  final String text;
+  late final Set<String> tokens = _tokens(text);
+}
+
+final _patternCategories = [
+  for (final category in clusterPatternLibrary)
+    (
+      category: category,
+      aliases: [
+        _PatternText(category.id),
+        for (final alias in category.aliases) _PatternText(alias),
+      ],
+    ),
+];
+
 class ClusterPatternSelection {
   const ClusterPatternSelection({
     required this.recipe,
@@ -25,20 +46,21 @@ ClusterPatternSelection resolveClusterPattern({
   required String label,
   required List<String> subtopics,
 }) {
-  final normalizedLabel = _normalize(label);
+  final normalizedLabel = _PatternText(label);
   final normalizedSubtopics = subtopics
-      .map(_normalize)
-      .where((value) => value.isNotEmpty);
+      .map(_PatternText.new)
+      .where((value) => value.text.isNotEmpty)
+      .toList(growable: false);
   final ranked = <({PatternCategoryDefinition category, int score})>[];
 
-  for (final category in clusterPatternLibrary) {
-    final labelScore = _sourceScore(normalizedLabel, category) * 4;
+  for (final entry in _patternCategories) {
+    final labelScore = _sourceScore(normalizedLabel, entry.aliases) * 4;
     final subtopicScore = normalizedSubtopics.fold<int>(
       0,
-      (score, subtopic) => score + _sourceScore(subtopic, category),
+      (score, subtopic) => score + _sourceScore(subtopic, entry.aliases),
     );
     final total = labelScore + subtopicScore;
-    if (total > 0) ranked.add((category: category, score: total));
+    if (total > 0) ranked.add((category: entry.category, score: total));
   }
 
   ranked.sort((left, right) => right.score.compareTo(left.score));
@@ -54,13 +76,19 @@ ClusterPatternSelection resolveClusterPattern({
     }
   } else {
     final semanticMatch = _closestSemanticCategory(
-      [normalizedLabel, ...normalizedSubtopics].join(' '),
+      [
+        normalizedLabel.text,
+        ...normalizedSubtopics.map((value) => value.text),
+      ].join(' '),
     );
     if (semanticMatch != null) matches = [semanticMatch];
   }
 
   final isFallback = matches.isEmpty;
-  final seedText = [normalizedLabel, ...normalizedSubtopics].join('|');
+  final seedText = [
+    normalizedLabel.text,
+    ...normalizedSubtopics.map((value) => value.text),
+  ].join('|');
   return ClusterPatternSelection(
     recipe: isFallback ? abstractPatternRecipe : matches.first.recipe,
     categoryIds: isFallback
@@ -71,21 +99,20 @@ ClusterPatternSelection resolveClusterPattern({
   );
 }
 
-int _sourceScore(String source, PatternCategoryDefinition category) {
-  if (source.isEmpty) return 0;
-  final sourceTokens = _tokens(source);
+int _sourceScore(_PatternText source, List<_PatternText> aliases) {
+  if (source.text.isEmpty) return 0;
+  final sourceTokens = source.tokens;
   var best = 0;
 
-  for (final rawAlias in [category.id, ...category.aliases]) {
-    final alias = _normalize(rawAlias);
-    if (source == alias) return 24;
-    if (_containsPhrase(source, alias)) {
-      best = math.max(best, alias.contains(' ') ? 16 : 12);
+  for (final alias in aliases) {
+    if (source.text == alias.text) return 24;
+    if (_containsPhrase(source.text, alias.text)) {
+      best = math.max(best, alias.text.contains(' ') ? 16 : 12);
       continue;
     }
 
-    final aliasTokens = _tokens(alias);
-    final overlap = aliasTokens.intersection(sourceTokens).length;
+    final aliasTokens = alias.tokens;
+    final overlap = aliasTokens.where(sourceTokens.contains).length;
     if (overlap > 0) {
       final coverage = overlap / aliasTokens.length;
       best = math.max(best, (4 + coverage * 6).round());
@@ -104,14 +131,14 @@ PatternCategoryDefinition? _closestSemanticCategory(String source) {
 
   PatternCategoryDefinition? closest;
   var closestScore = 0.0;
-  for (final category in clusterPatternLibrary) {
-    for (final alias in category.aliases) {
+  for (final entry in _patternCategories) {
+    for (final alias in entry.aliases.skip(1)) {
       for (final sourceToken in sourceTokens) {
-        for (final aliasToken in _tokens(_normalize(alias))) {
+        for (final aliasToken in alias.tokens) {
           final score = _bigramSimilarity(sourceToken, aliasToken);
           if (score > closestScore) {
             closestScore = score;
-            closest = category;
+            closest = entry.category;
           }
         }
       }
@@ -139,9 +166,9 @@ String _normalize(String value) {
   return value
       .toLowerCase()
       .replaceAll('&', ' and ')
-      .replaceAll(RegExp('[^a-z0-9]+'), ' ')
+      .replaceAll(_nonPatternCharacters, ' ')
       .trim()
-      .replaceAll(RegExp(r'\s+'), ' ');
+      .replaceAll(_patternWhitespace, ' ');
 }
 
 Set<String> _tokens(String value) {

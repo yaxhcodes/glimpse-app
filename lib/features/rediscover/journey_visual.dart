@@ -103,111 +103,130 @@ class RediscoverArtworkCard extends StatelessWidget {
     final artwork = artworkThemeForJourney(journey, displayTitle: title);
     final visual = TopicVisual.forCategory(artwork.name);
     final surface = visual.cardSurface(cs, opacity: .58);
-    final titleSize = hero ? 28.0 : 23.0;
-    final imageSize = hero ? 132.0 : 112.0;
+
     final label = [
       title,
       supportingText,
       metadata,
     ].where((s) => s.trim().isNotEmpty).join('. ');
 
-    return Semantics(
-      button: onTap != null,
-      onTap: onTap,
-      container: true,
-      excludeSemantics: true,
-      label: label,
-      child: ExpressiveTapScale(
-        enabled: onTap != null,
-        child: Material(
-          color: surface,
-          borderRadius: BorderRadius.circular(borderRadius),
-          clipBehavior: Clip.antiAlias,
-          child: SurfaceGrain(
-            child: InkWell(
-              onTap: onTap,
-              child: SizedBox(
-                height:
-                    fixedHeight ??
-                    resolvedHeight(context, height, hero: hero) +
-                        (hasMenu ? 24 : 0),
-                child: Padding(
-                  padding: EdgeInsets.all(hero ? 22 : 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Align(
-                                alignment: AlignmentDirectional.bottomStart,
-                                child: HyphenatedTitle(
-                                  text: title,
-                                  maxLines: 4,
-                                  style: AppTypography.editorial(
-                                    theme.textTheme.headlineSmall,
-                                    fontSize: titleSize,
-                                    height: 1.08,
-                                    color: cs.onSurface,
-                                    letterSpacing: -.2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final compact = width < 300;
+        final titleSize = hero
+            ? (width * .078).clamp(23.0, 28.0)
+            : (width * .078).clamp(20.0, 24.0);
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final imageSize = (width * (textScale > 1.3 ? .24 : .30)).clamp(
+          56.0,
+          hero ? 132.0 : 112.0,
+        );
+        return Semantics(
+          button: onTap != null,
+          onTap: onTap,
+          container: true,
+          excludeSemantics: true,
+          label: label,
+          child: ExpressiveTapScale(
+            enabled: onTap != null,
+            child: Material(
+              color: surface,
+              borderRadius: BorderRadius.circular(borderRadius),
+              clipBehavior: Clip.antiAlias,
+              child: SurfaceGrain(
+                child: InkWell(
+                  onTap: onTap,
+                  child: SizedBox(
+                    height:
+                        fixedHeight ??
+                        resolvedHeight(context, height, hero: hero) +
+                            (hasMenu ? 24 : 0),
+                    child: Padding(
+                      padding: EdgeInsets.all(
+                        hero
+                            ? 22
+                            : compact
+                            ? 14
+                            : 18,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Align(
+                                    alignment: AlignmentDirectional.bottomStart,
+                                    child: HyphenatedTitle(
+                                      text: title,
+                                      maxLines: 4,
+                                      style: AppTypography.editorial(
+                                        theme.textTheme.headlineSmall,
+                                        fontSize: titleSize,
+                                        height: 1.08,
+                                        color: cs.onSurface,
+                                        letterSpacing: -.2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                RediscoverIllustration(
+                                  artwork: artwork,
+                                  size: imageSize,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (supportingText.trim().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              supportingText,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                          if (metadata.trim().isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Padding(
+                              padding: EdgeInsetsDirectional.only(
+                                end: hasMenu ? 40 : 0,
+                              ),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: hasMenu ? 40 : 0,
+                                ),
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Text(
+                                    metadata,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            RediscoverIllustration(
-                              artwork: artwork,
-                              size: imageSize,
-                            ),
                           ],
-                        ),
+                        ],
                       ),
-                      if (supportingText.trim().isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          supportingText,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                      if (metadata.trim().isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: EdgeInsetsDirectional.only(
-                            end: hasMenu ? 40 : 0,
-                          ),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: hasMenu ? 40 : 0,
-                            ),
-                            child: Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: Text(
-                                metadata,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

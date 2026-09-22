@@ -13,6 +13,16 @@ class SavedNotesService {
     });
   }
 
+  Future<bool> appendPersonalNote(int urlId, String text) {
+    final note = text.trim();
+    if (note.isEmpty) return Future.value(false);
+    return _isarService.mutateUrl(urlId, (url) {
+      final existing = (url.userNotes ?? '').trimRight();
+      if (existing == note || existing.endsWith('\n\n$note')) return;
+      url.userNotes = existing.isEmpty ? note : '$existing\n\n$note';
+    });
+  }
+
   Future<bool> saveAskNote({
     required int urlId,
     required String sourceMessageId,

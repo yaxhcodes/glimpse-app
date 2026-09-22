@@ -21,6 +21,7 @@ class PremiumSwipeCard extends StatefulWidget {
     this.dismissibleActions = const {SwipeActionType.delete},
     this.borderRadius = const BorderRadius.all(Radius.circular(14)),
     this.actionLabel,
+    this.filledIcons = false,
   });
 
   /// Action triggered when the card is dragged left.
@@ -30,6 +31,7 @@ class PremiumSwipeCard extends StatefulWidget {
   final SwipeActionType rightSwipeAction;
 
   final Widget child;
+  final bool filledIcons;
   final SwipeActionCallback? onAction;
   final SwipeDismissedCallback? onDismissed;
   final Set<SwipeActionType> dismissibleActions;
@@ -283,6 +285,7 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
             Positioned.fill(
               child: _SwipeRevealSurface(
                 action: action,
+                filledIcons: widget.filledIcons,
                 progress: progress,
                 revealFromRight: sign < 0,
                 borderRadius: widget.borderRadius,
@@ -306,9 +309,11 @@ class _SwipeRevealSurface extends StatelessWidget {
     required this.borderRadius,
     required this.armed,
     this.label,
+    required this.filledIcons,
   });
 
   final SwipeActionType action;
+  final bool filledIcons;
   final double progress;
   final bool revealFromRight;
   final BorderRadius borderRadius;
@@ -354,7 +359,13 @@ class _SwipeRevealSurface extends StatelessWidget {
             shape: BoxShape.circle,
             color: tint.withValues(alpha: armed ? 0.18 : 0.10),
           ),
-          child: Center(child: action.iconWidget(color: tint, size: 21)),
+          child: Center(
+            child: action.iconWidget(
+              color: tint,
+              size: 21,
+              filled: filledIcons,
+            ),
+          ),
         ),
       ),
     );

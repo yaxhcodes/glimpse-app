@@ -50,13 +50,14 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text('Rediscover'), findsNothing);
+          expect(find.text('Your Glimpses'), findsOneWidget);
         }
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
   }
 
-  testWidgets('pending discovery stays hidden until cards are available', (
+  testWidgets('pending discovery shows a skeleton without legacy saved cards', (
     tester,
   ) async {
     final pending = Completer<RediscoverDailySet>();
@@ -70,16 +71,18 @@ void main() {
     );
     await tester.pump();
     expect(find.byType(CarouselView), findsNothing);
-    expect(find.text('Rediscover'), findsNothing);
+    expect(find.text('Rediscover'), findsOneWidget);
+    expect(find.text('Your Glimpses'), findsNothing);
     expect(
       find.byKey(const ValueKey('rediscover-journey-skeleton')),
-      findsNothing,
+      findsOneWidget,
     );
     pending.complete(
       RediscoverDailySet(localDate: DateTime(2026, 9, 8), memories: const []),
     );
     await tester.pumpAndSettle();
     expect(find.text('Rediscover'), findsNothing);
+    expect(find.text('Your Glimpses'), findsOneWidget);
   });
 
   testWidgets('home fast path does not start journey generation', (
@@ -108,7 +111,7 @@ void main() {
     expect(dailySetBuilds, 0);
     expect(
       find.byKey(const ValueKey('rediscover-journey-skeleton')),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
@@ -134,6 +137,7 @@ void main() {
     await tester.pump();
 
     expect(dailySetBuilds, 1);
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('rediscover-journey-skeleton')),
       findsNothing,

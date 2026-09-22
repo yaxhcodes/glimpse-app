@@ -39,7 +39,7 @@ void main() {
         );
         expect(find.text(l10n.readerAskAbout), findsOneWidget);
         expect(find.byType(ActionChip), findsNothing);
-        await tester.tap(find.byType(TextButton));
+        await tester.tap(find.byType(FilledButton));
         expect(opens, 1);
         expect(tester.takeException(), isNull);
       });

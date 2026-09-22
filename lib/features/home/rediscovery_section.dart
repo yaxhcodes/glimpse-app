@@ -1,6 +1,5 @@
 import '../glimpses/glimpse_home_adapter.dart';
 import '../glimpses/glimpse_open.dart';
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,10 +11,8 @@ import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../rediscover/journey_visual.dart';
-import '../rediscover/rediscover_daily_set.dart';
 import '../rediscover/rediscover_journey_provider.dart';
 import '../rediscover/rediscover_memory.dart';
-import '../rediscover/rediscover_open_context.dart';
 
 class RediscoverySection extends ConsumerWidget {
   const RediscoverySection({super.key, this.loadJourneys = true});
@@ -45,27 +42,8 @@ class RediscoverySection extends ConsumerWidget {
     final memories =
         dailySetAsync?.valueOrNull?.memories ?? const <RediscoverMemory>[];
     final pending = !loadJourneys || (dailySetAsync?.isLoading ?? false);
-    final hasSavedCards =
-        ref.watch(rediscoverHasSavedDailyCardsProvider).valueOrNull ?? false;
-    final showSkeleton = pending && memories.isEmpty && hasSavedCards;
-    if (memories.isEmpty && !showSkeleton) {
-      return const SizedBox.shrink(key: ValueKey('rediscover-empty'));
-    }
-    if (memories.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final controller = ref.read(rediscoverDailySetControllerProvider);
-        for (var index = 0; index < memories.length; index++) {
-          unawaited(
-            markRediscoverMemoryShown(
-              controller,
-              memories[index],
-              surface: RediscoverSurface.home,
-              position: index,
-            ),
-          );
-        }
-      });
-    }
+    final showSkeleton = pending && memories.isEmpty;
+    final showGlimpsesEntry = memories.isEmpty && !pending;
 
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
@@ -81,7 +59,9 @@ class RediscoverySection extends ConsumerWidget {
         : memories.length.clamp(0, 3);
 
     return Padding(
-      key: const ValueKey('rediscover-content'),
+      key: ValueKey(
+        showGlimpsesEntry ? 'your-glimpses-entry' : 'rediscover-content',
+      ),
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +77,9 @@ class RediscoverySection extends ConsumerWidget {
               onTap: () => context.push('/rediscover'),
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                  vertical: showGlimpsesEntry ? 12 : 4,
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -105,22 +87,26 @@ class RediscoverySection extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            context.l10n.rediscover,
+                            showGlimpsesEntry
+                                ? context.l10n.glimpsesTitle
+                                : context.l10n.rediscover,
                             style: tt.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: cs.onSurface,
                               letterSpacing: 0,
                             ),
                           ),
-                          const SizedBox(height: 1),
-                          Text(
-                            context.l10n.rediscoverSubtitle,
-                            style: tt.labelSmall?.copyWith(
-                              fontSize: 10,
-                              color: cs.onSurfaceVariant,
-                              fontWeight: FontWeight.w400,
+                          if (!showGlimpsesEntry) ...[
+                            const SizedBox(height: 1),
+                            Text(
+                              context.l10n.rediscoverSubtitle,
+                              style: tt.labelSmall?.copyWith(
+                                fontSize: 10,
+                                color: cs.onSurfaceVariant,
+                                fontWeight: FontWeight.w400,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),

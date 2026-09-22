@@ -29,7 +29,7 @@ import 'navigation_tab_bounce.dart';
 import 'shell_bottom_navigation_transition.dart';
 import 'shell_chrome_provider.dart';
 import 'shell_status_bar_accent.dart';
-import 'shell_tab_transition.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/expressive_fab.dart';
 import '../../l10n/l10n.dart';
 
@@ -137,8 +137,11 @@ class _MainShellState extends ConsumerState<MainShell> {
         badgeKey: 'search',
       ),
     ];
-    final urlsAsync = ref.watch(displayedUrlsProvider);
-    final hasLinks = (urlsAsync.valueOrNull?.length ?? 0) > 0;
+    final hasLinks = ref.watch(
+      displayedUrlsProvider.select(
+        (value) => value.valueOrNull?.isNotEmpty ?? false,
+      ),
+    );
     final shellChromeVisible = ref.watch(shellChromeVisibilityProvider);
     final homeSelection = ref.watch(bulkSelectionProvider('home'));
     final collectionsSelection = ref.watch(
@@ -383,21 +386,25 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget _buildShellContent({required bool constrainWidth}) {
     final content = NotificationListener<ScrollNotification>(
       onNotification: _handleShellScrollNotification,
-      child: ShellTabTransition(
-        selectedIndex: _currentIndex,
-        enabled: !ScrollCaptureScope.isCapturingOf(context),
-        child: IndexedStack(
-          index: _currentIndex,
-          children: [
-            for (var index = 0; index < _screens.length; index += 1)
-              ScrollCaptureVisibilityScope(
-                isVisible: index == _currentIndex,
-                child: _loadedTabIndexes.contains(index)
-                    ? _screens[index]
-                    : const SizedBox.shrink(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          for (var index = 0; index < _screens.length; index++)
+            Offstage(
+              offstage: index != _currentIndex,
+              child: TickerMode(
+                enabled: index == _currentIndex,
+                child: ScrollCaptureVisibilityScope(
+                  isVisible: index == _currentIndex,
+                  child: RepaintBoundary(
+                    child: _loadedTabIndexes.contains(index)
+                        ? _screens[index]
+                        : const Center(child: ExpressiveLoadingIndicator()),
+                  ),
+                ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
     if (!constrainWidth) return content;
@@ -417,7 +424,11 @@ class _MainShellState extends ConsumerState<MainShell> {
     final wasAlreadySearch =
         _currentIndex == _searchTabIndex && index == _searchTabIndex;
     _activateTab(index);
-    _acknowledgeDiscoveryWhenReady(index);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _currentIndex == index) {
+        _acknowledgeDiscoveryWhenReady(index);
+      }
+    });
     unawaited(
       ref.read(analyticsServiceProvider).trackScreen(_screenForIndex(index)),
     );
@@ -434,9 +445,14 @@ class _MainShellState extends ConsumerState<MainShell> {
     if (_currentIndex == index && _loadedTabIndexes.contains(index)) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
-      _loadedTabIndexes.add(index);
       _currentIndex = index;
     });
+    if (!_loadedTabIndexes.contains(index)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _currentIndex != index) return;
+        setState(() => _loadedTabIndexes.add(index));
+      });
+    }
   }
 
   bool _handleShellScrollNotification(ScrollNotification notification) {
@@ -485,12 +501,8 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   Future<void> _acknowledgeCollectionsWhenReady() async {
     try {
-      var snapshot = ref.read(librarySnapshotProvider).valueOrNull;
-      if (snapshot == null) {
-        await ref.read(urlStreamProvider.future);
-        snapshot = ref.read(librarySnapshotProvider).valueOrNull;
-      }
-      if (!mounted || _currentIndex != 1 || snapshot == null) return;
+      await loadLibrarySnapshot(ref);
+      if (!mounted || _currentIndex != 1) return;
       await ref
           .read(navigationDiscoveryProvider.notifier)
           .acknowledgeCollections();

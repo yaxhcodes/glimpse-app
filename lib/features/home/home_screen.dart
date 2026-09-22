@@ -519,6 +519,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 _buildGlimpseTitle(context),
                 const Spacer(),
+
                 IconButton(
                   icon: AppIcon(
                     AppIcons.settings,
@@ -955,6 +956,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final url = section.urls[index];
                         return SwipeableUrlCard(
+                          filledSwipeIcons: true,
                           key: ValueKey(url.id),
                           url: url,
                           contentPadding: const EdgeInsets.all(10),

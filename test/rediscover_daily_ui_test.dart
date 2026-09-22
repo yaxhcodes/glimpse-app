@@ -8,6 +8,7 @@ import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/url_processing_status.dart';
 import 'package:glimpse/features/home/home_provider.dart';
 import 'package:glimpse/features/home/rediscovery_section.dart';
+import 'package:glimpse/features/rediscover/journey_visual.dart';
 import 'package:glimpse/features/rediscover/rediscover_daily_set.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_detail_screen.dart';
 import 'package:glimpse/features/rediscover/rediscover_journey_provider.dart';
@@ -42,6 +43,51 @@ RediscoveryItem _item(SavedUrl url) {
 }
 
 void main() {
+  for (final width in [230.0, 280.0, 320.0, 520.0]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('artwork card fits width $width at text scale $scale', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: SingleChildScrollView(
+                  child: Center(
+                    child: SizedBox(
+                      width: width,
+                      child: RediscoverArtworkCard(
+                        journey: RediscoverJourney(
+                          kind: RediscoverJourneyKind.forgottenGems,
+                          title: 'Architecture notes',
+                          subtitle: 'Worth reopening',
+                          icon: Icons.book,
+                          items: [_item(_url(1, 'Architecture notes'))],
+                          signal: 80,
+                        ),
+                        title: 'Architecture notes worth revisiting',
+                        supportingText: 'An idea from your saved reading',
+                        metadata: 'Ready · 2 months ago',
+                        height: 224,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final illustration = tester.widget<RediscoverIllustration>(
+          find.byType(RediscoverIllustration),
+        );
+        expect(illustration.size, lessThanOrEqualTo(width * .31));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('Home crossfades saved skeletons into daily cards', (
     tester,
   ) async {
@@ -90,9 +136,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 80));
     expect(skeleton, findsOneWidget);
     expect(find.byType(CarouselView), findsOneWidget);
+    expect(find.text('Your Glimpses'), findsNothing);
     await tester.pumpAndSettle();
     expect(skeleton, findsNothing);
     expect(find.byType(CarouselView), findsOneWidget);
+    expect(find.text('Your Glimpses'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

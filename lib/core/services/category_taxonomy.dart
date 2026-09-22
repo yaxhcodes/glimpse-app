@@ -248,7 +248,14 @@ class CategoryTaxonomy {
     String text = '',
   }) {
     final searchable = [text, ...tags].join(' ').toLowerCase();
+    final words = _evidenceWords
+        .allMatches(searchable)
+        .map((match) => match.group(0)!)
+        .toSet();
     final inferred = <String>[];
+
+    bool containsAnyWord(List<String> needles) =>
+        _containsAnyWord(searchable, needles, words: words);
 
     void add(String category) {
       if (!inferred.contains(category)) inferred.add(category);
@@ -257,7 +264,7 @@ class CategoryTaxonomy {
     if (_hasFoodCookingSignal(searchable)) {
       add('Food & Cooking');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'health',
       'protein',
       'plant-based',
@@ -267,7 +274,7 @@ class CategoryTaxonomy {
     ])) {
       add('Health');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'ai',
       'artificial intelligence',
       'machine learning',
@@ -277,7 +284,7 @@ class CategoryTaxonomy {
     ])) {
       add('AI & ML');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'react',
       'flutter',
       'dart',
@@ -287,7 +294,7 @@ class CategoryTaxonomy {
     ])) {
       add('Software Development');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'gadget',
       'hardware',
       'phone',
@@ -298,16 +305,10 @@ class CategoryTaxonomy {
     ])) {
       add('Gadgets & Hardware');
     }
-    if (_containsAnyWord(searchable, [
-      'app',
-      'tool',
-      'extension',
-      'plugin',
-      'automation',
-    ])) {
+    if (containsAnyWord(['app', 'tool', 'extension', 'plugin', 'automation'])) {
       add('Apps & Tools');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'cybersecurity',
       'security',
       'privacy',
@@ -317,7 +318,7 @@ class CategoryTaxonomy {
     ])) {
       add('Cybersecurity');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'data',
       'analytics',
       'dashboard',
@@ -327,16 +328,10 @@ class CategoryTaxonomy {
     ])) {
       add('Data & Analytics');
     }
-    if (_containsAnyWord(searchable, [
-      'design',
-      'figma',
-      'typography',
-      'ui',
-      'ux',
-    ])) {
+    if (containsAnyWord(['design', 'figma', 'typography', 'ui', 'ux'])) {
       add('Design');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'architecture',
       'architectural',
       'temple',
@@ -346,7 +341,7 @@ class CategoryTaxonomy {
     ])) {
       add('Architecture');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'history',
       'ancient',
       'culture',
@@ -358,7 +353,7 @@ class CategoryTaxonomy {
     ])) {
       add('History & Culture');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'spiritual',
       'spirituality',
       'philosophy',
@@ -372,7 +367,7 @@ class CategoryTaxonomy {
     ])) {
       add('Spirituality & Philosophy');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'relationship',
       'dating',
       'marriage',
@@ -381,7 +376,7 @@ class CategoryTaxonomy {
     ])) {
       add('Relationships');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'career',
       'job',
       'interview',
@@ -391,7 +386,7 @@ class CategoryTaxonomy {
     ])) {
       add('Career');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'productivity',
       'habit',
       'workflow',
@@ -400,7 +395,7 @@ class CategoryTaxonomy {
     ])) {
       add('Productivity');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'climate',
       'environment',
       'wildlife',
@@ -409,7 +404,7 @@ class CategoryTaxonomy {
     ])) {
       add('Nature & Environment');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'parenting',
       'family',
       'kids',
@@ -418,7 +413,7 @@ class CategoryTaxonomy {
     ])) {
       add('Parenting & Family');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'startup',
       'founder',
       'fundraising',
@@ -427,7 +422,7 @@ class CategoryTaxonomy {
     ])) {
       add('Startups');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'marketing',
       'growth',
       'seo',
@@ -436,7 +431,7 @@ class CategoryTaxonomy {
     ])) {
       add('Marketing & Growth');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'creator',
       'audience',
       'monetization',
@@ -445,7 +440,7 @@ class CategoryTaxonomy {
     ])) {
       add('Creator Economy');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'budget',
       'personal finance',
       'credit card',
@@ -454,34 +449,16 @@ class CategoryTaxonomy {
     ])) {
       add('Personal Finance');
     }
-    if (_containsAnyWord(searchable, [
-      'invest',
-      'stock',
-      'portfolio',
-      'market',
-      'etf',
-    ])) {
+    if (containsAnyWord(['invest', 'stock', 'portfolio', 'market', 'etf'])) {
       add('Investing');
     }
-    if (_containsAnyWord(searchable, [
-      'crypto',
-      'bitcoin',
-      'ethereum',
-      'web3',
-      'defi',
-    ])) {
+    if (containsAnyWord(['crypto', 'bitcoin', 'ethereum', 'web3', 'defi'])) {
       add('Crypto');
     }
-    if (_containsAnyWord(searchable, [
-      'space',
-      'astronomy',
-      'nasa',
-      'planet',
-      'galaxy',
-    ])) {
+    if (containsAnyWord(['space', 'astronomy', 'nasa', 'planet', 'galaxy'])) {
       add('Space & Astronomy');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'biology',
       'medicine',
       'medical',
@@ -490,7 +467,7 @@ class CategoryTaxonomy {
     ])) {
       add('Biology & Medicine');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'fitness',
       'workout',
       'strength',
@@ -499,7 +476,7 @@ class CategoryTaxonomy {
     ])) {
       add('Fitness');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'nutrition',
       'diet',
       'protein',
@@ -508,7 +485,7 @@ class CategoryTaxonomy {
     ])) {
       add('Nutrition');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'mental health',
       'psychology',
       'therapy',
@@ -517,7 +494,7 @@ class CategoryTaxonomy {
     ])) {
       add('Mental Health');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'language learning',
       'vocabulary',
       'grammar',
@@ -526,15 +503,10 @@ class CategoryTaxonomy {
     ])) {
       add('Language Learning');
     }
-    if (_containsAnyWord(searchable, [
-      'math',
-      'algebra',
-      'calculus',
-      'statistics',
-    ])) {
+    if (containsAnyWord(['math', 'algebra', 'calculus', 'statistics'])) {
       add('Math');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'world affairs',
       'geopolitics',
       'international relations',
@@ -542,7 +514,7 @@ class CategoryTaxonomy {
     ])) {
       add('World Affairs');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'law',
       'policy',
       'legal',
@@ -551,49 +523,22 @@ class CategoryTaxonomy {
     ])) {
       add('Law & Policy');
     }
-    if (_containsAnyWord(searchable, [
-      'art',
-      'illustration',
-      'drawing',
-      'painting',
-    ])) {
+    if (containsAnyWord(['art', 'illustration', 'drawing', 'painting'])) {
       add('Art & Illustration');
     }
-    if (_containsAnyWord(searchable, [
-      'photo',
-      'photography',
-      'camera',
-      'portrait',
-    ])) {
+    if (containsAnyWord(['photo', 'photography', 'camera', 'portrait'])) {
       add('Photography');
     }
-    if (_containsAnyWord(searchable, [
-      'diy',
-      'maker',
-      'woodworking',
-      'repair',
-      'craft',
-    ])) {
+    if (containsAnyWord(['diy', 'maker', 'woodworking', 'repair', 'craft'])) {
       add('DIY & Making');
     }
-    if (_containsAnyWord(searchable, [
-      'restaurant',
-      'cafe',
-      'coffee shop',
-      'dining',
-    ])) {
+    if (containsAnyWord(['restaurant', 'cafe', 'coffee shop', 'dining'])) {
       add('Restaurants & Cafes');
     }
-    if (_containsAnyWord(searchable, [
-      'travel',
-      'trek',
-      'hike',
-      'destination',
-      'route',
-    ])) {
+    if (containsAnyWord(['travel', 'trek', 'hike', 'destination', 'route'])) {
       add('Travel');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'hike',
       'hiking',
       'trek',
@@ -603,7 +548,7 @@ class CategoryTaxonomy {
     ])) {
       add('Outdoors & Adventure');
     }
-    if (_containsAnyWord(searchable, [
+    if (containsAnyWord([
       'movie',
       'film',
       'cinema',
@@ -613,50 +558,22 @@ class CategoryTaxonomy {
     ])) {
       add('Movies & TV');
     }
-    if (_containsAnyWord(searchable, ['music', 'song', 'album', 'playlist'])) {
+    if (containsAnyWord(['music', 'song', 'album', 'playlist'])) {
       add('Music');
     }
-    if (_containsAnyWord(searchable, [
-      'gaming',
-      'game',
-      'videogame',
-      'steam',
-    ])) {
+    if (containsAnyWord(['gaming', 'game', 'videogame', 'steam'])) {
       add('Gaming');
     }
-    if (_containsAnyWord(searchable, [
-      'fashion',
-      'style',
-      'outfit',
-      'skincare',
-      'beauty',
-    ])) {
+    if (containsAnyWord(['fashion', 'style', 'outfit', 'skincare', 'beauty'])) {
       add('Fashion & Beauty');
     }
-    if (_containsAnyWord(searchable, [
-      'car',
-      'bike',
-      'vehicle',
-      'ev',
-      'motorcycle',
-    ])) {
+    if (containsAnyWord(['car', 'bike', 'vehicle', 'ev', 'motorcycle'])) {
       add('Vehicles');
     }
-    if (_containsAnyWord(searchable, [
-      'book',
-      'novel',
-      'author',
-      'literature',
-      'poetry',
-    ])) {
+    if (containsAnyWord(['book', 'novel', 'author', 'literature', 'poetry'])) {
       add('Books & Literature');
     }
-    if (_containsAnyWord(searchable, [
-      'documentation',
-      'docs',
-      'manual',
-      'api reference',
-    ])) {
+    if (containsAnyWord(['documentation', 'docs', 'manual', 'api reference'])) {
       add('Documentation');
     }
 
@@ -872,18 +789,39 @@ class CategoryTaxonomy {
         .join(' ');
   }
 
+  static final _evidenceWords = RegExp(r'[a-z0-9]+');
+
   /// Word-aware match: the needle must be a whole word/phrase. This keeps short
   /// needles like "car" from matching "career", while still allowing explicit
   /// variants such as "cook" and "cooking" to be listed separately.
-  static bool _containsAnyWord(String text, List<String> needles) {
+  static bool _containsAnyWord(
+    String text,
+    List<String> needles, {
+    Set<String>? words,
+  }) {
     for (final needle in needles) {
-      final escaped = RegExp.escape(needle).replaceAll(r'\ ', r'\s+');
-      if (RegExp('(?<![a-z0-9])$escaped(?![a-z0-9])').hasMatch(text)) {
-        return true;
+      if (words != null &&
+          needle.isNotEmpty &&
+          needle.codeUnits.every(_isWordCharacter)) {
+        if (words.contains(needle)) return true;
+        continue;
+      }
+      var start = text.indexOf(needle);
+      while (start >= 0) {
+        final end = start + needle.length;
+        if ((start == 0 || !_isWordCharacter(text.codeUnitAt(start - 1))) &&
+            (end == text.length || !_isWordCharacter(text.codeUnitAt(end)))) {
+          return true;
+        }
+        if (start == text.length) break;
+        start = text.indexOf(needle, start + 1);
       }
     }
     return false;
   }
+
+  static bool _isWordCharacter(int codeUnit) =>
+      (codeUnit >= 97 && codeUnit <= 122) || (codeUnit >= 48 && codeUnit <= 57);
 
   static bool _hasSourceEvidence(
     String category, {

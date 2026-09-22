@@ -374,16 +374,23 @@ class CuratedNotificationListTile extends StatelessWidget {
                             vertical: 7,
                           ),
                           decoration: ShapeDecoration(
-                            color: mutedAccent(
-                              theme.colorScheme.primaryContainer,
+                            color: Color.alphaBlend(
+                              mutedAccent(
+                                theme.colorScheme.primary,
+                              ).withValues(alpha: .08),
+                              theme.colorScheme.surfaceContainerLow,
                             ),
                             shape: const StadiumBorder(),
                           ),
                           child: Text(
                             label,
                             style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.w600,
+                              color: Color.lerp(
+                                theme.colorScheme.onSurfaceVariant,
+                                mutedAccent(theme.colorScheme.primary),
+                                .55,
+                              ),
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),

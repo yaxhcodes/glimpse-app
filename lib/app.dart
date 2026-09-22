@@ -46,6 +46,7 @@ import 'features/add_url/add_url_provider.dart';
 import 'features/categories/category_screen.dart';
 import 'features/collections/collection_detail_screen.dart';
 import 'features/collections/collections_screen.dart';
+import 'features/collections/collections_provider.dart';
 import 'features/collections/create_collection_screen.dart';
 import 'features/collections/share_capture_sheet.dart';
 import 'features/library/library_browser_screen.dart';
@@ -98,11 +99,18 @@ final sharedUrlProvider = StateProvider<String?>((ref) => null);
 /// Root navigator for notification deep links.
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
+bool get _isShareSurface =>
+    WidgetsBinding.instance.platformDispatcher.defaultRouteName == '/share';
+
 // GoRouter configuration — needs to be accessible for programmatic navigation
 final _router = GoRouter(
   navigatorKey: rootNavigatorKey,
-  initialLocation: '/',
+  initialLocation: _isShareSurface ? '/share' : '/',
   routes: [
+    GoRoute(
+      path: '/share',
+      builder: (context, state) => const SizedBox.expand(),
+    ),
     GoRoute(path: '/', builder: (context, state) => const _RootGate()),
     GoRoute(
       path: '/add',
@@ -424,6 +432,10 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (_isShareSurface) {
+        FlutterNativeSplash.remove();
+        return;
+      }
       _scheduleNonCriticalStartupWork(appUpdateService);
     });
   }
@@ -592,6 +604,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     try {
       if (!ref.read(hasSeenOnboardingProvider)) {
         _pendingSharedUrls = List.unmodifiable(urls);
+        _router.go('/');
         return;
       }
       final user =
@@ -613,7 +626,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       } else {
         final outcome = await _showShareCapturePrompt(urls.first);
         if (!mounted) return;
-        if (outcome?.saved == true) {
+        if (outcome?.saved == true || _isShareSurface) {
           final movedToBackground = await AppTaskService().moveToBackground();
           if (!movedToBackground) await SystemNavigator.pop();
         }
@@ -637,9 +650,63 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   Future<ShareCaptureOutcome?> _showShareCapturePrompt(String url) async {
     final context = _router.routerDelegate.navigatorKey.currentContext;
     if (context == null || !context.mounted) return null;
+    ShareCaptureOutcome? captured;
+    UserCollection? initialCollection;
     return showShareCaptureSheet(
       context,
-      onCapture: (collection) => _quickSave(url, collection: collection),
+      onCapture: (collection, notes) async {
+        initialCollection = collection;
+        return captured = await _quickSave(
+          url,
+          collection: collection,
+          notes: notes,
+        );
+      },
+      onUpdate: (collection, notes) async {
+        final saved = captured;
+        final id = saved?.savedUrlId;
+        if (saved == null || id == null) {
+          return const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
+        }
+        final isar = ref.read(isarServiceProvider);
+        if (collection != null) {
+          await isar.addUrlToCollection(collectionId: collection.id, urlId: id);
+          if (initialCollection != null &&
+              initialCollection!.id != collection.id &&
+              saved.type != ShareCaptureOutcomeType.duplicate) {
+            await isar.removeUrlFromCollection(
+              collectionId: initialCollection!.id,
+              urlId: id,
+            );
+          }
+        }
+        if (notes != null && notes.trim().isNotEmpty) {
+          final updated = await ref
+              .read(savedNotesServiceProvider)
+              .appendPersonalNote(id, notes);
+          if (!updated) {
+            return const ShareCaptureOutcome(
+              type: ShareCaptureOutcomeType.error,
+            );
+          }
+        }
+        ref.invalidate(collectionsSummaryProvider);
+        ref.invalidate(collectionsListProvider);
+        if (collection != null) {
+          ref.invalidate(collectionUrlsProvider(collection.id));
+        }
+        if (initialCollection != null) {
+          ref.invalidate(collectionUrlsProvider(initialCollection!.id));
+        }
+        initialCollection = collection;
+        return ShareCaptureOutcome(
+          type: saved.type,
+          savedUrlId: id,
+          collectionName: collection?.name,
+          notificationsEnabled: saved.notificationsEnabled,
+          enrichmentPending: saved.enrichmentPending,
+        );
+      },
     );
   }
 
@@ -660,11 +727,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   Future<ShareCaptureOutcome> _quickSave(
     String url, {
     UserCollection? collection,
+    String? notes,
   }) async {
     final notifier = ref.read(addUrlProvider.notifier);
     final success = await notifier.saveUrl(
       url,
       collectionId: collection?.id,
+      notes: notes,
       enrichmentExecution: AddUrlEnrichmentExecution.durable,
       notifyOnCompletion: true,
     );
@@ -681,8 +750,17 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       return const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
     }
     if (state.outcome == AddUrlOutcome.alreadySaved) {
+      if (notes != null && notes.trim().isNotEmpty) {
+        final updated = await ref
+            .read(savedNotesServiceProvider)
+            .appendPersonalNote(savedUrlId, notes);
+        if (!updated) {
+          return const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
+        }
+      }
       return ShareCaptureOutcome(
         type: ShareCaptureOutcomeType.duplicate,
+        savedUrlId: savedUrlId,
         collectionName: success ? collection?.name : null,
         notificationsEnabled: notificationsEnabled,
         enrichmentPending: false,
@@ -691,6 +769,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (!state.durableEnrichmentScheduled) {
       return ShareCaptureOutcome(
         type: ShareCaptureOutcomeType.schedulingFallback,
+        savedUrlId: savedUrlId,
         collectionName: success ? collection?.name : null,
         notificationsEnabled: notificationsEnabled,
         enrichmentPending: enrichmentPending,
@@ -698,6 +777,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     }
     return ShareCaptureOutcome(
       type: ShareCaptureOutcomeType.captured,
+      savedUrlId: savedUrlId,
       collectionName: success ? collection?.name : null,
       notificationsEnabled: notificationsEnabled,
       enrichmentPending: enrichmentPending,
@@ -951,7 +1031,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           routerConfig: _router,
           builder: (context, child) {
             var content = child ?? const SizedBox.shrink();
-            if (AppEnvironment.isDevContext) {
+            if (AppEnvironment.isDevContext && !_isShareSurface) {
               content = _DevEnvironmentChrome(
                 showProOverride: devProOverrideActive,
                 child: content,

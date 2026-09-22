@@ -6,6 +6,58 @@ import '../../core/services/saved_highlights_service.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/readable_surface.dart';
 
+class ReaderSelectionArea extends StatefulWidget {
+  const ReaderSelectionArea({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<ReaderSelectionArea> createState() => _ReaderSelectionAreaState();
+}
+
+class _ReaderSelectionAreaState extends State<ReaderSelectionArea> {
+  final _texts = <_ReaderSelectableTextState>{};
+
+  @override
+  Widget build(BuildContext context) => SelectionArea(
+    contextMenuBuilder: (context, region) {
+      final actions = [for (final text in _texts) ?text._highlightAction()];
+      final items = List<ContextMenuButtonItem>.of(
+        region.contextMenuButtonItems,
+      );
+      if (actions.isNotEmpty) {
+        final removing = actions.every((action) => action.removing);
+        items.add(
+          ContextMenuButtonItem(
+            label: removing
+                ? context.l10n.removeHighlight
+                : context.l10n.highlight,
+            onPressed: () {
+              region.hideToolbar();
+              region.clearSelection();
+              unawaited(_apply(actions, removing: removing));
+            },
+          ),
+        );
+      }
+      return AdaptiveTextSelectionToolbar.buttonItems(
+        anchors: region.contextMenuAnchors,
+        buttonItems: items,
+      );
+    },
+    child: widget.child,
+  );
+
+  Future<void> _apply(
+    List<({bool removing, Future<void> Function() run})> actions, {
+    required bool removing,
+  }) async {
+    for (final action in actions) {
+      if (!mounted) return;
+      if (action.removing == removing) await action.run();
+    }
+  }
+}
+
 class ReaderSelectableText extends StatefulWidget {
   const ReaderSelectableText({
     super.key,
@@ -37,9 +89,19 @@ class ReaderSelectableText extends StatefulWidget {
 
 class _ReaderSelectableTextState extends State<ReaderSelectableText> {
   final _selectionNotifier = SelectionListenerNotifier();
+  _ReaderSelectionAreaState? _area;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _area?._texts.remove(this);
+    _area = context.findAncestorStateOfType<_ReaderSelectionAreaState>();
+    _area?._texts.add(this);
+  }
 
   @override
   void dispose() {
+    _area?._texts.remove(this);
     _selectionNotifier.dispose();
     super.dispose();
   }
@@ -53,23 +115,23 @@ class _ReaderSelectableTextState extends State<ReaderSelectableText> {
       foregrounds: [colorScheme.onSurface],
       opacity: widget.highlightColor == null ? .18 : 1,
     );
-    return SelectionArea(
-      contextMenuBuilder: _buildContextMenu,
-      child: SelectionListener(
-        selectionNotifier: _selectionNotifier,
-        child: Semantics(
-          header: widget.isHeading,
-          child: Text.rich(
-            TextSpan(
-              children: _buildSpans(highlightColor, colorScheme.onSurface),
-              style: widget.style,
-            ),
-            textAlign: widget.textAlign,
-            semanticsLabel: widget.text,
+    final text = SelectionListener(
+      selectionNotifier: _selectionNotifier,
+      child: Semantics(
+        header: widget.isHeading,
+        child: Text.rich(
+          TextSpan(
+            children: _buildSpans(highlightColor, colorScheme.onSurface),
+            style: widget.style,
           ),
+          textAlign: widget.textAlign,
+          semanticsLabel: widget.text,
         ),
       ),
     );
+    return _area == null
+        ? SelectionArea(contextMenuBuilder: _buildContextMenu, child: text)
+        : text;
   }
 
   List<InlineSpan> _buildSpans(
@@ -106,10 +168,7 @@ class _ReaderSelectableTextState extends State<ReaderSelectableText> {
     return spans;
   }
 
-  Widget _buildContextMenu(
-    BuildContext context,
-    SelectableRegionState selectableRegionState,
-  ) {
+  ({bool removing, Future<void> Function() run})? _highlightAction() {
     final range = _selectionNotifier.selection.range;
     final start = range == null
         ? 0
@@ -139,33 +198,38 @@ class _ReaderSelectableTextState extends State<ReaderSelectableText> {
       highlights: widget.highlights,
       selectionStart: selectionStart,
     );
-    final items = List<ContextMenuButtonItem>.of(
-      selectableRegionState.contextMenuButtonItems,
-    );
-    if (selectedRange != null &&
-        selectedRange.end - selectedRange.start <=
+    if (selectedRange == null ||
+        selectedRange.end - selectedRange.start >
             SavedHighlightsCodec.maxQuoteLength) {
-      final item = ContextMenuButtonItem(
-        label: existing == null
-            ? context.l10n.highlight
-            : context.l10n.removeHighlight,
-        onPressed: () {
-          selectableRegionState.hideToolbar();
-          selectableRegionState.clearSelection();
-          if (existing == null) {
-            unawaited(widget.onAddHighlight(selectedText, selectionStart));
-          } else {
-            unawaited(widget.onRemoveHighlight(existing));
-          }
-        },
+      return null;
+    }
+    return (
+      removing: existing != null,
+      run: existing == null
+          ? () => widget.onAddHighlight(selectedText, selectionStart)
+          : () => widget.onRemoveHighlight(existing),
+    );
+  }
+
+  Widget _buildContextMenu(BuildContext context, SelectableRegionState region) {
+    final action = _highlightAction();
+    final items = List<ContextMenuButtonItem>.of(region.contextMenuButtonItems);
+    if (action != null) {
+      items.add(
+        ContextMenuButtonItem(
+          label: action.removing
+              ? context.l10n.removeHighlight
+              : context.l10n.highlight,
+          onPressed: () {
+            region.hideToolbar();
+            region.clearSelection();
+            unawaited(action.run());
+          },
+        ),
       );
-      final copyIndex = items.indexWhere(
-        (button) => button.type == ContextMenuButtonType.copy,
-      );
-      items.insert(copyIndex < 0 ? 0 : copyIndex + 1, item);
     }
     return AdaptiveTextSelectionToolbar.buttonItems(
-      anchors: selectableRegionState.contextMenuAnchors,
+      anchors: region.contextMenuAnchors,
       buttonItems: items,
     );
   }

@@ -4,10 +4,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/database/isar_service.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/services/saved_highlights_service.dart';
+import 'package:glimpse/core/services/saved_notes_service.dart';
 import 'package:glimpse/features/url_detail/reader_selectable_text.dart';
 import 'package:glimpse/l10n/l10n.dart';
 
 void main() {
+  test(
+    'shared notes preserve an existing note and do not duplicate retries',
+    () async {
+      final url = _savedUrl()..userNotes = 'Original thought';
+      final service = SavedNotesService(_MemoryIsarService(url));
+      expect(
+        await service.appendPersonalNote(url.id, '  New thought  '),
+        isTrue,
+      );
+      expect(url.userNotes, 'Original thought\n\nNew thought');
+      await service.appendPersonalNote(url.id, 'New thought');
+      expect(url.userNotes, 'Original thought\n\nNew thought');
+    },
+  );
+
   group('SavedHighlightsCodec', () {
     test('anchors a whitespace-normalized selection to the source text', () {
       final highlight = SavedHighlightsCodec.create(
@@ -123,6 +139,55 @@ void main() {
       expect(url.highlightsJson, isNull);
     });
   });
+
+  testWidgets(
+    'one selection highlights multiple paragraphs without the title',
+    (tester) async {
+      final added = <String, String>{};
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: ReaderSelectionArea(
+              child: Column(
+                children: [
+                  const SelectionContainer.disabled(
+                    child: Text('Reader title'),
+                  ),
+                  for (final entry in {
+                    'first': 'First paragraph worth keeping.',
+                    'second': 'Second paragraph adds context.',
+                  }.entries)
+                    ReaderSelectableText(
+                      text: entry.value,
+                      sectionKey: entry.key,
+                      highlights: const [],
+                      onAddHighlight: (text, _) async =>
+                          added[entry.key] = text,
+                      onRemoveHighlight: (_) async {},
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(SelectionArea), findsOneWidget);
+      await tester.longPress(find.text('First paragraph worth keeping.'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Select all'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Highlight'));
+      await tester.pumpAndSettle();
+      expect(added, {
+        'first': 'First paragraph worth keeping.',
+        'second': 'Second paragraph adds context.',
+      });
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('reader text is selectable and paints saved highlights', (
     tester,

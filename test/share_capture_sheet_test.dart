@@ -9,21 +9,121 @@ import 'package:glimpse/core/providers/service_providers.dart';
 import 'package:glimpse/features/collections/share_capture_sheet.dart';
 
 void main() {
+  testWidgets('captures immediately and leaves only optional editing', (
+    tester,
+  ) async {
+    final inbox = _collection(1, 'Inbox');
+    var captures = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isarServiceProvider.overrideWithValue(_FakeIsarService([inbox])),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showShareCaptureSheet(
+                context,
+                onCapture: (collection, notes) async {
+                  captures++;
+                  expect(collection?.id, 1);
+                  expect(notes, isNull);
+                  return const ShareCaptureOutcome(
+                    type: ShareCaptureOutcomeType.captured,
+                  );
+                },
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(captures, 1);
+    expect(find.byTooltip('Done'), findsOneWidget);
+    expect(find.text('Save'), findsNothing);
+  });
+
+  testWidgets('collection changes and notes are explicit post-save edits', (
+    tester,
+  ) async {
+    final inbox = _collection(1, 'Inbox');
+    final reading = _collection(2, 'Reading');
+    var captures = 0;
+    var updates = 0;
+    String? updatedNote;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isarServiceProvider.overrideWithValue(
+            _FakeIsarService([inbox, reading]),
+          ),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showShareCaptureSheet(
+                context,
+                onCapture: (collection, notes) async {
+                  captures++;
+                  return ShareCaptureOutcome(
+                    type: ShareCaptureOutcomeType.captured,
+                    savedUrlId: 4,
+                    collectionName: collection?.name,
+                  );
+                },
+                onUpdate: (collection, notes) async {
+                  updates++;
+                  updatedNote = notes;
+                  return ShareCaptureOutcome(
+                    type: ShareCaptureOutcomeType.captured,
+                    savedUrlId: 4,
+                    collectionName: collection?.name,
+                  );
+                },
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Inbox'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reading'));
+    await tester.pumpAndSettle();
+    expect(captures, 1);
+    expect(updates, 1);
+    await tester.tap(find.text('Add a note (optional)'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '  Keep this  ');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(updates, 2);
+    expect(updatedNote, 'Keep this');
+  });
+
   testWidgets('dismissed share capture ignores a late collection result', (
     tester,
   ) async {
     final completer = Completer<List<UserCollection>>();
-    final isar = _DelayedIsarService(completer.future);
-
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [isarServiceProvider.overrideWithValue(isar)],
+        overrides: [
+          isarServiceProvider.overrideWithValue(
+            _FakeIsarServiceFuture(completer.future),
+          ),
+        ],
         child: MaterialApp(
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () => showShareCaptureSheet(
                 context,
-                onCapture: (_) async => const ShareCaptureOutcome(
+                onCapture: (_, _) async => const ShareCaptureOutcome(
                   type: ShareCaptureOutcomeType.captured,
                 ),
               ),
@@ -35,142 +135,43 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pump();
-
     await tester.pumpWidget(const SizedBox.shrink());
     completer.complete(const []);
     await tester.pump();
-
     expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('shows a quiet captured confirmation before closing', (
-    tester,
-  ) async {
-    final isar = _DelayedIsarService(Future.value(const []));
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [isarServiceProvider.overrideWithValue(isar)],
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showShareCaptureSheet(
-                context,
-                onCapture: (_) async => const ShareCaptureOutcome(
-                  type: ShareCaptureOutcomeType.captured,
-                  notificationsEnabled: true,
-                  enrichmentPending: true,
-                ),
-              ),
-              child: const Text('Open'),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Open'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.pump();
-
-    expect(find.text('Captured'), findsOneWidget);
-    expect(find.text('We’ll notify you when it’s ready.'), findsOneWidget);
-
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.pumpAndSettle();
-    expect(find.text('Captured'), findsNothing);
-  });
-
-  testWidgets('does not promise a notification when notifications are off', (
-    tester,
-  ) async {
-    final isar = _DelayedIsarService(Future.value(const []));
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [isarServiceProvider.overrideWithValue(isar)],
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showShareCaptureSheet(
-                context,
-                onCapture: (_) async => const ShareCaptureOutcome(
-                  type: ShareCaptureOutcomeType.captured,
-                  enrichmentPending: true,
-                ),
-              ),
-              child: const Text('Open'),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Open'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.pump();
-
-    expect(find.text('It’ll be ready in Glimpse.'), findsOneWidget);
-    expect(find.text('We’ll notify you when it’s ready.'), findsNothing);
-
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('shows the scheduling fallback without a notification promise', (
-    tester,
-  ) async {
-    final isar = _DelayedIsarService(Future.value(const []));
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [isarServiceProvider.overrideWithValue(isar)],
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showShareCaptureSheet(
-                context,
-                onCapture: (_) async => const ShareCaptureOutcome(
-                  type: ShareCaptureOutcomeType.schedulingFallback,
-                  notificationsEnabled: true,
-                  enrichmentPending: true,
-                ),
-              ),
-              child: const Text('Open'),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Open'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.pump();
-
-    expect(
-      find.text('Saved. Open Glimpse to finish organizing it.'),
-      findsOneWidget,
-    );
-    expect(find.text('We’ll notify you when it’s ready.'), findsNothing);
-
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.pumpAndSettle();
   });
 }
 
-class _DelayedIsarService implements IsarService {
-  const _DelayedIsarService(this.collections);
+UserCollection _collection(int id, String name) {
+  return UserCollection()
+    ..id = id
+    ..name = name
+    ..emoji = ''
+    ..urlIds = []
+    ..createdAt = DateTime(2026);
+}
 
-  final Future<List<UserCollection>> collections;
+class _FakeIsarService implements IsarService {
+  _FakeIsarService(this.items);
+
+  final List<UserCollection> items;
 
   @override
-  Future<List<UserCollection>> getAllCollections() => collections;
+  Future<List<UserCollection>> getAllCollections() async => items;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    throw UnsupportedError('Unexpected Isar call: ${invocation.memberName}');
+  }
+}
+
+class _FakeIsarServiceFuture implements IsarService {
+  _FakeIsarServiceFuture(this.items);
+
+  final Future<List<UserCollection>> items;
+
+  @override
+  Future<List<UserCollection>> getAllCollections() => items;
 
   @override
   dynamic noSuchMethod(Invocation invocation) {

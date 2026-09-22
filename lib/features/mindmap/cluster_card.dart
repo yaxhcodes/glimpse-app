@@ -50,11 +50,13 @@ class ClusterCard extends StatelessWidget {
     required this.cluster,
     required this.tier,
     required this.onTap,
+    this.compact = false,
   });
 
   final InterestCluster cluster;
   final ClusterCardTier tier;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +68,7 @@ class ClusterCard extends StatelessWidget {
     final subtopics = cluster.subtopics.take(2).join(' · ');
     final count = context.l10n.saveCount(cluster.saveCount);
     final titleSize = isHero ? 22.0 : 16.0;
-    final minHeight = isHero ? 192.0 : mediumClusterTileHeight(cluster);
+    final minHeight = compact ? 128.0 : mediumClusterTileHeight(cluster);
 
     return Semantics(
       button: true,
@@ -129,6 +131,7 @@ class ClusterCard extends StatelessWidget {
                         subtopics: subtopics,
                         theme: theme,
                         colorScheme: cs,
+                        compact: compact,
                       )
                     : ConstrainedBox(
                         constraints: BoxConstraints(
@@ -215,6 +218,7 @@ class _HeroInterestContent extends StatelessWidget {
     required this.subtopics,
     required this.theme,
     required this.colorScheme,
+    required this.compact,
   });
 
   final InterestCluster cluster;
@@ -223,6 +227,7 @@ class _HeroInterestContent extends StatelessWidget {
   final String subtopics;
   final ThemeData theme;
   final ColorScheme colorScheme;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -238,7 +243,7 @@ class _HeroInterestContent extends StatelessWidget {
             child: const IgnorePointer(child: TopSignalArtwork()),
           ),
           ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 200),
+            constraints: BoxConstraints(minHeight: compact ? 140 : 200),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -323,18 +328,22 @@ class _HeroInterestContent extends StatelessWidget {
 class TopSignalArtwork extends StatelessWidget {
   const TopSignalArtwork({super.key});
 
+  static ImageProvider imageProvider(BuildContext context) => ResizeImage(
+    const AssetImage('assets/interests/top_signal_cutout.png'),
+    width:
+        (MediaQuery.sizeOf(context).width *
+                .33 *
+                MediaQuery.devicePixelRatioOf(context))
+            .ceil()
+            .clamp(1, 768),
+  );
+
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
-    child: Image.asset(
-      'assets/interests/top_signal_cutout.png',
+    child: Image(
+      image: imageProvider(context),
       fit: BoxFit.contain,
       alignment: Alignment.bottomRight,
-      cacheWidth:
-          (MediaQuery.sizeOf(context).width *
-                  .33 *
-                  MediaQuery.devicePixelRatioOf(context))
-              .ceil()
-              .clamp(1, 768),
       excludeFromSemantics: true,
       filterQuality: FilterQuality.medium,
     ),

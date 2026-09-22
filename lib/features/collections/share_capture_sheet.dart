@@ -23,63 +23,77 @@ class ShareCaptureOutcome {
     this.collectionName,
     this.notificationsEnabled = false,
     this.enrichmentPending = false,
+    this.savedUrlId,
   });
 
   final ShareCaptureOutcomeType type;
   final String? collectionName;
   final bool notificationsEnabled;
   final bool enrichmentPending;
+  final int? savedUrlId;
 
   bool get saved => type != ShareCaptureOutcomeType.error;
 }
 
 typedef ShareCaptureCallback =
-    Future<ShareCaptureOutcome> Function(UserCollection? collection);
+    Future<ShareCaptureOutcome> Function(
+      UserCollection? collection,
+      String? notes,
+    );
 
 Future<ShareCaptureOutcome?> showShareCaptureSheet(
   BuildContext context, {
   required ShareCaptureCallback onCapture,
+  ShareCaptureCallback? onUpdate,
 }) {
   return showModalBottomSheet<ShareCaptureOutcome>(
     context: context,
     useRootNavigator: true,
+    isScrollControlled: true,
     isDismissible: false,
     enableDrag: false,
     showDragHandle: false,
     backgroundColor: Colors.transparent,
-    builder: (_) => _ShareCaptureSheet(onCapture: onCapture),
+    builder: (_) => _ShareCaptureSheet(
+      onCapture: onCapture,
+      onUpdate: onUpdate ?? onCapture,
+    ),
   );
 }
 
 class _ShareCaptureSheet extends ConsumerStatefulWidget {
-  const _ShareCaptureSheet({required this.onCapture});
+  const _ShareCaptureSheet({required this.onCapture, required this.onUpdate});
 
   final ShareCaptureCallback onCapture;
+  final ShareCaptureCallback onUpdate;
 
   @override
   ConsumerState<_ShareCaptureSheet> createState() => _ShareCaptureSheetState();
 }
 
 class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
-  Timer? _autoSaveTimer;
+  final _notesController = TextEditingController();
   UserCollection? _defaultCollection;
   late final Future<UserCollection?> _defaultCollectionFuture;
   bool? _hasCollections;
   bool _choosingCollection = false;
   bool _capturing = false;
+  bool _captureFailed = false;
+  bool _addingNote = false;
   ShareCaptureOutcome? _outcome;
+  Timer? _closeTimer;
 
   @override
   void initState() {
     super.initState();
     _defaultCollectionFuture = _prepareDefaultCollection();
-    unawaited(_defaultCollectionFuture);
-    _autoSaveTimer = Timer(const Duration(seconds: 1), _useDefaultCollection);
+    unawaited(_useDefaultCollection());
   }
 
   @override
   void dispose() {
-    _autoSaveTimer?.cancel();
+    _notesController.dispose();
+    _closeTimer?.cancel();
     super.dispose();
   }
 
@@ -121,8 +135,13 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
     await _capture(collection);
   }
 
+  Future<void> _saveEdits() async {
+    if (_outcome == null || _capturing || !mounted) return;
+    await _capture(_defaultCollection);
+  }
+
   Future<void> _chooseCollection() async {
-    _autoSaveTimer?.cancel();
+    _closeTimer?.cancel();
     setState(() => _choosingCollection = true);
     await _defaultCollectionFuture;
     if (!mounted) return;
@@ -134,24 +153,31 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
     }
     if (!mounted) return;
     if (selected != null) {
-      setState(() => _choosingCollection = false);
+      setState(() {
+        _choosingCollection = false;
+        _defaultCollection = selected;
+        _hasCollections = true;
+      });
       await _capture(selected);
       return;
     }
     setState(() => _choosingCollection = false);
-    _autoSaveTimer = Timer(const Duration(seconds: 1), _useDefaultCollection);
   }
 
   Future<void> _capture(UserCollection? collection) async {
     if (_capturing || !mounted) return;
+    _closeTimer?.cancel();
     setState(() {
       _capturing = true;
+      _captureFailed = false;
       _choosingCollection = false;
     });
 
     ShareCaptureOutcome outcome;
     try {
-      outcome = await widget.onCapture(collection);
+      final notes = _notesController.text.trim();
+      final callback = _outcome == null ? widget.onCapture : widget.onUpdate;
+      outcome = await callback(collection, notes.isEmpty ? null : notes);
     } catch (error, stackTrace) {
       developer.log(
         'Share capture failed.',
@@ -162,20 +188,28 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
       outcome = const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
     }
     if (!mounted) return;
-    setState(() => _outcome = outcome);
-    await Future<void>.delayed(
-      Duration(milliseconds: outcome.saved ? 700 : 1200),
-    );
-    if (!mounted) return;
-    Navigator.of(context).pop(outcome);
+    if (!outcome.saved) {
+      setState(() {
+        _capturing = false;
+        _captureFailed = true;
+      });
+      return;
+    }
+    _notesController.clear();
+    setState(() {
+      _outcome = outcome;
+      _capturing = false;
+      _addingNote = false;
+    });
+    _closeTimer?.cancel();
+    _closeTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) Navigator.of(context).pop(outcome);
+    });
   }
 
   String _outcomeTitle(BuildContext context, ShareCaptureOutcome outcome) {
     return switch (outcome.type) {
-      ShareCaptureOutcomeType.captured =>
-        outcome.collectionName == null
-            ? context.l10n.captured
-            : context.l10n.savedToCollection(outcome.collectionName!),
+      ShareCaptureOutcomeType.captured => context.l10n.captured,
       ShareCaptureOutcomeType.duplicate => context.l10n.alreadyInGlimpse,
       ShareCaptureOutcomeType.schedulingFallback => context.l10n.captured,
       ShareCaptureOutcomeType.error => context.l10n.captureCouldNotSave,
@@ -205,114 +239,151 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
 
     return SafeArea(
       top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerHigh,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (outcome == null) ...[
-              Text(
-                context.l10n.savingTo,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 4),
-              InkWell(
-                onTap: _choosingCollection || _capturing
-                    ? null
-                    : _chooseCollection,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      AppIcon(
-                        _hasCollections == false
-                            ? AppIcons.addToCollection
-                            : AppIcons.folder,
+        child: Material(
+          color: colors.surfaceContainerLow,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 12, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (_capturing || outcome == null && !_captureFailed)
+                      const ExpressiveLoadingIndicator(size: 22)
+                    else
+                      Icon(
+                        _captureFailed ? AppIcons.error : AppIcons.checkCircle,
                         size: 22,
-                        color: colors.primary,
+                        color: _captureFailed ? colors.error : colors.primary,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Semantics(
+                        liveRegion: true,
                         child: Text(
-                          _hasCollections == false
-                              ? context.l10n.newCollection
-                              : _defaultCollection?.name ??
-                                    _defaultCollectionName,
+                          _captureFailed
+                              ? context.l10n.captureCouldNotSave
+                              : outcome == null
+                              ? context.l10n.savingTo
+                              : _outcomeTitle(context, outcome),
                           style: theme.textTheme.titleMedium,
                         ),
                       ),
-                      Icon(
-                        AppIcons.chevronDown,
-                        color: colors.onSurfaceVariant,
+                    ),
+                    IconButton(
+                      tooltip: context.l10n.done,
+                      onPressed:
+                          _capturing || outcome == null && !_captureFailed
+                          ? null
+                          : () => Navigator.of(context).pop(outcome),
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                    ),
+                  ],
+                ),
+                if (outcome != null)
+                  if (_outcomeDetail(context, outcome) case final String detail)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 34, bottom: 12),
+                      child: Text(
+                        detail,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed:
+                            _capturing || _choosingCollection || outcome == null
+                            ? null
+                            : _chooseCollection,
+                        icon: const Icon(AppIcons.folder, size: 18),
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _defaultCollection?.name ??
+                                    (_hasCollections == false
+                                        ? context.l10n.newCollection
+                                        : _defaultCollectionName),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(AppIcons.chevronDown, size: 16),
+                          ],
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: colors.onSurface,
+                          side: BorderSide(color: colors.outlineVariant),
+                        ),
+                      ),
+                    ),
+                    if (!_addingNote && !_captureFailed) ...[
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: TextButton(
+                          onPressed: _capturing || outcome == null
+                              ? null
+                              : () {
+                                  _closeTimer?.cancel();
+                                  setState(() => _addingNote = true);
+                                },
+                          child: Text(context.l10n.addNoteOptional),
+                        ),
                       ),
                     ],
-                  ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: ExpressiveLoadingIndicator(
-                      size: 16,
-                      color: colors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    _choosingCollection
-                        ? context.l10n.chooseACollection
-                        : context.l10n.processingLink,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
+                if (_addingNote) ...[
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: TextField(
+                      controller: _notesController,
+                      autofocus: true,
+                      enabled: !_capturing,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: context.l10n.addNoteOptional,
+                      ),
                     ),
                   ),
                 ],
-              ),
-            ] else ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    outcome.saved ? AppIcons.checkCircle : AppIcons.error,
-                    color: outcome.saved ? colors.primary : colors.error,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _outcomeTitle(context, outcome),
-                          style: theme.textTheme.titleMedium,
+                if (_addingNote || _captureFailed)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8, right: 8),
+                      child: FilledButton(
+                        onPressed: _capturing || _choosingCollection
+                            ? null
+                            : (_captureFailed
+                                  ? _useDefaultCollection
+                                  : _saveEdits),
+                        child: Text(
+                          _captureFailed
+                              ? context.l10n.retry
+                              : context.l10n.save,
                         ),
-                        if (_outcomeDetail(context, outcome)
-                            case final detail?) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            detail,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

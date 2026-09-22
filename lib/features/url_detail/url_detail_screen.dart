@@ -807,6 +807,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     TextAlign? textAlign,
     bool isHeading = false,
   }) {
+    if (sectionKey == 'title') {
+      return SelectionContainer.disabled(
+        child: Text(text, style: style, textAlign: textAlign),
+      );
+    }
     return ReaderSelectableText(
       key: ValueKey('reader-text-$sectionKey'),
       text: text,
@@ -1499,9 +1504,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   icon: const Icon(AppIcons.more, size: 26),
                   tooltip: context.l10n.more,
                   onSelected: (value) {
-                    if (value == 'open_original') {
-                      _launchUrl(url.rawUrl);
-                    } else if (value == 'copy_link') {
+                    if (value == 'copy_link') {
                       _copyUrlToClipboard(url.rawUrl);
                     } else if (value == 'share') {
                       Share.share(url.rawUrl);
@@ -1516,20 +1519,6 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     }
                   },
                   itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'open_original',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.externalLink,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.openOriginal),
-                        ],
-                      ),
-                    ),
                     PopupMenuItem(
                       value: 'copy_link',
                       child: Row(
@@ -1740,202 +1729,204 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     }
 
     return SliverToBoxAdapter(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppLayout.maxReaderContentWidth + 48,
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              MediaQuery.sizeOf(context).width >= AppLayout.mediumWidth
-                  ? 24
-                  : 16,
-              8,
-              MediaQuery.sizeOf(context).width >= AppLayout.mediumWidth
-                  ? 24
-                  : 16,
-              bottomPad,
+      child: ReaderSelectionArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppLayout.maxReaderContentWidth + 48,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Image ───────────────────────────────────────────────────
-                if (DemoSeedService.isDemoUrl(url.rawUrl))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      context.l10n.obExample,
-                      style: theme.textTheme.labelMedium,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                MediaQuery.sizeOf(context).width >= AppLayout.mediumWidth
+                    ? 24
+                    : 16,
+                8,
+                MediaQuery.sizeOf(context).width >= AppLayout.mediumWidth
+                    ? 24
+                    : 16,
+                bottomPad,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Image ───────────────────────────────────────────────────
+                  if (DemoSeedService.isDemoUrl(url.rawUrl))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        context.l10n.obExample,
+                        style: theme.textTheme.labelMedium,
+                      ),
                     ),
-                  ),
-                _buildDetailMedia(
-                  url: url,
-                  showImage: showImage,
-                  imageUrls: carouselImages,
-                  categoryLabels: categoryLabels,
-                  displaySourceName: displaySourceName,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                ),
-                const SizedBox(height: 16),
-
-                // ── Hero recognition ────────────────────────────────────────
-                _buildReaderText(
-                  url: url,
-                  sectionKey: 'title',
-                  isHeading: true,
-                  text: displayTitle,
-                  style: AppTypography.editorial(
-                    theme.textTheme.titleLarge,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                    color: colorScheme.onSurface,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // ── Source ──────────────────────────────────────────────────
-                _buildSourceSavedRow(
-                  url: url,
-                  displaySourceName: displaySourceName,
-                  colorScheme: colorScheme,
-                  creatorUsername: creatorUsername,
-                ),
-
-                if (showFirstSaveProgress) ...[
-                  const SizedBox(height: 16),
-                  const ReaderEnrichmentProgress(),
-                ] else if (showEnriching || showEnrichmentRetry) ...[
-                  const SizedBox(height: 12),
-                  _buildEnrichmentRetryPanel(
-                    theme,
-                    colorScheme,
-                    failed: url.isProcessingFailed,
-                    enriching: showEnriching,
-                  ),
-                ],
-
-                SizedBox(height: creatorUsername != null ? 8 : 14),
-                _buildOpenButton(url, displaySourceName),
-
-                if (showSummary) ...[
-                  const SizedBox(height: 28),
-                  _buildSummarySection(
+                  _buildDetailMedia(
                     url: url,
-                    summary: summaryDisplayText,
+                    showImage: showImage,
+                    imageUrls: carouselImages,
+                    categoryLabels: categoryLabels,
+                    displaySourceName: displaySourceName,
                     theme: theme,
                     colorScheme: colorScheme,
-                    onAddNote: showSummaryAddNote ? _beginEditingNotes : null,
                   ),
-                  if (live?.hasPartialMediaEvidence == true) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      context.l10n.readerAudioUnavailable,
-                      key: const ValueKey('reader-audio-unavailable'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.5,
-                      ),
+                  const SizedBox(height: 16),
+
+                  // ── Hero recognition ────────────────────────────────────────
+                  _buildReaderText(
+                    url: url,
+                    sectionKey: 'title',
+                    isHeading: true,
+                    text: displayTitle,
+                    style: AppTypography.editorial(
+                      theme.textTheme.titleLarge,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      color: colorScheme.onSurface,
+                      letterSpacing: 0,
                     ),
-                  ] else if (live != null &&
-                      live.steps.isEmpty &&
-                      live.contentSections.isEmpty &&
-                      live.mentions.isEmpty &&
-                      live.notableItems.isEmpty) ...[
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Source ──────────────────────────────────────────────────
+                  _buildSourceSavedRow(
+                    url: url,
+                    displaySourceName: displaySourceName,
+                    colorScheme: colorScheme,
+                    creatorUsername: creatorUsername,
+                  ),
+
+                  if (showFirstSaveProgress) ...[
+                    const SizedBox(height: 16),
+                    const ReaderEnrichmentProgress(),
+                  ] else if (showEnriching || showEnrichmentRetry) ...[
                     const SizedBox(height: 12),
-                    Text(
-                      context.l10n.readerOverviewOnly,
-                      key: const ValueKey('reader-overview-only'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.5,
-                        fontStyle: FontStyle.italic,
-                      ),
+                    _buildEnrichmentRetryPanel(
+                      theme,
+                      colorScheme,
+                      failed: url.isProcessingFailed,
+                      enriching: showEnriching,
                     ),
                   ],
-                ],
 
-                ..._buildEnrichmentSections(
-                  url: url,
-                  live: live,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                ),
+                  SizedBox(height: creatorUsername != null ? 8 : 14),
+                  _buildOpenButton(url, displaySourceName),
 
-                if (resourceItems.isNotEmpty) ...[
-                  const SizedBox(height: 28),
-                  _buildResourcesSection(
-                    items: resourceItems,
-                    theme: theme,
-                    colorScheme: colorScheme,
-                  ),
-                ],
-
-                if (live != null && !showEnriching) ...[
-                  const SizedBox(height: 28),
-                  if (!DemoSeedService.isDemoUrl(url.rawUrl))
-                    const FirstUseGuide(kind: FirstUseKind.reader),
-                  ReaderAskActions(
-                    onOpen: () => DemoSeedService.isDemoUrl(url.rawUrl)
-                        ? showDialog<void>(
-                            context: context,
-                            builder: (dialog) => AlertDialog(
-                              title: Text(context.l10n.obExample),
-                              content: Text(context.l10n.obAnswer),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(dialog),
-                                  child: Text(context.l10n.obContinue),
-                                ),
-                              ],
-                            ),
-                          )
-                        : context.push(
-                            '/ask',
-                            extra: AskLaunchRequest(
-                              source: url,
-                              autofocus: true,
-                            ),
-                          ),
-                  ),
-                ],
-
-                _buildAnimatedNotesRegion(
-                  expanded: !showSummaryAddNote,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 28),
-                    child: _buildNotesSection(
+                  if (showSummary) ...[
+                    const SizedBox(height: 28),
+                    _buildSummarySection(
                       url: url,
-                      suggestions: noteSuggestions,
+                      summary: summaryDisplayText,
                       theme: theme,
                       colorScheme: colorScheme,
+                      onAddNote: showSummaryAddNote ? _beginEditingNotes : null,
                     ),
-                  ),
-                ),
+                    if (live?.hasPartialMediaEvidence == true) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        context.l10n.readerAudioUnavailable,
+                        key: const ValueKey('reader-audio-unavailable'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                      ),
+                    ] else if (live != null &&
+                        live.steps.isEmpty &&
+                        live.contentSections.isEmpty &&
+                        live.mentions.isEmpty &&
+                        live.notableItems.isEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        context.l10n.readerOverviewOnly,
+                        key: const ValueKey('reader-overview-only'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.5,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ],
 
-                if (visibleTags.isNotEmpty) ...[
-                  const SizedBox(height: 28),
-                  TagGroup(
-                    tags: visibleTags,
-                    onTap: _openTagSearch,
-                    onLongPress: (tag) => _showTagMenu(url, tag),
-                    accent: _recipeAccent(colorScheme),
-                  ),
-                ],
-                if (live != null && _hasSourceMaterial(live)) ...[
-                  const SizedBox(height: 28),
-                  _buildSourceMaterialSection(
+                  ..._buildEnrichmentSections(
                     url: url,
                     live: live,
                     theme: theme,
                     colorScheme: colorScheme,
                   ),
+
+                  if (resourceItems.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    _buildResourcesSection(
+                      items: resourceItems,
+                      theme: theme,
+                      colorScheme: colorScheme,
+                    ),
+                  ],
+
+                  if (live != null && !showEnriching) ...[
+                    const SizedBox(height: 28),
+                    if (!DemoSeedService.isDemoUrl(url.rawUrl))
+                      const FirstUseGuide(kind: FirstUseKind.reader),
+                    ReaderAskActions(
+                      onOpen: () => DemoSeedService.isDemoUrl(url.rawUrl)
+                          ? showDialog<void>(
+                              context: context,
+                              builder: (dialog) => AlertDialog(
+                                title: Text(context.l10n.obExample),
+                                content: Text(context.l10n.obAnswer),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(dialog),
+                                    child: Text(context.l10n.obContinue),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : context.push(
+                              '/ask',
+                              extra: AskLaunchRequest(
+                                source: url,
+                                autofocus: true,
+                              ),
+                            ),
+                    ),
+                  ],
+
+                  _buildAnimatedNotesRegion(
+                    expanded: !showSummaryAddNote,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 28),
+                      child: _buildNotesSection(
+                        url: url,
+                        suggestions: noteSuggestions,
+                        theme: theme,
+                        colorScheme: colorScheme,
+                      ),
+                    ),
+                  ),
+
+                  if (visibleTags.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    TagGroup(
+                      tags: visibleTags,
+                      onTap: _openTagSearch,
+                      onLongPress: (tag) => _showTagMenu(url, tag),
+                      accent: _recipeAccent(colorScheme),
+                    ),
+                  ],
+                  if (live != null && _hasSourceMaterial(live)) ...[
+                    const SizedBox(height: 28),
+                    _buildSourceMaterialSection(
+                      url: url,
+                      live: live,
+                      theme: theme,
+                      colorScheme: colorScheme,
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  const ContentAttributionDisclaimer(),
                 ],
-                const SizedBox(height: 20),
-                const ContentAttributionDisclaimer(),
-              ],
+              ),
             ),
           ),
         ),
