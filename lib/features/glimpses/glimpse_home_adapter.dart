@@ -7,6 +7,12 @@ import 'glimpse_copy.dart';
 import 'glimpse_journey.dart';
 import 'glimpse_service.dart';
 
+/// Read persisted cards without waiting for the full candidate refresh.
+final glimpseHomeHasCardsProvider = FutureProvider<bool>((ref) async {
+  final entries = await ref.read(glimpseServiceProvider).store.load();
+  return GlimpseService.current(entries, DateTime.now()).isNotEmpty;
+});
+
 /// Keeps Home's established artwork cards while using the shared selection.
 final glimpseHomeSetProvider = FutureProvider<RediscoverDailySet>((ref) async {
   ref.watch(effectiveAppLocaleProvider);

@@ -7,7 +7,6 @@ import '../../shared/theme/app_typography.dart';
 import '../../shared/theme/topic_visual.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../../shared/widgets/surface_grain.dart';
-import '../../shared/widgets/hyphenated_title.dart';
 import 'rediscover_journey_provider.dart';
 
 enum RediscoverArtworkTheme {
@@ -122,6 +121,36 @@ class RediscoverArtworkCard extends StatelessWidget {
           56.0,
           hero ? 132.0 : 112.0,
         );
+        final padding = hero
+            ? 22.0
+            : compact
+            ? 14.0
+            : 18.0;
+        final titleStyle = AppTypography.editorial(
+          theme.textTheme.headlineSmall,
+          fontSize: titleSize,
+          height: 1.08,
+          color: cs.onSurface,
+          letterSpacing: -.2,
+        );
+        final painter = TextPainter(
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        );
+        var longestWord = 0.0;
+        for (final word in title.split(RegExp(r'\s+'))) {
+          painter.text = TextSpan(text: word, style: titleStyle);
+          painter.layout();
+          longestWord = math.max(longestWord, painter.width);
+        }
+        painter.dispose();
+        final stacked = longestWord > width - padding * 2 - imageSize - 12;
+        final titleWidget = Text(
+          title,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+          style: titleStyle,
+        );
         return Semantics(
           button: onTap != null,
           onTap: onTap,
@@ -154,31 +183,43 @@ class RediscoverArtworkCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Align(
-                                    alignment: AlignmentDirectional.bottomStart,
-                                    child: HyphenatedTitle(
-                                      text: title,
-                                      maxLines: 4,
-                                      style: AppTypography.editorial(
-                                        theme.textTheme.headlineSmall,
-                                        fontSize: titleSize,
-                                        height: 1.08,
-                                        color: cs.onSurface,
-                                        letterSpacing: -.2,
+                            child: stacked
+                                ? Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Align(
+                                          alignment:
+                                              AlignmentDirectional.centerEnd,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: RediscoverIllustration(
+                                              artwork: artwork,
+                                              size: imageSize,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      titleWidget,
+                                    ],
+                                  )
+                                : Row(
+                                    children: [
+                                      Expanded(
+                                        child: Align(
+                                          alignment:
+                                              AlignmentDirectional.bottomStart,
+                                          child: titleWidget,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      RediscoverIllustration(
+                                        artwork: artwork,
+                                        size: imageSize,
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                RediscoverIllustration(
-                                  artwork: artwork,
-                                  size: imageSize,
-                                ),
-                              ],
-                            ),
                           ),
                           if (supportingText.trim().isNotEmpty) ...[
                             const SizedBox(height: 12),

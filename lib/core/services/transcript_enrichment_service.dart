@@ -443,7 +443,7 @@ class TranscriptEnrichmentService {
           Map<String, dynamic>.from(item),
         );
         if (mention.title.isEmpty) continue;
-        byKey[_mentionIdentityKey(mention.type, mention.title)] = mention;
+        byKey[_parsedMentionIdentityKey(mention)] = mention;
       }
     }
     final books = data['books'];
@@ -601,18 +601,14 @@ class TranscriptEnrichmentService {
     if (entities is List) {
       for (final item in entities) {
         if (item is! Map) continue;
-        final type = _normalizeMentionType(item['type']);
         final title = _cleanText(item['name'] ?? item['title']);
         if (title.isEmpty) continue;
-        final key = _mentionIdentityKey(type, title);
-        byKey.putIfAbsent(
-          key,
-          () => EnrichedMention.fromJson({
-            ...Map<String, dynamic>.from(item),
-            'title': title,
-            'type': type,
-          }),
-        );
+        final mention = EnrichedMention.fromJson({
+          ...Map<String, dynamic>.from(item),
+          'title': title,
+        });
+        final key = _parsedMentionIdentityKey(mention);
+        byKey.putIfAbsent(key, () => mention);
       }
     }
     return byKey.entries
@@ -838,6 +834,16 @@ class TranscriptEnrichmentService {
 
   static String _mentionIdentityKey(String type, String title) =>
       '${_normalizeMentionType(type)}:${_mentionKey(title)}';
+
+  static String _parsedMentionIdentityKey(EnrichedMention mention) {
+    final key = _mentionIdentityKey(mention.type, mention.title);
+    if (mention.type != 'music') return key;
+    final kind = switch (mention.subtype) {
+      null || 'music' || 'track' || 'song' => 'song',
+      final subtype => subtype,
+    };
+    return '$key:${_mentionKey(mention.creator ?? '')}:$kind';
+  }
 
   static Future<TranscriptEnrichmentResult?> _readPersisted(
     String rawUrl,

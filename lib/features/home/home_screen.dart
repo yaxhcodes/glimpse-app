@@ -35,6 +35,7 @@ import '../shell/shell_chrome_provider.dart';
 import '../sources/sources_provider.dart';
 import 'home_provider.dart';
 import 'rediscovery_section.dart';
+import 'save_date_group.dart';
 import 'guide_card.dart';
 import 'home_loading_skeleton.dart';
 import '../../l10n/l10n.dart';
@@ -690,10 +691,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .where((url) => !pinnedSet.contains(url.id))
         .toList();
 
+    final now = DateTime.now();
+    final dateGroups = <SaveDateGroup, List<SavedUrl>>{};
+    for (final url in regularUrls) {
+      dateGroups
+          .putIfAbsent(SaveDateGroup.forDate(url.savedAt, now), () => [])
+          .add(url);
+    }
+    final regularIds = List<int>.unmodifiable(regularUrls.map((url) => url.id));
     final sections = <_Section>[
       if (pinnedUrls.isNotEmpty) _Section(context.l10n.pinned, pinnedUrls),
-      if (regularUrls.isNotEmpty)
-        _Section(context.l10n.recentSaves, regularUrls),
+      for (final group in SaveDateGroup.values)
+        if (dateGroups[group] case final items?)
+          _Section(
+            switch (group) {
+              SaveDateGroup.today => context.l10n.today,
+              SaveDateGroup.yesterday => context.l10n.yesterday,
+              SaveDateGroup.lastSevenDays => context.l10n.savesLastSevenDays,
+              SaveDateGroup.lastThirtyDays => context.l10n.savesLastThirtyDays,
+              SaveDateGroup.earlier => context.l10n.savesEarlier,
+            },
+            items,
+            navigationIds: regularIds,
+            isDateGroup: true,
+          ),
     ];
 
     // Post-onboarding guide card: shows on a populated home until the user
@@ -896,6 +917,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     faviconUrl(name) ?? source.faviconUrl;
                                 final iconSpec = resolveSourceIcon(name);
                                 return FilterChip(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  labelPadding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  visualDensity: const VisualDensity(
+                                    horizontal: -2,
+                                    vertical: -1,
+                                  ),
                                   showCheckmark: false,
                                   avatar: _SourceChipAvatar(
                                     label: name,
@@ -939,16 +970,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   for (final section in sections) ...[
+                    if (section.isDateGroup &&
+                        identical(
+                          section,
+                          sections.firstWhere((item) => item.isDateGroup),
+                        ))
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
+                          child: Text(
+                            context.l10n.yourSaves,
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                      ),
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          section.isDateGroup &&
+                                  identical(
+                                    section,
+                                    sections.firstWhere(
+                                      (item) => item.isDateGroup,
+                                    ),
+                                  )
+                              ? 6
+                              : 16,
+                          16,
+                          6,
+                        ),
                         child: Text(
                           section.label,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.3,
-                          ),
+                          style:
+                              (section.isDateGroup
+                                      ? theme.textTheme.labelMedium
+                                      : theme.textTheme.labelLarge)
+                                  ?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.3,
+                                  ),
                         ),
                       ),
                     ),
@@ -957,6 +1019,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         final url = section.urls[index];
                         return SwipeableUrlCard(
                           filledSwipeIcons: true,
+                          showTags: false,
+                          showEnrichmentActions: false,
                           key: ValueKey(url.id),
                           url: url,
                           contentPadding: const EdgeInsets.all(10),
@@ -1094,9 +1158,14 @@ class _Section {
   final String label;
   final List<SavedUrl> urls;
   final List<int> ids;
+  final bool isDateGroup;
 
-  _Section(this.label, this.urls)
-    : ids = List.unmodifiable(urls.map((url) => url.id));
+  _Section(
+    this.label,
+    this.urls, {
+    List<int>? navigationIds,
+    this.isDateGroup = false,
+  }) : ids = navigationIds ?? List.unmodifiable(urls.map((url) => url.id));
 }
 
 class _LandingIdentity extends StatefulWidget {

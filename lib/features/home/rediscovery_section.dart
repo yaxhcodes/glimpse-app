@@ -42,8 +42,18 @@ class RediscoverySection extends ConsumerWidget {
     final memories =
         dailySetAsync?.valueOrNull?.memories ?? const <RediscoverMemory>[];
     final pending = !loadJourneys || (dailySetAsync?.isLoading ?? false);
-    final showSkeleton = pending && memories.isEmpty;
-    final showGlimpsesEntry = memories.isEmpty && !pending;
+    final availability = pending && memories.isEmpty
+        ? ref.watch(glimpseHomeHasCardsProvider)
+        : null;
+    if (availability != null &&
+        availability.isLoading &&
+        !availability.hasValue) {
+      return const SizedBox.shrink();
+    }
+    final showSkeleton = pending &&
+        memories.isEmpty &&
+        (availability?.valueOrNull ?? false);
+    final showGlimpsesEntry = memories.isEmpty && !showSkeleton;
 
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;

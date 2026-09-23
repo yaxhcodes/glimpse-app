@@ -6,6 +6,8 @@ import 'package:glimpse/core/models/url_processing_status.dart';
 import 'package:glimpse/core/providers/usage_providers.dart';
 import 'package:glimpse/shared/widgets/enrichment_retry_button.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
+import 'package:glimpse/features/url_detail/url_detail_provider.dart';
+import 'package:glimpse/shared/widgets/expressive_loading_indicator.dart';
 
 SavedUrl _metadataOnlyUrl() {
   return SavedUrl()
@@ -23,18 +25,58 @@ SavedUrl _metadataOnlyUrl() {
     ..processingStatus = UrlProcessingStatus.completed;
 }
 
-Widget _app({required bool hasAiSaveAccess}) {
+Widget _app({
+  required bool hasAiSaveAccess,
+  bool showEnrichmentActions = true,
+}) {
   return ProviderScope(
     overrides: [aiSaveAvailableProvider.overrideWithValue(hasAiSaveAccess)],
     child: MaterialApp(
       home: Scaffold(
-        body: UrlCard(savedUrl: _metadataOnlyUrl(), tagFrequency: const {}),
+        body: UrlCard(
+          savedUrl: _metadataOnlyUrl(),
+          tagFrequency: const {},
+          showEnrichmentActions: showEnrichmentActions,
+        ),
       ),
     ),
   );
 }
 
 void main() {
+  testWidgets('Home tracks a retry started from Details until it finishes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(hasAiSaveAccess: true, showEnrichmentActions: false),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(UrlCard)),
+    );
+    expect(find.byType(ExpressiveLoadingIndicator), findsNothing);
+    container.read(retryingUrlIdsProvider.notifier).state = {42};
+    await tester.pump();
+    expect(find.byType(ExpressiveLoadingIndicator), findsOneWidget);
+    expect(find.text('Trying that step again'), findsOneWidget);
+    expect(find.text('Trying this processing step again'), findsOneWidget);
+    expect(find.byType(EnrichmentRetryButton), findsNothing);
+    container.read(retryingUrlIdsProvider.notifier).state = {};
+    await tester.pump();
+    expect(find.byType(ExpressiveLoadingIndicator), findsNothing);
+    expect(find.text('Trying that step again'), findsNothing);
+  });
+
+  testWidgets('Home plain saves stay quiet even when AI access returns', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(hasAiSaveAccess: true, showEnrichmentActions: false),
+    );
+    expect(find.byType(EnrichmentRetryButton), findsNothing);
+    expect(find.text('Unread'), findsOneWidget);
+    expect(find.text('Instagram'), findsOneWidget);
+  });
+
   testWidgets('shows retry inline with metadata when AI access returns', (
     tester,
   ) async {

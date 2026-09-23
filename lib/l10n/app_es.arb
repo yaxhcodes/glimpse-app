@@ -1,4 +1,8 @@
 {
+  "yourSaves": "Tus enlaces guardados",
+  "savesLastSevenDays": "Últimos 7 días",
+  "savesLastThirtyDays": "Últimos 30 días",
+  "savesEarlier": "Anteriores",
   "readerAskAbout": "Pregunta sobre este guardado",
   "readerEnrichingTitle": "Nos pillaste preparando tu Glimpse.",
   "readerEnrichingBody": "Ya está guardado. Estamos reuniendo los detalles útiles.",

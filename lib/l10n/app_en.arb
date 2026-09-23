@@ -1,4 +1,8 @@
 {
+  "yourSaves": "Your saves",
+  "savesLastSevenDays": "Last 7 days",
+  "savesLastThirtyDays": "Last 30 days",
+  "savesEarlier": "Earlier",
   "readerAskAbout": "Ask about this save",
   "readerEnrichingTitle": "You caught us mid-glimpse.",
   "readerEnrichingBody": "Saved already. Just gathering the useful details.",

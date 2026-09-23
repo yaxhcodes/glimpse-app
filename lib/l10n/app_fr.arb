@@ -1,4 +1,8 @@
 {
+  "yourSaves": "Vos liens enregistrés",
+  "savesLastSevenDays": "7 derniers jours",
+  "savesLastThirtyDays": "30 derniers jours",
+  "savesEarlier": "Plus anciens",
   "readerAskAbout": "Poser une question sur ce contenu",
   "readerEnrichingTitle": "Votre Glimpse prend forme.",
   "readerEnrichingBody": "Déjà enregistré. Nous rassemblons les informations utiles.",

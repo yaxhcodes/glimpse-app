@@ -291,9 +291,10 @@ class _MainShellState extends ConsumerState<MainShell> {
                   !scrollCaptureActive &&
                       _currentIndex == 0 &&
                       hasLinks &&
-                      !homeSelection.isActive &&
-                      (usesRail || shellChromeVisible)
+                      !homeSelection.isActive
                   ? ExpressiveExtendedFab(
+                      isExtended: shellChromeVisible,
+                      tooltip: strings.askGlimpse,
                       onPressed: () {
                         HapticFeedback.lightImpact();
                         context.push('/ask');

@@ -9,6 +9,18 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String get yourSaves => 'Deine gespeicherten Links';
+
+  @override
+  String get savesLastSevenDays => 'Letzte 7 Tage';
+
+  @override
+  String get savesLastThirtyDays => 'Letzte 30 Tage';
+
+  @override
+  String get savesEarlier => 'Älter';
+
+  @override
   String get readerAskAbout => 'Zu diesem Inhalt fragen';
 
   @override

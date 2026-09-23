@@ -1,4 +1,8 @@
 {
+  "yourSaves": "保存したリンク",
+  "savesLastSevenDays": "過去7日間",
+  "savesLastThirtyDays": "過去30日間",
+  "savesEarlier": "それ以前",
   "readerAskAbout": "この保存について聞く",
   "readerEnrichingTitle": "まだ、ひと目の途中です。",
   "readerEnrichingBody": "保存済みです。役立つ情報をまとめています。",

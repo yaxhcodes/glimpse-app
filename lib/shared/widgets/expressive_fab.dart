@@ -18,6 +18,8 @@ class ExpressiveExtendedFab extends StatelessWidget {
     required this.label,
     this.idleRadius = 16,
     this.pressedRadius = 9,
+    this.isExtended,
+    this.tooltip,
   });
 
   final VoidCallback onPressed;
@@ -25,6 +27,8 @@ class ExpressiveExtendedFab extends StatelessWidget {
   final Widget label;
   final double idleRadius;
   final double pressedRadius;
+  final bool? isExtended;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +37,40 @@ class ExpressiveExtendedFab extends StatelessWidget {
       pressedRadius: pressedRadius,
       builder: (radius) => FloatingActionButton.extended(
         onPressed: onPressed,
-        icon: icon,
-        label: label,
+        tooltip: tooltip,
+        extendedPadding: isExtended == null
+            ? null
+            : const EdgeInsets.symmetric(horizontal: 18),
+        icon: isExtended == null ? icon : null,
+        label: isExtended == null
+            ? label
+            : TweenAnimationBuilder<double>(
+                tween: Tween<double>(end: isExtended! ? 1 : 0),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                curve: Curves.easeInOutCubic,
+                builder: (context, progress, _) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClipRect(
+                      child: Align(
+                        widthFactor: progress,
+                        child: Opacity(
+                          opacity: progress,
+                          child: ExcludeSemantics(
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: label,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    icon,
+                  ],
+                ),
+              ),
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),

@@ -106,6 +106,30 @@ abstract class AppLocalizations {
     Locale('pt'),
   ];
 
+  /// No description provided for @yourSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saves'**
+  String get yourSaves;
+
+  /// No description provided for @savesLastSevenDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get savesLastSevenDays;
+
+  /// No description provided for @savesLastThirtyDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 30 days'**
+  String get savesLastThirtyDays;
+
+  /// No description provided for @savesEarlier.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier'**
+  String get savesEarlier;
+
   /// No description provided for @readerAskAbout.
   ///
   /// In en, this message translates to:

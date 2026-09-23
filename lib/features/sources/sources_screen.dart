@@ -359,7 +359,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
             : () =>
                   context.push('/sources/${Uri.encodeComponent(source.name)}'),
         child: Padding(
-          padding: EdgeInsets.all(isEmpty ? 12 : 14),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -447,10 +447,10 @@ class _KnowledgeClusterCard extends StatelessWidget {
                 ],
               ),
               if (source.memoryStripUrls.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 MemoryStrip(
                   imageUrls: source.memoryStripUrls,
-                  height: 44,
+                  height: 40,
                   totalCount: source.count,
                   overlap: 12,
                   gapWidth: 2,
@@ -458,7 +458,7 @@ class _KnowledgeClusterCard extends StatelessWidget {
                 ),
               ],
               if (source.mostlyAbout.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 4,
                   runSpacing: 4,
@@ -537,7 +537,7 @@ class TopSourcesRail extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var index = 0; index < sources.length; index++) ...[
-              if (index > 0) const SizedBox(width: 10),
+              if (index > 0) const SizedBox(width: 8),
               _TopSourceCard(cluster: sources[index]),
             ],
           ],
@@ -562,7 +562,7 @@ class _TopSourceCard extends StatelessWidget {
     final strings = context.l10n;
 
     return SizedBox(
-      width: 152,
+      width: 148,
       child: Card(
         elevation: 0,
         color: cs.surfaceContainerLow,
@@ -582,7 +582,7 @@ class _TopSourceCard extends StatelessWidget {
                   fallbackIcon: iconSpec.icon ?? AppIcons.folder,
                   brandColor: brandColor,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
                   cluster.name,
                   maxLines: 1,

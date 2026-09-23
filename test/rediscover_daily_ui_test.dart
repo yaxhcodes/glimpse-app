@@ -66,7 +66,7 @@ void main() {
                           items: [_item(_url(1, 'Architecture notes'))],
                           signal: 80,
                         ),
-                        title: 'Architecture notes worth revisiting',
+                        title: 'Book Recommendations',
                         supportingText: 'An idea from your saved reading',
                         metadata: 'Ready · 2 months ago',
                         height: 224,
@@ -83,10 +83,76 @@ void main() {
           find.byType(RediscoverIllustration),
         );
         expect(illustration.size, lessThanOrEqualTo(width * .31));
+        expect(find.text('Book Recommendations'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }
   }
+
+  for (final loadJourneys in [false, true]) {
+    testWidgets('Home has no speculative cards when loading is $loadJourneys', (
+      tester,
+    ) async {
+      final pending = Completer<RediscoverDailySet>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            glimpseHomeHasCardsProvider.overrideWith((ref) async => false),
+            glimpseHomeSetProvider.overrideWith((ref) => pending.future),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: RediscoverySection(loadJourneys: loadJourneys),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.text('Your Glimpses'), findsOneWidget);
+      expect(find.text('Rediscover'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('rediscover-journey-skeleton')),
+        findsNothing,
+      );
+      pending.complete(
+        RediscoverDailySet(localDate: DateTime.now(), memories: const []),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Your Glimpses'), findsOneWidget);
+      expect(find.byType(CarouselView), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('saved cards show skeletons before deferred refresh starts', (
+    tester,
+  ) async {
+    final availability = Completer<bool>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          glimpseHomeHasCardsProvider.overrideWith((ref) => availability.future),
+          glimpseHomeSetProvider.overrideWith((ref) {
+            throw StateError('Card refresh must stay deferred');
+          }),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: RediscoverySection(loadJourneys: false)),
+        ),
+      ),
+    );
+    expect(find.text('Your Glimpses'), findsNothing);
+    availability.complete(true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Rediscover'), findsOneWidget);
+    expect(find.text('Your Glimpses'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('rediscover-journey-skeleton')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('Home crossfades saved skeletons into daily cards', (
     tester,
@@ -95,9 +161,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          rediscoverHasSavedDailyCardsProvider.overrideWith(
-            (ref) async => true,
-          ),
+          glimpseHomeHasCardsProvider.overrideWith((ref) async => true),
           glimpseHomeSetProvider.overrideWith((ref) => pending.future),
           rediscoverDailySetControllerProvider.overrideWithValue(
             _NoopDailySetController(),

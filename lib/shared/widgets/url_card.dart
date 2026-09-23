@@ -38,6 +38,8 @@ class UrlCard extends ConsumerStatefulWidget {
   final bool isSelected;
   final Map<String, int>? tagFrequency;
   final EdgeInsetsGeometry contentPadding;
+  final bool showTags;
+  final bool showEnrichmentActions;
 
   const UrlCard({
     super.key,
@@ -50,6 +52,8 @@ class UrlCard extends ConsumerStatefulWidget {
     this.isSelected = false,
     this.tagFrequency,
     this.contentPadding = const EdgeInsets.all(12),
+    this.showTags = true,
+    this.showEnrichmentActions = true,
   });
 
   /// Relative time for the source · time row (shared with other link cards).
@@ -103,27 +107,39 @@ class _UrlCardState extends ConsumerState<UrlCard> {
       rawUrl: widget.savedUrl.rawUrl,
       fallbackDomain: widget.savedUrl.domain,
     );
-    final normalizedCategories = widget.savedUrl.effectiveCategories
-        .map((item) => item.toLowerCase())
-        .toSet();
-    final tagPool = widget.savedUrl.tags
-        .where((tag) => !normalizedCategories.contains(tag.toLowerCase()))
-        .where((tag) => tag.toLowerCase() != displaySourceName.toLowerCase())
-        .toList();
+    final normalizedCategories = widget.showTags
+        ? widget.savedUrl.effectiveCategories
+              .map((item) => item.toLowerCase())
+              .toSet()
+        : const <String>{};
+    final tagPool = widget.showTags
+        ? widget.savedUrl.tags
+              .where((tag) => !normalizedCategories.contains(tag.toLowerCase()))
+              .where(
+                (tag) => tag.toLowerCase() != displaySourceName.toLowerCase(),
+              )
+              .toList()
+        : const <String>[];
 
+    final retrying = ref.watch(
+      retryingUrlIdsProvider.select((ids) => ids.contains(widget.savedUrl.id)),
+    );
     final isProcessing =
+        retrying ||
         widget.savedUrl.isProcessingActive ||
         _isRecentlyEnriching(widget.savedUrl);
     final isProcessingFailed = widget.savedUrl.isProcessingFailed;
     final showEnrichmentRetry =
+        widget.showEnrichmentActions &&
         !widget.selectionMode &&
         SavedUrlEnrichmentState.shouldOfferRetry(
           widget.savedUrl,
           hasAiSaveAccess: ref.watch(aiSaveAvailableProvider),
         );
-    final processingPresentation = isProcessing || isProcessingFailed
+    final processingPresentation =
+        isProcessing || (widget.showEnrichmentActions && isProcessingFailed)
         ? UrlProcessingPresentation.fromStatus(
-            _retryingEnrichment
+            _retryingEnrichment || retrying
                 ? UrlProcessingStatus.retrying
                 : widget.savedUrl.processingStatus,
             sourceName: displaySourceName,
@@ -136,7 +152,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
           widget.savedUrl,
           tagFrequency: tagFreq,
         );
-    final chipData = (isProcessing || isProcessingFailed)
+    final chipData = (!widget.showTags || isProcessing || isProcessingFailed)
         ? (visible: <String>[], overflow: 0)
         : TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
     final notePreview = widget.savedUrl.notePreview;
@@ -204,7 +220,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               child: Padding(
                 padding: widget.contentPadding,
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: widget.showTags
+                      ? CrossAxisAlignment.start
+                      : CrossAxisAlignment.center,
                   children: [
                     widget.selectionMode
                         ? _SelectionThumbnail(
@@ -292,22 +310,35 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                       ),
                                       style: metaStyle,
                                     ),
-                                    Text(' · ', style: metaStyle),
-                                    Text(
-                                      _retryingEnrichment
-                                          ? context.l10n.retrying
-                                          : isProcessing
-                                          ? context.l10n.processing
-                                          : isProcessingFailed
-                                          ? context.l10n.needsAttention
-                                          : isRead
-                                          ? context.l10n.read
-                                          : context.l10n.unread,
-                                      style: metaStyle,
-                                    ),
+                                    if (!_retryingEnrichment) ...[
+                                      Text(' · ', style: metaStyle),
+                                      Text(
+                                        widget.showEnrichmentActions &&
+                                                isProcessing
+                                            ? context.l10n.processing
+                                            : widget.showEnrichmentActions &&
+                                                  isProcessingFailed
+                                            ? context.l10n.needsAttention
+                                            : isRead
+                                            ? context.l10n.read
+                                            : context.l10n.unread,
+                                        style: metaStyle,
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
+                              if (!widget.showEnrichmentActions &&
+                                  isProcessing) ...[
+                                const SizedBox(width: 8),
+                                Semantics(
+                                  label: context.l10n.enriching,
+                                  child: ExpressiveLoadingIndicator(
+                                    size: 14,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                               if (showEnrichmentRetry &&
                                   !isProcessingFailed) ...[
                                 const SizedBox(width: 4),
@@ -400,7 +431,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   ),
                               ],
                             ),
-                          ] else if (isProcessing || isProcessingFailed) ...[
+                          ] else if (processingPresentation != null) ...[
                             const SizedBox(height: 8),
                             _ProcessingStatusPanel(
                               presentation: processingPresentation!,

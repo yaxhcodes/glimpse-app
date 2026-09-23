@@ -174,6 +174,7 @@ open class MainActivity : FlutterFragmentActivity() {
                             result.error("invalid_processing_id", "A processing id is required.", null)
                         } else {
                             EnrichmentKeepAliveService.start(applicationContext, processingId)
+                            (this as? ShareActivity)?.trackEnrichmentStart(processingId)
                             result.success(true)
                         }
                     }
@@ -183,6 +184,9 @@ open class MainActivity : FlutterFragmentActivity() {
                             EnrichmentKeepAliveService.finish(applicationContext, processingId)
                         }
                         result.success(null)
+                        if (!processingId.isNullOrBlank()) {
+                            (this as? ShareActivity)?.trackEnrichmentFinish(processingId)
+                        }
                     }
                     "notificationPermissionRequestable" -> {
                         val requested = getPreferences(Context.MODE_PRIVATE)

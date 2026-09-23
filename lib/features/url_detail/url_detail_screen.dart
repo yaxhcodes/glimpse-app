@@ -4462,6 +4462,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
   String _mentionMetadataLine(EnrichedMention mention) {
     final type = mention.type.toLowerCase();
+    if (type == 'music') return mention.creator?.trim() ?? '';
     final year = mention.year?.trim() ?? '';
     if (type == 'movie' && year.isNotEmpty) return year;
     return '';
@@ -4492,6 +4493,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }
 
   Future<void> _launchMentionSearch(EnrichedMention mention) async {
+    if (mention.type == 'music' &&
+        (mention.subtype == 'song' || mention.subtype == 'track')) {
+      await openMusicItem(
+        context,
+        ref,
+        title: mention.title,
+        artist: mention.creator,
+      );
+      return;
+    }
     final suffix = switch (mention.type) {
       'movie' => 'movie',
       'book' => 'book',

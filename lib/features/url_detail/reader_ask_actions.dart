@@ -13,20 +13,23 @@ class ReaderAskActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return FilledButton.tonalIcon(
+    final theme = Theme.of(context);
+    return TextButton.icon(
       onPressed: onOpen,
       icon: SvgPicture.asset(
         AppAssets.brandMark,
-        width: 26,
-        height: 26,
+        width: 24,
+        height: 24,
         colorFilter: ColorFilter.mode(
-          Theme.of(context).colorScheme.onSecondaryContainer,
+          theme.colorScheme.primary,
           BlendMode.srcIn,
         ),
       ),
       label: Text(l10n.readerAskAbout),
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      style: TextButton.styleFrom(
+        foregroundColor: theme.colorScheme.primary,
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         alignment: Alignment.centerLeft,
       ),
     );

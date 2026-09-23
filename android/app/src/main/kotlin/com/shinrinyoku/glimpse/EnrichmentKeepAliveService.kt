@@ -9,6 +9,9 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 
 /**
@@ -18,6 +21,8 @@ import androidx.core.app.NotificationCompat
 class EnrichmentKeepAliveService : Service() {
     private val activeProcessingIds = linkedSetOf<String>()
     private var wakeLock: PowerManager.WakeLock? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val deadlines = mutableMapOf<String, Runnable>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -25,16 +30,21 @@ class EnrichmentKeepAliveService : Service() {
         val processingId = intent?.getStringExtra(EXTRA_PROCESSING_ID)
         when (intent?.action) {
             ACTION_FINISH -> {
-                if (processingId != null) activeProcessingIds.remove(processingId)
-                if (activeProcessingIds.isEmpty()) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                } else {
-                    startForeground(NOTIFICATION_ID, buildNotification())
-                }
+                if (processingId != null) finishProcessing(processingId)
             }
             else -> {
-                if (processingId != null) activeProcessingIds.add(processingId)
+                if (processingId == null) {
+                    if (activeProcessingIds.isEmpty()) stopSelf()
+                    return START_NOT_STICKY
+                }
+                activeProcessingIds.add(processingId)
+                deadlines.remove(processingId)?.let(handler::removeCallbacks)
+                val deadline = Runnable {
+                    Log.w("GlimpseEnrichment", "Expiring abandoned foreground enrichment lease")
+                    finishProcessing(processingId)
+                }
+                deadlines[processingId] = deadline
+                handler.postDelayed(deadline, MAX_WAKE_LOCK_MILLIS)
                 ensureWakeLock()
                 startForeground(NOTIFICATION_ID, buildNotification())
             }
@@ -43,9 +53,24 @@ class EnrichmentKeepAliveService : Service() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        deadlines.clear()
+        activeProcessingIds.clear()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
         super.onDestroy()
+    }
+
+    private fun finishProcessing(processingId: String) {
+        deadlines.remove(processingId)?.let(handler::removeCallbacks)
+        activeProcessingIds.remove(processingId)
+        if (activeProcessingIds.isEmpty()) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        } else {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        }
     }
 
     private fun ensureWakeLock() {

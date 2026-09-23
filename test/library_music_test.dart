@@ -195,7 +195,9 @@ void main() {
           child: const MaterialApp(home: LibraryMusicScreen()),
         ),
       );
-      await tester.pump();
+      for (var frame = 0; frame < 20 && !notifier.state.isChecking; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
       await tester.pump();
       expect(find.text('Loading song details…'), findsOneWidget);
       expect(find.text('Bleed'), findsOneWidget);

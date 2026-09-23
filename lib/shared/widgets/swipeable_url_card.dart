@@ -23,6 +23,8 @@ class SwipeableUrlCard extends ConsumerWidget {
     required this.url,
     this.onTap,
     this.filledSwipeIcons = false,
+    this.showTags = true,
+    this.showEnrichmentActions = true,
     this.leftSwipeAction,
     this.rightSwipeAction,
     this.onDelete,
@@ -37,6 +39,8 @@ class SwipeableUrlCard extends ConsumerWidget {
 
   final SavedUrl url;
   final bool filledSwipeIcons;
+  final bool showTags;
+  final bool showEnrichmentActions;
   final VoidCallback? onTap;
   final SwipeActionType? leftSwipeAction;
   final SwipeActionType? rightSwipeAction;
@@ -63,6 +67,8 @@ class SwipeableUrlCard extends ConsumerWidget {
 
     final card = UrlCard(
       savedUrl: url,
+      showTags: showTags,
+      showEnrichmentActions: showEnrichmentActions,
       isPinned: pinnedIds.contains(url.id),
       selectionMode: selectionMode,
       isSelected: isSelected,

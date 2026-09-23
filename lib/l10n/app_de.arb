@@ -1,4 +1,8 @@
 {
+  "yourSaves": "Deine gespeicherten Links",
+  "savesLastSevenDays": "Letzte 7 Tage",
+  "savesLastThirtyDays": "Letzte 30 Tage",
+  "savesEarlier": "Älter",
   "readerAskAbout": "Zu diesem Inhalt fragen",
   "readerEnrichingTitle": "Dein Glimpse nimmt gerade Form an.",
   "readerEnrichingBody": "Schon gespeichert. Wir sammeln noch die nützlichen Details.",

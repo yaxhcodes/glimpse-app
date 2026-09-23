@@ -9,6 +9,18 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get yourSaves => '保存したリンク';
+
+  @override
+  String get savesLastSevenDays => '過去7日間';
+
+  @override
+  String get savesLastThirtyDays => '過去30日間';
+
+  @override
+  String get savesEarlier => 'それ以前';
+
+  @override
   String get readerAskAbout => 'この保存について聞く';
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/skeleton.dart';
+import 'rediscovery_section.dart';
 
 class HomeLoadingSkeleton extends StatelessWidget {
   const HomeLoadingSkeleton({super.key});
@@ -32,22 +33,15 @@ class HomeLoadingSkeleton extends StatelessWidget {
             ],
           ),
           const SliverToBoxAdapter(
+            child: RediscoverySection(loadJourneys: false),
+          ),
+          const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
               child: SkeletonShimmer(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SkeletonBox(width: 112, height: 20, borderRadius: 7),
-                    SizedBox(height: 8),
-                    SkeletonBox(width: 156, height: 13, borderRadius: 6),
-                    SizedBox(height: 18),
-                    SkeletonBox(
-                      width: double.infinity,
-                      height: 92,
-                      borderRadius: 20,
-                    ),
-                    SizedBox(height: 24),
                     HomeSourcesSkeleton(includeShimmer: false),
                     SizedBox(height: 26),
                     SkeletonBox(width: 104, height: 18, borderRadius: 7),
