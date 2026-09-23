@@ -4,6 +4,65 @@ import 'package:glimpse/core/services/transcript_enrichment_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final title in [
+    'Tim Cook on leadership',
+    'Browser cookies and privacy',
+    'A recipe for success',
+    'Let him cook: a programming breakthrough',
+  ]) {
+    test('does not infer recipe tags from $title', () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = TranscriptEnrichmentService(
+        transport: _StaticEnrichmentTransport({
+          'schema_version': 5,
+          'meaningful_title': title,
+          'summary': title,
+          'tags': ['leadership'],
+          'caption': title,
+          'evidence_basis': 'caption_only',
+        }),
+      );
+      final result = await service.enrichUrl(
+        rawUrl: 'https://www.instagram.com/reel/RECIPE_TAG_TEST/',
+        title: '',
+        description: '',
+        thumbnailUrl: null,
+        domain: 'instagram.com',
+        forceRefresh: true,
+      );
+      expect(result, isNotNull);
+      expect(result!.tags, ['leadership']);
+    });
+  }
+
+  test(
+    'adds recipe tags for structured recipes without English keywords',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = TranscriptEnrichmentService(
+        transport: _StaticEnrichmentTransport({
+          'meaningful_title': 'Sopa de lentejas',
+          'summary': 'Una comida sencilla.',
+          'recipe': {
+            'title': 'Sopa de lentejas',
+            'ingredients': ['lentejas', 'agua'],
+            'steps': ['Hervir las lentejas.'],
+          },
+        }),
+      );
+      final result = await service.enrichUrl(
+        rawUrl: 'https://www.instagram.com/reel/REAL_RECIPE_TAG_TEST/',
+        title: '',
+        description: '',
+        thumbnailUrl: null,
+        domain: 'instagram.com',
+        forceRefresh: true,
+      );
+      expect(result?.tags, contains('recipe'));
+      expect(result?.contentType, 'recipe');
+    },
+  );
+
   test(
     'live response preserves coverage and notification through storage',
     () async {

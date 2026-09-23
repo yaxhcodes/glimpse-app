@@ -8,6 +8,8 @@ import '../models/saved_url.dart';
 import 'category_resolver.dart';
 import 'category_taxonomy.dart';
 import 'domain_centroid_service.dart';
+import 'tag_noise_filter.dart';
+import 'transcript_enrichment_service.dart';
 
 /// One-time local repair for category decisions that can be corrected from
 /// data already stored on the save. It makes no network or AI calls.
@@ -17,7 +19,7 @@ class CategoryRepairService {
 
   final IsarService _isar;
 
-  static const _doneKey = 'glimpse_category_repair_v3_done';
+  static const _doneKey = 'glimpse_category_repair_v4_done';
 
   /// Topic categories that [CategoryTaxonomy.inferAdditionalCategories] can
   /// auto-add. Only these are eligible for pruning, so manually-set categories
@@ -82,12 +84,13 @@ class CategoryRepairService {
     var restoredPrimaryCategories = 0;
 
     for (final url in urls) {
+      final repairedTags = repairLeakedRecipeTags(url);
       final restored = repairUnsafeCentroidCategory(url);
       final pruned = _prunedCategories(url);
       if (pruned != null) {
         url.categories = pruned;
       }
-      if (restored || pruned != null) {
+      if (repairedTags || restored || pruned != null) {
         await _isar.updateUrl(url);
         changed++;
       }
@@ -101,6 +104,67 @@ class CategoryRepairService {
       name: 'CategoryRepair',
     );
     return changed;
+  }
+
+  /// Removes tags added by the old transcript substring heuristic only when
+  /// the stored enrichment identifies a non-food subject and no recipe.
+  static bool repairLeakedRecipeTags(SavedUrl url) {
+    final raw = url.enrichmentJson;
+    if (raw == null || raw.trim().isEmpty) return false;
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException catch (error) {
+      developer.log(
+        'Skipping recipe tag repair: invalid enrichment JSON',
+        name: 'CategoryRepair',
+        error: error,
+      );
+      return false;
+    }
+    if (decoded is! Map<String, dynamic>) return false;
+    final data = decoded;
+    if (EnrichedRecipe.fromJsonOrNull(data['recipe']) != null ||
+        (data['content_type'] ?? data['contentType']) == 'recipe') {
+      return false;
+    }
+    // Ambiguous and food/health saves need to retain their existing tags.
+    for (final category in [url.category, data['category']?.toString() ?? '']) {
+      final normalized = CategoryTaxonomy.normalize(category: category).name;
+      if (const {'Food', 'Health', 'Other'}.contains(normalized)) return false;
+    }
+    final evidence = [
+      data['meaningful_title'],
+      data['summary'],
+      data['category'],
+      data['transcript'],
+      data['caption'],
+    ].whereType<String>().join(' ').toLowerCase();
+    if (!evidence.contains('recipe') && !evidence.contains('cook')) {
+      return false;
+    }
+
+    const leakedTags = {
+      'recipe',
+      'protein recipes',
+      'vegan recipes',
+      'meal prep',
+    };
+    bool keep(String tag) => !leakedTags.contains(TagNoiseFilter.cleanTag(tag));
+    final tags = url.tags.where(keep).toList();
+    final storedTags = data['tags'];
+    final cleanedStoredTags = storedTags is List
+        ? storedTags.where((tag) => tag is! String || keep(tag)).toList()
+        : null;
+    final changed =
+        tags.length != url.tags.length ||
+        (cleanedStoredTags != null &&
+            cleanedStoredTags.length != (storedTags as List).length);
+    if (!changed) return false;
+    url.tags = tags;
+    if (cleanedStoredTags != null) data['tags'] = cleanedStoredTags;
+    url.enrichmentJson = jsonEncode(data);
+    return true;
   }
 
   /// Restores the pre-centroid category when an older automatic correction did

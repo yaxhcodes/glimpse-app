@@ -44,7 +44,7 @@ class TranscriptEnrichmentService {
 
   final AiTransport _transport;
   static final Map<String, TranscriptEnrichmentResult> _memoryCache = {};
-  static const _cachePrefix = 'transcript_enrichment_v6_';
+  static const _cachePrefix = 'transcript_enrichment_v7_';
 
   static bool supportsUrl(String rawUrl) {
     final uri = Uri.tryParse(rawUrl);
@@ -731,7 +731,7 @@ class TranscriptEnrichmentService {
         add('mind-bending films');
       }
     }
-    if (hasRecipe || haystack.contains('recipe') || haystack.contains('cook')) {
+    if (hasRecipe) {
       add('recipe');
       if (haystack.contains('protein')) add('protein recipes');
       if (haystack.contains('vegan')) add('vegan recipes');

@@ -5,6 +5,54 @@ import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/services/category_repair_service.dart';
 
 void main() {
+  SavedUrl leakedRecipe({String category = 'Business', bool recipe = false}) {
+    return SavedUrl()
+      ..category = category
+      ..tags = ['leadership', 'Recipe', 'protein recipes']
+      ..enrichmentJson = jsonEncode({
+        'meaningful_title': 'Tim Cook on leadership',
+        'category': category,
+        'tags': ['leadership', 'recipe', 'protein recipes'],
+        'key_points': ['Preserve reader content'],
+        if (recipe)
+          'recipe': {
+            'title': 'Soup',
+            'ingredients': ['lentils'],
+          },
+      });
+  }
+
+  test('repairs leaked tags in saves and envelopes idempotently', () {
+    final url = leakedRecipe();
+    expect(CategoryRepairService.repairLeakedRecipeTags(url), isTrue);
+    expect(url.tags, ['leadership']);
+    final data = jsonDecode(url.enrichmentJson!);
+    expect(data['tags'], ['leadership']);
+    expect(data['key_points'], ['Preserve reader content']);
+    expect(CategoryRepairService.repairLeakedRecipeTags(url), isFalse);
+  });
+
+  test('preserves actual recipes and ambiguous or food-related saves', () {
+    for (final url in [
+      leakedRecipe(recipe: true),
+      leakedRecipe(category: 'Food'),
+      leakedRecipe(category: 'Health'),
+      leakedRecipe(category: 'Other'),
+    ]) {
+      expect(CategoryRepairService.repairLeakedRecipeTags(url), isFalse);
+      expect(url.tags, contains('Recipe'));
+    }
+  });
+
+  test('does not remove recipe tags without the historical trigger', () {
+    final url = leakedRecipe()
+      ..enrichmentJson = jsonEncode({
+        'category': 'Business',
+        'summary': 'Advice',
+      });
+    expect(CategoryRepairService.repairLeakedRecipeTags(url), isFalse);
+  });
+
   SavedUrl correctedUrl({
     String currentCategory = 'Health',
     String storedCategory = 'Health',
