@@ -4297,7 +4297,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutTagline.
   ///
   /// In en, this message translates to:
-  /// **'Save something worth keeping'**
+  /// **'Save links. Keep the knowledge.'**
   String get aboutTagline;
 
   /// No description provided for @versionBuild.

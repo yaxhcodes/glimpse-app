@@ -1,0 +1,14 @@
+# AI enrichment sample
+
+Generated with the built-in image generation tool. Style concept only; the tool recomposed the referenced live UI, so this is not a pixel-exact screenshot composite. Preserve the original screenshot pixels in the final production layout after style approval.
+
+Reference: `enrichment-sections-live.png`, captured from the connected foreground Android app on 2026-09-15.
+
+## Prompt
+
+Use case: ads-marketing / compositing.
+Create ONE polished portrait 9:16 Google Play screenshot creative for Glimpse, ideally 1440x2560. This is a style exploration for a minimalist premium knowledge-saving Android app. It must combine an authentic app screenshot with a restrained creative editorial illustration.
+Input image 1 is a REAL CURRENT APP SCREENSHOT, supporting insert. Preserve its actual UI, wording, colors, relative layout and text faithfully. You may crop out the Android status bar and upper source button area to emphasize the In brief, Key takeaways, and Full explanation content. Do not invent or rewrite any app content. Present it front-on as a large crisp dark rounded screenshot panel, without bulky phone hardware, perspective tilt or reflections. The panel should fill roughly 78% canvas width in the lower 64% of the composition, with lower contents naturally cropped at the bottom edge; readable UI headings are crucial.
+Art direction: warm ivory background (#F3F0E8), charcoal typography, muted sage and tiny dusty lavender accents, exceptionally clean spacious editorial layout. A small Glimpse wordmark top left. Headline large and deliberate, beautifully kerned humanist sans like Instrument Sans with Newsreader-style serif accent for the final line. Headline exact text split into two lines: "Go beyond" / "the saved link." Underneath, exact explanatory copy "AI summaries, key takeaways" / "and detailed explanations." Clear hierarchy, easy to understand at a glance, no tiny marketing text.
+A single compact creative illustration occupies the upper-right/middle-right transitional space between headline and screenshot without obscuring either: a folded paper link tile gently unfolding into a little open book with 2-3 sage and ivory pages, one fine charcoal connecting curve and a tiny lavender bookmark. Sculptural paper-cut editorial artwork, tactile matte paper, soft subtle shadow, intelligent and quiet. It should visibly express a saved link becoming knowledge. Illustration area only about 15-20% of image. No robots, brains, sparkles, glowing AI symbols, busy orbiting icons, confetti, gradients, badges, CTA, invented claims or extra text. No giant logo.
+Keep screenshot dark forest/charcoal exactly like reference, set against warm light background for clear contrast. Thin understated rounded border and very soft shadow allowed. Layout should feel intentional, modern, and premium, with generous negative space but screenshot content large. This is one single finished marketing image, not a contact sheet.

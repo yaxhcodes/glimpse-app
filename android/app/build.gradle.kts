@@ -26,7 +26,7 @@ android {
         applicationId = "com.shinrinyoku.glimpse"
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
-        versionCode = 138
+        versionCode = 155
         versionName = flutter.versionName
     }
 

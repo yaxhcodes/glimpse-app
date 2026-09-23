@@ -2425,7 +2425,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickAlreadyChecked => 'Already Checked';
 
   @override
-  String get aboutTagline => 'Save something worth keeping';
+  String get aboutTagline => 'Save links. Keep the knowledge.';
 
   @override
   String versionBuild(Object build, Object version) {
