@@ -11,7 +11,6 @@ import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
-import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/loading_indicator.dart';
@@ -912,7 +911,10 @@ class _MindmapScreenState extends ConsumerState<MindmapScreen> {
               children: [
                 Text(
                   context.l10n.interests,
-                  style: AppTypography.pageTitle(Theme.of(context)),
+                  style: tt.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
                 ),
                 Text(
                   subtitle,

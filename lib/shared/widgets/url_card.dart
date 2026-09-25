@@ -25,7 +25,6 @@ import 'selection_badge.dart';
 import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
-import '../theme/app_typography.dart';
 
 /// Card widget for displaying a saved URL entry.
 class UrlCard extends ConsumerStatefulWidget {
@@ -158,32 +157,23 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final notePreview = widget.savedUrl.notePreview;
 
     final isRead = widget.savedUrl.openedAt != null;
-    // Metadata reads as quiet text, not as a border: onSurfaceVariant keeps
-    // it legible on cards in both themes (outline was ~3:1).
-    final metaStyle = (tt.bodySmall ?? const TextStyle()).copyWith(
-      fontSize: 12.5,
-      fontWeight: FontWeight.w400,
-      height: 1.3,
-      color: cs.onSurfaceVariant,
+    // onSurfaceVariant keeps metadata legible on cards in both themes
+    // (outline, a border colour, was ~3:1).
+    final metaStyle = TextStyle(fontSize: 12, color: cs.onSurfaceVariant);
+    final baseTitleStyle =
+        (processingPresentation != null ? tt.titleMedium : tt.titleSmall) ??
+        const TextStyle();
+    final cardTitleStyle = baseTitleStyle.copyWith(
+      fontWeight: FontWeight.w600,
+      height: processingPresentation != null ? 1.2 : 1.25,
+      fontSize: processingPresentation == null
+          ? (tt.titleSmall?.fontSize ?? 14) + 0.5
+          : baseTitleStyle.fontSize,
+      // Read saves dim slightly, the same in light and dark themes.
+      color: isRead && processingPresentation == null
+          ? cs.onSurface.withValues(alpha: 0.78)
+          : cs.onSurface,
     );
-    // Saved content is the hero, so its title is set in the editorial serif;
-    // transient processing copy stays in the interface sans.
-    final cardTitleStyle = processingPresentation != null
-        ? (tt.titleMedium ?? const TextStyle()).copyWith(
-            fontWeight: FontWeight.w600,
-            height: 1.2,
-            color: cs.onSurface,
-          )
-        : AppTypography.editorial(
-            tt.titleSmall,
-            fontSize: 17.5,
-            fontWeight: FontWeight.w600,
-            height: 1.22,
-            letterSpacing: -0.1,
-            color: isRead
-                ? cs.onSurface.withValues(alpha: 0.78)
-                : cs.onSurface,
-          );
     final shimmerProcessingText =
         processingPresentation != null && !processingPresentation.failed;
     final selectedFill = Color.alphaBlend(
@@ -390,7 +380,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: tt.bodySmall?.copyWith(
-                                    fontSize: 12.5,
+                                    fontSize: 11.5,
                                     height: 1.25,
                                     color: cs.onSurfaceVariant.withValues(
                                       alpha: 0.82,
@@ -421,7 +411,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   child: Text(
                                     localizedTagLabel(strings, tag),
                                     style: TextStyle(
-                                      fontSize: 11.5,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w500,
                                       color: tagColors.foreground,
                                       fontFamily: tt.labelSmall?.fontFamily,
@@ -443,7 +433,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   child: Text(
                                     '+${chipData.overflow}',
                                     style: TextStyle(
-                                      fontSize: 11.5,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w500,
                                       color: tagColors.foreground,
                                       fontFamily: tt.labelSmall?.fontFamily,

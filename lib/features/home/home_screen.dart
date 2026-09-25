@@ -26,7 +26,6 @@ import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/platform_icons.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import '../../core/constants/app_assets.dart';
-import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/entrance_motion.dart';
@@ -34,6 +33,7 @@ import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_motion.dart';
 import '../add_url/add_url_provider.dart';
 import '../shell/shell_chrome_provider.dart';
 import '../sources/sources_provider.dart';
@@ -949,7 +949,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   labelStyle: theme.textTheme.labelSmall
                                       ?.copyWith(
-                                        fontSize: 12,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w500,
                                         letterSpacing: 0.1,
                                         color:
@@ -1093,7 +1093,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Hidden dev-only gesture access to Settings.
   /// Long-press or 5 consecutive taps on the title navigate to Settings.
   Widget _buildGlimpseTitle(BuildContext context) {
-    final textStyle = AppTypography.pageTitle(Theme.of(context));
+    final textStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.5,
+    );
 
     final title = Text('Glimpse', style: textStyle);
 
@@ -1187,7 +1190,8 @@ class _DomainInitialAvatar extends StatelessWidget {
   }
 }
 
-/// "Your saves" heading with the All / Unread / Read filter.
+/// "Your saves" heading with a compact All / Unread / Read filter on the
+/// right of the same line.
 class _SavesHeader extends StatelessWidget {
   const _SavesHeader({
     required this.filter,
@@ -1204,33 +1208,30 @@ class _SavesHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final strings = context.l10n;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 18, 12, 2),
+      child: Row(
         children: [
-          Text(strings.yourSaves, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _ReadFilterChip(
-                label: strings.all,
-                selected: filter == _ReadFilter.all,
-                onSelected: () => onChanged(_ReadFilter.all),
+          Expanded(
+            child: Text(
+              strings.yourSaves,
+              style: theme.textTheme.titleSmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Bounded so long translations scale down instead of overflowing.
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 240),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: _CompactReadFilter(
+                filter: filter,
+                unreadCount: unreadCount,
+                onChanged: onChanged,
               ),
-              _ReadFilterChip(
-                label: strings.unread,
-                count: unreadCount,
-                selected: filter == _ReadFilter.unread,
-                onSelected: () => onChanged(_ReadFilter.unread),
-              ),
-              _ReadFilterChip(
-                label: strings.read,
-                selected: filter == _ReadFilter.read,
-                onSelected: () => onChanged(_ReadFilter.read),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -1238,17 +1239,63 @@ class _SavesHeader extends StatelessWidget {
   }
 }
 
-class _ReadFilterChip extends StatelessWidget {
-  const _ReadFilterChip({
+/// A small three-way segmented pill: one line, ~30px tall.
+class _CompactReadFilter extends StatelessWidget {
+  const _CompactReadFilter({
+    required this.filter,
+    required this.unreadCount,
+    required this.onChanged,
+  });
+
+  final _ReadFilter filter;
+  final int unreadCount;
+  final ValueChanged<_ReadFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.l10n;
+    final cs = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        color: cs.surfaceContainerLow,
+        shape: const StadiumBorder(),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final option in _ReadFilter.values)
+              _CompactReadFilterSegment(
+                label: switch (option) {
+                  _ReadFilter.all => strings.all,
+                  _ReadFilter.unread => strings.unread,
+                  _ReadFilter.read => strings.read,
+                },
+                count: option == _ReadFilter.unread && unreadCount > 0
+                    ? unreadCount
+                    : null,
+                selected: option == filter,
+                onTap: () => onChanged(option),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactReadFilterSegment extends StatelessWidget {
+  const _CompactReadFilterSegment({
     required this.label,
     required this.selected,
-    required this.onSelected,
+    required this.onTap,
     this.count,
   });
 
   final String label;
   final bool selected;
-  final VoidCallback onSelected;
+  final VoidCallback onTap;
   final int? count;
 
   @override
@@ -1256,39 +1303,43 @@ class _ReadFilterChip extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final foreground = selected ? cs.onSecondaryContainer : cs.onSurfaceVariant;
-    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+    final style = theme.textTheme.labelMedium?.copyWith(
       color: foreground,
       fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
     );
     final count = this.count;
-    return ChoiceChip(
+    return Semantics(
+      button: true,
       selected: selected,
-      showCheckmark: false,
-      onSelected: (_) => onSelected(),
-      shape: const StadiumBorder(),
-      side: BorderSide.none,
-      color: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected)
-            ? cs.secondaryContainer
-            : cs.surfaceContainerLow,
-      ),
-      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: labelStyle),
-          if (count != null && count > 0) ...[
-            const SizedBox(width: 6),
-            Text(
-              '$count',
-              style: labelStyle?.copyWith(
-                color: foreground.withValues(alpha: 0.7),
-                fontWeight: FontWeight.w500,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
-        ],
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: AnimatedContainer(
+          duration: AppMotion.short,
+          curve: AppMotion.emphasizedDecelerate,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: ShapeDecoration(
+            color: selected ? cs.secondaryContainer : Colors.transparent,
+            shape: const StadiumBorder(),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: style),
+              if (count != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  '$count',
+                  style: style?.copyWith(
+                    color: foreground.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w500,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

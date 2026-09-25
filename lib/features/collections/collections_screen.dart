@@ -8,7 +8,6 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/scroll_capture_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
-import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
@@ -84,6 +83,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
               !selectionState.selectedIds.contains(summary.collection.id),
         );
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     final hasCollections = loadedCollections.isNotEmpty;
     final shellChromeVisible = ref.watch(shellChromeVisibilityProvider);
     final usesRail = AppLayout.usesNavigationRail(
@@ -137,7 +137,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     : Text(
                         context.l10n.collections,
                         key: const ValueKey('collections-surface-title'),
-                        style: AppTypography.pageTitle(Theme.of(context)),
+                        style: tt.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
                       ),
                 actions: selectionState.isActive
                     ? [

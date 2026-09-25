@@ -111,7 +111,7 @@ class RediscoverySection extends ConsumerWidget {
                             Text(
                               context.l10n.rediscoverSubtitle,
                               style: tt.labelSmall?.copyWith(
-                                fontSize: 12,
+                                fontSize: 10,
                                 color: cs.onSurfaceVariant,
                                 fontWeight: FontWeight.w400,
                               ),

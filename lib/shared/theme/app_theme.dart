@@ -244,38 +244,38 @@ class AppTheme {
       displayLarge: GoogleFonts.instrumentSans(
         fontSize: 57,
         fontWeight: FontWeight.w700,
-        height: 1.08,
-        letterSpacing: -1.4,
+        height: 1.12,
+        letterSpacing: -0.25,
       ),
       displayMedium: GoogleFonts.instrumentSans(
         fontSize: 45,
         fontWeight: FontWeight.w700,
-        height: 1.1,
-        letterSpacing: -1.0,
+        height: 1.16,
+        letterSpacing: 0,
       ),
       displaySmall: GoogleFonts.instrumentSans(
         fontSize: 36,
         fontWeight: FontWeight.w700,
-        height: 1.14,
-        letterSpacing: -0.7,
+        height: 1.2,
+        letterSpacing: 0,
       ),
       headlineLarge: GoogleFonts.instrumentSans(
         fontSize: 32,
         fontWeight: FontWeight.w700,
-        height: 1.16,
-        letterSpacing: -0.6,
+        height: 1.2,
+        letterSpacing: 0.32,
       ),
       headlineMedium: GoogleFonts.instrumentSans(
         fontSize: 28,
         fontWeight: FontWeight.w700,
-        height: 1.18,
-        letterSpacing: -0.45,
+        height: 1.2,
+        letterSpacing: 0.28,
       ),
       headlineSmall: GoogleFonts.instrumentSans(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         height: 1.2,
-        letterSpacing: -0.3,
+        letterSpacing: 0.24,
       ),
 
       // ── Instrument Sans — Titles
@@ -283,7 +283,7 @@ class AppTheme {
         fontSize: 20,
         fontWeight: FontWeight.w600,
         height: 1.2,
-        letterSpacing: -0.15,
+        letterSpacing: 0,
       ),
       titleMedium: GoogleFonts.instrumentSans(
         fontSize: 18,
@@ -349,7 +349,7 @@ class AppTheme {
     final appBarTitleStyle = GoogleFonts.instrumentSans(
       fontSize: 20,
       fontWeight: FontWeight.w700,
-      letterSpacing: -0.2,
+      letterSpacing: 0.2,
       color: colorScheme.onSurface,
     );
     final isDark = colorScheme.brightness == Brightness.dark;
