@@ -14,6 +14,7 @@ import 'core/database/isar_service.dart';
 import 'core/providers/dev_simulation_providers.dart';
 import 'core/providers/service_providers.dart';
 import 'features/onboarding/onboarding_bootstrap.dart';
+import 'shared/theme/theme_provider.dart';
 import 'core/services/ai/app_attestation_service.dart';
 import 'core/services/ai_proxy_config.dart';
 import 'core/services/background_work_manager.dart';
@@ -30,6 +31,7 @@ void main() async {
   // Only services required to choose the first screen belong on the native
   // splash path. Everything else starts after Flutter has painted once.
   final isarService = IsarService();
+  final themePrefsFuture = ThemePrefsSnapshot.load();
   await Future.wait([
     AppEnvironment.initPackageInfo(),
     isarService.ensureInitialized(),
@@ -45,6 +47,7 @@ void main() async {
   );
 
   final hasSeenOnboarding = await onboardingFuture;
+  final themePrefs = await themePrefsFuture;
 
   unawaited(
     BackgroundWorkManager.initialize(digestCallbackDispatcher).catchError((
@@ -63,6 +66,7 @@ void main() async {
         hasSeenOnboardingProvider.overrideWith(
           (ref) => HasSeenOnboardingNotifier(initial: hasSeenOnboarding),
         ),
+        ...themePrefs.overrides,
       ],
       child: const GlimpseApp(),
     ),

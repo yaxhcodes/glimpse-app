@@ -1250,8 +1250,11 @@ class EnrichmentService {
       return _firstSentences(description, maxSentences: 2, maxChars: 360);
     }
     final title = url.title.trim();
-    if (title.isNotEmpty && title.toLowerCase() != url.domain.toLowerCase()) {
-      return 'Saved item titled "$title". Add notes or refresh metadata for a richer summary.';
+    // A platform name ("Instagram") is not a title; quoting it back reads as
+    // broken output on cards and in the reader.
+    if (title.isNotEmpty &&
+        !TitleResolver.isLowSignalTitle(title, domain: url.domain)) {
+      return '${TitleResolver.metadataFallbackSummaryPrefix}$title". Add notes or refresh metadata for a richer summary.';
     }
     return null;
   }

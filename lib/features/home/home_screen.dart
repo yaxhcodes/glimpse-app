@@ -26,7 +26,9 @@ import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/platform_icons.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import '../../core/constants/app_assets.dart';
+import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_glass_surface.dart';
+import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/theme/app_icons.dart';
@@ -415,42 +417,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       backgroundColor: colorScheme.surface,
       body: urlsAsync.when(
         loading: () => const HomeLoadingSkeleton(),
-        error: (err, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  AppIcons.offline,
-                  size: 52,
-                  color: theme.colorScheme.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Could not load your library',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$err',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                FilledButton.tonalIcon(
-                  onPressed: () => ref.invalidate(urlStreamProvider),
-                  icon: const Icon(AppIcons.refresh),
-                  label: const Text('Try again'),
-                ),
-              ],
-            ),
-          ),
+        error: (err, stack) => AppErrorState(
+          message: context.l10n.couldNotLoadLibrary,
+          error: err,
+          stackTrace: stack,
+          onRetry: () => ref.invalidate(urlStreamProvider),
         ),
         data: (urls) {
           final isEmptyOrCelebrating = urls.isEmpty || _isCelebratingFirstSave;
@@ -1117,6 +1088,7 @@ class _SourceChipAvatar extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.contain,
+        memCacheWidth: imageDecodeSize(context, size),
         errorWidget: (_, _, _) => fallback,
       ),
     );

@@ -8,6 +8,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/providers/category_order_provider.dart';
 import '../../features/home/home_provider.dart';
 import '../../features/collections/collections_provider.dart';
+import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/loading_indicator.dart';
@@ -103,7 +104,13 @@ class CategoryScreen extends ConsumerWidget {
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
               ),
-              SliverFillRemaining(child: Center(child: Text('Error: $err'))),
+              SliverFillRemaining(
+                child: AppErrorState(
+                  message: context.l10n.couldNotLoadLibrary,
+                  error: err,
+                  stackTrace: stack,
+                ),
+              ),
             ],
           ),
           data: (urls) {

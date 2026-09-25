@@ -113,7 +113,10 @@ class Search extends _$Search {
       // gateway's independent fair-use safeguards.
       final isPro = ref.read(isProUserProvider);
       final usageService = ref.read(usageServiceProvider);
-      final searchBlocked = await usageService.hasReachedLimit(
+      // Gate on the local usage mirror: keyword search is purely local, so it
+      // must not wait on a quota network round trip. The server count is still
+      // updated (and reconciled) by incrementUsage after results are shown.
+      final searchBlocked = await usageService.hasReachedLocalLimit(
         UsageFeature.search,
         isPro,
       );

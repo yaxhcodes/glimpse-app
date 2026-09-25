@@ -22,7 +22,6 @@ import 'expressive_loading_indicator.dart';
 import 'enrichment_retry_button.dart';
 import 'link_card_thumbnail.dart';
 import 'selection_badge.dart';
-import 'surface_grain.dart';
 import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
@@ -198,254 +197,251 @@ class _UrlCardState extends ConsumerState<UrlCard> {
           surfaceTintColor: Colors.transparent,
           shape: cardShape,
           clipBehavior: Clip.antiAlias,
-          child: SurfaceGrain(
-            strength: 0.5,
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                if (widget.selectionMode) {
-                  widget.onSelectionTap?.call();
-                } else {
-                  widget.onTap?.call();
-                }
-              },
-              onLongPress: () {
-                HapticFeedback.mediumImpact();
-                if (widget.onLongPress != null) {
-                  widget.onLongPress?.call();
-                } else if (!widget.selectionMode) {
-                  _showActions(context);
-                }
-              },
-              child: Padding(
-                padding: widget.contentPadding,
-                child: Row(
-                  crossAxisAlignment: widget.showTags
-                      ? CrossAxisAlignment.start
-                      : CrossAxisAlignment.center,
-                  children: [
-                    widget.selectionMode
-                        ? _SelectionThumbnail(
-                            selected: widget.isSelected,
-                            size: 56,
-                            child: LinkCardThumbnail.build(
-                              url: widget.savedUrl,
-                              isRead: isRead,
-                              context: context,
-                              size: 56,
-                              borderRadius: 10,
-                            ),
-                          )
-                        : LinkCardThumbnail.build(
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              if (widget.selectionMode) {
+                widget.onSelectionTap?.call();
+              } else {
+                widget.onTap?.call();
+              }
+            },
+            onLongPress: () {
+              HapticFeedback.mediumImpact();
+              if (widget.onLongPress != null) {
+                widget.onLongPress?.call();
+              } else if (!widget.selectionMode) {
+                _showActions(context);
+              }
+            },
+            child: Padding(
+              padding: widget.contentPadding,
+              child: Row(
+                crossAxisAlignment: widget.showTags
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
+                children: [
+                  widget.selectionMode
+                      ? _SelectionThumbnail(
+                          selected: widget.isSelected,
+                          size: 56,
+                          child: LinkCardThumbnail.build(
                             url: widget.savedUrl,
                             isRead: isRead,
                             context: context,
                             size: 56,
                             borderRadius: 10,
                           ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (DemoSeedService.isDemoUrl(widget.savedUrl.rawUrl))
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                context.l10n.obExample,
-                                style: tt.labelSmall?.copyWith(
-                                  color: cs.primary,
-                                ),
+                        )
+                      : LinkCardThumbnail.build(
+                          url: widget.savedUrl,
+                          isRead: isRead,
+                          context: context,
+                          size: 56,
+                          borderRadius: 10,
+                        ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (DemoSeedService.isDemoUrl(widget.savedUrl.rawUrl))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              context.l10n.obExample,
+                              style: tt.labelSmall?.copyWith(
+                                color: cs.primary,
                               ),
                             ),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: AnimatedOpacity(
-                                  opacity: (isRead && isLight) ? 0.45 : 1.0,
-                                  duration: const Duration(milliseconds: 300),
-                                  child: shimmerProcessingText
-                                      ? _SubtleTextShimmer(
-                                          text: resolvedTitle,
-                                          style: cardTitleStyle,
-                                          maxLines: 3,
-                                        )
-                                      : Text(
-                                          resolvedTitle,
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: cardTitleStyle,
-                                        ),
+                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: AnimatedOpacity(
+                                opacity: (isRead && isLight) ? 0.45 : 1.0,
+                                duration: const Duration(milliseconds: 300),
+                                child: shimmerProcessingText
+                                    ? _SubtleTextShimmer(
+                                        text: resolvedTitle,
+                                        style: cardTitleStyle,
+                                        maxLines: 3,
+                                      )
+                                    : Text(
+                                        resolvedTitle,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: cardTitleStyle,
+                                      ),
+                              ),
+                            ),
+                            if (widget.isPinned) ...[
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 1),
+                                child: Icon(
+                                  AppIcons.pinFilled,
+                                  size: 13,
+                                  color: cs.primary.withValues(alpha: 0.68),
                                 ),
                               ),
-                              if (widget.isPinned) ...[
-                                const SizedBox(width: 8),
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 1),
-                                  child: Icon(
-                                    AppIcons.pinFilled,
-                                    size: 13,
-                                    color: cs.primary.withValues(alpha: 0.68),
-                                  ),
-                                ),
-                              ],
                             ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Wrap(
-                                  spacing: 0,
-                                  runSpacing: 2,
-                                  children: [
-                                    Text(displaySourceName, style: metaStyle),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Wrap(
+                                spacing: 0,
+                                runSpacing: 2,
+                                children: [
+                                  Text(displaySourceName, style: metaStyle),
+                                  Text(' · ', style: metaStyle),
+                                  Text(
+                                    UrlCard.timeAgoSaved(
+                                      context,
+                                      widget.savedUrl.savedAt,
+                                    ),
+                                    style: metaStyle,
+                                  ),
+                                  if (!_retryingEnrichment) ...[
                                     Text(' · ', style: metaStyle),
                                     Text(
-                                      UrlCard.timeAgoSaved(
-                                        context,
-                                        widget.savedUrl.savedAt,
-                                      ),
+                                      widget.showEnrichmentActions &&
+                                              isProcessing
+                                          ? context.l10n.processing
+                                          : widget.showEnrichmentActions &&
+                                                isProcessingFailed
+                                          ? context.l10n.needsAttention
+                                          : isRead
+                                          ? context.l10n.read
+                                          : context.l10n.unread,
                                       style: metaStyle,
                                     ),
-                                    if (!_retryingEnrichment) ...[
-                                      Text(' · ', style: metaStyle),
-                                      Text(
-                                        widget.showEnrichmentActions &&
-                                                isProcessing
-                                            ? context.l10n.processing
-                                            : widget.showEnrichmentActions &&
-                                                  isProcessingFailed
-                                            ? context.l10n.needsAttention
-                                            : isRead
-                                            ? context.l10n.read
-                                            : context.l10n.unread,
-                                        style: metaStyle,
-                                      ),
-                                    ],
                                   ],
+                                ],
+                              ),
+                            ),
+                            if (!widget.showEnrichmentActions &&
+                                isProcessing) ...[
+                              const SizedBox(width: 8),
+                              Semantics(
+                                label: context.l10n.enriching,
+                                child: ExpressiveLoadingIndicator(
+                                  size: 14,
+                                  color: cs.onSurfaceVariant,
                                 ),
                               ),
-                              if (!widget.showEnrichmentActions &&
-                                  isProcessing) ...[
-                                const SizedBox(width: 8),
-                                Semantics(
-                                  label: context.l10n.enriching,
-                                  child: ExpressiveLoadingIndicator(
-                                    size: 14,
-                                    color: cs.onSurfaceVariant,
+                            ],
+                            if (showEnrichmentRetry &&
+                                !isProcessingFailed) ...[
+                              const SizedBox(width: 4),
+                              EnrichmentRetryButton(
+                                retrying: _retryingEnrichment,
+                                onPressed: _retryEnrichment,
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (notePreview != null) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              AppIcon(
+                                widget.savedUrl.notePreviewIsAsk
+                                    ? AppIcons.sparkle
+                                    : AppIcons.note,
+                                size: 13,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.72,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  notePreview,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    fontSize: 11.5,
+                                    height: 1.25,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.82,
+                                    ),
                                   ),
                                 ),
-                              ],
-                              if (showEnrichmentRetry &&
-                                  !isProcessingFailed) ...[
-                                const SizedBox(width: 4),
-                                EnrichmentRetryButton(
-                                  retrying: _retryingEnrichment,
-                                  onPressed: _retryEnrichment,
-                                ),
-                              ],
+                              ),
                             ],
                           ),
-                          if (notePreview != null) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                AppIcon(
-                                  widget.savedUrl.notePreviewIsAsk
-                                      ? AppIcons.sparkle
-                                      : AppIcons.note,
-                                  size: 13,
-                                  color: cs.onSurfaceVariant.withValues(
-                                    alpha: 0.72,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    notePreview,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: tt.bodySmall?.copyWith(
-                                      fontSize: 11.5,
-                                      height: 1.25,
-                                      color: cs.onSurfaceVariant.withValues(
-                                        alpha: 0.82,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (chipData.visible.isNotEmpty ||
-                              chipData.overflow > 0) ...[
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 4,
-                              runSpacing: 3,
-                              children: [
-                                ...chipData.visible.map((tag) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: tagColors.background,
-                                      borderRadius: AppShapes.borderRadius,
-                                    ),
-                                    child: Text(
-                                      localizedTagLabel(strings, tag),
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500,
-                                        color: tagColors.foreground,
-                                        fontFamily: tt.labelSmall?.fontFamily,
-                                        letterSpacing: 0.1,
-                                      ),
-                                    ),
-                                  );
-                                }),
-                                if (chipData.overflow > 0)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: tagColors.background,
-                                      borderRadius: AppShapes.borderRadius,
-                                    ),
-                                    child: Text(
-                                      '+${chipData.overflow}',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500,
-                                        color: tagColors.foreground,
-                                        fontFamily: tt.labelSmall?.fontFamily,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ] else if (processingPresentation != null) ...[
-                            const SizedBox(height: 8),
-                            _ProcessingStatusPanel(
-                              presentation: processingPresentation!,
-                              retrying: _retryingEnrichment,
-                              onRetry: isProcessingFailed && showEnrichmentRetry
-                                  ? () => _retryEnrichment()
-                                  : null,
-                            ),
-                          ],
                         ],
-                      ),
+                        if (chipData.visible.isNotEmpty ||
+                            chipData.overflow > 0) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 3,
+                            children: [
+                              ...chipData.visible.map((tag) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: tagColors.background,
+                                    borderRadius: AppShapes.borderRadius,
+                                  ),
+                                  child: Text(
+                                    localizedTagLabel(strings, tag),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: tagColors.foreground,
+                                      fontFamily: tt.labelSmall?.fontFamily,
+                                      letterSpacing: 0.1,
+                                    ),
+                                  ),
+                                );
+                              }),
+                              if (chipData.overflow > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: tagColors.background,
+                                    borderRadius: AppShapes.borderRadius,
+                                  ),
+                                  child: Text(
+                                    '+${chipData.overflow}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: tagColors.foreground,
+                                      fontFamily: tt.labelSmall?.fontFamily,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ] else if (processingPresentation != null) ...[
+                          const SizedBox(height: 8),
+                          _ProcessingStatusPanel(
+                            presentation: processingPresentation!,
+                            retrying: _retryingEnrichment,
+                            onRetry: isProcessingFailed && showEnrichmentRetry
+                                ? () => _retryEnrichment()
+                                : null,
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

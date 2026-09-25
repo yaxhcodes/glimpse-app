@@ -1751,12 +1751,77 @@ class IsarService {
     yield* isar.savedUrls.watchObjectLazy(id, fireImmediately: true);
   }
 
+  /// Live library list for Home and the providers built on it.
+  ///
+  /// `Query.watch()` re-runs the query and deserializes every save (embeddings
+  /// and enrichment JSON included) on each write. Enrichment writes status
+  /// several times per save, so bursts are coalesced: the first change reloads
+  /// immediately (user actions stay instant) and further changes within
+  /// [_libraryReloadGap] fold into one trailing reload.
   Stream<List<SavedUrl>> watchAllUrls() async* {
     final isar = await _db;
-    yield* isar.savedUrls.filter().deletedAtIsNull().sortBySavedAtDesc().watch(
-      fireImmediately: true,
-    );
+    final query = isar.savedUrls
+        .filter()
+        .deletedAtIsNull()
+        .sortBySavedAtDesc()
+        .build();
+    yield await query.findAll();
+    await for (final _ in _coalesceChanges(
+      query.watchLazy(),
+      _libraryReloadGap,
+    )) {
+      yield await query.findAll();
+    }
   }
+}
+
+const _libraryReloadGap = Duration(milliseconds: 300);
+
+/// Leading + trailing throttle for change notifications: emits the first event
+/// at once, then at most one event per [gap] while changes keep arriving.
+Stream<void> _coalesceChanges(Stream<void> changes, Duration gap) {
+  late final StreamController<void> out;
+  StreamSubscription<void>? subscription;
+  Timer? timer;
+  var pending = false;
+
+  void onGapElapsed() {
+    if (pending) {
+      pending = false;
+      out.add(null);
+      timer = Timer(gap, onGapElapsed);
+    } else {
+      timer = null;
+    }
+  }
+
+  out = StreamController<void>(
+    onListen: () {
+      subscription = changes.listen(
+        (_) {
+          if (timer == null) {
+            out.add(null);
+            timer = Timer(gap, onGapElapsed);
+          } else {
+            pending = true;
+          }
+        },
+        onError: out.addError,
+        onDone: () {
+          timer?.cancel();
+          if (pending) out.add(null);
+          out.close();
+        },
+      );
+    },
+    onPause: () => subscription?.pause(),
+    onResume: () => subscription?.resume(),
+    onCancel: () async {
+      timer?.cancel();
+      await subscription?.cancel();
+    },
+  );
+  return out.stream;
 }
 
 // ─── Isolate payloads + entry points ─────────────────────────────────────────

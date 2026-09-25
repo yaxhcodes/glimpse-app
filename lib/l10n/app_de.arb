@@ -162,6 +162,7 @@
   "chooseACollection": "Eine Sammlung auswählen",
   "processingLink": "Link wird verarbeitet…",
   "couldNotLoadCollections": "Sammlungen konnten nicht geladen werden.",
+  "couldNotLoadLibrary": "Deine Bibliothek konnte nicht geladen werden.",
   "linkCount": "{count, plural, =0{Keine Links} =1{1 Link} other{{count} Links}}",
   "noteOptional": "Notiz (optional)",
   "addNoteOptional": "Notiz hinzufügen (optional)",

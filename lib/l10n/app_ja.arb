@@ -155,6 +155,7 @@
   "chooseACollection": "コレクションを選択",
   "processingLink": "リンクを処理中…",
   "couldNotLoadCollections": "コレクションを読み込めませんでした。",
+  "couldNotLoadLibrary": "ライブラリを読み込めませんでした。",
   "linkCount": "{count, plural, =0{リンクなし} other{{count}件のリンク}}",
   "noteOptional": "メモ（任意）",
   "addNoteOptional": "メモを追加（任意）",

@@ -1036,6 +1036,12 @@ abstract class AppLocalizations {
   /// **'Could not load collections.'**
   String get couldNotLoadCollections;
 
+  /// No description provided for @couldNotLoadLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your library.'**
+  String get couldNotLoadLibrary;
+
   /// No description provided for @linkCount.
   ///
   /// In en, this message translates to:

@@ -329,10 +329,10 @@ class _MainShellState extends ConsumerState<MainShell> {
                           visible: showCompactChrome,
                           child: AppGlassSurface(
                             backgroundColor: cs.surfaceContainerLow,
-                            opacity:
-                                Theme.of(context).brightness == Brightness.dark
-                                ? 0.72
-                                : 0.80,
+                            // No live blur: the nav bar is always on screen
+                            // while lists scroll under it (see profile notes).
+                            blur: false,
+                            opacity: 0.97,
                             child: NavigationBar(
                               selectedIndex: _currentIndex,
                               onDestinationSelected: _selectDestination,

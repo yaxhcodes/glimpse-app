@@ -144,9 +144,28 @@ class TitleResolver {
     return false;
   }
 
+  /// Decoded `meaningful_title` per save id, reused while the save's
+  /// enrichment JSON is unchanged. Cards resolve their title on every build,
+  /// and decoding the full enrichment JSON each time showed up while scrolling.
+  static final _enrichmentTitleCache = <int, (String, String?)>{};
+  static const _enrichmentTitleCacheLimit = 2048;
+
   static String? _titleFromSavedEnrichment(SavedUrl link) {
     final raw = link.enrichmentJson;
     if (raw == null || raw.trim().isEmpty) return null;
+    final cached = _enrichmentTitleCache[link.id];
+    if (cached != null && (identical(cached.$1, raw) || cached.$1 == raw)) {
+      return cached.$2;
+    }
+    final title = _decodeEnrichmentTitle(raw);
+    if (_enrichmentTitleCache.length >= _enrichmentTitleCacheLimit) {
+      _enrichmentTitleCache.clear();
+    }
+    _enrichmentTitleCache[link.id] = (raw, title);
+    return title;
+  }
+
+  static String? _decodeEnrichmentTitle(String raw) {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
@@ -200,9 +219,15 @@ class TitleResolver {
     return top2.join(' · ');
   }
 
+  /// Prefix of the placeholder summary the enrichment pipeline writes when a
+  /// save has no description (see `EnrichmentService._metadataFallbackSummary`).
+  /// It describes the save; it is never a usable title.
+  static const metadataFallbackSummaryPrefix = 'Saved item titled "';
+
   static String? _summaryTitleFallback(String? summary) {
     if (summary == null || summary.trim().isEmpty) return null;
     final full = summary.trim();
+    if (full.startsWith(metadataFallbackSummaryPrefix)) return null;
     final words =
         full.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     if (words.isEmpty) return null;

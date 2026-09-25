@@ -486,6 +486,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get couldNotLoadCollections => 'コレクションを読み込めませんでした。';
 
   @override
+  String get couldNotLoadLibrary => 'ライブラリを読み込めませんでした。';
+
+  @override
   String linkCount(num count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

@@ -6,6 +6,8 @@ import '../../core/models/saved_url.dart';
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/title_resolver.dart';
+import '../../l10n/l10n.dart';
+import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../home/home_provider.dart';
@@ -120,7 +122,12 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                 padding: EdgeInsets.all(24),
                 child: Center(child: ExpressiveLoadingIndicator()),
               ),
-              error: (e, _) => Text('Could not load collections: $e'),
+              error: (e, st) => AppErrorState(
+                message: context.l10n.couldNotLoadCollections,
+                error: e,
+                stackTrace: st,
+                compact: true,
+              ),
               data: (collections) {
                 if (collections.isEmpty) {
                   return Column(
@@ -240,7 +247,12 @@ class AddManyToCollectionSheet extends ConsumerWidget {
                 padding: EdgeInsets.all(24),
                 child: Center(child: ExpressiveLoadingIndicator()),
               ),
-              error: (e, _) => Text('Could not load collections: $e'),
+              error: (e, st) => AppErrorState(
+                message: context.l10n.couldNotLoadCollections,
+                error: e,
+                stackTrace: st,
+                compact: true,
+              ),
               data: (collections) {
                 if (collections.isEmpty) {
                   return FilledButton.tonalIcon(

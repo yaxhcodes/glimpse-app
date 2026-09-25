@@ -8,6 +8,7 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/scroll_capture_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/expressive_fab.dart';
@@ -201,7 +202,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
             ],
             body: async.when(
               loading: () => const Center(child: ExpressiveLoadingIndicator()),
-              error: (e, _) => Center(child: Text('$e')),
+              error: (e, st) => AppErrorState(
+                message: context.l10n.couldNotLoadCollections,
+                error: e,
+                stackTrace: st,
+                onRetry: () => ref.invalidate(collectionsSummaryProvider),
+              ),
               data: (rawCollections) {
                 _scheduleCollectionStateSync(
                   rawCollections,

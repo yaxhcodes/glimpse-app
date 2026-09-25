@@ -518,6 +518,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de charger les collections.';
 
   @override
+  String get couldNotLoadLibrary => 'Impossible de charger votre bibliothèque.';
+
+  @override
   String linkCount(num count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

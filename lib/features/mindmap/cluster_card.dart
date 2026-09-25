@@ -329,7 +329,7 @@ class TopSignalArtwork extends StatelessWidget {
   const TopSignalArtwork({super.key});
 
   static ImageProvider imageProvider(BuildContext context) => ResizeImage(
-    const AssetImage('assets/interests/top_signal_cutout.png'),
+    const AssetImage('assets/interests/top_signal_cutout.webp'),
     width:
         (MediaQuery.sizeOf(context).width *
                 .33 *

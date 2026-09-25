@@ -6,6 +6,7 @@ import '../../core/models/saved_url.dart';
 import '../../core/services/saved_media_resolver.dart';
 import '../../core/services/tag_noise_filter.dart';
 import 'category_chip.dart' show faviconUrl, platformColors;
+import 'image_decode_size.dart';
 
 /// Read/unread styling for compact link cards (home, search, etc.).
 ///
@@ -144,6 +145,7 @@ class LinkCardThumbnail {
               child: CachedNetworkImage(
                 imageUrl: favicon,
                 fit: BoxFit.contain,
+                memCacheWidth: imageDecodeSize(context, size),
                 errorWidget: (_, _, _) => Text(
                   label,
                   style: TextStyle(
@@ -302,6 +304,9 @@ class _FallbackCachedThumbnailState extends State<_FallbackCachedThumbnail> {
       width: widget.width,
       height: widget.height,
       fit: BoxFit.cover,
+      // Decode by height with headroom: most previews are landscape, and the
+      // extra 30% keeps portrait covers sharp once cropped to a square.
+      memCacheHeight: imageDecodeSize(context, widget.height, headroom: 1.3),
       httpHeaders: SavedMediaResolver.imageHttpHeaders(imageUrl),
       errorWidget: (_, _, _) {
         if (_index + 1 < widget.imageUrls.length) {

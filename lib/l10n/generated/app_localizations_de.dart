@@ -516,6 +516,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Sammlungen konnten nicht geladen werden.';
 
   @override
+  String get couldNotLoadLibrary =>
+      'Deine Bibliothek konnte nicht geladen werden.';
+
+  @override
   String linkCount(num count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

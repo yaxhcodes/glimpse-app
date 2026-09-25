@@ -165,7 +165,6 @@ flutter:
   assets:
     - assets/icons/
     - assets/licenses/
-    - assets/glimpse.png
     - assets/glimpse.svg
     - assets/splash_icon.png
     - assets/splash_branding.png
@@ -178,7 +177,7 @@ flutter:
     - assets/brands/
     - assets/fonts/
     - assets/rediscover/illustrations/
-    - assets/interests/top_signal_cutout.png
+    - assets/interests/top_signal_cutout.webp
 
   # To add assets to your application, add an assets section, like this:
   # assets:

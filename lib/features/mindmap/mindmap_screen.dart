@@ -12,6 +12,7 @@ import '../../core/services/title_resolver.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
+import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/tag_group.dart' show tagChipColors;
 import '../home/home_provider.dart';
@@ -613,6 +614,11 @@ class _ClusterUrlRow extends StatelessWidget {
                     ? CachedNetworkImage(
                         imageUrl: previewUrl,
                         fit: BoxFit.cover,
+                        memCacheHeight: imageDecodeSize(
+                          context,
+                          _thumb,
+                          headroom: 1.3,
+                        ),
                         fadeInDuration: const Duration(milliseconds: 150),
                         placeholder: (_, _) => placeholder,
                         errorWidget: (_, _, _) => placeholder,

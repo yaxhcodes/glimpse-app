@@ -155,6 +155,7 @@
   "chooseACollection": "Elige una colección",
   "processingLink": "Procesando enlace…",
   "couldNotLoadCollections": "No se pudieron cargar las colecciones.",
+  "couldNotLoadLibrary": "No se pudo cargar tu biblioteca.",
   "linkCount": "{count, plural, =0{Sin enlaces} =1{1 enlace} other{{count} enlaces}}",
   "noteOptional": "Nota (opcional)",
   "addNoteOptional": "Añade una nota (opcional)",

@@ -162,6 +162,7 @@
   "chooseACollection": "Choose a collection",
   "processingLink": "Processing link…",
   "couldNotLoadCollections": "Could not load collections.",
+  "couldNotLoadLibrary": "Could not load your library.",
   "linkCount": "{count, plural, =0{No links} =1{1 link} other{{count} links}}",
   "noteOptional": "Note (optional)",
   "addNoteOptional": "Add a note (optional)",

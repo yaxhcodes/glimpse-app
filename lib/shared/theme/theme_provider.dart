@@ -30,8 +30,11 @@ final themeModeProvider =
 });
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system) {
-    _load();
+  /// Pass [initial] (from [ThemePrefsSnapshot]) to start with the saved value
+  /// instead of loading it after the first frame.
+  ThemeModeNotifier({ThemeMode? initial})
+    : super(initial ?? ThemeMode.system) {
+    if (initial == null) _load();
   }
 
   Future<void> _load() async {
@@ -57,8 +60,8 @@ final amoledSurfacesProvider =
 });
 
 class AmoledSurfacesNotifier extends StateNotifier<bool> {
-  AmoledSurfacesNotifier() : super(false) {
-    _load();
+  AmoledSurfacesNotifier({bool? initial}) : super(initial ?? false) {
+    if (initial == null) _load();
   }
 
   Future<void> _load() async {
@@ -86,8 +89,9 @@ final accentColorProvider =
 });
 
 class AccentColorNotifier extends StateNotifier<AppAccentColor> {
-  AccentColorNotifier() : super(AppAccentColor.lime) {
-    _load();
+  AccentColorNotifier({AppAccentColor? initial})
+    : super(initial ?? AppAccentColor.lime) {
+    if (initial == null) _load();
   }
 
   Future<void> _load() async {
@@ -103,4 +107,65 @@ class AccentColorNotifier extends StateNotifier<AppAccentColor> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kAccentColorKey, color.index);
   }
+}
+
+/// Saved appearance, read once before `runApp`.
+///
+/// Without this the theme providers start at their defaults and switch to the
+/// saved choice a frame later, which [AppTheme.transitionStyle] animates as a
+/// visible accent/brightness flash on every cold start.
+class ThemePrefsSnapshot {
+  const ThemePrefsSnapshot({
+    required this.themeMode,
+    required this.amoledSurfaces,
+    required this.accent,
+  });
+
+  final ThemeMode themeMode;
+  final bool amoledSurfaces;
+  final AppAccentColor accent;
+
+  static const fallback = ThemePrefsSnapshot(
+    themeMode: ThemeMode.system,
+    amoledSurfaces: false,
+    accent: AppAccentColor.lime,
+  );
+
+  /// Never throws: a prefs failure must not block the first frame.
+  static Future<ThemePrefsSnapshot> load() async {
+    try {
+      return await _read();
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  static Future<ThemePrefsSnapshot> _read() async {
+    final prefs = await SharedPreferences.getInstance();
+    await _migrateLegacyAppearancePrefs(prefs);
+    final modeIndex = prefs.getInt(_kThemeModeKey);
+    final accentIndex = prefs.getInt(_kAccentColorKey);
+    return ThemePrefsSnapshot(
+      themeMode: modeIndex != null && modeIndex < ThemeMode.values.length
+          ? ThemeMode.values[modeIndex]
+          : ThemeMode.system,
+      amoledSurfaces: prefs.getInt(_kAmoledSurfacesKey) == 1,
+      accent: accentIndex != null && accentIndex < AppAccentColor.values.length
+          ? AppAccentColor.values[accentIndex]
+          : AppAccentColor.lime,
+    );
+  }
+
+  /// Provider overrides that seed the theme notifiers with this snapshot.
+  List<Override> get overrides => [
+    themeModeProvider.overrideWith(
+      (ref) => ThemeModeNotifier(initial: themeMode),
+    ),
+    amoledSurfacesProvider.overrideWith(
+      (ref) => AmoledSurfacesNotifier(initial: amoledSurfaces),
+    ),
+    accentColorProvider.overrideWith(
+      (ref) => AccentColorNotifier(initial: accent),
+    ),
+  ];
 }

@@ -7,6 +7,7 @@ import '../../l10n/l10n.dart';
 import '../../shared/widgets/category_chip.dart'
     show faviconUrl, platformColors;
 import '../../shared/widgets/app_glass_surface.dart';
+import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
@@ -664,6 +665,7 @@ class _ClusterIcon extends StatelessWidget {
                   imageUrl: faviconUrl!,
                   width: 20,
                   height: 20,
+                  memCacheWidth: imageDecodeSize(context, 20),
                   errorWidget: (context, error, stackTrace) => fallback,
                 ),
               )

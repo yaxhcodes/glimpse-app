@@ -511,6 +511,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get couldNotLoadCollections => 'Could not load collections.';
 
   @override
+  String get couldNotLoadLibrary => 'Could not load your library.';
+
+  @override
   String linkCount(num count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

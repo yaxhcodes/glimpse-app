@@ -2,6 +2,7 @@ import '../theme/app_shapes.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../l10n/l10n.dart';
+import 'image_decode_size.dart';
 
 /// Brand accent colours for known platforms.
 const platformColors = <String, Color>{
@@ -180,6 +181,7 @@ class CategoryChip extends StatelessWidget {
                 imageUrl: favicon,
                 width: 12,
                 height: 12,
+                memCacheWidth: imageDecodeSize(context, 12),
                 errorWidget: (_, _, _) =>
                     Text(emoji, style: const TextStyle(fontSize: 10)),
               ),
