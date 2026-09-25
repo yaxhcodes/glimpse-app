@@ -677,7 +677,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _ReadFilter.unread => url.openedAt == null,
       _ReadFilter.read => url.openedAt != null,
     };
-    final unreadCount = urls.where((url) => url.openedAt == null).length;
     final visiblePinnedUrls = pinnedUrls.where(passesReadFilter).toList();
     final regularUrls = urls
         .where((url) => !pinnedSet.contains(url.id))
@@ -981,7 +980,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   SliverToBoxAdapter(
                     child: _SavesHeader(
                       filter: _readFilter,
-                      unreadCount: unreadCount,
                       onChanged: _setReadFilter,
                     ),
                   ),
@@ -1193,14 +1191,9 @@ class _DomainInitialAvatar extends StatelessWidget {
 /// "Your saves" heading with a compact All / Unread / Read filter on the
 /// right of the same line.
 class _SavesHeader extends StatelessWidget {
-  const _SavesHeader({
-    required this.filter,
-    required this.unreadCount,
-    required this.onChanged,
-  });
+  const _SavesHeader({required this.filter, required this.onChanged});
 
   final _ReadFilter filter;
-  final int unreadCount;
   final ValueChanged<_ReadFilter> onChanged;
 
   @override
@@ -1228,7 +1221,6 @@ class _SavesHeader extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: _CompactReadFilter(
                 filter: filter,
-                unreadCount: unreadCount,
                 onChanged: onChanged,
               ),
             ),
@@ -1241,14 +1233,9 @@ class _SavesHeader extends StatelessWidget {
 
 /// A small three-way segmented pill: one line, ~30px tall.
 class _CompactReadFilter extends StatelessWidget {
-  const _CompactReadFilter({
-    required this.filter,
-    required this.unreadCount,
-    required this.onChanged,
-  });
+  const _CompactReadFilter({required this.filter, required this.onChanged});
 
   final _ReadFilter filter;
-  final int unreadCount;
   final ValueChanged<_ReadFilter> onChanged;
 
   @override
@@ -1272,9 +1259,6 @@ class _CompactReadFilter extends StatelessWidget {
                   _ReadFilter.unread => strings.unread,
                   _ReadFilter.read => strings.read,
                 },
-                count: option == _ReadFilter.unread && unreadCount > 0
-                    ? unreadCount
-                    : null,
                 selected: option == filter,
                 onTap: () => onChanged(option),
               ),
@@ -1290,13 +1274,11 @@ class _CompactReadFilterSegment extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.count,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  final int? count;
 
   @override
   Widget build(BuildContext context) {
@@ -1307,7 +1289,6 @@ class _CompactReadFilterSegment extends StatelessWidget {
       color: foreground,
       fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
     );
-    final count = this.count;
     return Semantics(
       button: true,
       selected: selected,
@@ -1322,23 +1303,7 @@ class _CompactReadFilterSegment extends StatelessWidget {
             color: selected ? cs.secondaryContainer : Colors.transparent,
             shape: const StadiumBorder(),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label, style: style),
-              if (count != null) ...[
-                const SizedBox(width: 4),
-                Text(
-                  '$count',
-                  style: style?.copyWith(
-                    color: foreground.withValues(alpha: 0.7),
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ],
-          ),
+          child: Text(label, style: style),
         ),
       ),
     );
