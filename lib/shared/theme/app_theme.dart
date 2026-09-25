@@ -58,7 +58,13 @@ enum AppAccentColor {
     AppIcons.circleFilled,
     Color(0xFF5F6368),
     schemeVariant: DynamicSchemeVariant.monochrome,
-  );
+  ),
+
+  /// The house palette: the sage, cream and terracotta of the onboarding art.
+  /// Declared last so persisted accent indexes stay stable; shown first in
+  /// the picker and used as the default. Built by [AppTheme.brandScheme]
+  /// rather than `fromSeed`.
+  glimpse('Glimpse', AppIcons.circleFilled, Color(0xFF5E6E52));
 
   final String label;
   final IconData icon;
@@ -125,6 +131,89 @@ class AppTheme {
     return _buildTheme(_amoledSurfaces(base));
   }
 
+  /// Hand-tuned house scheme ([AppAccentColor.glimpse]).
+  ///
+  /// Tonal seeds give every accent the same grey-green surfaces; this one
+  /// carries the onboarding world into the app: warm paper in light mode,
+  /// deep forest ink in dark mode, sage primary, terracotta tertiary for
+  /// moments of delight, and more separation between surface and cards.
+  static ColorScheme brandScheme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final base = ColorScheme.fromSeed(
+      seedColor: AppAccentColor.glimpse.seedColor!,
+      brightness: brightness,
+    );
+    final primary = dark ? const Color(0xFFBFCCAE) : const Color(0xFF46553E);
+    return base.copyWith(
+      primary: primary,
+      onPrimary: dark ? const Color(0xFF223019) : const Color(0xFFFAF7EE),
+      primaryContainer: dark
+          ? const Color(0xFF35412E)
+          : const Color(0xFFDCE4CC),
+      onPrimaryContainer: dark
+          ? const Color(0xFFDCE6CB)
+          : const Color(0xFF18220F),
+      secondary: dark ? const Color(0xFFBFC6B2) : const Color(0xFF5A6350),
+      onSecondary: dark ? const Color(0xFF2A3122) : const Color(0xFFFFFFFF),
+      secondaryContainer: dark
+          ? const Color(0xFF363D30)
+          : const Color(0xFFE2E5D5),
+      onSecondaryContainer: dark
+          ? const Color(0xFFDDE4D0)
+          : const Color(0xFF262D1F),
+      tertiary: dark ? const Color(0xFFEDB797) : const Color(0xFF9C5436),
+      onTertiary: dark ? const Color(0xFF4A2310) : const Color(0xFFFFFFFF),
+      tertiaryContainer: dark
+          ? const Color(0xFF693A22)
+          : const Color(0xFFF7DCCB),
+      onTertiaryContainer: dark
+          ? const Color(0xFFFFDBC9)
+          : const Color(0xFF391708),
+      surface: dark ? const Color(0xFF151914) : const Color(0xFFF6F3EA),
+      onSurface: dark ? const Color(0xFFECEBDF) : const Color(0xFF22281E),
+      onSurfaceVariant: dark
+          ? const Color(0xFFB8BCAD)
+          : const Color(0xFF585E51),
+      surfaceContainerLowest: dark
+          ? const Color(0xFF10130F)
+          : const Color(0xFFFFFDF8),
+      surfaceContainerLow: dark
+          ? const Color(0xFF1E231C)
+          : const Color(0xFFEFEBE0),
+      surfaceContainer: dark
+          ? const Color(0xFF242A22)
+          : const Color(0xFFE9E6DA),
+      surfaceContainerHigh: dark
+          ? const Color(0xFF2B3228)
+          : const Color(0xFFE3E1D4),
+      surfaceContainerHighest: dark
+          ? const Color(0xFF333A2F)
+          : const Color(0xFFDDDBCD),
+      surfaceBright: dark ? const Color(0xFF383F34) : const Color(0xFFF6F3EA),
+      surfaceDim: dark ? const Color(0xFF151914) : const Color(0xFFDDDACD),
+      outline: dark ? const Color(0xFF8B9181) : const Color(0xFF74796B),
+      outlineVariant: dark
+          ? const Color(0xFF3D4538)
+          : const Color(0xFFD3D3C4),
+      inverseSurface: dark ? const Color(0xFFE3E3D7) : const Color(0xFF2F352B),
+      onInverseSurface: dark
+          ? const Color(0xFF2F352B)
+          : const Color(0xFFF1EFE4),
+      inversePrimary: dark ? const Color(0xFF46553E) : const Color(0xFFBFCCAE),
+      surfaceTint: primary,
+    );
+  }
+
+  /// Theme for [AppAccentColor.glimpse].
+  static ThemeData brandTheme(Brightness brightness, {bool amoled = false}) {
+    final scheme = brandScheme(brightness);
+    return _buildTheme(
+      amoled && brightness == Brightness.dark
+          ? _amoledSurfaces(scheme)
+          : scheme,
+    );
+  }
+
   /// Build a theme directly from a pre-built [ColorScheme] (for dynamic color).
   static ThemeData fromColorScheme(ColorScheme colorScheme) {
     return _buildTheme(colorScheme);
@@ -155,38 +244,38 @@ class AppTheme {
       displayLarge: GoogleFonts.instrumentSans(
         fontSize: 57,
         fontWeight: FontWeight.w700,
-        height: 1.12,
-        letterSpacing: -0.25,
+        height: 1.08,
+        letterSpacing: -1.4,
       ),
       displayMedium: GoogleFonts.instrumentSans(
         fontSize: 45,
         fontWeight: FontWeight.w700,
-        height: 1.16,
-        letterSpacing: 0,
+        height: 1.1,
+        letterSpacing: -1.0,
       ),
       displaySmall: GoogleFonts.instrumentSans(
         fontSize: 36,
         fontWeight: FontWeight.w700,
-        height: 1.2,
-        letterSpacing: 0,
+        height: 1.14,
+        letterSpacing: -0.7,
       ),
       headlineLarge: GoogleFonts.instrumentSans(
         fontSize: 32,
         fontWeight: FontWeight.w700,
-        height: 1.2,
-        letterSpacing: 0.32,
+        height: 1.16,
+        letterSpacing: -0.6,
       ),
       headlineMedium: GoogleFonts.instrumentSans(
         fontSize: 28,
         fontWeight: FontWeight.w700,
-        height: 1.2,
-        letterSpacing: 0.28,
+        height: 1.18,
+        letterSpacing: -0.45,
       ),
       headlineSmall: GoogleFonts.instrumentSans(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         height: 1.2,
-        letterSpacing: 0.24,
+        letterSpacing: -0.3,
       ),
 
       // ── Instrument Sans — Titles
@@ -194,7 +283,7 @@ class AppTheme {
         fontSize: 20,
         fontWeight: FontWeight.w600,
         height: 1.2,
-        letterSpacing: 0,
+        letterSpacing: -0.15,
       ),
       titleMedium: GoogleFonts.instrumentSans(
         fontSize: 18,
@@ -260,7 +349,7 @@ class AppTheme {
     final appBarTitleStyle = GoogleFonts.instrumentSans(
       fontSize: 20,
       fontWeight: FontWeight.w700,
-      letterSpacing: 0.2,
+      letterSpacing: -0.2,
       color: colorScheme.onSurface,
     );
     final isDark = colorScheme.brightness == Brightness.dark;

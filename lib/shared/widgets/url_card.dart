@@ -25,6 +25,7 @@ import 'selection_badge.dart';
 import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../theme/app_typography.dart';
 
 /// Card widget for displaying a saved URL entry.
 class UrlCard extends ConsumerStatefulWidget {
@@ -157,19 +158,32 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     final notePreview = widget.savedUrl.notePreview;
 
     final isRead = widget.savedUrl.openedAt != null;
-    final isLight = theme.brightness == Brightness.light;
-    final metaStyle = TextStyle(fontSize: 12, color: cs.outline);
-    final baseTitleStyle =
-        (processingPresentation != null ? tt.titleMedium : tt.titleSmall) ??
-        const TextStyle();
-    final cardTitleStyle = baseTitleStyle.copyWith(
-      fontWeight: FontWeight.w600,
-      height: processingPresentation != null ? 1.2 : 1.25,
-      fontSize: processingPresentation == null
-          ? (tt.titleSmall?.fontSize ?? 14) + 0.5
-          : baseTitleStyle.fontSize,
-      color: cs.onSurface,
+    // Metadata reads as quiet text, not as a border: onSurfaceVariant keeps
+    // it legible on cards in both themes (outline was ~3:1).
+    final metaStyle = (tt.bodySmall ?? const TextStyle()).copyWith(
+      fontSize: 12.5,
+      fontWeight: FontWeight.w400,
+      height: 1.3,
+      color: cs.onSurfaceVariant,
     );
+    // Saved content is the hero, so its title is set in the editorial serif;
+    // transient processing copy stays in the interface sans.
+    final cardTitleStyle = processingPresentation != null
+        ? (tt.titleMedium ?? const TextStyle()).copyWith(
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+            color: cs.onSurface,
+          )
+        : AppTypography.editorial(
+            tt.titleSmall,
+            fontSize: 17.5,
+            fontWeight: FontWeight.w600,
+            height: 1.22,
+            letterSpacing: -0.1,
+            color: isRead
+                ? cs.onSurface.withValues(alpha: 0.78)
+                : cs.onSurface,
+          );
     final shimmerProcessingText =
         processingPresentation != null && !processingPresentation.failed;
     final selectedFill = Color.alphaBlend(
@@ -260,7 +274,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                           children: [
                             Expanded(
                               child: AnimatedOpacity(
-                                opacity: (isRead && isLight) ? 0.45 : 1.0,
+                                opacity: 1.0,
                                 duration: const Duration(milliseconds: 300),
                                 child: shimmerProcessingText
                                     ? _SubtleTextShimmer(
@@ -297,7 +311,17 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                               child: Wrap(
                                 spacing: 0,
                                 runSpacing: 2,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
+                                  if (!isRead &&
+                                      !isProcessing &&
+                                      !isProcessingFailed) ...[
+                                    _UnreadDot(
+                                      color: cs.primary,
+                                      label: context.l10n.unread,
+                                    ),
+                                    const SizedBox(width: 7),
+                                  ],
                                   Text(displaySourceName, style: metaStyle),
                                   Text(' · ', style: metaStyle),
                                   Text(
@@ -307,18 +331,18 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                     ),
                                     style: metaStyle,
                                   ),
-                                  if (!_retryingEnrichment) ...[
+                                  // Read state is carried by the dot and
+                                  // the thumbnail; only transient states
+                                  // get words.
+                                  if (!_retryingEnrichment &&
+                                      widget.showEnrichmentActions &&
+                                      (isProcessing ||
+                                          isProcessingFailed)) ...[
                                     Text(' · ', style: metaStyle),
                                     Text(
-                                      widget.showEnrichmentActions &&
-                                              isProcessing
+                                      isProcessing
                                           ? context.l10n.processing
-                                          : widget.showEnrichmentActions &&
-                                                isProcessingFailed
-                                          ? context.l10n.needsAttention
-                                          : isRead
-                                          ? context.l10n.read
-                                          : context.l10n.unread,
+                                          : context.l10n.needsAttention,
                                       style: metaStyle,
                                     ),
                                   ],
@@ -366,7 +390,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: tt.bodySmall?.copyWith(
-                                    fontSize: 11.5,
+                                    fontSize: 12.5,
                                     height: 1.25,
                                     color: cs.onSurfaceVariant.withValues(
                                       alpha: 0.82,
@@ -397,7 +421,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   child: Text(
                                     localizedTagLabel(strings, tag),
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.w500,
                                       color: tagColors.foreground,
                                       fontFamily: tt.labelSmall?.fontFamily,
@@ -419,7 +443,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   child: Text(
                                     '+${chipData.overflow}',
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.w500,
                                       color: tagColors.foreground,
                                       fontFamily: tt.labelSmall?.fontFamily,
@@ -724,6 +748,27 @@ class _SelectionThumbnail extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Small accent dot marking an unopened save. Replaces the repeated
+/// "Unread" word: status should be glanceable, not read.
+class _UnreadDot extends StatelessWidget {
+  const _UnreadDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      child: Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
     );
   }

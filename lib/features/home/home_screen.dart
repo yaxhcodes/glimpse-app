@@ -26,8 +26,10 @@ import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/platform_icons.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import '../../core/constants/app_assets.dart';
+import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_glass_surface.dart';
+import '../../shared/widgets/entrance_motion.dart';
 import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/upgrade_gate.dart';
@@ -51,12 +53,24 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 enum _InputUiState { idle, processing, success, error }
 
+/// Home list filter by read state (opened or not).
+enum _ReadFilter { all, unread, read }
+
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   final _urlInputController = TextEditingController();
   final _urlInputFocus = FocusNode();
   int _unreadDigests = 0;
   int _titleTapCount = 0;
+  _ReadFilter _readFilter = _ReadFilter.all;
+
+  /// Save ids from the previous content build; null until the list first
+  /// paints. A save missing from it is new and enters with motion.
+  Set<int>? _knownIds;
+
+  /// Ids whose entrance already played, so scrolling back never replays it.
+  final Set<int> _entrancePlayed = {};
+  bool _staggerNextBuild = false;
   String? _clipboardUrl;
   bool _inputValid = false;
   _InputUiState _inputUiState = _InputUiState.idle;
@@ -658,9 +672,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (byId[id] != null) byId[id]!,
     ];
     final pinnedSet = pinnedUrls.map((url) => url.id).toSet();
+    bool passesReadFilter(SavedUrl url) => switch (_readFilter) {
+      _ReadFilter.all => true,
+      _ReadFilter.unread => url.openedAt == null,
+      _ReadFilter.read => url.openedAt != null,
+    };
+    final unreadCount = urls.where((url) => url.openedAt == null).length;
+    final visiblePinnedUrls = pinnedUrls.where(passesReadFilter).toList();
     final regularUrls = urls
         .where((url) => !pinnedSet.contains(url.id))
+        .where(passesReadFilter)
         .toList();
+
+    // Entrance motion: stagger the first screenful on first paint and after
+    // a filter switch; afterwards only brand-new saves animate in.
+    final firstPaint = _knownIds == null;
+    final previousIds = _knownIds ?? const <int>{};
+    final staggerEntrance = firstPaint || _staggerNextBuild;
+    _knownIds = existingIds;
+    _staggerNextBuild = false;
 
     final now = DateTime.now();
     final dateGroups = <SaveDateGroup, List<SavedUrl>>{};
@@ -671,7 +701,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     final regularIds = List<int>.unmodifiable(regularUrls.map((url) => url.id));
     final sections = <_Section>[
-      if (pinnedUrls.isNotEmpty) _Section(context.l10n.pinned, pinnedUrls),
+      if (visiblePinnedUrls.isNotEmpty)
+        _Section(context.l10n.pinned, visiblePinnedUrls),
       for (final group in SaveDateGroup.values)
         if (dateGroups[group] case final items?)
           _Section(
@@ -687,6 +718,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             isDateGroup: true,
           ),
     ];
+
+    final sectionStarts = <int>[];
+    var sectionStart = 0;
+    for (final section in sections) {
+      sectionStarts.add(sectionStart);
+      sectionStart += section.urls.length;
+    }
 
     // Post-onboarding guide card: shows on a populated home until the user
     // dismisses it (a persistent how-to, robust to the demo card being
@@ -911,7 +949,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   labelStyle: theme.textTheme.labelSmall
                                       ?.copyWith(
-                                        fontSize: 11,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w500,
                                         letterSpacing: 0.1,
                                         color:
@@ -940,34 +978,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: HomeSourcesSkeleton(),
                       ),
                     ),
-                  for (final section in sections) ...[
-                    if (section.isDateGroup &&
-                        identical(
-                          section,
-                          sections.firstWhere((item) => item.isDateGroup),
-                        ))
-                      SliverToBoxAdapter(
+                  SliverToBoxAdapter(
+                    child: _SavesHeader(
+                      filter: _readFilter,
+                      unreadCount: unreadCount,
+                      onChanged: _setReadFilter,
+                    ),
+                  ),
+                  if (sections.isEmpty)
+                    SliverToBoxAdapter(
+                      child: EntranceMotion(
+                        key: ValueKey('home-filter-empty-${_readFilter.name}'),
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
+                          padding: const EdgeInsets.fromLTRB(32, 48, 32, 0),
                           child: Text(
-                            context.l10n.yourSaves,
-                            style: theme.textTheme.titleSmall,
+                            context.l10n.noMatchesForFilter,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ),
+                    ),
+                  for (final (sectionIndex, section) in sections.indexed) ...[
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(
                           16,
-                          section.isDateGroup &&
-                                  identical(
-                                    section,
-                                    sections.firstWhere(
-                                      (item) => item.isDateGroup,
-                                    ),
-                                  )
-                              ? 6
-                              : 16,
+                          sectionIndex == 0 ? 6 : 16,
                           16,
                           6,
                         ),
@@ -988,7 +1027,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SliverList(
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final url = section.urls[index];
-                        return SwipeableUrlCard(
+                        final listIndex = sectionStarts[sectionIndex] + index;
+                        final isNewSave =
+                            !firstPaint && !previousIds.contains(url.id);
+                        final staggered =
+                            staggerEntrance && listIndex < 8 && !isNewSave;
+                        final animateEntrance =
+                            (staggered || isNewSave) &&
+                            _entrancePlayed.add(url.id);
+                        return EntranceMotion(
+                          key: ValueKey('home-entrance-${url.id}'),
+                          animate: animateEntrance,
+                          delay: staggered
+                              ? EntranceMotion.stagger(listIndex)
+                              : Duration.zero,
+                          child: SwipeableUrlCard(
                           filledSwipeIcons: true,
                           showTags: false,
                           showEnrichmentActions: false,
@@ -1012,6 +1065,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               curve: Curves.easeOutCubic,
                             );
                           },
+                          ),
                         );
                       }, childCount: section.urls.length),
                     ),
@@ -1026,13 +1080,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _setReadFilter(_ReadFilter filter) {
+    if (filter == _readFilter) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _readFilter = filter;
+      _entrancePlayed.clear();
+      _staggerNextBuild = true;
+    });
+  }
+
   /// Hidden dev-only gesture access to Settings.
   /// Long-press or 5 consecutive taps on the title navigate to Settings.
   Widget _buildGlimpseTitle(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.headlineMedium?.copyWith(
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.5,
-    );
+    final textStyle = AppTypography.pageTitle(Theme.of(context));
 
     final title = Text('Glimpse', style: textStyle);
 
@@ -1121,6 +1182,113 @@ class _DomainInitialAvatar extends StatelessWidget {
           fontWeight: FontWeight.w800,
           height: 1,
         ),
+      ),
+    );
+  }
+}
+
+/// "Your saves" heading with the All / Unread / Read filter.
+class _SavesHeader extends StatelessWidget {
+  const _SavesHeader({
+    required this.filter,
+    required this.unreadCount,
+    required this.onChanged,
+  });
+
+  final _ReadFilter filter;
+  final int unreadCount;
+  final ValueChanged<_ReadFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final strings = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(strings.yourSaves, style: theme.textTheme.titleSmall),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ReadFilterChip(
+                label: strings.all,
+                selected: filter == _ReadFilter.all,
+                onSelected: () => onChanged(_ReadFilter.all),
+              ),
+              _ReadFilterChip(
+                label: strings.unread,
+                count: unreadCount,
+                selected: filter == _ReadFilter.unread,
+                onSelected: () => onChanged(_ReadFilter.unread),
+              ),
+              _ReadFilterChip(
+                label: strings.read,
+                selected: filter == _ReadFilter.read,
+                onSelected: () => onChanged(_ReadFilter.read),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadFilterChip extends StatelessWidget {
+  const _ReadFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    this.count,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final foreground = selected ? cs.onSecondaryContainer : cs.onSurfaceVariant;
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      color: foreground,
+      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+    );
+    final count = this.count;
+    return ChoiceChip(
+      selected: selected,
+      showCheckmark: false,
+      onSelected: (_) => onSelected(),
+      shape: const StadiumBorder(),
+      side: BorderSide.none,
+      color: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? cs.secondaryContainer
+            : cs.surfaceContainerLow,
+      ),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: labelStyle),
+          if (count != null && count > 0) ...[
+            const SizedBox(width: 6),
+            Text(
+              '$count',
+              style: labelStyle?.copyWith(
+                color: foreground.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w500,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

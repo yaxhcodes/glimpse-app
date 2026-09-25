@@ -8,11 +8,13 @@ import '../../core/providers/service_providers.dart';
 import '../../core/services/scroll_capture_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/expressive_fab.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../shared/widgets/entrance_motion.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../library/library_entity.dart';
 import '../library/library_provider.dart';
@@ -48,6 +50,11 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
   static const _selectionScope = 'collections';
 
   List<int> _lastVisibleIds = const [];
+
+  /// Collection ids from the previous grid build (null before first paint);
+  /// drives the first-load stagger and the entrance of new collections.
+  Set<int>? _seenCollectionIds;
+  final Set<int> _entrancePlayed = {};
   List<int> _lastReconciledIds = const [];
 
   @override
@@ -77,7 +84,6 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
               !selectionState.selectedIds.contains(summary.collection.id),
         );
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
     final hasCollections = loadedCollections.isNotEmpty;
     final shellChromeVisible = ref.watch(shellChromeVisibilityProvider);
     final usesRail = AppLayout.usesNavigationRail(
@@ -131,10 +137,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     : Text(
                         context.l10n.collections,
                         key: const ValueKey('collections-surface-title'),
-                        style: tt.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: cs.onSurface,
-                        ),
+                        style: AppTypography.pageTitle(Theme.of(context)),
                       ),
                 actions: selectionState.isActive
                     ? [
@@ -216,6 +219,11 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   selectionNotifier,
                 );
                 final collections = preferences.sortSummaries(rawCollections);
+                final firstCollectionsPaint = _seenCollectionIds == null;
+                final previouslySeen = _seenCollectionIds ?? const <int>{};
+                _seenCollectionIds = {
+                  for (final summary in collections) summary.collection.id,
+                };
                 if (collections.isEmpty) {
                   return _CollectionsEmptyLayout(
                     entities: librarySnapshot?.entities ?? const [],
@@ -276,7 +284,18 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                               itemBuilder: (context, i) {
                                 final summary = collections[i];
                                 final id = summary.collection.id;
-                                return ExpressiveTapScale(
+                                final animate =
+                                    (firstCollectionsPaint
+                                        ? i < 8
+                                        : !previouslySeen.contains(id)) &&
+                                    _entrancePlayed.add(id);
+                                return EntranceMotion(
+                                  key: ValueKey('collection-entrance-$id'),
+                                  animate: animate,
+                                  delay: firstCollectionsPaint
+                                      ? EntranceMotion.stagger(i)
+                                      : Duration.zero,
+                                  child: ExpressiveTapScale(
                                   child: CollectionCard(
                                     key: ValueKey('collection-card-$id'),
                                     summary: summary,
@@ -286,6 +305,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                                         selectionNotifier.startWith(id),
                                     onSelectionToggle: () =>
                                         selectionNotifier.toggle(id),
+                                  ),
                                   ),
                                 );
                               },

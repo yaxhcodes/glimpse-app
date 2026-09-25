@@ -126,9 +126,9 @@ class RediscoverArtworkCard extends StatelessWidget {
             : compact
             ? 14.0
             : 18.0;
-        final titleStyle = AppTypography.editorial(
+        TextStyle titleStyleAt(double size) => AppTypography.editorial(
           theme.textTheme.headlineSmall,
-          fontSize: titleSize,
+          fontSize: size,
           height: 1.08,
           color: cs.onSurface,
           letterSpacing: -.2,
@@ -137,17 +137,37 @@ class RediscoverArtworkCard extends StatelessWidget {
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
         );
-        var longestWord = 0.0;
-        for (final word in title.split(RegExp(r'\s+'))) {
-          painter.text = TextSpan(text: word, style: titleStyle);
-          painter.layout();
-          longestWord = math.max(longestWord, painter.width);
+        double longestWordAt(TextStyle style) {
+          var longest = 0.0;
+          for (final word in title.split(RegExp(r'\s+'))) {
+            painter.text = TextSpan(text: word, style: style);
+            painter.layout();
+            longest = math.max(longest, painter.width);
+          }
+          return longest;
+        }
+
+        // Fit the title beside the artwork by shrinking the type (down to
+        // 18) before giving up and stacking. Long single words such as
+        // "Recommendations" used to wrap mid-word at the full size.
+        final besideWidth = width - padding * 2 - imageSize - 12;
+        var titleStyle = titleStyleAt(titleSize);
+        var longestWord = longestWordAt(titleStyle);
+        if (longestWord > besideWidth && besideWidth > 0) {
+          final fitted = math.max(
+            18.0,
+            (titleSize * besideWidth / longestWord).floorToDouble(),
+          );
+          if (fitted < titleSize) {
+            titleStyle = titleStyleAt(fitted);
+            longestWord = longestWordAt(titleStyle);
+          }
         }
         painter.dispose();
-        final stacked = longestWord > width - padding * 2 - imageSize - 12;
+        final stacked = longestWord > besideWidth;
         final titleWidget = Text(
           title,
-          maxLines: 4,
+          maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: titleStyle,
         );

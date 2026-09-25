@@ -1002,6 +1002,12 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           darkTheme = useAmoledPalette
               ? AppTheme.fromColorSchemeAmoled(darkScheme)
               : AppTheme.fromColorScheme(darkScheme);
+        } else if (accent == AppAccentColor.glimpse) {
+          lightTheme = AppTheme.brandTheme(Brightness.light);
+          darkTheme = AppTheme.brandTheme(
+            Brightness.dark,
+            amoled: useAmoledPalette,
+          );
         } else {
           final seed = accent.seedColor ?? const Color(0xFF1D9E75);
           lightTheme = AppTheme.lightTheme(

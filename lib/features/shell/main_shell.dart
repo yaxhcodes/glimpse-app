@@ -14,6 +14,7 @@ import '../../core/services/analytics_service.dart';
 import '../../core/services/scroll_capture_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/theme/app_motion.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../home/home_screen.dart';
 import '../home/home_provider.dart';
@@ -398,9 +399,12 @@ class _MainShellState extends ConsumerState<MainShell> {
                 child: ScrollCaptureVisibilityScope(
                   isVisible: index == _currentIndex,
                   child: RepaintBoundary(
-                    child: _loadedTabIndexes.contains(index)
-                        ? _screens[index]
-                        : const Center(child: ExpressiveLoadingIndicator()),
+                    child: _TabReveal(
+                      active: index == _currentIndex,
+                      child: _loadedTabIndexes.contains(index)
+                          ? _screens[index]
+                          : const Center(child: ExpressiveLoadingIndicator()),
+                    ),
                   ),
                 ),
               ),
@@ -541,5 +545,64 @@ class _MainShellState extends ConsumerState<MainShell> {
       2 => AnalyticsScreen.interests,
       _ => AnalyticsScreen.search,
     };
+  }
+}
+
+/// Material "fade through" for tab switches: the incoming tab fades in and
+/// settles 6px upward. Tabs keep their state (the child element is never
+/// rebuilt); only an opacity/offset layer animates, and only on activation.
+class _TabReveal extends StatefulWidget {
+  const _TabReveal({required this.active, required this.child});
+
+  final bool active;
+  final Widget child;
+
+  @override
+  State<_TabReveal> createState() => _TabRevealState();
+}
+
+class _TabRevealState extends State<_TabReveal>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+    value: 1,
+  );
+  late final Animation<double> _progress = CurvedAnimation(
+    parent: _controller,
+    curve: AppMotion.emphasizedDecelerate,
+  );
+
+  @override
+  void didUpdateWidget(covariant _TabReveal oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) {
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _controller.value = 1;
+      } else {
+        _controller.forward(from: 0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _progress,
+      child: AnimatedBuilder(
+        animation: _progress,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, (1 - _progress.value) * 6),
+          child: child,
+        ),
+        child: widget.child,
+      ),
+    );
   }
 }

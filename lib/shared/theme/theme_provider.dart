@@ -90,7 +90,7 @@ final accentColorProvider =
 
 class AccentColorNotifier extends StateNotifier<AppAccentColor> {
   AccentColorNotifier({AppAccentColor? initial})
-    : super(initial ?? AppAccentColor.lime) {
+    : super(initial ?? AppAccentColor.glimpse) {
     if (initial == null) _load();
   }
 
@@ -128,7 +128,7 @@ class ThemePrefsSnapshot {
   static const fallback = ThemePrefsSnapshot(
     themeMode: ThemeMode.system,
     amoledSurfaces: false,
-    accent: AppAccentColor.lime,
+    accent: AppAccentColor.glimpse,
   );
 
   /// Never throws: a prefs failure must not block the first frame.
@@ -152,7 +152,7 @@ class ThemePrefsSnapshot {
       amoledSurfaces: prefs.getInt(_kAmoledSurfacesKey) == 1,
       accent: accentIndex != null && accentIndex < AppAccentColor.values.length
           ? AppAccentColor.values[accentIndex]
-          : AppAccentColor.lime,
+          : AppAccentColor.glimpse,
     );
   }
 

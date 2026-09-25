@@ -73,7 +73,8 @@ void main() {
       _app(hasAiSaveAccess: true, showEnrichmentActions: false),
     );
     expect(find.byType(EnrichmentRetryButton), findsNothing);
-    expect(find.text('Unread'), findsOneWidget);
+    // Unread state is a dot now, not the word.
+    expect(find.text('Unread'), findsNothing);
     expect(find.text('Instagram'), findsOneWidget);
   });
 

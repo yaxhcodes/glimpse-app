@@ -139,11 +139,11 @@ class LookAndFeelScreen extends ConsumerWidget {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.only(right: 8),
-                          itemCount: AppAccentColor.values.length,
+                          itemCount: _accentPickerOrder.length,
                           separatorBuilder: (context, index) =>
                               const SizedBox(width: 12),
                           itemBuilder: (context, i) {
-                            final c = AppAccentColor.values[i];
+                            final c = _accentPickerOrder[i];
                             return _AccentSwatch(
                               accent: c,
                               selected: c == accent,
@@ -271,7 +271,19 @@ class _ThemePreviewStrip extends StatelessWidget {
 final Map<(Color, Brightness, DynamicSchemeVariant), ColorScheme>
 _swatchSchemeCache = {};
 
+/// Dynamic, then the house palette, then the seeded accents.
+final List<AppAccentColor> _accentPickerOrder = [
+  AppAccentColor.dynamic,
+  AppAccentColor.glimpse,
+  for (final accent in AppAccentColor.values)
+    if (accent != AppAccentColor.dynamic && accent != AppAccentColor.glimpse)
+      accent,
+];
+
 ColorScheme _swatchScheme(AppAccentColor accent, Brightness brightness) {
+  if (accent == AppAccentColor.glimpse) {
+    return AppTheme.brandScheme(brightness);
+  }
   final seed = accent.seedColor!;
   final key = (seed, brightness, accent.schemeVariant);
   return _swatchSchemeCache[key] ??= ColorScheme.fromSeed(
@@ -440,4 +452,6 @@ String _localizedAccentLabel(AppLocalizations strings, AppAccentColor accent) =>
       AppAccentColor.indigo => strings.accentIndigo,
       AppAccentColor.slate => strings.accentSlate,
       AppAccentColor.monochrome => strings.accentMonochrome,
+      // Brand name: the same in every language.
+      AppAccentColor.glimpse => 'Glimpse',
     };
