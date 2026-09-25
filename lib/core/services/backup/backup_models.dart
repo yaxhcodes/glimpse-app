@@ -1,6 +1,7 @@
 class BackupData {
-  static const int currentVersion = 6;
+  static const int currentVersion = 7;
 
+  final List<Map<String, dynamic>> conversations;
   final int version;
   final String createdAt;
   final String appVersion;
@@ -14,6 +15,7 @@ class BackupData {
 
   BackupData({
     this.version = currentVersion,
+    this.conversations = const [],
     required this.createdAt,
     required this.appVersion,
     this.device,
@@ -27,6 +29,7 @@ class BackupData {
 
   Map<String, dynamic> toJson() => {
     'version': version,
+    'conversations': conversations,
     'createdAt': createdAt,
     'appVersion': appVersion,
     if (device != null) 'device': device,
@@ -41,6 +44,11 @@ class BackupData {
 
   factory BackupData.fromJson(Map<String, dynamic> json) => BackupData(
     version: json['version'] as int? ?? 0,
+    conversations:
+        (json['conversations'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .toList() ??
+        const [],
     createdAt: json['createdAt'] as String? ?? '',
     appVersion: json['appVersion'] as String? ?? '',
     device: json['device'] as String?,

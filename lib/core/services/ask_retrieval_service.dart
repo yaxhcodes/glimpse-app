@@ -154,7 +154,7 @@ class AskRetrievalService {
   }) {
     if (allUrls.isEmpty) return const [];
     final intent = _AskQueryIntent.parse(query);
-    final effectiveLimit = intent.quantity ?? min(limit, 5);
+    final effectiveLimit = min(intent.quantity ?? limit, limit);
 
     final keyword = _keywordSearchScored(
       query: query,

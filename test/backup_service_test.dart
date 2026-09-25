@@ -96,7 +96,7 @@ void main() {
     final json = service.toBackup(original).toJson();
     final restored = service.fromBackup(SavedUrlBackup.fromJson(json));
 
-    expect(BackupData.currentVersion, 6);
+    expect(BackupData.currentVersion, 7);
     expect(restored.deletedAt, deletedAt);
     expect(restored.processingStatus, original.processingStatus);
     expect(restored.processingId, original.processingId);

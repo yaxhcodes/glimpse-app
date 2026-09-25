@@ -66,16 +66,26 @@ class AiQuotaService {
       _call(feature, commit: false, migrationUsed: migrationUsed);
 
   /// Atomically checks and consumes one unit (called on a successful AI save).
-  Future<AiQuotaSnapshot> consume(String feature, {int? migrationUsed}) =>
-      _call(feature, commit: true, migrationUsed: migrationUsed);
+  Future<AiQuotaSnapshot> consume(
+    String feature, {
+    int? migrationUsed,
+    String? requestId,
+  }) => _call(
+    feature,
+    commit: true,
+    migrationUsed: migrationUsed,
+    requestId: requestId,
+  );
 
   Future<AiQuotaSnapshot> _call(
     String feature, {
     required bool commit,
     int? migrationUsed,
+    String? requestId,
   }) async {
     final json = await _transport.postJson(
       '/quota',
+      logicalRequestId: requestId,
       body: {
         'feature': feature,
         'commit': commit,

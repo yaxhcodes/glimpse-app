@@ -54,9 +54,8 @@ class _ChatTurn extends StatelessWidget {
   const _ChatTurn({
     super.key,
     required this.message,
-    required this.animateAssistant,
-    required this.onAssistantAnimationComplete,
-    this.onAssistantContentGrowth,
+    this.streaming = false,
+    this.onEdit,
     this.onProactiveTipTap,
     this.onFollowUpTap,
     this.onActionConsumed,
@@ -68,9 +67,8 @@ class _ChatTurn extends StatelessWidget {
   });
 
   final ChatMessage message;
-  final bool animateAssistant;
-  final ValueChanged<String> onAssistantAnimationComplete;
-  final VoidCallback? onAssistantContentGrowth;
+  final bool streaming;
+  final VoidCallback? onEdit;
   final VoidCallback? onProactiveTipTap;
   final ValueChanged<String>? onFollowUpTap;
   final VoidCallback? onActionConsumed;
@@ -83,13 +81,22 @@ class _ChatTurn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (message.isUser) {
-      return _UserBubble(text: message.text);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _UserBubble(text: message.text),
+          if (onEdit != null)
+            IconButton(
+              tooltip: context.l10n.askEditMessage,
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              onPressed: onEdit,
+            ),
+        ],
+      );
     }
     return _AssistantBlock(
       message: message,
-      animate: animateAssistant,
-      onAnimationComplete: onAssistantAnimationComplete,
-      onContentGrowth: onAssistantContentGrowth,
+      streaming: streaming,
       onProactiveTipTap: onProactiveTipTap,
       onFollowUpTap: onFollowUpTap,
       onActionConsumed: onActionConsumed,
@@ -188,9 +195,7 @@ class _UserBubble extends StatelessWidget {
 class _AssistantBlock extends StatefulWidget {
   const _AssistantBlock({
     required this.message,
-    required this.animate,
-    required this.onAnimationComplete,
-    this.onContentGrowth,
+    this.streaming = false,
     this.onProactiveTipTap,
     this.onFollowUpTap,
     this.onActionConsumed,
@@ -202,9 +207,7 @@ class _AssistantBlock extends StatefulWidget {
   });
 
   final ChatMessage message;
-  final bool animate;
-  final ValueChanged<String> onAnimationComplete;
-  final VoidCallback? onContentGrowth;
+  final bool streaming;
   final VoidCallback? onProactiveTipTap;
   final ValueChanged<String>? onFollowUpTap;
   final VoidCallback? onActionConsumed;
@@ -219,178 +222,22 @@ class _AssistantBlock extends StatefulWidget {
 }
 
 class _AssistantBlockState extends State<_AssistantBlock> {
-  String _displayedIntro = '';
-  bool _introComplete = false;
-  int _visibleCardCount = 0;
-  bool _sectionRevealScheduled = false;
-  DateTime? _lastScrollNudge;
-  bool _tipVisible = false;
-  bool _chipVisible = false;
-  bool _followUpsVisible = false;
-  bool _saveActionVisible = false;
   bool _actionConsumed = false;
-  bool _streamingCancelled = false;
-  DateTime? _lastHapticFeedback;
-
   String get _intro => widget.message.text;
+  String get _displayedIntro => _intro;
   bool get _hasBody => _intro.trim().isNotEmpty;
-
-  int get _cardTotal {
-    if (widget.message.sections.isNotEmpty) {
-      return widget.message.sections.length;
-    }
-    if (widget.message.sources.isNotEmpty) {
-      return widget.message.sources.length;
-    }
-    return 0;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _actionConsumed = widget.message.actionConsumed;
-    if (!widget.animate) {
-      _displayedIntro = _intro;
-      _introComplete = true;
-      _visibleCardCount = _cardTotal;
-      _tipVisible = widget.message.proactiveTip != null;
-      _chipVisible = widget.message.action != ChatAction.none;
-      _followUpsVisible = widget.message.followUpSuggestions.isNotEmpty;
-      _saveActionVisible = widget.onSaveAnswerToNotesTap != null;
-      return;
-    }
-    if (!_hasBody) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _startSectionReveal(),
-      );
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _streamIntro(_intro);
-    });
-  }
-
-  Future<void> _streamIntro(String fullText) async {
-    _streamingCancelled = false;
-    for (int i = 1; i <= fullText.length; i++) {
-      if (!mounted || _streamingCancelled) return;
-      setState(() => _displayedIntro = fullText.substring(0, i));
-      _maybePlayTextHaptic(i);
-      final delay = fullText.length > 200 ? 6 : 15;
-      await Future.delayed(Duration(milliseconds: delay));
-    }
-    if (!mounted || _streamingCancelled) return;
-    setState(() => _introComplete = true);
-    widget.onAnimationComplete(widget.message.id);
-    _throttledScroll();
-    _showCards();
-  }
-
-  void _maybePlayTextHaptic(int visibleCharacterCount) {
-    if (visibleCharacterCount == 1 ||
-        visibleCharacterCount % _kAssistantHapticCharacterStep != 0) {
-      return;
-    }
-    final now = DateTime.now();
-    if (_lastHapticFeedback != null &&
-        now.difference(_lastHapticFeedback!) < _kAssistantHapticInterval) {
-      return;
-    }
-    _lastHapticFeedback = now;
-    HapticFeedback.selectionClick();
-  }
-
-  void _showCards() {
-    if (_sectionRevealScheduled) return;
-    _sectionRevealScheduled = true;
-    _startSectionReveal();
-  }
-
-  Future<void> _startSectionReveal() async {
-    final n = _cardTotal;
-    if (n == 0) {
-      widget.onAnimationComplete(widget.message.id);
-      _showTipIfPresent();
-      _showChipIfPresent();
-      _showFollowUpsIfPresent();
-      _showSaveActionIfPresent();
-      _throttledScroll();
-      return;
-    }
-    for (var i = 0; i < n; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 150));
-      if (!mounted) return;
-      setState(() => _visibleCardCount = i + 1);
-      _throttledScroll();
-    }
-    widget.onAnimationComplete(widget.message.id);
-    _showTipIfPresent();
-    _showChipIfPresent();
-    _showFollowUpsIfPresent();
-    _showSaveActionIfPresent();
-  }
-
-  void _showTipIfPresent() {
-    if (widget.message.proactiveTip != null) {
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted) {
-          setState(() => _tipVisible = true);
-          _throttledScroll();
-        }
-      });
-    }
-  }
-
-  void _showChipIfPresent() {
-    if (widget.message.action != ChatAction.none) {
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted) {
-          setState(() => _chipVisible = true);
-          _throttledScroll();
-        }
-      });
-    }
-  }
-
-  void _showFollowUpsIfPresent() {
-    if (widget.message.followUpSuggestions.isNotEmpty) {
-      Future.delayed(const Duration(milliseconds: 180), () {
-        if (mounted) {
-          setState(() => _followUpsVisible = true);
-          _throttledScroll();
-        }
-      });
-    }
-  }
-
-  void _showSaveActionIfPresent() {
-    if (widget.onSaveAnswerToNotesTap != null) {
-      Future.delayed(const Duration(milliseconds: 220), () {
-        if (mounted) {
-          setState(() => _saveActionVisible = true);
-          _throttledScroll();
-        }
-      });
-    }
-  }
-
-  void _throttledScroll() {
-    final now = DateTime.now();
-    if (_lastScrollNudge == null ||
-        now.difference(_lastScrollNudge!) > const Duration(milliseconds: 140)) {
-      _lastScrollNudge = now;
-      widget.onContentGrowth?.call();
-    }
-  }
-
-  @override
-  void dispose() {
-    if (widget.animate) {
-      widget.onAnimationComplete(widget.message.id);
-    }
-    _streamingCancelled = true;
-    super.dispose();
-  }
+  bool get _introComplete => !widget.message.incomplete;
+  int get _cardTotal => widget.message.sections.isNotEmpty
+      ? widget.message.sections.length
+      : widget.message.sources.length;
+  int _resultPageSize = 12;
+  int get _visibleCardCount => widget.message.isResultList
+      ? math.min(_resultPageSize, _cardTotal)
+      : _cardTotal;
+  bool get _tipVisible => _introComplete;
+  bool get _chipVisible => _introComplete;
+  bool get _followUpsVisible => _introComplete && widget.onFollowUpTap != null;
+  bool get _saveActionVisible => _introComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -400,8 +247,8 @@ class _AssistantBlockState extends State<_AssistantBlock> {
     final hasSections = widget.message.sections.isNotEmpty;
     final hasSources = widget.message.sources.isNotEmpty;
     final collapsesSources =
-        widget.message.answerType == ChatAnswerType.synthesis ||
-        widget.message.answerType == ChatAnswerType.plan;
+        !widget.message.isResultList &&
+        widget.message.answerType != ChatAnswerType.fallback;
     final tip = widget.message.proactiveTip;
     final label = widget.message.label;
 
@@ -426,7 +273,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh,
+                color: colorScheme.surface,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(20),
@@ -434,9 +281,18 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                   bottomRight: Radius.circular(20),
                 ),
               ),
-              child: LightweightMarkdownText(
+              child: AskAnswerText(
                 text: _introComplete ? _intro : _displayedIntro,
-                baseStyle:
+                onCitation: !_introComplete
+                    ? null
+                    : (index) {
+                        final source = widget.message.sections
+                            .where((s) => s.citationIndex == index)
+                            .firstOrNull
+                            ?.source;
+                        if (source != null) context.push('/url/${source.id}');
+                      },
+                style:
                     textTheme.bodyLarge?.copyWith(
                       color: colorScheme.onSurface,
                       height: 1.5,
@@ -458,8 +314,11 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                         index++
                       )
                         _AnswerSectionCard(
-                          order: index + 1,
-                          showIndex: widget.message.sections.length > 1,
+                          order:
+                              widget.message.sections[index].citationIndex > 0
+                              ? widget.message.sections[index].citationIndex
+                              : index + 1,
+                          showIndex: true,
                           section: widget.message.sections[index],
                         ),
                     ]
@@ -479,7 +338,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
           else if (!collapsesSources && hasSections) ...[
             for (var index = 0; index < widget.message.sections.length; index++)
               if (index < _visibleCardCount)
-                _StaggerAppear(
+                _SourceAppear(
                   child: _AnswerSectionCard(
                     order: index + 1,
                     showIndex: widget.message.sections.length > 1,
@@ -489,7 +348,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
           ] else if (!collapsesSources && hasSources) ...[
             for (var index = 0; index < widget.message.sources.length; index++)
               if (index < _visibleCardCount)
-                _StaggerAppear(
+                _SourceAppear(
                   child: _SourceCard(
                     source: widget.message.sources[index],
                     order: index + 1,
@@ -497,6 +356,11 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                   ),
                 ),
           ],
+          if (widget.message.isResultList && _visibleCardCount < _cardTotal)
+            TextButton(
+              onPressed: () => setState(() => _resultPageSize += 12),
+              child: Text(context.l10n.showMore),
+            ),
           if ((widget.message.action != ChatAction.none &&
                   !_actionConsumed &&
                   _chipVisible) ||
@@ -556,7 +420,7 @@ class _AssistantBlockState extends State<_AssistantBlock> {
               ),
             ),
           ],
-          if (tip != null) ...[
+          if (tip != null && _introComplete) ...[
             const SizedBox(height: 10),
             AnimatedOpacity(
               opacity: _tipVisible ? 1.0 : 0.0,
@@ -568,6 +432,22 @@ class _AssistantBlockState extends State<_AssistantBlock> {
               ),
             ),
           ],
+          if (_hasBody)
+            Row(
+              children: [
+                IconButton(
+                  tooltip: context.l10n.askCopyAnswer,
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  onPressed: () =>
+                      Clipboard.setData(ClipboardData(text: _intro)),
+                ),
+                if (widget.message.incomplete && !widget.streaming)
+                  Text(
+                    context.l10n.askInterrupted,
+                    style: textTheme.labelSmall,
+                  ),
+              ],
+            ),
           if (widget.message.followUpSuggestions.isNotEmpty &&
               _followUpsVisible) ...[
             const SizedBox(height: 10),
@@ -717,8 +597,8 @@ class _FollowUpChips extends StatelessWidget {
 }
 
 /// Fade + slight slide when a card first appears (ChatGPT-style stagger).
-class _StaggerAppear extends StatelessWidget {
-  const _StaggerAppear({required this.child});
+class _SourceAppear extends StatelessWidget {
+  const _SourceAppear({required this.child});
 
   final Widget child;
 
@@ -726,7 +606,9 @@ class _StaggerAppear extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 360),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       builder: (context, t, c) {
         return Opacity(
@@ -1695,14 +1577,7 @@ class AskConversationPreview extends StatelessWidget {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final message in messages)
-          _ChatTurn(
-            message: message,
-            animateAssistant: false,
-            onAssistantAnimationComplete: (_) {},
-          ),
-      ],
+      children: [for (final message in messages) _ChatTurn(message: message)],
     ),
   );
 }

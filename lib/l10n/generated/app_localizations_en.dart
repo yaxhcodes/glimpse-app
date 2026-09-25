@@ -3142,4 +3142,50 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get obLibraryBody =>
       'Books, films, music, and places—found inside your saves.';
+
+  @override
+  String askExactLinkCount(int count) {
+    return 'You have $count saved links matching this scope.';
+  }
+
+  @override
+  String get askNoMatch =>
+      'I could not find a clear match. Do you remember a title, creator, phrase, or when you saved it?';
+
+  @override
+  String get askRecentChats => 'Recent chats';
+
+  @override
+  String get askStop => 'Stop';
+
+  @override
+  String get askCopyAnswer => 'Copy answer';
+
+  @override
+  String get askEditMessage => 'Edit message';
+
+  @override
+  String get askEditConfirm => 'Replace this message and the replies after it?';
+
+  @override
+  String get askJumpLatest => 'Jump to latest';
+
+  @override
+  String get askInterrupted => 'Answer interrupted';
+
+  @override
+  String askExplainTitle(String title) {
+    return 'Explain $title';
+  }
+
+  @override
+  String get askCountPrompt => 'How many links do I have?';
+
+  @override
+  String get askRenameChat => 'Rename chat';
+
+  @override
+  String askEntityCount(int count, String kind) {
+    return 'Your saved content contains $count identified items in $kind.';
+  }
 }

@@ -1020,5 +1020,42 @@
   "obPlaceTwo": "Cascade de l’Éventail",
   "obRealExample": "From a real save · shortened preview",
   "obPreparedAnswer": "Prepared example answer",
-  "obLibraryBody": "Books, films, music, and places—found inside your saves."
+  "obLibraryBody": "Books, films, music, and places—found inside your saves.",
+  "askExactLinkCount": "You have {count} saved links matching this scope.",
+  "askNoMatch": "I could not find a clear match. Do you remember a title, creator, phrase, or when you saved it?",
+  "askRecentChats": "Recent chats",
+  "askStop": "Stop",
+  "askCopyAnswer": "Copy answer",
+  "askEditMessage": "Edit message",
+  "askEditConfirm": "Replace this message and the replies after it?",
+  "askJumpLatest": "Jump to latest",
+  "askInterrupted": "Answer interrupted",
+  "askExplainTitle": "Explain {title}",
+  "askCountPrompt": "How many links do I have?",
+  "askRenameChat": "Rename chat",
+  "@askExactLinkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@askExplainTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askEntityCount": "Your saved content contains {count} identified items in {kind}.",
+  "@askEntityCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  }
 }

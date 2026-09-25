@@ -1,3 +1,4 @@
+import '../ask_conversation_store.dart';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
@@ -275,7 +276,9 @@ class BackupService {
     final device =
         '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
 
+    final conversations = await AskConversationStore(_isarService).export();
     final backup = BackupData(
+      conversations: conversations,
       version: BackupData.currentVersion,
       createdAt: DateTime.now().toIso8601String(),
       appVersion: packageInfo.version,
@@ -942,6 +945,7 @@ class BackupService {
     }
 
     await _importSettings(backup.settings, merge: true);
+    await AskConversationStore(_isarService).restore(backup.conversations);
     await RediscoverUtilityProfileStore.import(
       backup.rediscoverProfile,
       merge: true,
@@ -1022,6 +1026,7 @@ class BackupService {
     }
 
     await _importSettings(backup.settings, merge: false);
+    await AskConversationStore(_isarService).restore(backup.conversations);
     await RediscoverUtilityProfileStore.import(
       backup.rediscoverProfile,
       merge: false,

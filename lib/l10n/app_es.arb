@@ -906,5 +906,42 @@
   "obPlaceTwo": "Cascade de l’Éventail",
   "obRealExample": "De un guardado real · vista abreviada",
   "obPreparedAnswer": "Respuesta de ejemplo preparada",
-  "obLibraryBody": "Libros, películas, música y lugares, descubiertos entre tus guardados."
+  "obLibraryBody": "Libros, películas, música y lugares, descubiertos entre tus guardados.",
+  "askExactLinkCount": "Tienes {count} enlaces guardados en este ámbito.",
+  "askNoMatch": "No encontré una coincidencia clara. ¿Recuerdas un título, autor, frase o cuándo lo guardaste?",
+  "askRecentChats": "Chats recientes",
+  "askStop": "Detener",
+  "askCopyAnswer": "Copiar respuesta",
+  "askEditMessage": "Editar mensaje",
+  "askEditConfirm": "¿Reemplazar este mensaje y las respuestas posteriores?",
+  "askJumpLatest": "Ir al final",
+  "askInterrupted": "Respuesta interrumpida",
+  "askExplainTitle": "Explica {title}",
+  "askCountPrompt": "¿Cuántos enlaces tengo guardados?",
+  "askRenameChat": "Renombrar chat",
+  "@askExactLinkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@askExplainTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askEntityCount": "Tu contenido guardado contiene {count} elementos identificados en {kind}.",
+  "@askEntityCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -3172,4 +3172,51 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get obLibraryBody =>
       'Livros, filmes, músicas e lugares, descobertos no que você salva.';
+
+  @override
+  String askExactLinkCount(int count) {
+    return 'Você tem $count links salvos neste escopo.';
+  }
+
+  @override
+  String get askNoMatch =>
+      'Não encontrei uma correspondência clara. Você lembra do título, autor, frase ou quando salvou?';
+
+  @override
+  String get askRecentChats => 'Conversas recentes';
+
+  @override
+  String get askStop => 'Parar';
+
+  @override
+  String get askCopyAnswer => 'Copiar resposta';
+
+  @override
+  String get askEditMessage => 'Editar mensagem';
+
+  @override
+  String get askEditConfirm =>
+      'Substituir esta mensagem e as respostas seguintes?';
+
+  @override
+  String get askJumpLatest => 'Ir para o final';
+
+  @override
+  String get askInterrupted => 'Resposta interrompida';
+
+  @override
+  String askExplainTitle(String title) {
+    return 'Explique $title';
+  }
+
+  @override
+  String get askCountPrompt => 'Quantos links eu tenho salvos?';
+
+  @override
+  String get askRenameChat => 'Renomear conversa';
+
+  @override
+  String askEntityCount(int count, String kind) {
+    return 'Seu conteúdo salvo contém $count itens identificados em $kind.';
+  }
 }

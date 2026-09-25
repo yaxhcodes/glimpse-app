@@ -1,3 +1,4 @@
+import 'ask_answer_text.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -19,7 +20,6 @@ import '../../core/services/usage_service.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/widgets/app_expansion_chevron.dart';
 import '../../shared/widgets/usage_badge.dart';
-import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/category_resolver.dart';
@@ -45,10 +45,6 @@ part 'ask_conversation_widgets.dart';
 
 /// Max width for chat column on large phones / tablets (readable line length).
 const double _kChatMaxWidth = 680;
-const Duration _kAssistantHapticInterval = Duration(milliseconds: 160);
-const int _kAssistantHapticCharacterStep = 32;
-
-final Set<String> _completedAssistantAnimationIds = <String>{};
 
 class AskScreen extends ConsumerStatefulWidget {
   const AskScreen({
@@ -79,11 +75,32 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   int? _lastGreetingCount;
   bool _clearedForInitialSource = false;
   SavedUrl? _attachedSource;
+  bool _nearBottom = true;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(() {
+      if (!_scrollController.hasClients) return;
+      final near = _scrollController.position.extentAfter < 160;
+      if (near != _nearBottom && mounted) setState(() => _nearBottom = near);
+    });
     _attachedSource = widget.initialSource;
+    if (widget.initialSource == null && !widget.autofocus) {
+      Future<void>(() async {
+        final notifier = ref.read(askProvider.notifier);
+        await notifier.ready;
+        final saves = await ref.read(isarServiceProvider).getAllUrls();
+        if (mounted) {
+          setState(
+            () => _attachedSource = saves
+                .where((s) => s.rawUrl == notifier.focusedUrl)
+                .firstOrNull,
+          );
+        }
+      });
+    }
+
     if (widget.autofocus ||
         widget.initialSource != null ||
         widget.initialPrompt?.trim().isNotEmpty == true) {
@@ -91,6 +108,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         if (!mounted || _clearedForInitialSource) return;
         _clearedForInitialSource = true;
         ref.read(askProvider.notifier).clearHistory();
+        ref.read(askProvider.notifier).setFocusedSource(widget.initialSource);
         final prompt = widget.initialPrompt?.trim() ?? '';
         if (prompt.isNotEmpty) {
           _controller.value = TextEditingValue(
@@ -129,6 +147,13 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final question = text.trim();
     if (question.isEmpty) return;
     _controller.clear();
+    if (RegExp(
+      r'\b(whole library|all my saves|entire library|across my library)\b',
+      caseSensitive: false,
+    ).hasMatch(question)) {
+      setState(() => _attachedSource = null);
+      ref.read(askProvider.notifier).setFocusedSource(null);
+    }
     final contextualSource = _attachedSource;
     ref
         .read(askProvider.notifier)
@@ -141,7 +166,9 @@ class _AskScreenState extends ConsumerState<AskScreen> {
           usePreloadedAsContext:
               preloadedSources == null && contextualSource != null,
         );
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToBottom(force: true),
+    );
   }
 
   void _onSynthesizeTapped(List<SavedUrl> sources) {
@@ -149,20 +176,6 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       'Synthesize these ${sources.length} saves into one cohesive summary',
       preloadedSources: sources,
     );
-  }
-
-  void _syncCompletedAssistantAnimations(List<ChatMessage> messages) {
-    final assistantIds = messages
-        .where((message) => !message.isUser)
-        .map((message) => message.id)
-        .toSet();
-    _completedAssistantAnimationIds.removeWhere(
-      (messageId) => !assistantIds.contains(messageId),
-    );
-  }
-
-  void _markAssistantAnimationComplete(String messageId) {
-    _completedAssistantAnimationIds.add(messageId);
   }
 
   void _usePromptChip(String prompt) {
@@ -268,8 +281,122 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     );
   }
 
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
+  Future<String?> _editText(
+    String title,
+    String initial, {
+    String? warning,
+  }) async {
+    final controller = TextEditingController(text: initial);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (warning != null) Text(warning),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              minLines: 1,
+              maxLines: 5,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(context.l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: Text(context.l10n.save),
+          ),
+        ],
+      ),
+    );
+    // Dialog route disposal can run after showDialog resolves.
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+    return result;
+  }
+
+  Future<void> _editMessage(ChatMessage message) async {
+    final text = await _editText(
+      context.l10n.askEditMessage,
+      message.text,
+      warning: context.l10n.askEditConfirm,
+    );
+    if (!mounted || text == null || text.trim().isEmpty) return;
+    ref.read(askProvider.notifier).editAndResend(message.id, text);
+  }
+
+  Future<void> _showHistory() async {
+    final notifier = ref.read(askProvider.notifier);
+    final chats = await notifier.conversations();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(title: Text(context.l10n.askRecentChats)),
+            for (final chat in chats)
+              ListTile(
+                title: Text(
+                  chat.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await notifier.openConversation(chat);
+                  final saves = await ref
+                      .read(isarServiceProvider)
+                      .getAllUrls();
+                  if (!mounted) return;
+                  setState(
+                    () => _attachedSource = saves
+                        .where((s) => s.rawUrl == notifier.focusedUrl)
+                        .firstOrNull,
+                  );
+                },
+                trailing: PopupMenuButton<String>(
+                  onSelected: (action) async {
+                    Navigator.pop(sheetContext);
+                    if (action == 'delete') {
+                      await notifier.deleteConversation(chat);
+                    } else {
+                      final title = await _editText(
+                        context.l10n.askRenameChat,
+                        chat.title,
+                      );
+                      if (title != null) {
+                        await notifier.renameConversation(chat, title);
+                      }
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'rename',
+                      child: Text(context.l10n.askRenameChat),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Text(context.l10n.delete),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _scrollToBottom({bool force = false}) {
+    if (_scrollController.hasClients && (force || _nearBottom)) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300),
@@ -281,16 +408,16 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   @override
   Widget build(BuildContext context) {
     final askState = ref.watch(askProvider);
+    final showTyping =
+        askState.isLoading && (askState.messages.lastOrNull?.isUser ?? true);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final urlsAsync = ref.watch(displayedUrlsProvider);
+    final urlsAsync = ref.watch(urlStreamProvider);
     final linkCount = urlsAsync.valueOrNull?.length;
     final savedUrlCount = urlsAsync.valueOrNull?.length ?? 0;
     final userName = ref.watch(userDisplayNameProvider).valueOrNull;
     final suggestionsAsync = ref.watch(askEmptySuggestionsProvider);
-
-    _syncCompletedAssistantAnimations(askState.messages);
 
     ref.listen(askProvider, (_, next) {
       // Scroll on every state change so the indicator and new messages
@@ -329,6 +456,11 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         ),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded),
+            tooltip: context.l10n.askRecentChats,
+            onPressed: _showHistory,
+          ),
           const UsageBadge(feature: UsageFeature.ask),
           if (askState.messages.isNotEmpty)
             IconButton(
@@ -384,87 +516,121 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                         child: ListView.builder(
                           controller: _scrollController,
                           physics: const ClampingScrollPhysics(),
-                          cacheExtent: 9999,
+                          cacheExtent: 600,
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                           itemCount:
-                              askState.messages.length +
-                              (askState.isLoading ? 1 : 0),
+                              askState.messages.length + (showTyping ? 1 : 0),
                           itemBuilder: (context, index) {
-                            if (askState.isLoading &&
+                            if (showTyping &&
                                 index == askState.messages.length) {
                               return const GlimpseTypingIndicator(
                                 key: PageStorageKey('typing-indicator'),
                               );
                             }
                             final msg = askState.messages[index];
-                            final animateAssistant =
-                                !msg.isUser &&
-                                !_completedAssistantAnimationIds.contains(
-                                  msg.id,
-                                );
-                            return _ChatTurn(
-                              key: ValueKey(msg.id),
-                              message: msg,
-                              animateAssistant: animateAssistant,
-                              onAssistantAnimationComplete:
-                                  _markAssistantAnimationComplete,
-                              onAssistantContentGrowth: _scrollToBottom,
-                              onProactiveTipTap: msg.proactiveTip != null
-                                  ? () => _usePromptChip(msg.proactiveTip!)
+                            return GestureDetector(
+                              onLongPress: msg.isUser && !askState.isLoading
+                                  ? () => _editMessage(msg)
                                   : null,
-                              onFollowUpTap: _usePromptChip,
-                              onActionConsumed: () => ref
-                                  .read(askProvider.notifier)
-                                  .consumeAction(msg.id),
-                              onSaveAnswerToNotesTap:
-                                  msg.canSaveAsNote && !msg.noteSaved
-                                  ? () async {
-                                      HapticFeedback.lightImpact();
-                                      final saved = await ref
-                                          .read(askProvider.notifier)
-                                          .saveAnswerAsNote(msg.id);
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            saved
-                                                ? 'Saved to notes'
-                                                : 'Could not save. Try again.',
+                              child: _ChatTurn(
+                                key: ValueKey(msg.id),
+                                message: msg,
+                                onEdit: msg.isUser && !askState.isLoading
+                                    ? () => _editMessage(msg)
+                                    : null,
+                                streaming:
+                                    askState.isLoading &&
+                                    index == askState.messages.length - 1,
+                                onProactiveTipTap: msg.proactiveTip != null
+                                    ? () => _usePromptChip(msg.proactiveTip!)
+                                    : null,
+                                onFollowUpTap:
+                                    index == askState.messages.length - 1 &&
+                                        !askState.isLoading
+                                    ? _usePromptChip
+                                    : null,
+                                onActionConsumed: () => ref
+                                    .read(askProvider.notifier)
+                                    .consumeAction(msg.id),
+                                onSaveAnswerToNotesTap:
+                                    msg.canSaveAsNote && !msg.noteSaved
+                                    ? () async {
+                                        HapticFeedback.lightImpact();
+                                        final saved = await ref
+                                            .read(askProvider.notifier)
+                                            .saveAnswerAsNote(msg.id);
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              saved
+                                                  ? 'Saved to notes'
+                                                  : 'Could not save. Try again.',
+                                            ),
+                                            behavior: SnackBarBehavior.floating,
                                           ),
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    }
-                                  : null,
-                              onSynthesizeTap:
-                                  msg.action == ChatAction.synthesize
-                                  ? () => _onSynthesizeTapped(msg.sources)
-                                  : null,
-                              onBuildPlanTap: msg.action == ChatAction.buildPlan
-                                  ? () => _onBuildPlanTapped(
-                                      msg.sources,
-                                      msg.originalQuestion ?? msg.text,
-                                    )
-                                  : null,
-                              onSaveItineraryTap:
-                                  msg.action == ChatAction.saveItinerary
-                                  ? () => _saveItineraryFromAnswer(msg)
-                                  : null,
-                              onSaveToCollectionTap:
-                                  msg.action == ChatAction.saveToCollection
-                                  ? () => _showSaveToCollectionSheet(
-                                      context,
-                                      msg.sources,
-                                    )
-                                  : null,
+                                        );
+                                      }
+                                    : null,
+                                onSynthesizeTap:
+                                    msg.action == ChatAction.synthesize
+                                    ? () => _onSynthesizeTapped(msg.sources)
+                                    : null,
+                                onBuildPlanTap:
+                                    msg.action == ChatAction.buildPlan
+                                    ? () => _onBuildPlanTapped(
+                                        msg.sources,
+                                        msg.originalQuestion ?? msg.text,
+                                      )
+                                    : null,
+                                onSaveItineraryTap:
+                                    msg.action == ChatAction.saveItinerary
+                                    ? () => _saveItineraryFromAnswer(msg)
+                                    : null,
+                                onSaveToCollectionTap:
+                                    msg.action == ChatAction.saveToCollection
+                                    ? () => _showSaveToCollectionSheet(
+                                        context,
+                                        msg.sources,
+                                      )
+                                    : null,
+                              ),
                             );
                           },
                         ),
                       ),
                     ),
             ),
+            if (askState.messages.isNotEmpty)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (!_nearBottom)
+                    TextButton(
+                      onPressed: () {
+                        if (_scrollController.hasClients) {
+                          _scrollController.jumpTo(
+                            _scrollController.position.maxScrollExtent,
+                          );
+                        }
+                      },
+                      child: Text(context.l10n.askJumpLatest),
+                    ),
+                  if (askState.isLoading)
+                    TextButton(
+                      onPressed: () => ref.read(askProvider.notifier).stop(),
+                      child: Text(context.l10n.askStop),
+                    )
+                  else
+                    TextButton(
+                      onPressed: () =>
+                          ref.read(askProvider.notifier).retryLast(),
+                      child: Text(context.l10n.retry),
+                    ),
+                ],
+              ),
             _ComposerBar(
               controller: _controller,
               focusNode: _focusNode,
@@ -475,6 +641,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                   : () {
                       HapticFeedback.selectionClick();
                       setState(() => _attachedSource = null);
+                      ref.read(askProvider.notifier).setFocusedSource(null);
                     },
               onSubmit: (text) => _onSendMessage(text),
             ),

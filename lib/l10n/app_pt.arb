@@ -906,5 +906,42 @@
   "obPlaceTwo": "Cascade de l’Éventail",
   "obRealExample": "De um conteúdo real · prévia resumida",
   "obPreparedAnswer": "Resposta de exemplo preparada",
-  "obLibraryBody": "Livros, filmes, músicas e lugares, descobertos no que você salva."
+  "obLibraryBody": "Livros, filmes, músicas e lugares, descobertos no que você salva.",
+  "askExactLinkCount": "Você tem {count} links salvos neste escopo.",
+  "askNoMatch": "Não encontrei uma correspondência clara. Você lembra do título, autor, frase ou quando salvou?",
+  "askRecentChats": "Conversas recentes",
+  "askStop": "Parar",
+  "askCopyAnswer": "Copiar resposta",
+  "askEditMessage": "Editar mensagem",
+  "askEditConfirm": "Substituir esta mensagem e as respostas seguintes?",
+  "askJumpLatest": "Ir para o final",
+  "askInterrupted": "Resposta interrompida",
+  "askExplainTitle": "Explique {title}",
+  "askCountPrompt": "Quantos links eu tenho salvos?",
+  "askRenameChat": "Renomear conversa",
+  "@askExactLinkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@askExplainTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askEntityCount": "Seu conteúdo salvo contém {count} itens identificados em {kind}.",
+  "@askEntityCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  }
 }

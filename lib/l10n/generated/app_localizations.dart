@@ -5547,6 +5547,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Books, films, music, and places—found inside your saves.'**
   String get obLibraryBody;
+
+  /// No description provided for @askExactLinkCount.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {count} saved links matching this scope.'**
+  String askExactLinkCount(int count);
+
+  /// No description provided for @askNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'I could not find a clear match. Do you remember a title, creator, phrase, or when you saved it?'**
+  String get askNoMatch;
+
+  /// No description provided for @askRecentChats.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent chats'**
+  String get askRecentChats;
+
+  /// No description provided for @askStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get askStop;
+
+  /// No description provided for @askCopyAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy answer'**
+  String get askCopyAnswer;
+
+  /// No description provided for @askEditMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit message'**
+  String get askEditMessage;
+
+  /// No description provided for @askEditConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace this message and the replies after it?'**
+  String get askEditConfirm;
+
+  /// No description provided for @askJumpLatest.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to latest'**
+  String get askJumpLatest;
+
+  /// No description provided for @askInterrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer interrupted'**
+  String get askInterrupted;
+
+  /// No description provided for @askExplainTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain {title}'**
+  String askExplainTitle(String title);
+
+  /// No description provided for @askCountPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How many links do I have?'**
+  String get askCountPrompt;
+
+  /// No description provided for @askRenameChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename chat'**
+  String get askRenameChat;
+
+  /// No description provided for @askEntityCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved content contains {count} identified items in {kind}.'**
+  String askEntityCount(int count, String kind);
 }
 
 class _AppLocalizationsDelegate

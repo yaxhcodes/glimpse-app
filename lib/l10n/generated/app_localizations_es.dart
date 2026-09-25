@@ -3170,4 +3170,51 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get obLibraryBody =>
       'Libros, películas, música y lugares, descubiertos entre tus guardados.';
+
+  @override
+  String askExactLinkCount(int count) {
+    return 'Tienes $count enlaces guardados en este ámbito.';
+  }
+
+  @override
+  String get askNoMatch =>
+      'No encontré una coincidencia clara. ¿Recuerdas un título, autor, frase o cuándo lo guardaste?';
+
+  @override
+  String get askRecentChats => 'Chats recientes';
+
+  @override
+  String get askStop => 'Detener';
+
+  @override
+  String get askCopyAnswer => 'Copiar respuesta';
+
+  @override
+  String get askEditMessage => 'Editar mensaje';
+
+  @override
+  String get askEditConfirm =>
+      '¿Reemplazar este mensaje y las respuestas posteriores?';
+
+  @override
+  String get askJumpLatest => 'Ir al final';
+
+  @override
+  String get askInterrupted => 'Respuesta interrumpida';
+
+  @override
+  String askExplainTitle(String title) {
+    return 'Explica $title';
+  }
+
+  @override
+  String get askCountPrompt => '¿Cuántos enlaces tengo guardados?';
+
+  @override
+  String get askRenameChat => 'Renombrar chat';
+
+  @override
+  String askEntityCount(int count, String kind) {
+    return 'Tu contenido guardado contiene $count elementos identificados en $kind.';
+  }
 }

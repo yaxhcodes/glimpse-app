@@ -906,5 +906,42 @@
   "obPlaceTwo": "エヴァンタイユの滝",
   "obRealExample": "実際の保存から・短縮プレビュー",
   "obPreparedAnswer": "事前に用意した回答例",
-  "obLibraryBody": "保存した内容から、本・映画・音楽・場所を発見。"
+  "obLibraryBody": "保存した内容から、本・映画・音楽・場所を発見。",
+  "askExactLinkCount": "この範囲に一致する保存リンクは{count}件です。",
+  "askNoMatch": "一致する保存が見つかりません。タイトル、作者、フレーズ、保存時期を覚えていますか？",
+  "askRecentChats": "最近のチャット",
+  "askStop": "停止",
+  "askCopyAnswer": "回答をコピー",
+  "askEditMessage": "メッセージを編集",
+  "askEditConfirm": "このメッセージと以降の返信を置き換えますか？",
+  "askJumpLatest": "最新へ",
+  "askInterrupted": "回答が中断されました",
+  "askExplainTitle": "{title}を説明して",
+  "askCountPrompt": "保存したリンクは何件ありますか？",
+  "askRenameChat": "チャット名を変更",
+  "@askExactLinkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@askExplainTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askEntityCount": "保存したコンテンツ内の「{kind}」は{count}件です。",
+  "@askEntityCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  }
 }

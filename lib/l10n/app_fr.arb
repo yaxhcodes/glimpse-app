@@ -906,5 +906,42 @@
   "obPlaceTwo": "Cascade de l’Éventail",
   "obRealExample": "Issu d’un vrai contenu · aperçu abrégé",
   "obPreparedAnswer": "Exemple de réponse préparé",
-  "obLibraryBody": "Livres, films, musique et lieux, découverts dans vos contenus."
+  "obLibraryBody": "Livres, films, musique et lieux, découverts dans vos contenus.",
+  "askExactLinkCount": "Vous avez {count} liens enregistrés dans ce périmètre.",
+  "askNoMatch": "Aucun résultat évident. Vous souvenez-vous du titre, de l’auteur, d’une phrase ou de la date ?",
+  "askRecentChats": "Discussions récentes",
+  "askStop": "Arrêter",
+  "askCopyAnswer": "Copier la réponse",
+  "askEditMessage": "Modifier le message",
+  "askEditConfirm": "Remplacer ce message et les réponses suivantes ?",
+  "askJumpLatest": "Aller à la fin",
+  "askInterrupted": "Réponse interrompue",
+  "askExplainTitle": "Explique {title}",
+  "askCountPrompt": "Combien de liens ai-je enregistrés ?",
+  "askRenameChat": "Renommer la discussion",
+  "@askExactLinkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@askExplainTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askEntityCount": "Vos contenus enregistrés contiennent {count} éléments identifiés dans {kind}.",
+  "@askEntityCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  }
 }

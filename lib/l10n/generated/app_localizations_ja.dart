@@ -2909,4 +2909,49 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get obLibraryBody => '保存した内容から、本・映画・音楽・場所を発見。';
+
+  @override
+  String askExactLinkCount(int count) {
+    return 'この範囲に一致する保存リンクは$count件です。';
+  }
+
+  @override
+  String get askNoMatch => '一致する保存が見つかりません。タイトル、作者、フレーズ、保存時期を覚えていますか？';
+
+  @override
+  String get askRecentChats => '最近のチャット';
+
+  @override
+  String get askStop => '停止';
+
+  @override
+  String get askCopyAnswer => '回答をコピー';
+
+  @override
+  String get askEditMessage => 'メッセージを編集';
+
+  @override
+  String get askEditConfirm => 'このメッセージと以降の返信を置き換えますか？';
+
+  @override
+  String get askJumpLatest => '最新へ';
+
+  @override
+  String get askInterrupted => '回答が中断されました';
+
+  @override
+  String askExplainTitle(String title) {
+    return '$titleを説明して';
+  }
+
+  @override
+  String get askCountPrompt => '保存したリンクは何件ありますか？';
+
+  @override
+  String get askRenameChat => 'チャット名を変更';
+
+  @override
+  String askEntityCount(int count, String kind) {
+    return '保存したコンテンツ内の「$kind」は$count件です。';
+  }
 }

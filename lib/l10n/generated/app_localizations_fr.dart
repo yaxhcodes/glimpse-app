@@ -3187,4 +3187,51 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get obLibraryBody =>
       'Livres, films, musique et lieux, découverts dans vos contenus.';
+
+  @override
+  String askExactLinkCount(int count) {
+    return 'Vous avez $count liens enregistrés dans ce périmètre.';
+  }
+
+  @override
+  String get askNoMatch =>
+      'Aucun résultat évident. Vous souvenez-vous du titre, de l’auteur, d’une phrase ou de la date ?';
+
+  @override
+  String get askRecentChats => 'Discussions récentes';
+
+  @override
+  String get askStop => 'Arrêter';
+
+  @override
+  String get askCopyAnswer => 'Copier la réponse';
+
+  @override
+  String get askEditMessage => 'Modifier le message';
+
+  @override
+  String get askEditConfirm =>
+      'Remplacer ce message et les réponses suivantes ?';
+
+  @override
+  String get askJumpLatest => 'Aller à la fin';
+
+  @override
+  String get askInterrupted => 'Réponse interrompue';
+
+  @override
+  String askExplainTitle(String title) {
+    return 'Explique $title';
+  }
+
+  @override
+  String get askCountPrompt => 'Combien de liens ai-je enregistrés ?';
+
+  @override
+  String get askRenameChat => 'Renommer la discussion';
+
+  @override
+  String askEntityCount(int count, String kind) {
+    return 'Vos contenus enregistrés contiennent $count éléments identifiés dans $kind.';
+  }
 }

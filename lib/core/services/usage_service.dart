@@ -153,6 +153,7 @@ class UsageService {
   Future<void> incrementUsage(
     UsageFeature feature, {
     required bool isPro,
+    String? requestId,
   }) async {
     if (!_isProductMetered(feature, isPro)) return;
     final serverFeature = _serverFeature(feature);
@@ -162,6 +163,7 @@ class UsageService {
         final snap = await _aiQuota!.consume(
           serverFeature,
           migrationUsed: migrationUsed,
+          requestId: requestId,
         );
         if (snap.enforced) {
           await _setLocalCount(feature, snap.used, isPro: isPro);

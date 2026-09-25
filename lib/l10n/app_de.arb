@@ -948,5 +948,42 @@
   "obPlaceTwo": "Cascade de l’Éventail",
   "obRealExample": "Aus einem echten Inhalt · gekürzte Vorschau",
   "obPreparedAnswer": "Vorbereitete Beispielantwort",
-  "obLibraryBody": "Bücher, Filme, Musik und Orte – in deinen Inhalten entdeckt."
+  "obLibraryBody": "Bücher, Filme, Musik und Orte – in deinen Inhalten entdeckt.",
+  "askExactLinkCount": "Du hast {count} gespeicherte Links in diesem Bereich.",
+  "askNoMatch": "Kein eindeutiger Treffer. Erinnerst du dich an Titel, Autor, einen Satz oder den Speicherzeitpunkt?",
+  "askRecentChats": "Letzte Chats",
+  "askStop": "Stoppen",
+  "askCopyAnswer": "Antwort kopieren",
+  "askEditMessage": "Nachricht bearbeiten",
+  "askEditConfirm": "Diese Nachricht und alle folgenden Antworten ersetzen?",
+  "askJumpLatest": "Zur neuesten Nachricht",
+  "askInterrupted": "Antwort unterbrochen",
+  "askExplainTitle": "Erkläre {title}",
+  "askCountPrompt": "Wie viele Links habe ich gespeichert?",
+  "askRenameChat": "Chat umbenennen",
+  "@askExactLinkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@askExplainTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askEntityCount": "Deine gespeicherten Inhalte enthalten {count} erkannte Einträge in {kind}.",
+  "@askEntityCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  }
 }

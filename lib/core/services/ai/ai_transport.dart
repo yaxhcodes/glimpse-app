@@ -97,12 +97,91 @@ class AiTransport {
     );
   }
 
+  Stream<String> streamAsk({
+    required Map<String, dynamic> body,
+    required String turnId,
+    required CancelToken cancelToken,
+  }) async* {
+    final base = Uri.tryParse(AiProxyConfig.baseUrl);
+    if (base == null || !base.hasScheme || base.host.isEmpty) {
+      throw AiTransportException(
+        'Invalid proxy URL',
+        type: AiTransportErrorType.invalidConfiguration,
+      );
+    }
+    final response = await _dio.post<ResponseBody>(
+      base.resolve('ask/stream').toString(),
+      data: body,
+      cancelToken: cancelToken,
+      options: Options(
+        responseType: ResponseType.stream,
+        validateStatus: (_) => true,
+        headers: await _headers(
+          requestId: turnId,
+          forceRefresh: false,
+          feature: AiRequestFeature.ask,
+        ),
+      ),
+    );
+    final status = response.statusCode ?? 0;
+    if (status != 200) {
+      await response.data?.stream.drain<void>();
+      throw _httpError(status, null);
+    }
+    final stream = response.data!.stream
+        .map<List<int>>((bytes) => bytes)
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
+    await for (final line in stream) {
+      if (!line.startsWith('data:')) continue;
+      final payload = line.substring(5).trim();
+      if (payload.isEmpty || payload == '[DONE]') continue;
+      final data = jsonDecode(payload);
+      final candidates = data['candidates'] as List?;
+      if (candidates == null || candidates.isEmpty) continue;
+      final parts = candidates.first['content']?['parts'] as List? ?? const [];
+      for (final part in parts) {
+        if (part['text'] is String && part['thought'] != true) {
+          yield part['text'] as String;
+        }
+      }
+    }
+  }
+
+  Future<String> planAsk({
+    required Map<String, dynamic> body,
+    required String turnId,
+  }) async {
+    final raw = await _post(
+      '/ask/plan',
+      body: body,
+      timeout: const Duration(seconds: 12),
+      feature: AiRequestFeature.ask,
+      logicalRequestId: '$turnId-plan',
+      maxAttempts: 1,
+    );
+    final text = _extractGeminiText(raw);
+    if (text == null) {
+      throw AiTransportException(
+        'Missing plan',
+        type: AiTransportErrorType.malformedResponse,
+      );
+    }
+    return text;
+  }
+
   Future<Map<String, dynamic>> postJson(
     String path, {
     required Map<String, dynamic> body,
     Duration timeout = const Duration(seconds: 15),
+    String? logicalRequestId,
   }) async {
-    final raw = await _post(path, body: body, timeout: timeout);
+    final raw = await _post(
+      path,
+      body: body,
+      timeout: timeout,
+      logicalRequestId: logicalRequestId,
+    );
     return _asJsonObject(raw);
   }
 
@@ -111,9 +190,13 @@ class AiTransport {
     required Map<String, dynamic> body,
     AiRequestFeature? feature,
     Duration timeout = const Duration(seconds: 15),
+    String? logicalRequestId,
+    int maxAttempts = _maxAttempts,
   }) async {
     final raw = await _post(
       '/gemini',
+      logicalRequestId: logicalRequestId,
+      maxAttempts: maxAttempts,
       body: body,
       timeout: timeout,
       feature: feature,
@@ -165,6 +248,8 @@ class AiTransport {
     required Map<String, dynamic> body,
     required Duration timeout,
     AiRequestFeature? feature,
+    String? logicalRequestId,
+    int maxAttempts = _maxAttempts,
   }) async {
     final base = Uri.tryParse(AiProxyConfig.baseUrl);
     if (base == null || !base.hasScheme || base.host.isEmpty) {
@@ -179,10 +264,10 @@ class AiTransport {
       developer.log('POST $url', name: 'AiTransport');
     }
 
-    final requestId = _requestIdFactory();
+    final requestId = logicalRequestId ?? _requestIdFactory();
     Object? lastError;
     var forceCredentialRefresh = false;
-    for (var attempt = 0; attempt < _maxAttempts; attempt++) {
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
         await Future<void>.delayed(_retryDelay);
       }

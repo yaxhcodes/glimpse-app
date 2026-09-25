@@ -3184,4 +3184,51 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get obLibraryBody =>
       'Bücher, Filme, Musik und Orte – in deinen Inhalten entdeckt.';
+
+  @override
+  String askExactLinkCount(int count) {
+    return 'Du hast $count gespeicherte Links in diesem Bereich.';
+  }
+
+  @override
+  String get askNoMatch =>
+      'Kein eindeutiger Treffer. Erinnerst du dich an Titel, Autor, einen Satz oder den Speicherzeitpunkt?';
+
+  @override
+  String get askRecentChats => 'Letzte Chats';
+
+  @override
+  String get askStop => 'Stoppen';
+
+  @override
+  String get askCopyAnswer => 'Antwort kopieren';
+
+  @override
+  String get askEditMessage => 'Nachricht bearbeiten';
+
+  @override
+  String get askEditConfirm =>
+      'Diese Nachricht und alle folgenden Antworten ersetzen?';
+
+  @override
+  String get askJumpLatest => 'Zur neuesten Nachricht';
+
+  @override
+  String get askInterrupted => 'Antwort unterbrochen';
+
+  @override
+  String askExplainTitle(String title) {
+    return 'Erkläre $title';
+  }
+
+  @override
+  String get askCountPrompt => 'Wie viele Links habe ich gespeichert?';
+
+  @override
+  String get askRenameChat => 'Chat umbenennen';
+
+  @override
+  String askEntityCount(int count, String kind) {
+    return 'Deine gespeicherten Inhalte enthalten $count erkannte Einträge in $kind.';
+  }
 }

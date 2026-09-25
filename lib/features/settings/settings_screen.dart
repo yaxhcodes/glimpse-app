@@ -1,3 +1,4 @@
+import '../ask/ask_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -127,6 +128,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (confirmed == true) {
       final isarService = ref.read(isarServiceProvider);
+      await ref.read(askProvider.notifier).resetForDataClear();
       await isarService.deleteAll();
       await ref
           .read(pinnedUrlsProvider.notifier)

@@ -1,3 +1,4 @@
+import '../models/ask_conversation.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -46,6 +47,7 @@ class IsarService {
     final dir = await getApplicationDocumentsDirectory();
     return Isar.open([
       SavedUrlSchema,
+      AskConversationSchema,
       UserCollectionSchema,
       EngagementEventSchema,
       GlimpseRecordSchema,
@@ -1723,6 +1725,7 @@ class IsarService {
     final isar = await _db;
     await isar.writeTxn(() async {
       await isar.savedUrls.clear();
+      await isar.askConversations.clear();
       await isar.userCollections.clear();
       await isar.engagementEvents.clear();
       await isar.glimpseRecords.clear();

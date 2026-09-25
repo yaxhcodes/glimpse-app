@@ -1,0 +1,12 @@
+[
+  {"intent":"find","evidence":"Saffron rice uses toasted spices and a short covered rest.","question":"Find that saffron rice recipe"},
+  {"intent":"recall","evidence":"The Bauhaus school combined craft workshops with industrial design.","question":"What was the school connecting craft and industrial design?"},
+  {"intent":"explain","evidence":"Spaced repetition strengthens retrieval by revisiting material at increasing intervals.","question":"Explain why spaced repetition uses increasing intervals"},
+  {"intent":"compare","evidence":"A prime lens has a fixed focal length; a zoom lens trades some aperture flexibility for framing flexibility.","question":"Compare the prime and zoom lens tradeoffs I saved"},
+  {"intent":"connect","evidence":"Active recall and spaced repetition both depend on retrieving knowledge rather than rereading it.","question":"Connect active recall with spaced repetition"},
+  {"intent":"plan","evidence":"The Kyoto walking route connects a riverside market with nearby temples before sunset.","question":"Plan a Kyoto afternoon using my riverside market and temple saves"},
+  {"intent":"find","evidence":"A port-out PIN and authenticator app reduce exposure to SIM swap scams.","question":"Find my save about preventing SIM swap scams"},
+  {"intent":"recall","evidence":"The documentary Waterwalker follows canoe journeys through Canadian wilderness.","question":"What was that Canadian canoe documentary?"},
+  {"intent":"explain","evidence":"Fermentation temperature changes the rate of sourdough activity and the timing of bulk fermentation.","question":"Explain the temperature advice from my sourdough save"},
+  {"intent":"compare","evidence":"Index funds spread holdings across many companies; concentrated stock portfolios depend on fewer outcomes.","question":"Compare index funds with concentrated stock portfolios from my saves"}
+]
