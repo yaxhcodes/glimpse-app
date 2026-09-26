@@ -224,13 +224,7 @@ SourceIconSpec resolveSourceIcon(String name) {
 }
 
 const _glyphPlatforms = <String>{
-  'twitter',
-  'reddit',
-  'github',
-  'spotify',
   'linkedin',
-  'medium',
-  'substack',
 };
 
 const _brandAssets = <String, String>{
@@ -240,6 +234,11 @@ const _brandAssets = <String, String>{
   'x': 'assets/brands/x.svg',
   'twitter': 'assets/brands/x.svg',
   'youtube': 'assets/brands/youtube.svg',
+  'github': 'assets/brands/github.svg',
+  'reddit': 'assets/brands/reddit.svg',
+  'medium': 'assets/brands/medium.svg',
+  'substack': 'assets/brands/substack.svg',
+  'spotify': 'assets/brands/spotify-mark.svg',
 };
 
 bool _hasGlyph(String lower) {

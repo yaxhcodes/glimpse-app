@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,15 +22,12 @@ import '../../core/utils/url_extractor.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
-import '../../shared/widgets/category_chip.dart'
-    show faviconUrl, platformColors;
-import '../../shared/widgets/platform_icons.dart';
-import '../../shared/widgets/source_icon_resolver.dart';
+import '../../shared/widgets/category_chip.dart' show faviconUrl;
+import '../../shared/widgets/source_logo.dart';
 import '../../core/constants/app_assets.dart';
 import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/entrance_motion.dart';
-import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/app_snackbar.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/theme/app_icons.dart';
@@ -925,7 +921,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 final name = source.name;
                                 final fav =
                                     faviconUrl(name) ?? source.faviconUrl;
-                                final iconSpec = resolveSourceIcon(name);
                                 return FilterChip(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 4,
@@ -938,11 +933,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     vertical: -1,
                                   ),
                                   showCheckmark: false,
-                                  avatar: _SourceChipAvatar(
-                                    label: name,
+                                  avatar: SourceLogo(
+                                    name: name,
                                     faviconUrl: fav,
-                                    iconSpec: iconSpec,
-                                    size: 14,
+                                    size: 16,
                                   ),
                                   label: Text(name),
                                   color: WidgetStatePropertyAll(
@@ -1124,113 +1118,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
       },
       child: title,
-    );
-  }
-}
-
-class _SourceChipAvatar extends StatelessWidget {
-  const _SourceChipAvatar({
-    required this.label,
-    required this.faviconUrl,
-    required this.iconSpec,
-    required this.size,
-  });
-
-  final String label;
-  final String? faviconUrl;
-  final SourceIconSpec iconSpec;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    // Known platforms use the bundled logos, all drawn on one grid, in
-    // their brand colour. Downloaded favicons came in mismatched shapes
-    // (filled squares, a wide rectangle, a small circle), so they are only
-    // the fallback for sources without a bundled logo.
-    if (iconSpec.isAsset || iconSpec.isGlyph) {
-      final brand = _brandColor(cs);
-      return iconSpec.isAsset
-          ? SvgPicture.asset(
-              iconSpec.assetPath!,
-              width: size,
-              height: size,
-              colorFilter: ColorFilter.mode(brand, BlendMode.srcIn),
-            )
-          : PlatformIcon(
-              platform: iconSpec.glyphPlatform!,
-              size: size,
-              color: brand,
-            );
-    }
-    final color = cs.onSurfaceVariant;
-    final fallback = faviconUrl != null && !iconSpec.isGlyph
-        ? _DomainInitialAvatar(label: label, size: size)
-        : iconSpec.isGlyph
-        ? PlatformIcon(
-            platform: iconSpec.glyphPlatform!,
-            size: size,
-            color: color,
-          )
-        : AppIcon(iconSpec.icon, size: size, color: color);
-
-    if (faviconUrl == null) return fallback;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(size <= 16 ? 3 : 5),
-      child: CachedNetworkImage(
-        imageUrl: faviconUrl!,
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        memCacheWidth: imageDecodeSize(context, size),
-        errorWidget: (_, _, _) => fallback,
-      ),
-    );
-  }
-
-  /// The platform's colour, or the text colour for monochrome brands (X,
-  /// GitHub) whose grey would vanish on a dark chip.
-  Color _brandColor(ColorScheme cs) {
-    final brand = platformColors[label];
-    if (brand == null || HSLColor.fromColor(brand).saturation < 0.3) {
-      return cs.onSurface;
-    }
-    if (cs.brightness == Brightness.dark) {
-      final hsl = HSLColor.fromColor(brand);
-      if (hsl.lightness < 0.55) return hsl.withLightness(0.62).toColor();
-    }
-    return brand;
-  }
-}
-
-class _DomainInitialAvatar extends StatelessWidget {
-  const _DomainInitialAvatar({required this.label, required this.size});
-
-  final String label;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final initial = label.trim().isEmpty ? '?' : label.trim()[0].toUpperCase();
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: cs.secondaryContainer.withValues(alpha: 0.75),
-        borderRadius: BorderRadius.circular(size <= 16 ? 3 : 5),
-      ),
-      child: Text(
-        initial,
-        style: TextStyle(
-          color: cs.onSecondaryContainer,
-          fontSize: size * 0.58,
-          fontWeight: FontWeight.w800,
-          height: 1,
-        ),
-      ),
     );
   }
 }

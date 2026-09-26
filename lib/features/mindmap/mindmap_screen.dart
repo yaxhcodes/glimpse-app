@@ -11,7 +11,6 @@ import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
-import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../core/services/category_resolver.dart';
@@ -27,16 +26,11 @@ import 'package:glimpse/shared/theme/app_icons.dart';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
+/// The save's own image. Without one the row shows the shared placeholder
+/// (topic glyph with the source logo), not a stretched site favicon.
 String? _previewImageUrl(SavedUrl u) {
   final t = u.thumbnailUrl?.trim();
-  if (t != null && t.isNotEmpty) return t;
-  final fav = faviconUrl(u.category);
-  if (fav != null) return fav;
-  final d = u.domain.trim();
-  if (d.isNotEmpty) {
-    return 'https://www.google.com/s2/favicons?domain=${Uri.encodeComponent(d)}&sz=128';
-  }
-  return null;
+  return t == null || t.isEmpty ? null : t;
 }
 
 // ─── Mindmap atlas ─────────────────────────────────────────────────────────

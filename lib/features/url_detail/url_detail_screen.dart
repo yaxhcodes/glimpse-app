@@ -48,6 +48,8 @@ import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../shared/theme/topic_visual.dart';
 import '../../shared/widgets/music_actions.dart';
+import '../../shared/widgets/source_icon_resolver.dart';
+import '../../shared/widgets/source_logo.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/swipeable_url_card.dart'
     show deleteUrlWithUndo, togglePinnedUrl;
@@ -1338,8 +1340,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     final emoji = cat['emoji'] as String;
                     final isCurrentCat = name == url.category;
                     final fav = faviconUrl(name);
+                    final spec = resolveSourceIcon(name);
                     return ActionChip(
-                      avatar: fav != null
+                      avatar: spec.isAsset || spec.isGlyph
+                          ? SourceLogo(name: name, size: 18)
+                          : fav != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(3),
                               child: CachedNetworkImage(
@@ -4977,6 +4982,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     ColorScheme colorScheme,
   ) {
     final variant = colorScheme.onSurfaceVariant;
+    final spec = resolveSourceIcon(displaySourceName);
+    if (spec.isAsset || spec.isGlyph) {
+      return SourceLogo(name: displaySourceName, size: 15);
+    }
     final fav = _faviconUrlForSource(url, displaySourceName);
     if (fav != null) {
       return ClipRRect(

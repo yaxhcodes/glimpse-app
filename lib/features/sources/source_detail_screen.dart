@@ -12,6 +12,7 @@ import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
+import '../../shared/widgets/source_logo.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import 'sources_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
@@ -331,13 +332,21 @@ class _SourceMetadataHeader extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SourceIconContainer(
-                      spec: iconSpec,
-                      containerSize: 44,
-                      imageUrl: sourceFavicon,
-                      preferImage: true,
-                      showBackground: false,
-                    ),
+                    if (iconSpec.isAsset || iconSpec.isGlyph)
+                      SizedBox.square(
+                        dimension: 44,
+                        child: Center(
+                          child: SourceLogo(name: sourceName, size: 28),
+                        ),
+                      )
+                    else
+                      SourceIconContainer(
+                        spec: iconSpec,
+                        containerSize: 44,
+                        imageUrl: sourceFavicon,
+                        preferImage: true,
+                        showBackground: false,
+                      ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

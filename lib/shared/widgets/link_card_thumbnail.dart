@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/services/saved_media_resolver.dart';
+import '../../core/services/category_resolver.dart';
 import 'category_chip.dart' show faviconUrl;
 import 'image_decode_size.dart';
+import 'source_logo.dart';
 import '../theme/topic_visual.dart';
 
 /// Read/unread styling for compact link cards (home, search, etc.).
@@ -109,13 +111,13 @@ class LinkCardThumbnail {
                     color: cs.surface,
                     shape: BoxShape.circle,
                   ),
-                  child: ClipOval(
-                    child: CachedNetworkImage(
-                      imageUrl: favicon,
-                      fit: BoxFit.contain,
-                      memCacheWidth: imageDecodeSize(context, badge),
-                      errorWidget: (_, _, _) => const SizedBox.shrink(),
+                  child: SourceLogo(
+                    name: CategoryResolver.displaySourceName(
+                      rawUrl: url.rawUrl,
+                      fallbackDomain: url.domain,
                     ),
+                    faviconUrl: favicon,
+                    size: badge * 0.72,
                   ),
                 ),
               ),

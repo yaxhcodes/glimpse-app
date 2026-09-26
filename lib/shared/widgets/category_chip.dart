@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../l10n/l10n.dart';
 import 'image_decode_size.dart';
+import 'source_icon_resolver.dart';
+import 'source_logo.dart';
 
 /// Brand accent colours for known platforms.
 const platformColors = <String, Color>{
@@ -174,7 +176,10 @@ class CategoryChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (favicon != null)
+          if (resolveSourceIcon(category) case final spec
+              when spec.isAsset || spec.isGlyph)
+            SourceLogo(name: category, size: 13)
+          else if (favicon != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(2),
               child: CachedNetworkImage(

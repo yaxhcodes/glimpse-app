@@ -11,6 +11,7 @@ import '../../shared/widgets/image_decode_size.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
+import '../../shared/widgets/source_logo.dart';
 import 'sources_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
@@ -646,6 +647,8 @@ class _ClusterIcon extends StatelessWidget {
         ? brandColor!.withValues(alpha: isDark ? 0.18 : 0.12)
         : cs.secondaryContainer.withValues(alpha: 0.5);
     final iconColor = brandColor ?? cs.onSurfaceVariant;
+    final spec = resolveSourceIcon(label);
+    final knownLogo = spec.isAsset || spec.isGlyph;
     final fallback = faviconUrl != null && brandColor == null
         ? _DomainInitialIcon(label: label)
         : AppIcon(fallbackIcon, size: 18, color: iconColor);
@@ -658,7 +661,11 @@ class _ClusterIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
-        child: faviconUrl != null
+        // Known platforms draw the shared logo; other sites keep their
+        // favicon with a first-letter fallback.
+        child: knownLogo
+            ? SourceLogo(name: label, size: 22)
+            : faviconUrl != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: CachedNetworkImage(
