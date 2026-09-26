@@ -43,7 +43,7 @@ void main() {
     );
 
     expect(draft, isNotNull);
-    expect(draft!.name, 'A day in New Delhi');
+    expect(draft!.name, 'New Delhi trip');
     expect(draft.areaKey, 'new delhi|india');
     expect(draft.entities.map((entity) => entity.key), [
       'jantar',

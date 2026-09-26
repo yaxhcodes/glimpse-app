@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../core/models/saved_url.dart';
 import '../../core/models/music_song.dart';
 import '../../core/services/transcript_enrichment_service.dart';
+import 'place_geography.dart';
 
 enum LibraryEntityKind { book, movie, place, music }
 
@@ -864,6 +865,11 @@ class LibraryIndex {
     caseSensitive: false,
   );
 
+  /// Whether a place mention is somewhere to go: not a route step, a whole
+  /// country, or a region named by its division ("Osaka Prefecture").
+  static bool isVisitablePlace(EnrichedMention mention) =>
+      !_isTravelDirection(mention.title) && !_isWholeCountry(mention);
+
   /// Route steps ("Alight from bus to Balykchy – to Konorchek Canyon") that
   /// extraction sometimes files as places.
   static bool _isTravelDirection(String title) =>
@@ -873,11 +879,14 @@ class LibraryIndex {
   /// area the places sit in, not a pin; the country chips already cover it.
   static bool _isWholeCountry(EnrichedMention mention) {
     final title = _normalized(mention.title);
+    if (title.isEmpty) return false;
+    if (isCountryOrContinentName(mention.title) ||
+        isNamedRegion(mention.title)) {
+      return true;
+    }
     final country = _normalized(mention.country ?? '');
     final city = _normalized(mention.city ?? '');
-    return title.isNotEmpty &&
-        title == country &&
-        (city.isEmpty || city == title);
+    return title == country && (city.isEmpty || city == title);
   }
 
   /// Booking-site names append a sales pitch after slashes ("Yurt Camp at

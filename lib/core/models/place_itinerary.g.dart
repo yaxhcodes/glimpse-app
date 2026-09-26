@@ -47,14 +47,19 @@ const PlaceItinerarySchema = CollectionSchema(
       name: r'name',
       type: IsarType.string,
     ),
-    r'stops': PropertySchema(
+    r'sourceUrlId': PropertySchema(
       id: 6,
+      name: r'sourceUrlId',
+      type: IsarType.long,
+    ),
+    r'stops': PropertySchema(
+      id: 7,
       name: r'stops',
       type: IsarType.objectList,
       target: r'PlaceItineraryStop',
     ),
     r'updatedAt': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -149,13 +154,14 @@ void _placeItinerarySerialize(
   writer.writeDateTime(offsets[3], object.createdAt);
   writer.writeDateTime(offsets[4], object.date);
   writer.writeString(offsets[5], object.name);
+  writer.writeLong(offsets[6], object.sourceUrlId);
   writer.writeObjectList<PlaceItineraryStop>(
-    offsets[6],
+    offsets[7],
     allOffsets,
     PlaceItineraryStopSchema.serialize,
     object.stops,
   );
-  writer.writeDateTime(offsets[7], object.updatedAt);
+  writer.writeDateTime(offsets[8], object.updatedAt);
 }
 
 PlaceItinerary _placeItineraryDeserialize(
@@ -172,14 +178,15 @@ PlaceItinerary _placeItineraryDeserialize(
   object.date = reader.readDateTimeOrNull(offsets[4]);
   object.id = id;
   object.name = reader.readString(offsets[5]);
+  object.sourceUrlId = reader.readLongOrNull(offsets[6]);
   object.stops = reader.readObjectList<PlaceItineraryStop>(
-        offsets[6],
+        offsets[7],
         PlaceItineraryStopSchema.deserialize,
         allOffsets,
         PlaceItineraryStop(),
       ) ??
       [];
-  object.updatedAt = reader.readDateTime(offsets[7]);
+  object.updatedAt = reader.readDateTime(offsets[8]);
   return object;
 }
 
@@ -203,6 +210,8 @@ P _placeItineraryDeserializeProp<P>(
     case 5:
       return (reader.readString(offset)) as P;
     case 6:
+      return (reader.readLongOrNull(offset)) as P;
+    case 7:
       return (reader.readObjectList<PlaceItineraryStop>(
             offset,
             PlaceItineraryStopSchema.deserialize,
@@ -210,7 +219,7 @@ P _placeItineraryDeserializeProp<P>(
             PlaceItineraryStop(),
           ) ??
           []) as P;
-    case 7:
+    case 8:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1299,6 +1308,80 @@ extension PlaceItineraryQueryFilter
   }
 
   QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterFilterCondition>
+      sourceUrlIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'sourceUrlId',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterFilterCondition>
+      sourceUrlIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'sourceUrlId',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterFilterCondition>
+      sourceUrlIdEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sourceUrlId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterFilterCondition>
+      sourceUrlIdGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'sourceUrlId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterFilterCondition>
+      sourceUrlIdLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'sourceUrlId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterFilterCondition>
+      sourceUrlIdBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'sourceUrlId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterFilterCondition>
       stopsLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
@@ -1535,6 +1618,20 @@ extension PlaceItineraryQuerySortBy
     });
   }
 
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterSortBy>
+      sortBySourceUrlId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceUrlId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterSortBy>
+      sortBySourceUrlIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceUrlId', Sort.desc);
+    });
+  }
+
   QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterSortBy> sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
@@ -1639,6 +1736,20 @@ extension PlaceItineraryQuerySortThenBy
     });
   }
 
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterSortBy>
+      thenBySourceUrlId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceUrlId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterSortBy>
+      thenBySourceUrlIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceUrlId', Sort.desc);
+    });
+  }
+
   QueryBuilder<PlaceItinerary, PlaceItinerary, QAfterSortBy> thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
@@ -1697,6 +1808,13 @@ extension PlaceItineraryQueryWhereDistinct
   }
 
   QueryBuilder<PlaceItinerary, PlaceItinerary, QDistinct>
+      distinctBySourceUrlId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sourceUrlId');
+    });
+  }
+
+  QueryBuilder<PlaceItinerary, PlaceItinerary, QDistinct>
       distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
@@ -1748,6 +1866,12 @@ extension PlaceItineraryQueryProperty
     });
   }
 
+  QueryBuilder<PlaceItinerary, int?, QQueryOperations> sourceUrlIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sourceUrlId');
+    });
+  }
+
   QueryBuilder<PlaceItinerary, List<PlaceItineraryStop>, QQueryOperations>
       stopsProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -1793,44 +1917,64 @@ const PlaceItineraryStopSchema = Schema(
       name: r'country',
       type: IsarType.string,
     ),
-    r'entityKey': PropertySchema(
+    r'day': PropertySchema(
       id: 4,
+      name: r'day',
+      type: IsarType.long,
+    ),
+    r'entityKey': PropertySchema(
+      id: 5,
       name: r'entityKey',
       type: IsarType.string,
     ),
     r'hasCoordinates': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'hasCoordinates',
       type: IsarType.bool,
     ),
     r'imageUrl': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'imageUrl',
       type: IsarType.string,
     ),
     r'latitude': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'latitude',
       type: IsarType.double,
     ),
     r'longitude': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'longitude',
       type: IsarType.double,
     ),
+    r'note': PropertySchema(
+      id: 10,
+      name: r'note',
+      type: IsarType.string,
+    ),
     r'provisionalKey': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'provisionalKey',
       type: IsarType.string,
     ),
     r'sourceUrlIds': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'sourceUrlIds',
       type: IsarType.longList,
     ),
+    r'time': PropertySchema(
+      id: 13,
+      name: r'time',
+      type: IsarType.string,
+    ),
     r'title': PropertySchema(
-      id: 11,
+      id: 14,
       name: r'title',
+      type: IsarType.string,
+    ),
+    r'travel': PropertySchema(
+      id: 15,
+      name: r'travel',
       type: IsarType.string,
     )
   },
@@ -1877,9 +2021,27 @@ int _placeItineraryStopEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.note;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.provisionalKey.length * 3;
   bytesCount += 3 + object.sourceUrlIds.length * 8;
+  {
+    final value = object.time;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.title.length * 3;
+  {
+    final value = object.travel;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -1893,14 +2055,18 @@ void _placeItineraryStopSerialize(
   writer.writeString(offsets[1], object.catalogSource);
   writer.writeString(offsets[2], object.city);
   writer.writeString(offsets[3], object.country);
-  writer.writeString(offsets[4], object.entityKey);
-  writer.writeBool(offsets[5], object.hasCoordinates);
-  writer.writeString(offsets[6], object.imageUrl);
-  writer.writeDouble(offsets[7], object.latitude);
-  writer.writeDouble(offsets[8], object.longitude);
-  writer.writeString(offsets[9], object.provisionalKey);
-  writer.writeLongList(offsets[10], object.sourceUrlIds);
-  writer.writeString(offsets[11], object.title);
+  writer.writeLong(offsets[4], object.day);
+  writer.writeString(offsets[5], object.entityKey);
+  writer.writeBool(offsets[6], object.hasCoordinates);
+  writer.writeString(offsets[7], object.imageUrl);
+  writer.writeDouble(offsets[8], object.latitude);
+  writer.writeDouble(offsets[9], object.longitude);
+  writer.writeString(offsets[10], object.note);
+  writer.writeString(offsets[11], object.provisionalKey);
+  writer.writeLongList(offsets[12], object.sourceUrlIds);
+  writer.writeString(offsets[13], object.time);
+  writer.writeString(offsets[14], object.title);
+  writer.writeString(offsets[15], object.travel);
 }
 
 PlaceItineraryStop _placeItineraryStopDeserialize(
@@ -1914,13 +2080,17 @@ PlaceItineraryStop _placeItineraryStopDeserialize(
   object.catalogSource = reader.readStringOrNull(offsets[1]);
   object.city = reader.readStringOrNull(offsets[2]);
   object.country = reader.readStringOrNull(offsets[3]);
-  object.entityKey = reader.readString(offsets[4]);
-  object.imageUrl = reader.readStringOrNull(offsets[6]);
-  object.latitude = reader.readDoubleOrNull(offsets[7]);
-  object.longitude = reader.readDoubleOrNull(offsets[8]);
-  object.provisionalKey = reader.readString(offsets[9]);
-  object.sourceUrlIds = reader.readLongList(offsets[10]) ?? [];
-  object.title = reader.readString(offsets[11]);
+  object.day = reader.readLongOrNull(offsets[4]);
+  object.entityKey = reader.readString(offsets[5]);
+  object.imageUrl = reader.readStringOrNull(offsets[7]);
+  object.latitude = reader.readDoubleOrNull(offsets[8]);
+  object.longitude = reader.readDoubleOrNull(offsets[9]);
+  object.note = reader.readStringOrNull(offsets[10]);
+  object.provisionalKey = reader.readString(offsets[11]);
+  object.sourceUrlIds = reader.readLongList(offsets[12]) ?? [];
+  object.time = reader.readStringOrNull(offsets[13]);
+  object.title = reader.readString(offsets[14]);
+  object.travel = reader.readStringOrNull(offsets[15]);
   return object;
 }
 
@@ -1940,21 +2110,29 @@ P _placeItineraryStopDeserializeProp<P>(
     case 3:
       return (reader.readStringOrNull(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 5:
-      return (reader.readBool(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 6:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 7:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
       return (reader.readDoubleOrNull(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 10:
-      return (reader.readLongList(offset) ?? []) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
       return (reader.readString(offset)) as P;
+    case 12:
+      return (reader.readLongList(offset) ?? []) as P;
+    case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readString(offset)) as P;
+    case 15:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -2579,6 +2757,80 @@ extension PlaceItineraryStopQueryFilter
   }
 
   QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      dayIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'day',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      dayIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'day',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      dayEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'day',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      dayGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'day',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      dayLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'day',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      dayBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'day',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
       entityKeyEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -3047,6 +3299,160 @@ extension PlaceItineraryStopQueryFilter
   }
 
   QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'note',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'note',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'note',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'note',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'note',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'note',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      noteIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'note',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
       provisionalKeyEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -3328,6 +3734,160 @@ extension PlaceItineraryStopQueryFilter
   }
 
   QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'time',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'time',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'time',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'time',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'time',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'time',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'time',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'time',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'time',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'time',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'time',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      timeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'time',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
       titleEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -3458,6 +4018,160 @@ extension PlaceItineraryStopQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'title',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'travel',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'travel',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'travel',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'travel',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'travel',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'travel',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'travel',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'travel',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'travel',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'travel',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'travel',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<PlaceItineraryStop, PlaceItineraryStop, QAfterFilterCondition>
+      travelIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'travel',
         value: '',
       ));
     });

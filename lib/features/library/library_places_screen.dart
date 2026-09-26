@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,8 +14,9 @@ import 'library_entity.dart';
 import 'library_places_map.dart';
 import 'library_places_model.dart';
 import 'library_provider.dart';
-import 'library_widgets.dart';
+import 'place_geography.dart';
 import 'place_itinerary_editor_screen.dart';
+import 'place_locality_provider.dart';
 import 'place_itinerary_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
@@ -37,7 +37,9 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
   final TextEditingController _searchController = TextEditingController();
   String? _selectedKey;
   String _selectedAreaKey = allPlacesAreaKey;
+  String _selectedRegionKey = allPlacesAreaKey;
   String _query = '';
+  String _lookupFingerprint = '';
 
   @override
   void initState() {
@@ -58,6 +60,12 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
   Widget build(BuildContext context) {
     final snapshot = ref.watch(librarySnapshotProvider);
     final plans = ref.watch(placeItinerariesProvider).valueOrNull ?? const [];
+    final localities = ref.watch(placeLocalitiesProvider);
+    PlaceLocality? localityOf(LibraryEntity entity) =>
+        switch (PlaceLocalitiesNotifier.keyOf(entity)) {
+          final key? => localities[key],
+          null => null,
+        };
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -85,7 +93,13 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
         loading: () => const Center(child: ExpressiveLoadingIndicator()),
         error: (_, _) => Center(child: Text(context.l10n.couldNotOpenLibrary)),
         data: (data) {
-          final places = data.ofKind(LibraryEntityKind.place);
+          final pinned = data.ofKind(LibraryEntityKind.place);
+          _lookUpRegions(pinned);
+          final places = [
+            for (final entity in pinned)
+              if (!PlaceSubdivisions.isWholeRegion(entity, localityOf(entity)))
+                entity,
+          ];
           if (places.isEmpty) return const _PlacesEmptyState();
           final areas = PlaceAreaIndex.byCountry(places);
           if (_selectedAreaKey != allPlacesAreaKey &&
@@ -97,7 +111,25 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
                 (entity) => PlaceAreaIndex.contains(_selectedAreaKey, entity),
               )
               .toList(growable: false);
-          final visible = _filter(areaEntities);
+          // Within one country, browse by state / prefecture / province.
+          final regions =
+              _selectedAreaKey == allPlacesAreaKey ||
+                  _selectedAreaKey == unsortedPlacesAreaKey
+              ? const <PlaceRegionGroup>[]
+              : PlaceSubdivisions.group(areaEntities, localityOf: localityOf);
+          if (_selectedRegionKey != allPlacesAreaKey &&
+              regions.every((region) => region.key != _selectedRegionKey)) {
+            _selectedRegionKey = allPlacesAreaKey;
+          }
+          final regionEntities = regions.isEmpty
+              ? areaEntities
+              : [
+                  for (final region in regions)
+                    if (_selectedRegionKey == allPlacesAreaKey ||
+                        region.key == _selectedRegionKey)
+                      ...region.entities,
+                ];
+          final visible = _filter(regionEntities, localityOf);
           if (_selectedKey == null ||
               visible.every((entity) => entity.key != _selectedKey)) {
             _selectedKey = visible.firstOrNull?.key;
@@ -110,14 +142,18 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
             visiblePlaces: visible,
             mappedPlaces: mapped,
             areas: areas,
+            regions: regions,
+            localityOf: localityOf,
             plans: plans,
             selectedKey: _selectedKey,
             selectedAreaKey: _selectedAreaKey,
+            selectedRegionKey: _selectedRegionKey,
             query: _query,
             searchController: _searchController,
             sheetController: _sheetController,
             sheetExtent: _sheetExtent,
             onAreaSelected: _selectArea,
+            onRegionSelected: _selectRegion,
             onQueryChanged: (value) => setState(() => _query = value),
             onClearQuery: () {
               _searchController.clear();
@@ -134,16 +170,41 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
     );
   }
 
-  List<LibraryEntity> _filter(List<LibraryEntity> entities) {
+  List<LibraryEntity> _filter(
+    List<LibraryEntity> entities,
+    PlaceLocality? Function(LibraryEntity entity) localityOf,
+  ) {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return entities;
     return entities
         .where((entity) {
-          return [entity.title, entity.mention.city, entity.mention.country]
-              .whereType<String>()
-              .any((value) => value.toLowerCase().contains(query));
+          final locality = localityOf(entity);
+          return [
+            entity.title,
+            entity.mention.city,
+            entity.mention.country,
+            locality?.region,
+            locality?.city,
+          ].whereType<String>().any(
+            (value) => value.toLowerCase().contains(query),
+          );
         })
         .toList(growable: false);
+  }
+
+  /// Geocodes regions for pins that lack one, after this frame. Keyed on the
+  /// pinned set so rebuilds while browsing do not re-enter.
+  void _lookUpRegions(List<LibraryEntity> places) {
+    final fingerprint = places
+        .map(PlaceLocalitiesNotifier.keyOf)
+        .nonNulls
+        .join('|');
+    if (fingerprint.isEmpty || fingerprint == _lookupFingerprint) return;
+    _lookupFingerprint = fingerprint;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ref.read(placeLocalitiesProvider.notifier).ensure(places));
+    });
   }
 
   void _handleSheetExtentChanged() {
@@ -152,9 +213,17 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
     }
   }
 
+  void _selectRegion(String key) {
+    setState(() {
+      _selectedRegionKey = key;
+      _selectedKey = null;
+    });
+  }
+
   void _selectArea(String key) {
     setState(() {
       _selectedAreaKey = key;
+      _selectedRegionKey = allPlacesAreaKey;
       _selectedKey = null;
       _query = '';
       _searchController.clear();
@@ -225,14 +294,18 @@ class _PlacesExperience extends StatelessWidget {
     required this.visiblePlaces,
     required this.mappedPlaces,
     required this.areas,
+    required this.regions,
+    required this.localityOf,
     required this.plans,
     required this.selectedKey,
     required this.selectedAreaKey,
+    required this.selectedRegionKey,
     required this.query,
     required this.searchController,
     required this.sheetController,
     required this.sheetExtent,
     required this.onAreaSelected,
+    required this.onRegionSelected,
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onSelected,
@@ -246,14 +319,18 @@ class _PlacesExperience extends StatelessWidget {
   final List<LibraryEntity> visiblePlaces;
   final List<LibraryEntity> mappedPlaces;
   final List<PlaceArea> areas;
+  final List<PlaceRegionGroup> regions;
+  final PlaceLocality? Function(LibraryEntity entity) localityOf;
   final List<PlaceItinerary> plans;
   final String? selectedKey;
   final String selectedAreaKey;
+  final String selectedRegionKey;
   final String query;
   final TextEditingController searchController;
   final DraggableScrollableController sheetController;
   final ValueNotifier<double> sheetExtent;
   final ValueChanged<String> onAreaSelected;
+  final ValueChanged<String> onRegionSelected;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<LibraryEntity> onSelected;
@@ -304,14 +381,18 @@ class _PlacesExperience extends StatelessWidget {
                     allPlaces: allPlaces,
                     visiblePlaces: visiblePlaces,
                     areas: areas,
+                    regions: regions,
+                    localityOf: localityOf,
                     plans: plans,
                     selectedKey: selectedKey,
                     selectedAreaKey: selectedAreaKey,
+                    selectedRegionKey: selectedRegionKey,
                     query: query,
                     searchController: searchController,
                     extent: sheetExtent,
                     scrollController: scrollController,
                     onAreaSelected: onAreaSelected,
+                    onRegionSelected: onRegionSelected,
                     onQueryChanged: onQueryChanged,
                     onClearQuery: onClearQuery,
                     onSelected: onSelected,
@@ -335,14 +416,18 @@ class _PlacesSheet extends StatelessWidget {
     required this.allPlaces,
     required this.visiblePlaces,
     required this.areas,
+    required this.regions,
+    required this.localityOf,
     required this.plans,
     required this.selectedKey,
     required this.selectedAreaKey,
+    required this.selectedRegionKey,
     required this.query,
     required this.searchController,
     required this.extent,
     required this.scrollController,
     required this.onAreaSelected,
+    required this.onRegionSelected,
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onSelected,
@@ -355,14 +440,18 @@ class _PlacesSheet extends StatelessWidget {
   final List<LibraryEntity> allPlaces;
   final List<LibraryEntity> visiblePlaces;
   final List<PlaceArea> areas;
+  final List<PlaceRegionGroup> regions;
+  final PlaceLocality? Function(LibraryEntity entity) localityOf;
   final List<PlaceItinerary> plans;
   final String? selectedKey;
   final String selectedAreaKey;
+  final String selectedRegionKey;
   final String query;
   final TextEditingController searchController;
   final ValueNotifier<double> extent;
   final ScrollController scrollController;
   final ValueChanged<String> onAreaSelected;
+  final ValueChanged<String> onRegionSelected;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<LibraryEntity> onSelected;
@@ -393,7 +482,8 @@ class _PlacesSheet extends StatelessWidget {
               .where((entity) => entity.key == selectedKey)
               .firstOrNull;
           final groups = _visibleGroups();
-          final images = uniquePlaceImageUrls(visiblePlaces);
+          final regionGroups = _visibleRegionGroups();
+          final showRegionHeadings = regionGroups.length >= 2;
           final visiblePlans = plans
               .where(
                 (plan) =>
@@ -424,9 +514,17 @@ class _PlacesSheet extends StatelessWidget {
                                     areas.length,
                                     visiblePlaces.length,
                                   )
-                                : context.l10n.libraryPlaceCount(
-                                    visiblePlaces.length,
-                                  ),
+                                : [
+                                    context.l10n.libraryPlaceCount(
+                                      visiblePlaces.length,
+                                    ),
+                                    if (namedRegions >= 2)
+                                      _regionCount(
+                                        context,
+                                        selectedArea.title,
+                                        namedRegions,
+                                      ),
+                                  ].join(' · '),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
@@ -446,14 +544,23 @@ class _PlacesSheet extends StatelessWidget {
                 ),
               ),
               _AreaSelector(
+                key: const ValueKey('places-area-selector'),
                 areas: areas,
                 selectedKey: selectedAreaKey,
                 onSelected: onAreaSelected,
               ),
+              if (namedRegions >= 2)
+                _RegionSelector(
+                  key: const ValueKey('places-region-selector'),
+                  regions: regions,
+                  selectedKey: selectedRegionKey,
+                  onSelected: onRegionSelected,
+                ),
               if (!expanded && visiblePlaces.isNotEmpty)
                 _PlaceCarousel(
+                  key: const ValueKey('places-carousel'),
                   places: visiblePlaces,
-                  images: images,
+                  localityOf: localityOf,
                   selectedKey: selectedKey,
                   onSelected: onSelected,
                   onOpen: onOpen,
@@ -483,6 +590,35 @@ class _PlacesSheet extends StatelessWidget {
                 ],
                 if (visiblePlaces.isEmpty)
                   const _NoPlaceResults()
+                else if (selectedArea != null && regionGroups.isNotEmpty)
+                  for (final region in regionGroups) ...[
+                    if (showRegionHeadings)
+                      _SectionHeading(
+                        title: region.title ?? context.l10n.otherPlaces,
+                        subtitle: context.l10n.libraryPlaceCount(region.length),
+                      )
+                    else
+                      const SizedBox(height: 8),
+                    for (final city in region.cities) ...[
+                      if (region.cities.length >= 2)
+                        _CityHeading(
+                          title: city.title ?? context.l10n.otherPlaces,
+                          count: city.entities.length,
+                        ),
+                      for (final entity in city.entities)
+                        _PlaceListRow(
+                          entity: entity,
+                          showCountry: false,
+                          // A named city heading already says where it is.
+                          showCity:
+                              region.cities.length < 2 || city.title == null,
+                          onOpen: () => onOpen(entity),
+                          onShowOnMap: entity.mention.hasCoordinates
+                              ? () => onShowOnMap(entity)
+                              : null,
+                        ),
+                    ],
+                  ]
                 else
                   for (final group in groups) ...[
                     if (selectedArea == null)
@@ -504,8 +640,11 @@ class _PlacesSheet extends StatelessWidget {
                     for (final entity in group.entities)
                       _PlaceListRow(
                         entity: entity,
-                        imageUrl: images[entity.key],
                         showCountry: group.key == unsortedPlacesAreaKey,
+                        region: PlaceSubdivisions.regionOf(
+                          entity,
+                          localityOf(entity),
+                        ),
                         onOpen: () => onOpen(entity),
                         onShowOnMap: entity.mention.hasCoordinates
                             ? () => onShowOnMap(entity)
@@ -518,6 +657,36 @@ class _PlacesSheet extends StatelessWidget {
         },
       ),
     );
+  }
+
+  int get namedRegions =>
+      regions.where((region) => region.title != null).length;
+
+  /// The selected country's regions, cut down to what the search and region
+  /// chip leave visible.
+  List<PlaceRegionGroup> _visibleRegionGroups() {
+    final visibleKeys = visiblePlaces.map((entity) => entity.key).toSet();
+    return [
+      for (final region in regions)
+        if (selectedRegionKey == allPlacesAreaKey ||
+            region.key == selectedRegionKey)
+          PlaceRegionGroup(
+            key: region.key,
+            title: region.title,
+            cities: [
+              for (final city in region.cities)
+                if (city.entities
+                        .where((entity) => visibleKeys.contains(entity.key))
+                        .toList(growable: false)
+                    case final members when members.isNotEmpty)
+                  PlaceCityGroup(
+                    key: city.key,
+                    title: city.title,
+                    entities: members,
+                  ),
+            ],
+          ),
+    ].where((region) => region.cities.isNotEmpty).toList(growable: false);
   }
 
   List<PlaceArea> _visibleGroups() {
@@ -547,15 +716,16 @@ class _PlacesSheet extends StatelessWidget {
 /// the map brings its card to the front.
 class _PlaceCarousel extends StatefulWidget {
   const _PlaceCarousel({
+    super.key,
     required this.places,
-    required this.images,
+    required this.localityOf,
     required this.selectedKey,
     required this.onSelected,
     required this.onOpen,
   });
 
   final List<LibraryEntity> places;
-  final Map<String, String?> images;
+  final PlaceLocality? Function(LibraryEntity entity) localityOf;
   final String? selectedKey;
   final ValueChanged<LibraryEntity> onSelected;
   final ValueChanged<LibraryEntity> onOpen;
@@ -577,24 +747,42 @@ class _PlaceCarouselState extends State<_PlaceCarousel> {
     return index < 0 ? 0 : index;
   }
 
+  /// True while the carousel moves itself to follow the selection, so the
+  /// pages it passes are not reported back as new selections.
+  bool _following = false;
+
   @override
   void didUpdateWidget(covariant _PlaceCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_controller.hasClients) return;
+    // Never move the page view here: moving it reports a page change, which
+    // sets state on the Places screen mid-build and corrupts the sheet's
+    // list (it happened whenever regions arriving reordered the places).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _followSelection());
+  }
+
+  Future<void> _followSelection() async {
+    if (!mounted || _following || !_controller.hasClients) return;
     final target = _selectedIndex;
     final current = _controller.page?.round() ?? target;
     if (target == current) return;
-    if ((target - current).abs() > 3 ||
-        MediaQuery.disableAnimationsOf(context)) {
-      _controller.jumpToPage(target);
-    } else {
-      unawaited(
-        _controller.animateToPage(
+    _following = true;
+    try {
+      if ((target - current).abs() > 3 ||
+          MediaQuery.disableAnimationsOf(context)) {
+        _controller.jumpToPage(target);
+      } else {
+        await _controller.animateToPage(
           target,
           duration: const Duration(milliseconds: 320),
           curve: Curves.easeOutCubic,
-        ),
-      );
+        );
+      }
+    } finally {
+      _following = false;
+    }
+    // The selection may have moved again while animating.
+    if (mounted && _selectedIndex != _controller.page?.round()) {
+      unawaited(_followSelection());
     }
   }
 
@@ -612,14 +800,19 @@ class _PlaceCarouselState extends State<_PlaceCarousel> {
         controller: _controller,
         padEnds: false,
         itemCount: widget.places.length,
-        onPageChanged: (index) => widget.onSelected(widget.places[index]),
+        onPageChanged: (index) {
+          if (!_following) widget.onSelected(widget.places[index]);
+        },
         itemBuilder: (context, index) {
           final entity = widget.places[index];
           return Padding(
             padding: EdgeInsets.fromLTRB(index == 0 ? 16 : 6, 8, 6, 8),
             child: _PlaceCard(
               entity: entity,
-              imageUrl: widget.images[entity.key],
+              region: PlaceSubdivisions.regionOf(
+                entity,
+                widget.localityOf(entity),
+              ),
               selected: entity.key == widget.selectedKey,
               onTap: () => widget.onOpen(entity),
             ),
@@ -633,13 +826,13 @@ class _PlaceCarouselState extends State<_PlaceCarousel> {
 class _PlaceCard extends StatelessWidget {
   const _PlaceCard({
     required this.entity,
-    required this.imageUrl,
+    required this.region,
     required this.selected,
     required this.onTap,
   });
 
   final LibraryEntity entity;
-  final String? imageUrl;
+  final String? region;
   final bool selected;
   final VoidCallback onTap;
 
@@ -648,7 +841,12 @@ class _PlaceCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final why = entity.mention.whyMentioned?.trim() ?? '';
-    final locality = _placeLocality(context, entity, withCountry: false);
+    final locality = _placeLocality(
+      context,
+      entity,
+      withCountry: false,
+      region: region,
+    );
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
@@ -668,17 +866,9 @@ class _PlaceCard extends StatelessWidget {
           onTap: onTap,
           child: Row(
             children: [
-              AspectRatio(
-                aspectRatio: 0.92,
-                child: LibraryArtwork(
-                  entity: entity,
-                  imageUrlOverride: imageUrl ?? '',
-                  borderRadius: BorderRadius.zero,
-                ),
-              ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -728,6 +918,7 @@ class _PlaceCard extends StatelessWidget {
 
 class _AreaSelector extends StatelessWidget {
   const _AreaSelector({
+    super.key,
     required this.areas,
     required this.selectedKey,
     required this.onSelected,
@@ -794,18 +985,132 @@ class _AreaSelector extends StatelessWidget {
   }
 }
 
+/// "4 prefectures" in English, the localized "4 regions" elsewhere.
+String _regionCount(BuildContext context, String country, int count) {
+  final english = Localizations.localeOf(context).languageCode == 'en'
+      ? englishRegionCount(country, count)
+      : null;
+  return english ?? context.l10n.placeRegionCount(count);
+}
+
+/// A second chip row inside a country: its states, prefectures or provinces.
+class _RegionSelector extends StatelessWidget {
+  const _RegionSelector({
+    super.key,
+    required this.regions,
+    required this.selectedKey,
+    required this.onSelected,
+  });
+
+  final List<PlaceRegionGroup> regions;
+  final String selectedKey;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    Widget chip({
+      required String label,
+      int? count,
+      required bool selected,
+      required VoidCallback onTap,
+    }) => ChoiceChip(
+      showCheckmark: false,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      side: BorderSide(
+        color: selected ? Colors.transparent : cs.outlineVariant,
+      ),
+      backgroundColor: Colors.transparent,
+      selectedColor: cs.tertiaryContainer,
+      selected: selected,
+      onSelected: (_) => onTap(),
+      labelStyle: tt.labelMedium?.copyWith(
+        color: selected ? cs.onTertiaryContainer : cs.onSurfaceVariant,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+      ),
+      label: Text(count == null ? label : '$label  $count'),
+    );
+    return SizedBox(
+      height: 42,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+        children: [
+          chip(
+            label: context.l10n.all,
+            selected: selectedKey == allPlacesAreaKey,
+            onTap: () => onSelected(allPlacesAreaKey),
+          ),
+          for (final region in regions) ...[
+            const SizedBox(width: 6),
+            chip(
+              label: region.title ?? context.l10n.otherPlaces,
+              count: region.length,
+              selected: selectedKey == region.key,
+              onTap: () => onSelected(region.key),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A city inside a region section: quieter than the region heading.
+class _CityHeading extends StatelessWidget {
+  const _CityHeading({required this.title, required this.count});
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 2),
+      child: Row(
+        children: [
+          AppIcon(AppIcons.place, size: 14, color: cs.primary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: tt.labelLarge?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$count',
+            style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PlaceListRow extends StatelessWidget {
   const _PlaceListRow({
     required this.entity,
-    required this.imageUrl,
     required this.showCountry,
+    this.showCity = true,
+    this.region,
     required this.onOpen,
     required this.onShowOnMap,
   });
 
   final LibraryEntity entity;
-  final String? imageUrl;
   final bool showCountry;
+  final bool showCity;
+  final String? region;
   final VoidCallback onOpen;
   final VoidCallback? onShowOnMap;
 
@@ -814,7 +1119,13 @@ class _PlaceListRow extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final why = entity.mention.whyMentioned?.trim() ?? '';
-    final locality = _placeLocality(context, entity, withCountry: showCountry);
+    final locality = _placeLocality(
+      context,
+      entity,
+      withCountry: showCountry,
+      withCity: showCity,
+      region: region,
+    );
     final meta = [
       if (locality.isNotEmpty) locality,
       ?_statusLabel(context, entity),
@@ -822,18 +1133,9 @@ class _PlaceListRow extends StatelessWidget {
     return InkWell(
       onTap: onOpen,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
         child: Row(
           children: [
-            SizedBox.square(
-              dimension: 64,
-              child: LibraryArtwork(
-                entity: entity,
-                imageUrlOverride: imageUrl ?? '',
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -890,17 +1192,20 @@ String? _statusLabel(BuildContext context, LibraryEntity entity) =>
       _ => null,
     };
 
-/// City, or the region when the city repeats the name ("Kyrgyzstan,
-/// Kyrgyzstan" said nothing twice).
+/// City and region, skipping any part that repeats another or the place's
+/// own name ("Kyrgyzstan, Kyrgyzstan" said nothing twice).
 String _placeLocality(
   BuildContext context,
   LibraryEntity entity, {
   required bool withCountry,
+  bool withCity = true,
+  String? region,
 }) {
   final title = entity.title.trim().toLowerCase();
   final parts = <String>[];
   for (final value in [
-    entity.mention.city,
+    if (withCity) entity.mention.city,
+    region,
     if (withCountry) entity.mention.country,
   ]) {
     final text = value?.trim() ?? '';
@@ -929,31 +1234,18 @@ class _ItineraryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstImage = plan.stops
-        .map((stop) => stop.imageUrl?.trim() ?? '')
-        .where((url) => url.isNotEmpty)
-        .firstOrNull;
     final cs = Theme.of(context).colorScheme;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: SizedBox.square(
-          dimension: 54,
-          child: firstImage == null
-              ? ColoredBox(
-                  color: cs.surfaceContainerHigh,
-                  child: const Icon(AppIcons.route),
-                )
-              : CachedNetworkImage(
-                  imageUrl: firstImage,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, _, _) => ColoredBox(
-                    color: cs.surfaceContainerHigh,
-                    child: const Icon(AppIcons.route),
-                  ),
-                ),
+      leading: Container(
+        width: 48,
+        height: 48,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: cs.secondaryContainer,
+          borderRadius: BorderRadius.circular(14),
         ),
+        child: AppIcon(AppIcons.route, color: cs.onSecondaryContainer),
       ),
       title: Text(
         plan.name,
@@ -962,7 +1254,16 @@ class _ItineraryRow extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
-        '${context.l10n.libraryStopCount(plan.stops.length)}${plan.date == null ? '' : ' · ${MaterialLocalizations.of(context).formatMediumDate(plan.date!)}'}',
+        [
+          context.l10n.libraryStopCount(plan.stops.length),
+          if ({for (final stop in plan.stops) stop.dayNumber}.length
+              case final days when days > 1)
+            context.l10n.itineraryDayCount(days)
+          else if (plan.stops.isNotEmpty)
+            describeEstimate(estimateStops(plan.stops)),
+          if (plan.date != null)
+            MaterialLocalizations.of(context).formatMediumDate(plan.date!),
+        ].join(' · '),
       ),
       trailing: const Icon(AppIcons.chevronRight),
       onTap: onTap,

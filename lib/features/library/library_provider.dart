@@ -120,7 +120,20 @@ final librarySnapshotProvider = Provider<AsyncValue<LibrarySnapshot>>((ref) {
     musicLibraryProvider.select((state) => state.entries),
   );
   final catalog = MusicLibraryState(entries: entries);
-  return ref.watch(libraryCandidatesProvider).whenData(catalog.applyTo);
+  // Every save, enrichment write and backfill result reloads the index.
+  // `whenData` drops the previous value while reloading, which flashed the
+  // loader over a populated library and reset its layout; keep showing the
+  // last snapshot until the new one lands.
+  return switch (ref.watch(libraryCandidatesProvider)) {
+    AsyncValue(valueOrNull: final snapshot?) => AsyncData(
+      catalog.applyTo(snapshot),
+    ),
+    AsyncError(:final error, :final stackTrace) => AsyncError(
+      error,
+      stackTrace,
+    ),
+    _ => const AsyncLoading(),
+  };
 });
 
 Future<LibrarySnapshot> loadLibrarySnapshot(WidgetRef ref) async {

@@ -138,6 +138,23 @@ class _MainShellState extends ConsumerState<MainShell> {
         badgeKey: 'search',
       ),
     ];
+    // One widget shape for both the idle and selected slot, so a tab switch
+    // updates the icon in place instead of mounting a new SVG.
+    Widget navigationIcon(int index) {
+      final destination = destinations[index];
+      final selected = _currentIndex == index;
+      return NavigationDiscoveryIcon(
+        key: ValueKey('${destination.badgeKey}-navigation-discovery-badge'),
+        semanticsLabel: destination.label,
+        discoveryLabel: strings.notificationNewDiscovery,
+        showBadge: destination.hasUpdate && !selected,
+        icon: NavigationTabBounce(
+          selected: selected,
+          child: _NavigationGlyph(icon: destination.icon, selected: selected),
+        ),
+      );
+    }
+
     final hasLinks = ref.watch(
       displayedUrlsProvider.select(
         (value) => value.valueOrNull?.isNotEmpty ?? false,
@@ -230,34 +247,8 @@ class _MainShellState extends ConsumerState<MainShell> {
                                       index++
                                     )
                                       NavigationRailDestination(
-                                        icon: NavigationDiscoveryIcon(
-                                          key: ValueKey(
-                                            '${destinations[index].badgeKey}-navigation-discovery-badge',
-                                          ),
-                                          semanticsLabel:
-                                              destinations[index].label,
-                                          discoveryLabel:
-                                              strings.notificationNewDiscovery,
-                                          showBadge:
-                                              destinations[index].hasUpdate &&
-                                              _currentIndex != index,
-                                          icon: AppIcon(
-                                            destinations[index].icon,
-                                          ),
-                                        ),
-                                        selectedIcon: NavigationDiscoveryIcon(
-                                          semanticsLabel:
-                                              destinations[index].label,
-                                          discoveryLabel:
-                                              strings.notificationNewDiscovery,
-                                          icon: NavigationTabBounce(
-                                            selected: _currentIndex == index,
-                                            child: AppIcon(
-                                              destinations[index].icon,
-                                              selected: true,
-                                            ),
-                                          ),
-                                        ),
+                                        icon: navigationIcon(index),
+                                        selectedIcon: navigationIcon(index),
                                         label: Text(destinations[index].label),
                                       ),
                                   ],
@@ -346,30 +337,8 @@ class _MainShellState extends ConsumerState<MainShell> {
                                   index++
                                 )
                                   NavigationDestination(
-                                    icon: NavigationDiscoveryIcon(
-                                      key: ValueKey(
-                                        '${destinations[index].badgeKey}-navigation-discovery-badge',
-                                      ),
-                                      semanticsLabel: destinations[index].label,
-                                      discoveryLabel:
-                                          strings.notificationNewDiscovery,
-                                      showBadge:
-                                          destinations[index].hasUpdate &&
-                                          _currentIndex != index,
-                                      icon: AppIcon(destinations[index].icon),
-                                    ),
-                                    selectedIcon: NavigationDiscoveryIcon(
-                                      semanticsLabel: destinations[index].label,
-                                      discoveryLabel:
-                                          strings.notificationNewDiscovery,
-                                      icon: NavigationTabBounce(
-                                        selected: _currentIndex == index,
-                                        child: AppIcon(
-                                          destinations[index].icon,
-                                          selected: true,
-                                        ),
-                                      ),
-                                    ),
+                                    icon: navigationIcon(index),
+                                    selectedIcon: navigationIcon(index),
                                     label: destinations[index].label,
                                   ),
                               ],
@@ -545,6 +514,32 @@ class _MainShellState extends ConsumerState<MainShell> {
       2 => AnalyticsScreen.interests,
       _ => AnalyticsScreen.search,
     };
+  }
+}
+
+/// Keeps the outline and filled artwork mounted together and swaps their
+/// opacity. The glyphs are SVGs: mounting the filled one only on selection
+/// decoded it asynchronously, and the destination drew nothing until it
+/// arrived (visible as a vanishing Interests icon while its heavy first
+/// frame was building).
+class _NavigationGlyph extends StatelessWidget {
+  const _NavigationGlyph({required this.icon, required this.selected});
+
+  final IconData icon;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Opacity(opacity: selected ? 0 : 1, child: AppIcon(icon)),
+        Opacity(
+          opacity: selected ? 1 : 0,
+          child: AppIcon(icon, selected: true),
+        ),
+      ],
+    );
   }
 }
 

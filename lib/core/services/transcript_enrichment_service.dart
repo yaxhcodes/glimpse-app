@@ -9,6 +9,7 @@ import 'tag_noise_filter.dart';
 import 'text_cleaner.dart';
 
 part 'transcript_enrichment_models.dart';
+part 'transcript_enrichment_visuals.dart';
 
 bool hasMovieRecommendationIntentForEnrichment(
   Map<String, dynamic> data, {

@@ -3562,6 +3562,90 @@ abstract class AppLocalizations {
   /// **'{places, plural, =1{1 place} other{{places} places}} · {areas, plural, =1{1 country} other{{areas} countries}}'**
   String placesAreasSummary(num areas, num places);
 
+  /// No description provided for @placeRegionCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 region} other{{count} regions}}'**
+  String placeRegionCount(num count);
+
+  /// No description provided for @otherPlaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Other places'**
+  String get otherPlaces;
+
+  /// No description provided for @itineraryDayCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String itineraryDayCount(num count);
+
+  /// No description provided for @chartOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get chartOther;
+
+  /// No description provided for @formulaWhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Where'**
+  String get formulaWhere;
+
+  /// No description provided for @visualsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'At a glance'**
+  String get visualsHeading;
+
+  /// No description provided for @itineraryHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'The plan'**
+  String get itineraryHeading;
+
+  /// No description provided for @itineraryDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Day {day}'**
+  String itineraryDay(Object day);
+
+  /// No description provided for @itineraryTips.
+  ///
+  /// In en, this message translates to:
+  /// **'Good to know'**
+  String get itineraryTips;
+
+  /// No description provided for @planThisTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan this trip'**
+  String get planThisTrip;
+
+  /// No description provided for @openYourPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Open your plan'**
+  String get openYourPlan;
+
+  /// No description provided for @planThesePlaces.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Plan this place} other{Plan these {count} places}}'**
+  String planThesePlaces(num count);
+
+  /// No description provided for @planFromSaveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A plan in the order this save visits them'**
+  String get planFromSaveHint;
+
+  /// No description provided for @itineraryStopCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 stop} other{{count} stops}}'**
+  String itineraryStopCount(num count);
+
   /// No description provided for @planThisArea.
   ///
   /// In en, this message translates to:

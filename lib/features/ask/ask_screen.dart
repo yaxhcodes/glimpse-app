@@ -216,6 +216,10 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         ..stops = draft.entities
             .map(itineraryStopFromEntity)
             .toList(growable: false);
+      // The answer's order stands; more than a day's worth splits by time.
+      if (estimateStops(itinerary.stops).exceedsADay) {
+        assignDays(itinerary.stops);
+      }
       final id = await ref.read(placeItineraryActionsProvider).save(itinerary);
 
       var statusFailures = 0;

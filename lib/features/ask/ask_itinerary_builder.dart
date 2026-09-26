@@ -74,7 +74,7 @@ class AskItineraryBuilder {
     );
     final hasNamedArea = area.key != unsortedPlacesAreaKey;
     return AskItineraryDraft(
-      name: hasNamedArea ? 'A day in ${area.title}' : 'A day from my saves',
+      name: hasNamedArea ? '${area.title} trip' : 'Places from my saves',
       areaKey: area.key,
       areaTitle: area.title,
       country:

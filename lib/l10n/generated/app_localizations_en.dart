@@ -2036,6 +2036,82 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String placeRegionCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count regions',
+      one: '1 region',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get otherPlaces => 'Other places';
+
+  @override
+  String itineraryDayCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chartOther => 'Other';
+
+  @override
+  String get formulaWhere => 'Where';
+
+  @override
+  String get visualsHeading => 'At a glance';
+
+  @override
+  String get itineraryHeading => 'The plan';
+
+  @override
+  String itineraryDay(Object day) {
+    return 'Day $day';
+  }
+
+  @override
+  String get itineraryTips => 'Good to know';
+
+  @override
+  String get planThisTrip => 'Plan this trip';
+
+  @override
+  String get openYourPlan => 'Open your plan';
+
+  @override
+  String planThesePlaces(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Plan these $count places',
+      one: 'Plan this place',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get planFromSaveHint => 'A plan in the order this save visits them';
+
+  @override
+  String itineraryStopCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count stops',
+      one: '1 stop',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get planThisArea => 'Plan this area';
 
   @override

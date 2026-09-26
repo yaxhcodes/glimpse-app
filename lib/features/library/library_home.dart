@@ -14,6 +14,7 @@ import 'library_entity.dart';
 import 'library_localization.dart';
 import 'library_provider.dart';
 import 'library_widgets.dart';
+import 'places_world_preview.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryScreen extends StatelessWidget {
@@ -228,11 +229,7 @@ class _LibraryDashboard extends StatelessWidget {
           count: places.length,
           onTap: places.isEmpty ? null : () => onOpen(LibraryEntityKind.place),
           horizontal: true,
-          preview: _CoverFan(
-            entities: places,
-            imageOf: (entity) => entity.placeImageUrl,
-            fallback: const _PlacesPreview(),
-          ),
+          preview: PlacesWorldPreview(places: places),
         ),
         if (music.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -281,7 +278,7 @@ class _MusicDestinationCard extends StatelessWidget {
   }
 }
 
-/// Up to three real covers (album art, place photos) overlapping like the
+/// Up to three real covers (album art) overlapping like the
 /// book and film stacks above, so every Library row shows what is inside.
 /// Falls back to [fallback] until something has art.
 class _CoverFan extends StatelessWidget {
@@ -547,60 +544,6 @@ class _EditorialArtworkPreview extends StatelessWidget {
       },
     );
   }
-}
-
-class _PlacesPreview extends StatelessWidget {
-  const _PlacesPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: ColoredBox(
-        color: cs.surfaceContainerHigh,
-        child: CustomPaint(
-          painter: _MapPreviewPainter(
-            line: cs.outlineVariant.withValues(alpha: 0.5),
-          ),
-          child: Center(
-            child: AppIcon(AppIcons.place, color: cs.primary, size: 28),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MapPreviewPainter extends CustomPainter {
-  const _MapPreviewPainter({required this.line});
-
-  final Color line;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final roadPaint = Paint()
-      ..color = line
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    for (var index = 0; index < 5; index++) {
-      final path = Path()
-        ..moveTo(0, size.height * (0.15 + index * 0.18))
-        ..cubicTo(
-          size.width * 0.3,
-          size.height * (0.02 + index * 0.2),
-          size.width * 0.62,
-          size.height * (0.35 + index * 0.08),
-          size.width,
-          size.height * (0.1 + index * 0.17),
-        );
-      canvas.drawPath(path, roadPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MapPreviewPainter oldDelegate) =>
-      oldDelegate.line != line;
 }
 
 class _BackfillStatus extends StatelessWidget {

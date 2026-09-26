@@ -42,17 +42,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('A day in Kyoto'), findsOneWidget);
+    expect(find.text('Kyoto trip'), findsOneWidget);
     expect(find.text('DAY PLAN'), findsOneWidget);
     expect(find.text('Plan with Ask Glimpse'), findsOneWidget);
     expect(find.text('temple'), findsOneWidget);
     expect(find.text('garden'), findsOneWidget);
     expect(find.byIcon(AppIcons.dragHandle), findsNWidgets(2));
+    // Stops are text-first: no stand-in pin art.
     expect(
       find.byWidgetPredicate(
         (widget) => widget is AppIcon && widget.icon == AppIcons.place,
       ),
-      findsNWidgets(2),
+      findsNothing,
     );
     final nameField = tester.widget<TextField>(find.byType(TextField).first);
     expect(nameField.decoration?.filled, isFalse);

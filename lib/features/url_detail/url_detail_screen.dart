@@ -62,6 +62,7 @@ import '../library/library_places_model.dart';
 import '../library/library_provider.dart';
 import '../library/music_library_provider.dart';
 import '../library/place_itinerary_editor_screen.dart';
+import '../library/place_itinerary_provider.dart';
 import '../search/search_provider.dart';
 import '../rediscover/rediscover_open_context.dart';
 import 'detail_expansion_section.dart';
@@ -70,6 +71,8 @@ import 'notable_term_grid.dart';
 import 'reader_selectable_text.dart';
 import 'reader_enrichment_progress.dart';
 import 'reader_ask_actions.dart';
+import 'reader_itinerary_section.dart';
+import 'reader_visual_blocks.dart';
 import 'source_saved_metadata_row.dart';
 import 'url_detail_provider.dart';
 import '../../l10n/l10n.dart';
@@ -2825,6 +2828,43 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   }) {
     if (live == null) return const [];
     final sections = <Widget>[];
+    final savePlaces = _visitablePlaces(live);
+    final libraryPlaces =
+        ref
+            .watch(librarySnapshotProvider)
+            .valueOrNull
+            ?.ofKind(LibraryEntityKind.place) ??
+        const <LibraryEntity>[];
+    final savedPlan = itineraryFromSaveId(
+      ref.watch(placeItinerariesProvider).valueOrNull ?? const [],
+      url.id,
+    );
+
+    // A laid-out trip leads: it is what a travel save is for.
+    final itinerary = live.itinerary;
+    if (itinerary != null) {
+      sections.addAll([
+        const SizedBox(height: 28),
+        ReaderItinerarySection(
+          itinerary: itinerary,
+          accent: _recipeAccent(colorScheme),
+          hasPlan: savedPlan != null,
+          onPlan: () => unawaited(_planFromSave(url, live)),
+          onOpenStop: (stop) {
+            final entity = placeEntityForSaveStop(
+              stop.name,
+              url.id,
+              libraryPlaces,
+            );
+            if (entity == null) return null;
+            return () => context.push(
+              '/library/entity/${Uri.encodeComponent(entity.key)}',
+            );
+          },
+        ),
+      ]);
+    }
+
     final recipe = live.recipe;
     if (recipe?.hasUsefulContent ?? false) {
       _ensureRecipeStateLoaded(url.id);
@@ -2857,6 +2897,20 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           theme: theme,
           colorScheme: colorScheme,
         ),
+      ]);
+    }
+
+    if (live.visuals.isNotEmpty) {
+      sections.addAll([
+        const SizedBox(height: 28),
+        SectionHeader(
+          title: context.l10n.visualsHeading,
+          accent: _recipeAccent(colorScheme),
+        ),
+        for (final visual in live.visuals) ...[
+          const SizedBox(height: 12),
+          ReaderVisualBlock(visual: visual),
+        ],
       ]);
     }
 
@@ -2893,7 +2947,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     // takeaway or an artist's note appears here as that song.
     for (final mention in [
       for (final mention in live.mentions)
-        if (mention.type != 'music') mention,
+        // Route steps and whole countries are not places to visit.
+        if (mention.type != 'music' &&
+            (_mentionSectionKey(mention.type) != 'place' ||
+                LibraryIndex.isVisitablePlace(mention)))
+          mention,
       ...LibraryIndex.musicOf(url, live),
     ]) {
       final key = _mentionSectionKey(mention.type);
@@ -2903,6 +2961,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     for (final key in _mentionSectionOrder) {
       final items = grouped[key] ?? const <EnrichedMention>[];
       if (items.isEmpty) continue;
+      // The plan above already lists each place with its note.
+      if (key == 'place' &&
+          itinerary != null &&
+          _itineraryCoversPlaces(itinerary, items)) {
+        continue;
+      }
       sections.addAll([
         const SizedBox(height: 28),
         ContentRecommendationSection<EnrichedMention>(
@@ -2916,9 +2980,75 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           ),
         ),
       ]);
+      // A save that names places without laying out a day still plans:
+      // in the order it names them.
+      if (key == 'place' && itinerary == null && savePlaces.length >= 2) {
+        sections.addAll([
+          const SizedBox(height: 14),
+          ReaderPlanPlacesCard(
+            count: savePlaces.length,
+            hasPlan: savedPlan != null,
+            onPlan: () => unawaited(_planFromSave(url, live)),
+          ),
+        ]);
+      }
     }
 
     return sections;
+  }
+
+  List<EnrichedMention> _visitablePlaces(TranscriptEnrichmentResult live) => [
+    for (final mention in live.mentions)
+      if (_mentionSectionKey(mention.type) == 'place' &&
+          LibraryIndex.isVisitablePlace(mention))
+        mention,
+  ];
+
+  bool _itineraryCoversPlaces(
+    EnrichedItinerary itinerary,
+    List<EnrichedMention> places,
+  ) {
+    String key(String value) => value.toLowerCase().trim();
+    final stops = {
+      for (final day in itinerary.days)
+        for (final stop in day.stops) key(stop.name),
+    };
+    return places.every((place) => stops.contains(key(place.title)));
+  }
+
+  /// Opens this save's plan, making it first from the save's itinerary (or
+  /// its places, in order) with the Library's resolved pins.
+  Future<void> _planFromSave(
+    SavedUrl url,
+    TranscriptEnrichmentResult live,
+  ) async {
+    final existing = itineraryFromSaveId(
+      ref.read(placeItinerariesProvider).valueOrNull ?? const [],
+      url.id,
+    );
+    if (existing != null) {
+      unawaited(context.push('/library/places/itinerary/${existing.id}'));
+      return;
+    }
+    HapticFeedback.lightImpact();
+    final snapshot = await loadLibrarySnapshot(ref);
+    final title = live.itinerary?.title?.trim() ?? '';
+    final plan = itineraryFromSave(
+      urlId: url.id,
+      name: title.isNotEmpty ? title : live.meaningfulTitle.trim(),
+      plan: live.itinerary,
+      savePlaces: _visitablePlaces(live),
+      libraryPlaces: snapshot.ofKind(LibraryEntityKind.place),
+    );
+    if (plan.stops.isEmpty) return;
+    final id = await ref.read(placeItineraryActionsProvider).save(plan);
+    if (!mounted) return;
+    unawaited(
+      ref
+          .read(analyticsServiceProvider)
+          .trackEvent(AnalyticsEvent.placeItineraryOpened),
+    );
+    unawaited(context.push('/library/places/itinerary/$id'));
   }
 
   bool _isReferenceItem(EnrichedNotableItem item) {
@@ -4319,8 +4449,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     );
     final posterUrl = mention.posterUrl?.trim() ?? '';
     final metadata = _mentionMetadataLine(mention);
-    // Places have no poster art, so the tall poster slot looks empty/wrong for
-    // them — show a compact location pin tile instead (matches a travel guide).
+    // Places have no poster art, so they get no leading slot at all.
     final isPlace = mention.type.toLowerCase() == 'place';
     final isPerson = mention.type.toLowerCase() == 'person';
     final isMusic = mention.type.toLowerCase() == 'music';
@@ -4349,16 +4478,10 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   posterUrl: posterUrl,
                   colorScheme: colorScheme,
                 )
+              // Places have no art of their own; a pin on every row said
+              // nothing the section title does not.
               else if (isPlace)
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: AppIcon(AppIcons.place, size: 22, color: accent),
-                )
+                const SizedBox.shrink()
               else if (coverUrl != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
@@ -4403,7 +4526,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         : _mentionPlaceholder(mention, colorScheme),
                   ),
                 ),
-              SizedBox(width: isPerson ? 14 : 12),
+              SizedBox(width: isPerson ? 14 : (isPlace ? 0 : 12)),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 1),

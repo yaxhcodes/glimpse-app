@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -8,6 +10,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../l10n/l10n.dart';
 import '../../core/services/ai_proxy_config.dart';
 import 'library_entity.dart';
+import 'library_map_style.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryPlacesMap extends StatefulWidget {
@@ -17,7 +20,6 @@ class LibraryPlacesMap extends StatefulWidget {
     required this.onEntityTapped,
     this.selectedKey,
     this.borderRadius = BorderRadius.zero,
-    this.showFitAllControl = true,
     this.showAttribution = true,
     this.attributionBottom = 6,
     this.bottomObstructionFraction,
@@ -28,7 +30,6 @@ class LibraryPlacesMap extends StatefulWidget {
   final ValueChanged<LibraryEntity> onEntityTapped;
   final String? selectedKey;
   final BorderRadius borderRadius;
-  final bool showFitAllControl;
   final bool showAttribution;
   final double attributionBottom;
   final ValueListenable<double>? bottomObstructionFraction;
@@ -53,12 +54,28 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
     'LIBRARY_MAP_DARK_STYLE_URL',
   );
 
+  /// Raw provider styles by URL, fetched once per session and recoloured
+  /// per theme on device.
+  static final Map<String, Future<Map<String, dynamic>?>> _baseStyles = {};
+  static final Dio _styleDio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+      responseType: ResponseType.json,
+    ),
+  );
+
   MapLibreMapController? _controller;
   bool _styleLoaded = false;
   bool _timedOut = false;
   Timer? _loadTimer;
   Timer? _obstructionTimer;
-  Brightness? _brightness;
+
+  /// The style handed to the map: themed JSON, or the plain URL when the
+  /// style could not be fetched. Null until the first one is ready.
+  String? _styleString;
+  bool _styleIsThemed = false;
+  String? _styleSignature;
 
   List<LibraryEntity> get _mapped => widget.entities
       .where((entity) => entity.mention.hasCoordinates)
@@ -74,21 +91,67 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
   @override
   void initState() {
     super.initState();
-    _loadTimer = Timer(const Duration(seconds: 10), () {
-      if (mounted && !_styleLoaded) setState(() => _timedOut = true);
-    });
+    _restartLoadTimer();
     widget.bottomObstructionFraction?.addListener(_handleObstructionChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nextBrightness = Theme.of(context).brightness;
-    final previousBrightness = _brightness;
-    _brightness = nextBrightness;
-    if (previousBrightness != null && previousBrightness != nextBrightness) {
-      unawaited(_reloadStyle(nextBrightness));
+    final scheme = Theme.of(context).colorScheme;
+    final url = _styleUrl(scheme.brightness);
+    final palette = LibraryMapPalette.fromScheme(scheme);
+    final signature = '$url|${palette.signature}';
+    if (signature == _styleSignature) return;
+    _styleSignature = signature;
+    unawaited(_prepareStyle(url, palette, signature));
+  }
+
+  Future<void> _prepareStyle(
+    String url,
+    LibraryMapPalette palette,
+    String signature,
+  ) async {
+    final base = await _baseStyles.putIfAbsent(url, () => _fetchStyle(url));
+    if (base == null) _baseStyles.remove(url);
+    if (!mounted || signature != _styleSignature) return;
+    final next = base == null
+        ? url
+        : jsonEncode(themeLibraryMapStyle(base, palette));
+    if (next == _styleString) return;
+    final reloading = _styleString != null;
+    setState(() {
+      _styleString = next;
+      _styleIsThemed = base != null;
+      if (reloading) {
+        // The map swaps styles in place and calls onStyleLoaded again.
+        _styleLoaded = false;
+        _timedOut = false;
+      }
+    });
+    if (reloading) _restartLoadTimer();
+  }
+
+  static Future<Map<String, dynamic>?> _fetchStyle(String url) async {
+    try {
+      final response = await _styleDio.get<Object?>(url);
+      final data = response.data;
+      if (data is Map) return Map<String, dynamic>.from(data);
+      if (data is String) {
+        final decoded = jsonDecode(data);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {
+      // Falls back to the provider's own colours by URL.
     }
+    return null;
+  }
+
+  void _restartLoadTimer() {
+    _loadTimer?.cancel();
+    _loadTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted && !_styleLoaded) setState(() => _timedOut = true);
+    });
   }
 
   @override
@@ -103,8 +166,12 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
     }
     if (oldWidget.selectedKey != widget.selectedKey) {
       if (_styleLoaded) unawaited(_replaceSource());
-      if (widget.selectedKey != null) {
-        unawaited(_focus(widget.selectedKey!));
+      if (widget.selectedKey case final key?) {
+        // The camera padding reads this map's size, which is not readable
+        // mid-build.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && widget.selectedKey == key) unawaited(_focus(key));
+        });
       }
     }
     if (_styleLoaded && !_sameEntities(oldWidget.entities, widget.entities)) {
@@ -116,17 +183,14 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
     List<LibraryEntity> previous,
     List<LibraryEntity> current,
   ) {
+    // Order-insensitive: the sheet regroups places (by region, as lookups
+    // land) without changing which pins are on the map, and a refit on
+    // every regroup made the camera lurch.
     if (previous.length != current.length) return false;
-    for (var index = 0; index < previous.length; index++) {
-      final before = previous[index];
-      final after = current[index];
-      if (before.key != after.key ||
-          before.mention.latitude != after.mention.latitude ||
-          before.mention.longitude != after.mention.longitude) {
-        return false;
-      }
-    }
-    return true;
+    String pin(LibraryEntity entity) =>
+        '${entity.key}@${entity.mention.latitude},${entity.mention.longitude}';
+    final before = previous.map(pin).toSet();
+    return current.every((entity) => before.contains(pin(entity)));
   }
 
   @override
@@ -151,30 +215,32 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
   @override
   Widget build(BuildContext context) {
     if (_mapped.isEmpty) return const _MapFallback(noLocations: true);
+    final styleString = _styleString;
     return ClipRRect(
       borderRadius: widget.borderRadius,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          MapLibreMap(
-            styleString: _styleUrl(Theme.of(context).brightness),
-            initialCameraPosition: CameraPosition(
-              target: LatLng(
-                _mapped.first.mention.latitude!,
-                _mapped.first.mention.longitude!,
+          if (styleString != null)
+            MapLibreMap(
+              styleString: styleString,
+              initialCameraPosition: CameraPosition(
+                target: LatLng(
+                  _mapped.first.mention.latitude!,
+                  _mapped.first.mention.longitude!,
+                ),
+                zoom: _mapped.length == 1 ? 11 : 2.5,
               ),
-              zoom: _mapped.length == 1 ? 11 : 2.5,
+              compassEnabled: false,
+              rotateGesturesEnabled: false,
+              tiltGesturesEnabled: false,
+              trackCameraPosition: true,
+              onMapCreated: (controller) {
+                _controller = controller;
+                controller.onFeatureTapped.add(_handleFeatureTapped);
+              },
+              onStyleLoadedCallback: _onStyleLoaded,
             ),
-            compassEnabled: false,
-            rotateGesturesEnabled: false,
-            tiltGesturesEnabled: false,
-            trackCameraPosition: true,
-            onMapCreated: (controller) {
-              _controller = controller;
-              controller.onFeatureTapped.add(_handleFeatureTapped);
-            },
-            onStyleLoadedCallback: _onStyleLoaded,
-          ),
           // Tiles arrive black before the style settles; cover them with the
           // page surface and fade the map in once pins are drawn.
           Positioned.fill(
@@ -190,18 +256,6 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
               ),
             ),
           ),
-          if (widget.showFitAllControl && _mapped.length > 1)
-            Positioned(
-              top: widget.avoidTopSystemUi
-                  ? MediaQuery.paddingOf(context).top + kToolbarHeight + 8
-                  : 12,
-              right: 12,
-              child: IconButton.filledTonal(
-                tooltip: context.l10n.fitAllPlaces,
-                onPressed: _styleLoaded ? () => unawaited(_fitAll()) : null,
-                icon: const Icon(AppIcons.recenter),
-              ),
-            ),
           if (widget.showAttribution)
             Positioned(
               right: 8,
@@ -238,13 +292,16 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
     final controller = _controller;
     if (controller == null || !mounted) return;
     final colorScheme = Theme.of(context).colorScheme;
-    final clusterColor = _colorHex(colorScheme.primaryContainer);
-    final clusterTextColor = _colorHex(colorScheme.onPrimaryContainer);
+    final land = LibraryMapPalette.fromScheme(colorScheme).land;
+    // primaryContainer sat at the land's tone in dark palettes and the
+    // bubbles vanished; the primary hue always stands off the basemap.
+    final clusterColor = _colorHex(colorScheme.primary);
+    final clusterTextColor = _colorHex(colorScheme.onPrimary);
     final pinColor = _colorHex(colorScheme.primary);
-    final pinStrokeColor = _colorHex(colorScheme.surface);
+    final pinStrokeColor = _colorHex(land);
     final selectedColor = _colorHex(colorScheme.tertiary);
     final selectedStrokeColor = _colorHex(colorScheme.surface);
-    await _preferEnglishLabels(controller);
+    if (!_styleIsThemed) await _preferEnglishLabels(controller);
     try {
       await controller.addSource(
         _sourceId,
@@ -287,11 +344,20 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
           textField: const ['get', 'title'],
           textColor: _colorHex(colorScheme.onSurface),
           textSize: 12,
-          textHaloColor: _colorHex(colorScheme.surface),
+          textHaloColor: _colorHex(land),
           textHaloWidth: 2,
           textOffset: const [0, 1.7],
           textAnchor: 'top',
           textAllowOverlap: true,
+          // Zoomed out, the pin sits on its own cluster and the name ran
+          // through the count ("Na4yn"); the card below names it anyway.
+          textOpacity: const [
+            'step',
+            ['zoom'],
+            0,
+            5,
+            1,
+          ],
         ),
       );
       await controller.addSymbolLayer(
@@ -344,16 +410,10 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
   }
 
   /// The base style labels countries in their own language and script
-  /// (ESPAÑA, TÜRKIYE, RÉPUBLIQUE…). Prefer the English name where the tiles
-  /// carry one.
+  /// (ESPAÑA, TÜRKIYE, RÉPUBLIQUE…). A themed style already asks for English
+  /// names; the untouched provider style (fetch failed) is fixed up here.
   Future<void> _preferEnglishLabels(MapLibreMapController controller) async {
-    const name = [
-      'coalesce',
-      ['get', 'name:en'],
-      ['get', 'name_en'],
-      ['get', 'name:latin'],
-      ['get', 'name'],
-    ];
+    const name = libraryMapEnglishName;
     try {
       final ids = await controller.getLayerIds();
       for (final id in ids.whereType<String>()) {
@@ -377,22 +437,6 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
       }
     } catch (_) {
       // Labels are cosmetic; the pins matter.
-    }
-  }
-
-  Future<void> _reloadStyle(Brightness brightness) async {
-    final controller = _controller;
-    if (controller == null) return;
-    _loadTimer?.cancel();
-    _loadTimer = Timer(const Duration(seconds: 10), () {
-      if (mounted && !_styleLoaded) setState(() => _timedOut = true);
-    });
-    _styleLoaded = false;
-    _timedOut = false;
-    try {
-      await controller.setStyle(_styleUrl(brightness));
-    } catch (_) {
-      if (mounted) setState(() => _timedOut = true);
     }
   }
 
@@ -586,10 +630,7 @@ String resolveLibraryMapStyleUrl({
       .toString();
 }
 
-String _colorHex(Color color) {
-  final value = color.toARGB32() & 0x00FFFFFF;
-  return '#${value.toRadixString(16).padLeft(6, '0').toUpperCase()}';
-}
+String _colorHex(Color color) => libraryMapColorHex(color);
 
 class _MapLoadingSurface extends StatelessWidget {
   const _MapLoadingSurface();

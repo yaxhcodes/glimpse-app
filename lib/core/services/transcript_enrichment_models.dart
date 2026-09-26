@@ -17,6 +17,8 @@ class TranscriptEnrichmentResult {
     this.notableItems = const [],
     this.contentSections = const [],
     this.recipe,
+    this.itinerary,
+    this.visuals = const [],
     this.keyPoints = const [],
     this.categoryEvidence,
     this.categoryConfidence,
@@ -57,6 +59,12 @@ class TranscriptEnrichmentResult {
   final List<EnrichedNotableItem> notableItems;
   final List<EnrichedContentSection> contentSections;
   final EnrichedRecipe? recipe;
+
+  /// The ordered plan a travel save lays out, stops naming its places.
+  final EnrichedItinerary? itinerary;
+
+  /// Tables, charts, formulas and timelines of data the source contains.
+  final List<EnrichedVisual> visuals;
   final List<String> keyPoints;
   final String? categoryEvidence;
   final double? categoryConfidence;
@@ -85,6 +93,8 @@ class TranscriptEnrichmentResult {
       notableItems.isNotEmpty ||
       contentSections.isNotEmpty ||
       (recipe?.hasUsefulContent ?? false) ||
+      itinerary != null ||
+      visuals.isNotEmpty ||
       (transcript?.trim().isNotEmpty ?? false) ||
       (ocrText?.trim().isNotEmpty ?? false);
 
@@ -113,6 +123,8 @@ class TranscriptEnrichmentResult {
         notableItems.isNotEmpty ||
         contentSections.isNotEmpty ||
         keyPoints.isNotEmpty ||
+        itinerary != null ||
+        visuals.isNotEmpty ||
         (recipe?.hasUsefulContent ?? false)) {
       return true;
     }
@@ -148,6 +160,8 @@ class TranscriptEnrichmentResult {
     List<EnrichedNotableItem>? notableItems,
     List<EnrichedContentSection>? contentSections,
     EnrichedRecipe? recipe,
+    EnrichedItinerary? itinerary,
+    List<EnrichedVisual>? visuals,
     List<String>? keyPoints,
     String? categoryEvidence,
     double? categoryConfidence,
@@ -182,6 +196,8 @@ class TranscriptEnrichmentResult {
       notableItems: notableItems ?? this.notableItems,
       contentSections: contentSections ?? this.contentSections,
       recipe: recipe ?? this.recipe,
+      itinerary: itinerary ?? this.itinerary,
+      visuals: visuals ?? this.visuals,
       keyPoints: keyPoints ?? this.keyPoints,
       categoryEvidence: categoryEvidence ?? this.categoryEvidence,
       categoryConfidence: categoryConfidence ?? this.categoryConfidence,
@@ -222,6 +238,9 @@ class TranscriptEnrichmentResult {
           .map((section) => section.toJson())
           .toList(),
       'recipe': recipe?.toJson(),
+      if (itinerary != null) 'itinerary': itinerary!.toJson(),
+      if (visuals.isNotEmpty)
+        'visuals': visuals.map((visual) => visual.toJson()).toList(),
       'key_points': keyPoints,
       'category_evidence': categoryEvidence,
       'category_confidence': categoryConfidence,
@@ -285,6 +304,8 @@ class TranscriptEnrichmentResult {
         json,
       ),
       recipe: EnrichedRecipe.fromJsonOrNull(json['recipe']),
+      itinerary: EnrichedItinerary.fromJsonOrNull(json['itinerary']),
+      visuals: EnrichedVisual.listFromJson(json['visuals']),
       keyPoints: TranscriptEnrichmentService._extractStringList(
         json['key_points'],
       ),

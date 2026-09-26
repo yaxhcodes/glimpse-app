@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/place_itinerary.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../ask/ask_launch_request.dart';
 import 'library_entity.dart';
@@ -52,6 +52,9 @@ class _PlaceItineraryEditorScreenState
   bool _saving = false;
   bool _allowPop = false;
   int? _savedId;
+
+  /// The save this plan was laid out from; its order is the reel's.
+  int? _sourceUrlId;
   String? _areaKey;
   String? _areaTitle;
   String? _country;
@@ -135,6 +138,9 @@ class _PlaceItineraryEditorScreenState
                         areaTitle: _areaTitle ?? 'Saved places',
                         date: _date,
                         stopCount: _stops.length,
+                        dayCount: _days.length,
+                        estimate: estimateStops(_stops),
+                        onSplitIntoDays: _splitIntoDays,
                         onNameChanged: (_) => _scheduleSave(),
                         onChooseDate: _chooseDate,
                         onAskGlimpse: _openAskGlimpse,
@@ -145,21 +151,57 @@ class _PlaceItineraryEditorScreenState
                           if (newIndex > oldIndex) newIndex--;
                           final stop = _stops.removeAt(oldIndex);
                           _stops.insert(newIndex, stop);
+                          // A moved stop joins the day it lands in.
+                          final neighbour = newIndex > 0
+                              ? _stops[newIndex - 1]
+                              : _stops.length > 1
+                              ? _stops[1]
+                              : null;
+                          if (neighbour != null) stop.day = neighbour.day;
                         });
                         _scheduleSave();
                       },
                       itemBuilder: (context, index) {
                         final stop = _stops[index];
                         final entity = resolveItineraryStop(stop, places);
+                        final days = _days;
+                        final startsDay =
+                            index == 0 ||
+                            _stops[index - 1].dayNumber != stop.dayNumber;
+                        final endsDay =
+                            index == _stops.length - 1 ||
+                            _stops[index + 1].dayNumber != stop.dayNumber;
+                        var numberInDay = 1;
+                        for (var i = index - 1; i >= 0; i--) {
+                          if (_stops[i].dayNumber != stop.dayNumber) break;
+                          numberInDay++;
+                        }
                         return _StopRow(
                           key: ValueKey(
                             '${stop.entityKey}|${stop.provisionalKey}|$index',
                           ),
                           index: index,
+                          number: numberInDay,
+                          dayHeader: days.length > 1 && startsDay
+                              ? stop.dayNumber
+                              : null,
+                          dayDetail: days.length > 1 && startsDay
+                              ? describeEstimate(
+                                  estimateDay(_stops, stop.dayNumber),
+                                )
+                              : null,
                           stop: stop,
                           entity: entity,
-                          isLast: index == _stops.length - 1,
+                          isLast: endsDay,
                           canRemove: _stops.length > 1,
+                          dayChoices: [
+                            for (final day in [
+                              ...days,
+                              days.isEmpty ? 1 : days.last + 1,
+                            ])
+                              if (day != stop.dayNumber) day,
+                          ],
+                          onMoveToDay: (day) => _moveToDay(index, day),
                           onOpen: entity == null
                               ? null
                               : () => context.push(
@@ -193,6 +235,7 @@ class _PlaceItineraryEditorScreenState
     _initialized = true;
     if (itinerary != null) {
       _savedId = itinerary.id;
+      _sourceUrlId = itinerary.sourceUrlId;
       _areaKey = itinerary.areaKey;
       _areaTitle = itinerary.areaTitle;
       _country = itinerary.country;
@@ -200,6 +243,7 @@ class _PlaceItineraryEditorScreenState
       _createdAt = itinerary.createdAt;
       _nameController.text = itinerary.name;
       _stops.addAll(itinerary.stops.map(_cloneStop));
+      _retireDayName();
       return;
     }
 
@@ -210,7 +254,7 @@ class _PlaceItineraryEditorScreenState
     _createdAt = DateTime.now();
     _nameController.text = _areaTitle == 'Unsorted places'
         ? 'Places to explore'
-        : 'A day in $_areaTitle';
+        : '$_areaTitle trip';
     final places = snapshot
         .ofKind(LibraryEntityKind.place)
         .where(
@@ -222,7 +266,60 @@ class _PlaceItineraryEditorScreenState
               entity.key == draft?.focusedEntityKey ||
               entity.status == LibraryItemStatus.planning,
         );
-    _stops.addAll(places.map(itineraryStopFromEntity));
+    final stops = places.map(itineraryStopFromEntity).toList();
+    // An area's places have no order of their own; when they are more than
+    // a day, route them and split by time instead of calling it a day.
+    if (estimateStops(stops).exceedsADay) {
+      final routed = routeOrder(stops);
+      assignDays(routed);
+      _stops.addAll(routed);
+    } else {
+      _stops.addAll(stops);
+    }
+  }
+
+  void _splitIntoDays() {
+    setState(() {
+      // A reel's order is its route; a hand-picked set gets a drivable one
+      // first, or the days zig-zag across the country.
+      if (_sourceUrlId == null) {
+        final routed = routeOrder(_stops);
+        _stops
+          ..clear()
+          ..addAll(routed);
+      }
+      assignDays(_stops);
+      _retireDayName();
+    });
+    _scheduleSave();
+  }
+
+  /// Plans were once named "A day in Kyrgyzstan" whatever they held; once a
+  /// plan runs to several days that name is wrong, so it becomes a trip.
+  void _retireDayName() {
+    final name = _nameController.text.trim();
+    const prefix = 'a day in ';
+    if (_days.length > 1 && name.toLowerCase().startsWith(prefix)) {
+      _nameController.text = '${name.substring(prefix.length)} trip';
+      _scheduleSave();
+    }
+  }
+
+  /// The plan's days in order; one day when stops carry none.
+  List<int> get _days =>
+      ({for (final stop in _stops) stop.dayNumber}.toList()..sort());
+
+  void _moveToDay(int index, int day) {
+    setState(() {
+      final stop = _stops.removeAt(index)..day = day;
+      // After the last stop of that day, or where the day would begin.
+      var insertAt = _stops.lastIndexWhere((other) => other.dayNumber == day);
+      if (insertAt < 0) {
+        insertAt = _stops.lastIndexWhere((other) => other.dayNumber < day);
+      }
+      _stops.insert(insertAt + 1, stop);
+    });
+    _scheduleSave();
   }
 
   PlaceItineraryStop _cloneStop(PlaceItineraryStop source) {
@@ -237,7 +334,11 @@ class _PlaceItineraryEditorScreenState
       ..country = source.country
       ..latitude = source.latitude
       ..longitude = source.longitude
-      ..imageUrl = source.imageUrl;
+      ..imageUrl = source.imageUrl
+      ..day = source.day
+      ..time = source.time
+      ..travel = source.travel
+      ..note = source.note;
   }
 
   Future<void> _chooseDate() async {
@@ -291,12 +392,14 @@ class _PlaceItineraryEditorScreenState
       for (final stop in _stops)
         if (selected.contains(stop.entityKey)) stop.entityKey: stop,
     };
+    final lastDay = _days.isEmpty ? null : _days.last;
     final updated = <PlaceItineraryStop>[
       for (final stop in _stops)
-        if (selected.contains(stop.entityKey)) stop,
+        // A stop the Library never resolved is not in the picker; keep it.
+        if (stop.entityKey.isEmpty || selected.contains(stop.entityKey)) stop,
       for (final entity in candidates)
         if (selected.contains(entity.key) && !existing.containsKey(entity.key))
-          itineraryStopFromEntity(entity),
+          itineraryStopFromEntity(entity)..day = lastDay,
     ];
     setState(() {
       _stops
@@ -373,6 +476,7 @@ class _PlaceItineraryEditorScreenState
       ..areaTitle = _areaTitle
       ..country = _country
       ..date = _date
+      ..sourceUrlId = _sourceUrlId
       ..createdAt = _createdAt ?? DateTime.now()
       ..updatedAt = DateTime.now()
       ..stops = _stops.map(_cloneStop).toList(growable: false);
@@ -457,7 +561,13 @@ class _PlaceItineraryEditorScreenState
   }
 
   Future<void> _openRoute() async {
-    final segments = routeSegments(_stops);
+    final days = _days;
+    final segments = days.length > 1
+        ? [
+            for (final day in days)
+              ...routeSegments(_stops.where((stop) => stop.dayNumber == day)),
+          ]
+        : routeSegments(_stops);
     if (segments.isEmpty) {
       _showSnack('Add at least two mapped stops to open a route.');
       return;
@@ -526,6 +636,9 @@ class _EditorHeader extends StatelessWidget {
     required this.areaTitle,
     required this.date,
     required this.stopCount,
+    required this.dayCount,
+    required this.estimate,
+    required this.onSplitIntoDays,
     required this.onNameChanged,
     required this.onChooseDate,
     required this.onAskGlimpse,
@@ -535,6 +648,9 @@ class _EditorHeader extends StatelessWidget {
   final String areaTitle;
   final DateTime? date;
   final int stopCount;
+  final int dayCount;
+  final ItineraryEstimate estimate;
+  final VoidCallback onSplitIntoDays;
   final ValueChanged<String> onNameChanged;
   final VoidCallback onChooseDate;
   final VoidCallback onAskGlimpse;
@@ -548,7 +664,7 @@ class _EditorHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'DAY PLAN',
+            dayCount > 1 ? '$dayCount-DAY TRIP' : 'DAY PLAN',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: cs.primary,
               fontWeight: FontWeight.w700,
@@ -574,7 +690,16 @@ class _EditorHeader extends StatelessWidget {
             ),
           ),
           Text(
-            '$areaTitle · $stopCount ${stopCount == 1 ? 'stop' : 'stops'}',
+            [
+              areaTitle,
+              '$stopCount ${stopCount == 1 ? 'stop' : 'stops'}',
+              if (dayCount > 1) ...[
+                '$dayCount days',
+                if (estimate.km >= 5)
+                  describeEstimate(estimate).split(' · ').last,
+              ] else if (stopCount > 0)
+                describeEstimate(estimate),
+            ].join(' · '),
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
@@ -602,6 +727,43 @@ class _EditorHeader extends StatelessWidget {
               ),
             ],
           ),
+          // One "day" that cannot be one day: say so, and offer the fix.
+          if (dayCount == 1 && estimate.exceedsADay) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              decoration: BoxDecoration(
+                color: cs.tertiaryContainer.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'About ${estimate.days} days, not one',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: cs.onTertiaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Visiting $stopCount places with ${describeEstimate(estimate)} of travel and sightseeing is more than a day holds.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: cs.onTertiaryContainer,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: onSplitIntoDays,
+                    icon: const AppIcon(AppIcons.calendar, size: 18),
+                    label: const Text('Split into days'),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 22),
           Text(
             'Stops',
@@ -612,7 +774,7 @@ class _EditorHeader extends StatelessWidget {
           if (stopCount == 0) ...[
             const SizedBox(height: 8),
             Text(
-              'Choose saved places from this area to start your day plan.',
+              'Choose saved places from this area to start your plan.',
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
@@ -628,27 +790,47 @@ class _StopRow extends StatelessWidget {
   const _StopRow({
     super.key,
     required this.index,
+    required this.number,
+    required this.dayHeader,
+    this.dayDetail,
     required this.stop,
     required this.entity,
     required this.isLast,
     required this.canRemove,
+    required this.dayChoices,
+    required this.onMoveToDay,
     required this.onOpen,
     required this.onRemove,
   });
 
   final int index;
+
+  /// The stop's place within its day.
+  final int number;
+
+  /// The day this stop opens, when the plan has more than one.
+  final int? dayHeader;
+
+  /// "about 6 h · 180 km" for the day this stop opens.
+  final String? dayDetail;
   final PlaceItineraryStop stop;
   final LibraryEntity? entity;
   final bool isLast;
   final bool canRemove;
+  final List<int> dayChoices;
+  final ValueChanged<int> onMoveToDay;
   final VoidCallback? onOpen;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final image = entity?.placeImageUrl ?? stop.imageUrl;
-    return Padding(
+    final tt = Theme.of(context).textTheme;
+    final stated = [
+      ?stop.time,
+      if (stop.travel?.trim().isNotEmpty == true && number > 1) stop.travel!,
+    ].join(' · ');
+    final row = Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: IntrinsicHeight(
         child: Row(
@@ -667,7 +849,7 @@ class _StopRow extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Text(
-                      '${index + 1}',
+                      '$number',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: cs.onSecondaryContainer,
                         fontWeight: FontWeight.w700,
@@ -697,25 +879,9 @@ class _StopRow extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     child: Row(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: SizedBox.square(
-                            dimension: 70,
-                            child: image?.trim().isNotEmpty == true
-                                ? CachedNetworkImage(
-                                    imageUrl: image!,
-                                    fit: BoxFit.cover,
-                                    placeholder: (_, _) => _StopFallback(
-                                      mapped: stop.hasCoordinates,
-                                    ),
-                                    errorWidget: (_, _, _) => _StopFallback(
-                                      mapped: stop.hasCoordinates,
-                                    ),
-                                  )
-                                : _StopFallback(mapped: stop.hasCoordinates),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
+                        // Text first: a place's "photo" was the reel's
+                        // thumbnail, which looked cheap repeated per stop.
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -745,25 +911,60 @@ class _StopRow extends StatelessWidget {
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: cs.onSurfaceVariant),
                               ),
+                              if (stated.isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  stated,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.labelMedium?.copyWith(
+                                    color: cs.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                              if (stop.note?.trim().isNotEmpty == true) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  stop.note!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        if (canRemove)
-                          PopupMenuButton<String>(
-                            tooltip: 'Stop options',
-                            icon: const Icon(AppIcons.moreHorizontal),
-                            onSelected: (_) => onRemove(),
-                            itemBuilder: (context) => const [
+                        PopupMenuButton<int>(
+                          tooltip: 'Stop options',
+                          icon: const Icon(AppIcons.moreHorizontal),
+                          onSelected: (value) =>
+                              value < 0 ? onRemove() : onMoveToDay(value),
+                          itemBuilder: (context) => [
+                            for (final day in dayChoices)
                               PopupMenuItem(
-                                value: 'remove',
+                                value: day,
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(AppIcons.calendar),
+                                  title: Text(
+                                    'Move to ${context.l10n.itineraryDay(day)}',
+                                  ),
+                                ),
+                              ),
+                            if (canRemove)
+                              const PopupMenuItem(
+                                value: -1,
                                 child: ListTile(
                                   contentPadding: EdgeInsets.zero,
                                   leading: Icon(AppIcons.removeCircle),
                                   title: Text('Remove stop'),
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
+                        ),
                         ReorderableDragStartListener(
                           index: index,
                           child: const Padding(
@@ -781,22 +982,32 @@ class _StopRow extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _StopFallback extends StatelessWidget {
-  const _StopFallback({required this.mapped});
-
-  final bool mapped;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      child: AppIcon(
-        mapped ? AppIcons.place : AppIcons.placeOff,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
+    final day = dayHeader;
+    if (day == null) return row;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: index == 0 ? 4 : 14, bottom: 10),
+          child: Text.rich(
+            TextSpan(
+              text: context.l10n.itineraryDay(day),
+              style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              children: [
+                if (dayDetail != null)
+                  TextSpan(
+                    text: '  $dayDetail',
+                    style: tt.labelMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        row,
+      ],
     );
   }
 }
@@ -928,19 +1139,6 @@ class _StopPickerState extends State<_StopPicker> {
                       final entity = widget.entities[index];
                       return CheckboxListTile(
                         value: _selected.contains(entity.key),
-                        secondary: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: SizedBox.square(
-                            dimension: 48,
-                            child:
-                                entity.placeImageUrl?.trim().isNotEmpty == true
-                                ? CachedNetworkImage(
-                                    imageUrl: entity.placeImageUrl!,
-                                    fit: BoxFit.cover,
-                                  )
-                                : const _StopFallback(mapped: true),
-                          ),
-                        ),
                         title: Text(entity.title),
                         subtitle: Text(
                           [

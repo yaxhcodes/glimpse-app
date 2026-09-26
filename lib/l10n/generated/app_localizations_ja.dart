@@ -1865,6 +1865,58 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String placeRegionCount(num count) {
+    return '$count地域';
+  }
+
+  @override
+  String get otherPlaces => 'その他の場所';
+
+  @override
+  String itineraryDayCount(num count) {
+    return '$count日間';
+  }
+
+  @override
+  String get chartOther => 'その他';
+
+  @override
+  String get formulaWhere => '各記号';
+
+  @override
+  String get visualsHeading => 'ひと目でわかる';
+
+  @override
+  String get itineraryHeading => 'プラン';
+
+  @override
+  String itineraryDay(Object day) {
+    return '$day日目';
+  }
+
+  @override
+  String get itineraryTips => '知っておくと良いこと';
+
+  @override
+  String get planThisTrip => 'この旅を計画';
+
+  @override
+  String get openYourPlan => 'プランを開く';
+
+  @override
+  String planThesePlaces(num count) {
+    return '$countか所を計画';
+  }
+
+  @override
+  String get planFromSaveHint => 'この投稿の順番どおりのプラン';
+
+  @override
+  String itineraryStopCount(num count) {
+    return '$countか所';
+  }
+
+  @override
   String get planThisArea => 'このエリアを計画';
 
   @override

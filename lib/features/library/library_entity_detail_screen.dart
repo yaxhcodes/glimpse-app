@@ -443,7 +443,6 @@ class _PlaceHeader extends StatelessWidget {
             selectedKey: entity.key,
             onEntityTapped: (_) {},
             borderRadius: BorderRadius.circular(24),
-            showFitAllControl: false,
           ),
         ),
         const SizedBox(height: 22),

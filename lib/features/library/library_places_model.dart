@@ -1,4 +1,6 @@
 import 'library_entity.dart';
+import 'place_geography.dart';
+import 'place_locality_provider.dart';
 
 const allPlacesAreaKey = 'all';
 const unsortedPlacesAreaKey = 'unsorted';
@@ -125,6 +127,10 @@ class PlaceAreaIndex {
 
   static const _countryPrefix = 'country:';
 
+  /// The area key of a country, as [byCountry] keys it.
+  static String countryKey(String country) =>
+      '$_countryPrefix${_normalize(country.replaceAll(RegExp(r'\s+'), ' ').trim())}';
+
   static String _areaKey(String? city, String? country) {
     if (city == null && country == null) return unsortedPlacesAreaKey;
     return '${_normalize(city ?? '')}|${_normalize(country ?? '')}';
@@ -138,16 +144,176 @@ class PlaceAreaIndex {
   static String _normalize(String value) => value.toLowerCase();
 }
 
-Map<String, String?> uniquePlaceImageUrls(Iterable<LibraryEntity> entities) {
-  final used = <String>{};
-  return {
-    for (final entity in entities)
-      entity.key: switch (entity.placeImageUrl?.trim() ?? '') {
-        final url when url.isEmpty => null,
-        final url when used.add(url) => url,
-        _ => null,
-      },
-  };
+/// Places in one city, or [title] null for the places whose city holds only
+/// them (one-place headings fragment the list the way city chips once did).
+class PlaceCityGroup {
+  const PlaceCityGroup({
+    required this.key,
+    required this.title,
+    required this.entities,
+  });
+
+  final String key;
+  final String? title;
+  final List<LibraryEntity> entities;
+}
+
+/// Places in one state, prefecture or province, or [title] null for places
+/// the geocoder could not place in one.
+class PlaceRegionGroup {
+  const PlaceRegionGroup({
+    required this.key,
+    required this.title,
+    required this.cities,
+  });
+
+  final String key;
+  final String? title;
+  final List<PlaceCityGroup> cities;
+
+  List<LibraryEntity> get entities => [
+    for (final city in cities) ...city.entities,
+  ];
+
+  int get length =>
+      cities.fold(0, (total, city) => total + city.entities.length);
+}
+
+/// Region and city for grouping a country's places.
+class PlaceSubdivisions {
+  const PlaceSubdivisions._();
+
+  static const otherRegionKey = 'region:';
+
+  static String? regionOf(LibraryEntity entity, PlaceLocality? locality) {
+    final region = locality?.region?.trim() ?? '';
+    if (region.isEmpty || isNonLatinName(region)) return null;
+    final country = _norm(entity.mention.country);
+    final short = shortRegionName(region);
+    // City-states geocode to themselves ("Singapore, Singapore").
+    if (_norm(short) == country || _norm(region) == country) return null;
+    return short;
+  }
+
+  /// The saved city, else the geocoded town. Skips a "city" that only
+  /// repeats the region (the resolver falls back to the state when a place
+  /// has no town), the country or the place's own name — unless the
+  /// geocoder also calls the town that, as with Kyoto in Kyoto.
+  static String? cityOf(LibraryEntity entity, PlaceLocality? locality) {
+    final region = locality?.region ?? '';
+    final town = _norm(locality?.city);
+    final geocodedTown = locality?.city;
+    final skip = {
+      _norm(region),
+      _norm(shortRegionName(region)),
+      _norm(entity.mention.country),
+      _norm(entity.title),
+    }..removeAll({'', town});
+    for (final candidate in [
+      entity.mention.city,
+      if (geocodedTown != null && !isNonLatinName(geocodedTown)) geocodedTown,
+    ]) {
+      final city = candidate?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
+      if (city.isEmpty || skip.contains(_norm(city))) continue;
+      return city;
+    }
+    return null;
+  }
+
+  /// Groups [entities] (already newest first) by region, then city. Larger
+  /// groups lead; the unnamed groups go last.
+  static List<PlaceRegionGroup> group(
+    Iterable<LibraryEntity> entities, {
+    required PlaceLocality? Function(LibraryEntity entity) localityOf,
+  }) {
+    final regions = <String, List<LibraryEntity>>{};
+    final regionTitles = <String, String>{};
+    final cityTitles = <String, String?>{};
+    for (final entity in entities) {
+      final locality = localityOf(entity);
+      final region = regionOf(entity, locality);
+      final key = region == null ? otherRegionKey : 'region:${_norm(region)}';
+      regions.putIfAbsent(key, () => []).add(entity);
+      if (region != null) regionTitles.putIfAbsent(key, () => region);
+      cityTitles[entity.key] = cityOf(entity, locality);
+    }
+
+    final groups = [
+      for (final MapEntry(:key, value: members) in regions.entries)
+        PlaceRegionGroup(
+          key: key,
+          title: regionTitles[key],
+          cities: _cities(key, members, cityTitles),
+        ),
+    ];
+    groups.sort((a, b) {
+      if (a.title == null) return 1;
+      if (b.title == null) return -1;
+      final size = b.length.compareTo(a.length);
+      return size != 0 ? size : a.title!.compareTo(b.title!);
+    });
+    return List.unmodifiable(groups);
+  }
+
+  static List<PlaceCityGroup> _cities(
+    String regionKey,
+    List<LibraryEntity> members,
+    Map<String, String?> cityTitles,
+  ) {
+    final byCity = <String, List<LibraryEntity>>{};
+    final titles = <String, String>{};
+    for (final entity in members) {
+      final city = cityTitles[entity.key];
+      final key = city == null ? '' : _norm(city);
+      byCity.putIfAbsent(key, () => []).add(entity);
+      if (city != null) titles.putIfAbsent(key, () => city);
+    }
+    final named = <PlaceCityGroup>[];
+    final rest = <LibraryEntity>[];
+    for (final MapEntry(:key, value: places) in byCity.entries) {
+      if (key.isEmpty || places.length < 2) {
+        rest.addAll(places);
+      } else {
+        named.add(
+          PlaceCityGroup(
+            key: '$regionKey|$key',
+            title: titles[key],
+            entities: List.unmodifiable(places),
+          ),
+        );
+      }
+    }
+    named.sort((a, b) {
+      final size = b.entities.length.compareTo(a.entities.length);
+      return size != 0 ? size : a.title!.compareTo(b.title!);
+    });
+    if (rest.isNotEmpty) {
+      final order = {for (final (i, e) in members.indexed) e.key: i};
+      rest.sort((a, b) => order[a.key]!.compareTo(order[b.key]!));
+      named.add(
+        PlaceCityGroup(
+          key: '$regionKey|',
+          title: null,
+          entities: List.unmodifiable(rest),
+        ),
+      );
+    }
+    return List.unmodifiable(named);
+  }
+
+  /// A saved "place" that is the whole state it sits in ("Madhya Pradesh"
+  /// in Madhya Pradesh): the area, not a pin.
+  static bool isWholeRegion(LibraryEntity entity, PlaceLocality? locality) {
+    final region = regionOf(entity, locality);
+    if (region == null) return false;
+    final title = _norm(entity.title);
+    return title == _norm(region) ||
+        title == _norm(locality?.region) ||
+        _norm(shortRegionName(entity.title)) == _norm(region);
+  }
+
+  static String _norm(String? value) =>
+      value?.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase() ?? '';
 }
 
 class _PlaceAreaBuilder {

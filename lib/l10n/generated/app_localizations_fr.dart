@@ -2064,6 +2064,83 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String placeRegionCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count régions',
+      one: '1 région',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get otherPlaces => 'Autres lieux';
+
+  @override
+  String itineraryDayCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count jours',
+      one: '1 jour',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get chartOther => 'Autres';
+
+  @override
+  String get formulaWhere => 'Où';
+
+  @override
+  String get visualsHeading => 'En un coup d’œil';
+
+  @override
+  String get itineraryHeading => 'Le programme';
+
+  @override
+  String itineraryDay(Object day) {
+    return 'Jour $day';
+  }
+
+  @override
+  String get itineraryTips => 'Bon à savoir';
+
+  @override
+  String get planThisTrip => 'Planifier ce voyage';
+
+  @override
+  String get openYourPlan => 'Ouvrir ton plan';
+
+  @override
+  String planThesePlaces(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Planifier ces $count lieux',
+      one: 'Planifier ce lieu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get planFromSaveHint =>
+      'Un programme dans l’ordre de cette publication';
+
+  @override
+  String itineraryStopCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count étapes',
+      one: '1 étape',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get planThisArea => 'Planifier cette zone';
 
   @override

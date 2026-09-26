@@ -461,16 +461,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             Expanded(
               child: queryTrim.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(40, 0, 40, 48),
+                  ? _KeyboardSafeCenter(
+                      builder: (context, compact) => Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          40,
+                          compact ? 16 : 0,
+                          40,
+                          compact ? 16 : 48,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset(
                               AppAssets.emptySearch,
-                              width: 132,
-                              height: 132,
+                              width: compact ? 88 : 132,
+                              height: compact ? 88 : 132,
                               fit: BoxFit.contain,
                               excludeFromSemantics: true,
                             ),
@@ -585,8 +590,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               ),
                             Expanded(
                               child: filtered.isEmpty
-                                  ? Center(
-                                      child: Padding(
+                                  ? _KeyboardSafeCenter(
+                                      builder: (context, _) => Padding(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 32,
                                         ),
@@ -667,8 +672,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                       error: (err, _) {
                         final isLimit = err is UsageLimitReachedException;
-                        return Center(
-                          child: Padding(
+                        return _KeyboardSafeCenter(
+                          builder: (context, _) => Padding(
                             padding: const EdgeInsets.all(24),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -1016,6 +1021,29 @@ class _ChoiceWrap<T> extends StatelessWidget {
             onSelected: (_) => onSelected(value),
           ),
       ],
+    );
+  }
+}
+
+/// Centers a state message in the space above the keyboard, and scrolls it
+/// once the keyboard leaves too little room (the embedded tab autofocuses the
+/// field, so the body is often only a few hundred pixels tall). [compact] is
+/// true when the space is tight enough to shrink artwork.
+class _KeyboardSafeCenter extends StatelessWidget {
+  const _KeyboardSafeCenter({required this.builder});
+
+  final Widget Function(BuildContext context, bool compact) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(child: builder(context, constraints.maxHeight < 420)),
+        ),
+      ),
     );
   }
 }
