@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,7 +23,8 @@ import '../../core/utils/url_extractor.dart';
 import '../../shared/widgets/url_card.dart';
 import '../../shared/widgets/bulk_selection_toolbar.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
-import '../../shared/widgets/category_chip.dart' show faviconUrl;
+import '../../shared/widgets/category_chip.dart'
+    show faviconUrl, platformColors;
 import '../../shared/widgets/platform_icons.dart';
 import '../../shared/widgets/source_icon_resolver.dart';
 import '../../core/constants/app_assets.dart';
@@ -1141,7 +1143,27 @@ class _SourceChipAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    final cs = Theme.of(context).colorScheme;
+    // Known platforms use the bundled logos, all drawn on one grid, in
+    // their brand colour. Downloaded favicons came in mismatched shapes
+    // (filled squares, a wide rectangle, a small circle), so they are only
+    // the fallback for sources without a bundled logo.
+    if (iconSpec.isAsset || iconSpec.isGlyph) {
+      final brand = _brandColor(cs);
+      return iconSpec.isAsset
+          ? SvgPicture.asset(
+              iconSpec.assetPath!,
+              width: size,
+              height: size,
+              colorFilter: ColorFilter.mode(brand, BlendMode.srcIn),
+            )
+          : PlatformIcon(
+              platform: iconSpec.glyphPlatform!,
+              size: size,
+              color: brand,
+            );
+    }
+    final color = cs.onSurfaceVariant;
     final fallback = faviconUrl != null && !iconSpec.isGlyph
         ? _DomainInitialAvatar(label: label, size: size)
         : iconSpec.isGlyph
@@ -1165,6 +1187,20 @@ class _SourceChipAvatar extends StatelessWidget {
         errorWidget: (_, _, _) => fallback,
       ),
     );
+  }
+
+  /// The platform's colour, or the text colour for monochrome brands (X,
+  /// GitHub) whose grey would vanish on a dark chip.
+  Color _brandColor(ColorScheme cs) {
+    final brand = platformColors[label];
+    if (brand == null || HSLColor.fromColor(brand).saturation < 0.3) {
+      return cs.onSurface;
+    }
+    if (cs.brightness == Brightness.dark) {
+      final hsl = HSLColor.fromColor(brand);
+      if (hsl.lightness < 0.55) return hsl.withLightness(0.62).toColor();
+    }
+    return brand;
   }
 }
 
