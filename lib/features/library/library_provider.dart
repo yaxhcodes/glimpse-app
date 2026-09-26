@@ -175,14 +175,35 @@ class LibraryEntityActions {
           throw const FormatException('Unreadable Library enrichment payload');
         }
         final updated = <EnrichedMention>[];
-        for (final mention in parsed.mentions) {
-          final kind = LibraryIndex.kindForMention(mention);
-          final matches =
-              kind == entity.kind &&
-              LibraryIndex.provisionalKeyFor(kind!, mention) ==
-                  source.provisionalKey;
-          updated.add(matches ? update(mention) : mention);
-          sourceUpdated = sourceUpdated || matches;
+        if (entity.kind == LibraryEntityKind.music) {
+          // Music in the Library is assembled from several places in a save
+          // (LibraryIndex.musicOf), so the shown item may have no stored
+          // mention of its own. Store it as one, replacing any stored copy.
+          final shown = LibraryIndex.musicOf(url, parsed).where(
+            (mention) =>
+                LibraryIndex.provisionalKeyFor(entity.kind, mention) ==
+                source.provisionalKey,
+          );
+          if (shown.isEmpty) return;
+          for (final mention in parsed.mentions) {
+            final sameItem =
+                mention.type == 'music' &&
+                LibraryIndex.provisionalKeyFor(entity.kind, mention) ==
+                    source.provisionalKey;
+            if (!sameItem) updated.add(mention);
+          }
+          updated.add(update(shown.first));
+          sourceUpdated = true;
+        } else {
+          for (final mention in parsed.mentions) {
+            final kind = LibraryIndex.kindForMention(mention);
+            final matches =
+                kind == entity.kind &&
+                LibraryIndex.provisionalKeyFor(kind!, mention) ==
+                    source.provisionalKey;
+            updated.add(matches ? update(mention) : mention);
+            sourceUpdated = sourceUpdated || matches;
+          }
         }
         if (!sourceUpdated) return;
         data['schema_version'] = 3;

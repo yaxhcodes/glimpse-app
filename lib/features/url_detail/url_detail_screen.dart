@@ -46,6 +46,7 @@ import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/enrichment_retry_button.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/lightweight_markdown_text.dart';
+import '../../shared/theme/topic_visual.dart';
 import '../../shared/widgets/music_actions.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/swipeable_url_card.dart'
@@ -57,6 +58,7 @@ import '../home/home_provider.dart';
 import '../library/library_entity.dart';
 import '../library/library_places_model.dart';
 import '../library/library_provider.dart';
+import '../library/music_library_provider.dart';
 import '../library/place_itinerary_editor_screen.dart';
 import '../search/search_provider.dart';
 import '../rediscover/rediscover_open_context.dart';
@@ -2087,8 +2089,16 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                         child: CachedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.cover,
+                          fadeInDuration: const Duration(milliseconds: 260),
                           httpHeaders: SavedMediaResolver.imageHttpHeaders(
                             imageUrl,
+                          ),
+                          // A tinted surface while it loads, not a black box.
+                          placeholder: (_, _) => ColoredBox(
+                            color: TopicVisual.forTopicNames([
+                              ...url.categories,
+                              ...url.tags,
+                            ]).container(colorScheme),
                           ),
                           errorWidget: (_, _, _) => _buildMediaPlaceholder(
                             url: url,
@@ -2874,7 +2884,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     }
 
     final grouped = <String, List<EnrichedMention>>{};
-    for (final mention in live.mentions) {
+    // Music is shown as the Library assembles it, so a song named only in a
+    // takeaway or an artist's note appears here as that song.
+    for (final mention in [
+      for (final mention in live.mentions)
+        if (mention.type != 'music') mention,
+      ...LibraryIndex.musicOf(url, live),
+    ]) {
       final key = _mentionSectionKey(mention.type);
       grouped.putIfAbsent(key, () => []).add(mention);
     }
@@ -3743,7 +3759,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
 
     // Servings
     if ((recipe.servings ?? '').trim().isNotEmpty) {
-      facts.add(_QuickFact(label: recipe.servings!.trim()));
+      final servings = recipe.servings!.trim();
+      // A bare "2" among "15-20 minutes" and "Medium" reads as nothing.
+      final count = int.tryParse(servings);
+      facts.add(
+        _QuickFact(
+          label: count == null
+              ? servings
+              : count == 1
+              ? 'Serves 1'
+              : 'Serves $count',
+        ),
+      );
     }
 
     // Difficulty
@@ -4030,7 +4057,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
           if (nutrition.unmatchedIngredients.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              'Could not match: ${nutrition.unmatchedIngredients.take(3).join(', ')}',
+              // Says what the numbers leave out, not how the lookup failed.
+              'Not counted: ${nutrition.unmatchedIngredients.take(3).join(', ')}',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 height: 1.3,
@@ -4290,6 +4318,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     // them — show a compact location pin tile instead (matches a travel guide).
     final isPlace = mention.type.toLowerCase() == 'place';
     final isPerson = mention.type.toLowerCase() == 'person';
+    final isMusic = mention.type.toLowerCase() == 'music';
+    final coverUrl = isMusic ? _songCoverUrl(mention) : null;
     final usesCompactIcon =
         !isPerson &&
         !isPlace &&
@@ -4323,6 +4353,19 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: AppIcon(AppIcons.place, size: 22, color: accent),
+                )
+              else if (coverUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox.square(
+                    dimension: 54,
+                    child: CachedNetworkImage(
+                      imageUrl: coverUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, _, _) =>
+                          _mentionPlaceholder(mention, colorScheme),
+                    ),
+                  ),
                 )
               else if (usesCompactIcon)
                 Container(
@@ -4458,6 +4501,29 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
         ),
       ),
     );
+  }
+
+  /// The cover the Library found for this song, or the art the save
+  /// carries.
+  String? _songCoverUrl(EnrichedMention mention) {
+    if (LibraryIndex.isArtistMention(mention)) return null;
+    final key = LibraryIndex.provisionalKeyFor(
+      LibraryEntityKind.music,
+      mention,
+    );
+    final own = mention.posterUrl?.trim() ?? '';
+    // Keeps the Library alive, which is what looks songs up in the catalog.
+    ref.watch(librarySnapshotProvider);
+    final catalog =
+        ref
+            .watch(musicLibraryProvider)
+            .entries[key]
+            ?.song
+            ?.artworkUrl
+            ?.trim() ??
+        '';
+    final url = own.isNotEmpty ? own : catalog;
+    return url.isEmpty ? null : url;
   }
 
   String _mentionMetadataLine(EnrichedMention mention) {

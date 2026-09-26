@@ -199,9 +199,7 @@ void main() {
     expect(compact.top, greaterThan(medium.bottom));
   });
 
-  testWidgets('header distinguishes grouped saves from total saves scanned', (
-    tester,
-  ) async {
+  testWidgets('header counts the saves the patterns hold', (tester) async {
     final themes = [
       ClusterTheme(
         index: 0,
@@ -219,7 +217,7 @@ void main() {
 
     await _pumpInterests(tester, themes: themes);
 
-    expect(find.text('1 pattern · 3 of 4 saves grouped'), findsOneWidget);
+    expect(find.text('1 pattern · 3 saves'), findsOneWidget);
   });
 
   testWidgets('merged interest rows open their matching details', (

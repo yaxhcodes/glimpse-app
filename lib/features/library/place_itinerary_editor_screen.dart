@@ -213,7 +213,10 @@ class _PlaceItineraryEditorScreenState
         : 'A day in $_areaTitle';
     final places = snapshot
         .ofKind(LibraryEntityKind.place)
-        .where((entity) => PlaceAreaIndex.keyFor(entity) == _areaKey)
+        .where(
+          (entity) =>
+              PlaceAreaIndex.contains(_areaKey ?? allPlacesAreaKey, entity),
+        )
         .where(
           (entity) =>
               entity.key == draft?.focusedEntityKey ||
@@ -267,7 +270,10 @@ class _PlaceItineraryEditorScreenState
 
   Future<void> _chooseStops(List<LibraryEntity> places) async {
     final candidates = places
-        .where((entity) => PlaceAreaIndex.keyFor(entity) == _areaKey)
+        .where(
+          (entity) =>
+              PlaceAreaIndex.contains(_areaKey ?? allPlacesAreaKey, entity),
+        )
         .toList(growable: false);
     final selectedKeys = _stops.map((stop) => stop.entityKey).toSet();
     final selected = await showModalBottomSheet<Set<String>>(

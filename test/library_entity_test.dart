@@ -6,6 +6,78 @@ import 'package:glimpse/features/library/library_entity.dart';
 import 'package:glimpse/features/library/library_provider.dart';
 
 void main() {
+
+  group('places', () {
+    SavedUrl multi(int id, List<Map<String, dynamic>> mentions) =>
+        _saved(id: id, mention: mentions.first)
+          ..enrichmentJson = jsonEncode({
+            'schema_version': 3,
+            'meaningful_title': 'Source $id',
+            'summary': 'Summary',
+            'category': 'Travel',
+            'tags': <String>[],
+            'mentions': mentions,
+          });
+
+    test('0,0 is not a location', () {
+      final place = LibraryIndex.build([
+        _saved(
+          id: 1,
+          mention: {
+            'title': 'Preikestolen',
+            'type': 'place',
+            'country': 'Norway',
+            'latitude': 0.0,
+            'longitude': 0.0,
+          },
+        ),
+      ]).entities.single;
+
+      expect(place.mention.hasCoordinates, isFalse);
+      expect(place.needsResolution, isTrue);
+    });
+
+    test('route steps are not places and booking pitches are trimmed', () {
+      final places = LibraryIndex.build([
+        multi(1, [
+          {
+            'title': 'Alight from bus to Balykchy - to Konorchek Canyon',
+            'type': 'place',
+          },
+          {
+            'title':
+                'Yurt Camp at Song-Kul Lake/Comfortable yurts/Incredible View',
+            'type': 'place',
+          },
+        ]),
+      ]).entities;
+
+      expect(places.map((place) => place.title), [
+        'Yurt Camp at Song-Kul Lake',
+      ]);
+    });
+
+    test('a bare name borrows the countries of places saved beside it', () {
+      final entities = LibraryIndex.build([
+        multi(1, [
+          {'title': 'Chuy', 'type': 'place'},
+          {
+            'title': 'Ala Archa National Park',
+            'type': 'place',
+            'country': 'Kyrgyzstan',
+          },
+        ]),
+      ]).entities;
+      final chuy = entities.firstWhere((entity) => entity.title == 'Chuy');
+      final park = entities.firstWhere((entity) => entity.title != 'Chuy');
+
+      expect(chuy.toResolverJson()['context_hints'], contains('Kyrgyzstan'));
+      expect(
+        (park.toResolverJson()['context_hints'] as List?) ?? const [],
+        isNot(contains('Kyrgyzstan')),
+      );
+    });
+  });
   group('LibraryIndex', () {
     test('uses a catalog identity and groups multiple-source provenance', () {
       final provisional = _saved(

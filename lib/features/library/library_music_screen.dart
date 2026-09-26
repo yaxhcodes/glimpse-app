@@ -33,7 +33,7 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(context.l10n.libraryMusic),
-        actions: const [MusicProviderMenuButton(promptIfUnset: true)],
+        actions: const [MusicProviderMenuButton()],
       ),
       body: CustomScrollView(
         slivers: [
@@ -102,6 +102,14 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
                             .contains(_query),
                   )
                   .toList(growable: false);
+              final songs = [
+                for (final entity in filtered)
+                  if (!LibraryIndex.isArtistMention(entity.mention)) entity,
+              ];
+              final artists = [
+                for (final entity in filtered)
+                  if (LibraryIndex.isArtistMention(entity.mention)) entity,
+              ];
               return [
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 16),
@@ -123,21 +131,56 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
                       child: Text(context.l10n.nothingMatchesFilters),
                     ),
                   )
-                else
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, 24),
-                    sliver: SliverList.builder(
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) =>
-                          _MusicTile(entity: filtered[index]),
-                    ),
+                else ...[
+                  ..._section(
+                    context,
+                    horizontal: horizontal,
+                    title: context.l10n.libraryMusicSongs,
+                    entities: songs,
                   ),
+                  ..._section(
+                    context,
+                    horizontal: horizontal,
+                    title: context.l10n.libraryMusicArtists,
+                    entities: artists,
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
               ];
             },
           ),
         ],
       ),
     );
+  }
+
+  List<Widget> _section(
+    BuildContext context, {
+    required double horizontal,
+    required String title,
+    required List<LibraryEntity> entities,
+  }) {
+    if (entities.isEmpty) return const [];
+    return [
+      SliverPadding(
+        padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 4),
+        sliver: SliverToBoxAdapter(
+          child: Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: horizontal),
+        sliver: SliverList.builder(
+          itemCount: entities.length,
+          itemBuilder: (context, index) => _MusicTile(entity: entities[index]),
+        ),
+      ),
+    ];
   }
 }
 
@@ -148,7 +191,12 @@ class _MusicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final creator = entity.mention.creator?.trim() ?? '';
+    final isArtist = LibraryIndex.isArtistMention(entity.mention);
+    final creator = !isArtist
+        ? entity.mention.creator?.trim() ?? ''
+        : entity.sources.length == 1
+        ? entity.sources.single.title
+        : context.l10n.libraryArtistMentions(entity.sources.length);
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       leading: SizedBox.square(
@@ -157,7 +205,7 @@ class _MusicTile extends StatelessWidget {
           tag: 'library-artwork-${entity.key}',
           child: LibraryArtwork(
             entity: entity,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(isArtist ? 28 : 12),
           ),
         ),
       ),

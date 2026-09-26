@@ -43,10 +43,27 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get libraryMusicEmptyDescription =>
-      'Aquí aparecerán las canciones encontradas en tus enlaces guardados.';
+      'Aquí aparecerán las canciones y artistas de tus enlaces guardados.';
 
   @override
-  String get libraryMusicDescription => 'Canciones de tus enlaces guardados';
+  String get libraryMusicDescription => 'Canciones y artistas de tus guardados';
+
+  @override
+  String get libraryMusicSongs => 'Canciones';
+
+  @override
+  String get libraryMusicArtists => 'Artistas';
+
+  @override
+  String libraryArtistMentions(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Mencionado en $count guardados',
+      one: 'Mencionado en 1 guardado',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get libraryMusic => 'Música';
@@ -1532,17 +1549,6 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String interestGroupedStats(Object grouped, num patterns, Object saves) {
-    String _temp0 = intl.Intl.pluralLogic(
-      patterns,
-      locale: localeName,
-      other: '$patterns patrones',
-      one: '1 patrón',
-    );
-    return '$_temp0 · $grouped de $saves guardados agrupados';
-  }
-
-  @override
   String noPatternsScanned(Object saves) {
     return 'Aún no hay patrones · $saves guardados analizados';
   }
@@ -2024,6 +2030,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get libraryUnavailable => 'La Biblioteca no está disponible ahora';
 
   @override
+  String get showOnMap => 'Ver en el mapa';
+
+  @override
   String get yourPlaces => 'Tus lugares';
 
   @override
@@ -2037,8 +2046,8 @@ class AppLocalizationsEs extends AppLocalizations {
     String _temp1 = intl.Intl.pluralLogic(
       areas,
       locale: localeName,
-      other: '$areas zonas',
-      one: '1 zona',
+      other: '$areas países',
+      one: '1 país',
     );
     return '$_temp0 · $_temp1';
   }
@@ -2062,15 +2071,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get locationUnavailable => 'Ubicación no disponible';
 
   @override
-  String openNamedItem(Object name) {
-    return 'Abrir $name';
-  }
-
-  @override
   String get wantToVisit => 'Quiero visitar';
-
-  @override
-  String get savedPlace => 'Lugar guardado';
 
   @override
   String get planAVisit => 'Planear una visita';

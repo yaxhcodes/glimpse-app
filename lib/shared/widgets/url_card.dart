@@ -164,10 +164,13 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         (processingPresentation != null ? tt.titleMedium : tt.titleSmall) ??
         const TextStyle();
     final cardTitleStyle = baseTitleStyle.copyWith(
-      fontWeight: FontWeight.w600,
-      height: processingPresentation != null ? 1.2 : 1.25,
+      // Medium: regular read as too faint beside the source line, semibold
+      // as shouting.
+      fontWeight: FontWeight.w500,
+      height: processingPresentation != null ? 1.2 : 1.3,
+      letterSpacing: -0.1,
       fontSize: processingPresentation == null
-          ? (tt.titleSmall?.fontSize ?? 14) + 0.5
+          ? (tt.titleSmall?.fontSize ?? 14)
           : baseTitleStyle.fontSize,
       // Read saves dim slightly, the same in light and dark themes.
       color: isRead && processingPresentation == null
@@ -237,12 +240,31 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             borderRadius: 10,
                           ),
                         )
-                      : LinkCardThumbnail.build(
-                          url: widget.savedUrl,
-                          isRead: isRead,
-                          context: context,
-                          size: 56,
-                          borderRadius: 10,
+                      : Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            LinkCardThumbnail.build(
+                              url: widget.savedUrl,
+                              isRead: isRead,
+                              context: context,
+                              size: 56,
+                              borderRadius: 10,
+                            ),
+                            // Unread sits on the thumbnail's corner like a
+                            // badge, keeping the text lines clean.
+                            if (!isRead && !isProcessing && !isProcessingFailed)
+                              Positioned(
+                                top: -3,
+                                right: -3,
+                                child: _UnreadDot(
+                                  color: cs.primary,
+                                  ring: UrlCard.listCardFillColor(
+                                    Theme.of(context),
+                                  ),
+                                  label: context.l10n.unread,
+                                ),
+                              ),
+                          ],
                         ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -254,9 +276,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text(
                               context.l10n.obExample,
-                              style: tt.labelSmall?.copyWith(
-                                color: cs.primary,
-                              ),
+                              style: tt.labelSmall?.copyWith(color: cs.primary),
                             ),
                           ),
                         Row(
@@ -303,15 +323,6 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                 runSpacing: 2,
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  if (!isRead &&
-                                      !isProcessing &&
-                                      !isProcessingFailed) ...[
-                                    _UnreadDot(
-                                      color: cs.primary,
-                                      label: context.l10n.unread,
-                                    ),
-                                    const SizedBox(width: 7),
-                                  ],
                                   Text(displaySourceName, style: metaStyle),
                                   Text(' · ', style: metaStyle),
                                   Text(
@@ -326,8 +337,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   // get words.
                                   if (!_retryingEnrichment &&
                                       widget.showEnrichmentActions &&
-                                      (isProcessing ||
-                                          isProcessingFailed)) ...[
+                                      (isProcessing || isProcessingFailed)) ...[
                                     Text(' · ', style: metaStyle),
                                     Text(
                                       isProcessing
@@ -350,8 +360,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                 ),
                               ),
                             ],
-                            if (showEnrichmentRetry &&
-                                !isProcessingFailed) ...[
+                            if (showEnrichmentRetry && !isProcessingFailed) ...[
                               const SizedBox(width: 4),
                               EnrichmentRetryButton(
                                 retrying: _retryingEnrichment,
@@ -445,7 +454,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                         ] else if (processingPresentation != null) ...[
                           const SizedBox(height: 8),
                           _ProcessingStatusPanel(
-                            presentation: processingPresentation!,
+                            presentation: processingPresentation,
                             retrying: _retryingEnrichment,
                             onRetry: isProcessingFailed && showEnrichmentRetry
                                 ? () => _retryEnrichment()
@@ -746,9 +755,14 @@ class _SelectionThumbnail extends StatelessWidget {
 /// Small accent dot marking an unopened save. Replaces the repeated
 /// "Unread" word: status should be glanceable, not read.
 class _UnreadDot extends StatelessWidget {
-  const _UnreadDot({required this.color, required this.label});
+  const _UnreadDot({
+    required this.color,
+    required this.ring,
+    required this.label,
+  });
 
   final Color color;
+  final Color ring;
   final String label;
 
   @override
@@ -756,9 +770,13 @@ class _UnreadDot extends StatelessWidget {
     return Semantics(
       label: label,
       child: Container(
-        width: 7,
-        height: 7,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        width: 11,
+        height: 11,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: ring, width: 2),
+        ),
       ),
     );
   }

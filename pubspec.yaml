@@ -179,6 +179,21 @@ flutter:
     - assets/rediscover/illustrations/
     - assets/interests/top_signal_cutout.webp
 
+  # One family with real weights. google_fonts registers each weight as its
+  # own family ("InstrumentSans_600"), so copyWith(fontWeight: …) on a theme
+  # style kept the original file and weight changes silently did nothing.
+  fonts:
+    - family: InstrumentSans
+      fonts:
+        - asset: assets/fonts/InstrumentSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/InstrumentSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/InstrumentSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/InstrumentSans-Bold.ttf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

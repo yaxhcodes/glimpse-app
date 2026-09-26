@@ -15,39 +15,32 @@ class AskAnswerText extends StatelessWidget {
   final void Function(int)? onCitation;
   final bool selectable;
 
-  List<InlineSpan> _spans(String value) {
+  List<InlineSpan> _spans(BuildContext context, String value) {
     final spans = <InlineSpan>[];
-    final pattern = RegExp(r'\[(\d+)\]|\*\*([^*]+)\*\*|`([^`]+)`');
+    // "[12]" and grouped "[4, 9]" render the same way: one small pill per
+    // source, so a sentence never mixes bold brackets with plain ones.
+    final pattern = RegExp(
+      r'\[(\d+(?:\s*,\s*\d+)*)\]|\*\*([^*]+)\*\*|`([^`]+)`',
+    );
     var offset = 0;
     for (final match in pattern.allMatches(value)) {
       if (match.start > offset) {
-        spans.add(TextSpan(text: value.substring(offset, match.start)));
-      }
-      if (match.group(1) != null && onCitation != null) {
-        final index = int.parse(match.group(1)!);
         spans.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Semantics(
-              button: true,
-              label: '[$index]',
-              child: InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => onCitation!(index),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 4,
-                  ),
-                  child: Text(
-                    '[$index]',
-                    style: style.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ),
+          TextSpan(
+            text: value
+                .substring(offset, match.start)
+                .replaceFirst(RegExp(r' +$'), ' '),
           ),
         );
+      }
+      if (match.group(1) != null && onCitation != null) {
+        final indexes = match
+            .group(1)!
+            .split(',')
+            .map((part) => int.parse(part.trim()));
+        for (final index in indexes) {
+          spans.add(_citation(context, index));
+        }
       } else {
         spans.add(
           TextSpan(
@@ -66,10 +59,48 @@ class AskAnswerText extends StatelessWidget {
     return spans;
   }
 
-  Widget _line(String value, {bool heading = false}) => Text.rich(
-    TextSpan(children: _spans(value)),
-    style: heading ? style.copyWith(fontWeight: FontWeight.w600) : style,
-  );
+  InlineSpan _citation(BuildContext context, int index) {
+    final cs = Theme.of(context).colorScheme;
+    final size = (style.fontSize ?? 16) * 0.72;
+    return WidgetSpan(
+      alignment: PlaceholderAlignment.middle,
+      child: Semantics(
+        button: true,
+        excludeSemantics: true,
+        label: 'Source $index',
+        onTap: () => onCitation!(index),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1.5),
+          child: Material(
+            color: cs.secondaryContainer,
+            borderRadius: BorderRadius.circular(6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => onCitation!(index),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Text(
+                  '$index',
+                  style: style.copyWith(
+                    fontSize: size,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSecondaryContainer,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _line(BuildContext context, String value, {bool heading = false}) =>
+      Text.rich(
+        TextSpan(children: _spans(context, value)),
+        style: heading ? style.copyWith(fontWeight: FontWeight.w600) : style,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +151,7 @@ class AskAnswerText extends StatelessWidget {
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 220),
                               child: _line(
+                                context,
                                 c < rows[r].length ? rows[r][c] : '',
                                 heading: r == 0,
                               ),
@@ -140,6 +172,7 @@ class AskAnswerText extends StatelessWidget {
         Padding(
           padding: EdgeInsets.only(top: heading == null ? 2 : 10),
           child: _line(
+            context,
             heading != null
                 ? line.substring(heading.end)
                 : bullet != null

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glimpse/shared/theme/topic_visual.dart';
 import 'package:glimpse/core/models/saved_url.dart';
 import 'package:glimpse/core/models/user_collection.dart';
 import 'package:glimpse/features/collections/collection_card.dart';
@@ -109,9 +110,7 @@ void main() {
     expect(find.text('No links'), findsOneWidget);
   });
 
-  testWidgets('missing thumbnails use the existing letter fallback', (
-    tester,
-  ) async {
+  testWidgets('missing thumbnails use the topic placeholder', (tester) async {
     final url = _savedUrl(1);
 
     await _pumpCard(
@@ -123,7 +122,12 @@ void main() {
       ),
     );
 
-    expect(find.text('A'), findsOneWidget);
+    // No letters: the placeholder is the save's topic glyph.
+    expect(find.text('A'), findsNothing);
+    expect(
+      find.byIcon(TopicVisual.forTopicNames(url.categories).icon),
+      findsWidgets,
+    );
   });
 
   testWidgets('long content and previews do not overflow a narrow display', (

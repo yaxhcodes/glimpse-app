@@ -50,9 +50,8 @@ class RediscoverySection extends ConsumerWidget {
         !availability.hasValue) {
       return const SizedBox.shrink();
     }
-    final showSkeleton = pending &&
-        memories.isEmpty &&
-        (availability?.valueOrNull ?? false);
+    final showSkeleton =
+        pending && memories.isEmpty && (availability?.valueOrNull ?? false);
     final showGlimpsesEntry = memories.isEmpty && !showSkeleton;
 
     final cs = Theme.of(context).colorScheme;
@@ -100,8 +99,10 @@ class RediscoverySection extends ConsumerWidget {
                             showGlimpsesEntry
                                 ? context.l10n.glimpsesTitle
                                 : context.l10n.rediscover,
+                            // Same weight as "Your saves": section headers
+                            // share one voice.
                             style: tt.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: cs.onSurface,
                               letterSpacing: 0,
                             ),

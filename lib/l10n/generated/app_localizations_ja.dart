@@ -39,10 +39,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get couldNotSaveMusicProvider => '音楽アプリの設定を保存できませんでした。もう一度お試しください。';
 
   @override
-  String get libraryMusicEmptyDescription => '保存したリンクで見つかった曲がここに表示されます。';
+  String get libraryMusicEmptyDescription => '保存したリンクで見つかった曲やアーティストがここに表示されます。';
 
   @override
-  String get libraryMusicDescription => '保存したリンクで見つかった曲';
+  String get libraryMusicDescription => '保存から見つかった曲とアーティスト';
+
+  @override
+  String get libraryMusicSongs => '曲';
+
+  @override
+  String get libraryMusicArtists => 'アーティスト';
+
+  @override
+  String libraryArtistMentions(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件の保存で言及',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get libraryMusic => '音楽';
@@ -1419,11 +1435,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String interestGroupedStats(Object grouped, num patterns, Object saves) {
-    return '$patterns個のパターン · $saves件中$grouped件を分類';
-  }
-
-  @override
   String noPatternsScanned(Object saves) {
     return 'パターンはまだありません · $saves件を分析済み';
   }
@@ -1843,11 +1854,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get libraryUnavailable => '現在ライブラリを利用できません';
 
   @override
+  String get showOnMap => '地図で表示';
+
+  @override
   String get yourPlaces => 'あなたの場所';
 
   @override
   String placesAreasSummary(num areas, num places) {
-    return '$placesか所 · $areasエリア';
+    return '$placesか所 · $areasか国';
   }
 
   @override
@@ -1869,15 +1883,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get locationUnavailable => '位置情報なし';
 
   @override
-  String openNamedItem(Object name) {
-    return '$nameを開く';
-  }
-
-  @override
   String get wantToVisit => '行きたい';
-
-  @override
-  String get savedPlace => '保存した場所';
 
   @override
   String get planAVisit => '訪問を計画';

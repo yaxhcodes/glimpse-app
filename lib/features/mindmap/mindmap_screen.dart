@@ -13,6 +13,8 @@ import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/category_chip.dart' show faviconUrl;
 import '../../shared/widgets/image_decode_size.dart';
+import '../../shared/widgets/link_card_thumbnail.dart';
+import '../../core/services/category_resolver.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import '../../shared/widgets/tag_group.dart' show tagChipColors;
 import '../home/home_provider.dart';
@@ -190,14 +192,9 @@ String _interestMapSubtitle(
     return strings.noPatternsScanned(totalSaveCount);
   }
 
-  if (groupedSaveCount == totalSaveCount) {
-    return strings.interestStats(clusters.length, totalSaveCount);
-  }
-  return strings.interestGroupedStats(
-    groupedSaveCount,
-    clusters.length,
-    totalSaveCount,
-  );
+  // "274 of 451 saves grouped" is bookkeeping; the saves the patterns hold
+  // is what the page shows.
+  return strings.interestStats(clusters.length, groupedSaveCount);
 }
 
 class _MasonryClusterGrid extends StatelessWidget {
@@ -584,8 +581,11 @@ class _ClusterUrlRow extends StatelessWidget {
     final title = _displayTitleForUrl(url, resolvedTitle);
     if (title == null) return const SizedBox.shrink();
     final chip = tagChipColors(cs);
-    final placeholder = _UrlPlaceholder(
-      letter: url.domain.isNotEmpty ? url.domain[0].toUpperCase() : '?',
+    final placeholder = LinkCardThumbnail.tagLetterPlaceholder(
+      url,
+      context,
+      size: _thumb,
+      borderRadius: 12,
     );
 
     return Material(
@@ -605,10 +605,6 @@ class _ClusterUrlRow extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: cs.outlineVariant.withValues(alpha: 0.6),
-                    width: 1,
-                  ),
                 ),
                 child: previewUrl != null
                     ? CachedNetworkImage(
@@ -646,10 +642,12 @@ class _ClusterUrlRow extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            url.domain,
+                            CategoryResolver.displaySourceName(
+                              rawUrl: url.rawUrl,
+                              fallbackDomain: url.domain,
+                            ),
                             style: tt.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
-                              fontSize: 11.5,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -691,30 +689,6 @@ class _ClusterUrlRow extends StatelessWidget {
                 color: cs.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _UrlPlaceholder extends StatelessWidget {
-  const _UrlPlaceholder({required this.letter});
-
-  final String letter;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      color: cs.surfaceContainerHighest,
-      child: Center(
-        child: Text(
-          letter.isNotEmpty ? letter[0].toUpperCase() : '?',
-          style: TextStyle(
-            color: cs.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
           ),
         ),
       ),

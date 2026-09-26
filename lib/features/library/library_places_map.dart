@@ -175,8 +175,21 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
             },
             onStyleLoadedCallback: _onStyleLoaded,
           ),
-          if (_timedOut && !_styleLoaded)
-            const Positioned.fill(child: _MapFallback()),
+          // Tiles arrive black before the style settles; cover them with the
+          // page surface and fade the map in once pins are drawn.
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: _styleLoaded,
+              child: AnimatedOpacity(
+                opacity: _styleLoaded ? 0 : 1,
+                duration: _motionDuration(const Duration(milliseconds: 420)),
+                curve: Curves.easeOutCubic,
+                child: _timedOut
+                    ? const _MapFallback()
+                    : const _MapLoadingSurface(),
+              ),
+            ),
+          ),
           if (widget.showFitAllControl && _mapped.length > 1)
             Positioned(
               top: widget.avoidTopSystemUi
@@ -225,10 +238,13 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
     final controller = _controller;
     if (controller == null || !mounted) return;
     final colorScheme = Theme.of(context).colorScheme;
-    final pinColor = _colorHex(colorScheme.tertiary);
-    final pinStrokeColor = _colorHex(colorScheme.onTertiary);
-    final selectedColor = _colorHex(colorScheme.primary);
-    final selectedStrokeColor = _colorHex(colorScheme.onPrimary);
+    final clusterColor = _colorHex(colorScheme.primaryContainer);
+    final clusterTextColor = _colorHex(colorScheme.onPrimaryContainer);
+    final pinColor = _colorHex(colorScheme.primary);
+    final pinStrokeColor = _colorHex(colorScheme.surface);
+    final selectedColor = _colorHex(colorScheme.tertiary);
+    final selectedStrokeColor = _colorHex(colorScheme.surface);
+    await _preferEnglishLabels(controller);
     try {
       await controller.addSource(
         _sourceId,
@@ -248,18 +264,18 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
         _sourceId,
         _clusterLayerId,
         CircleLayerProperties(
-          circleColor: pinColor,
+          circleColor: clusterColor,
           circleRadius: const [
             'step',
             ['get', 'point_count'],
-            18,
+            16,
             8,
-            22,
+            20,
             24,
-            28,
+            25,
           ],
           circleStrokeColor: pinStrokeColor,
-          circleStrokeWidth: 2,
+          circleStrokeWidth: 2.5,
         ),
         filter: const ['has', 'point_count'],
         enableInteraction: true,
@@ -281,10 +297,10 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
       await controller.addSymbolLayer(
         _sourceId,
         _clusterCountLayerId,
-        const SymbolLayerProperties(
-          textField: ['get', 'point_count_abbreviated'],
-          textColor: '#FFFFFF',
-          textSize: 12,
+        SymbolLayerProperties(
+          textField: const ['get', 'point_count_abbreviated'],
+          textColor: clusterTextColor,
+          textSize: 13,
           textAllowOverlap: true,
         ),
         filter: const ['has', 'point_count'],
@@ -295,9 +311,9 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
         _placeLayerId,
         CircleLayerProperties(
           circleColor: pinColor,
-          circleRadius: 9,
+          circleRadius: 7,
           circleStrokeColor: pinStrokeColor,
-          circleStrokeWidth: 3,
+          circleStrokeWidth: 2.5,
         ),
         filter: const [
           '!',
@@ -310,9 +326,9 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
         _selectedLayerId,
         CircleLayerProperties(
           circleColor: selectedColor,
-          circleRadius: 13,
+          circleRadius: 10,
           circleStrokeColor: selectedStrokeColor,
-          circleStrokeWidth: 4,
+          circleStrokeWidth: 3.5,
         ),
         enableInteraction: true,
       );
@@ -324,6 +340,43 @@ class _LibraryPlacesMapState extends State<LibraryPlacesMap> {
       await _fitAll();
     } catch (_) {
       if (mounted) setState(() => _timedOut = true);
+    }
+  }
+
+  /// The base style labels countries in their own language and script
+  /// (ESPAÑA, TÜRKIYE, RÉPUBLIQUE…). Prefer the English name where the tiles
+  /// carry one.
+  Future<void> _preferEnglishLabels(MapLibreMapController controller) async {
+    const name = [
+      'coalesce',
+      ['get', 'name:en'],
+      ['get', 'name_en'],
+      ['get', 'name:latin'],
+      ['get', 'name'],
+    ];
+    try {
+      final ids = await controller.getLayerIds();
+      for (final id in ids.whereType<String>()) {
+        if (id.startsWith('glimpse-')) continue;
+        final lower = id.toLowerCase();
+        final isNameLabel =
+            lower.startsWith('place') ||
+            lower.contains('country') ||
+            lower.contains('state') ||
+            lower.contains('water_name') ||
+            lower.contains('poi');
+        if (!isNameLabel) continue;
+        try {
+          await controller.setLayerProperties(
+            id,
+            const SymbolLayerProperties(textField: name),
+          );
+        } catch (_) {
+          // Not a symbol layer; leave it as styled.
+        }
+      }
+    } catch (_) {
+      // Labels are cosmetic; the pins matter.
     }
   }
 
@@ -536,6 +589,15 @@ String resolveLibraryMapStyleUrl({
 String _colorHex(Color color) {
   final value = color.toARGB32() & 0x00FFFFFF;
   return '#${value.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+}
+
+class _MapLoadingSurface extends StatelessWidget {
+  const _MapLoadingSurface();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerLow);
+  }
 }
 
 class _MapFallback extends StatelessWidget {

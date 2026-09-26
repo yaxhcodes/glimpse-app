@@ -407,8 +407,8 @@ class _AssistantBlockState extends State<_AssistantBlock> {
                     _AssistantUtilityAction(
                       icon: AppIcons.addNote,
                       label: widget.message.sources.length == 1
-                          ? 'Save to this save'
-                          : 'Save to ${widget.message.sources.length} saves',
+                          ? 'Add as a note'
+                          : 'Add as a note to ${widget.message.sources.length} saves',
                       onTap: widget.onSaveAnswerToNotesTap!,
                     ),
                   if (widget.message.noteSaved)
@@ -549,8 +549,13 @@ class _FollowUpChips extends StatelessWidget {
         for (var index = 0; index < prompts.take(3).length; index++) ...[
           if (index > 0) const SizedBox(height: 8),
           Material(
-            color: colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(16),
+            // Suggestions, not answers: outlined and quiet so the answer
+            // above stays the loudest thing on screen.
+            color: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: colorScheme.outlineVariant),
+            ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: onTap == null
@@ -572,18 +577,18 @@ class _FollowUpChips extends StatelessWidget {
                         prompts[index],
                         softWrap: true,
                         style: textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSecondaryContainer,
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
                           height: 1.35,
                         ),
                       ),
                     ),
                     const SizedBox(width: 10),
+                    // Tapping asks it; a forward arrow says so.
                     Icon(
-                      AppIcons.arrowUpLeft,
+                      AppIcons.arrowForward,
                       size: 16,
-                      color: colorScheme.onSecondaryContainer.withValues(
-                        alpha: 0.7,
-                      ),
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ],
                 ),

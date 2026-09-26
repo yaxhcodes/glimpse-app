@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/services/saved_media_resolver.dart';
-import '../../core/services/tag_noise_filter.dart';
-import 'category_chip.dart' show faviconUrl, platformColors;
+import 'category_chip.dart' show faviconUrl;
 import 'image_decode_size.dart';
+import '../theme/topic_visual.dart';
 
 /// Read/unread styling for compact link cards (home, search, etc.).
 ///
@@ -63,40 +63,9 @@ class LinkCardThumbnail {
     );
   }
 
-  static String? _firstNonNoiseTag(SavedUrl url) {
-    for (final t in url.tags) {
-      final n = t.toLowerCase().trim();
-      if (n.isEmpty) continue;
-      if (TagNoiseFilter.isNoiseTag(t)) continue;
-      return t;
-    }
-    return null;
-  }
-
-  static String _placeholderLetter(SavedUrl url, String? tag) {
-    if (tag != null && tag.trim().isNotEmpty) {
-      for (final r in tag.runes) {
-        final ch = String.fromCharCode(r);
-        if (RegExp(r'[a-zA-Z0-9]').hasMatch(ch)) {
-          return ch.toUpperCase();
-        }
-      }
-      return String.fromCharCode(tag.runes.first).toUpperCase();
-    }
-    try {
-      final host = Uri.parse(
-        url.rawUrl,
-      ).host.replaceFirst(RegExp(r'^www\.'), '');
-      if (host.isNotEmpty) {
-        return host[0].toUpperCase();
-      }
-    } catch (_) {}
-    final d = url.domain.replaceFirst(RegExp(r'^www\.'), '');
-    if (d.isNotEmpty) return d[0].toUpperCase();
-    return '?';
-  }
-
-  /// Letter + deterministic container colors from [ColorScheme] (light/dark).
+  /// What a save shows before (or instead of) its image: the save's topic
+  /// glyph on a tone of that topic, with the source as a small corner mark.
+  /// A brand logo filling the tile read as broken, and letters said nothing.
   static Widget tagLetterPlaceholder(
     SavedUrl url,
     BuildContext context, {
@@ -104,58 +73,55 @@ class LinkCardThumbnail {
     required double borderRadius,
   }) {
     final cs = Theme.of(context).colorScheme;
-    final tag = _firstNonNoiseTag(url);
-    final label = _placeholderLetter(url, tag);
+    final topic = TopicVisual.forTopicNames([...url.categories, ...url.tags]);
     final favicon =
         faviconUrl(url.category) ??
         faviconUrl(url.domain) ??
         _googleFaviconUrl(url);
-    final accent = _sourceAccent(url, cs);
-    final containerColor = Color.alphaBlend(
-      accent.withValues(alpha: 0.12),
-      cs.secondaryContainer,
-    );
+    final badge = (size * 0.3).clamp(14.0, 22.0);
+    final showBadge = favicon != null && size >= 44;
 
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(accent.withValues(alpha: 0.18), containerColor),
-            containerColor,
-          ],
+    return SizedBox.square(
+      dimension: size,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: topic.container(cs),
+          borderRadius: BorderRadius.circular(borderRadius),
         ),
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
-      alignment: Alignment.center,
-      child: favicon == null
-          ? Text(
-              label,
-              style: TextStyle(
-                fontSize: size * 0.35,
-                fontWeight: FontWeight.w600,
-                color: cs.onSecondaryContainer,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Center(
+              child: Icon(
+                topic.icon,
+                size: (size * 0.36).clamp(14.0, 40.0),
+                color: cs.onSurfaceVariant,
               ),
-            )
-          : Padding(
-              padding: EdgeInsets.all(size * 0.22),
-              child: CachedNetworkImage(
-                imageUrl: favicon,
-                fit: BoxFit.contain,
-                memCacheWidth: imageDecodeSize(context, size),
-                errorWidget: (_, _, _) => Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: size * 0.35,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSecondaryContainer,
+            ),
+            if (showBadge)
+              Align(
+                alignment: const Alignment(0.86, 0.86),
+                child: Container(
+                  width: badge,
+                  height: badge,
+                  padding: EdgeInsets.all(badge * 0.14),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: favicon,
+                      fit: BoxFit.contain,
+                      memCacheWidth: imageDecodeSize(context, badge),
+                      errorWidget: (_, _, _) => const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),
-            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -169,41 +135,6 @@ class LinkCardThumbnail {
     final domain = url.domain.trim();
     if (domain.isEmpty) return null;
     return 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
-  }
-
-  static Color _sourceAccent(SavedUrl url, ColorScheme cs) {
-    final byCategory = platformColors[url.category.trim()];
-    if (byCategory != null) return byCategory;
-    final byDomain = platformColors[url.domain.trim()];
-    if (byDomain != null) return byDomain;
-    String seed = '';
-    try {
-      seed = Uri.parse(url.rawUrl).host;
-    } catch (_) {
-      seed = url.domain;
-    }
-    seed = seed.replaceFirst(RegExp(r'^www\.'), '').toLowerCase();
-    final byHost = _platformAccentForHost(seed);
-    if (byHost != null) return byHost;
-    if (seed.isEmpty) return cs.primary;
-    final hue = seed.codeUnits.fold<int>(0, (sum, item) => sum + item) % 360;
-    return HSLColor.fromAHSL(1, hue.toDouble(), 0.42, 0.56).toColor();
-  }
-
-  static Color? _platformAccentForHost(String host) {
-    if (host.contains('instagram.com')) return platformColors['Instagram'];
-    if (host == 'x.com' || host.contains('twitter.com')) {
-      return platformColors['X'];
-    }
-    if (host.contains('github.com')) return platformColors['GitHub'];
-    if (host.contains('youtube.com') || host.contains('youtu.be')) {
-      return platformColors['YouTube'];
-    }
-    if (host.contains('reddit.com')) return platformColors['Reddit'];
-    if (host.contains('spotify.com')) return platformColors['Spotify'];
-    if (host.contains('pinterest.com')) return platformColors['Pinterest'];
-    if (host.contains('linkedin.com')) return platformColors['LinkedIn'];
-    return null;
   }
 
   /// Network image when [SavedUrl.thumbnailUrl] is set; otherwise tag placeholder.
@@ -308,6 +239,12 @@ class _FallbackCachedThumbnailState extends State<_FallbackCachedThumbnail> {
       // extra 30% keeps portrait covers sharp once cropped to a square.
       memCacheHeight: imageDecodeSize(context, widget.height, headroom: 1.3),
       httpHeaders: SavedMediaResolver.imageHttpHeaders(imageUrl),
+      placeholder: (_, _) => LinkCardThumbnail.tagLetterPlaceholder(
+        widget.url,
+        context,
+        size: widget.width,
+        borderRadius: widget.borderRadius,
+      ),
       errorWidget: (_, _, _) {
         if (_index + 1 < widget.imageUrls.length) {
           WidgetsBinding.instance.addPostFrameCallback((_) {

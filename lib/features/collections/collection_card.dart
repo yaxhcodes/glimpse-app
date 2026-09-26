@@ -6,6 +6,8 @@ import '../../core/models/user_collection.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/widgets/selection_badge.dart';
 import '../../shared/widgets/url_card.dart';
+import '../../core/models/saved_url.dart';
+import '../../shared/widgets/link_card_thumbnail.dart';
 import 'collection_thumbnail_preview.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
@@ -129,7 +131,11 @@ class _CollectionCardState extends State<CollectionCard> {
                         ),
                     ],
                   ),
-                  const Spacer(),
+                  Expanded(
+                    child: widget.summary.previewUrls.isEmpty
+                        ? const SizedBox.shrink()
+                        : _PreviewFan(urls: widget.summary.previewUrls),
+                  ),
                   Text(
                     collection.name,
                     style: tt.titleSmall?.copyWith(
@@ -390,4 +396,69 @@ CollectionVisualStyle _resolveSummaryVisual(CollectionSummary summary) {
       summary.visualHint,
     ].whereType<String>().join(' '),
   );
+}
+
+/// A few of the collection's saves fanned like prints on a desk, so a card
+/// shows what is inside instead of empty space under its icon.
+class _PreviewFan extends StatelessWidget {
+  const _PreviewFan({required this.urls});
+
+  final List<SavedUrl> urls;
+
+  static const _angles = [-0.09, 0.07, -0.02];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final shown = urls.take(3).toList(growable: false);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = (constraints.maxHeight * 0.78).clamp(40.0, 78.0);
+        final step = size * 0.42;
+        return Align(
+          alignment: Alignment.centerRight,
+          child: SizedBox(
+            width: size + step * (shown.length - 1),
+            height: size + 8,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (var index = 0; index < shown.length; index++)
+                  Positioned(
+                    left: step * index,
+                    top: 4,
+                    child: Transform.rotate(
+                      angle: _angles[index],
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: cs.surfaceContainerLow,
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: cs.shadow.withValues(alpha: 0.14),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: LinkCardThumbnail.build(
+                          url: shown[index],
+                          isRead: false,
+                          context: context,
+                          size: size,
+                          borderRadius: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

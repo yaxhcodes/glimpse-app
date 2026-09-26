@@ -157,27 +157,28 @@ class _GlimpseDetailScreenState extends ConsumerState<GlimpseDetailScreen> {
         glimpseWhy(g, l, urls),
         style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
       ),
-      const SizedBox(height: 20),
-      Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _busy ? null : () => _act(g, GlimpseAction.later),
-              icon: const Icon(AppIcons.clock, size: 18),
-              label: Text(l.notNow),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _busy
-                  ? null
-                  : () => _act(g, GlimpseAction.lessLikeThis),
-              icon: const Icon(AppIcons.dislike, size: 18),
-              label: Text(l.lessLikeThis),
-            ),
-          ),
-        ],
+      const SizedBox(height: 8),
+      // Feedback, not the point of the page: quiet text actions rather than
+      // two outlined buttons competing with the saves below.
+      Transform.translate(
+        offset: const Offset(-12, 0),
+        child: Row(
+          children: [
+            for (final (action, icon, label) in [
+              (GlimpseAction.later, AppIcons.clock, l.notNow),
+              (GlimpseAction.lessLikeThis, AppIcons.dislike, l.lessLikeThis),
+            ])
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: _busy ? null : () => _act(g, action),
+                icon: Icon(icon, size: 17),
+                label: Text(label),
+              ),
+          ],
+        ),
       ),
       if (first != null) ...[
         const SizedBox(height: 24),

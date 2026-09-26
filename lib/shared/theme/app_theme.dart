@@ -2,7 +2,6 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_icons.dart';
 import 'app_motion.dart';
@@ -78,6 +77,22 @@ enum AppAccentColor {
     this.schemeVariant = DynamicSchemeVariant.tonalSpot,
   });
 }
+
+/// Instrument Sans as one family with real weights (see pubspec `fonts`).
+TextStyle _sans({
+  double? fontSize,
+  FontWeight? fontWeight,
+  double? height,
+  double? letterSpacing,
+  Color? color,
+}) => TextStyle(
+  fontFamily: 'InstrumentSans',
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  height: height,
+  letterSpacing: letterSpacing,
+  color: color,
+);
 
 class AppTheme {
   AppTheme._();
@@ -192,9 +207,7 @@ class AppTheme {
       surfaceBright: dark ? const Color(0xFF383F34) : const Color(0xFFF6F3EA),
       surfaceDim: dark ? const Color(0xFF151914) : const Color(0xFFDDDACD),
       outline: dark ? const Color(0xFF8B9181) : const Color(0xFF74796B),
-      outlineVariant: dark
-          ? const Color(0xFF3D4538)
-          : const Color(0xFFD3D3C4),
+      outlineVariant: dark ? const Color(0xFF3D4538) : const Color(0xFFD3D3C4),
       inverseSurface: dark ? const Color(0xFFE3E3D7) : const Color(0xFF2F352B),
       onInverseSurface: dark
           ? const Color(0xFF2F352B)
@@ -241,37 +254,37 @@ class AppTheme {
   static TextTheme _buildTextTheme() {
     return TextTheme(
       // ── Instrument Sans — Display / Branding
-      displayLarge: GoogleFonts.instrumentSans(
+      displayLarge: _sans(
         fontSize: 57,
         fontWeight: FontWeight.w700,
         height: 1.12,
         letterSpacing: -0.25,
       ),
-      displayMedium: GoogleFonts.instrumentSans(
+      displayMedium: _sans(
         fontSize: 45,
         fontWeight: FontWeight.w700,
         height: 1.16,
         letterSpacing: 0,
       ),
-      displaySmall: GoogleFonts.instrumentSans(
+      displaySmall: _sans(
         fontSize: 36,
         fontWeight: FontWeight.w700,
         height: 1.2,
         letterSpacing: 0,
       ),
-      headlineLarge: GoogleFonts.instrumentSans(
+      headlineLarge: _sans(
         fontSize: 32,
         fontWeight: FontWeight.w700,
         height: 1.2,
         letterSpacing: 0.32,
       ),
-      headlineMedium: GoogleFonts.instrumentSans(
+      headlineMedium: _sans(
         fontSize: 28,
         fontWeight: FontWeight.w700,
         height: 1.2,
         letterSpacing: 0.28,
       ),
-      headlineSmall: GoogleFonts.instrumentSans(
+      headlineSmall: _sans(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         height: 1.2,
@@ -279,19 +292,19 @@ class AppTheme {
       ),
 
       // ── Instrument Sans — Titles
-      titleLarge: GoogleFonts.instrumentSans(
+      titleLarge: _sans(
         fontSize: 20,
         fontWeight: FontWeight.w600,
         height: 1.2,
         letterSpacing: 0,
       ),
-      titleMedium: GoogleFonts.instrumentSans(
+      titleMedium: _sans(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         height: 1.2,
         letterSpacing: 0,
       ),
-      titleSmall: GoogleFonts.instrumentSans(
+      titleSmall: _sans(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         height: 1.2,
@@ -299,19 +312,19 @@ class AppTheme {
       ),
 
       // ── Instrument Sans — Body
-      bodyLarge: GoogleFonts.instrumentSans(
+      bodyLarge: _sans(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         height: 1.4,
         letterSpacing: 0,
       ),
-      bodyMedium: GoogleFonts.instrumentSans(
+      bodyMedium: _sans(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         height: 1.4,
         letterSpacing: 0,
       ),
-      bodySmall: GoogleFonts.instrumentSans(
+      bodySmall: _sans(
         // metadata: source names, timestamps
         fontSize: 13,
         fontWeight: FontWeight.w500,
@@ -320,21 +333,21 @@ class AppTheme {
       ),
 
       // ── Instrument Sans — Labels
-      labelLarge: GoogleFonts.instrumentSans(
+      labelLarge: _sans(
         // buttons, navigation items
         fontSize: 14,
         fontWeight: FontWeight.w500,
         height: 1.3,
         letterSpacing: 0,
       ),
-      labelMedium: GoogleFonts.instrumentSans(
+      labelMedium: _sans(
         // tag chips and compact labels
         fontSize: 13,
         fontWeight: FontWeight.w500,
         height: 1.3,
         letterSpacing: 0.26,
       ),
-      labelSmall: GoogleFonts.instrumentSans(
+      labelSmall: _sans(
         // small source chips, overlays
         fontSize: 12,
         fontWeight: FontWeight.w500,
@@ -346,7 +359,7 @@ class AppTheme {
 
   static ThemeData _buildTheme(ColorScheme colorScheme) {
     final textTheme = _buildTextTheme();
-    final appBarTitleStyle = GoogleFonts.instrumentSans(
+    final appBarTitleStyle = _sans(
       fontSize: 20,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.2,
@@ -566,7 +579,7 @@ class AppTheme {
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
-          return GoogleFonts.instrumentSans(
+          return _sans(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             height: 1.3,

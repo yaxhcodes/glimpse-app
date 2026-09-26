@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../mindmap/interest_clusters_provider.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/models/engagement_event.dart';
 import '../../core/providers/bulk_selection_provider.dart';
@@ -163,6 +164,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _searchFocus.requestFocus();
       });
     }
+  }
+
+  List<String> _interestSuggestions() {
+    final themes = ref.watch(interestClusterThemesProvider).valueOrNull;
+    if (themes == null) return const [];
+    final sorted = [...themes]
+      ..sort((a, b) => b.urls.length.compareTo(a.urls.length));
+    return [
+      for (final theme in sorted.take(6))
+        if (theme.label.trim().isNotEmpty) theme.label.trim(),
+    ];
   }
 
   void _runQuery(String query) {
@@ -482,6 +494,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               ),
                               textAlign: TextAlign.center,
                             ),
+                            // Something to tap instead of a blank page: the
+                            // interests this library already has.
+                            if (_interestSuggestions() case final labels
+                                when labels.isNotEmpty) ...[
+                              const SizedBox(height: 22),
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final label in labels)
+                                    ActionChip(
+                                      label: Text(label),
+                                      side: BorderSide(
+                                        color: colorScheme.outlineVariant,
+                                      ),
+                                      backgroundColor: Colors.transparent,
+                                      onPressed: () => _runQuery(label),
+                                    ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),

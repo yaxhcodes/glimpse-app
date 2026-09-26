@@ -160,7 +160,7 @@ void main() {
       expect(category.recipe.density, inInclusiveRange(0, 1));
       expect(category.recipe.scale, greaterThan(0));
     }
-    expect(clusterPatternLibrary, hasLength(46));
+    expect(clusterPatternLibrary, hasLength(47));
   });
 
   testWidgets('procedural grammar contact sheet — light', (tester) async {

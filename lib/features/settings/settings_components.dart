@@ -213,8 +213,8 @@ class SettingsBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final bg = emphasized ? cs.primary : cs.surfaceContainerHighest;
-    final fg = emphasized ? cs.onPrimary : cs.onSurfaceVariant;
+    final bg = emphasized ? cs.primaryContainer : cs.surfaceContainerHighest;
+    final fg = emphasized ? cs.onPrimaryContainer : cs.onSurfaceVariant;
 
     return Container(
       padding: EdgeInsets.fromLTRB(icon != null ? 8 : 12, 5, 12, 5),

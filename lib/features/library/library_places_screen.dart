@@ -29,7 +29,7 @@ class LibraryPlacesScreen extends ConsumerStatefulWidget {
 }
 
 class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
-  static const _initialSheetSize = 0.3;
+  static const _initialSheetSize = 0.34;
 
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
@@ -87,16 +87,16 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
         data: (data) {
           final places = data.ofKind(LibraryEntityKind.place);
           if (places.isEmpty) return const _PlacesEmptyState();
-          final areas = PlaceAreaIndex.build(places);
+          final areas = PlaceAreaIndex.byCountry(places);
           if (_selectedAreaKey != allPlacesAreaKey &&
               areas.every((area) => area.key != _selectedAreaKey)) {
             _selectedAreaKey = allPlacesAreaKey;
           }
-          final areaEntities = _selectedAreaKey == allPlacesAreaKey
-              ? places
-              : areas
-                    .firstWhere((area) => area.key == _selectedAreaKey)
-                    .entities;
+          final areaEntities = places
+              .where(
+                (entity) => PlaceAreaIndex.contains(_selectedAreaKey, entity),
+              )
+              .toList(growable: false);
           final visible = _filter(areaEntities);
           if (_selectedKey == null ||
               visible.every((entity) => entity.key != _selectedKey)) {
@@ -124,6 +124,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
               setState(() => _query = '');
             },
             onSelected: (entity) => setState(() => _selectedKey = entity.key),
+            onShowOnMap: _showOnMap,
             onOpen: _open,
             onOpenPlan: _openPlan,
             onCreatePlan: _createPlan,
@@ -165,6 +166,19 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
     );
   }
 
+  void _showOnMap(LibraryEntity entity) {
+    setState(() => _selectedKey = entity.key);
+    if (_sheetController.isAttached) {
+      unawaited(
+        _sheetController.animateTo(
+          _initialSheetSize,
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+  }
+
   void _open(LibraryEntity entity) {
     context.push('/library/entity/${Uri.encodeComponent(entity.key)}');
   }
@@ -182,14 +196,13 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
     final focused = places
         .where((entity) => entity.key == _selectedKey)
         .firstOrNull;
-    final key = _selectedAreaKey != allPlacesAreaKey
-        ? _selectedAreaKey
-        : focused == null
-        ? PlaceAreaIndex.keyFor(places.first)
-        : PlaceAreaIndex.keyFor(focused);
-    final area = PlaceAreaIndex.build(
-      places,
-    ).firstWhere((candidate) => candidate.key == key);
+    final areas = PlaceAreaIndex.byCountry(places);
+    final anchor = focused ?? places.first;
+    final area = _selectedAreaKey != allPlacesAreaKey
+        ? areas.firstWhere((candidate) => candidate.key == _selectedAreaKey)
+        : areas.firstWhere(
+            (candidate) => PlaceAreaIndex.contains(candidate.key, anchor),
+          );
     _createPlan(area, focusedEntityKey: focused?.key);
   }
 
@@ -223,6 +236,7 @@ class _PlacesExperience extends StatelessWidget {
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onSelected,
+    required this.onShowOnMap,
     required this.onOpen,
     required this.onOpenPlan,
     required this.onCreatePlan,
@@ -243,6 +257,7 @@ class _PlacesExperience extends StatelessWidget {
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<LibraryEntity> onSelected;
+  final ValueChanged<LibraryEntity> onShowOnMap;
   final ValueChanged<LibraryEntity> onOpen;
   final ValueChanged<PlaceItinerary> onOpenPlan;
   final void Function(PlaceArea area, {String? focusedEntityKey}) onCreatePlan;
@@ -278,10 +293,13 @@ class _PlacesExperience extends StatelessWidget {
                 child: DraggableScrollableSheet(
                   controller: sheetController,
                   initialChildSize: _LibraryPlacesScreenState._initialSheetSize,
-                  minChildSize: isTablet ? 0.3 : 0.22,
-                  maxChildSize: isTablet ? 0.86 : 0.78,
+                  minChildSize: isTablet ? 0.34 : 0.22,
+                  maxChildSize: isTablet ? 0.86 : 0.8,
                   snap: true,
-                  snapSizes: const [0.3, 0.78],
+                  snapSizes: const [
+                    _LibraryPlacesScreenState._initialSheetSize,
+                    0.8,
+                  ],
                   builder: (context, scrollController) => _PlacesSheet(
                     allPlaces: allPlaces,
                     visiblePlaces: visiblePlaces,
@@ -297,6 +315,7 @@ class _PlacesExperience extends StatelessWidget {
                     onQueryChanged: onQueryChanged,
                     onClearQuery: onClearQuery,
                     onSelected: onSelected,
+                    onShowOnMap: onShowOnMap,
                     onOpen: onOpen,
                     onOpenPlan: onOpenPlan,
                     onCreatePlan: onCreatePlan,
@@ -327,6 +346,7 @@ class _PlacesSheet extends StatelessWidget {
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onSelected,
+    required this.onShowOnMap,
     required this.onOpen,
     required this.onOpenPlan,
     required this.onCreatePlan,
@@ -346,6 +366,7 @@ class _PlacesSheet extends StatelessWidget {
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<LibraryEntity> onSelected;
+  final ValueChanged<LibraryEntity> onShowOnMap;
   final ValueChanged<LibraryEntity> onOpen;
   final ValueChanged<PlaceItinerary> onOpenPlan;
   final void Function(PlaceArea area, {String? focusedEntityKey}) onCreatePlan;
@@ -353,6 +374,9 @@ class _PlacesSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final selectedArea = areas
+        .where((area) => area.key == selectedAreaKey)
+        .firstOrNull;
     return Material(
       elevation: 8,
       shadowColor: cs.shadow.withValues(alpha: 0.16),
@@ -364,24 +388,25 @@ class _PlacesSheet extends StatelessWidget {
       child: ValueListenableBuilder<double>(
         valueListenable: extent,
         builder: (context, value, _) {
-          final expanded = value >= 0.46;
+          final expanded = value >= 0.5;
           final focused = visiblePlaces
               .where((entity) => entity.key == selectedKey)
               .firstOrNull;
           final groups = _visibleGroups();
           final images = uniquePlaceImageUrls(visiblePlaces);
-          final visiblePlans = selectedAreaKey == allPlacesAreaKey
-              ? plans
-              : plans
-                    .where((plan) => plan.areaKey == selectedAreaKey)
-                    .toList(growable: false);
+          final visiblePlans = plans
+              .where(
+                (plan) =>
+                    PlaceAreaIndex.planInArea(plan.areaKey, selectedAreaKey),
+              )
+              .toList(growable: false);
           return ListView(
             controller: scrollController,
             padding: const EdgeInsets.only(bottom: 32),
             children: [
               const _SheetHandle(),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
+                padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
                 child: Row(
                   children: [
                     Expanded(
@@ -389,34 +414,30 @@ class _PlacesSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            selectedAreaKey == allPlacesAreaKey
-                                ? context.l10n.yourPlaces
-                                : areas
-                                      .firstWhere(
-                                        (area) => area.key == selectedAreaKey,
-                                      )
-                                      .title,
+                            selectedArea?.title ?? context.l10n.yourPlaces,
                             style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           Text(
-                            context.l10n.placesAreasSummary(
-                              areas.length,
-                              visiblePlaces.length,
-                            ),
+                            selectedArea == null
+                                ? context.l10n.placesAreasSummary(
+                                    areas.length,
+                                    visiblePlaces.length,
+                                  )
+                                : context.l10n.libraryPlaceCount(
+                                    visiblePlaces.length,
+                                  ),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
                         ],
                       ),
                     ),
-                    if (selectedAreaKey != allPlacesAreaKey)
+                    if (selectedArea != null)
                       IconButton(
                         tooltip: context.l10n.planThisArea,
                         onPressed: () => onCreatePlan(
-                          areas.firstWhere(
-                            (area) => area.key == selectedAreaKey,
-                          ),
+                          selectedArea,
                           focusedEntityKey: focused?.key,
                         ),
                         icon: const Icon(AppIcons.route),
@@ -424,23 +445,22 @@ class _PlacesSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!expanded && focused != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                  child: _FocusedPlace(
-                    entity: focused,
-                    imageUrl: images[focused.key],
-                    onTap: () => onOpen(focused),
-                  ),
-                ),
               _AreaSelector(
                 areas: areas,
                 selectedKey: selectedAreaKey,
                 onSelected: onAreaSelected,
               ),
+              if (!expanded && visiblePlaces.isNotEmpty)
+                _PlaceCarousel(
+                  places: visiblePlaces,
+                  images: images,
+                  selectedKey: selectedKey,
+                  onSelected: onSelected,
+                  onOpen: onOpen,
+                ),
               if (expanded) ...[
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
                   child: SearchBar(
                     controller: searchController,
                     hintText: context.l10n.searchSavedPlaces,
@@ -465,24 +485,31 @@ class _PlacesSheet extends StatelessWidget {
                   const _NoPlaceResults()
                 else
                   for (final group in groups) ...[
-                    _SectionHeading(
-                      title: group.title,
-                      subtitle: group.subtitle,
-                      trailing: selectedAreaKey == allPlacesAreaKey
-                          ? TextButton.icon(
-                              onPressed: () => onCreatePlan(group),
-                              icon: const Icon(AppIcons.route, size: 18),
-                              label: Text(context.l10n.plan),
-                            )
-                          : null,
-                    ),
+                    if (selectedArea == null)
+                      _SectionHeading(
+                        title: group.title,
+                        subtitle: context.l10n.libraryPlaceCount(
+                          group.entities.length,
+                        ),
+                        trailing: group.key == unsortedPlacesAreaKey
+                            ? null
+                            : TextButton.icon(
+                                onPressed: () => onCreatePlan(group),
+                                icon: const Icon(AppIcons.route, size: 18),
+                                label: Text(context.l10n.plan),
+                              ),
+                      )
+                    else
+                      const SizedBox(height: 8),
                     for (final entity in group.entities)
                       _PlaceListRow(
                         entity: entity,
                         imageUrl: images[entity.key],
-                        selected: entity.key == selectedKey,
-                        onSelect: () => onSelected(entity),
+                        showCountry: group.key == unsortedPlacesAreaKey,
                         onOpen: () => onOpen(entity),
+                        onShowOnMap: entity.mention.hasCoordinates
+                            ? () => onShowOnMap(entity)
+                            : null,
                       ),
                   ],
               ],
@@ -494,19 +521,13 @@ class _PlacesSheet extends StatelessWidget {
   }
 
   List<PlaceArea> _visibleGroups() {
-    if (selectedAreaKey != allPlacesAreaKey) {
-      final selected = areas.firstWhere((area) => area.key == selectedAreaKey);
-      return [
-        PlaceArea(
-          key: selected.key,
-          title: selected.title,
-          subtitle: selected.subtitle,
-          entities: visiblePlaces,
-        ),
-      ];
-    }
     final visibleKeys = visiblePlaces.map((entity) => entity.key).toSet();
     return areas
+        .where(
+          (area) =>
+              selectedAreaKey == allPlacesAreaKey ||
+              area.key == selectedAreaKey,
+        )
         .map(
           (area) => PlaceArea(
             key: area.key,
@@ -522,32 +543,133 @@ class _PlacesSheet extends StatelessWidget {
   }
 }
 
-class _FocusedPlace extends StatelessWidget {
-  const _FocusedPlace({
+/// Swipe through the places in view; the map follows, and a pin tapped on
+/// the map brings its card to the front.
+class _PlaceCarousel extends StatefulWidget {
+  const _PlaceCarousel({
+    required this.places,
+    required this.images,
+    required this.selectedKey,
+    required this.onSelected,
+    required this.onOpen,
+  });
+
+  final List<LibraryEntity> places;
+  final Map<String, String?> images;
+  final String? selectedKey;
+  final ValueChanged<LibraryEntity> onSelected;
+  final ValueChanged<LibraryEntity> onOpen;
+
+  @override
+  State<_PlaceCarousel> createState() => _PlaceCarouselState();
+}
+
+class _PlaceCarouselState extends State<_PlaceCarousel> {
+  late final PageController _controller = PageController(
+    viewportFraction: 0.86,
+    initialPage: _selectedIndex,
+  );
+
+  int get _selectedIndex {
+    final index = widget.places.indexWhere(
+      (entity) => entity.key == widget.selectedKey,
+    );
+    return index < 0 ? 0 : index;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlaceCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_controller.hasClients) return;
+    final target = _selectedIndex;
+    final current = _controller.page?.round() ?? target;
+    if (target == current) return;
+    if ((target - current).abs() > 3 ||
+        MediaQuery.disableAnimationsOf(context)) {
+      _controller.jumpToPage(target);
+    } else {
+      unawaited(
+        _controller.animateToPage(
+          target,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 124,
+      child: PageView.builder(
+        controller: _controller,
+        padEnds: false,
+        itemCount: widget.places.length,
+        onPageChanged: (index) => widget.onSelected(widget.places[index]),
+        itemBuilder: (context, index) {
+          final entity = widget.places[index];
+          return Padding(
+            padding: EdgeInsets.fromLTRB(index == 0 ? 16 : 6, 8, 6, 8),
+            child: _PlaceCard(
+              entity: entity,
+              imageUrl: widget.images[entity.key],
+              selected: entity.key == widget.selectedKey,
+              onTap: () => widget.onOpen(entity),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PlaceCard extends StatelessWidget {
+  const _PlaceCard({
     required this.entity,
     required this.imageUrl,
+    required this.selected,
     required this.onTap,
   });
 
   final LibraryEntity entity;
   final String? imageUrl;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(22),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 112,
+    final tt = Theme.of(context).textTheme;
+    final why = entity.mention.whyMentioned?.trim() ?? '';
+    final locality = _placeLocality(context, entity, withCountry: false);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: selected ? cs.primary.withValues(alpha: 0.55) : cs.surface,
+          width: 1.5,
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
           child: Row(
             children: [
-              SizedBox(
-                width: 126,
+              AspectRatio(
+                aspectRatio: 0.92,
                 child: LibraryArtwork(
                   entity: entity,
                   imageUrlOverride: imageUrl ?? '',
@@ -556,7 +678,7 @@ class _FocusedPlace extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -565,27 +687,36 @@ class _FocusedPlace extends StatelessWidget {
                         entity.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        _placeMetadata(context, entity),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+                        style: tt.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      _PlaceStatusLabel(entity: entity),
+                      if (locality.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          locality,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                      if (why.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          why,
+                          maxLines: locality.isEmpty ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(right: 10),
-                child: Icon(AppIcons.chevronRight),
               ),
             ],
           ),
@@ -608,28 +739,54 @@ class _AreaSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    Widget chip({
+      required String label,
+      int? count,
+      required bool selected,
+      required VoidCallback onTap,
+    }) => ChoiceChip(
+      showCheckmark: false,
+      side: BorderSide.none,
+      selected: selected,
+      onSelected: (_) => onTap(),
+      label: Text.rich(
+        TextSpan(
+          text: label,
+          children: [
+            if (count != null)
+              TextSpan(
+                text: '  $count',
+                style: TextStyle(
+                  color: selected
+                      ? cs.onSecondaryContainer.withValues(alpha: 0.7)
+                      : cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
     return SizedBox(
       height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         children: [
-          ChoiceChip(
-            label: Text(context.l10n.all),
+          chip(
+            label: context.l10n.all,
             selected: selectedKey == allPlacesAreaKey,
-            side: BorderSide.none,
-            onSelected: (_) => onSelected(allPlacesAreaKey),
+            onTap: () => onSelected(allPlacesAreaKey),
           ),
-          const SizedBox(width: 8),
           for (final area in areas) ...[
-            ChoiceChip(
-              avatar: const AppIcon(AppIcons.place, size: 17),
-              label: Text('${area.title}  ${area.entities.length}'),
-              selected: selectedKey == area.key,
-              side: BorderSide.none,
-              onSelected: (_) => onSelected(area.key),
-            ),
             const SizedBox(width: 8),
+            chip(
+              label: area.title,
+              count: area.entities.length,
+              selected: selectedKey == area.key,
+              onTap: () => onSelected(area.key),
+            ),
           ],
         ],
       ),
@@ -641,117 +798,127 @@ class _PlaceListRow extends StatelessWidget {
   const _PlaceListRow({
     required this.entity,
     required this.imageUrl,
-    required this.selected,
-    required this.onSelect,
+    required this.showCountry,
     required this.onOpen,
+    required this.onShowOnMap,
   });
 
   final LibraryEntity entity;
   final String? imageUrl;
-  final bool selected;
-  final VoidCallback onSelect;
+  final bool showCountry;
   final VoidCallback onOpen;
+  final VoidCallback? onShowOnMap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: Material(
-        color: selected ? cs.surfaceContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onSelect,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                SizedBox.square(
-                  dimension: 76,
-                  child: LibraryArtwork(
-                    entity: entity,
-                    imageUrlOverride: imageUrl ?? '',
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entity.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        entity.mention.hasCoordinates
-                            ? _placeMetadata(context, entity)
-                            : '${_placeMetadata(context, entity)} · ${context.l10n.locationUnavailable}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      _PlaceStatusLabel(entity: entity),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: context.l10n.openNamedItem(entity.title),
-                  onPressed: onOpen,
-                  icon: const Icon(AppIcons.arrowForward),
-                ),
-              ],
+    final tt = Theme.of(context).textTheme;
+    final why = entity.mention.whyMentioned?.trim() ?? '';
+    final locality = _placeLocality(context, entity, withCountry: showCountry);
+    final meta = [
+      if (locality.isNotEmpty) locality,
+      ?_statusLabel(context, entity),
+    ].join(' · ');
+    return InkWell(
+      onTap: onOpen,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 64,
+              child: LibraryArtwork(
+                entity: entity,
+                imageUrlOverride: imageUrl ?? '',
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
-          ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entity.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                  if (why.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      why,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (onShowOnMap != null)
+              IconButton(
+                tooltip: context.l10n.showOnMap,
+                onPressed: onShowOnMap,
+                icon: const Icon(AppIcons.showOnMap),
+              )
+            else
+              const SizedBox(width: 48),
+          ],
         ),
       ),
     );
   }
 }
 
-class _PlaceStatusLabel extends StatelessWidget {
-  const _PlaceStatusLabel({required this.entity});
-
-  final LibraryEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final (icon, label) = switch (entity.status) {
-      LibraryItemStatus.planning => (
-        AppIcons.bookmarkSaved,
-        context.l10n.wantToVisit,
-      ),
-      LibraryItemStatus.completed => (
-        AppIcons.checkCircle,
-        context.l10n.libraryVisited,
-      ),
-      _ => (AppIcons.bookmark, context.l10n.savedPlace),
+/// Only states the person chose; "saved" is every row, so it says nothing.
+String? _statusLabel(BuildContext context, LibraryEntity entity) =>
+    switch (entity.status) {
+      LibraryItemStatus.planning => context.l10n.wantToVisit,
+      LibraryItemStatus.completed => context.l10n.libraryVisited,
+      _ => null,
     };
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppIcon(icon, size: 15, color: cs.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: cs.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
+
+/// City, or the region when the city repeats the name ("Kyrgyzstan,
+/// Kyrgyzstan" said nothing twice).
+String _placeLocality(
+  BuildContext context,
+  LibraryEntity entity, {
+  required bool withCountry,
+}) {
+  final title = entity.title.trim().toLowerCase();
+  final parts = <String>[];
+  for (final value in [
+    entity.mention.city,
+    if (withCountry) entity.mention.country,
+  ]) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) continue;
+    final lower = text.toLowerCase();
+    if (lower == title || parts.any((part) => part.toLowerCase() == lower)) {
+      continue;
+    }
+    parts.add(text);
   }
+  final locality = parts.join(', ');
+  // Says why the place has no pin and no "show on map".
+  if (!entity.mention.hasCoordinates) {
+    return locality.isEmpty
+        ? context.l10n.locationUnavailable
+        : '$locality · ${context.l10n.locationUnavailable}';
+  }
+  return locality;
 }
 
 class _ItineraryRow extends StatelessWidget {
@@ -936,12 +1103,4 @@ class _PlacesEmptyState extends StatelessWidget {
       ),
     );
   }
-}
-
-String _placeMetadata(BuildContext context, LibraryEntity entity) {
-  final label = [
-    entity.mention.city,
-    entity.mention.country,
-  ].whereType<String>().where((value) => value.trim().isNotEmpty).join(', ');
-  return label.isEmpty ? context.l10n.savedPlace : label;
 }

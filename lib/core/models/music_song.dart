@@ -32,6 +32,30 @@ class MusicSongQuery {
     return MusicSongQuery(title: cleanTitle, artist: cleanArtist);
   }
 
+  /// A notable item enrichment tagged as a song, whatever its broad type
+  /// ("Fireflies" arrives as a product labelled Song, "Human Being" as other
+  /// labelled Song title). Quotes labelled Song are lyrics, not songs.
+  static bool isSongItem({required String? type, required String? label}) {
+    final kind = type?.trim().toLowerCase() ?? '';
+    if ({'song', 'track'}.contains(kind)) return true;
+    if (kind == 'quote') return false;
+    if (!{
+      'other',
+      'reference',
+      '',
+      'product',
+      'music',
+      'title',
+    }.contains(kind)) {
+      return false;
+    }
+    final name = label?.trim().toLowerCase() ?? '';
+    return _songLabels.contains(name) ||
+        _songLabels.contains(
+          name.replaceFirst(RegExp(r'\s+(title|name)$'), ''),
+        );
+  }
+
   static const _songLabels = {
     'song',
     'track',

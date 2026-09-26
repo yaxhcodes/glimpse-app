@@ -224,7 +224,7 @@ class _ArtworkFallback extends StatelessWidget {
       if (year.isNotEmpty) year,
     ].join(' · ');
     if (entity.kind == LibraryEntityKind.place) {
-      return const _PlaceArtworkFallback();
+      return _PlaceArtworkFallback(icon: placeKindIcon(entity.title));
     }
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -315,8 +315,126 @@ class _ArtworkFallback extends StatelessWidget {
   }
 }
 
+/// What kind of place a name describes, so a place without a photo still
+/// reads as a peak, a lake or a stay instead of one generic pin.
+IconData placeKindIcon(String title) {
+  final name = ' ${title.toLowerCase()} ';
+  bool has(List<String> words) => words.any(name.contains);
+  if (has([
+    ' hotel',
+    ' hostel',
+    ' resort',
+    ' inn ',
+    ' lodge',
+    ' guesthouse',
+    ' homestay',
+    ' auberge',
+    ' villa',
+  ])) {
+    return AppIcons.placeStay;
+  }
+  if (has([' camp', ' yurt', ' campsite'])) return AppIcons.placeCamp;
+  if (has([' cafe', ' café', ' coffee', ' bakery'])) return AppIcons.placeCafe;
+  if (has([
+    ' restaurant',
+    ' dhaba',
+    ' bistro',
+    ' diner',
+    ' eatery',
+    ' food',
+    ' market',
+  ])) {
+    return AppIcons.food;
+  }
+  if (has([
+    ' temple',
+    ' mandir',
+    ' church',
+    ' mosque',
+    ' monastery',
+    ' cathedral',
+    ' shrine',
+    ' gurudwara',
+    ' abbey',
+  ])) {
+    return AppIcons.placeWorship;
+  }
+  if (has([
+    ' castle',
+    ' fort',
+    ' palace',
+    ' château',
+    ' chateau',
+    ' citadel',
+  ])) {
+    return AppIcons.placeCastle;
+  }
+  if (has([
+    ' museum',
+    ' gallery',
+    ' observatory',
+    ' monument',
+    ' memorial',
+    ' mantar',
+  ])) {
+    return AppIcons.placeLandmark;
+  }
+  if (has([
+    ' lake',
+    ' kul ',
+    ' river',
+    ' falls',
+    ' waterfall',
+    ' cascade',
+    ' beach',
+    ' bay',
+    ' sea',
+    ' gorge',
+    ' gouffre',
+    ' lagoon',
+    ' fjord',
+    ' spring',
+  ])) {
+    return AppIcons.placeWater;
+  }
+  if (has([
+    ' mount',
+    ' mont ',
+    ' peak',
+    ' valley',
+    ' canyon',
+    ' pass',
+    ' plateau',
+    ' hill',
+    ' desert',
+    ' glacier',
+    ' trek',
+    ' trail',
+    ' rock',
+    ' preikestolen',
+  ])) {
+    return AppIcons.mountains;
+  }
+  if (has([' park', ' forest', ' sanctuary', ' reserve', ' garden', ' wood'])) {
+    return AppIcons.forest;
+  }
+  if (has([
+    ' city',
+    ' downtown',
+    ' town',
+    ' village',
+    ' district',
+    ' old town',
+  ])) {
+    return AppIcons.placeCity;
+  }
+  return AppIcons.place;
+}
+
 class _PlaceArtworkFallback extends StatelessWidget {
-  const _PlaceArtworkFallback();
+  const _PlaceArtworkFallback({required this.icon});
+
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -324,10 +442,18 @@ class _PlaceArtworkFallback extends StatelessWidget {
     return CustomPaint(
       painter: _PlaceFallbackPainter(
         background: cs.surfaceContainerHigh,
-        road: cs.outlineVariant.withValues(alpha: 0.68),
-        pin: cs.onSurfaceVariant.withValues(alpha: 0.72),
+        road: cs.outlineVariant.withValues(alpha: 0.5),
+        pin: cs.onSurfaceVariant.withValues(alpha: 0.4),
       ),
-      child: const Center(child: AppIcon(AppIcons.place, size: 30)),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Center(
+          child: AppIcon(
+            icon,
+            size: (constraints.biggest.shortestSide * 0.36).clamp(18, 44),
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 }

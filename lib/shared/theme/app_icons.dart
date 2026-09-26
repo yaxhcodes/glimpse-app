@@ -153,7 +153,6 @@ abstract final class AppIcons {
   static const network = PhosphorIconsBold.speedometer;
   static const news = PhosphorIconsBold.newspaper;
   static const arrowUpRight = PhosphorIconsBold.arrowUpRight;
-  static const arrowUpLeft = PhosphorIconsBold.arrowUpLeft;
   static const camera = PhosphorIconsBold.camera;
   static const play = PhosphorIconsBold.playCircle;
   static const listAdd = PhosphorIconsBold.listPlus;
@@ -196,6 +195,15 @@ abstract final class AppIcons {
   static const timer = PhosphorIconsBold.timer;
   static const topic = PhosphorIconsBold.folders;
   static const explorePlaces = PhosphorIconsBold.globeHemisphereWest;
+  static const placeStay = PhosphorIconsBold.bed;
+  static const placeCamp = PhosphorIconsBold.tent;
+  static const placeWater = PhosphorIconsBold.waves;
+  static const placeCity = PhosphorIconsBold.buildings;
+  static const placeLandmark = PhosphorIconsBold.bank;
+  static const placeWorship = PhosphorIconsBold.flowerLotus;
+  static const placeCastle = PhosphorIconsBold.castleTurret;
+  static const placeCafe = PhosphorIconsBold.coffee;
+  static const showOnMap = PhosphorIconsBold.mapPinArea;
   static const trendUp = PhosphorIconsBold.trendUp;
   static const adjust = PhosphorIconsBold.slidersHorizontal;
   static const verified = PhosphorIconsBold.sealCheck;

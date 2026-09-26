@@ -1098,6 +1098,8 @@ class EnrichedMention {
 
   String? get artworkUrl => posterUrl;
 
+  /// Excludes 0,0: the backend once wrote it for places it could not locate,
+  /// and those saves still carry it.
   bool get hasCoordinates =>
       latitude != null &&
       longitude != null &&
@@ -1106,7 +1108,8 @@ class EnrichedMention {
       latitude! >= -90 &&
       latitude! <= 90 &&
       longitude! >= -180 &&
-      longitude! <= 180;
+      longitude! <= 180 &&
+      !(latitude == 0 && longitude == 0);
 
   EnrichedMention copyWith({
     String? title,

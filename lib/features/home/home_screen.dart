@@ -1040,29 +1040,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ? EntranceMotion.stagger(listIndex)
                               : Duration.zero,
                           child: SwipeableUrlCard(
-                          filledSwipeIcons: true,
-                          showTags: false,
-                          showEnrichmentActions: false,
-                          key: ValueKey(url.id),
-                          url: url,
-                          contentPadding: const EdgeInsets.all(10),
-                          selectionMode: selectionState.isActive,
-                          isSelected: selectionState.isSelected(url.id),
-                          onSelectionStart: () =>
-                              selectionNotifier.startWith(url.id),
-                          onSelectionToggle: () =>
-                              selectionNotifier.toggle(url.id),
-                          onTap: () => context.push(
-                            '/url/${url.id}',
-                            extra: section.ids,
-                          ),
-                          onViewPinned: () {
-                            _scrollController.animateTo(
-                              0,
-                              duration: const Duration(milliseconds: 260),
-                              curve: Curves.easeOutCubic,
-                            );
-                          },
+                            filledSwipeIcons: true,
+                            showTags: false,
+                            showEnrichmentActions: false,
+                            key: ValueKey(url.id),
+                            url: url,
+                            contentPadding: const EdgeInsets.all(10),
+                            selectionMode: selectionState.isActive,
+                            isSelected: selectionState.isSelected(url.id),
+                            onSelectionStart: () =>
+                                selectionNotifier.startWith(url.id),
+                            onSelectionToggle: () =>
+                                selectionNotifier.toggle(url.id),
+                            onTap: () => context.push(
+                              '/url/${url.id}',
+                              extra: section.ids,
+                            ),
+                            onViewPinned: () {
+                              _scrollController.animateTo(
+                                0,
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOutCubic,
+                              );
+                            },
                           ),
                         );
                       }, childCount: section.urls.length),
@@ -1071,6 +1071,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SliverToBoxAdapter(child: SizedBox(height: 96)),
                 ],
               ),
+            ),
+          ),
+          // The app bar floats away on scroll; without this the feed runs
+          // under the clock and battery icons.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.paddingOf(context).top,
+            child: const IgnorePointer(
+              child: AppGlassSurface(blur: false, opacity: 0.94),
             ),
           ),
         ],
@@ -1219,10 +1230,7 @@ class _SavesHeader extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
-              child: _CompactReadFilter(
-                filter: filter,
-                onChanged: onChanged,
-              ),
+              child: _CompactReadFilter(filter: filter, onChanged: onChanged),
             ),
           ),
         ],
@@ -1231,38 +1239,193 @@ class _SavesHeader extends StatelessWidget {
   }
 }
 
-/// A small three-way segmented pill: one line, ~30px tall.
-class _CompactReadFilter extends StatelessWidget {
+/// One small pill naming the current filter ("All ⌄"). Tapping it grows the
+/// pill into All / Unread / Read; choosing one, or tapping elsewhere, folds
+/// it back. Tinted while a filter other than All is on, so a filtered feed
+/// is never a surprise.
+///
+/// A single row throughout: the unchosen options widen in place from zero
+/// on one curve, so the chosen one never jumps or cross-fades.
+class _CompactReadFilter extends StatefulWidget {
   const _CompactReadFilter({required this.filter, required this.onChanged});
 
   final _ReadFilter filter;
   final ValueChanged<_ReadFilter> onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  State<_CompactReadFilter> createState() => _CompactReadFilterState();
+}
+
+class _CompactReadFilterState extends State<_CompactReadFilter>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+    reverseDuration: const Duration(milliseconds: 240),
+  );
+  late final Animation<double> _open = CurvedAnimation(
+    parent: _controller,
+    curve: AppMotion.emphasizedDecelerate,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  /// The option just tapped. It stays in view and highlighted while the pill
+  /// folds; the feed is filtered only once the fold finishes, so rebuilding
+  /// the list never competes with the animation.
+  _ReadFilter? _pending;
+
+  _ReadFilter get _shown => _pending ?? widget.filter;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addStatusListener((status) {
+      if (status != AnimationStatus.dismissed) return;
+      final pending = _pending;
+      if (pending == null) return;
+      _pending = null;
+      if (pending != widget.filter) widget.onChanged(pending);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool get _isOpen =>
+      _controller.status == AnimationStatus.forward ||
+      _controller.status == AnimationStatus.completed;
+
+  String _label(BuildContext context, _ReadFilter option) {
     final strings = context.l10n;
-    final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: ShapeDecoration(
-        color: cs.surfaceContainerLow,
-        shape: const StadiumBorder(),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final option in _ReadFilter.values)
-              _CompactReadFilterSegment(
-                label: switch (option) {
-                  _ReadFilter.all => strings.all,
-                  _ReadFilter.unread => strings.unread,
-                  _ReadFilter.read => strings.read,
-                },
-                selected: option == filter,
-                onTap: () => onChanged(option),
+    return switch (option) {
+      _ReadFilter.all => strings.all,
+      _ReadFilter.unread => strings.unread,
+      _ReadFilter.read => strings.read,
+    };
+  }
+
+  void _setOpen(bool open) {
+    if (_isOpen == open) return;
+    HapticFeedback.selectionClick();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = open ? 1 : 0;
+    } else if (open) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+    setState(() {});
+  }
+
+  void _tap(_ReadFilter option) {
+    if (!_isOpen) {
+      _setOpen(true);
+      return;
+    }
+    setState(() => _pending = option);
+    _setOpen(false);
+    // Reduced motion snaps shut without a dismissed transition to wait on.
+    if (_controller.isDismissed && _pending != null) {
+      final pending = _pending!;
+      _pending = null;
+      if (pending != widget.filter) widget.onChanged(pending);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final filtered = _shown != _ReadFilter.all;
+    final labelStyle = theme.textTheme.labelMedium;
+
+    return TapRegion(
+      onTapOutside: _isOpen ? (_) => _setOpen(false) : null,
+      child: RepaintBoundary(
+        child: AnimatedBuilder(
+          animation: _open,
+          builder: (context, _) {
+            final t = _open.value;
+            final pillColor = Color.lerp(
+              filtered ? cs.secondaryContainer : cs.surfaceContainerLow,
+              cs.surfaceContainerLow,
+              t,
+            )!;
+            return DecoratedBox(
+              decoration: ShapeDecoration(
+                color: pillColor,
+                shape: const StadiumBorder(),
               ),
-          ],
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final option in _ReadFilter.values)
+                      if (option == _shown)
+                        _CompactReadFilterSegment(
+                          label: _label(context, option),
+                          style: labelStyle,
+                          // The chosen option's highlight only appears once
+                          // there is something to choose between.
+                          highlight: t,
+                          foreground: Color.lerp(
+                            filtered ? cs.onSecondaryContainer : cs.onSurface,
+                            cs.onSecondaryContainer,
+                            t,
+                          )!,
+                          onTap: () => _tap(option),
+                        )
+                      else
+                        ClipRect(
+                          child: Align(
+                            alignment: Alignment.center,
+                            widthFactor: t,
+                            child: Opacity(
+                              opacity: Curves.easeIn.transform(t),
+                              child: _CompactReadFilterSegment(
+                                label: _label(context, option),
+                                style: labelStyle,
+                                highlight: 0,
+                                foreground: cs.onSurfaceVariant,
+                                onTap: () => _tap(option),
+                              ),
+                            ),
+                          ),
+                        ),
+                    // The chevron folds away as the options open; tapping it
+                    // opens the pill like the label does.
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _setOpen(true),
+                      child: ClipRect(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: 1 - t,
+                          child: Opacity(
+                            opacity: 1 - t,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 7),
+                              child: Icon(
+                                AppIcons.chevronDown,
+                                size: 13,
+                                color: filtered
+                                    ? cs.onSecondaryContainer
+                                    : cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -1272,38 +1435,46 @@ class _CompactReadFilter extends StatelessWidget {
 class _CompactReadFilterSegment extends StatelessWidget {
   const _CompactReadFilterSegment({
     required this.label,
-    required this.selected,
+    required this.style,
+    required this.highlight,
+    required this.foreground,
     required this.onTap,
   });
 
   final String label;
-  final bool selected;
+  final TextStyle? style;
+
+  /// 0 = no selected fill, 1 = full selected fill.
+  final double highlight;
+  final Color foreground;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final foreground = selected ? cs.onSecondaryContainer : cs.onSurfaceVariant;
-    final style = theme.textTheme.labelMedium?.copyWith(
-      color: foreground,
-      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-    );
+    final cs = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
-      selected: selected,
+      selected: highlight > 0.5,
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
-        child: AnimatedContainer(
-          duration: AppMotion.short,
-          curve: AppMotion.emphasizedDecelerate,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: DecoratedBox(
           decoration: ShapeDecoration(
-            color: selected ? cs.secondaryContainer : Colors.transparent,
+            color: cs.secondaryContainer.withValues(alpha: highlight),
             shape: const StadiumBorder(),
           ),
-          child: Text(label, style: style),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              style: style?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ),
       ),
     );

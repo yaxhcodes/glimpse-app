@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/saved_url.dart';
+import '../../core/services/category_resolver.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/notifications/curated_notification_media.dart';
+import '../../shared/widgets/url_card.dart';
 
 class GlimpseSaveTile extends StatelessWidget {
   const GlimpseSaveTile({
@@ -42,11 +44,18 @@ class GlimpseSaveTile extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: featured ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          // The same "Instagram · 2d ago" line as the Home feed.
           subtitle: Text(
-            MaterialLocalizations.of(context).formatMediumDate(url.savedAt),
+            [
+              CategoryResolver.displaySourceName(
+                rawUrl: url.rawUrl,
+                fallbackDomain: url.domain,
+              ),
+              UrlCard.timeAgoSaved(context, url.savedAt),
+            ].where((part) => part.trim().isNotEmpty).join(' · '),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

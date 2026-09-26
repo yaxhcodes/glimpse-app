@@ -11,6 +11,7 @@ import '../../core/services/rediscover_utility_profile.dart';
 import '../../core/services/tag_analyzer.dart';
 import '../../core/services/title_resolver.dart';
 import '../../shared/widgets/app_glass_surface.dart';
+import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../home/home_provider.dart';
 import 'journey_visual.dart';
@@ -340,24 +341,27 @@ class _MemoryActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Feedback, not the point of the page: quiet text actions rather than
+    // two outlined buttons competing with the saves below.
+    final style = TextButton.styleFrom(
+      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      visualDensity: VisualDensity.compact,
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+      padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
       child: Row(
         children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onSnooze,
-              icon: const Icon(AppIcons.clock, size: 18),
-              label: const Text('Not now'),
-            ),
+          TextButton.icon(
+            style: style,
+            onPressed: onSnooze,
+            icon: const Icon(AppIcons.clock, size: 17),
+            label: const Text('Not now'),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onLessLikeThis,
-              icon: const Icon(AppIcons.dislike, size: 18),
-              label: const Text('Less like this'),
-            ),
+          TextButton.icon(
+            style: style,
+            onPressed: onLessLikeThis,
+            icon: const Icon(AppIcons.dislike, size: 17),
+            label: const Text('Less like this'),
           ),
         ],
       ),
@@ -386,7 +390,6 @@ class _MemorySaveTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final thumbnail = url.thumbnailUrl?.trim();
     return Material(
       color: featured
           ? cs.secondaryContainer.withValues(alpha: 0.34)
@@ -399,19 +402,12 @@ class _MemorySaveTile extends StatelessWidget {
           padding: EdgeInsets.all(featured ? 14 : 11),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(featured ? 14 : 12),
-                child: SizedBox(
-                  width: featured ? 72 : 54,
-                  height: featured ? 72 : 54,
-                  child: thumbnail != null && thumbnail.isNotEmpty
-                      ? Image.network(
-                          thumbnail,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _fallback(cs),
-                        )
-                      : _fallback(cs),
-                ),
+              LinkCardThumbnail.build(
+                url: url,
+                isRead: false,
+                context: context,
+                size: featured ? 72 : 54,
+                borderRadius: featured ? 14 : 12,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -467,13 +463,6 @@ class _MemorySaveTile extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _fallback(ColorScheme cs) {
-    return ColoredBox(
-      color: cs.surfaceContainerHighest,
-      child: AppIcon(AppIcons.bookmark, color: cs.onSurfaceVariant),
     );
   }
 }

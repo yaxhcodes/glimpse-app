@@ -772,6 +772,28 @@ const clusterPatternLibrary = <PatternCategoryDefinition>[
     ),
   ),
   PatternCategoryDefinition(
+    id: 'spirituality',
+    aliases: [
+      'spirituality',
+      'spiritual',
+      'hinduism',
+      'buddhism',
+      'religion',
+      'devotional',
+      'bhakti',
+      'vedanta',
+      'meditation',
+      'faith',
+      'scripture',
+    ],
+    recipe: PatternRecipe(
+      grammar: PatternGrammar.concentricGeometry,
+      composition: PatternComposition.centralFocus,
+      density: 0.44,
+      scale: 1.18,
+    ),
+  ),
+  PatternCategoryDefinition(
     id: 'philosophy',
     aliases: [
       'philosophy',

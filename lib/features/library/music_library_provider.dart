@@ -49,7 +49,9 @@ class MusicLibraryState {
               title: song.title,
               type: 'music',
               creator: song.artist,
-              posterUrl: song.artworkUrl ?? entity.artworkUrl,
+              // Art from the save itself (a Spotify link's own cover) beats
+              // a catalog match, which can land on a compilation.
+              posterUrl: entity.artworkUrl ?? song.artworkUrl,
               year: song.year ?? entity.mention.year,
               subtype: 'song',
               catalogId: song.id,

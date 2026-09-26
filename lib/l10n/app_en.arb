@@ -9,8 +9,18 @@
   "musicDetailsUnavailable": "Some song details could not be loaded.",
   "loadingMusicDetails": "Loading song details…",
   "couldNotSaveMusicProvider": "Could not save your music app. Please try again.",
-  "libraryMusicEmptyDescription": "Songs found in your saved links will appear here.",
-  "libraryMusicDescription": "Songs found in your saves",
+  "libraryMusicEmptyDescription": "Songs and artists found in your saved links will appear here.",
+  "libraryMusicDescription": "Songs and artists from your saves",
+  "libraryMusicSongs": "Songs",
+  "libraryMusicArtists": "Artists",
+  "libraryArtistMentions": "{count, plural, =1{Mentioned in 1 save} other{Mentioned in {count} saves}}",
+  "@libraryArtistMentions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "libraryMusic": "Music",
   "@@locale": "en",
   "appName": "Glimpse",
@@ -488,7 +498,6 @@
   "growingInterests": "Growing interests",
   "quieterInterests": "Quieter interests",
   "interestStats": "{patterns, plural, =1{1 pattern} other{{patterns} patterns}} · {saves, plural, =1{1 save} other{{saves} saves}}",
-  "interestGroupedStats": "{patterns, plural, =1{1 pattern} other{{patterns} patterns}} · {grouped} of {saves} saves grouped",
   "noPatternsScanned": "No patterns yet · {saves} saves scanned",
   "rebuildMap": "Rebuild map",
   "couldNotBuildClusters": "Could not build clusters",
@@ -613,17 +622,16 @@
   "libraryBuildsAsYouSave": "It builds as you save",
   "libraryEmptyDescription": "Save recommendations for books, movies, places, and music. Glimpse will organize the things inside them here.",
   "libraryUnavailable": "Library is unavailable right now",
+  "showOnMap": "Show on map",
   "yourPlaces": "Your places",
-  "placesAreasSummary": "{places, plural, =1{1 place} other{{places} places}} · {areas, plural, =1{1 area} other{{areas} areas}}",
+  "placesAreasSummary": "{places, plural, =1{1 place} other{{places} places}} · {areas, plural, =1{1 country} other{{areas} countries}}",
   "planThisArea": "Plan this area",
   "planAnItinerary": "Plan an itinerary",
   "searchSavedPlaces": "Search saved places",
   "yourPlans": "Your plans",
   "plan": "Plan",
   "locationUnavailable": "Location unavailable",
-  "openNamedItem": "Open {name}",
   "wantToVisit": "Want to visit",
-  "savedPlace": "Saved place",
   "planAVisit": "Plan a visit",
   "maps": "Maps",
   "noSavedPlacesMatch": "No saved places match this search.",

@@ -72,8 +72,12 @@ class _LibraryHomeState extends ConsumerState<LibraryHome> {
         return CustomScrollView(
           key: const PageStorageKey('automatic-library-home'),
           slivers: [
-            SliverPadding(padding: EdgeInsets.symmetric(horizontal: horizontal),
-              sliver: const SliverToBoxAdapter(child: FirstUseGuide(kind: FirstUseKind.library))),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: horizontal),
+              sliver: const SliverToBoxAdapter(
+                child: FirstUseGuide(kind: FirstUseKind.library),
+              ),
+            ),
             if (backfill.isRunning || backfill.failed > 0)
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(horizontal, 6, horizontal, 0),
@@ -224,15 +228,17 @@ class _LibraryDashboard extends StatelessWidget {
           count: places.length,
           onTap: places.isEmpty ? null : () => onOpen(LibraryEntityKind.place),
           horizontal: true,
-          preview: const SizedBox.square(
-            dimension: 64,
-            child: _PlacesPreview(),
+          preview: _CoverFan(
+            entities: places,
+            imageOf: (entity) => entity.placeImageUrl,
+            fallback: const _PlacesPreview(),
           ),
         ),
         if (music.isNotEmpty) ...[
           const SizedBox(height: 12),
           _MusicDestinationCard(
             count: music.length,
+            entities: music,
             onTap: () => onOpen(LibraryEntityKind.music),
           ),
         ],
@@ -242,9 +248,14 @@ class _LibraryDashboard extends StatelessWidget {
 }
 
 class _MusicDestinationCard extends StatelessWidget {
-  const _MusicDestinationCard({required this.count, this.onTap});
+  const _MusicDestinationCard({
+    required this.count,
+    this.entities = const [],
+    this.onTap,
+  });
 
   final int count;
+  final List<LibraryEntity> entities;
   final VoidCallback? onTap;
 
   @override
@@ -255,15 +266,75 @@ class _MusicDestinationCard extends StatelessWidget {
       count: count,
       horizontal: true,
       onTap: onTap ?? () => context.push('/library/music'),
-      preview: SizedBox.square(
-        dimension: 64,
-        child: DecoratedBox(
+      preview: _CoverFan(
+        entities: entities,
+        imageOf: (entity) => entity.artworkUrl,
+        fallback: DecoratedBox(
           decoration: BoxDecoration(
             color: cs.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Icon(AppIcons.music, color: cs.primary, size: 28),
         ),
+      ),
+    );
+  }
+}
+
+/// Up to three real covers (album art, place photos) overlapping like the
+/// book and film stacks above, so every Library row shows what is inside.
+/// Falls back to [fallback] until something has art.
+class _CoverFan extends StatelessWidget {
+  const _CoverFan({
+    required this.entities,
+    required this.imageOf,
+    required this.fallback,
+  });
+
+  final List<LibraryEntity> entities;
+  final String? Function(LibraryEntity) imageOf;
+  final Widget fallback;
+
+  static const _size = 64.0;
+  static const _step = 22.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final seen = <String>{};
+    final covers = [
+      for (final entity in entities)
+        if ((imageOf(entity)?.trim() ?? '') case final url
+            when url.isNotEmpty && seen.add(url))
+          (entity, url),
+    ].take(3).toList(growable: false);
+    if (covers.isEmpty) {
+      return SizedBox.square(dimension: _size, child: fallback);
+    }
+    return SizedBox(
+      width: _size + _step * (covers.length - 1),
+      height: _size,
+      child: Stack(
+        children: [
+          for (var index = covers.length - 1; index >= 0; index--)
+            Positioned(
+              left: _step * index,
+              child: Container(
+                width: _size,
+                height: _size,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainer,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: LibraryArtwork(
+                  entity: covers[index].$1,
+                  imageUrlOverride: covers[index].$2,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

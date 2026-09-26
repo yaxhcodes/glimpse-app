@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -168,56 +170,59 @@ class _EntityDetail extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (entity.kind == LibraryEntityKind.place)
-                        _PlaceHeader(
-                          entity: entity,
-                          onStatusChanged: onStatusChanged,
-                        )
-                      else
-                        _MediaHeader(
-                          entity: entity,
-                          onStatusChanged: onStatusChanged,
-                        ),
-                      if (entity.kind == LibraryEntityKind.book &&
-                          entity.status == LibraryItemStatus.active) ...[
-                        const SizedBox(height: 24),
-                        LibraryReadingProgressCard(
-                          entity: entity,
-                          onPageChanged: onReadingPageChanged,
-                        ),
-                      ],
-                      if (entity.kind == LibraryEntityKind.place &&
-                          entity.genres.isNotEmpty) ...[
+            child: _CoverWash(
+              entity: entity,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (entity.kind == LibraryEntityKind.place)
+                          _PlaceHeader(
+                            entity: entity,
+                            onStatusChanged: onStatusChanged,
+                          )
+                        else
+                          _MediaHeader(
+                            entity: entity,
+                            onStatusChanged: onStatusChanged,
+                          ),
+                        if (entity.kind == LibraryEntityKind.book &&
+                            entity.status == LibraryItemStatus.active) ...[
+                          const SizedBox(height: 24),
+                          LibraryReadingProgressCard(
+                            entity: entity,
+                            onPageChanged: onReadingPageChanged,
+                          ),
+                        ],
+                        if (entity.kind == LibraryEntityKind.place &&
+                            entity.genres.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final genre in entity.genres)
+                                LibraryGenreChip(label: genre),
+                            ],
+                          ),
+                        ],
+                        if (entity.kind == LibraryEntityKind.movie &&
+                            plot.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          _PlotSummary(plot: plot),
+                        ],
+                        if (reasons.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          _WhyItMattered(reasons: reasons),
+                        ],
                         const SizedBox(height: 20),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final genre in entity.genres)
-                              LibraryGenreChip(label: genre),
-                          ],
-                        ),
+                        _SourceSaves(entity: entity),
                       ],
-                      if (entity.kind == LibraryEntityKind.movie &&
-                          plot.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        _PlotSummary(plot: plot),
-                      ],
-                      if (reasons.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        _WhyItMattered(reasons: reasons),
-                      ],
-                      const SizedBox(height: 20),
-                      _SourceSaves(entity: entity),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -225,6 +230,65 @@ class _EntityDetail extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The cover, heavily blurred, washing softly behind the header and fading
+/// into the page: the page takes on the colour of the book or film without
+/// a colour-extraction pass.
+class _CoverWash extends StatelessWidget {
+  const _CoverWash({required this.entity, required this.child});
+
+  final LibraryEntity entity;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final artwork = entity.kind == LibraryEntityKind.place
+        ? null
+        : entity.artworkUrl?.trim();
+    if (artwork == null || artwork.isEmpty) return child;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Stack(
+      children: [
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 380,
+          child: IgnorePointer(
+            child: RepaintBoundary(
+              child: ShaderMask(
+                blendMode: BlendMode.dstIn,
+                shaderCallback: (bounds) => const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black, Colors.transparent],
+                  stops: [0.1, 1],
+                ).createShader(bounds),
+                child: Opacity(
+                  opacity: dark ? 0.42 : 0.3,
+                  child: ImageFiltered(
+                    imageFilter: ImageFilter.blur(
+                      sigmaX: 40,
+                      sigmaY: 40,
+                      tileMode: TileMode.decal,
+                    ),
+                    child: CachedNetworkImage(
+                      imageUrl: artwork,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 200,
+                      errorWidget: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        child,
+      ],
     );
   }
 }

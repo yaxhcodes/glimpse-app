@@ -169,14 +169,32 @@ abstract class AppLocalizations {
   /// No description provided for @libraryMusicEmptyDescription.
   ///
   /// In en, this message translates to:
-  /// **'Songs found in your saved links will appear here.'**
+  /// **'Songs and artists found in your saved links will appear here.'**
   String get libraryMusicEmptyDescription;
 
   /// No description provided for @libraryMusicDescription.
   ///
   /// In en, this message translates to:
-  /// **'Songs found in your saves'**
+  /// **'Songs and artists from your saves'**
   String get libraryMusicDescription;
+
+  /// No description provided for @libraryMusicSongs.
+  ///
+  /// In en, this message translates to:
+  /// **'Songs'**
+  String get libraryMusicSongs;
+
+  /// No description provided for @libraryMusicArtists.
+  ///
+  /// In en, this message translates to:
+  /// **'Artists'**
+  String get libraryMusicArtists;
+
+  /// No description provided for @libraryArtistMentions.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Mentioned in 1 save} other{Mentioned in {count} saves}}'**
+  String libraryArtistMentions(int count);
 
   /// No description provided for @libraryMusic.
   ///
@@ -2782,12 +2800,6 @@ abstract class AppLocalizations {
   /// **'{patterns, plural, =1{1 pattern} other{{patterns} patterns}} · {saves, plural, =1{1 save} other{{saves} saves}}'**
   String interestStats(num patterns, num saves);
 
-  /// No description provided for @interestGroupedStats.
-  ///
-  /// In en, this message translates to:
-  /// **'{patterns, plural, =1{1 pattern} other{{patterns} patterns}} · {grouped} of {saves} saves grouped'**
-  String interestGroupedStats(Object grouped, num patterns, Object saves);
-
   /// No description provided for @noPatternsScanned.
   ///
   /// In en, this message translates to:
@@ -3532,6 +3544,12 @@ abstract class AppLocalizations {
   /// **'Library is unavailable right now'**
   String get libraryUnavailable;
 
+  /// No description provided for @showOnMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Show on map'**
+  String get showOnMap;
+
   /// No description provided for @yourPlaces.
   ///
   /// In en, this message translates to:
@@ -3541,7 +3559,7 @@ abstract class AppLocalizations {
   /// No description provided for @placesAreasSummary.
   ///
   /// In en, this message translates to:
-  /// **'{places, plural, =1{1 place} other{{places} places}} · {areas, plural, =1{1 area} other{{areas} areas}}'**
+  /// **'{places, plural, =1{1 place} other{{places} places}} · {areas, plural, =1{1 country} other{{areas} countries}}'**
   String placesAreasSummary(num areas, num places);
 
   /// No description provided for @planThisArea.
@@ -3580,23 +3598,11 @@ abstract class AppLocalizations {
   /// **'Location unavailable'**
   String get locationUnavailable;
 
-  /// No description provided for @openNamedItem.
-  ///
-  /// In en, this message translates to:
-  /// **'Open {name}'**
-  String openNamedItem(Object name);
-
   /// No description provided for @wantToVisit.
   ///
   /// In en, this message translates to:
   /// **'Want to visit'**
   String get wantToVisit;
-
-  /// No description provided for @savedPlace.
-  ///
-  /// In en, this message translates to:
-  /// **'Saved place'**
-  String get savedPlace;
 
   /// No description provided for @planAVisit.
   ///

@@ -43,10 +43,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get libraryMusicEmptyDescription =>
-      'Songs found in your saved links will appear here.';
+      'Songs and artists found in your saved links will appear here.';
 
   @override
-  String get libraryMusicDescription => 'Songs found in your saves';
+  String get libraryMusicDescription => 'Songs and artists from your saves';
+
+  @override
+  String get libraryMusicSongs => 'Songs';
+
+  @override
+  String get libraryMusicArtists => 'Artists';
+
+  @override
+  String libraryArtistMentions(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Mentioned in $count saves',
+      one: 'Mentioned in 1 save',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get libraryMusic => 'Music';
@@ -1519,17 +1536,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String interestGroupedStats(Object grouped, num patterns, Object saves) {
-    String _temp0 = intl.Intl.pluralLogic(
-      patterns,
-      locale: localeName,
-      other: '$patterns patterns',
-      one: '1 pattern',
-    );
-    return '$_temp0 · $grouped of $saves saves grouped';
-  }
-
-  @override
   String noPatternsScanned(Object saves) {
     return 'No patterns yet · $saves saves scanned';
   }
@@ -2007,6 +2013,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get libraryUnavailable => 'Library is unavailable right now';
 
   @override
+  String get showOnMap => 'Show on map';
+
+  @override
   String get yourPlaces => 'Your places';
 
   @override
@@ -2020,8 +2029,8 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp1 = intl.Intl.pluralLogic(
       areas,
       locale: localeName,
-      other: '$areas areas',
-      one: '1 area',
+      other: '$areas countries',
+      one: '1 country',
     );
     return '$_temp0 · $_temp1';
   }
@@ -2045,15 +2054,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get locationUnavailable => 'Location unavailable';
 
   @override
-  String openNamedItem(Object name) {
-    return 'Open $name';
-  }
-
-  @override
   String get wantToVisit => 'Want to visit';
-
-  @override
-  String get savedPlace => 'Saved place';
 
   @override
   String get planAVisit => 'Plan a visit';

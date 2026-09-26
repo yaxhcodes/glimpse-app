@@ -43,11 +43,27 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get libraryMusicEmptyDescription =>
-      'Músicas encontradas nos seus links salvos aparecerão aqui.';
+      'Músicas e artistas encontrados nos seus links salvos aparecerão aqui.';
 
   @override
-  String get libraryMusicDescription =>
-      'Músicas encontradas nos seus links salvos';
+  String get libraryMusicDescription => 'Músicas e artistas dos seus salvos';
+
+  @override
+  String get libraryMusicSongs => 'Músicas';
+
+  @override
+  String get libraryMusicArtists => 'Artistas';
+
+  @override
+  String libraryArtistMentions(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Mencionado em $count salvos',
+      one: 'Mencionado em 1 salvo',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get libraryMusic => 'Música';
@@ -1532,17 +1548,6 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String interestGroupedStats(Object grouped, num patterns, Object saves) {
-    String _temp0 = intl.Intl.pluralLogic(
-      patterns,
-      locale: localeName,
-      other: '$patterns padrões',
-      one: '1 padrão',
-    );
-    return '$_temp0 · $grouped de $saves itens agrupados';
-  }
-
-  @override
   String noPatternsScanned(Object saves) {
     return 'Nenhum padrão ainda · $saves itens analisados';
   }
@@ -2024,6 +2029,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get libraryUnavailable => 'A Biblioteca está indisponível no momento';
 
   @override
+  String get showOnMap => 'Ver no mapa';
+
+  @override
   String get yourPlaces => 'Seus lugares';
 
   @override
@@ -2037,8 +2045,8 @@ class AppLocalizationsPt extends AppLocalizations {
     String _temp1 = intl.Intl.pluralLogic(
       areas,
       locale: localeName,
-      other: '$areas áreas',
-      one: '1 área',
+      other: '$areas países',
+      one: '1 país',
     );
     return '$_temp0 · $_temp1';
   }
@@ -2062,15 +2070,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get locationUnavailable => 'Localização indisponível';
 
   @override
-  String openNamedItem(Object name) {
-    return 'Abrir $name';
-  }
-
-  @override
   String get wantToVisit => 'Quero visitar';
-
-  @override
-  String get savedPlace => 'Lugar salvo';
 
   @override
   String get planAVisit => 'Planejar uma visita';
