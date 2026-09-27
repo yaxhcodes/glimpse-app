@@ -40,29 +40,6 @@ void main() {
     },
   );
 
-  test('the in-app switch silences everything', () async {
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    var calls = 0;
-    const channel = MethodChannel('com.shinrinyoku.glimpse/haptics');
-    messenger.setMockMethodCallHandler(channel, (call) async {
-      calls++;
-      return null;
-    });
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'HapticFeedback.vibrate') calls++;
-      return null;
-    });
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(channel, null);
-      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
-      AppHaptics.enabled = true;
-    });
-    AppHaptics.enabled = false;
-    await AppHaptics.play(AppHaptics.confirm);
-    expect(calls, 0);
-  });
-
   test('falls back to framework haptics when the bridge is missing', () async {
     final calls = <String>[];
     final messenger =

@@ -950,7 +950,5 @@
   "obGrowCollections": "Reúne guardados a tu manera, para un viaje o un proyecto.",
   "obShareStage": "Ejemplo: tocar Compartir en un reel de Instagram y luego Glimpse lo guarda.",
   "obReadStage": "Ejemplo: el reel guardado como una página con resumen, ideas clave, términos y los libros que menciona.",
-  "obFindStage": "Ejemplo: películas, música y lugares de tus guardados, y una búsqueda que encuentra la regla de los dos minutos.",
-  "haptics": "Vibración háptica",
-  "hapticsSubtitle": "Vibraciones sutiles al tocar, deslizar y guardar"
+  "obFindStage": "Ejemplo: películas, música y lugares de tus guardados, y una búsqueda que encuentra la regla de los dos minutos."
 }

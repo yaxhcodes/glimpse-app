@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// A vibrator primitive (Android's `VibrationEffect.Composition` ids), used
 /// by the [HapticEngine.composed] engine.
@@ -110,34 +109,15 @@ class HapticPattern {
 /// a pattern and the Android side (`HapticsBridge.kt`) plays it with the
 /// current [engine]. Elsewhere, or when the bridge is missing, it falls back
 /// to Flutter's [HapticFeedback]. It honours the system touch-feedback switch
-/// and the in-app [enabled] setting, and never throws.
+/// (users who want no haptics turn them off there) and never throws.
 abstract final class AppHaptics {
   static const _channel = MethodChannel('com.shinrinyoku.glimpse/haptics');
-  static const _enabledKey = 'haptics_enabled';
 
   static bool get _bridge =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  /// The in-app haptics switch (Settings). Loaded by [loadPreference].
-  static bool enabled = true;
-
   /// Which Android engine plays patterns; switchable in the Haptics lab.
   static HapticEngine engine = HapticEngine.system;
-
-  static Future<void> loadPreference() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      enabled = prefs.getBool(_enabledKey) ?? true;
-    } catch (_) {
-      // Keep the default: haptics on.
-    }
-  }
-
-  static Future<void> setEnabled(bool value) async {
-    enabled = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_enabledKey, value);
-  }
 
   /// The lightest detent: a selection, a rung in a list.
   static const tick = HapticPattern(
@@ -300,7 +280,6 @@ abstract final class AppHaptics {
     HapticPattern pattern, {
     double intensity = 1,
   }) async {
-    if (!enabled) return;
     final scale = intensity.clamp(0.0, 1.0);
     if (_bridge) {
       try {

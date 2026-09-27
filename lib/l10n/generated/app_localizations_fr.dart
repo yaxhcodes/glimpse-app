@@ -3289,11 +3289,4 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get obFindStage =>
       'Exemple : films, musique et lieux de vos contenus, et une recherche qui retrouve la règle des deux minutes.';
-
-  @override
-  String get haptics => 'Retour haptique';
-
-  @override
-  String get hapticsSubtitle =>
-      'De légères vibrations quand vous touchez, balayez et enregistrez';
 }

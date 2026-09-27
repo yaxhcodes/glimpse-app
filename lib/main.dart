@@ -22,7 +22,6 @@ import 'core/services/digest_scheduler.dart';
 import 'core/services/subscription_service.dart';
 import 'core/services/supabase_auth_service.dart';
 import 'core/services/url_enrichment_job.dart';
-import 'core/services/app_haptics.dart';
 
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -33,8 +32,6 @@ void main() async {
   // splash path. Everything else starts after Flutter has painted once.
   final isarService = IsarService();
   final themePrefsFuture = ThemePrefsSnapshot.load();
-  // Not on the splash path: the switch only has to be right by first touch.
-  unawaited(AppHaptics.loadPreference());
   await Future.wait([
     AppEnvironment.initPackageInfo(),
     isarService.ensureInitialized(),

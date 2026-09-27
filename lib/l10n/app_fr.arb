@@ -950,7 +950,5 @@
   "obGrowCollections": "Rassemblez vos contenus à votre façon, pour un voyage ou un projet.",
   "obShareStage": "Exemple : toucher Partager sur un reel Instagram, puis Glimpse, l’enregistre.",
   "obReadStage": "Exemple : le reel enregistré devient une page avec un résumé, des points clés, des termes et les livres mentionnés.",
-  "obFindStage": "Exemple : films, musique et lieux de vos contenus, et une recherche qui retrouve la règle des deux minutes.",
-  "haptics": "Retour haptique",
-  "hapticsSubtitle": "De légères vibrations quand vous touchez, balayez et enregistrez"
+  "obFindStage": "Exemple : films, musique et lieux de vos contenus, et une recherche qui retrouve la règle des deux minutes."
 }
