@@ -14,6 +14,7 @@ import '../../shared/widgets/source_icon_resolver.dart';
 import '../../shared/widgets/source_logo.dart';
 import 'sources_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 /// Lets the user narrow the source list to where saves actually came from.
 enum _SourceFilter {
@@ -133,7 +134,10 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    onSelected: (f) => setState(() => _filter = f),
+                    onSelected: (f) {
+                      AppHaptics.play(AppHaptics.tick);
+                      setState(() => _filter = f);
+                    },
                     itemBuilder: (context) => _SourceFilter.values.map((f) {
                       final active = _filter == f;
                       return PopupMenuItem<_SourceFilter>(

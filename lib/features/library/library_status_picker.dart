@@ -4,6 +4,7 @@ import '../../l10n/l10n.dart';
 import 'library_entity.dart';
 import 'library_localization.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 IconData libraryStatusIcon(LibraryItemStatus status, LibraryEntityKind kind) =>
     switch (status) {
@@ -71,7 +72,10 @@ Future<LibraryItemStatus?> showLibraryStatusPicker(
                 trailing: entity.status == status
                     ? const Icon(AppIcons.check)
                     : null,
-                onTap: () => Navigator.pop(context, status),
+                onTap: () {
+                  AppHaptics.play(AppHaptics.tick);
+                  Navigator.pop(context, status);
+                },
               ),
             ),
           if (entity.status != LibraryItemStatus.unlisted) ...[
@@ -87,7 +91,10 @@ Future<LibraryItemStatus?> showLibraryStatusPicker(
                     ? context.l10n.removeFromReadingList
                     : context.l10n.removeFromWatchlist,
               ),
-              onTap: () => Navigator.pop(context, LibraryItemStatus.unlisted),
+              onTap: () {
+                AppHaptics.play(AppHaptics.tick);
+                Navigator.pop(context, LibraryItemStatus.unlisted);
+              },
             ),
           ],
         ],

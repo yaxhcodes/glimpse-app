@@ -119,6 +119,15 @@ abstract final class AppHaptics {
   /// Which Android engine plays patterns; switchable in the Haptics lab.
   static HapticEngine engine = HapticEngine.system;
 
+  static DateTime? _lastPlayed;
+
+  /// Whether any pattern started within [window] — so an automatic haptic
+  /// (see `HapticNavigatorObserver`) doesn't double one a widget just played.
+  static bool playedWithin(Duration window) {
+    final last = _lastPlayed;
+    return last != null && DateTime.now().difference(last) < window;
+  }
+
   /// The lightest detent: a selection, a rung in a list.
   static const tick = HapticPattern(
     'tick',
@@ -280,6 +289,7 @@ abstract final class AppHaptics {
     HapticPattern pattern, {
     double intensity = 1,
   }) async {
+    _lastPlayed = DateTime.now();
     final scale = intensity.clamp(0.0, 1.0);
     if (_bridge) {
       try {

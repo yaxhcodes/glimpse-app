@@ -24,6 +24,7 @@ import 'library_status_picker.dart';
 import 'library_widgets.dart';
 import 'place_itinerary_editor_screen.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 class LibraryEntityDetailScreen extends ConsumerStatefulWidget {
   const LibraryEntityDetailScreen({
@@ -153,10 +154,13 @@ class _LibraryEntityDetailScreenState
           content: Text(context.l10n.hiddenFromLibrary(entity.title)),
           action: SnackBarAction(
             label: context.l10n.undo,
-            onPressed: () => preferences.unhide(
-              entity.key,
-              provisionalKey: entity.provisionalKey,
-            ),
+            onPressed: () {
+              AppHaptics.play(AppHaptics.tap);
+              preferences.unhide(
+                entity.key,
+                provisionalKey: entity.provisionalKey,
+              );
+            },
           ),
         ),
       );
@@ -231,6 +235,7 @@ class _EntityDetail extends StatelessWidget {
             icon: const Icon(AppIcons.more),
             tooltip: context.l10n.libraryItemOptions,
             onSelected: (value) {
+              AppHaptics.play(AppHaptics.tap);
               if (value == 'hide') onHide();
             },
             itemBuilder: (context) => [
@@ -415,14 +420,20 @@ class _MediaHero extends StatelessWidget {
                   height: 52,
                   child: entity.status == LibraryItemStatus.unlisted
                       ? FilledButton.icon(
-                          onPressed: () => _chooseStatus(context),
+                          onPressed: () {
+                            AppHaptics.play(AppHaptics.tick);
+                            _chooseStatus(context);
+                          },
                           icon: AppIcon(
                             libraryStatusIcon(entity.status, entity.kind),
                           ),
                           label: Text(_statusLabel(context)),
                         )
                       : FilledButton.tonalIcon(
-                          onPressed: () => _chooseStatus(context),
+                          onPressed: () {
+                            AppHaptics.play(AppHaptics.tick);
+                            _chooseStatus(context);
+                          },
                           icon: AppIcon(
                             libraryStatusIcon(entity.status, entity.kind),
                           ),
@@ -591,22 +602,30 @@ class _PlaceHeader extends StatelessWidget {
               label: Text(context.l10n.wantToVisit),
               selected: entity.status == LibraryItemStatus.planning,
               side: BorderSide.none,
-              onSelected: (selected) => onStatusChanged(
-                selected
-                    ? LibraryItemStatus.planning
-                    : LibraryItemStatus.unlisted,
-              ),
+              onSelected: (selected) {
+                AppHaptics.play(AppHaptics.tick);
+                onStatusChanged(
+                  selected
+                      ? LibraryItemStatus.planning
+                      : LibraryItemStatus.unlisted,
+                );
+              },
             ),
             FilterChip(
               avatar: const Icon(AppIcons.checkCircle, size: 18),
               label: Text(context.l10n.libraryVisited),
               selected: entity.status == LibraryItemStatus.completed,
               side: BorderSide.none,
-              onSelected: (selected) => onStatusChanged(
-                selected
-                    ? LibraryItemStatus.completed
-                    : LibraryItemStatus.unlisted,
-              ),
+              onSelected: (selected) {
+                AppHaptics.play(
+                  selected ? AppHaptics.success : AppHaptics.tick,
+                );
+                onStatusChanged(
+                  selected
+                      ? LibraryItemStatus.completed
+                      : LibraryItemStatus.unlisted,
+                );
+              },
             ),
           ],
         ),
@@ -623,7 +642,10 @@ class _PlaceHeader extends StatelessWidget {
             if (entity.mention.hasCoordinates) ...[
               const SizedBox(width: 10),
               FilledButton.tonalIcon(
-                onPressed: () => _openInMaps(entity),
+                onPressed: () {
+                  AppHaptics.play(AppHaptics.tap);
+                  _openInMaps(entity);
+                },
                 icon: const Icon(AppIcons.map),
                 label: Text(context.l10n.maps),
               ),

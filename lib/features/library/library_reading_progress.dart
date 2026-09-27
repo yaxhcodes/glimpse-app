@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../l10n/l10n.dart';
 import 'library_entity.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 class LibraryReadingProgressCard extends StatelessWidget {
   const LibraryReadingProgressCard({
@@ -90,7 +91,10 @@ class LibraryReadingProgressCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.tonalIcon(
-                onPressed: () => _choosePage(context),
+                onPressed: () {
+                  AppHaptics.play(AppHaptics.tick);
+                  _choosePage(context);
+                },
                 icon: const Icon(AppIcons.bookmarkAdd),
                 label: Text(
                   currentPage == null
@@ -209,7 +213,10 @@ class _ReadingPageSheetState extends State<_ReadingPageSheet> {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: _save,
+              onPressed: () {
+                AppHaptics.play(AppHaptics.success);
+                _save();
+              },
               child: Text(context.l10n.saveBookmark),
             ),
           ),

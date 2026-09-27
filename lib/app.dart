@@ -92,6 +92,7 @@ import 'shared/widgets/expressive_loading_indicator.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/theme_provider.dart';
 import 'l10n/l10n.dart';
+import 'core/services/haptic_navigator_observer.dart';
 
 /// Provider that holds a URL received via Android share intent.
 final sharedUrlProvider = StateProvider<String?>((ref) => null);
@@ -105,6 +106,8 @@ bool get _isShareSurface =>
 // GoRouter configuration — needs to be accessible for programmatic navigation
 final _router = GoRouter(
   navigatorKey: rootNavigatorKey,
+  // Opening any page by touch is felt, without each tile asking for it.
+  observers: [HapticNavigatorObserver()],
   initialLocation: _isShareSurface ? '/share' : '/',
   routes: [
     GoRoute(
