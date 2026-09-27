@@ -235,6 +235,92 @@ void main() {
     expect(page(tester), 2);
   });
 
+  testWidgets('haptics follow the story: detents, demo cues once, confirm', (
+    tester,
+  ) async {
+    final played = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('com.shinrinyoku.glimpse/haptics'),
+      (call) async {
+        played.add((call.arguments as Map)['name'] as String);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('com.shinrinyoku.glimpse/haptics'),
+        null,
+      ),
+    );
+    await tester.pumpWidget(app(flow(), reducedMotion: false));
+    await tester.pump(const Duration(milliseconds: 200));
+    // The painting breathes in as the story opens.
+    expect(played, ['swell']);
+    await tester.pumpAndSettle();
+    played.clear();
+    await tester.tap(_cta);
+    // Two full loops of the share demo: its cues play on the first only.
+    for (var i = 0; i < 140; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(played, [
+      'press',
+      'detent',
+      'press',
+      'swell',
+      'press',
+      'drop',
+      'success',
+    ]);
+    played.clear();
+    // Reading: pulses, then a key per line and a thud per book.
+    await tester.tap(_cta);
+    for (var f = 0; f < 60; f++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(played.take(3), ['press', 'detent', 'pulse']);
+    expect(played.where((e) => e == 'land').length, 3);
+    expect(played.where((e) => e == 'key').length, 8);
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(_cta);
+      for (var f = 0; f < 60; f++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+    expect(played, contains('success'));
+    await tester.tap(_cta);
+    await tester.pumpAndSettle();
+    expect(played.last, 'confirm');
+  });
+
+  testWidgets('reduced motion keeps page detents but no animation cues', (
+    tester,
+  ) async {
+    final played = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('com.shinrinyoku.glimpse/haptics'),
+      (call) async {
+        played.add((call.arguments as Map)['name'] as String);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('com.shinrinyoku.glimpse/haptics'),
+        null,
+      ),
+    );
+    await tester.pumpWidget(app(flow()));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < _chapterCount - 1; i++) {
+      await next(tester);
+    }
+    // Direct feedback stays; nothing tied to animation plays.
+    expect(played, [
+      for (var i = 0; i < _chapterCount - 1; i++) ...['press', 'detent'],
+    ]);
+  });
+
   test('every bundled artwork is present', () async {
     for (final art in OnboardingArt.all) {
       final data = await rootBundle.load(OnboardingArt.path(art));

@@ -45,6 +45,7 @@ open class MainActivity : FlutterFragmentActivity() {
     private var pendingBackupPath: String? = null
     private var pendingShortcut: String? = null
     private var stableIdBridge: StableIdBridge? = null
+    private var hapticsBridge: HapticsBridge? = null
     private var scrollCaptureBridge: ScrollCaptureBridge? = null
     private var scrollCaptureRootLayout: ScrollCaptureRootLayout? = null
 
@@ -91,6 +92,11 @@ open class MainActivity : FlutterFragmentActivity() {
         // Reinstall-surviving store for the stable install id (Block Store).
         stableIdBridge = StableIdBridge(
             context = applicationContext,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+        )
+
+        hapticsBridge = HapticsBridge(
+            activity = this,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
 

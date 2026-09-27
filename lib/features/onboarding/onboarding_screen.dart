@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/app_haptics.dart';
 import '../../core/services/usage_limits.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_typography.dart';
@@ -69,6 +70,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _onPageChanged(int page) {
+    // A detent as each chapter arrives, whether tapped or swiped.
+    unawaited(AppHaptics.play(AppHaptics.detent));
     setState(() {
       _page = page;
       _failed = false;
@@ -78,6 +81,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _finish({bool skip = false}) async {
     if (_finishing) return;
+    unawaited(AppHaptics.play(skip ? AppHaptics.tick : AppHaptics.confirm));
     setState(() {
       _finishing = true;
       _failed = false;
@@ -175,7 +179,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           ),
                           const SizedBox(width: 12),
                           // No skipping the page that finishes anyway.
-                          Flexible(
+                          ConstrainedBox(
+                            // Capped so a long translation never squeezes
+                            // the progress bar; it ellipsizes instead.
+                            constraints: const BoxConstraints(maxWidth: 132),
                             child: Visibility(
                               visible: !last,
                               maintainSize: true,
@@ -226,21 +233,34 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   ),
                                 ),
                               ),
-                            FilledButton(
-                              key: const ValueKey('onboarding-primary-cta'),
-                              onPressed: _finishing
-                                  ? null
-                                  : () => last ? _finish() : _move(1),
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size.fromHeight(56),
-                              ),
-                              child: Text(
-                                _page == 0
-                                    ? l.obGetStarted
-                                    : last
-                                    ? l.obStartSaving
-                                    : l.obNext,
-                                textAlign: TextAlign.center,
+                            // Felt the moment a finger lands, before the page moves.
+                            Listener(
+                              onPointerDown: (_) {
+                                if (!_finishing && !last) {
+                                  unawaited(
+                                    AppHaptics.play(
+                                      AppHaptics.press,
+                                      intensity: .6,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: FilledButton(
+                                key: const ValueKey('onboarding-primary-cta'),
+                                onPressed: _finishing
+                                    ? null
+                                    : () => last ? _finish() : _move(1),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(56),
+                                ),
+                                child: Text(
+                                  _page == 0
+                                      ? l.obGetStarted
+                                      : last
+                                      ? l.obStartSaving
+                                      : l.obNext,
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ),
                             // Reserved on every page so the button never

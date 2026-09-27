@@ -35,6 +35,7 @@ import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
+import 'haptics_lab_screen.dart';
 import 'bin_provider.dart';
 import '../../l10n/l10n.dart';
 
@@ -1046,6 +1047,18 @@ class _DeveloperSection extends ConsumerWidget {
                     ),
                   );
               },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Haptics lab'),
+              subtitle: const Text('Feel every haptic pattern'),
+              trailing: const Icon(AppIcons.chevronRight),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const HapticsLabScreen(),
+                ),
+              ),
             ),
             const Divider(height: 1),
             ListTile(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/constants/app_assets.dart';
+import '../../core/services/app_haptics.dart';
 import '../../core/services/transcript_enrichment_service.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
@@ -43,6 +45,10 @@ abstract final class OnboardingArt {
 
 /// Drives a stage from 0→1 while its page is on screen: once, or looping.
 /// Reduced motion shows the [still] frame.
+///
+/// [cues] fire as the animation passes each point — how haptics stay in step
+/// with what is on screen. A looping stage cues only its first pass, so the
+/// demo never buzzes on and on; a still frame cues nothing.
 class OnboardingTimeline extends StatefulWidget {
   const OnboardingTimeline({
     super.key,
@@ -51,11 +57,13 @@ class OnboardingTimeline extends StatefulWidget {
     required this.builder,
     this.loop = false,
     this.still = 1,
+    this.cues = const {},
   });
   final bool active;
   final Duration duration;
   final bool loop;
   final double still;
+  final Map<double, VoidCallback> cues;
   final Widget Function(BuildContext context, double t) builder;
 
   @override
@@ -64,7 +72,22 @@ class OnboardingTimeline extends StatefulWidget {
 
 class _OnboardingTimelineState extends State<OnboardingTimeline>
     with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: widget.duration);
+  late final _c = AnimationController(vsync: this, duration: widget.duration)
+    ..addListener(_cue);
+  double _last = 0;
+  bool _cued = false;
+
+  void _cue() {
+    final t = _c.value;
+    if (_c.isAnimating && !_cued) {
+      for (final MapEntry(key: at, value: cue) in widget.cues.entries) {
+        if (_last < at && t >= at) cue();
+      }
+    }
+    // Wrapping round (a loop) or being reset ends the cued pass.
+    if (t < _last) _cued = true;
+    _last = t;
+  }
 
   @override
   void didChangeDependencies() {
@@ -116,6 +139,18 @@ double _seg(
   double b, [
   Curve curve = Curves.easeOutCubic,
 ]) => curve.transform(((t - a) / (b - a)).clamp(0.0, 1.0));
+
+/// Plays a haptic without waiting on it.
+void _feel(HapticPattern pattern, [double intensity = 1]) =>
+    unawaited(AppHaptics.play(pattern, intensity: intensity));
+
+/// Cue points for typing [length] characters across [a]..[b]: a key every
+/// third character, so it reads as typing without buzzing.
+Iterable<double> _typingCues(int length, double a, double b) sync* {
+  for (var c = 3; c < length; c += 3) {
+    yield a + (b - a) * c / length;
+  }
+}
 
 /// Fades and lifts [child] in as [v] goes 0→1.
 Widget _rise(double v, Widget child) => Opacity(
@@ -237,6 +272,8 @@ class OnboardingWelcomeArt extends StatelessWidget {
               active: active,
               duration: const Duration(seconds: 14),
               still: 0,
+              // The painting breathes in as the story opens.
+              cues: {.004: () => _feel(AppHaptics.swell, .7)},
               builder: (context, t) => Transform.scale(
                 scale: 1 + .07 * Curves.easeOutSine.transform(t),
                 alignment: const Alignment(.2, .3),
@@ -287,6 +324,15 @@ class OnboardingShareStage extends StatelessWidget {
           loop: true,
           still: .8,
           duration: const Duration(milliseconds: 6400),
+          // Fingertip on Share; the sheet swells up; fingertip on Glimpse;
+          // the sheet falls away; the save lands.
+          cues: {
+            .09: () => _feel(AppHaptics.press),
+            .2: () => _feel(AppHaptics.swell),
+            .39: () => _feel(AppHaptics.press),
+            .55: () => _feel(AppHaptics.drop, .8),
+            .64: () => _feel(AppHaptics.success),
+          },
           builder: (context, t) {
             // Material motion: sheets enter decelerating and leave
             // accelerating, with no overshoot.
@@ -690,6 +736,23 @@ class OnboardingReadStage extends StatelessWidget {
         child: OnboardingTimeline(
           active: active,
           duration: const Duration(milliseconds: 5200),
+          // The reel is read (soft pulses), then the page writes itself:
+          // a low tick as each line appears, a thud as each book lands.
+          cues: {
+            .02: () => _feel(AppHaptics.pulse),
+            .2: () => _feel(AppHaptics.tap, .55),
+            .22: () => _feel(AppHaptics.key, .9),
+            .28: () => _feel(AppHaptics.key, .7),
+            .34: () => _feel(AppHaptics.key, .7),
+            .38: () => _feel(AppHaptics.key, .5),
+            .42: () => _feel(AppHaptics.key, .5),
+            .46: () => _feel(AppHaptics.key, .5),
+            .5: () => _feel(AppHaptics.key, .7),
+            .56: () => _feel(AppHaptics.key, .7),
+            .6: () => _feel(AppHaptics.land, .5),
+            .64: () => _feel(AppHaptics.land, .6),
+            .68: () => _feel(AppHaptics.land, .7),
+          },
           builder: (context, t) {
             final reading = 1 - _seg(t, .16, .24);
             final pulse = .55 + .45 * math.sin(t * math.pi * 5).abs();
@@ -1046,6 +1109,17 @@ class OnboardingFindStage extends StatelessWidget {
         child: OnboardingTimeline(
           active: active,
           duration: const Duration(milliseconds: 3400),
+          // Covers land, the map swells in, the question types itself out,
+          // and the answer arrives.
+          cues: {
+            .05: () => _feel(AppHaptics.land, .3),
+            .1: () => _feel(AppHaptics.land, .35),
+            .15: () => _feel(AppHaptics.land, .4),
+            .13: () => _feel(AppHaptics.swell, .7),
+            for (final at in _typingCues(question.length, .38, .66))
+              at: () => _feel(AppHaptics.key),
+            .72: () => _feel(AppHaptics.success, .75),
+          },
           builder: (context, t) {
             final typed = (question.length * _seg(t, .38, .66, Curves.linear))
                 .round();
@@ -1237,6 +1311,12 @@ class OnboardingGrowStage extends StatelessWidget {
     return OnboardingTimeline(
       active: active,
       duration: const Duration(milliseconds: 1800),
+      // A rising rung as each step appears; the page detent marks the first.
+      cues: {
+        .16: () => _feel(AppHaptics.tick, .6),
+        .32: () => _feel(AppHaptics.tick, .75),
+        .48: () => _feel(AppHaptics.tick, .9),
+      },
       builder: (context, t) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
         child: Column(
