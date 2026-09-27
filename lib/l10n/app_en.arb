@@ -927,49 +927,15 @@
       }
     }
   },
-  "obTitle1": "Keep what catches your mind.",
-  "obTitle2": "More than a saved link.",
-  "obTitle3": "A library that takes shape.",
-  "obTitle4": "Find it. Ask about it.",
-  "obTitle5": "Come back with a reason.",
-  "obTitle6": "Start free. Go further with Pro.",
-  "obBody1": "Keep what you find. Make more of it.",
   "obBody2": "Turn saved links into clear ideas and useful details.",
-  "obBody3": "Related ideas gather into interests, naturally.",
-  "obBody4": "Ask in your own words. Find answers in your saves.",
-  "obBody5": "Return through new connections, or a moment you choose.",
-  "obBody6": "Save freely. Make more room for AI with Pro.",
-  "obBegin": "See what becomes possible",
   "obContinue": "Continue",
   "obSkip": "Skip",
-  "obBack": "Previous chapter",
   "obExample": "Illustrative example",
-  "obOverview": "Overview",
-  "obPlaces": "Places",
-  "obBooks": "Books",
-  "obMovies": "Movies",
-  "obMusic": "Music",
   "obSummary": "Explore lesser-known French destinations for a more authentic trip, while easing pressure on the most visited places.",
   "obPoint": "Look beyond the busiest sites: France has many places worth discovering.",
   "obPlaceNote": "Featured by the creator as a recommended destination.",
   "obShare": "Share → Glimpse, or paste a link",
-  "obCollected": "Discovered in your saves",
-  "obCollection": "Your collection · A slower weekend",
-  "obInterests": "Emerging interests · Travel & creativity",
-  "obBookExample": "A field guide to everyday creativity",
-  "obMovieExample": "A film for a quiet evening",
-  "obMusicExample": "A song for the journey",
-  "obQuestion": "What were those places in France I saved?",
   "obAnswer": "I found them in your France guide:\n\n**Gorges du Tarn** — a gorge landscape.\n\n**Cascade de l’Éventail** — a waterfall stop.\n\n**Abbaye de Moissac** — a historic abbey.\n\nThe guide looks beyond the usual tourist stops, bringing together nature and history. These three are a starting point for that kind of trip.",
-  "obSemantic": "Pro · Find by meaning, beyond exact words",
-  "obRediscover": "Beyond the busiest places",
-  "obRevisit": "Make this recipe over the weekend.",
-  "obFree": "Free",
-  "obUnlimited": "Unlimited ordinary link saving",
-  "obFairUse": "Expanded Ask and search access, subject to fair use",
-  "obStartFree": "Start with Free",
-  "obExplorePro": "Explore Pro",
-  "obContinuePro": "Continue with Pro",
   "obError": "Couldn’t save your progress. Please try again.",
   "obDismiss": "Dismiss guide",
   "obFirstSave": "Save your first find",
@@ -995,55 +961,9 @@
       }
     }
   },
-  "obFreeAi": "{count} lifetime AI-enriched saves",
-  "@obFreeAi": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "obMonthlyAsk": "{count} Ask questions per month",
-  "@obMonthlyAsk": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "obMonthlySearch": "{count} searches per month",
-  "@obMonthlySearch": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "obProAi": "{count} AI-enriched saves per month",
-  "@obProAi": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "obTakeaway2": "Sharing quieter locations can also put them at risk of overcrowding.",
   "obTakeaway3": "The creator presents rural travel as rewarding enough to return for.",
-  "obCooking": "Recipes & Cooking",
-  "obSoftware": "Software & AI",
-  "obTravel": "Travel",
-  "obInterestNote": "Related saves gather around shared concepts, so your interests stay readable as your library grows.",
-  "obAutomatic": "Connections, found for you",
-  "obAutomaticNote": "Your new countryside save connects with this earlier guide to France.",
-  "obChosen": "A return you choose",
-  "obChosenNote": "Keep a save for a moment you choose. Reminders are optional.",
   "obSaveTitle": "Authentic France · Lesser-Known Travel Destinations",
-  "obSaveSearch": "France",
-  "obPlaceOne": "Gorges du Tarn",
-  "obPlaceTwo": "Cascade de l’Éventail",
-  "obRealExample": "From a real save · shortened preview",
-  "obPreparedAnswer": "Prepared example answer",
-  "obLibraryBody": "Books, films, music, and places—found inside your saves.",
   "askExactLinkCount": "You have {count} saved links matching this scope.",
   "askNoMatch": "I could not find a clear match. Do you remember a title, creator, phrase, or when you saved it?",
   "askRecentChats": "Recent chats",
@@ -1078,6 +998,56 @@
       },
       "kind": {
         "type": "String"
+      }
+    }
+  },
+  "obWelcomeTitle": "Keep what catches your mind.",
+  "obWelcomeBody": "The reels, posts and articles you save become knowledge you can actually use.",
+  "obShareTitle": "Save from anywhere.",
+  "obShareBody": "Spot something on Instagram, YouTube or the web. Tap Share, then Glimpse.",
+  "obReadTitle": "Glimpse reads it for you.",
+  "obReadBody": "Every save becomes a clean page: the gist, the key ideas and everything it mentions.",
+  "obFindTitle": "Find anything again.",
+  "obFindBody": "Search or ask in your own words. Films, music and places from your saves gather in your Library.",
+  "obGrowTitle": "Gets better with every save.",
+  "obGrowBody": "Glimpse learns what you’re into and brings the good stuff back.",
+  "obGetStarted": "Get started",
+  "obNext": "Next",
+  "obStartSaving": "Start saving",
+  "obFreeNote": "Free includes {count} AI-read saves. Upgrade whenever you like.",
+  "obReelFollow": "Follow",
+  "obReelCaption": "3 ideas that fixed my focus, and the books behind them 📚… more",
+  "obReelAudio": "Original audio",
+  "obShareMessages": "Messages",
+  "obSavedToast": "Saved to Glimpse",
+  "obReelSource": "Instagram reel · 0:48",
+  "obReading": "Reading the reel…",
+  "obDemoTitle": "Three ideas that fixed my focus",
+  "obDemoBrief": "Start habits absurdly small, protect long blocks for real work, and slow down before big decisions.",
+  "obDemoPoint1": "Shrink any new habit until it takes two minutes.",
+  "obDemoPoint2": "Book 90-minute blocks with notifications off.",
+  "obDemoPoint3": "Sleep on decisions that feel urgent and obvious.",
+  "obTermTwoMinute": "Two-minute rule",
+  "obTermDeepWork": "Deep work",
+  "obTermSystems": "System 1 & 2",
+  "obFilmsMusic": "Films & music",
+  "obSearchQuery": "that trick for starting a habit?",
+  "obSearchAnswer": "Shrink a new habit until it takes two minutes. From thereadingroom’s reel.",
+  "obGrowToday": "Today",
+  "obGrowSoon": "After a few saves",
+  "obGrowLater": "Over time",
+  "obGrowAnytime": "Whenever you like",
+  "obGrowLibrary": "Books, films, music and places from every save.",
+  "obGrowInterests": "Your saves group into what you’re into, on their own.",
+  "obGrowRediscover": "Old saves come back when they’re worth another look.",
+  "obGrowCollections": "Gather saves your way, for a trip or a project.",
+  "obShareStage": "Example: tapping Share on an Instagram reel, then Glimpse, saves it.",
+  "obReadStage": "Example: the saved reel as a page with a brief, key takeaways, terms and the books it mentions.",
+  "obFindStage": "Example: films, music and places from your saves, and a search that finds the two-minute rule.",
+  "@obFreeNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
       }
     }
   }

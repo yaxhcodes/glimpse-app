@@ -2984,46 +2984,8 @@ class AppLocalizationsEs extends AppLocalizations {
       'Se envían resúmenes y destacados seleccionados a una IA en la nube. Tus notas personales permanecen en tu dispositivo. Usa hasta 1 consulta de Ask por semana. Tu historial local funciona con esta opción desactivada.';
 
   @override
-  String get obTitle1 => 'Guarda lo que despierta tu curiosidad.';
-
-  @override
-  String get obTitle2 => 'Más que un enlace guardado.';
-
-  @override
-  String get obTitle3 => 'Una biblioteca que toma forma.';
-
-  @override
-  String get obTitle4 => 'Encuéntralo. Pregunta sobre ello.';
-
-  @override
-  String get obTitle5 => 'Vuelve con un propósito.';
-
-  @override
-  String get obTitle6 => 'Empieza gratis. Ve más allá con Pro.';
-
-  @override
-  String get obBody1 => 'Guarda lo que descubres. Sácale más partido.';
-
-  @override
   String get obBody2 =>
       'Convierte tus enlaces en ideas claras y detalles útiles.';
-
-  @override
-  String get obBody3 =>
-      'Las ideas relacionadas se agrupan en intereses, naturalmente.';
-
-  @override
-  String get obBody4 =>
-      'Pregunta con tus palabras. Encuentra respuestas en lo que guardas.';
-
-  @override
-  String get obBody5 => 'Vuelve por una nueva conexión o cuando tú elijas.';
-
-  @override
-  String get obBody6 => 'Guarda sin límites. Pro te da más espacio para la IA.';
-
-  @override
-  String get obBegin => 'Descubre las posibilidades';
 
   @override
   String get obContinue => 'Continuar';
@@ -3032,25 +2994,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get obSkip => 'Omitir';
 
   @override
-  String get obBack => 'Capítulo anterior';
-
-  @override
   String get obExample => 'Ejemplo ilustrativo';
-
-  @override
-  String get obOverview => 'Resumen';
-
-  @override
-  String get obPlaces => 'Lugares';
-
-  @override
-  String get obBooks => 'Libros';
-
-  @override
-  String get obMovies => 'Películas';
-
-  @override
-  String get obMusic => 'Música';
 
   @override
   String get obSummary =>
@@ -3068,58 +3012,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get obShare => 'Compartir → Glimpse, o pega un enlace';
 
   @override
-  String get obCollected => 'Descubierto en tus guardados';
-
-  @override
-  String get obCollection => 'Tu colección · Un fin de semana tranquilo';
-
-  @override
-  String get obInterests => 'Intereses emergentes · Viajes y creatividad';
-
-  @override
-  String get obBookExample => 'Una guía de creatividad cotidiana';
-
-  @override
-  String get obMovieExample => 'Una película para una noche tranquila';
-
-  @override
-  String get obMusicExample => 'Una canción para el viaje';
-
-  @override
-  String get obQuestion => '¿Cuáles eran esos lugares de Francia que guardé?';
-
-  @override
   String get obAnswer =>
       'Los encontré en tu guía de Francia:\n\n**Gorges du Tarn**: un paisaje de desfiladeros.\n\n**Cascade de l’Éventail**: una parada junto a una cascada.\n\n**Abbaye de Moissac**: una abadía histórica.\n\nLa guía reúne naturaleza e historia más allá de las paradas turísticas habituales. Estos tres lugares son un punto de partida para ese tipo de viaje.';
-
-  @override
-  String get obSemantic =>
-      'Pro · Encuentra por significado, no solo por palabras';
-
-  @override
-  String get obRediscover => 'Más allá de los lugares concurridos';
-
-  @override
-  String get obRevisit => 'Preparar esta receta el fin de semana.';
-
-  @override
-  String get obFree => 'Gratis';
-
-  @override
-  String get obUnlimited => 'Enlaces normales sin límite';
-
-  @override
-  String get obFairUse =>
-      'Más acceso a preguntas y búsquedas, sujeto a uso razonable';
-
-  @override
-  String get obStartFree => 'Empezar gratis';
-
-  @override
-  String get obExplorePro => 'Explorar Pro';
-
-  @override
-  String get obContinuePro => 'Continuar con Pro';
 
   @override
   String get obError => 'No se pudo guardar tu progreso. Inténtalo de nuevo.';
@@ -3175,26 +3069,6 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String obFreeAi(int count) {
-    return '$count guardados con IA en total';
-  }
-
-  @override
-  String obMonthlyAsk(int count) {
-    return '$count preguntas al mes';
-  }
-
-  @override
-  String obMonthlySearch(int count) {
-    return '$count búsquedas al mes';
-  }
-
-  @override
-  String obProAi(int count) {
-    return '$count guardados con IA al mes';
-  }
-
-  @override
   String get obTakeaway2 =>
       'Compartir lugares tranquilos también puede ponerlos en riesgo de masificación.';
 
@@ -3203,53 +3077,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'El creador presenta los viajes rurales como experiencias que invitan a volver.';
 
   @override
-  String get obCooking => 'Recetas y cocina';
-
-  @override
-  String get obSoftware => 'Software e IA';
-
-  @override
-  String get obTravel => 'Viajes';
-
-  @override
-  String get obInterestNote =>
-      'Los guardados relacionados se reúnen en torno a conceptos compartidos, para que tus intereses sigan siendo claros mientras crece tu biblioteca.';
-
-  @override
-  String get obAutomatic => 'Conexiones que aparecen';
-
-  @override
-  String get obAutomaticNote =>
-      'Lo nuevo que guardaste sobre el campo conecta con esta guía anterior de Francia.';
-
-  @override
-  String get obChosen => 'Una vuelta que tú eliges';
-
-  @override
-  String get obChosenNote =>
-      'Reserva algo para el momento que elijas. Los recordatorios son opcionales.';
-
-  @override
   String get obSaveTitle => 'Francia auténtica · Destinos menos conocidos';
-
-  @override
-  String get obSaveSearch => 'Francia';
-
-  @override
-  String get obPlaceOne => 'Gorges du Tarn';
-
-  @override
-  String get obPlaceTwo => 'Cascade de l’Éventail';
-
-  @override
-  String get obRealExample => 'De un guardado real · vista abreviada';
-
-  @override
-  String get obPreparedAnswer => 'Respuesta de ejemplo preparada';
-
-  @override
-  String get obLibraryBody =>
-      'Libros, películas, música y lugares, descubiertos entre tus guardados.';
 
   @override
   String askExactLinkCount(int count) {
@@ -3297,4 +3125,153 @@ class AppLocalizationsEs extends AppLocalizations {
   String askEntityCount(int count, String kind) {
     return 'Tu contenido guardado contiene $count elementos identificados en $kind.';
   }
+
+  @override
+  String get obWelcomeTitle => 'Guarda lo que despierta tu curiosidad.';
+
+  @override
+  String get obWelcomeBody =>
+      'Los reels, publicaciones y artículos que guardas se convierten en conocimiento que de verdad puedes usar.';
+
+  @override
+  String get obShareTitle => 'Guarda desde cualquier lugar.';
+
+  @override
+  String get obShareBody =>
+      '¿Viste algo bueno en Instagram, YouTube o la web? Toca Compartir y luego Glimpse.';
+
+  @override
+  String get obReadTitle => 'Glimpse lo lee por ti.';
+
+  @override
+  String get obReadBody =>
+      'Cada guardado se convierte en una página clara: lo esencial, las ideas clave y todo lo que menciona.';
+
+  @override
+  String get obFindTitle => 'Encuentra todo otra vez.';
+
+  @override
+  String get obFindBody =>
+      'Busca o pregunta con tus propias palabras. Las películas, la música y los lugares de tus guardados se reúnen en tu Biblioteca.';
+
+  @override
+  String get obGrowTitle => 'Mejora con cada guardado.';
+
+  @override
+  String get obGrowBody =>
+      'Glimpse aprende lo que te interesa y te trae de vuelta lo mejor.';
+
+  @override
+  String get obGetStarted => 'Empezar';
+
+  @override
+  String get obNext => 'Siguiente';
+
+  @override
+  String get obStartSaving => 'Empieza a guardar';
+
+  @override
+  String obFreeNote(int count) {
+    return 'El plan gratis incluye $count guardados con IA. Mejora cuando quieras.';
+  }
+
+  @override
+  String get obReelFollow => 'Seguir';
+
+  @override
+  String get obReelCaption =>
+      '3 ideas que arreglaron mi concentración, y los libros detrás de ellas 📚… más';
+
+  @override
+  String get obReelAudio => 'Audio original';
+
+  @override
+  String get obShareMessages => 'Mensajes';
+
+  @override
+  String get obSavedToast => 'Guardado en Glimpse';
+
+  @override
+  String get obReelSource => 'Reel de Instagram · 0:48';
+
+  @override
+  String get obReading => 'Leyendo el reel…';
+
+  @override
+  String get obDemoTitle => 'Tres ideas que arreglaron mi concentración';
+
+  @override
+  String get obDemoBrief =>
+      'Empieza hábitos ridículamente pequeños, protege bloques largos para el trabajo de verdad y frena antes de las grandes decisiones.';
+
+  @override
+  String get obDemoPoint1 =>
+      'Reduce cualquier hábito nuevo hasta que dure dos minutos.';
+
+  @override
+  String get obDemoPoint2 =>
+      'Reserva bloques de 90 minutos sin notificaciones.';
+
+  @override
+  String get obDemoPoint3 =>
+      'Consulta con la almohada las decisiones que parecen urgentes y obvias.';
+
+  @override
+  String get obTermTwoMinute => 'Regla de los dos minutos';
+
+  @override
+  String get obTermDeepWork => 'Trabajo profundo';
+
+  @override
+  String get obTermSystems => 'Sistema 1 y 2';
+
+  @override
+  String get obFilmsMusic => 'Películas y música';
+
+  @override
+  String get obSearchQuery => '¿ese truco para empezar un hábito?';
+
+  @override
+  String get obSearchAnswer =>
+      'Reduce un hábito nuevo hasta que dure dos minutos. Del reel de thereadingroom.';
+
+  @override
+  String get obGrowToday => 'Hoy';
+
+  @override
+  String get obGrowSoon => 'Tras unos guardados';
+
+  @override
+  String get obGrowLater => 'Con el tiempo';
+
+  @override
+  String get obGrowAnytime => 'Cuando quieras';
+
+  @override
+  String get obGrowLibrary =>
+      'Libros, películas, música y lugares de cada guardado.';
+
+  @override
+  String get obGrowInterests =>
+      'Tus guardados se agrupan solos según lo que te interesa.';
+
+  @override
+  String get obGrowRediscover =>
+      'Lo que guardaste vuelve cuando merece otra mirada.';
+
+  @override
+  String get obGrowCollections =>
+      'Reúne guardados a tu manera, para un viaje o un proyecto.';
+
+  @override
+  String get obShareStage =>
+      'Ejemplo: tocar Compartir en un reel de Instagram y luego Glimpse lo guarda.';
+
+  @override
+  String get obReadStage =>
+      'Ejemplo: el reel guardado como una página con resumen, ideas clave, términos y los libros que menciona.';
+
+  @override
+  String get obFindStage =>
+      'Ejemplo: películas, música y lugares de tus guardados, y una búsqueda que encuentra la regla de los dos minutos.';
 }

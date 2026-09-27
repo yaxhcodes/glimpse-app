@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/features/onboarding/onboarding_flow_controller.dart';
 import 'package:glimpse/features/onboarding/onboarding_screen.dart';
-import 'package:glimpse/core/services/entitlement_service.dart';
+import 'package:glimpse/features/onboarding/onboarding_stages.dart';
+import 'package:glimpse/l10n/l10n.dart';
 import 'package:glimpse/shared/theme/app_theme.dart';
-import 'package:glimpse/features/mindmap/cluster_card.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 const _goldenBoundaryKey = ValueKey('onboarding-golden-boundary');
@@ -33,13 +33,21 @@ void main() {
           'packages/phosphor_flutter/lib/fonts/Phosphor-Fill.ttf',
         ),
       );
-    await Future.wait([phosphorBold.load(), phosphorFill.load()]);
+    final phosphorRegular = FontLoader('packages/phosphor_flutter/PhosphorRegular')
+      ..addFont(
+        rootBundle.load('packages/phosphor_flutter/lib/fonts/Phosphor.ttf'),
+      );
+    await Future.wait([
+      phosphorBold.load(),
+      phosphorFill.load(),
+      phosphorRegular.load(),
+    ]);
   });
 
   for (final dark in [false, true]) {
     for (
       var chapter = 0;
-      chapter < OnboardingChapterController.count;
+      chapter < OnboardingFlowCoordinator.chapters.length;
       chapter++
     ) {
       testWidgets('onboarding ${dark ? 'dark' : 'light'} chapter $chapter', (
@@ -51,7 +59,7 @@ void main() {
         }
         await _expectGolden(
           tester,
-          'goldens/onboarding_v2_${dark ? 'dark_' : ''}$chapter.png',
+          'goldens/onboarding_v3_${dark ? 'dark_' : ''}$chapter.png',
         );
       });
     }
@@ -73,30 +81,29 @@ Future<void> _pumpStory(WidgetTester tester, {required bool dark}) async {
     ProviderScope(
       overrides: [
         onboardingFlowCoordinatorProvider.overrideWithValue(coordinator),
-        isProUserProvider.overrideWithValue(false),
       ],
       child: RepaintBoundary(
         key: _goldenBoundaryKey,
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: dark
-              ? AppTheme.darkTheme(Colors.green)
-              : AppTheme.lightTheme(Colors.green),
+          // The default house palette a new user sees.
+          theme: AppTheme.brandTheme(dark ? Brightness.dark : Brightness.light),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          // Still frames: each stage at its settled, final state.
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: child!,
+          ),
           home: const OnboardingScreen(),
         ),
       ),
     ),
   );
   await tester.runAsync(() async {
-    await precacheImage(
-      TopSignalArtwork.imageProvider(
-        tester.element(find.byType(OnboardingScreen)),
-      ),
-      tester.element(find.byType(OnboardingScreen)),
-    );
-    for (final asset in ['opening']) {
+    for (final art in OnboardingArt.all) {
       await precacheImage(
-        AssetImage('assets/onboarding/$asset.webp'),
+        AssetImage(OnboardingArt.path(art)),
         tester.element(find.byType(OnboardingScreen)),
       );
     }
