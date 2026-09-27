@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
@@ -12,6 +11,7 @@ import '../../features/home/home_provider.dart';
 import '../../l10n/l10n.dart';
 import 'app_snackbar.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 class BulkSelectionTitle extends StatelessWidget {
   const BulkSelectionTitle({super.key, required this.count});
@@ -72,7 +72,7 @@ class BulkSelectionActionButtons extends ConsumerWidget {
           onPressed: visibleUrls.isEmpty
               ? null
               : () {
-                  HapticFeedback.selectionClick();
+                  AppHaptics.play(AppHaptics.tick);
                   ref
                       .read(bulkSelectionProvider(scope).notifier)
                       .selectAll(visibleUrls.map((url) => url.id));

@@ -2959,44 +2959,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Selected summaries and highlights are sent to cloud AI. Personal notes stay on your device. Uses up to 1 Ask request per week. Your local history works with this off.';
 
   @override
-  String get obTitle1 => 'Keep what catches your mind.';
-
-  @override
-  String get obTitle2 => 'More than a saved link.';
-
-  @override
-  String get obTitle3 => 'A library that takes shape.';
-
-  @override
-  String get obTitle4 => 'Find it. Ask about it.';
-
-  @override
-  String get obTitle5 => 'Come back with a reason.';
-
-  @override
-  String get obTitle6 => 'Start free. Go further with Pro.';
-
-  @override
-  String get obBody1 => 'Keep what you find. Make more of it.';
-
-  @override
   String get obBody2 => 'Turn saved links into clear ideas and useful details.';
-
-  @override
-  String get obBody3 => 'Related ideas gather into interests, naturally.';
-
-  @override
-  String get obBody4 => 'Ask in your own words. Find answers in your saves.';
-
-  @override
-  String get obBody5 =>
-      'Return through new connections, or a moment you choose.';
-
-  @override
-  String get obBody6 => 'Save freely. Make more room for AI with Pro.';
-
-  @override
-  String get obBegin => 'See what becomes possible';
 
   @override
   String get obContinue => 'Continue';
@@ -3005,25 +2968,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obSkip => 'Skip';
 
   @override
-  String get obBack => 'Previous chapter';
-
-  @override
   String get obExample => 'Illustrative example';
-
-  @override
-  String get obOverview => 'Overview';
-
-  @override
-  String get obPlaces => 'Places';
-
-  @override
-  String get obBooks => 'Books';
-
-  @override
-  String get obMovies => 'Movies';
-
-  @override
-  String get obMusic => 'Music';
 
   @override
   String get obSummary =>
@@ -3041,56 +2986,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obShare => 'Share → Glimpse, or paste a link';
 
   @override
-  String get obCollected => 'Discovered in your saves';
-
-  @override
-  String get obCollection => 'Your collection · A slower weekend';
-
-  @override
-  String get obInterests => 'Emerging interests · Travel & creativity';
-
-  @override
-  String get obBookExample => 'A field guide to everyday creativity';
-
-  @override
-  String get obMovieExample => 'A film for a quiet evening';
-
-  @override
-  String get obMusicExample => 'A song for the journey';
-
-  @override
-  String get obQuestion => 'What were those places in France I saved?';
-
-  @override
   String get obAnswer =>
       'I found them in your France guide:\n\n**Gorges du Tarn** — a gorge landscape.\n\n**Cascade de l’Éventail** — a waterfall stop.\n\n**Abbaye de Moissac** — a historic abbey.\n\nThe guide looks beyond the usual tourist stops, bringing together nature and history. These three are a starting point for that kind of trip.';
-
-  @override
-  String get obSemantic => 'Pro · Find by meaning, beyond exact words';
-
-  @override
-  String get obRediscover => 'Beyond the busiest places';
-
-  @override
-  String get obRevisit => 'Make this recipe over the weekend.';
-
-  @override
-  String get obFree => 'Free';
-
-  @override
-  String get obUnlimited => 'Unlimited ordinary link saving';
-
-  @override
-  String get obFairUse => 'Expanded Ask and search access, subject to fair use';
-
-  @override
-  String get obStartFree => 'Start with Free';
-
-  @override
-  String get obExplorePro => 'Explore Pro';
-
-  @override
-  String get obContinuePro => 'Continue with Pro';
 
   @override
   String get obError => 'Couldn’t save your progress. Please try again.';
@@ -3146,26 +3043,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String obFreeAi(int count) {
-    return '$count lifetime AI-enriched saves';
-  }
-
-  @override
-  String obMonthlyAsk(int count) {
-    return '$count Ask questions per month';
-  }
-
-  @override
-  String obMonthlySearch(int count) {
-    return '$count searches per month';
-  }
-
-  @override
-  String obProAi(int count) {
-    return '$count AI-enriched saves per month';
-  }
-
-  @override
   String get obTakeaway2 =>
       'Sharing quieter locations can also put them at risk of overcrowding.';
 
@@ -3174,54 +3051,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'The creator presents rural travel as rewarding enough to return for.';
 
   @override
-  String get obCooking => 'Recipes & Cooking';
-
-  @override
-  String get obSoftware => 'Software & AI';
-
-  @override
-  String get obTravel => 'Travel';
-
-  @override
-  String get obInterestNote =>
-      'Related saves gather around shared concepts, so your interests stay readable as your library grows.';
-
-  @override
-  String get obAutomatic => 'Connections, found for you';
-
-  @override
-  String get obAutomaticNote =>
-      'Your new countryside save connects with this earlier guide to France.';
-
-  @override
-  String get obChosen => 'A return you choose';
-
-  @override
-  String get obChosenNote =>
-      'Keep a save for a moment you choose. Reminders are optional.';
-
-  @override
   String get obSaveTitle =>
       'Authentic France · Lesser-Known Travel Destinations';
-
-  @override
-  String get obSaveSearch => 'France';
-
-  @override
-  String get obPlaceOne => 'Gorges du Tarn';
-
-  @override
-  String get obPlaceTwo => 'Cascade de l’Éventail';
-
-  @override
-  String get obRealExample => 'From a real save · shortened preview';
-
-  @override
-  String get obPreparedAnswer => 'Prepared example answer';
-
-  @override
-  String get obLibraryBody =>
-      'Books, films, music, and places—found inside your saves.';
 
   @override
   String askExactLinkCount(int count) {
@@ -3268,4 +3099,149 @@ class AppLocalizationsEn extends AppLocalizations {
   String askEntityCount(int count, String kind) {
     return 'Your saved content contains $count identified items in $kind.';
   }
+
+  @override
+  String get obWelcomeTitle => 'Keep what catches your mind.';
+
+  @override
+  String get obWelcomeBody =>
+      'The reels, posts and articles you save become knowledge you can actually use.';
+
+  @override
+  String get obShareTitle => 'Save from anywhere.';
+
+  @override
+  String get obShareBody =>
+      'Spot something on Instagram, YouTube or the web. Tap Share, then Glimpse.';
+
+  @override
+  String get obReadTitle => 'Glimpse reads it for you.';
+
+  @override
+  String get obReadBody =>
+      'Every save becomes a clean page: the gist, the key ideas and everything it mentions.';
+
+  @override
+  String get obFindTitle => 'Find anything again.';
+
+  @override
+  String get obFindBody =>
+      'Search or ask in your own words. Films, music and places from your saves gather in your Library.';
+
+  @override
+  String get obGrowTitle => 'Gets better with every save.';
+
+  @override
+  String get obGrowBody =>
+      'Glimpse learns what you’re into and brings the good stuff back.';
+
+  @override
+  String get obGetStarted => 'Get started';
+
+  @override
+  String get obNext => 'Next';
+
+  @override
+  String get obStartSaving => 'Start saving';
+
+  @override
+  String obFreeNote(int count) {
+    return 'Free includes $count AI-read saves. Upgrade whenever you like.';
+  }
+
+  @override
+  String get obReelFollow => 'Follow';
+
+  @override
+  String get obReelCaption =>
+      '3 ideas that fixed my focus, and the books behind them 📚… more';
+
+  @override
+  String get obReelAudio => 'Original audio';
+
+  @override
+  String get obShareMessages => 'Messages';
+
+  @override
+  String get obSavedToast => 'Saved to Glimpse';
+
+  @override
+  String get obReelSource => 'Instagram reel · 0:48';
+
+  @override
+  String get obReading => 'Reading the reel…';
+
+  @override
+  String get obDemoTitle => 'Three ideas that fixed my focus';
+
+  @override
+  String get obDemoBrief =>
+      'Start habits absurdly small, protect long blocks for real work, and slow down before big decisions.';
+
+  @override
+  String get obDemoPoint1 => 'Shrink any new habit until it takes two minutes.';
+
+  @override
+  String get obDemoPoint2 => 'Book 90-minute blocks with notifications off.';
+
+  @override
+  String get obDemoPoint3 => 'Sleep on decisions that feel urgent and obvious.';
+
+  @override
+  String get obTermTwoMinute => 'Two-minute rule';
+
+  @override
+  String get obTermDeepWork => 'Deep work';
+
+  @override
+  String get obTermSystems => 'System 1 & 2';
+
+  @override
+  String get obFilmsMusic => 'Films & music';
+
+  @override
+  String get obSearchQuery => 'that trick for starting a habit?';
+
+  @override
+  String get obSearchAnswer =>
+      'Shrink a new habit until it takes two minutes. From thereadingroom’s reel.';
+
+  @override
+  String get obGrowToday => 'Today';
+
+  @override
+  String get obGrowSoon => 'After a few saves';
+
+  @override
+  String get obGrowLater => 'Over time';
+
+  @override
+  String get obGrowAnytime => 'Whenever you like';
+
+  @override
+  String get obGrowLibrary => 'Books, films, music and places from every save.';
+
+  @override
+  String get obGrowInterests =>
+      'Your saves group into what you’re into, on their own.';
+
+  @override
+  String get obGrowRediscover =>
+      'Old saves come back when they’re worth another look.';
+
+  @override
+  String get obGrowCollections =>
+      'Gather saves your way, for a trip or a project.';
+
+  @override
+  String get obShareStage =>
+      'Example: tapping Share on an Instagram reel, then Glimpse, saves it.';
+
+  @override
+  String get obReadStage =>
+      'Example: the saved reel as a page with a brief, key takeaways, terms and the books it mentions.';
+
+  @override
+  String get obFindStage =>
+      'Example: films, music and places from your saves, and a search that finds the two-minute rule.';
 }

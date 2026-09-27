@@ -76,6 +76,7 @@ import 'reader_visual_blocks.dart';
 import 'source_saved_metadata_row.dart';
 import 'url_detail_provider.dart';
 import '../../l10n/l10n.dart';
+import '../../core/services/app_haptics.dart';
 
 part 'url_detail_pager.dart';
 part 'recipe_cooking_mode.dart';
@@ -3030,7 +3031,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       unawaited(context.push('/library/places/itinerary/${existing.id}'));
       return;
     }
-    HapticFeedback.lightImpact();
+    AppHaptics.play(AppHaptics.tap);
     final snapshot = await loadLibrarySnapshot(ref);
     final title = live.itinerary?.title?.trim() ?? '';
     final plan = itineraryFromSave(

@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +7,7 @@ import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'batch_save_models.dart';
 import 'batch_save_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 /// The batch preview screen: a cinematic review surface for a captured
 /// "rabbit hole" of URLs before saving them as one session.
@@ -297,7 +297,7 @@ class _BatchPreviewScreenState extends ConsumerState<BatchPreviewScreen> {
                 FilledButton(
                   onPressed: state.canSave && !isSaving && !isEnriching
                       ? () async {
-                          HapticFeedback.mediumImpact();
+                          AppHaptics.play(AppHaptics.confirm);
                           await ref
                               .read(batchSaveProvider(_urls).notifier)
                               .saveAll();

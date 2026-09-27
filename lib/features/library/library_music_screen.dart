@@ -13,6 +13,7 @@ import 'library_provider.dart';
 import 'library_widgets.dart';
 import 'music_library_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 class LibraryMusicScreen extends ConsumerStatefulWidget {
   const LibraryMusicScreen({super.key});
@@ -59,8 +60,10 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
                     ),
                     if (!checking)
                       TextButton(
-                        onPressed: () =>
-                            ref.read(musicLibraryProvider.notifier).retry(),
+                        onPressed: () {
+                          AppHaptics.play(AppHaptics.tap);
+                          ref.read(musicLibraryProvider.notifier).retry();
+                        },
                         child: Text(context.l10n.retry),
                       ),
                   ],
@@ -262,12 +265,15 @@ class _SongRow extends ConsumerWidget {
                   ? context.l10n.chooseWhereSongsOpen
                   : context.l10n.openInSource(provider.label),
               icon: AppIcon(AppIcons.play, color: cs.onSurfaceVariant),
-              onPressed: () => openMusicItem(
-                context,
-                ref,
-                title: entity.title,
-                artist: entity.mention.creator,
-              ),
+              onPressed: () {
+                AppHaptics.play(AppHaptics.tap);
+                openMusicItem(
+                  context,
+                  ref,
+                  title: entity.title,
+                  artist: entity.mention.creator,
+                );
+              },
             ),
           ],
         ),

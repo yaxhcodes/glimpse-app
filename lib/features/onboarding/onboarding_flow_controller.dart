@@ -46,19 +46,18 @@ class OnboardingFlowCoordinator {
   final Future<void> Function(bool pro)? _prepareCompletion;
   final _seenChapters = <int>{};
 
+  /// The onboarding chapters in order, by the event each one records.
+  static const chapters = [
+    AnalyticsEvent.onboardingChapterWelcome,
+    AnalyticsEvent.onboardingChapterShare,
+    AnalyticsEvent.onboardingChapterReader,
+    AnalyticsEvent.onboardingChapterFind,
+    AnalyticsEvent.onboardingChapterGrow,
+  ];
+
   Future<void> trackChapter(int chapter) async {
     if (!_seenChapters.add(chapter)) return;
-    await _trackSafely(
-      [
-        AnalyticsEvent.onboardingChapterWelcome,
-        AnalyticsEvent.onboardingChapterReader,
-        AnalyticsEvent.onboardingChapterLibrary,
-        AnalyticsEvent.onboardingChapterDiscovered,
-        AnalyticsEvent.onboardingChapterAsk,
-        AnalyticsEvent.onboardingChapterRediscover,
-        AnalyticsEvent.onboardingChapterPro,
-      ][chapter],
-    );
+    await _trackSafely(chapters[chapter]);
   }
 
   Future<void>? _completion;
@@ -132,9 +131,4 @@ class OnboardingFlowCoordinator {
       );
     }
   }
-}
-
-class OnboardingChapterController {
-  static const count = 7;
-  int chapter = 0;
 }

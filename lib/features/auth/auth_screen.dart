@@ -14,6 +14,7 @@ import '../../core/services/dev_auth_service.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 import 'auth_backdrop.dart';
+import '../../core/services/app_haptics.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key, this.isOnboardingEntry = false});
@@ -71,7 +72,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final signedIn = next.valueOrNull != null;
       final wasLoading = previous?.isLoading ?? false;
       if (!signedIn || !wasLoading) return;
-      HapticFeedback.lightImpact();
+      AppHaptics.play(AppHaptics.success);
       if (!mounted) return;
       setState(() => _exiting = true);
     });

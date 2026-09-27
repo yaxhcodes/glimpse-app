@@ -11,6 +11,7 @@ import 'library_provider.dart';
 import 'library_status_picker.dart';
 import 'library_widgets.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 enum LibrarySortOrder { discovered, title, year, status }
 
@@ -112,6 +113,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                               IconButton(
                                 tooltip: context.l10n.clearSearch,
                                 onPressed: () {
+                                  AppHaptics.play(AppHaptics.tick);
                                   _searchController.clear();
                                   setState(() => _query = '');
                                 },
@@ -131,8 +133,10 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                     genres: railGenres,
                     selected: _selectedGenre,
                     horizontalPadding: horizontal,
-                    onSelected: (genre) =>
-                        setState(() => _selectedGenre = genre),
+                    onSelected: (genre) {
+                      AppHaptics.play(AppHaptics.tick);
+                      setState(() => _selectedGenre = genre);
+                    },
                   ),
                 ),
               SliverToBoxAdapter(
@@ -161,7 +165,10 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                                     setState(() => _selectedStatus = null),
                               ),
                             TextButton(
-                              onPressed: _clearFilters,
+                              onPressed: () {
+                                AppHaptics.play(AppHaptics.tick);
+                                _clearFilters();
+                              },
                               child: Text(context.l10n.clearAll),
                             ),
                           ],
@@ -439,6 +446,7 @@ class _LibraryOptionsMenu extends StatelessWidget {
       ),
       initialValue: _menuActionForSortOrder(sortOrder),
       onSelected: (action) {
+        AppHaptics.play(AppHaptics.tick);
         final selectedSort = action.sortOrder;
         if (selectedSort == null) {
           onFilterSelected();
@@ -558,10 +566,13 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => setState(() {
-                    _status = null;
-                    _genre = null;
-                  }),
+                  onPressed: () {
+                    AppHaptics.play(AppHaptics.tick);
+                    setState(() {
+                      _status = null;
+                      _genre = null;
+                    });
+                  },
                   child: Text(context.l10n.reset),
                 ),
               ],
@@ -581,7 +592,10 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                 ChoiceChip(
                   label: Text(context.l10n.anyStatus),
                   selected: _status == null,
-                  onSelected: (_) => setState(() => _status = null),
+                  onSelected: (_) {
+                    AppHaptics.play(AppHaptics.tick);
+                    setState(() => _status = null);
+                  },
                 ),
                 for (final status in LibraryItemStatus.values.skip(1))
                   ChoiceChip(
@@ -593,7 +607,10 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                       localizedLibraryStatus(context.l10n, status, widget.kind),
                     ),
                     selected: _status == status,
-                    onSelected: (_) => setState(() => _status = status),
+                    onSelected: (_) {
+                      AppHaptics.play(AppHaptics.tick);
+                      setState(() => _status = status);
+                    },
                   ),
               ],
             ),
@@ -612,13 +629,19 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
                     ChoiceChip(
                       label: Text(context.l10n.allGenres),
                       selected: _genre == null,
-                      onSelected: (_) => setState(() => _genre = null),
+                      onSelected: (_) {
+                        AppHaptics.play(AppHaptics.tick);
+                        setState(() => _genre = null);
+                      },
                     ),
                     for (final genre in widget.genres)
                       ChoiceChip(
                         label: Text(localizedLibraryGenre(context.l10n, genre)),
                         selected: _genre == genre,
-                        onSelected: (_) => setState(() => _genre = genre),
+                        onSelected: (_) {
+                          AppHaptics.play(AppHaptics.tick);
+                          setState(() => _genre = genre);
+                        },
                       ),
                   ],
                 ),
@@ -628,10 +651,13 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => Navigator.pop(
-                  context,
-                  _BrowserFilters(status: _status, genre: _genre),
-                ),
+                onPressed: () {
+                  AppHaptics.play(AppHaptics.tap);
+                  Navigator.pop(
+                    context,
+                    _BrowserFilters(status: _status, genre: _genre),
+                  );
+                },
                 child: Text(context.l10n.showItems),
               ),
             ),
@@ -679,7 +705,10 @@ class _GenreRail extends StatelessWidget {
             ),
             showCheckmark: false,
             selected: selected == genre,
-            onSelected: (_) => onSelected(genre),
+            onSelected: (_) {
+              AppHaptics.play(AppHaptics.tick);
+              onSelected(genre);
+            },
           );
         },
       ),
@@ -716,7 +745,10 @@ class _NoResults extends StatelessWidget {
             if (hasFilters) ...[
               const SizedBox(height: 12),
               TextButton(
-                onPressed: onClear,
+                onPressed: () {
+                  AppHaptics.play(AppHaptics.tick);
+                  onClear();
+                },
                 child: Text(context.l10n.clearSearch),
               ),
             ],

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/providers/dev_simulation_providers.dart';
 import '../../shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 /// Compact first-save coach shown above the seeded onboarding memory.
 class GuideCard extends ConsumerWidget {
@@ -25,7 +26,7 @@ class GuideCard extends ConsumerWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {
-            HapticFeedback.lightImpact();
+            AppHaptics.play(AppHaptics.tap);
             showModalBottomSheet<void>(
               context: context,
               showDragHandle: true,

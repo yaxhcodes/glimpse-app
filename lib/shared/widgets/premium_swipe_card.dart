@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../core/providers/swipe_preferences_provider.dart';
+import '../../core/services/app_haptics.dart';
 
 typedef SwipeActionCallback = FutureOr<bool> Function(SwipeActionType action);
 typedef SwipeDismissedCallback =
@@ -108,14 +108,14 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
 
   void _updateThresholdHaptics(double progress) {
     if (progress >= _softThreshold && !_softHapticSent) {
-      HapticFeedback.lightImpact();
+      AppHaptics.play(AppHaptics.detent);
       _softHapticSent = true;
     } else if (progress < _softThreshold - 0.08) {
       _softHapticSent = false;
     }
 
     if (progress >= _hardThreshold && !_hardHapticSent) {
-      HapticFeedback.mediumImpact();
+      AppHaptics.play(AppHaptics.land);
       _hardHapticSent = true;
     } else if (progress < _hardThreshold - 0.10) {
       _hardHapticSent = false;

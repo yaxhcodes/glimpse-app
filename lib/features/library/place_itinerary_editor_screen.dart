@@ -16,6 +16,7 @@ import 'library_places_model.dart';
 import 'library_provider.dart';
 import 'place_itinerary_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 class PlaceItineraryDraft {
   const PlaceItineraryDraft({
@@ -140,13 +141,20 @@ class _PlaceItineraryEditorScreenState
                         stopCount: _stops.length,
                         dayCount: _days.length,
                         estimate: estimateStops(_stops),
-                        onSplitIntoDays: _splitIntoDays,
+                        onSplitIntoDays: () {
+                          AppHaptics.play(AppHaptics.tap);
+                          _splitIntoDays();
+                        },
                         onNameChanged: (_) => _scheduleSave(),
-                        onChooseDate: _chooseDate,
+                        onChooseDate: () {
+                          AppHaptics.play(AppHaptics.tick);
+                          _chooseDate();
+                        },
                         onAskGlimpse: _openAskGlimpse,
                       ),
                       itemCount: _stops.length,
                       onReorder: (oldIndex, newIndex) {
+                        AppHaptics.play(AppHaptics.land);
                         setState(() {
                           if (newIndex > oldIndex) newIndex--;
                           final stop = _stops.removeAt(oldIndex);
@@ -219,8 +227,14 @@ class _PlaceItineraryEditorScreenState
                     unmappedCount: _stops
                         .where((stop) => !stop.hasCoordinates)
                         .length,
-                    onAddStops: () => _chooseStops(places),
-                    onOpenRoute: _openRoute,
+                    onAddStops: () {
+                      AppHaptics.play(AppHaptics.tick);
+                      _chooseStops(places);
+                    },
+                    onOpenRoute: () {
+                      AppHaptics.play(AppHaptics.tap);
+                      _openRoute();
+                    },
                   ),
                 ],
               ),
@@ -504,6 +518,7 @@ class _PlaceItineraryEditorScreenState
   }
 
   Future<void> _done(List<LibraryEntity> places) async {
+    AppHaptics.play(AppHaptics.success);
     _saveTimer?.cancel();
     if (_nameController.text.trim().isEmpty) {
       _showSnack('Give this itinerary a name.');
@@ -531,6 +546,7 @@ class _PlaceItineraryEditorScreenState
   }
 
   Future<void> _delete() async {
+    AppHaptics.play(AppHaptics.tick);
     final id = _savedId;
     if (id == null) return;
     final confirmed = await showDialog<bool>(
@@ -546,7 +562,10 @@ class _PlaceItineraryEditorScreenState
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              AppHaptics.play(AppHaptics.tap);
+              Navigator.pop(context, true);
+            },
             child: const Text('Delete'),
           ),
         ],
@@ -600,7 +619,10 @@ class _PlaceItineraryEditorScreenState
                     '${segments[segmentIndex].first.title} to ${segments[segmentIndex].last.title}',
                   ),
                   subtitle: Text('${segments[segmentIndex].length} stops'),
-                  onTap: () => Navigator.pop(context, segmentIndex),
+                  onTap: () {
+                    AppHaptics.play(AppHaptics.tick);
+                    Navigator.pop(context, segmentIndex);
+                  },
                 ),
             ],
           ),
@@ -940,8 +962,10 @@ class _StopRow extends StatelessWidget {
                         PopupMenuButton<int>(
                           tooltip: 'Stop options',
                           icon: const Icon(AppIcons.moreHorizontal),
-                          onSelected: (value) =>
-                              value < 0 ? onRemove() : onMoveToDay(value),
+                          onSelected: (value) {
+                            AppHaptics.play(AppHaptics.tick);
+                            value < 0 ? onRemove() : onMoveToDay(value);
+                          },
                           itemBuilder: (context) => [
                             for (final day in dayChoices)
                               PopupMenuItem(
@@ -1117,7 +1141,10 @@ class _StopPickerState extends State<_StopPicker> {
                 TextButton(
                   onPressed: _selected.isEmpty
                       ? null
-                      : () => Navigator.pop(context, _selected),
+                      : () {
+                          AppHaptics.play(AppHaptics.tap);
+                          Navigator.pop(context, _selected);
+                        },
                   child: const Text('Done'),
                 ),
               ],
@@ -1146,13 +1173,16 @@ class _StopPickerState extends State<_StopPicker> {
                             entity.mention.country,
                           ].whereType<String>().join(', '),
                         ),
-                        onChanged: (selected) => setState(() {
-                          if (selected == true) {
-                            _selected.add(entity.key);
-                          } else {
-                            _selected.remove(entity.key);
-                          }
-                        }),
+                        onChanged: (selected) {
+                          AppHaptics.play(AppHaptics.tick);
+                          setState(() {
+                            if (selected == true) {
+                              _selected.add(entity.key);
+                            } else {
+                              _selected.remove(entity.key);
+                            }
+                          });
+                        },
                       );
                     },
                   ),

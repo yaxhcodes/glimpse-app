@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../shared/widgets/notification_permission_prompt.dart';
 import '../../core/services/digest_notifications.dart';
 import '../../core/constants/app_assets.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -35,8 +34,10 @@ import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
+import 'haptics_lab_screen.dart';
 import 'bin_provider.dart';
 import '../../l10n/l10n.dart';
+import '../../core/services/app_haptics.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -762,7 +763,7 @@ class _SwipeActionSheet extends StatelessWidget {
               selected: action == selected,
               colorScheme: cs,
               onTap: () {
-                HapticFeedback.selectionClick();
+                AppHaptics.play(AppHaptics.tick);
                 Navigator.pop(context, action);
               },
             ),
@@ -1046,6 +1047,18 @@ class _DeveloperSection extends ConsumerWidget {
                     ),
                   );
               },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Haptics lab'),
+              subtitle: const Text('Feel every haptic pattern'),
+              trailing: const Icon(AppIcons.chevronRight),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const HapticsLabScreen(),
+                ),
+              ),
             ),
             const Divider(height: 1),
             ListTile(

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
@@ -20,6 +19,7 @@ import '../home/home_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
 import '../rediscover/rediscover_provider.dart';
 import 'bin_provider.dart';
+import '../../core/services/app_haptics.dart';
 
 class BinScreen extends ConsumerStatefulWidget {
   const BinScreen({super.key});
@@ -283,7 +283,7 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                     onPressed: urls.isEmpty
                         ? null
                         : () {
-                            HapticFeedback.selectionClick();
+                            AppHaptics.play(AppHaptics.tick);
                             selectionNotifier.selectAll(
                               urls.map((url) => url.id),
                             );
@@ -392,11 +392,11 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                       selectionMode: selectionState.isActive,
                       isSelected: selectionState.isSelected(url.id),
                       onSelectionStart: () {
-                        HapticFeedback.selectionClick();
+                        AppHaptics.play(AppHaptics.hold);
                         selectionNotifier.startWith(url.id);
                       },
                       onSelectionToggle: () {
-                        HapticFeedback.selectionClick();
+                        AppHaptics.play(AppHaptics.tick);
                         selectionNotifier.toggle(url.id);
                       },
                       onRestore: () => unawaited(_restore(url)),

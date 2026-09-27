@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:glimpse/features/onboarding/onboarding_visual_scene.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glimpse/core/services/analytics_service.dart';
-import 'package:glimpse/core/services/entitlement_service.dart';
 import 'package:glimpse/features/onboarding/onboarding_flow_controller.dart';
 import 'package:glimpse/features/onboarding/onboarding_screen.dart';
+import 'package:glimpse/features/onboarding/onboarding_stages.dart';
 import 'package:glimpse/l10n/l10n.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,16 +29,12 @@ OnboardingFlowCoordinator flow({
 
 Widget app(
   OnboardingFlowCoordinator coordinator, {
-  bool pro = false,
   Locale locale = const Locale('en'),
   double scale = 1,
   bool dark = false,
   bool reducedMotion = true,
 }) => ProviderScope(
-  overrides: [
-    onboardingFlowCoordinatorProvider.overrideWithValue(coordinator),
-    isProUserProvider.overrideWithValue(pro),
-  ],
+  overrides: [onboardingFlowCoordinatorProvider.overrideWithValue(coordinator)],
   child: MaterialApp(
     theme: ThemeData(brightness: dark ? Brightness.dark : Brightness.light),
     locale: locale,
@@ -56,15 +51,25 @@ Widget app(
   ),
 );
 
+final _cta = find.byKey(const ValueKey('onboarding-primary-cta'));
+final _chapterCount = OnboardingFlowCoordinator.chapters.length;
+
 Future<void> next(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
+  await tester.tap(_cta);
   await tester.pumpAndSettle();
 }
+
+String ctaLabel(WidgetTester tester) =>
+    (tester.widget<FilledButton>(_cta).child! as Text).data!;
+
+double page(WidgetTester tester) =>
+    tester.widget<PageView>(find.byType(PageView)).controller!.page!;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
-  testWidgets('seven visual chapters retain navigation and can finish free', (
+
+  testWidgets('five chapters tell the story and finish with the demo save', (
     tester,
   ) async {
     var finished = 0;
@@ -73,9 +78,7 @@ void main() {
     await tester.pumpWidget(
       app(
         flow(
-          complete: () async {
-            finished++;
-          },
+          complete: () async => finished++,
           seed: () async => ++seeded,
           track: (e) async => events.add(e),
         ),
@@ -83,41 +86,48 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Keep what catches your mind.'), findsOneWidget);
+    expect(ctaLabel(tester), 'Get started');
     await next(tester);
+    expect(find.text('Save from anywhere.'), findsOneWidget);
+    expect(ctaLabel(tester), 'Next');
+    await next(tester);
+    expect(find.text('Glimpse reads it for you.'), findsOneWidget);
+    // Reduced motion shows the finished page, as a real save's reader.
+    expect(find.text('Three ideas that fixed my focus'), findsOneWidget);
+    expect(find.text('Key takeaways'), findsOneWidget);
+    await next(tester);
+    expect(find.text('Find anything again.'), findsOneWidget);
+    expect(find.text('Two-minute rule'), findsOneWidget);
+    await next(tester);
+    expect(find.text('Gets better with every save.'), findsOneWidget);
+    expect(ctaLabel(tester), 'Start saving');
     expect(
-      find.byKey(const ValueKey('onboarding-preview-1-0')),
+      find.text('Free includes 30 AI-read saves. Upgrade whenever you like.'),
       findsOneWidget,
     );
-    await next(tester);
-    await tester.tap(find.byTooltip('Previous chapter'));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('onboarding-preview-1-0')),
-      findsOneWidget,
-    );
-    await next(tester);
-    await next(tester);
-    expect(find.text('Discovered in your saves'), findsOneWidget);
-    await next(tester);
-    expect(
-      find.byKey(const ValueKey('onboarding-preview-4-0')),
-      findsOneWidget,
-    );
-    await next(tester);
-    expect(find.text('Come back with a reason.'), findsOneWidget);
-    await next(tester);
-    expect(find.text('Start with Free'), findsOneWidget);
-    expect(find.text('Explore Pro'), findsOneWidget);
-    await tester.tap(find.text('Start with Free'));
+    await tester.tap(_cta);
     await tester.pumpAndSettle();
     expect(finished, 1);
     expect(seeded, 1);
     expect(
-      events.where((e) => e == AnalyticsEvent.onboardingChapterReader).length,
-      1,
+      events.where((e) => OnboardingFlowCoordinator.chapters.contains(e)),
+      OnboardingFlowCoordinator.chapters,
     );
+    expect(events, contains(AnalyticsEvent.onboardingCompleted));
   });
-  testWidgets('primary action stays above the device inset on every chapter', (
+
+  testWidgets('system back steps to the previous chapter', (tester) async {
+    await tester.pumpWidget(app(flow()));
+    await tester.pumpAndSettle();
+    await next(tester);
+    await next(tester);
+    expect(page(tester), 2);
+    await tester.state<NavigatorState>(find.byType(Navigator)).maybePop();
+    await tester.pumpAndSettle();
+    expect(page(tester), 1);
+  });
+
+  testWidgets('primary action stays put above the device inset', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(412, 915);
@@ -128,151 +138,17 @@ void main() {
     addTearDown(tester.view.resetPadding);
     await tester.pumpWidget(app(flow()));
     await tester.pumpAndSettle();
-    for (
-      var chapter = 0;
-      chapter < OnboardingChapterController.count;
-      chapter++
-    ) {
-      expect(
-        tester
-            .getRect(find.byKey(const ValueKey('onboarding-primary-cta')))
-            .bottom,
-        883,
-      );
-      if (chapter < OnboardingChapterController.count - 1) await next(tester);
-    }
-  });
-  testWidgets('pricing transition keeps the page viewport stable', (tester) async {
-    await tester.pumpWidget(app(flow(), reducedMotion: false));
-    await tester.pumpAndSettle();
-    for (var i = 0; i < 5; i++) {
+    final first = tester.getRect(_cta);
+    expect(first.bottom, lessThanOrEqualTo(915 - 24));
+    for (var chapter = 1; chapter < _chapterCount; chapter++) {
       await next(tester);
+      expect(tester.getRect(_cta), first);
     }
-    final viewport = tester.getRect(find.byType(PageView));
-    await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
-    await tester.pump();
-    for (var frame = 0; frame < 8; frame++) {
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(tester.getRect(find.byType(PageView)), viewport);
-    }
-    await tester.pumpAndSettle();
-    expect(find.text('Start with Free').hitTestable(), findsOneWidget);
-    await tester.tap(find.byTooltip('Previous chapter'));
-    await tester.pump();
-    for (var frame = 0; frame < 8; frame++) {
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(tester.getRect(find.byType(PageView)), viewport);
-    }
-    await tester.pumpAndSettle();
   });
-  testWidgets('visual motion finishes once and never gates navigation', (
+
+  testWidgets('skip does not seed, and the last chapter has no skip', (
     tester,
   ) async {
-    await tester.pumpWidget(app(flow(), reducedMotion: false));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    final scene = find.byKey(const ValueKey('onboarding-preview-1-0'));
-    final opacity = find
-        .ancestor(of: scene, matching: find.byType(Opacity))
-        .first;
-    expect(tester.widget<Opacity>(opacity).opacity, lessThan(1));
-    await tester.pumpAndSettle();
-    expect(tester.widget<Opacity>(opacity).opacity, 1);
-    await next(tester);
-    await tester.tap(find.byTooltip('Previous chapter'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<Opacity>(opacity).opacity, 1);
-    expect(tester.binding.hasScheduledFrame, isFalse);
-  });
-  test('every locale and brightness has its complete image set', () async {
-    for (final locale in ['en', 'de', 'es', 'fr', 'pt', 'ja']) {
-      for (final brightness in ['light', 'dark']) {
-        for (var chapter = 1; chapter <= 5; chapter++) {
-          for (final part in OnboardingScene.partsFor(chapter)) {
-            final path = chapter <= 3
-                ? 'assets/onboarding/${const ['enrichment', 'interests', 'discovered'][chapter - 1]}.webp'
-                : 'assets/onboarding/previews/${locale}_${brightness}_${chapter}_$part.webp';
-            final data = await rootBundle.load(path);
-            expect(data.lengthInBytes, greaterThan(100));
-          }
-        }
-      }
-    }
-  });
-  test('replaying onboarding resets the completed coordinator', () async {
-    SharedPreferences.setMockInitialValues({});
-    final container = ProviderContainer(
-      overrides: [
-        analyticsServiceProvider.overrideWithValue(_QuietAnalytics()),
-        hasSeenOnboardingProvider.overrideWith(
-          (ref) => HasSeenOnboardingNotifier(initial: false),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    final coordinator = container.read(onboardingFlowCoordinatorProvider);
-    await coordinator.skip();
-    expect(container.read(hasSeenOnboardingProvider), isTrue);
-    await container.read(hasSeenOnboardingProvider.notifier).reset();
-    expect(container.read(hasSeenOnboardingProvider), isFalse);
-    await coordinator.skip();
-    expect(container.read(hasSeenOnboardingProvider), isTrue);
-  });
-  test('published plan allowances do not expose development ceilings', () {
-    expect(UsageLimits.planAllowance(UsageFeature.aiSave), 30);
-    expect(UsageLimits.planAllowance(UsageFeature.ask), 30);
-    expect(UsageLimits.planAllowance(UsageFeature.search), 30);
-    expect(UsageLimits.planAllowance(UsageFeature.aiSave, isPro: true), 500);
-  });
-  testWidgets(
-    'dark canvas follows app brightness with bundled editorial artwork',
-    (tester) async {
-      await tester.pumpWidget(app(flow(), dark: true));
-      await tester.pumpAndSettle();
-      final context = tester.element(find.byType(Scaffold));
-      expect(Theme.of(context).brightness, Brightness.dark);
-      expect(
-        find.byWidgetPredicate(
-          (w) =>
-              w is Image &&
-              w.image is AssetImage &&
-              (w.image as AssetImage).assetName.endsWith('opening.webp'),
-        ),
-        findsOneWidget,
-      );
-    },
-  );
-  testWidgets(
-    'tap and swipe share one paged surface and repeated taps stay bounded',
-    (tester) async {
-      await tester.pumpWidget(app(flow(), reducedMotion: false));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 80));
-      final page = tester
-          .widget<PageView>(find.byType(PageView))
-          .controller!
-          .page!;
-      expect(page, greaterThan(0));
-      expect(page, lessThan(1));
-      await tester.tap(find.byKey(const ValueKey('onboarding-primary-cta')));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<PageView>(find.byType(PageView)).controller!.page,
-        1,
-      );
-      await tester.drag(find.byType(PageView), const Offset(-600, 0));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<PageView>(find.byType(PageView)).controller!.page,
-        2,
-      );
-    },
-  );
-  testWidgets('skip does not seed or open Pro', (tester) async {
     var seeds = 0;
     bool? pro;
     await tester.pumpWidget(
@@ -286,48 +162,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    for (var i = 0; i < _chapterCount - 1; i++) {
+      await next(tester);
+    }
+    expect(find.text('Skip').hitTestable(), findsNothing);
+    await tester.drag(find.byType(PageView), const Offset(600, 0));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
     expect(seeds, 0);
     expect(pro, false);
   });
-  testWidgets('Pro intent is prepared before routing', (tester) async {
-    final order = <String>[];
-    await tester.pumpWidget(
-      app(
-        flow(
-          prepare: (pro) async => order.add('pro:$pro'),
-          complete: () async => order.add('route'),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    for (var i = 0; i < OnboardingChapterController.count - 1; i++) {
-      await next(tester);
-    }
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.byKey(const ValueKey('onboarding-primary-cta')),
-          )
-          .child,
-      isA<Text>().having((text) => text.data, 'label', 'Explore Pro'),
-    );
-    await tester.tap(find.text('Explore Pro'));
-    await tester.pumpAndSettle();
-    expect(order, ['pro:true', 'route']);
-  });
-  testWidgets('existing subscribers can continue without an upsell', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app(flow(), pro: true));
-    await tester.pumpAndSettle();
-    for (var i = 0; i < OnboardingChapterController.count - 1; i++) {
-      await next(tester);
-    }
-    expect(find.text('Continue with Pro'), findsOneWidget);
-    expect(find.text('Explore Pro'), findsNothing);
-  });
+
   testWidgets('failed completion remains retryable', (tester) async {
     var attempts = 0;
     await tester.pumpWidget(
@@ -350,10 +196,155 @@ void main() {
     await tester.pumpAndSettle();
     expect(attempts, 2);
   });
+
+  testWidgets('the share demo loops only while it is on screen', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(flow(), reducedMotion: false));
+    await tester.pumpAndSettle();
+    await tester.tap(_cta);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 8));
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    // Leaving the page stops the loop; the later stages play once and rest.
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(_cta);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+    await tester.pumpAndSettle();
+    expect(page(tester), _chapterCount - 1);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
+  testWidgets('tap and swipe share one paged surface', (tester) async {
+    await tester.pumpWidget(app(flow(), reducedMotion: false));
+    await tester.pumpAndSettle();
+    await tester.tap(_cta);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(page(tester), inExclusiveRange(0, 1));
+    // A second tap mid-animation is ignored rather than skipping a page.
+    await tester.tap(_cta);
+    await tester.pump(const Duration(seconds: 1));
+    expect(page(tester), 1);
+    await tester.drag(find.byType(PageView), const Offset(-300, 0));
+    // Once the share demo is off screen its loop stops, so this settles.
+    await tester.pumpAndSettle();
+    expect(page(tester), 2);
+  });
+
+  testWidgets('haptics follow the story: detents, demo cues once, confirm', (
+    tester,
+  ) async {
+    final played = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('com.shinrinyoku.glimpse/haptics'),
+      (call) async {
+        played.add((call.arguments as Map)['name'] as String);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('com.shinrinyoku.glimpse/haptics'),
+        null,
+      ),
+    );
+    await tester.pumpWidget(app(flow(), reducedMotion: false));
+    await tester.pump(const Duration(milliseconds: 200));
+    // The painting breathes in as the story opens.
+    expect(played, ['swell']);
+    await tester.pumpAndSettle();
+    played.clear();
+    await tester.tap(_cta);
+    // Two full loops of the share demo: its cues play on the first only.
+    for (var i = 0; i < 140; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(played, [
+      'press',
+      'detent',
+      'press',
+      'swell',
+      'press',
+      'drop',
+      'success',
+    ]);
+    played.clear();
+    // Reading: pulses, then a key per line and a thud per book.
+    await tester.tap(_cta);
+    for (var f = 0; f < 60; f++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(played.take(3), ['press', 'detent', 'pulse']);
+    expect(played.where((e) => e == 'land').length, 3);
+    expect(played.where((e) => e == 'key').length, 8);
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(_cta);
+      for (var f = 0; f < 60; f++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+    expect(played, contains('success'));
+    await tester.tap(_cta);
+    await tester.pumpAndSettle();
+    expect(played.last, 'confirm');
+  });
+
+  testWidgets('reduced motion keeps page detents but no animation cues', (
+    tester,
+  ) async {
+    final played = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('com.shinrinyoku.glimpse/haptics'),
+      (call) async {
+        played.add((call.arguments as Map)['name'] as String);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('com.shinrinyoku.glimpse/haptics'),
+        null,
+      ),
+    );
+    await tester.pumpWidget(app(flow()));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < _chapterCount - 1; i++) {
+      await next(tester);
+    }
+    // Direct feedback stays; nothing tied to animation plays.
+    expect(played, [
+      for (var i = 0; i < _chapterCount - 1; i++) ...['press', 'detent'],
+    ]);
+  });
+
+  test('every bundled artwork is present', () async {
+    for (final art in OnboardingArt.all) {
+      final data = await rootBundle.load(OnboardingArt.path(art));
+      expect(data.lengthInBytes, greaterThan(1000), reason: art);
+    }
+  });
+
+  testWidgets('follows the app theme instead of forcing its own', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(flow(), dark: true));
+    await tester.pumpAndSettle();
+    final context = tester.element(find.byType(Scaffold));
+    expect(Theme.of(context).brightness, Brightness.dark);
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+      Theme.of(context).colorScheme.surface,
+    );
+  });
+
   for (final dark in [false, true]) {
     for (final locale in ['en', 'ja', 'es', 'fr', 'pt', 'de']) {
       testWidgets(
-        '$locale ${dark ? 'dark' : 'light'} compact phone and large text remain usable',
+        '$locale ${dark ? 'dark' : 'light'} compact phone and large text stay usable',
         (tester) async {
           tester.view.physicalSize = const Size(320, 640);
           tester.view.devicePixelRatio = 1;
@@ -363,20 +354,43 @@ void main() {
             app(flow(), locale: Locale(locale), scale: 1.6, dark: dark),
           );
           await tester.pumpAndSettle();
-          for (var i = 0; i < OnboardingChapterController.count; i++) {
+          for (var i = 0; i < _chapterCount; i++) {
             expect(tester.takeException(), isNull);
-            expect(
-              tester
-                  .getRect(find.byKey(const ValueKey('onboarding-primary-cta')))
-                  .bottom,
-              lessThanOrEqualTo(640),
-            );
-            if (i < OnboardingChapterController.count - 1) await next(tester);
+            expect(tester.getRect(_cta).bottom, lessThanOrEqualTo(640));
+            if (i < _chapterCount - 1) await next(tester);
           }
         },
       );
     }
   }
+
+  test('replaying onboarding resets the completed coordinator', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer(
+      overrides: [
+        analyticsServiceProvider.overrideWithValue(_QuietAnalytics()),
+        hasSeenOnboardingProvider.overrideWith(
+          (ref) => HasSeenOnboardingNotifier(initial: false),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final coordinator = container.read(onboardingFlowCoordinatorProvider);
+    await coordinator.skip();
+    expect(container.read(hasSeenOnboardingProvider), isTrue);
+    await container.read(hasSeenOnboardingProvider.notifier).reset();
+    expect(container.read(hasSeenOnboardingProvider), isFalse);
+    await coordinator.skip();
+    expect(container.read(hasSeenOnboardingProvider), isTrue);
+  });
+
+  test('published plan allowances do not expose development ceilings', () {
+    expect(UsageLimits.planAllowance(UsageFeature.aiSave), 30);
+    expect(UsageLimits.planAllowance(UsageFeature.ask), 30);
+    expect(UsageLimits.planAllowance(UsageFeature.search), 30);
+    expect(UsageLimits.planAllowance(UsageFeature.aiSave, isPro: true), 500);
+  });
+
   test(
     'completion is idempotent and optional seed cannot block routing',
     () async {

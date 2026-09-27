@@ -19,6 +19,7 @@ import 'place_itinerary_editor_screen.dart';
 import 'place_locality_provider.dart';
 import 'place_itinerary_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 class LibraryPlacesScreen extends ConsumerStatefulWidget {
   const LibraryPlacesScreen({super.key});
@@ -156,10 +157,14 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
             onRegionSelected: _selectRegion,
             onQueryChanged: (value) => setState(() => _query = value),
             onClearQuery: () {
+              AppHaptics.play(AppHaptics.tick);
               _searchController.clear();
               setState(() => _query = '');
             },
-            onSelected: (entity) => setState(() => _selectedKey = entity.key),
+            onSelected: (entity) {
+              if (entity.key != _selectedKey) AppHaptics.play(AppHaptics.tick);
+              setState(() => _selectedKey = entity.key);
+            },
             onShowOnMap: _showOnMap,
             onOpen: _open,
             onOpenPlan: _openPlan,
@@ -214,6 +219,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
   }
 
   void _selectRegion(String key) {
+    AppHaptics.play(AppHaptics.tick);
     setState(() {
       _selectedRegionKey = key;
       _selectedKey = null;
@@ -221,6 +227,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
   }
 
   void _selectArea(String key) {
+    AppHaptics.play(AppHaptics.tick);
     setState(() {
       _selectedAreaKey = key;
       _selectedRegionKey = allPlacesAreaKey;
@@ -236,6 +243,7 @@ class _LibraryPlacesScreenState extends ConsumerState<LibraryPlacesScreen> {
   }
 
   void _showOnMap(LibraryEntity entity) {
+    AppHaptics.play(AppHaptics.tap);
     setState(() => _selectedKey = entity.key);
     if (_sheetController.isAttached) {
       unawaited(

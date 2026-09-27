@@ -561,7 +561,7 @@ class _FollowUpChips extends StatelessWidget {
               onTap: onTap == null
                   ? null
                   : () {
-                      HapticFeedback.selectionClick();
+                      AppHaptics.play(AppHaptics.tick);
                       onTap!(prompts[index]);
                     },
               child: Padding(
@@ -1151,7 +1151,7 @@ class _ComposerBar extends StatelessWidget {
                                   : context.l10n.send,
                               onPressed: hasText && !isLoading
                                   ? () {
-                                      HapticFeedback.lightImpact();
+                                      AppHaptics.play(AppHaptics.tap);
                                       onSubmit(controller.text);
                                     }
                                   : null,

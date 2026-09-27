@@ -2723,43 +2723,7 @@ class AppLocalizationsJa extends AppLocalizations {
       '選択した要約とハイライトをクラウドAIに送信します。個人メモは端末内に残ります。週に最大1回のAskリクエストを使用します。オフでも端末内の履歴は利用できます。';
 
   @override
-  String get obTitle1 => '心に留まったものを、手元に。';
-
-  @override
-  String get obTitle2 => 'リンクの、その先へ。';
-
-  @override
-  String get obTitle3 => 'ライブラリが、育っていく。';
-
-  @override
-  String get obTitle4 => '見つけて、尋ねる。';
-
-  @override
-  String get obTitle5 => 'また開く、理由がある。';
-
-  @override
-  String get obTitle6 => '無料で始めて、Proでもっと。';
-
-  @override
-  String get obBody1 => '見つけたものを残して、もっと役立てる。';
-
-  @override
   String get obBody2 => '保存したリンクが、わかりやすい要点や役立つ情報に。';
-
-  @override
-  String get obBody3 => '関連するアイデアが、自然と興味ごとにまとまる。';
-
-  @override
-  String get obBody4 => '自分の言葉で質問。保存した内容から答えを見つける。';
-
-  @override
-  String get obBody5 => '新しいつながりから、または自分で選んだときに。';
-
-  @override
-  String get obBody6 => '自由に保存。ProならAIをもっと活用。';
-
-  @override
-  String get obBegin => 'できることを見る';
 
   @override
   String get obContinue => '次へ';
@@ -2768,25 +2732,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get obSkip => 'スキップ';
 
   @override
-  String get obBack => '前の章';
-
-  @override
   String get obExample => '表示例';
-
-  @override
-  String get obOverview => '概要';
-
-  @override
-  String get obPlaces => '場所';
-
-  @override
-  String get obBooks => '本';
-
-  @override
-  String get obMovies => '映画';
-
-  @override
-  String get obMusic => '音楽';
 
   @override
   String get obSummary =>
@@ -2802,56 +2748,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get obShare => '共有 → Glimpse、またはリンクを貼り付け';
 
   @override
-  String get obCollected => '保存の中から見つかったもの';
-
-  @override
-  String get obCollection => '自分のコレクション · ゆったりした週末';
-
-  @override
-  String get obInterests => '広がる興味 · 旅と創造性';
-
-  @override
-  String get obBookExample => '日常の創造性を育むガイド';
-
-  @override
-  String get obMovieExample => '静かな夜に観たい映画';
-
-  @override
-  String get obMusicExample => '旅のおともに聴きたい曲';
-
-  @override
-  String get obQuestion => '保存したフランスの場所って、どこだった？';
-
-  @override
   String get obAnswer =>
       '保存したフランスのガイドにありました。\n\n**タルン渓谷** — 渓谷の風景。\n\n**エヴァンタイユの滝** — 滝を訪れるひととき。\n\n**モワサック修道院** — 歴史ある修道院。\n\nこのガイドは、定番の観光地から少し離れて、自然と歴史に出会う旅を紹介しています。この3か所が、そんな旅を考える出発点になります。';
-
-  @override
-  String get obSemantic => 'Pro · 言葉の一致を超えて、意味で検索';
-
-  @override
-  String get obRediscover => '混雑した名所の、その先へ';
-
-  @override
-  String get obRevisit => '週末にこのレシピを作ってみたい。';
-
-  @override
-  String get obFree => '無料';
-
-  @override
-  String get obUnlimited => '通常のリンク保存は無制限';
-
-  @override
-  String get obFairUse => 'Askと検索の利用枠を拡大（フェアユース適用）';
-
-  @override
-  String get obStartFree => '無料で始める';
-
-  @override
-  String get obExplorePro => 'Proを見る';
-
-  @override
-  String get obContinuePro => 'Proで続ける';
 
   @override
   String get obError => '進行状況を保存できませんでした。もう一度お試しください。';
@@ -2901,75 +2799,13 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String obFreeAi(int count) {
-    return 'AIによる情報追加は累計$count件';
-  }
-
-  @override
-  String obMonthlyAsk(int count) {
-    return 'Askへの質問は月$count回';
-  }
-
-  @override
-  String obMonthlySearch(int count) {
-    return '検索は月$count回';
-  }
-
-  @override
-  String obProAi(int count) {
-    return 'AIによる情報追加は月$count件';
-  }
-
-  @override
   String get obTakeaway2 => '静かな場所の紹介も、混雑を招くきっかけになり得ます。';
 
   @override
   String get obTakeaway3 => '投稿者は、田舎への旅をまた訪れたくなる体験として紹介しています。';
 
   @override
-  String get obCooking => 'レシピ・料理';
-
-  @override
-  String get obSoftware => 'ソフトウェア・AI';
-
-  @override
-  String get obTravel => '旅行';
-
-  @override
-  String get obInterestNote => '共通する概念ごとに保存がまとまるので、ライブラリが大きくなっても、自分の興味を見渡せます。';
-
-  @override
-  String get obAutomatic => '自然に見つかるつながり';
-
-  @override
-  String get obAutomaticNote => '新しく保存した田舎の旅の話が、以前のフランスガイドにつながりました。';
-
-  @override
-  String get obChosen => '自分で選ぶ振り返り';
-
-  @override
-  String get obChosenNote => '自分で選んだタイミングに、もう一度。リマインダーは任意です。';
-
-  @override
   String get obSaveTitle => '素顔のフランス・あまり知られていない旅先';
-
-  @override
-  String get obSaveSearch => 'フランス';
-
-  @override
-  String get obPlaceOne => 'タルン渓谷';
-
-  @override
-  String get obPlaceTwo => 'エヴァンタイユの滝';
-
-  @override
-  String get obRealExample => '実際の保存から・短縮プレビュー';
-
-  @override
-  String get obPreparedAnswer => '事前に用意した回答例';
-
-  @override
-  String get obLibraryBody => '保存した内容から、本・映画・音楽・場所を発見。';
 
   @override
   String askExactLinkCount(int count) {
@@ -3015,4 +2851,136 @@ class AppLocalizationsJa extends AppLocalizations {
   String askEntityCount(int count, String kind) {
     return '保存したコンテンツ内の「$kind」は$count件です。';
   }
+
+  @override
+  String get obWelcomeTitle => '心に留まったものを、手元に。';
+
+  @override
+  String get obWelcomeBody => '保存したリール、投稿、記事が、ちゃんと使える知識になります。';
+
+  @override
+  String get obShareTitle => 'どこからでも保存。';
+
+  @override
+  String get obShareBody =>
+      'Instagram、YouTube、Webで気になるものを見つけたら、「共有」からGlimpseをタップ。';
+
+  @override
+  String get obReadTitle => 'Glimpseが読み解きます。';
+
+  @override
+  String get obReadBody => '保存したものは、要点・大事なアイデア・登場するものがまとまった読みやすいページに。';
+
+  @override
+  String get obFindTitle => '何でもまた見つかる。';
+
+  @override
+  String get obFindBody => '自分の言葉で検索や質問を。保存した内容の映画・音楽・場所はライブラリに集まります。';
+
+  @override
+  String get obGrowTitle => '保存するほど、賢くなる。';
+
+  @override
+  String get obGrowBody => 'Glimpseがあなたの興味を学び、良いものをまた届けます。';
+
+  @override
+  String get obGetStarted => 'はじめる';
+
+  @override
+  String get obNext => '次へ';
+
+  @override
+  String get obStartSaving => '保存をはじめる';
+
+  @override
+  String obFreeNote(int count) {
+    return '無料プランにはAIによる読み取り$count件が含まれます。いつでもアップグレードできます。';
+  }
+
+  @override
+  String get obReelFollow => 'フォロー';
+
+  @override
+  String get obReelCaption => '集中力を取り戻した3つのアイデアと、その元になった本 📚… 続きを読む';
+
+  @override
+  String get obReelAudio => 'オリジナル音源';
+
+  @override
+  String get obShareMessages => 'メッセージ';
+
+  @override
+  String get obSavedToast => 'Glimpseに保存しました';
+
+  @override
+  String get obReelSource => 'Instagramリール · 0:48';
+
+  @override
+  String get obReading => 'リールを読み取り中…';
+
+  @override
+  String get obDemoTitle => '集中力を取り戻した3つのアイデア';
+
+  @override
+  String get obDemoBrief => '習慣はとことん小さく始め、本当の仕事のための長い時間を守り、大きな決断の前には立ち止まる。';
+
+  @override
+  String get obDemoPoint1 => '新しい習慣は2分でできるまで小さくする。';
+
+  @override
+  String get obDemoPoint2 => '通知をオフにして90分の集中ブロックを確保する。';
+
+  @override
+  String get obDemoPoint3 => '急ぎで明らかに思える決断ほど、一晩寝かせる。';
+
+  @override
+  String get obTermTwoMinute => '2分ルール';
+
+  @override
+  String get obTermDeepWork => 'ディープワーク';
+
+  @override
+  String get obTermSystems => 'システム1と2';
+
+  @override
+  String get obFilmsMusic => '映画と音楽';
+
+  @override
+  String get obSearchQuery => '習慣を始めるときのあのコツは？';
+
+  @override
+  String get obSearchAnswer => '新しい習慣は2分でできるまで小さくする。thereadingroomのリールより。';
+
+  @override
+  String get obGrowToday => '今日から';
+
+  @override
+  String get obGrowSoon => 'いくつか保存したら';
+
+  @override
+  String get obGrowLater => '使うほどに';
+
+  @override
+  String get obGrowAnytime => 'いつでも';
+
+  @override
+  String get obGrowLibrary => '保存したものから、本・映画・音楽・場所を。';
+
+  @override
+  String get obGrowInterests => '保存したものが、あなたの興味ごとに自然とまとまります。';
+
+  @override
+  String get obGrowRediscover => 'もう一度見る価値があるときに、過去の保存が戻ってきます。';
+
+  @override
+  String get obGrowCollections => '旅行やプロジェクトに合わせて、自分流にまとめられます。';
+
+  @override
+  String get obShareStage => '例：Instagramのリールで「共有」をタップし、Glimpseを選ぶと保存されます。';
+
+  @override
+  String get obReadStage => '例：保存したリールが、概要・重要ポイント・用語・登場する本をまとめたページに。';
+
+  @override
+  String get obFindStage => '例：保存した内容の映画・音楽・場所と、2分ルールを見つける検索。';
 }

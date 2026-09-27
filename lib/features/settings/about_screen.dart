@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,6 +10,7 @@ import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import 'settings_components.dart';
+import '../../core/services/app_haptics.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -94,7 +94,7 @@ class _AboutScreenState extends State<AboutScreen> {
     if (_versionTapCount < _requiredVersionTaps) return;
 
     _versionTapCount = 0;
-    HapticFeedback.mediumImpact();
+    AppHaptics.play(AppHaptics.delight);
     final quotes = _keepsakeQuotes(context.l10n);
     final quote = quotes[Random().nextInt(quotes.length)];
     Navigator.of(context).push(

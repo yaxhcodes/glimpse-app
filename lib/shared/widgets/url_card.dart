@@ -25,6 +25,7 @@ import 'selection_badge.dart';
 import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 /// Card widget for displaying a saved URL entry.
 class UrlCard extends ConsumerStatefulWidget {
@@ -206,7 +207,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () {
-              HapticFeedback.lightImpact();
+              AppHaptics.play(AppHaptics.tap);
               if (widget.selectionMode) {
                 widget.onSelectionTap?.call();
               } else {
@@ -214,7 +215,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               }
             },
             onLongPress: () {
-              HapticFeedback.mediumImpact();
+              AppHaptics.play(AppHaptics.hold);
               if (widget.onLongPress != null) {
                 widget.onLongPress?.call();
               } else if (!widget.selectionMode) {

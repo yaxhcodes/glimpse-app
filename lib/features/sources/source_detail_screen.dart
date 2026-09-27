@@ -16,6 +16,7 @@ import '../../shared/widgets/source_logo.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import 'sources_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 enum _SourceItemFilter {
   all(AppIcons.filter),
@@ -144,7 +145,10 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
                       ? IconButton(
                           icon: const Icon(AppIcons.arrowBack),
                           tooltip: context.l10n.exitSelection,
-                          onPressed: selectionNotifier.clear,
+                          onPressed: () {
+                            AppHaptics.play(AppHaptics.tick);
+                            selectionNotifier.clear();
+                          },
                         )
                       : null,
                   actions: selectionState.isActive
@@ -552,12 +556,18 @@ class _SourceControls extends StatelessWidget {
         _SourceControlChip(
           icon: itemFilter.icon,
           label: _localizedItemFilter(context.l10n, itemFilter),
-          onTap: () => _chooseItemFilter(context),
+          onTap: () {
+            AppHaptics.play(AppHaptics.tick);
+            _chooseItemFilter(context);
+          },
         ),
         _SourceControlChip(
           icon: sort.icon,
           label: _localizedSourceSort(context.l10n, sort),
-          onTap: () => _chooseSort(context),
+          onTap: () {
+            AppHaptics.play(AppHaptics.tick);
+            _chooseSort(context);
+          },
         ),
       ],
     );
@@ -705,7 +715,10 @@ class _SourceChoiceSheet<T> extends StatelessWidget {
                 trailing: option == selected
                     ? Icon(AppIcons.check, size: 20, color: cs.onSurface)
                     : const SizedBox(width: 20),
-                onTap: () => Navigator.of(context).pop(option),
+                onTap: () {
+                  AppHaptics.play(AppHaptics.tick);
+                  Navigator.of(context).pop(option);
+                },
               ),
             ),
         ],
