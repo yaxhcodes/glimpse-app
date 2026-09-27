@@ -64,7 +64,12 @@ void main() {
         matching: find.text('Planning'),
       ),
     );
-    await tester.tap(find.text('Fiction'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Fiction'),
+      ),
+    );
     await tester.tap(find.text('Show items'));
     await tester.pumpAndSettle();
 
@@ -104,7 +109,8 @@ void main() {
     await tester.pump();
 
     final tile = find.byType(LibraryEntityTile);
-    final gesture = await tester.startGesture(tester.getCenter(tile));
+    final start = tester.getCenter(tile);
+    final gesture = await tester.startGesture(start);
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpAndSettle();
 
@@ -112,7 +118,12 @@ void main() {
       find.byKey(const ValueKey('library-radial-status-overlay')),
       findsOneWidget,
     );
-    await gesture.moveBy(const Offset(0, -90));
+    // The menu is kept on screen, so it can sit off the finger on an edge
+    // column; drag to where the option is drawn.
+    await gesture.moveBy(
+      tester.getCenter(find.byKey(const ValueKey('library-radial-active'))) -
+          start,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Reading'), findsOneWidget);
 
@@ -213,6 +224,15 @@ void main() {
         genre: 'Fiction',
         status: LibraryItemStatus.unlisted,
         discoveredAt: DateTime(2026, 8, 2),
+      ),
+      // Three covers fill a phone row; the last one sits on the right.
+      _book(
+        key: 'middle-card',
+        title: 'Middle Card',
+        year: '2024',
+        genre: 'Fiction',
+        status: LibraryItemStatus.unlisted,
+        discoveredAt: DateTime(2026, 8, 1, 12),
       ),
       _book(
         key: 'right-card',

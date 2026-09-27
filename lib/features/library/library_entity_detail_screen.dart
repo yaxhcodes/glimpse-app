@@ -10,6 +10,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../l10n/l10n.dart';
+import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/source_logo.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/music_actions.dart';
 import 'library_entity.dart';
@@ -22,15 +24,42 @@ import 'library_status_picker.dart';
 import 'library_widgets.dart';
 import 'place_itinerary_editor_screen.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
-import 'package:glimpse/shared/widgets/app_expansion_chevron.dart';
 
-class LibraryEntityDetailScreen extends ConsumerWidget {
-  const LibraryEntityDetailScreen({super.key, required this.entityKey});
+class LibraryEntityDetailScreen extends ConsumerStatefulWidget {
+  const LibraryEntityDetailScreen({
+    super.key,
+    required this.entityKey,
+    this.siblingKeys = const [],
+  });
 
   final String entityKey;
 
+  /// The grid this page was opened from, in its order; swiping sideways
+  /// moves through it. Empty when opened from anywhere else.
+  final List<String> siblingKeys;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibraryEntityDetailScreen> createState() =>
+      _LibraryEntityDetailScreenState();
+}
+
+class _LibraryEntityDetailScreenState
+    extends ConsumerState<LibraryEntityDetailScreen> {
+  late final List<String> _keys = widget.siblingKeys.contains(widget.entityKey)
+      ? widget.siblingKeys
+      : [widget.entityKey];
+  late final PageController _pages = PageController(
+    initialPage: _keys.indexOf(widget.entityKey),
+  );
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final snapshot = ref.watch(librarySnapshotProvider);
     return snapshot.when(
       loading: () =>
@@ -40,21 +69,31 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
         body: Center(child: Text('$error')),
       ),
       data: (data) {
-        final entity = data.byKey(entityKey);
-        if (entity == null) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: Center(child: Text(context.l10n.libraryItemUnavailable)),
-          );
-        }
-        return _EntityDetail(
-          entity: entity,
-          onStatusChanged: (status) => _setStatus(context, ref, entity, status),
-          onReadingPageChanged: (page) =>
-              _setReadingPage(context, ref, entity, page),
-          onHide: () => _hideWithUndo(context, ref, entity),
+        if (_keys.length == 1) return _page(context, data, _keys.single);
+        return PageView.builder(
+          controller: _pages,
+          itemCount: _keys.length,
+          itemBuilder: (context, index) => _page(context, data, _keys[index]),
         );
       },
+    );
+  }
+
+  Widget _page(BuildContext context, LibrarySnapshot data, String key) {
+    final entity = data.byKey(key);
+    if (entity == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text(context.l10n.libraryItemUnavailable)),
+      );
+    }
+    return _EntityDetail(
+      key: ValueKey(key),
+      entity: entity,
+      onStatusChanged: (status) => _setStatus(context, ref, entity, status),
+      onReadingPageChanged: (page) =>
+          _setReadingPage(context, ref, entity, page),
+      onHide: () => _hideWithUndo(context, ref, entity),
     );
   }
 
@@ -126,6 +165,7 @@ class LibraryEntityDetailScreen extends ConsumerWidget {
 
 class _EntityDetail extends StatelessWidget {
   const _EntityDetail({
+    super.key,
     required this.entity,
     required this.onStatusChanged,
     required this.onReadingPageChanged,
@@ -139,14 +179,53 @@ class _EntityDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isPlace = entity.kind == LibraryEntityKind.place;
     final reasons = entity.sources
         .map((source) => source.mention.whyMentioned?.trim() ?? '')
         .where((reason) => reason.isNotEmpty)
         .toSet()
         .toList(growable: false);
     final plot = entity.mention.plot?.trim() ?? '';
+    final sections = <Widget>[
+      if (entity.kind == LibraryEntityKind.book &&
+          entity.status == LibraryItemStatus.active)
+        LibraryReadingProgressCard(
+          entity: entity,
+          onPageChanged: onReadingPageChanged,
+        ),
+      if (isPlace && entity.genres.isNotEmpty)
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final genre in entity.genres) LibraryGenreChip(label: genre),
+          ],
+        ),
+      if (entity.kind == LibraryEntityKind.movie && plot.isNotEmpty)
+        _DetailSection(title: context.l10n.plot, child: _BodyText(plot)),
+      if (reasons.isNotEmpty)
+        _DetailSection(
+          title: context.l10n.whyItMattered,
+          child: _WhyItMattered(reasons: reasons),
+        ),
+      _DetailSection(
+        title: context.l10n.foundInYourSaves,
+        child: _SourceSaves(entity: entity),
+      ),
+    ];
     return Scaffold(
+      extendBodyBehindAppBar: !isPlace,
       appBar: AppBar(
+        // Clear over the cover wash, solid once the page scrolls under it.
+        backgroundColor: isPlace
+            ? null
+            : WidgetStateColor.resolveWith(
+                (states) => states.contains(WidgetState.scrolledUnder)
+                    ? cs.surfaceContainer
+                    : Colors.transparent,
+              ),
+        surfaceTintColor: Colors.transparent,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(AppIcons.more),
@@ -170,61 +249,27 @@ class _EntityDetail extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: _CoverWash(
-              entity: entity,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (entity.kind == LibraryEntityKind.place)
-                          _PlaceHeader(
-                            entity: entity,
-                            onStatusChanged: onStatusChanged,
-                          )
-                        else
-                          _MediaHeader(
-                            entity: entity,
-                            onStatusChanged: onStatusChanged,
-                          ),
-                        if (entity.kind == LibraryEntityKind.book &&
-                            entity.status == LibraryItemStatus.active) ...[
-                          const SizedBox(height: 24),
-                          LibraryReadingProgressCard(
-                            entity: entity,
-                            onPageChanged: onReadingPageChanged,
-                          ),
-                        ],
-                        if (entity.kind == LibraryEntityKind.place &&
-                            entity.genres.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final genre in entity.genres)
-                                LibraryGenreChip(label: genre),
-                            ],
-                          ),
-                        ],
-                        if (entity.kind == LibraryEntityKind.movie &&
-                            plot.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          _PlotSummary(plot: plot),
-                        ],
-                        if (reasons.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          _WhyItMattered(reasons: reasons),
-                        ],
-                        const SizedBox(height: 20),
-                        _SourceSaves(entity: entity),
-                      ],
+            child: isPlace
+                ? _Constrained(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                    child: _PlaceHeader(
+                      entity: entity,
+                      onStatusChanged: onStatusChanged,
                     ),
-                  ),
-                ),
+                  )
+                : _MediaHero(entity: entity, onStatusChanged: onStatusChanged),
+          ),
+          SliverToBoxAdapter(
+            child: _Constrained(
+              padding: EdgeInsets.fromLTRB(20, isPlace ? 24 : 4, 20, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var index = 0; index < sections.length; index++) ...[
+                    if (index > 0) const SizedBox(height: 28),
+                    sections[index],
+                  ],
+                ],
               ),
             ),
           ),
@@ -234,67 +279,28 @@ class _EntityDetail extends StatelessWidget {
   }
 }
 
-/// The cover, heavily blurred, washing softly behind the header and fading
-/// into the page: the page takes on the colour of the book or film without
-/// a colour-extraction pass.
-class _CoverWash extends StatelessWidget {
-  const _CoverWash({required this.entity, required this.child});
+class _Constrained extends StatelessWidget {
+  const _Constrained({required this.padding, required this.child});
 
-  final LibraryEntity entity;
+  final EdgeInsets padding;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final artwork = entity.kind == LibraryEntityKind.place
-        ? null
-        : entity.artworkUrl?.trim();
-    if (artwork == null || artwork.isEmpty) return child;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Stack(
-      children: [
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 380,
-          child: IgnorePointer(
-            child: RepaintBoundary(
-              child: ShaderMask(
-                blendMode: BlendMode.dstIn,
-                shaderCallback: (bounds) => const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black, Colors.transparent],
-                  stops: [0.1, 1],
-                ).createShader(bounds),
-                child: Opacity(
-                  opacity: dark ? 0.42 : 0.3,
-                  child: ImageFiltered(
-                    imageFilter: ImageFilter.blur(
-                      sigmaX: 40,
-                      sigmaY: 40,
-                      tileMode: TileMode.decal,
-                    ),
-                    child: CachedNetworkImage(
-                      imageUrl: artwork,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 200,
-                      errorWidget: (_, _, _) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        child,
-      ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: Padding(padding: padding, child: child),
+      ),
     );
   }
 }
 
-class _MediaHeader extends StatelessWidget {
-  const _MediaHeader({required this.entity, required this.onStatusChanged});
+/// The page opens like a title card: the cover, heavily blurred, fills the
+/// top of the screen behind the status bar and melts into the page, with the
+/// cover itself centred on it. Titles without art wash in their printed ink.
+class _MediaHero extends StatelessWidget {
+  const _MediaHero({required this.entity, required this.onStatusChanged});
 
   final LibraryEntity entity;
   final Future<void> Function(LibraryItemStatus status) onStatusChanged;
@@ -303,99 +309,139 @@ class _MediaHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final width = MediaQuery.sizeOf(context).width;
+    final isMusic = entity.kind == LibraryEntityKind.music;
+    final coverWidth = isMusic
+        ? (width * 0.56).clamp(180.0, 260.0)
+        : (width * 0.4).clamp(140.0, 200.0);
     final rating = entity.kind == LibraryEntityKind.movie
         ? entity.mention.imdbRating
         : null;
     final hasRating =
         rating != null && rating.isFinite && rating > 0 && rating <= 10;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final artworkWidth = constraints.maxWidth < 360 ? 112.0 : 132.0;
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: artworkWidth,
-              child: AspectRatio(
-                aspectRatio: entity.kind == LibraryEntityKind.music ? 1 : 0.68,
-                child: Hero(
-                  tag: 'library-artwork-${entity.key}',
-                  child: LibraryArtwork(
-                    entity: entity,
-                    borderRadius: BorderRadius.circular(20),
+    final metadata = _metadata(context, entity);
+    final metaStyle = tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant);
+    return Stack(
+      children: [
+        Positioned.fill(child: _CoverWash(entity: entity)),
+        _Constrained(
+          padding: EdgeInsets.fromLTRB(24, top + 8, 24, 28),
+          child: Column(
+            children: [
+              Container(
+                width: coverWidth,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: dark ? 0.5 : 0.22),
+                      blurRadius: 36,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                ),
+                child: AspectRatio(
+                  aspectRatio: libraryArtworkAspectRatio(entity.kind),
+                  child: Hero(
+                    tag: 'library-artwork-${entity.key}',
+                    child: LibraryArtwork(
+                      entity: entity,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entity.title,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: tt.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      height: 1.08,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _metadata(context, entity),
-                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  if (entity.genres.isNotEmpty || hasRating) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final genre in entity.genres)
-                          LibraryGenreChip(label: genre),
-                        if (hasRating) _ImdbRatingChip(rating: rating),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  if (entity.kind == LibraryEntityKind.music)
-                    MusicOpenButton(
-                      title: entity.title,
-                      artist: entity.mention.creator,
-                    )
-                  else
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
-                        onPressed: () => _chooseStatus(context),
-                        icon: AppIcon(
-                          libraryStatusIcon(entity.status, entity.kind),
-                        ),
-                        label: Text(
-                          entity.status == LibraryItemStatus.unlisted
-                              ? entity.kind == LibraryEntityKind.book
-                                    ? context.l10n.addToReadingList
-                                    : context.l10n.addToWatchlist
-                              : localizedLibraryStatus(
-                                  context.l10n,
-                                  entity.status,
-                                  entity.kind,
-                                ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 24),
+              Text(
+                entity.title,
+                textAlign: TextAlign.center,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.editorial(
+                  tt.headlineMedium,
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w600,
+                  height: 1.1,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: metadata),
+                    if (hasRating) ...[
+                      const TextSpan(text: ' · '),
+                      TextSpan(
+                        text: rating.toStringAsFixed(1),
+                        style: TextStyle(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                ],
+                      const TextSpan(text: ' IMDb'),
+                    ],
+                  ],
+                ),
+                textAlign: TextAlign.center,
+                style: metaStyle,
               ),
-            ),
-          ],
-        );
-      },
+              if (entity.genres.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final genre in entity.genres) _GenrePill(label: genre),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 22),
+              if (isMusic)
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: MusicOpenButton(
+                    title: entity.title,
+                    artist: entity.mention.creator,
+                  ),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: entity.status == LibraryItemStatus.unlisted
+                      ? FilledButton.icon(
+                          onPressed: () => _chooseStatus(context),
+                          icon: AppIcon(
+                            libraryStatusIcon(entity.status, entity.kind),
+                          ),
+                          label: Text(_statusLabel(context)),
+                        )
+                      : FilledButton.tonalIcon(
+                          onPressed: () => _chooseStatus(context),
+                          icon: AppIcon(
+                            libraryStatusIcon(entity.status, entity.kind),
+                          ),
+                          label: Text(_statusLabel(context)),
+                        ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
+
+  String _statusLabel(BuildContext context) =>
+      entity.status == LibraryItemStatus.unlisted
+      ? entity.kind == LibraryEntityKind.book
+            ? context.l10n.addToReadingList
+            : context.l10n.addToWatchlist
+      : localizedLibraryStatus(context.l10n, entity.status, entity.kind);
 
   Future<void> _chooseStatus(BuildContext context) async {
     final selected = await showLibraryStatusPicker(context, entity: entity);
@@ -404,20 +450,97 @@ class _MediaHeader extends StatelessWidget {
   }
 }
 
-class _ImdbRatingChip extends StatelessWidget {
-  const _ImdbRatingChip({required this.rating});
+class _CoverWash extends StatelessWidget {
+  const _CoverWash({required this.entity});
 
-  final double rating;
+  final LibraryEntity entity;
+
+  @override
+  Widget build(BuildContext context) {
+    // The page colour, not cs.surface: on the black theme they differ and
+    // the wash would end in a visible seam.
+    final page = Theme.of(context).scaffoldBackgroundColor;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final artwork = entity.artworkUrl?.trim() ?? '';
+    final Widget wash = artwork.isEmpty
+        ? ColoredBox(
+            color: libraryFallbackTone(
+              entity.title,
+              0.3,
+            ).withValues(alpha: dark ? 0.55 : 0.3),
+          )
+        : Opacity(
+            opacity: dark ? 0.6 : 0.42,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(
+                sigmaX: 48,
+                sigmaY: 48,
+                tileMode: TileMode.clamp,
+              ),
+              child: CachedNetworkImage(
+                imageUrl: artwork,
+                fit: BoxFit.cover,
+                memCacheWidth: 200,
+                errorWidget: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          );
+    // The blur paints past its box; clip it to the hero.
+    return IgnorePointer(
+      child: ClipRect(
+        child: RepaintBoundary(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: page),
+              wash,
+              // Melt into the page so there is no edge where the wash stops.
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      page.withValues(alpha: dark ? 0.1 : 0.2),
+                      page.withValues(alpha: 0.35),
+                      page,
+                    ],
+                    stops: const [0, 0.55, 1],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GenrePill extends StatelessWidget {
+  const _GenrePill({required this.label});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Chip(
-      avatar: AppIcon(AppIcons.rate, size: 17, color: cs.tertiary),
-      label: Text('${rating.toStringAsFixed(1)} IMDb'),
-      side: BorderSide.none,
-      backgroundColor: cs.tertiaryContainer.withValues(alpha: 0.52),
-      visualDensity: VisualDensity.compact,
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: StadiumBorder(
+          side: BorderSide(color: cs.onSurface.withValues(alpha: 0.16)),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        child: Text(
+          localizedLibraryGenre(context.l10n, label),
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -536,6 +659,48 @@ class _PlaceHeader extends StatelessWidget {
   }
 }
 
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
+  }
+}
+
+class _BodyText extends StatelessWidget {
+  const _BodyText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+        color: cs.onSurface.withValues(alpha: 0.8),
+        height: 1.5,
+      ),
+    );
+  }
+}
+
 class _WhyItMattered extends StatelessWidget {
   const _WhyItMattered({required this.reasons});
 
@@ -544,73 +709,29 @@ class _WhyItMattered extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.whyItMattered,
-              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            for (var index = 0; index < reasons.length; index++) ...[
-              if (index > 0) const SizedBox(height: 8),
-              Text(
-                reasons[index],
-                style: tt.bodyLarge?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.42,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < reasons.length; index++) ...[
+          if (index > 0) const SizedBox(height: 12),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlotSummary extends StatelessWidget {
-  const _PlotSummary({required this.plot});
-
-  final String plot;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.plot,
-              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                const SizedBox(width: 14),
+                Expanded(child: _BodyText(reasons[index])),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              plot,
-              style: tt.bodyLarge?.copyWith(
-                color: cs.onSurfaceVariant,
-                height: 1.42,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -620,37 +741,88 @@ class _SourceSaves extends StatelessWidget {
 
   final LibraryEntity entity;
 
+  static String _sourceName(String domain) {
+    final host = domain.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
+    final label = host.split('.').first;
+    return switch (label) {
+      'youtu' || 'm' when host.contains('youtu') => 'youtube',
+      'instagr' => 'instagram',
+      _ => label,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Material(
       color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          trailing: const AppExpansionChevron(),
-          shape: const RoundedRectangleBorder(side: BorderSide.none),
-          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
-          leading: const Icon(AppIcons.link),
-          title: Text(context.l10n.foundInYourSaves),
-          subtitle: Text(context.l10n.saveCount(entity.sources.length)),
-          children: [
-            for (final source in entity.sources)
-              ListTile(
-                dense: true,
-                title: Text(
-                  source.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(source.domain),
-                trailing: const Icon(AppIcons.chevronRight),
-                onTap: () => context.push('/url/${source.urlId}'),
+      child: Column(
+        children: [
+          for (var index = 0; index < entity.sources.length; index++) ...[
+            if (index > 0)
+              Divider(
+                height: 1,
+                indent: 60,
+                color: cs.outlineVariant.withValues(alpha: 0.4),
               ),
+            InkWell(
+              onTap: () => context.push('/url/${entity.sources[index].urlId}'),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: SourceLogo(
+                        name: _sourceName(entity.sources[index].domain),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entity.sources[index].title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: tt.bodyMedium?.copyWith(
+                              color: cs.onSurface,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            entity.sources[index].domain,
+                            style: tt.labelSmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      AppIcons.chevronRight,
+                      size: 20,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

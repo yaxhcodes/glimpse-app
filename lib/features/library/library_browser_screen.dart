@@ -85,6 +85,7 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
         data: (snapshot) {
           final all = snapshot.ofKind(widget.kind);
           final visible = _visibleEntities(all);
+          final railGenres = _railGenres(all);
           final horizontal = AppLayout.pageHorizontalPadding(
             MediaQuery.sizeOf(context).width,
             compactPadding: 16,
@@ -120,7 +121,27 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                           onChanged: (value) => setState(() => _query = value),
                         ),
                       ),
-                      if (_activeFilterCount > 0) ...[
+                    ],
+                  ),
+                ),
+              ),
+              if (railGenres.length > 1)
+                SliverToBoxAdapter(
+                  child: _GenreRail(
+                    genres: railGenres,
+                    selected: _selectedGenre,
+                    horizontalPadding: horizontal,
+                    onSelected: (genre) =>
+                        setState(() => _selectedGenre = genre),
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_selectedStatus != null) ...[
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 8,
@@ -139,15 +160,6 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                                 onDeleted: () =>
                                     setState(() => _selectedStatus = null),
                               ),
-                            if (_selectedGenre case final genre?)
-                              InputChip(
-                                deleteIcon: const Icon(AppIcons.close),
-                                label: Text(
-                                  localizedLibraryGenre(context.l10n, genre),
-                                ),
-                                onDeleted: () =>
-                                    setState(() => _selectedGenre = null),
-                              ),
                             TextButton(
                               onPressed: _clearFilters,
                               child: Text(context.l10n.clearAll),
@@ -157,17 +169,19 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                       ],
                       const SizedBox(height: 18),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
                         children: [
                           Expanded(
                             child: Text(
                               _localizedSortOrder(context, _sortOrder),
                               style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w700),
+                                  ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                           ),
                           Text(
                             context.l10n.itemCount(visible.length),
-                            style: Theme.of(context).textTheme.labelLarge
+                            style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(color: cs.onSurfaceVariant),
                           ),
                         ],
@@ -193,22 +207,21 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
                 )
               else
                 SliverPadding(
-                  padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 32),
+                  padding: EdgeInsets.fromLTRB(horizontal, 14, horizontal, 32),
                   sliver: SliverGrid.builder(
                     itemCount: visible.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 190,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 18,
-                          childAspectRatio: 0.52,
-                        ),
+                    gridDelegate: _posterGridDelegate(
+                      context,
+                      MediaQuery.sizeOf(context).width - horizontal * 2,
+                    ),
                     itemBuilder: (context, index) {
                       final entity = visible[index];
                       return LibraryEntityTile(
                         entity: entity,
                         onTap: () => context.push(
                           '/library/entity/${Uri.encodeComponent(entity.key)}',
+                          // Swipe through the grid in the order it shows.
+                          extra: [for (final item in visible) item.key],
                         ),
                         onStatusSelected: (status) =>
                             _setStatus(entity, status),
@@ -222,6 +235,38 @@ class _LibraryBrowserScreenState extends ConsumerState<LibraryBrowserScreen> {
         },
       ),
     );
+  }
+
+  /// Three covers a row on a phone, more as the window widens; each cell is
+  /// exactly a cover plus its caption so nothing stretches or letterboxes.
+  SliverGridDelegate _posterGridDelegate(BuildContext context, double width) {
+    const spacing = 12.0;
+    final columns = (width / 150).floor().clamp(3, 8);
+    final cellWidth = (width - spacing * (columns - 1)) / columns;
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: columns,
+      crossAxisSpacing: spacing,
+      mainAxisSpacing: 20,
+      mainAxisExtent:
+          cellWidth / libraryArtworkAspectRatio(widget.kind) +
+          LibraryEntityTile.textBlockHeight(context),
+    );
+  }
+
+  /// The most common genres first, so the rail opens on what the library is
+  /// mostly made of. "Other" stays in the filter sheet only.
+  List<String> _railGenres(List<LibraryEntity> entities) {
+    final counts = _genreCounts(entities)..remove('Other');
+    final genres = counts.keys.toList()
+      ..sort((a, b) {
+        final byCount = counts[b]!.compareTo(counts[a]!);
+        return byCount != 0 ? byCount : a.compareTo(b);
+      });
+    final selected = _selectedGenre;
+    if (selected != null && !genres.contains(selected)) {
+      genres.insert(0, selected);
+    }
+    return genres;
   }
 
   Map<String, int> _genreCounts(List<LibraryEntity> entities) {
@@ -592,6 +637,51 @@ class _LibraryFilterSheetState extends State<_LibraryFilterSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GenreRail extends StatelessWidget {
+  const _GenreRail({
+    required this.genres,
+    required this.selected,
+    required this.horizontalPadding,
+    required this.onSelected,
+  });
+
+  final List<String> genres;
+  final String? selected;
+  final double horizontalPadding;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          12,
+          horizontalPadding,
+          4,
+        ),
+        itemCount: genres.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final genre = index == 0 ? null : genres[index - 1];
+          return ChoiceChip(
+            label: Text(
+              genre == null
+                  ? context.l10n.allGenres
+                  : localizedLibraryGenre(context.l10n, genre),
+            ),
+            showCheckmark: false,
+            selected: selected == genre,
+            onSelected: (_) => onSelected(genre),
+          );
+        },
       ),
     );
   }

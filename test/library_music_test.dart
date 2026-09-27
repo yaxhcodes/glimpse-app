@@ -513,7 +513,8 @@ void main() {
       expect(find.text('Loading song details…'), findsOneWidget);
       expect(find.text('Bleed'), findsOneWidget);
       expect(find.text('From the Sky'), findsOneWidget);
-      expect(find.text('Rick Astley'), findsOneWidget);
+      // A bare artist mention isn't shelved; only songs are.
+      expect(find.text('Rick Astley'), findsNothing);
       expect(find.text('everynoiseatonce.com'), findsNothing);
       expect(find.text('The song told you what you most want.'), findsNothing);
 
@@ -624,7 +625,8 @@ void main() {
     expect(find.text('Where do you listen?'), findsNothing);
     await tester.tap(find.byTooltip('Music options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Choose where songs open'));
+    // The open menu sits above the song rows' play buttons.
+    await tester.tap(find.byTooltip('Choose where songs open').last);
     await tester.pumpAndSettle();
     expect(find.text('Where do you listen?'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -712,9 +714,8 @@ void main() {
       );
       expect(launches.first['universalLinksOnly'], isTrue);
       expect(launches.last['universalLinksOnly'], isFalse);
-      await tester.tap(find.byType(ExpansionTile));
-      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Source 1'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Source 1'));
       await tester.pumpAndSettle();
       expect(find.text('Opened source 1'), findsOneWidget);

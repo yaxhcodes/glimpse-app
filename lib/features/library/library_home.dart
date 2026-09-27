@@ -159,7 +159,7 @@ class _LibraryDashboard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final places = snapshot.ofKind(LibraryEntityKind.place);
-    final music = snapshot.ofKind(LibraryEntityKind.music);
+    final music = snapshot.songs;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -103,6 +103,9 @@ void main() {
                 mention: EnrichedMention(
                   title: 'A saved ${kind.name}',
                   type: kind.name,
+                  // A song, not a bare artist, so it reaches the Music shelf.
+                  creator: kind == LibraryEntityKind.music ? 'An artist' : null,
+                  subtype: kind == LibraryEntityKind.music ? 'song' : null,
                   catalogId: kind.name,
                   catalogSource: 'test',
                 ),
@@ -205,6 +208,9 @@ void main() {
   testWidgets('manages reading status without provenance dividers', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final entity = _entity(
       key: 'reading-status',
       kind: LibraryEntityKind.book,
@@ -243,11 +249,7 @@ void main() {
         .dy;
     expect(genreTop, greaterThan(metadataTop));
     expect(genreTop, lessThan(statusTop));
-    final expansion = tester.widget<ExpansionTile>(find.byType(ExpansionTile));
-    expect(
-      (expansion.shape! as RoundedRectangleBorder).side.style,
-      BorderStyle.none,
-    );
+    expect(find.byType(Divider), findsNothing);
 
     await tester.tap(find.text('Add to your reading list'));
     await tester.pumpAndSettle();
@@ -262,6 +264,9 @@ void main() {
   testWidgets('shows authoritative movie details and keeps why it mattered', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final entity = _entity(
       key: 'blade-runner',
       kind: LibraryEntityKind.movie,
@@ -296,7 +301,7 @@ void main() {
     expect(find.text('Action'), findsOneWidget);
     expect(find.text('Drama'), findsOneWidget);
     expect(find.text('Science Fiction'), findsOneWidget);
-    expect(find.text('8.1 IMDb'), findsOneWidget);
+    expect(find.textContaining('8.1 IMDb'), findsOneWidget);
     expect(find.text('Plot'), findsOneWidget);
     expect(
       find.text('A blade runner pursues four escaped replicants.'),
@@ -311,6 +316,9 @@ void main() {
   });
 
   testWidgets('updates the bookmark for a book being read', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final entity = _entity(
       key: 'reading-progress',
       kind: LibraryEntityKind.book,

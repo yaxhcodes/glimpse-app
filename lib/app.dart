@@ -212,6 +212,9 @@ final _router = GoRouter(
       path: '/library/entity/:key',
       builder: (context, state) => LibraryEntityDetailScreen(
         entityKey: Uri.decodeComponent(state.pathParameters['key']!),
+        siblingKeys: state.extra is List<String>
+            ? state.extra! as List<String>
+            : const [],
       ),
     ),
     GoRoute(

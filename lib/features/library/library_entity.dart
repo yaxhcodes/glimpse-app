@@ -131,11 +131,19 @@ class LibraryEntity {
     LibraryEntityKind.movie =>
       mention.catalogId == null ||
           mention.artworkUrl == null ||
-          mention.genres.isEmpty,
+          mention.genres.isEmpty ||
+          hasClippedPlot,
     LibraryEntityKind.place =>
       mention.catalogId == null || !mention.hasCoordinates,
     LibraryEntityKind.music => false,
   };
+
+  /// OMDb's short plot ends mid-sentence in "..."; the resolver now asks for
+  /// the full one, so such saves are looked up again.
+  bool get hasClippedPlot {
+    final plot = mention.plot?.trimRight() ?? '';
+    return plot.endsWith('...') || plot.endsWith('…');
+  }
 
   Map<String, dynamic> toResolverJson() {
     final contextHints = kind == LibraryEntityKind.place
@@ -191,6 +199,13 @@ class LibrarySnapshot {
 
   List<LibraryEntity> ofKind(LibraryEntityKind kind) =>
       entities.where((entity) => entity.kind == kind).toList(growable: false);
+
+  /// What the Music shelf lists: songs only. A bare artist mention can't be
+  /// played and has no art, so it isn't shelved.
+  List<LibraryEntity> get songs => [
+    for (final entity in ofKind(LibraryEntityKind.music))
+      if (!LibraryIndex.isArtistMention(entity.mention)) entity,
+  ];
 
   LibraryEntity? byKey(String key) {
     for (final entity in entities) {

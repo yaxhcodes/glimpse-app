@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/music_provider.dart';
+import '../../core/providers/music_provider_preference_provider.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
@@ -77,7 +79,7 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
               ),
             ],
             data: (data) {
-              final music = data.ofKind(LibraryEntityKind.music);
+              final music = data.songs;
               if (music.isEmpty) {
                 return [
                   SliverFillRemaining(
@@ -102,24 +104,18 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
                             .contains(_query),
                   )
                   .toList(growable: false);
-              final songs = [
-                for (final entity in filtered)
-                  if (!LibraryIndex.isArtistMention(entity.mention)) entity,
-              ];
-              final artists = [
-                for (final entity in filtered)
-                  if (LibraryIndex.isArtistMention(entity.mention)) entity,
-              ];
+              final songs = filtered;
               return [
                 SliverPadding(
-                  padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 16),
+                  padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 8),
                   sliver: SliverToBoxAdapter(
-                    child: TextField(
-                      onChanged: (value) =>
-                          setState(() => _query = value.trim().toLowerCase()),
-                      decoration: InputDecoration(
+                    child: SizedBox(
+                      height: 52,
+                      child: SearchBar(
                         hintText: context.l10n.searchYourLibrary,
-                        prefixIcon: const AppIcon(AppIcons.search),
+                        leading: const AppIcon(AppIcons.search),
+                        onChanged: (value) =>
+                            setState(() => _query = value.trim().toLowerCase()),
                       ),
                     ),
                   ),
@@ -132,18 +128,24 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
                     ),
                   )
                 else ...[
-                  ..._section(
-                    context,
-                    horizontal: horizontal,
-                    title: context.l10n.libraryMusicSongs,
-                    entities: songs,
-                  ),
-                  ..._section(
-                    context,
-                    horizontal: horizontal,
-                    title: context.l10n.libraryMusicArtists,
-                    entities: artists,
-                  ),
+                  if (songs.isNotEmpty) ...[
+                    _header(
+                      context,
+                      horizontal: horizontal,
+                      title: context.l10n.libraryMusicSongs,
+                      count: songs.length,
+                    ),
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: horizontal - 8),
+                      sliver: SliverList.builder(
+                        itemCount: songs.length,
+                        itemBuilder: (context, index) => _SongRow(
+                          entity: songs[index],
+                          siblingKeys: [for (final song in songs) song.key],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
               ];
@@ -154,68 +156,122 @@ class _LibraryMusicScreenState extends ConsumerState<LibraryMusicScreen> {
     );
   }
 
-  List<Widget> _section(
+  Widget _header(
     BuildContext context, {
     required double horizontal,
     required String title,
-    required List<LibraryEntity> entities,
+    required int count,
   }) {
-    if (entities.isEmpty) return const [];
-    return [
-      SliverPadding(
-        padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 4),
-        sliver: SliverToBoxAdapter(
-          child: Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
+    final tt = Theme.of(context).textTheme;
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 10),
+      sliver: SliverToBoxAdapter(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Text(
+              '$count',
+              style: tt.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       ),
-      SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: horizontal),
-        sliver: SliverList.builder(
-          itemCount: entities.length,
-          itemBuilder: (context, index) => _MusicTile(entity: entities[index]),
-        ),
-      ),
-    ];
+    );
   }
 }
 
-class _MusicTile extends StatelessWidget {
-  const _MusicTile({required this.entity});
+/// Opens an item with its section, so the detail page swipes through the
+/// same songs in the same order.
+void _openEntity(
+  BuildContext context,
+  LibraryEntity entity,
+  List<String> siblingKeys,
+) => context.push(
+  '/library/entity/${Uri.encodeComponent(entity.key)}',
+  extra: siblingKeys,
+);
+
+class _SongRow extends ConsumerWidget {
+  const _SongRow({required this.entity, required this.siblingKeys});
 
   final LibraryEntity entity;
+  final List<String> siblingKeys;
 
   @override
-  Widget build(BuildContext context) {
-    final isArtist = LibraryIndex.isArtistMention(entity.mention);
-    final creator = !isArtist
-        ? entity.mention.creator?.trim() ?? ''
-        : entity.sources.length == 1
-        ? entity.sources.single.title
-        : context.l10n.libraryArtistMentions(entity.sources.length);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      leading: SizedBox.square(
-        dimension: 56,
-        child: Hero(
-          tag: 'library-artwork-${entity.key}',
-          child: LibraryArtwork(
-            entity: entity,
-            borderRadius: BorderRadius.circular(isArtist ? 28 : 12),
-          ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final artist = entity.mention.creator?.trim() ?? '';
+    final provider = ref.watch(musicProviderPreferenceProvider).provider;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _openEntity(context, entity, siblingKeys),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 7, 0, 7),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 52,
+              child: Hero(
+                tag: 'library-artwork-${entity.key}',
+                child: LibraryArtwork(
+                  entity: entity,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entity.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.bodyLarge?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (artist.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: provider == null
+                  ? context.l10n.chooseWhereSongsOpen
+                  : context.l10n.openInSource(provider.label),
+              icon: AppIcon(AppIcons.play, color: cs.onSurfaceVariant),
+              onPressed: () => openMusicItem(
+                context,
+                ref,
+                title: entity.title,
+                artist: entity.mention.creator,
+              ),
+            ),
+          ],
         ),
       ),
-      title: Text(entity.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: creator.isEmpty
-          ? null
-          : Text(creator, maxLines: 2, overflow: TextOverflow.ellipsis),
-      trailing: const Icon(AppIcons.chevronRight),
-      onTap: () =>
-          context.push('/library/entity/${Uri.encodeComponent(entity.key)}'),
     );
   }
 }

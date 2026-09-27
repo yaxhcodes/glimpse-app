@@ -1219,10 +1219,8 @@ class EnrichedMention {
       subtype: TranscriptEnrichmentService._cleanNullableText(
         json['subtype'] ?? (normalizedType == rawType ? null : rawType),
       ),
-      creator: TranscriptEnrichmentService._cleanNullableText(
-        json['creator'] ?? json['author'] ?? json['artist'],
-      ),
-      year: TranscriptEnrichmentService._cleanNullableText(json['year']),
+      creator: _knownFact(json['creator'] ?? json['author'] ?? json['artist']),
+      year: _knownYear(json['year']),
       whyMentioned: TranscriptEnrichmentService._cleanNullableText(
         json['why_mentioned'] ?? json['reason'] ?? json['description'],
       ),
@@ -1279,6 +1277,31 @@ class EnrichedMention {
     if (raw is num && raw.isFinite && raw > 0) return raw.round();
     final value = int.tryParse(raw?.toString().trim() ?? '');
     return value != null && value > 0 ? value : null;
+  }
+
+  static const _placeholderFacts = {
+    'unknown',
+    'n/a',
+    'na',
+    'none',
+    'null',
+    'tbd',
+    'tba',
+    '-',
+    '?',
+  };
+
+  /// The model writes "unknown" instead of leaving a fact out. Kept, it shows
+  /// on cards and makes the catalog reject every match on year.
+  static String? _knownFact(Object? raw) {
+    final text = TranscriptEnrichmentService._cleanNullableText(raw);
+    if (text == null) return null;
+    return _placeholderFacts.contains(text.toLowerCase()) ? null : text;
+  }
+
+  static String? _knownYear(Object? raw) {
+    final text = _knownFact(raw);
+    return text != null && RegExp(r'\d{4}').hasMatch(text) ? text : null;
   }
 }
 
