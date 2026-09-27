@@ -1050,5 +1050,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "haptics": "Haptics",
+  "hapticsSubtitle": "Subtle vibrations as you tap, swipe and save"
 }

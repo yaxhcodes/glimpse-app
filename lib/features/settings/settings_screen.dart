@@ -348,6 +348,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: _languageLabel(strings, localeState.preference),
                       onTap: _chooseLanguage,
                     ),
+                    const _HapticsToggle(),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -928,6 +929,41 @@ String _localizedSwipeActionLabel(
 // ─────────────────────────────────────────────────────────────────────────────
 // Developer section (dev context only)
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// The in-app haptics switch. Turning it on plays a tap, so the choice is
+/// felt as it is made.
+class _HapticsToggle extends StatefulWidget {
+  const _HapticsToggle();
+
+  @override
+  State<_HapticsToggle> createState() => _HapticsToggleState();
+}
+
+class _HapticsToggleState extends State<_HapticsToggle> {
+  bool _enabled = AppHaptics.enabled;
+
+  Future<void> _set(bool value) async {
+    setState(() => _enabled = value);
+    await AppHaptics.setEnabled(value);
+    if (value) await AppHaptics.play(AppHaptics.tap);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsTile(
+      icon: AppIcons.tap,
+      iconColor: SettingsAccents.teal,
+      title: context.l10n.haptics,
+      subtitle: context.l10n.hapticsSubtitle,
+      onTap: () => _set(!_enabled),
+      trailing: Switch(
+        value: _enabled,
+        thumbIcon: settingsSwitchThumbIcon(),
+        onChanged: _set,
+      ),
+    );
+  }
+}
 
 class _DeveloperSection extends ConsumerWidget {
   const _DeveloperSection();

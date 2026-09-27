@@ -3273,4 +3273,10 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get obFindStage =>
       'Exemplo: filmes, músicas e lugares do que você salva, e uma busca que encontra a regra dos dois minutos.';
+
+  @override
+  String get haptics => 'Vibração tátil';
+
+  @override
+  String get hapticsSubtitle => 'Vibrações sutis ao tocar, deslizar e salvar';
 }

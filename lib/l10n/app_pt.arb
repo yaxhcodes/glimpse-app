@@ -950,5 +950,7 @@
   "obGrowCollections": "Reúna itens do seu jeito, para uma viagem ou um projeto.",
   "obShareStage": "Exemplo: tocar em Compartilhar num reel do Instagram e depois em Glimpse salva o item.",
   "obReadStage": "Exemplo: o reel salvo vira uma página com resumo, pontos principais, termos e os livros mencionados.",
-  "obFindStage": "Exemplo: filmes, músicas e lugares do que você salva, e uma busca que encontra a regra dos dois minutos."
+  "obFindStage": "Exemplo: filmes, músicas e lugares do que você salva, e uma busca que encontra a regra dos dois minutos.",
+  "haptics": "Vibração tátil",
+  "hapticsSubtitle": "Vibrações sutis ao tocar, deslizar e salvar"
 }

@@ -2983,4 +2983,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get obFindStage => '例：保存した内容の映画・音楽・場所と、2分ルールを見つける検索。';
+
+  @override
+  String get haptics => '触覚フィードバック';
+
+  @override
+  String get hapticsSubtitle => 'タップ・スワイプ・保存のときに控えめに振動';
 }

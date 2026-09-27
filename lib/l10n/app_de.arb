@@ -992,5 +992,7 @@
   "obGrowCollections": "Sammle Inhalte auf deine Art, für eine Reise oder ein Projekt.",
   "obShareStage": "Beispiel: Teilen auf einem Instagram-Reel, dann Glimpse – schon gespeichert.",
   "obReadStage": "Beispiel: das gespeicherte Reel als Seite mit Kurzfassung, Erkenntnissen, Begriffen und erwähnten Büchern.",
-  "obFindStage": "Beispiel: Filme, Musik und Orte aus deinen Inhalten und eine Suche, die die Zwei-Minuten-Regel findet."
+  "obFindStage": "Beispiel: Filme, Musik und Orte aus deinen Inhalten und eine Suche, die die Zwei-Minuten-Regel findet.",
+  "haptics": "Haptisches Feedback",
+  "hapticsSubtitle": "Dezente Vibrationen beim Tippen, Wischen und Speichern"
 }

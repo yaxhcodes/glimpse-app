@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// A vibrator primitive (Android's `VibrationEffect.Composition` ids).
+/// A vibrator primitive (Android's `VibrationEffect.Composition` ids), used
+/// by the [HapticEngine.composed] engine.
 enum HapticPrimitive {
   /// A crisp, bright click.
   click(1),
@@ -31,7 +33,35 @@ enum HapticPrimitive {
   final int id;
 }
 
-/// What a phone plays when it can't compose a pattern's primitives.
+/// An Android view haptic constant, used by the [HapticEngine.system]
+/// engine. Manufacturers tune each of these to their own motor.
+enum SystemHaptic {
+  clockTick,
+  virtualKey,
+  keyboardTap,
+  keyboardPress,
+  longPress,
+  contextClick,
+  textHandleMove,
+  gestureStart,
+  gestureEnd,
+  confirm,
+  reject,
+}
+
+/// How a pattern is played on Android.
+enum HapticEngine {
+  /// The phone's own tuned haptics (view haptic constants). The default:
+  /// it feels right on every manufacturer's motor.
+  system,
+
+  /// Raw vibrator primitives. Richer on some phones (Pixel), but others
+  /// report them as supported and play them too faintly to feel.
+  composed,
+}
+
+/// What Flutter plays where there is no Android bridge (tests, other
+/// platforms).
 enum HapticFallback {
   tick(HapticFeedback.selectionClick),
   click(HapticFeedback.lightImpact),
@@ -53,100 +83,198 @@ class HapticStep {
   final int delayMs;
 }
 
-/// A named haptic: primitives played as one composition, plus the effect a
-/// phone without them falls back to.
+class SystemStep {
+  const SystemStep(this.haptic, [this.delayMs = 0]);
+  final SystemHaptic haptic;
+
+  /// Pause before this haptic, after the previous one.
+  final int delayMs;
+}
+
+/// A named haptic, written once for each engine: as tuned system haptics and
+/// as vibrator primitives.
 class HapticPattern {
-  const HapticPattern(this.name, this.steps, {required this.fallback});
+  const HapticPattern(
+    this.name, {
+    required this.system,
+    required this.steps,
+    required this.fallback,
+  });
   final String name;
+  final List<SystemStep> system;
   final List<HapticStep> steps;
   final HapticFallback fallback;
 }
 
 /// Glimpse's haptic vocabulary. Name the moment, not the motor: callers pick
-/// a pattern and the Android side (`HapticsBridge.kt`) plays it as richly as
-/// the phone allows — composed primitives, then predefined effects, then view
-/// haptics. Elsewhere, or when the bridge is missing, it falls back to
-/// Flutter's [HapticFeedback]. It honours the system touch-feedback switch
-/// and never throws.
+/// a pattern and the Android side (`HapticsBridge.kt`) plays it with the
+/// current [engine]. Elsewhere, or when the bridge is missing, it falls back
+/// to Flutter's [HapticFeedback]. It honours the system touch-feedback switch
+/// and the in-app [enabled] setting, and never throws.
 abstract final class AppHaptics {
   static const _channel = MethodChannel('com.shinrinyoku.glimpse/haptics');
+  static const _enabledKey = 'haptics_enabled';
 
   static bool get _bridge =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  /// The lightest detent: a selection, a rung in a list.
-  static const tick = HapticPattern('tick', [
-    HapticStep(HapticPrimitive.tick, .5),
-  ], fallback: HapticFallback.tick);
+  /// The in-app haptics switch (Settings). Loaded by [loadPreference].
+  static bool enabled = true;
 
-  /// A notch you feel more than hear: a page settling into place.
-  static const detent = HapticPattern('detent', [
-    HapticStep(HapticPrimitive.lowTick, .8),
-  ], fallback: HapticFallback.tick);
+  /// Which Android engine plays patterns; switchable in the Haptics lab.
+  static HapticEngine engine = HapticEngine.system;
+
+  static Future<void> loadPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      enabled = prefs.getBool(_enabledKey) ?? true;
+    } catch (_) {
+      // Keep the default: haptics on.
+    }
+  }
+
+  static Future<void> setEnabled(bool value) async {
+    enabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_enabledKey, value);
+  }
+
+  /// The lightest detent: a selection, a rung in a list.
+  static const tick = HapticPattern(
+    'tick',
+    system: [SystemStep(SystemHaptic.clockTick)],
+    steps: [HapticStep(HapticPrimitive.tick, .5)],
+    fallback: HapticFallback.tick,
+  );
+
+  /// A notch: a page or tab settling into place.
+  static const detent = HapticPattern(
+    'detent',
+    system: [SystemStep(SystemHaptic.clockTick)],
+    steps: [HapticStep(HapticPrimitive.lowTick, .8)],
+    fallback: HapticFallback.tick,
+  );
 
   /// A fingertip landing on something, before anything has happened.
-  static const press = HapticPattern('press', [
-    HapticStep(HapticPrimitive.tick, .75),
-  ], fallback: HapticFallback.tick);
+  static const press = HapticPattern(
+    'press',
+    system: [SystemStep(SystemHaptic.virtualKey)],
+    steps: [HapticStep(HapticPrimitive.tick, .75)],
+    fallback: HapticFallback.tick,
+  );
 
   /// A firm, clean click for an action that happened.
-  static const tap = HapticPattern('tap', [
-    HapticStep(HapticPrimitive.click, .7),
-  ], fallback: HapticFallback.click);
+  static const tap = HapticPattern(
+    'tap',
+    system: [SystemStep(SystemHaptic.virtualKey)],
+    steps: [HapticStep(HapticPrimitive.click, .7)],
+    fallback: HapticFallback.click,
+  );
 
   /// A long press: something picked up, ready to move or choose.
-  static const hold = HapticPattern('hold', [
-    HapticStep(HapticPrimitive.quickRise, .45),
-    HapticStep(HapticPrimitive.click, .75, 10),
-  ], fallback: HapticFallback.heavy);
+  static const hold = HapticPattern(
+    'hold',
+    system: [SystemStep(SystemHaptic.longPress)],
+    steps: [
+      HapticStep(HapticPrimitive.quickRise, .45),
+      HapticStep(HapticPrimitive.click, .75, 10),
+    ],
+    fallback: HapticFallback.heavy,
+  );
 
   /// Something physical settling: a cover, a card, a pin.
-  static const land = HapticPattern('land', [
-    HapticStep(HapticPrimitive.thud, .5),
-  ], fallback: HapticFallback.click);
+  static const land = HapticPattern(
+    'land',
+    system: [SystemStep(SystemHaptic.keyboardTap)],
+    steps: [HapticStep(HapticPrimitive.thud, .5)],
+    fallback: HapticFallback.click,
+  );
 
   /// A surface lifting in: a sheet rising, a panel opening.
-  static const swell = HapticPattern('swell', [
-    HapticStep(HapticPrimitive.slowRise, .35),
-  ], fallback: HapticFallback.tick);
+  static const swell = HapticPattern(
+    'swell',
+    system: [SystemStep(SystemHaptic.gestureStart)],
+    steps: [HapticStep(HapticPrimitive.slowRise, .35)],
+    fallback: HapticFallback.tick,
+  );
 
   /// A surface falling away: a sheet dismissed.
-  static const drop = HapticPattern('drop', [
-    HapticStep(HapticPrimitive.quickFall, .45),
-  ], fallback: HapticFallback.tick);
+  static const drop = HapticPattern(
+    'drop',
+    system: [SystemStep(SystemHaptic.gestureEnd)],
+    steps: [HapticStep(HapticPrimitive.quickFall, .45)],
+    fallback: HapticFallback.tick,
+  );
 
   /// One key of typing: barely there.
-  static const key = HapticPattern('key', [
-    HapticStep(HapticPrimitive.lowTick, .35),
-  ], fallback: HapticFallback.tick);
+  static const key = HapticPattern(
+    'key',
+    system: [SystemStep(SystemHaptic.textHandleMove)],
+    steps: [HapticStep(HapticPrimitive.lowTick, .35)],
+    fallback: HapticFallback.tick,
+  );
 
-  /// Work in progress: three soft pulses, fading.
-  static const pulse = HapticPattern('pulse', [
-    HapticStep(HapticPrimitive.lowTick, .55),
-    HapticStep(HapticPrimitive.lowTick, .4, 120),
-    HapticStep(HapticPrimitive.lowTick, .25, 120),
-  ], fallback: HapticFallback.tick);
+  /// Work in progress: three soft pulses.
+  static const pulse = HapticPattern(
+    'pulse',
+    system: [
+      SystemStep(SystemHaptic.textHandleMove),
+      SystemStep(SystemHaptic.textHandleMove, 120),
+      SystemStep(SystemHaptic.textHandleMove, 120),
+    ],
+    steps: [
+      HapticStep(HapticPrimitive.lowTick, .55),
+      HapticStep(HapticPrimitive.lowTick, .4, 120),
+      HapticStep(HapticPrimitive.lowTick, .25, 120),
+    ],
+    fallback: HapticFallback.tick,
+  );
 
-  /// Something landed safely: a swell into a bright click, then a sparkle.
-  static const success = HapticPattern('success', [
-    HapticStep(HapticPrimitive.quickRise, .3),
-    HapticStep(HapticPrimitive.click, .85, 20),
-    HapticStep(HapticPrimitive.tick, .35, 80),
-  ], fallback: HapticFallback.double);
+  /// Something landed safely: a tick, then a bright confirmation.
+  static const success = HapticPattern(
+    'success',
+    system: [
+      SystemStep(SystemHaptic.clockTick),
+      SystemStep(SystemHaptic.confirm, 70),
+    ],
+    steps: [
+      HapticStep(HapticPrimitive.quickRise, .3),
+      HapticStep(HapticPrimitive.click, .85, 20),
+      HapticStep(HapticPrimitive.tick, .35, 80),
+    ],
+    fallback: HapticFallback.double,
+  );
 
-  /// A small celebration: a whirl, then two bright sparks.
-  static const delight = HapticPattern('delight', [
-    HapticStep(HapticPrimitive.spin, .5),
-    HapticStep(HapticPrimitive.tick, .5, 60),
-    HapticStep(HapticPrimitive.tick, .35, 60),
-  ], fallback: HapticFallback.double);
+  /// A small celebration: two quick sparks, then a confirmation.
+  static const delight = HapticPattern(
+    'delight',
+    system: [
+      SystemStep(SystemHaptic.clockTick),
+      SystemStep(SystemHaptic.clockTick, 60),
+      SystemStep(SystemHaptic.confirm, 60),
+    ],
+    steps: [
+      HapticStep(HapticPrimitive.spin, .5),
+      HapticStep(HapticPrimitive.tick, .5, 60),
+      HapticStep(HapticPrimitive.tick, .35, 60),
+    ],
+    fallback: HapticFallback.double,
+  );
 
   /// Committing to a big step: a big button pressed all the way down.
-  static const confirm = HapticPattern('confirm', [
-    HapticStep(HapticPrimitive.slowRise, .5),
-    HapticStep(HapticPrimitive.click, 1),
-    HapticStep(HapticPrimitive.thud, .35, 40),
-  ], fallback: HapticFallback.heavy);
+  static const confirm = HapticPattern(
+    'confirm',
+    system: [
+      SystemStep(SystemHaptic.keyboardTap),
+      SystemStep(SystemHaptic.confirm, 40),
+    ],
+    steps: [
+      HapticStep(HapticPrimitive.slowRise, .5),
+      HapticStep(HapticPrimitive.click, 1),
+      HapticStep(HapticPrimitive.thud, .35, 40),
+    ],
+    fallback: HapticFallback.heavy,
+  );
 
   /// Every pattern, for the developer haptics lab.
   static const all = [
@@ -165,16 +293,29 @@ abstract final class AppHaptics {
     confirm,
   ];
 
-  /// Plays [pattern], with every primitive scaled by [intensity] (0..1).
+  /// Plays [pattern]. [intensity] (0..1) scales the composed engine's
+  /// primitives; system haptics can't be scaled, so a faint one (below .4)
+  /// plays as the softest system haptic instead.
   static Future<void> play(
     HapticPattern pattern, {
     double intensity = 1,
   }) async {
+    if (!enabled) return;
     final scale = intensity.clamp(0.0, 1.0);
     if (_bridge) {
       try {
         await _channel.invokeMethod<void>('compose', {
           'name': pattern.name,
+          'engine': engine.name,
+          'system': [
+            for (final step in pattern.system)
+              [
+                scale < .4
+                    ? SystemHaptic.textHandleMove.name
+                    : step.haptic.name,
+                step.delayMs,
+              ],
+          ],
           'steps': [
             for (final step in pattern.steps)
               [
@@ -183,7 +324,6 @@ abstract final class AppHaptics {
                 step.delayMs,
               ],
           ],
-          'fallback': pattern.fallback.name,
         });
         return;
       } on MissingPluginException {

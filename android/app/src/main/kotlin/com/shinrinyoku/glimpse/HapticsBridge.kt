@@ -18,14 +18,13 @@ import io.flutter.plugin.common.MethodChannel
  * Glimpse's haptic vocabulary, played as richly as the device allows.
  *
  * Bridges `com.shinrinyoku.glimpse/haptics` (see `AppHaptics` on the Dart
- * side, where the patterns are designed). Each pattern arrives as a list of
- * vibrator primitives and is played as one composition (Android 11+, when the
- * motor supports every primitive in it), else as its predefined fallback
- * (Android 10+), else as a view haptic constant — so every phone gets the
- * best version it can play and nothing ever throws.
+ * side, where the patterns are designed). Each pattern arrives twice: as a
+ * sequence of view haptic constants (the default "system" engine — every
+ * manufacturer tunes these to its own motor, so they feel right everywhere)
+ * and as vibrator primitives (the "composed" engine, which some phones report
+ * as supported but play too faintly to feel). Nothing ever throws.
  *
- * Effects follow the system "touch feedback" switch: when the user has turned
- * touch vibration off, nothing plays.
+ * Both follow the system "touch feedback" switch.
  */
 class HapticsBridge(private val activity: Activity, messenger: BinaryMessenger) {
     private val channel = MethodChannel(messenger, CHANNEL)
@@ -41,9 +40,18 @@ class HapticsBridge(private val activity: Activity, messenger: BinaryMessenger) 
                             if (step.size < 3) null
                             else Step(step[0].toInt(), step[1].toFloat().coerceIn(0f, 1f), step[2].toInt())
                         }
-                    val fallback = call.argument<String>("fallback").orEmpty()
+                    val system = (call.argument<List<List<Any>>>("system") ?: emptyList())
+                        .mapNotNull { step ->
+                            val name = step.getOrNull(0) as? String ?: return@mapNotNull null
+                            name to ((step.getOrNull(1) as? Number)?.toInt() ?: 0)
+                        }
+                    val composed = call.argument<String>("engine") == "composed"
                     try {
-                        play(steps, fallback)
+                        if (composed && playComposed(steps)) {
+                            // Played as primitives.
+                        } else {
+                            playSystem(system)
+                        }
                     } catch (t: Throwable) {
                         android.util.Log.w("Glimpse", "haptic ${call.argument<String>("name")} failed: $t")
                     }
@@ -57,24 +65,34 @@ class HapticsBridge(private val activity: Activity, messenger: BinaryMessenger) 
     /** One primitive of a pattern: its id, scale 0..1, and delay before it. */
     private data class Step(val primitive: Int, val scale: Float, val delayMs: Int)
 
-    private fun play(steps: List<Step>, fallback: String) {
-        if (!touchFeedbackEnabled()) return
-        val v = vibrator
-        if (v != null && v.hasVibrator()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && steps.isNotEmpty()) {
-                composition(v, steps)?.let {
-                    vibrate(v, it)
-                    return
-                }
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                predefined(fallback)?.let {
-                    vibrate(v, VibrationEffect.createPredefined(it))
-                    return
-                }
+    /**
+     * The pattern as the phone's own tuned haptics: each step is a view
+     * haptic constant, which the manufacturer maps to its best waveform and
+     * which already follows the system touch-feedback switch.
+     */
+    private fun playSystem(steps: List<Pair<String, Int>>) {
+        val view = activity.window?.decorView ?: return
+        var at = 0L
+        for ((name, delay) in steps) {
+            at += delay.coerceAtLeast(0)
+            val constant = systemConstant(name) ?: continue
+            if (at == 0L) {
+                view.performHapticFeedback(constant)
+            } else {
+                view.postDelayed({ view.performHapticFeedback(constant) }, at)
             }
         }
-        viewFallback(fallback)
+    }
+
+    /** Plays [steps] as vibrator primitives; false when this phone can't. */
+    private fun playComposed(steps: List<Step>): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || steps.isEmpty()) return false
+        if (!touchFeedbackEnabled()) return true
+        val v = vibrator ?: return false
+        if (!v.hasVibrator()) return false
+        val effect = composition(v, steps) ?: return false
+        vibrate(v, effect)
+        return true
     }
 
     /** The pattern as one composition, or null when the motor lacks a primitive. */
@@ -95,33 +113,37 @@ class HapticsBridge(private val activity: Activity, messenger: BinaryMessenger) 
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private fun predefined(fallback: String): Int? {
-        return when (fallback) {
-            "tick" -> VibrationEffect.EFFECT_TICK
-            "click" -> VibrationEffect.EFFECT_CLICK
-            "double" -> VibrationEffect.EFFECT_DOUBLE_CLICK
-            "heavy" -> VibrationEffect.EFFECT_HEAVY_CLICK
+    private fun systemConstant(name: String): Int? {
+        val sdk = Build.VERSION.SDK_INT
+        return when (name) {
+            "clockTick" -> HapticFeedbackConstants.CLOCK_TICK
+            "virtualKey" -> HapticFeedbackConstants.VIRTUAL_KEY
+            "keyboardTap" -> HapticFeedbackConstants.KEYBOARD_TAP
+            "longPress" -> HapticFeedbackConstants.LONG_PRESS
+            "contextClick" -> HapticFeedbackConstants.CONTEXT_CLICK
+            "keyboardPress" ->
+                if (sdk >= Build.VERSION_CODES.O_MR1) HapticFeedbackConstants.KEYBOARD_PRESS
+                else HapticFeedbackConstants.VIRTUAL_KEY
+            "textHandleMove" ->
+                if (sdk >= Build.VERSION_CODES.O_MR1) HapticFeedbackConstants.TEXT_HANDLE_MOVE
+                else HapticFeedbackConstants.CLOCK_TICK
+            "gestureStart" ->
+                if (sdk >= Build.VERSION_CODES.R) HapticFeedbackConstants.GESTURE_START
+                else HapticFeedbackConstants.CLOCK_TICK
+            "gestureEnd" ->
+                if (sdk >= Build.VERSION_CODES.R) HapticFeedbackConstants.GESTURE_END
+                else HapticFeedbackConstants.CLOCK_TICK
+            "confirm" ->
+                if (sdk >= Build.VERSION_CODES.R) HapticFeedbackConstants.CONFIRM
+                else HapticFeedbackConstants.VIRTUAL_KEY
+            "reject" ->
+                if (sdk >= Build.VERSION_CODES.R) HapticFeedbackConstants.REJECT
+                else HapticFeedbackConstants.LONG_PRESS
             else -> null
         }
     }
 
-    private fun viewFallback(fallback: String) {
-        val constant = when (fallback) {
-            "tick" -> HapticFeedbackConstants.CLOCK_TICK
-            "click" -> HapticFeedbackConstants.VIRTUAL_KEY
-            "double", "heavy" ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    HapticFeedbackConstants.CONFIRM
-                } else {
-                    HapticFeedbackConstants.LONG_PRESS
-                }
-            else -> return
-        }
-        activity.window?.decorView?.performHapticFeedback(constant)
-    }
-
-    @RequiresApi(Build.VERSION_CODES.Q)
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun vibrate(v: Vibrator, effect: VibrationEffect) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Touch usage: scales with the system's touch vibration intensity.

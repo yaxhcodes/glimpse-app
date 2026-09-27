@@ -23,6 +23,24 @@ class _HapticsLabScreenState extends State<HapticsLabScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
+          Text('Engine', style: tt.labelLarge),
+          const SizedBox(height: 8),
+          SegmentedButton<HapticEngine>(
+            segments: const [
+              ButtonSegment(
+                value: HapticEngine.system,
+                label: Text('System (tuned)'),
+              ),
+              ButtonSegment(
+                value: HapticEngine.composed,
+                label: Text('Composed'),
+              ),
+            ],
+            selected: {AppHaptics.engine},
+            onSelectionChanged: (v) =>
+                setState(() => AppHaptics.engine = v.single),
+          ),
+          const SizedBox(height: 16),
           Text(
             'Intensity ${(_intensity * 100).round()}%',
             style: tt.labelLarge,
@@ -40,11 +58,17 @@ class _HapticsLabScreenState extends State<HapticsLabScreen> {
               child: ListTile(
                 title: Text(pattern.name),
                 subtitle: Text(
-                  [
-                    for (final step in pattern.steps)
-                      '${step.delayMs > 0 ? '+${step.delayMs}ms ' : ''}'
-                          '${step.primitive.name} ${step.scale}',
-                  ].join('  ·  '),
+                  AppHaptics.engine == HapticEngine.system
+                      ? [
+                          for (final step in pattern.system)
+                            '${step.delayMs > 0 ? '+${step.delayMs}ms ' : ''}'
+                                '${step.haptic.name}',
+                        ].join('  ·  ')
+                      : [
+                          for (final step in pattern.steps)
+                            '${step.delayMs > 0 ? '+${step.delayMs}ms ' : ''}'
+                                '${step.primitive.name} ${step.scale}',
+                        ].join('  ·  '),
                   style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 trailing: const AppIcon(AppIcons.play),

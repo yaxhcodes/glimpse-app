@@ -5667,6 +5667,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Example: films, music and places from your saves, and a search that finds the two-minute rule.'**
   String get obFindStage;
+
+  /// No description provided for @haptics.
+  ///
+  /// In en, this message translates to:
+  /// **'Haptics'**
+  String get haptics;
+
+  /// No description provided for @hapticsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtle vibrations as you tap, swipe and save'**
+  String get hapticsSubtitle;
 }
 
 class _AppLocalizationsDelegate

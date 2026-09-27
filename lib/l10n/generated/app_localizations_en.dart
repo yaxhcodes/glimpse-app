@@ -3244,4 +3244,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get obFindStage =>
       'Example: films, music and places from your saves, and a search that finds the two-minute rule.';
+
+  @override
+  String get haptics => 'Haptics';
+
+  @override
+  String get hapticsSubtitle => 'Subtle vibrations as you tap, swipe and save';
 }
