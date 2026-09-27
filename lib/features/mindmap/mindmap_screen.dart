@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,6 +22,7 @@ import 'interest_cluster_service.dart' show interestThemeMergeKey;
 import 'interest_clusters_provider.dart';
 import 'title_cleaner.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -856,7 +856,7 @@ class _MindmapScreenState extends ConsumerState<MindmapScreen> {
           clusters: clusters,
           bottomPadding: scrollBottomPadding,
           onClusterTap: (cluster) {
-            HapticFeedback.lightImpact();
+            AppHaptics.play(AppHaptics.tap);
             context.push('/mindmap/cluster/${cluster.id}');
           },
         );
@@ -900,7 +900,7 @@ class _MindmapScreenState extends ConsumerState<MindmapScreen> {
                 icon: const Icon(AppIcons.refresh),
                 tooltip: context.l10n.rebuildMap,
                 onPressed: () async {
-                  HapticFeedback.lightImpact();
+                  AppHaptics.play(AppHaptics.tap);
                   await clearInterestClusterCache();
                   ref.invalidate(interestClusterThemesProvider);
                 },
@@ -1016,7 +1016,7 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                               cs: cs,
                               tt: tt,
                               onTap: () {
-                                HapticFeedback.selectionClick();
+                                AppHaptics.play(AppHaptics.tick);
                                 setState(() => _selectedSub = null);
                               },
                             ),
@@ -1029,7 +1029,7 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                                 cs: cs,
                                 tt: tt,
                                 onTap: () {
-                                  HapticFeedback.selectionClick();
+                                  AppHaptics.play(AppHaptics.tick);
                                   setState(() => _selectedSub = i);
                                 },
                               ),
@@ -1063,7 +1063,7 @@ class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
                             ? subLabelByUrl[url.id]
                             : null,
                         onTap: () {
-                          HapticFeedback.lightImpact();
+                          AppHaptics.play(AppHaptics.tap);
                           context.push('/url/${url.id}', extra: clusterIds);
                         },
                       ),

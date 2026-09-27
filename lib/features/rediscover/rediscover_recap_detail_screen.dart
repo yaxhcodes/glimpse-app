@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,6 +11,7 @@ import '../../core/services/rediscovery_service.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import 'rediscover_provider.dart';
+import '../../core/services/app_haptics.dart';
 
 class RediscoverRecapDetailScreen extends ConsumerWidget {
   const RediscoverRecapDetailScreen({super.key, required this.recap});
@@ -92,7 +92,7 @@ class RediscoverRecapDetailScreen extends ConsumerWidget {
     SavedUrl url,
     List<int> ids,
   ) async {
-    HapticFeedback.lightImpact();
+    AppHaptics.play(AppHaptics.tap);
     final service = RediscoveryService(ref.read(isarServiceProvider));
     await service.markResurfaced(url.id);
     await service.markOpened(url.id);

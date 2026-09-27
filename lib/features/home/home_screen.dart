@@ -41,6 +41,7 @@ import 'save_date_group.dart';
 import 'guide_card.dart';
 import 'home_loading_skeleton.dart';
 import '../../l10n/l10n.dart';
+import '../../core/services/app_haptics.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -212,7 +213,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     if (success) {
-      HapticFeedback.lightImpact();
+      AppHaptics.play(AppHaptics.success);
 
       // Grab the ID of the just-saved URL for potential undo.
       final isar = ref.read(isarServiceProvider);
@@ -234,7 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         setState(() {
           _inputUiState = _InputUiState.success;
         });
-        HapticFeedback.mediumImpact();
+        AppHaptics.play(AppHaptics.delight);
 
         if (!simulateFirstSave) {
           await ref
@@ -312,7 +313,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           );
       }
     } else if (addState.status == AddUrlStatus.duplicate) {
-      HapticFeedback.lightImpact();
+      AppHaptics.play(AppHaptics.tap);
       setState(() {
         _inputUiState = _InputUiState.success;
         _inputValid = false;
@@ -1087,7 +1088,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _setReadFilter(_ReadFilter filter) {
     if (filter == _readFilter) return;
-    HapticFeedback.selectionClick();
+    AppHaptics.play(AppHaptics.tick);
     setState(() {
       _readFilter = filter;
       _entrancePlayed.clear();
@@ -1232,7 +1233,7 @@ class _CompactReadFilterState extends State<_CompactReadFilter>
 
   void _setOpen(bool open) {
     if (_isOpen == open) return;
-    HapticFeedback.selectionClick();
+    AppHaptics.play(AppHaptics.tick);
     if (MediaQuery.disableAnimationsOf(context)) {
       _controller.value = open ? 1 : 0;
     } else if (open) {

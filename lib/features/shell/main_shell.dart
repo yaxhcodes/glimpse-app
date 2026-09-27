@@ -3,7 +3,6 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import '../../core/constants/app_assets.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -33,6 +32,7 @@ import 'shell_status_bar_accent.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/expressive_fab.dart';
 import '../../l10n/l10n.dart';
+import '../../core/services/app_haptics.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -288,7 +288,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                       isExtended: shellChromeVisible,
                       tooltip: strings.askGlimpse,
                       onPressed: () {
-                        HapticFeedback.lightImpact();
+                        AppHaptics.play(AppHaptics.tap);
                         context.push('/ask');
                       },
                       icon: SvgPicture.asset(
@@ -393,7 +393,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 
   void _selectDestination(int index) {
-    HapticFeedback.selectionClick();
+    AppHaptics.play(AppHaptics.detent);
     final wasAlreadyHome = _currentIndex == 0 && index == 0;
     final wasAlreadySearch =
         _currentIndex == _searchTabIndex && index == _searchTabIndex;

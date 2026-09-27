@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import 'library_entity.dart';
 import 'library_localization.dart';
 import 'library_status_picker.dart';
+import '../../core/services/app_haptics.dart';
 
 class LibraryRadialStatusTarget extends StatefulWidget {
   const LibraryRadialStatusTarget({
@@ -100,7 +100,7 @@ class _LibraryRadialStatusTargetState extends State<LibraryRadialStatusTarget> {
     _highlightedStatus = null;
     _overlayEntry = OverlayEntry(builder: _buildOverlay);
     overlay.insert(_overlayEntry!);
-    HapticFeedback.mediumImpact();
+    AppHaptics.play(AppHaptics.hold);
   }
 
   Widget _buildOverlay(BuildContext context) {
@@ -294,7 +294,7 @@ class _LibraryRadialStatusTargetState extends State<LibraryRadialStatusTarget> {
     if (next == _highlightedStatus) return;
     _highlightedStatus = next;
     _overlayEntry?.markNeedsBuild();
-    if (next != null) HapticFeedback.selectionClick();
+    if (next != null) AppHaptics.play(AppHaptics.tick);
   }
 
   void _finish(Offset globalPosition) {
@@ -302,7 +302,7 @@ class _LibraryRadialStatusTargetState extends State<LibraryRadialStatusTarget> {
     final selected = _highlightedStatus;
     _removeOverlay();
     if (selected == null || selected == widget.entity.status) return;
-    HapticFeedback.lightImpact();
+    AppHaptics.play(AppHaptics.tap);
     widget.onStatusSelected(selected);
   }
 

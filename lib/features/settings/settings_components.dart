@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
+import '../../core/services/app_haptics.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────────
 /// Android 16 / Material 3 Expressive settings building blocks.
@@ -185,7 +185,7 @@ class SettingsTile extends StatelessWidget {
       pressedScale: .99,
       child: InkWell(
         onTap: () {
-          HapticFeedback.selectionClick();
+          AppHaptics.play(AppHaptics.tick);
           onTap!();
         },
         child: row,

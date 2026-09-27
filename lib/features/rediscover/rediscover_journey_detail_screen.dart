@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,6 +20,7 @@ import 'rediscover_memory.dart';
 import 'rediscover_open_context.dart';
 import 'rediscover_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 class RediscoverJourneyDetailScreen extends ConsumerWidget {
   const RediscoverJourneyDetailScreen({
@@ -151,7 +151,7 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     List<int> ids,
     RediscoverOpenContext attribution,
   ) async {
-    HapticFeedback.lightImpact();
+    AppHaptics.play(AppHaptics.tap);
     final service = RediscoveryService(ref.read(isarServiceProvider));
     await service.markResurfaced(url.id);
     await service.markOpened(url.id);
@@ -196,7 +196,7 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     RediscoverMemory memory,
     RediscoverOpenContext attribution,
   ) async {
-    HapticFeedback.selectionClick();
+    AppHaptics.play(AppHaptics.tick);
     await snoozeRediscoverMemory(
       ref.read(rediscoverDailySetControllerProvider),
       memory,
@@ -211,7 +211,7 @@ class RediscoverJourneyDetailScreen extends ConsumerWidget {
     RediscoverMemory memory,
     RediscoverOpenContext attribution,
   ) async {
-    HapticFeedback.selectionClick();
+    AppHaptics.play(AppHaptics.tick);
     await suppressRediscoverTopic(
       ref.read(rediscoverDailySetControllerProvider),
       memory,

@@ -8,6 +8,7 @@ import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import 'glimpse.dart';
 import 'glimpse_service.dart';
+import '../../core/services/app_haptics.dart';
 
 class GlimpseCardMenu extends ConsumerStatefulWidget {
   const GlimpseCardMenu({super.key, required this.glimpse});
@@ -23,7 +24,7 @@ class _GlimpseCardMenuState extends ConsumerState<GlimpseCardMenu> {
   Future<void> _act(GlimpseAction action) async {
     if (_busy) return;
     setState(() => _busy = true);
-    HapticFeedback.selectionClick();
+    AppHaptics.play(AppHaptics.tick);
     try {
       await ref.read(glimpseServiceProvider).act(widget.glimpse, action);
       if (!mounted) return;

@@ -94,6 +94,12 @@ abstract final class AppHaptics {
     HapticStep(HapticPrimitive.click, .7),
   ], fallback: HapticFallback.click);
 
+  /// A long press: something picked up, ready to move or choose.
+  static const hold = HapticPattern('hold', [
+    HapticStep(HapticPrimitive.quickRise, .45),
+    HapticStep(HapticPrimitive.click, .75, 10),
+  ], fallback: HapticFallback.heavy);
+
   /// Something physical settling: a cover, a card, a pin.
   static const land = HapticPattern('land', [
     HapticStep(HapticPrimitive.thud, .5),
@@ -128,6 +134,13 @@ abstract final class AppHaptics {
     HapticStep(HapticPrimitive.tick, .35, 80),
   ], fallback: HapticFallback.double);
 
+  /// A small celebration: a whirl, then two bright sparks.
+  static const delight = HapticPattern('delight', [
+    HapticStep(HapticPrimitive.spin, .5),
+    HapticStep(HapticPrimitive.tick, .5, 60),
+    HapticStep(HapticPrimitive.tick, .35, 60),
+  ], fallback: HapticFallback.double);
+
   /// Committing to a big step: a big button pressed all the way down.
   static const confirm = HapticPattern('confirm', [
     HapticStep(HapticPrimitive.slowRise, .5),
@@ -141,12 +154,14 @@ abstract final class AppHaptics {
     detent,
     press,
     tap,
+    hold,
     land,
     swell,
     drop,
     key,
     pulse,
     success,
+    delight,
     confirm,
   ];
 

@@ -9,6 +9,7 @@ import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../core/services/app_haptics.dart';
 
 Future<UserCollection?> showCreateCollectionSheet(
   BuildContext context, {
@@ -118,7 +119,7 @@ class _CreateCollectionSheetState extends ConsumerState<CreateCollectionSheet> {
       ref.invalidate(collectionsListProvider);
       ref.invalidate(collectionsSummaryProvider);
       ref.invalidate(collectionMetaProvider(collection.id));
-      HapticFeedback.lightImpact();
+      AppHaptics.play(AppHaptics.success);
       if (mounted) Navigator.pop(context, collection);
     } finally {
       if (mounted) setState(() => _creating = false);

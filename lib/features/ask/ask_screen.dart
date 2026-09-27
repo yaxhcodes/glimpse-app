@@ -40,6 +40,7 @@ import 'ask_empty_suggestions_provider.dart';
 import 'ask_greeting_service.dart';
 import 'ask_provider.dart';
 import '../../l10n/l10n.dart';
+import '../../core/services/app_haptics.dart';
 
 part 'ask_conversation_widgets.dart';
 
@@ -471,7 +472,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               icon: const Icon(AppIcons.edit),
               tooltip: context.l10n.newChat,
               onPressed: () {
-                HapticFeedback.lightImpact();
+                AppHaptics.play(AppHaptics.tap);
                 ref.read(askProvider.notifier).clearHistory();
                 setState(() => _attachedSource = null);
               },
@@ -559,7 +560,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                                 onSaveAnswerToNotesTap:
                                     msg.canSaveAsNote && !msg.noteSaved
                                     ? () async {
-                                        HapticFeedback.lightImpact();
+                                        AppHaptics.play(AppHaptics.success);
                                         final saved = await ref
                                             .read(askProvider.notifier)
                                             .saveAnswerAsNote(msg.id);
@@ -643,7 +644,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               onClearAttachedSource: _attachedSource == null
                   ? null
                   : () {
-                      HapticFeedback.selectionClick();
+                      AppHaptics.play(AppHaptics.tick);
                       setState(() => _attachedSource = null);
                       ref.read(askProvider.notifier).setFocusedSource(null);
                     },
@@ -744,7 +745,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                                 return ActionChip(
                                   label: Text(chip.display),
                                   onPressed: () {
-                                    HapticFeedback.selectionClick();
+                                    AppHaptics.play(AppHaptics.tick);
                                     final t = chip.promptText;
                                     _controller.value = TextEditingValue(
                                       text: t,
@@ -768,7 +769,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                                     return ActionChip(
                                       label: Text(chip.display),
                                       onPressed: () {
-                                        HapticFeedback.selectionClick();
+                                        AppHaptics.play(AppHaptics.tick);
                                         final t = chip.promptText;
                                         _controller.value = TextEditingValue(
                                           text: t,

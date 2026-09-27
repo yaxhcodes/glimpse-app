@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/user_collection.dart';
@@ -11,6 +10,7 @@ import '../../shared/widgets/link_card_thumbnail.dart';
 import 'collection_thumbnail_preview.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
+import '../../core/services/app_haptics.dart';
 
 class CollectionCard extends StatefulWidget {
   const CollectionCard({
@@ -66,7 +66,7 @@ class _CollectionCardState extends State<CollectionCard> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
-              HapticFeedback.lightImpact();
+              AppHaptics.play(AppHaptics.tap);
               if (widget.selectionMode) {
                 widget.onSelectionToggle?.call();
               } else {
@@ -74,7 +74,7 @@ class _CollectionCardState extends State<CollectionCard> {
               }
             },
             onLongPress: () {
-              HapticFeedback.mediumImpact();
+              AppHaptics.play(AppHaptics.hold);
               if (widget.selectionMode) {
                 widget.onSelectionToggle?.call();
               } else {
@@ -269,7 +269,7 @@ class _CollectionListCardState extends State<CollectionListCard> {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () {
-                HapticFeedback.lightImpact();
+                AppHaptics.play(AppHaptics.tap);
                 if (widget.selectionMode) {
                   widget.onSelectionToggle?.call();
                 } else {
@@ -277,7 +277,7 @@ class _CollectionListCardState extends State<CollectionListCard> {
                 }
               },
               onLongPress: () {
-                HapticFeedback.mediumImpact();
+                AppHaptics.play(AppHaptics.hold);
                 if (widget.selectionMode) {
                   widget.onSelectionToggle?.call();
                 } else {
