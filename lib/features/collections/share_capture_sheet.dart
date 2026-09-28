@@ -20,7 +20,8 @@ const _defaultCollectionName = 'Inbox';
 /// How long the saved pill stays before it gets out of the way.
 const _linger = Duration(milliseconds: 2600);
 
-/// How long "Saved to Reading" / "Note added" shows before closing.
+/// How long the pill stays once both edits are done: nothing is left to
+/// offer, so it only confirms.
 const _confirmLinger = Duration(milliseconds: 1400);
 
 const _morph = Duration(milliseconds: 280);
@@ -104,13 +105,21 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
   UserCollection? _collection;
   late final Future<UserCollection?> _defaultCollectionFuture;
   _Panel _panel = _Panel.pill;
-  bool _capturing = false;
+  /// The shared link's own save, in flight. The pill already reads as saved
+  /// (it's a local write); edits wait on [_landed] before applying.
+  bool _saving = false;
+  Future<bool>? _landed;
+
+  /// A collection or note edit, in flight.
+  bool _editing = false;
   bool _captureFailed = false;
   bool _editFailed = false;
   bool _closeWhenSaved = false;
   bool _closed = false;
   ShareCaptureOutcome? _outcome;
   String? _confirmation;
+  bool _filed = false;
+  bool _noted = false;
   Timer? _closeTimer;
 
   @override
@@ -168,50 +177,60 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
   }
 
   Future<void> _captureDefault() async {
-    if (_capturing || !mounted) return;
+    if (_saving || !mounted) return;
+    final landed = Completer<bool>();
+    _landed = landed.future;
     setState(() {
-      _capturing = true;
+      _saving = true;
       _captureFailed = false;
     });
     final collection = await _defaultCollectionFuture;
     if (!mounted) return;
+    _collection = collection;
+    if (_panel == _Panel.pill) _scheduleClose(_lingerNow);
     final outcome = await _run(widget.onCapture, collection, null);
     if (!mounted) return;
+    landed.complete(outcome.saved);
     if (!outcome.saved) {
+      _closeTimer?.cancel();
       setState(() {
-        _capturing = false;
+        _saving = false;
         _captureFailed = true;
         _closeWhenSaved = false;
+        _panel = _Panel.pill;
       });
       return;
     }
     AppHaptics.play(AppHaptics.success);
     setState(() {
       _outcome = outcome;
-      _collection = collection;
-      _capturing = false;
+      _saving = false;
     });
-    if (_closeWhenSaved) {
-      _close();
-    } else {
-      _scheduleClose(_linger);
-    }
+    if (_closeWhenSaved) _close();
   }
 
   /// Edits the save that already landed: [collection] moves it, [note] is
-  /// appended. The confirmation shows briefly, then the pill closes.
+  /// appended. The pill comes back confirming it, still offering whichever
+  /// edit hasn't been made.
   Future<void> _update({UserCollection? collection, String? note}) async {
-    if (_capturing || _outcome == null || !mounted) return;
-    final target = collection ?? _collection;
+    final landed = _landed;
+    if (_editing || landed == null || !mounted) return;
     setState(() {
-      _capturing = true;
+      _editing = true;
       _editFailed = false;
     });
+    // An edit made before the link's own save lands waits for it; if that
+    // save fails, the pill already says so and offers Retry.
+    if (!await landed || !mounted) {
+      if (mounted) setState(() => _editing = false);
+      return;
+    }
+    final target = collection ?? _collection;
     final outcome = await _run(widget.onUpdate, target, note);
     if (!mounted) return;
     if (!outcome.saved) {
       setState(() {
-        _capturing = false;
+        _editing = false;
         _editFailed = true;
         _closeWhenSaved = false;
       });
@@ -223,8 +242,10 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     setState(() {
       _outcome = outcome;
       _collection = target;
-      _capturing = false;
+      _editing = false;
       _panel = _Panel.pill;
+      if (collection != null) _filed = true;
+      if (note != null) _noted = true;
       _confirmation = collection != null
           ? strings.savedToCollection(collection.name)
           : strings.noteAdded;
@@ -232,9 +253,11 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     if (_closeWhenSaved) {
       _close();
     } else {
-      _scheduleClose(_confirmLinger);
+      _scheduleClose(_lingerNow);
     }
   }
+
+  Duration get _lingerNow => _filed && _noted ? _confirmLinger : _linger;
 
   void _scheduleClose(Duration delay) {
     _closeTimer?.cancel();
@@ -247,12 +270,12 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
   /// saved is saved on the way out rather than thrown away.
   void _close() {
     if (_closed || !mounted) return;
-    if (_capturing) {
+    if (_saving || _editing) {
       _closeWhenSaved = true;
       return;
     }
     final note = _noteController.text.trim();
-    if (_panel == _Panel.note && note.isNotEmpty && _outcome != null) {
+    if (_panel == _Panel.note && note.isNotEmpty && !_captureFailed) {
       _closeWhenSaved = true;
       unawaited(_update(note: note));
       return;
@@ -263,13 +286,13 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
   }
 
   bool get _settledPill =>
-      _panel == _Panel.pill && _outcome != null && !_capturing;
+      _panel == _Panel.pill && !_captureFailed && !_editing;
 
   void _hold() => _closeTimer?.cancel();
 
   void _release() {
     if (!_settledPill) return;
-    _scheduleClose(_confirmation == null ? _linger : _confirmLinger);
+    _scheduleClose(_lingerNow);
   }
 
   void _open(_Panel panel) {
@@ -286,7 +309,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
       _panel = _Panel.pill;
       _editFailed = false;
     });
-    _scheduleClose(_linger);
+    _scheduleClose(_lingerNow);
   }
 
   @override
@@ -386,13 +409,10 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     final strings = context.l10n;
     final outcome = _outcome;
     final confirmation = _confirmation;
-    final saving = outcome == null && !_captureFailed;
     final title = _captureFailed
         ? strings.captureCouldNotSave
-        : outcome == null
-        ? strings.noteSaving
         : confirmation ??
-              (outcome.type == ShareCaptureOutcomeType.duplicate
+              (outcome?.type == ShareCaptureOutcomeType.duplicate
                   ? strings.alreadyInGlimpse
                   : strings.savedToGlimpse);
 
@@ -404,18 +424,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (saving)
-              SizedBox.square(
-                dimension: 26,
-                child: Center(
-                  child: ExpressiveLoadingIndicator(
-                    size: 22,
-                    color: colors.inversePrimary,
-                    semanticsLabel: strings.noteSaving,
-                  ),
-                ),
-              )
-            else if (_captureFailed)
+            if (_captureFailed)
               SizedBox.square(
                 dimension: 26,
                 child: Icon(
@@ -444,18 +453,20 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
             if (_captureFailed)
               _PillAction(
                 label: strings.retry,
-                onPressed: _capturing ? null : _captureDefault,
+                onPressed: _saving ? null : _captureDefault,
               )
-            else if (outcome != null && confirmation == null) ...[
-              _PillAction(
-                label: strings.collection,
-                onPressed: () => _open(_Panel.collections),
-              ),
-              _PillAction(
-                label: strings.note,
-                onPressed: () => _open(_Panel.note),
-              ),
-            ] else if (confirmation != null)
+            else if (!(_filed && _noted)) ...[
+              if (!_filed)
+                _PillAction(
+                  label: strings.collection,
+                  onPressed: () => _open(_Panel.collections),
+                ),
+              if (!_noted)
+                _PillAction(
+                  label: strings.note,
+                  onPressed: () => _open(_Panel.note),
+                ),
+            ] else
               Padding(
                 padding: const EdgeInsets.only(right: 10),
                 child: AppIcon(
@@ -463,9 +474,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
                   size: 16,
                   color: colors.inversePrimary,
                 ),
-              )
-            else
-              const SizedBox(width: 10),
+              ),
           ],
         ),
       ),
@@ -489,7 +498,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
             padding: const EdgeInsets.only(right: 12),
             child: _CollectionChoices(
               selectedCollectionId: _collection?.id,
-              enabled: !_capturing,
+              enabled: !_editing,
               onSelected: (selection) {
                 final collection = selection.collection;
                 if (collection != null) {
@@ -518,7 +527,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
             child: TextField(
               controller: _noteController,
               autofocus: true,
-              enabled: !_capturing,
+              enabled: !_editing,
               minLines: 2,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
@@ -535,10 +544,10 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
                 builder: (context, value, _) {
                   final note = value.text.trim();
                   return FilledButton(
-                    onPressed: _capturing || note.isEmpty
+                    onPressed: _editing || note.isEmpty
                         ? null
                         : () => _update(note: note),
-                    child: _capturing
+                    child: _editing
                         ? const ExpressiveLoadingIndicator(size: 18)
                         : Text(strings.save),
                   );

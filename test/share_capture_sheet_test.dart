@@ -71,8 +71,11 @@ void main() {
     expect(updates, 1);
     expect(moved?.id, 2);
     expect(find.text('Saved to Reading'), findsOneWidget);
+    // Filing it doesn't close the door on a note.
+    expect(find.text('Note'), findsOneWidget);
+    expect(find.text('Collection'), findsNothing);
 
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     expect((await result)?.collectionName, 'Reading');
   });
@@ -107,10 +110,59 @@ void main() {
     expect(updatedNote, 'Keep this');
     expect(noteCollection?.id, 1);
     expect(find.text('Note added'), findsOneWidget);
+    expect(find.text('Collection'), findsOneWidget);
+    expect(find.text('Note'), findsNothing);
 
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     expect(find.text('Note added'), findsNothing);
+  });
+
+  testWidgets('one share can take both a collection and a note', (
+    tester,
+  ) async {
+    final inbox = _collection(1, 'Inbox');
+    final reading = _collection(2, 'Reading');
+    final edits = <(int?, String?)>[];
+    final result = await _openCapture(
+      tester,
+      isar: _FakeIsarService([inbox, reading]),
+      onCapture: (collection, notes) async => const ShareCaptureOutcome(
+        type: ShareCaptureOutcomeType.captured,
+        savedUrlId: 4,
+      ),
+      onUpdate: (collection, notes) async {
+        edits.add((collection?.id, notes));
+        return ShareCaptureOutcome(
+          type: ShareCaptureOutcomeType.captured,
+          savedUrlId: 4,
+          collectionName: collection?.name,
+        );
+      },
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Collection'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reading'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Note'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'For Sunday');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // The note lands on the collection just chosen, not back in Inbox.
+    expect(edits, [(2, null), (2, 'For Sunday')]);
+    expect(find.text('Note added'), findsOneWidget);
+    expect(find.text('Collection'), findsNothing);
+    expect(find.text('Note'), findsNothing);
+
+    // Nothing left to offer, so it only confirms briefly.
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pumpAndSettle();
+    expect(find.text('Note added'), findsNothing);
+    expect((await result)?.saved, isTrue);
   });
 
   testWidgets('tapping away while saving closes once the save lands', (
@@ -122,9 +174,14 @@ void main() {
       isar: _FakeIsarService(const []),
       onCapture: (_, _) => save.future,
     );
+    // No loader: the pill reads as saved, with its edits, from the start.
+    expect(find.text('Saved to Glimpse'), findsOneWidget);
+    expect(find.text('Collection'), findsOneWidget);
+    expect(find.text('Note'), findsOneWidget);
+
     await tester.tapAt(const Offset(10, 10));
     await tester.pump();
-    expect(find.text('Saving…'), findsOneWidget);
+    expect(find.text('Saved to Glimpse'), findsOneWidget);
 
     save.complete(
       const ShareCaptureOutcome(type: ShareCaptureOutcomeType.captured),
@@ -132,6 +189,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Saved to Glimpse'), findsNothing);
     expect((await result)?.saved, isTrue);
+  });
+
+  testWidgets('a note made before the save lands waits for it', (
+    tester,
+  ) async {
+    final save = Completer<ShareCaptureOutcome>();
+    String? updatedNote;
+    await _openCapture(
+      tester,
+      isar: _FakeIsarService(const []),
+      onCapture: (_, _) => save.future,
+      onUpdate: (_, notes) async {
+        updatedNote = notes;
+        return const ShareCaptureOutcome(
+          type: ShareCaptureOutcomeType.captured,
+          savedUrlId: 4,
+        );
+      },
+    );
+    await tester.tap(find.text('Note'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextField), 'Early thought');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(updatedNote, isNull);
+
+    save.complete(
+      const ShareCaptureOutcome(
+        type: ShareCaptureOutcomeType.captured,
+        savedUrlId: 4,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(updatedNote, 'Early thought');
+    expect(find.text('Note added'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('a save that fails says so and offers Retry', (tester) async {
+    var attempts = 0;
+    await _openCapture(
+      tester,
+      isar: _FakeIsarService(const []),
+      onCapture: (_, _) async {
+        attempts++;
+        return ShareCaptureOutcome(
+          type: attempts == 1
+              ? ShareCaptureOutcomeType.error
+              : ShareCaptureOutcomeType.captured,
+        );
+      },
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Couldn’t save this link'), findsOneWidget);
+    expect(find.text('Note'), findsNothing);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.text('Saved to Glimpse'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('tapping away keeps a typed note instead of dropping it', (
