@@ -9,6 +9,9 @@ import 'package:glimpse/features/rediscover/rediscover_memory_prefs.dart';
 import 'package:glimpse/features/home/rediscovery_section.dart';
 import 'package:glimpse/features/rediscover/rediscover_daily_set.dart';
 
+/// The journey skeleton only reserves space for someone who has cards.
+final _hasCards = glimpseHomeHasCardsProvider.overrideWith((ref) async => true);
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -27,6 +30,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              _hasCards,
               glimpseHomeSetProvider.overrideWith((ref) {
                 builds++;
                 return pending.future;
@@ -64,6 +68,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          _hasCards,
           glimpseHomeSetProvider.overrideWith((ref) => pending.future),
         ],
         child: const MaterialApp(home: Scaffold(body: RediscoverySection())),
@@ -93,6 +98,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          _hasCards,
           glimpseHomeSetProvider.overrideWith((ref) async {
             dailySetBuilds++;
             return RediscoverDailySet(
@@ -123,6 +129,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          _hasCards,
           glimpseHomeSetProvider.overrideWith((ref) async {
             dailySetBuilds++;
             return RediscoverDailySet(
@@ -142,5 +149,27 @@ void main() {
       find.byKey(const ValueKey('rediscover-journey-skeleton')),
       findsNothing,
     );
+  });
+
+  testWidgets('without cards Home shows the Glimpses entry, not a skeleton', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          glimpseHomeHasCardsProvider.overrideWith((ref) async => false),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: RediscoverySection(loadJourneys: false)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('rediscover-journey-skeleton')),
+      findsNothing,
+    );
+    expect(find.text('Your Glimpses'), findsOneWidget);
   });
 }

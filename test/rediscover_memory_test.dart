@@ -261,7 +261,8 @@ void main() {
         ),
       );
       expect(title.data, 'High-Protein Vegetarian Meals');
-      expect(title.style?.fontSize, 23);
+      // Titles scale with the card (7.8% of its width), not a fixed size.
+      expect(title.style?.fontSize, closeTo(296 * .078, .001));
       expect(find.byType(RediscoverIllustration), findsOneWidget);
       expect(find.text('4 waiting · 1w ago'), findsOneWidget);
       expect(tester.takeException(), isNull);

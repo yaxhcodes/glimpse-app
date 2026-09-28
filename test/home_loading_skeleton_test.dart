@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glimpse/features/glimpses/glimpse_home_adapter.dart';
 import 'package:glimpse/features/home/home_loading_skeleton.dart';
 import 'package:glimpse/shared/widgets/skeleton.dart';
 
@@ -8,8 +10,14 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HomeLoadingSkeleton())),
+      ProviderScope(
+        overrides: [
+          glimpseHomeHasCardsProvider.overrideWith((ref) async => true),
+        ],
+        child: const MaterialApp(home: Scaffold(body: HomeLoadingSkeleton())),
+      ),
     );
+    await tester.pump();
 
     expect(find.text('Glimpse'), findsOneWidget);
     expect(find.byType(HomeSourcesSkeleton), findsOneWidget);
