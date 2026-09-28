@@ -5,8 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../l10n/l10n.dart';
+import '../../core/services/app_haptics.dart';
 import '../../shared/theme/app_icons.dart';
+import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'glimpse_activity_provider.dart';
+import 'glimpse_page_frame.dart';
 import 'glimpse_past_reviews.dart';
 import 'glimpse_period_overview.dart';
 import 'glimpse_service.dart';
@@ -63,97 +66,90 @@ class _GlimpseHistoryScreenState extends ConsumerState<GlimpseHistoryScreen>
         (now.year - earliest.year) * 12 + now.month - earliest.month;
     final l = context.l10n;
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l.glimpsesTitle),
-        actions: [
-          IconButton(
-            onPressed: () => showWeeklyReviewSettings(context, ref),
-            tooltip: l.glimpsesReviewSettings,
-            icon: const Icon(AppIcons.settings),
-          ),
-          IconButton(
-            onPressed: () => context.push('/notifications'),
-            tooltip: l.notifications,
-            icon: const Icon(AppIcons.notifications),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
-          children: [
-            Text(
-              l.glimpsesIntro,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    MaterialLocalizations.of(context).formatMonthYear(month),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -.4,
-                    ),
+    VoidCallback? stepMonth(int delta, bool allowed) => allowed
+        ? () {
+            AppHaptics.play(AppHaptics.tick);
+            setState(() => _monthOffset += delta);
+          }
+        : null;
+    return GlimpsePageFrame(
+      title: l.glimpsesTitle,
+      subtitle: l.glimpsesIntro,
+      onRefresh: _refresh,
+      actions: [
+        IconButton(
+          onPressed: () => showWeeklyReviewSettings(context, ref),
+          tooltip: l.glimpsesReviewSettings,
+          icon: const Icon(AppIcons.settings),
+        ),
+        IconButton(
+          onPressed: () => context.push('/notifications'),
+          tooltip: l.notifications,
+          icon: const Icon(AppIcons.notifications),
+        ),
+      ],
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 0, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  MaterialLocalizations.of(context).formatMonthYear(month),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -.3,
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: l.glimpsesPreviousMonth,
-                  onPressed: _monthOffset < oldestOffset
-                      ? () => setState(() => _monthOffset++)
-                      : null,
-                  icon: const Icon(AppIcons.arrowBack, size: 18),
-                ),
-                IconButton(
-                  tooltip: l.glimpsesNextMonth,
-                  onPressed: _monthOffset > 0
-                      ? () => setState(() => _monthOffset--)
-                      : null,
-                  icon: const Icon(AppIcons.arrowForward, size: 18),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            activity.when(
-              skipLoadingOnReload: true,
-              data: (a) => GlimpsePeriodOverview(
-                period: a.month(month),
-                now: a.now,
-                showChart: true,
               ),
-              loading: () => const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
+              IconButton.filledTonal(
+                visualDensity: VisualDensity.compact,
+                iconSize: 16,
+                tooltip: l.glimpsesPreviousMonth,
+                onPressed: stepMonth(1, _monthOffset < oldestOffset),
+                icon: const Icon(AppIcons.arrowBack, size: 16),
               ),
-              error: (_, _) => TextButton(
-                onPressed: () => ref.invalidate(glimpseActivityProvider),
-                child: Text(l.retry),
+              const SizedBox(width: 4),
+              IconButton.filledTonal(
+                visualDensity: VisualDensity.compact,
+                iconSize: 16,
+                tooltip: l.glimpsesNextMonth,
+                onPressed: stepMonth(-1, _monthOffset > 0),
+                icon: const Icon(AppIcons.arrowForward, size: 18),
               ),
-            ),
-            state.when(
-              skipLoadingOnReload: true,
-              data: (all) => GlimpsePastReviews(
-                reviews: weeklyReviewsInMonth(all, month),
-                all: all,
-                urls: ref.watch(glimpseSourcesProvider).valueOrNull ?? {},
-              ),
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => TextButton(
-                onPressed: () => ref.invalidate(glimpsesProvider),
-                child: Text(l.retry),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+        activity.when(
+          skipLoadingOnReload: true,
+          data: (a) => GlimpsePeriodOverview(
+            period: a.month(month),
+            now: a.now,
+            showChart: true,
+          ),
+          loading: () => const Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: ExpressiveLoadingIndicator()),
+          ),
+          error: (_, _) => TextButton(
+            onPressed: () => ref.invalidate(glimpseActivityProvider),
+            child: Text(l.retry),
+          ),
+        ),
+        state.when(
+          skipLoadingOnReload: true,
+          data: (all) => GlimpsePastReviews(
+            reviews: weeklyReviewsInMonth(all, month),
+            all: all,
+            urls: ref.watch(glimpseSourcesProvider).valueOrNull ?? {},
+          ),
+          loading: () => const SizedBox.shrink(),
+          error: (_, _) => TextButton(
+            onPressed: () => ref.invalidate(glimpsesProvider),
+            child: Text(l.retry),
+          ),
+        ),
+      ],
     );
   }
 }

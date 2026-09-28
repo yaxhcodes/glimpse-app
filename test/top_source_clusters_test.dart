@@ -42,8 +42,6 @@ SourceCluster _cluster(String name, int count) {
     name: name,
     count: count,
     mostlyAbout: const [],
-    themeCount: 0,
-    memoryStripUrls: const [],
     savesThisWeek: 0,
   );
 }

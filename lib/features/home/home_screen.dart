@@ -1029,8 +1029,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               : Duration.zero,
                           child: SwipeableUrlCard(
                             filledSwipeIcons: true,
-                            showTags: false,
-                            showEnrichmentActions: false,
                             key: ValueKey(url.id),
                             url: url,
                             contentPadding: const EdgeInsets.all(10),

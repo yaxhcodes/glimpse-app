@@ -4,29 +4,19 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/saved_url.dart';
 import '../../core/providers/bulk_selection_provider.dart';
-import '../../l10n/l10n.dart';
-import '../../shared/theme/app_layout.dart';
-import '../../shared/widgets/app_glass_surface.dart';
-import '../../shared/widgets/bulk_selection_toolbar.dart';
-import '../../shared/widgets/category_chip.dart' show faviconUrl;
-import '../../shared/widgets/loading_indicator.dart';
-import '../../shared/widgets/premium_design_system.dart';
-import '../../shared/widgets/source_icon_resolver.dart';
-import '../../shared/widgets/source_logo.dart';
-import '../../shared/widgets/swipeable_url_card.dart';
-import 'sources_provider.dart';
-import 'package:glimpse/shared/theme/app_icons.dart';
 import '../../core/services/app_haptics.dart';
+import '../../l10n/l10n.dart';
+import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_layout.dart';
+import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/bulk_selection_toolbar.dart';
+import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/swipeable_url_card.dart';
+import '../../shared/widgets/url_card.dart';
+import 'source_visuals.dart';
+import 'sources_provider.dart';
 
-enum _SourceItemFilter {
-  all(AppIcons.filter),
-  unread(AppIcons.unread),
-  read(AppIcons.checks);
-
-  const _SourceItemFilter(this.icon);
-
-  final IconData icon;
-}
+enum _SourceItemFilter { all, unread, read }
 
 enum _SourceSort {
   newest(AppIcons.sort),
@@ -42,7 +32,7 @@ String _localizedItemFilter(
   AppLocalizations strings,
   _SourceItemFilter filter,
 ) => switch (filter) {
-  _SourceItemFilter.all => strings.allItems,
+  _SourceItemFilter.all => strings.all,
   _SourceItemFilter.unread => strings.unread,
   _SourceItemFilter.read => strings.read,
 };
@@ -54,6 +44,9 @@ String _localizedSourceSort(AppLocalizations strings, _SourceSort sort) =>
       _SourceSort.recentlyOpened => strings.recentlyOpened,
     };
 
+/// One source's page. It opens like a title card, in the blurred colours of
+/// the newest save from it, then lists every save without repeating the
+/// source's name on each row.
 class SourceDetailScreen extends ConsumerStatefulWidget {
   const SourceDetailScreen({super.key, required this.sourceName});
 
@@ -67,7 +60,23 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
   _SourceItemFilter _itemFilter = _SourceItemFilter.all;
   _SourceSort _sort = _SourceSort.newest;
 
+  /// The name moves into the app bar once the hero has scrolled away.
+  final _titleVisible = ValueNotifier(false);
+
   String get sourceName => widget.sourceName;
+
+  @override
+  void dispose() {
+    _titleVisible.dispose();
+    super.dispose();
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.depth == 0 && notification.metrics.axis == Axis.vertical) {
+      _titleVisible.value = notification.metrics.pixels > 150;
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,12 +92,62 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
     final selectionNotifier = ref.read(
       bulkSelectionProvider(selectionScope).notifier,
     );
-    final visibleUrls = _applyView(urlsAsync.valueOrNull ?? const <SavedUrl>[]);
-    final selectedUrls = visibleUrls
+    final urls = urlsAsync.valueOrNull ?? const <SavedUrl>[];
+    final displayedUrls = _applyView(urls);
+    final selectedUrls = displayedUrls
         .where((url) => selectionState.selectedIds.contains(url.id))
         .toList();
     final pagePadding = AppLayout.pageHorizontalPadding(
       MediaQuery.sizeOf(context).width,
+    );
+
+    final appBar = AppBar(
+      // Clear over the hero wash, solid once the list scrolls under it.
+      backgroundColor: WidgetStateColor.resolveWith(
+        (states) => states.contains(WidgetState.scrolledUnder)
+            ? cs.surfaceContainer
+            : Colors.transparent,
+      ),
+      surfaceTintColor: Colors.transparent,
+      title: selectionState.isActive
+          ? BulkSelectionTitle(count: selectedUrls.length)
+          : ValueListenableBuilder<bool>(
+              valueListenable: _titleVisible,
+              builder: (context, visible, child) => AnimatedOpacity(
+                opacity: visible ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: child,
+              ),
+              child: Text(
+                sourceName,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+      leading: selectionState.isActive
+          ? IconButton(
+              icon: const Icon(AppIcons.arrowBack),
+              tooltip: context.l10n.exitSelection,
+              onPressed: () {
+                AppHaptics.play(AppHaptics.tick);
+                selectionNotifier.clear();
+              },
+            )
+          : null,
+      actions: selectionState.isActive
+          ? [
+              BulkSelectionActionButtons(
+                scope: selectionScope,
+                selectedUrls: selectedUrls,
+                visibleUrls: displayedUrls,
+                onDone: () {
+                  selectionNotifier.clear();
+                  ref.invalidate(sourceUrlsProvider(sourceName));
+                },
+              ),
+            ]
+          : null,
     );
 
     return PopScope(
@@ -99,93 +158,55 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: cs.surface,
+        extendBodyBehindAppBar: true,
+        appBar: appBar,
         body: urlsAsync.when(
-          loading: () => CustomScrollView(
-            slivers: [
-              _sourceAppBar(context),
-              const SliverFillRemaining(child: LoadingIndicator()),
-            ],
-          ),
-          error: (err, stack) => CustomScrollView(
-            slivers: [
-              _sourceAppBar(context),
-              SliverFillRemaining(
-                child: Center(child: Text(context.l10n.couldNotLoadSource)),
-              ),
-            ],
-          ),
+          loading: () => const LoadingIndicator(),
+          error: (err, stack) =>
+              Center(child: Text(context.l10n.couldNotLoadSource)),
           data: (urls) {
-            final displayedUrls = _applyView(urls);
+            if (urls.isEmpty) {
+              return Center(child: Text(context.l10n.noSavesFromSource));
+            }
             final displayedIds = displayedUrls.map((url) => url.id).toList();
             if (selectionState.enabled &&
                 selectedUrls.length != selectionState.count) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                selectionNotifier.pruneToVisible(
-                  displayedUrls.map((url) => url.id),
-                );
+                selectionNotifier.pruneToVisible(displayedIds);
               });
             }
 
-            return CustomScrollView(
-              slivers: [
-                SliverAppBar(
-                  pinned: true,
-                  backgroundColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  flexibleSpace: const AppGlassSurface(),
-                  title: selectionState.isActive
-                      ? BulkSelectionTitle(count: selectedUrls.length)
-                      : Text(
-                          sourceName,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                  leading: selectionState.isActive
-                      ? IconButton(
-                          icon: const Icon(AppIcons.arrowBack),
-                          tooltip: context.l10n.exitSelection,
-                          onPressed: () {
-                            AppHaptics.play(AppHaptics.tick);
-                            selectionNotifier.clear();
-                          },
-                        )
-                      : null,
-                  actions: selectionState.isActive
-                      ? [
-                          BulkSelectionActionButtons(
-                            scope: selectionScope,
-                            selectedUrls: selectedUrls,
-                            visibleUrls: displayedUrls,
-                            onDone: () {
-                              selectionNotifier.clear();
-                              ref.invalidate(sourceUrlsProvider(sourceName));
-                            },
-                          ),
-                        ]
-                      : null,
-                ),
-                if (urls.isEmpty)
-                  SliverFillRemaining(
-                    child: Center(child: Text(context.l10n.noSavesFromSource)),
-                  )
-                else ...[
+            return NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              child: CustomScrollView(
+                slivers: [
                   SliverToBoxAdapter(
-                    child: _SourceMetadataHeader(
+                    child: _SourceHero(
+                      sourceName: sourceName,
                       urls: urls,
                       cluster: sourceCluster,
-                      sourceName: sourceName,
-                      horizontalPadding: pagePadding,
-                      itemFilter: _itemFilter,
-                      sort: _sort,
-                      onItemFilterChanged: (value) {
-                        selectionNotifier.clear();
-                        setState(() => _itemFilter = value);
-                      },
-                      onSortChanged: (value) {
-                        selectionNotifier.clear();
-                        setState(() => _sort = value);
-                      },
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        pagePadding,
+                        0,
+                        pagePadding,
+                        6,
+                      ),
+                      child: _SourceControls(
+                        itemFilter: _itemFilter,
+                        sort: _sort,
+                        onItemFilterChanged: (value) {
+                          selectionNotifier.clear();
+                          setState(() => _itemFilter = value);
+                        },
+                        onSortChanged: (value) {
+                          selectionNotifier.clear();
+                          setState(() => _sort = value);
+                        },
+                      ),
                     ),
                   ),
                   if (displayedUrls.isEmpty)
@@ -207,6 +228,7 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
                           return SwipeableUrlCard(
                             key: ValueKey(url.id),
                             url: url,
+                            showSourceName: false,
                             selectionMode: selectionState.isActive,
                             isSelected: selectionState.isSelected(url.id),
                             onSelectionStart: () =>
@@ -230,25 +252,10 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
                     ),
                   const SliverToBoxAdapter(child: SizedBox(height: 32)),
                 ],
-              ],
+              ),
             );
           },
         ),
-      ),
-    );
-  }
-
-  SliverAppBar _sourceAppBar(BuildContext context) {
-    return SliverAppBar(
-      pinned: true,
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      flexibleSpace: const AppGlassSurface(),
-      title: Text(
-        sourceName,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -284,257 +291,145 @@ class _SourceDetailScreenState extends ConsumerState<SourceDetailScreen> {
   }
 }
 
-class _SourceMetadataHeader extends StatelessWidget {
-  const _SourceMetadataHeader({
+/// Logo, name in the editorial serif, one quiet line of numbers and the
+/// source's recurring themes, centred over the artwork wash.
+class _SourceHero extends StatelessWidget {
+  const _SourceHero({
+    required this.sourceName,
     required this.urls,
     required this.cluster,
-    required this.sourceName,
-    required this.horizontalPadding,
-    required this.itemFilter,
-    required this.sort,
-    required this.onItemFilterChanged,
-    required this.onSortChanged,
   });
 
+  final String sourceName;
   final List<SavedUrl> urls;
   final SourceCluster? cluster;
-  final String sourceName;
-  final double horizontalPadding;
-  final _SourceItemFilter itemFilter;
-  final _SourceSort sort;
-  final ValueChanged<_SourceItemFilter> onItemFilterChanged;
-  final ValueChanged<_SourceSort> onSortChanged;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final lastSaved = cluster?.lastSavedAt ?? _lastSavedFromUrls(urls);
-    final topics = cluster?.mostlyAbout ?? const <String>[];
-    final visibleTopics = topics.take(4).toList();
-    final remainingThemeCount = ((cluster?.themeCount ?? topics.length) - 4)
-        .clamp(0, 999);
-    final openedCount = urls.where((url) => url.openedAt != null).length;
-    final iconSpec = resolveSourceIcon(sourceName);
-    final sourceFavicon = faviconUrl(sourceName) ?? cluster?.faviconUrl;
+    final strings = context.l10n;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final previews =
+        cluster?.previews ??
+        urls
+            .where((u) => sourcePreviewImage(u) != null)
+            .take(4)
+            .toList(growable: false);
+    final lastSaved = cluster?.lastSavedAt ?? _newest(urls);
+    final thisWeek = cluster?.savesThisWeek ?? 0;
+    final facts = [
+      strings.saveCount(urls.length),
+      if (thisWeek > 0) strings.savesThisWeek(thisWeek),
+      if (lastSaved != null)
+        strings.lastSaved(UrlCard.timeAgoSaved(context, lastSaved)),
+    ];
+    final themes = (cluster?.mostlyAbout ?? const <String>[])
+        .take(3)
+        // Non-breaking inside a theme, so lines only break between themes.
+        .map(
+          (tag) => _sentenceCase(
+            localizedTagLabel(strings, tag),
+          ).replaceAll(' ', ' '),
+        )
+        .toList(growable: false);
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(horizontalPadding, 8, horizontalPadding, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (iconSpec.isAsset || iconSpec.isGlyph)
-                      SizedBox.square(
-                        dimension: 44,
-                        child: Center(
-                          child: SourceLogo(name: sourceName, size: 28),
-                        ),
-                      )
-                    else
-                      SourceIconContainer(
-                        spec: iconSpec,
-                        containerSize: 44,
-                        imageUrl: sourceFavicon,
-                        preferImage: true,
-                        showBackground: false,
-                      ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            sourceName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.headlineSmall?.copyWith(
-                              color: cs.onSurface,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.6,
-                              height: 1.05,
-                            ),
+    return Stack(
+      children: [
+        Positioned.fill(child: SourceArtworkWash(previews: previews)),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(24, top + 12, 24, 24),
+              child: Column(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: dark ? 0.28 : 0.08,
                           ),
-                        ],
-                      ),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _Metric(
-                        label: context.l10n.saves,
-                        value: urls.length.toString(),
-                      ),
+                    child: SourceLogoTile(
+                      name: sourceName,
+                      fallbackFaviconUrl: cluster?.faviconUrl,
+                      size: 72,
+                      color: cs.surfaceContainerLowest,
                     ),
-                    const _MetricDivider(),
-                    Expanded(
-                      child: _Metric(
-                        label: context.l10n.thisWeek,
-                        value: (cluster?.savesThisWeek ?? 0).toString(),
-                      ),
-                    ),
-                    const _MetricDivider(),
-                    Expanded(
-                      child: _Metric(
-                        label: context.l10n.lastSavedLabel,
-                        value: lastSaved == null
-                            ? '—'
-                            : _timeAgo(context, lastSaved),
-                      ),
-                    ),
-                    const _MetricDivider(),
-                    Expanded(
-                      child: _Metric(
-                        label: context.l10n.opened,
-                        value: openedCount.toString(),
-                      ),
-                    ),
-                  ],
-                ),
-                if (topics.isNotEmpty) ...[
-                  const SizedBox(height: 18),
-                  Divider(
-                    height: 1,
-                    color: cs.outlineVariant.withValues(alpha: 0.5),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
                   Text(
-                    context.l10n.topThemes,
-                    style: tt.labelMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
+                    sourceName,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.editorial(
+                      tt.headlineMedium,
+                      color: cs.onSurface,
+                      height: 1.1,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final topic in visibleTopics)
-                        _ThemePill(topic, percentage: _topicPercentage(topic)),
-                      if (remainingThemeCount > 0)
-                        _MoreThemesPill(count: remainingThemeCount),
-                    ],
+                  Text(
+                    facts.join(' · '),
+                    textAlign: TextAlign.center,
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
+                  if (themes.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      strings.topThemes,
+                      style: tt.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      themes.join('  ·  '),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w500,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _SourceControls(
-            itemFilter: itemFilter,
-            sort: sort,
-            onItemFilterChanged: onItemFilterChanged,
-            onSortChanged: onSortChanged,
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _topicPercentage(String topic) {
-    if (urls.isEmpty) return 0;
-    final normalized = topic.toLowerCase();
-    final matches = urls.where((url) {
-      return url.tags.any((tag) => tag.toLowerCase() == normalized);
-    }).length;
-    return ((matches / urls.length) * 100).round();
-  }
-
-  DateTime? _lastSavedFromUrls(List<SavedUrl> urls) {
-    DateTime? latest;
-    for (final item in urls) {
-      final savedAt = item.savedAt;
-      if (latest == null || savedAt.isAfter(latest)) latest = savedAt;
-    }
-    return latest;
-  }
-
-  String _timeAgo(BuildContext context, DateTime date) {
-    final strings = context.l10n;
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return strings.justNow;
-    if (diff.inMinutes < 60) return strings.minutesAgo(diff.inMinutes);
-    if (diff.inHours < 24) return strings.hoursAgo(diff.inHours);
-    if (diff.inDays == 1) return strings.yesterday;
-    if (diff.inDays < 7) return strings.daysAgo(diff.inDays);
-    if (diff.inDays < 30) return strings.weeksAgo((diff.inDays / 7).floor());
-    if (diff.inDays < 365) {
-      return strings.monthsAgo((diff.inDays / 30).floor());
-    }
-    return strings.yearsAgo((diff.inDays / 365).floor());
-  }
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: tt.titleMedium?.copyWith(
-            color: cs.onSurface,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-          ),
-        ),
-        const SizedBox(height: 1),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: tt.labelSmall?.copyWith(
-            color: cs.onSurfaceVariant,
-            fontSize: 9.5,
           ),
         ),
       ],
     );
   }
-}
 
-class _MetricDivider extends StatelessWidget {
-  const _MetricDivider();
+  static DateTime? _newest(List<SavedUrl> urls) {
+    DateTime? latest;
+    for (final item in urls) {
+      if (latest == null || item.savedAt.isAfter(latest)) latest = item.savedAt;
+    }
+    return latest;
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 34,
-      margin: const EdgeInsets.symmetric(horizontal: 7),
-      color: Theme.of(
-        context,
-      ).colorScheme.outlineVariant.withValues(alpha: 0.55),
-    );
+  static String _sentenceCase(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
   }
 }
 
+/// All / Unread / Read as one inline segmented choice, sort on the right.
 class _SourceControls extends StatelessWidget {
   const _SourceControls({
     required this.itemFilter,
@@ -550,45 +445,48 @@ class _SourceControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _SourceControlChip(
-          icon: itemFilter.icon,
-          label: _localizedItemFilter(context.l10n, itemFilter),
-          onTap: () {
-            AppHaptics.play(AppHaptics.tick);
-            _chooseItemFilter(context);
-          },
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final filter in _SourceItemFilter.values)
+                _FilterSegment(
+                  label: _localizedItemFilter(context.l10n, filter),
+                  selected: filter == itemFilter,
+                  onTap: () {
+                    if (filter == itemFilter) return;
+                    AppHaptics.play(AppHaptics.tick);
+                    onItemFilterChanged(filter);
+                  },
+                ),
+            ],
+          ),
         ),
-        _SourceControlChip(
-          icon: sort.icon,
-          label: _localizedSourceSort(context.l10n, sort),
-          onTap: () {
+        const Spacer(),
+        TextButton.icon(
+          onPressed: () {
             AppHaptics.play(AppHaptics.tick);
             _chooseSort(context);
           },
+          style: TextButton.styleFrom(
+            foregroundColor: cs.onSurfaceVariant,
+            textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+          ),
+          icon: AppIcon(sort.icon, size: 16, color: cs.onSurfaceVariant),
+          label: Text(_localizedSourceSort(context.l10n, sort)),
         ),
       ],
     );
-  }
-
-  Future<void> _chooseItemFilter(BuildContext context) async {
-    final selected = await showModalBottomSheet<_SourceItemFilter>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => _SourceChoiceSheet<_SourceItemFilter>(
-        title: context.l10n.showItems,
-        selected: itemFilter,
-        options: _SourceItemFilter.values,
-        labelFor: (option) => _localizedItemFilter(context.l10n, option),
-        iconFor: (option) => option.icon,
-      ),
-    );
-    if (selected != null && context.mounted) {
-      onItemFilterChanged(selected);
-    }
   }
 
   Future<void> _chooseSort(BuildContext context) async {
@@ -610,44 +508,41 @@ class _SourceControls extends StatelessWidget {
   }
 }
 
-class _SourceControlChip extends StatelessWidget {
-  const _SourceControlChip({
-    required this.icon,
+class _FilterSegment extends StatelessWidget {
+  const _FilterSegment({
     required this.label,
+    required this.selected,
     required this.onTap,
   });
 
-  final IconData icon;
   final String label;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    return Material(
-      color: cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(11, 8, 8, 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppIcon(icon, size: 15, color: cs.onSurfaceVariant),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: tt.labelMedium?.copyWith(
-                  color: cs.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(AppIcons.chevronDown, size: 16, color: cs.onSurfaceVariant),
-            ],
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? cs.secondaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(17),
+          ),
+          child: Text(
+            label,
+            style: tt.labelLarge?.copyWith(
+              color: selected ? cs.onSecondaryContainer : cs.onSurfaceVariant,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
           ),
         ),
       ),
@@ -749,62 +644,6 @@ class _EmptyFilteredSource extends StatelessWidget {
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemePill extends StatelessWidget {
-  const _ThemePill(this.label, {required this.percentage});
-
-  final String label;
-  final int percentage;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.72,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '$label  $percentage%',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.05,
-        ),
-      ),
-    );
-  }
-}
-
-class _MoreThemesPill extends StatelessWidget {
-  const _MoreThemesPill({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.52,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '+$count more',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );

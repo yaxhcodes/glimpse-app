@@ -10,6 +10,7 @@ import 'package:glimpse/l10n/generated/app_localizations_es.dart';
 import 'package:glimpse/l10n/generated/app_localizations_fr.dart';
 import 'package:glimpse/l10n/generated/app_localizations_ja.dart';
 import 'package:glimpse/l10n/generated/app_localizations_pt.dart';
+import 'package:glimpse/shared/widgets/expressive_loading_indicator.dart';
 import 'package:glimpse/shared/widgets/url_card.dart';
 import 'package:glimpse/shared/widgets/url_processing_presentation.dart';
 import 'package:shimmer/shimmer.dart';
@@ -150,7 +151,10 @@ void main() {
 
     expect(find.text('Reading the reel'), findsOneWidget);
     expect(find.text('Pulling out the useful details'), findsOneWidget);
-    expect(find.text('Processing'), findsOneWidget);
+    // The byline stays "Instagram · time"; a small spinner marks the work,
+    // the same on every list as on Home.
+    expect(find.text('Processing'), findsNothing);
+    expect(find.byType(ExpressiveLoadingIndicator), findsOneWidget);
     expect(find.textContaining('Enriching Instagram save'), findsNothing);
     expect(find.byType(LinearProgressIndicator), findsNothing);
     expect(find.byType(Shimmer), findsNWidgets(2));

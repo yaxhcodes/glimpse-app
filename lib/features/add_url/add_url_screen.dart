@@ -8,16 +8,22 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/app_haptics.dart';
+import '../../core/services/category_resolver.dart';
 import '../../core/services/entitlement_service.dart';
+import '../../core/services/link_preview_service.dart';
 import '../../core/services/summary_trimmer.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/utils/url_extractor.dart';
 import '../../shared/theme/app_layout.dart';
+import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/saved_toast.dart';
 import '../../shared/widgets/upgrade_gate.dart';
-import '../collections/share_capture_sheet.dart';
+import '../collections/collections_provider.dart';
+import '../collections/create_collection_sheet.dart';
+import '../sources/source_visuals.dart';
 import 'add_url_provider.dart';
 import '../../l10n/l10n.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
@@ -28,6 +34,9 @@ class ManualAddArguments {
   final UserCollection? initialCollection;
 }
 
+/// Capture a link by hand. The link is shown the way the library will show
+/// it as soon as it's recognised, a save that already exists is flagged
+/// before Capture is tapped, and filing it into a collection is one tap.
 class AddUrlScreen extends ConsumerStatefulWidget {
   final String? initialUrl;
   final UserCollection? initialCollection;
@@ -47,12 +56,16 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   bool _clipboardPrefilled = false;
   UserCollection? _selectedCollection;
 
+  /// The saved copy of the link in the field, when there is one.
+  SavedUrl? _existing;
+  String _lookedUpUrl = '';
+  Timer? _lookupDebounce;
+
   @override
   void initState() {
     super.initState();
     _selectedCollection = widget.initialCollection;
     _urlController.addListener(_handleUrlChanged);
-    _notesFocusNode.addListener(_handleNotesFocusChanged);
     if (widget.initialUrl != null && widget.initialUrl!.isNotEmpty) {
       _urlController.text = widget.initialUrl!;
     } else {
@@ -62,19 +75,16 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
 
   @override
   void dispose() {
+    _lookupDebounce?.cancel();
     _urlController.removeListener(_handleUrlChanged);
-    _notesFocusNode.removeListener(_handleNotesFocusChanged);
     _urlController.dispose();
     _notesController.dispose();
     _notesFocusNode.dispose();
     super.dispose();
   }
 
-  void _handleNotesFocusChanged() {
-    setState(() {});
-  }
-
   void _handleUrlChanged() {
+    _scheduleExistingLookup();
     if (!_clipboardPrefilled) return;
     if (_urlController.text.trim() != _clipboardPrefillUrl) {
       setState(() {
@@ -82,6 +92,29 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
         _clipboardPrefillUrl = null;
       });
     }
+  }
+
+  void _scheduleExistingLookup() {
+    final text = _urlController.text.trim();
+    if (text == _lookedUpUrl) return;
+    _lookedUpUrl = text;
+    _lookupDebounce?.cancel();
+    if (text.isEmpty || !LinkPreviewService.isValidUrl(text)) {
+      if (_existing != null) setState(() => _existing = null);
+      return;
+    }
+    _lookupDebounce = Timer(const Duration(milliseconds: 250), () async {
+      final normalized = LinkPreviewService.normalizeUrl(text);
+      SavedUrl? existing;
+      try {
+        existing = await ref.read(isarServiceProvider).findByRawUrl(normalized);
+      } catch (_) {
+        // Only a hint; saving still reports a duplicate if the lookup fails.
+        return;
+      }
+      if (!mounted || _lookedUpUrl != text) return;
+      setState(() => _existing = existing);
+    });
   }
 
   Future<void> _prefillFromClipboard() async {
@@ -124,13 +157,12 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
     }
   }
 
-  Future<void> _chooseCollection() async {
-    final selection = await showOptionalCollectionPickerSheet(
-      context,
-      selectedCollectionId: _selectedCollection?.id,
-    );
-    if (!mounted || selection == null) return;
-    setState(() => _selectedCollection = selection.collection);
+  void _clearUrl() {
+    _urlController.clear();
+    setState(() {
+      _clipboardPrefilled = false;
+      _clipboardPrefillUrl = null;
+    });
   }
 
   Future<void> _onSave() async {
@@ -198,6 +230,10 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
         state.status == AddUrlStatus.idle ||
         state.status == AddUrlStatus.error ||
         state.status == AddUrlStatus.duplicate;
+    final saveOutcomeShown =
+        state.status == AddUrlStatus.error ||
+        state.status == AddUrlStatus.duplicate;
+    final existing = _existing;
     final horizontalPadding = AppLayout.pageHorizontalPadding(
       MediaQuery.sizeOf(context).width,
       compactPadding: 20,
@@ -208,11 +244,22 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
       key: _formKey,
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-        appBar: AppBar(),
+        appBar: AppBar(
+          backgroundColor: colorScheme.surface,
+          surfaceTintColor: Colors.transparent,
+          leading: IconButton(
+            icon: const Icon(AppIcons.close),
+            tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+            onPressed: () {
+              AppHaptics.play(AppHaptics.tick);
+              context.pop();
+            },
+          ),
+        ),
         body: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
-            8,
+            4,
             horizontalPadding,
             32,
           ),
@@ -221,80 +268,62 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
             children: [
               Text(
                 strings.captureSomethingWorthReturning,
-                style: textTheme.headlineMedium?.copyWith(
+                style: AppTypography.editorial(
+                  textTheme.headlineMedium,
                   color: colorScheme.onSurface,
+                  height: 1.12,
+                  letterSpacing: -0.2,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(
                 strings.captureContextAfter,
                 style: textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 32),
-              TextFormField(
+              const SizedBox(height: 28),
+              _LinkWell(
                 controller: _urlController,
-                decoration: InputDecoration(
-                  label: _FieldLabelPill(strings.link),
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                  hintText: 'https://example.com',
-                  helperText: _clipboardPrefilled
-                      ? strings.detectedFromClipboard
-                      : null,
-                  helperStyle: textTheme.labelSmall?.copyWith(
-                    color: colorScheme.primary,
-                  ),
-                  suffixIcon: IconButton(
-                    icon: const Icon(AppIcons.paste),
-                    tooltip: context.l10n.pasteFromClipboard,
-                    onPressed: isEnabled ? _pasteFromClipboard : null,
-                  ),
-                ),
-                style: textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurface,
-                ),
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return strings.pleaseEnterUrl;
-                  }
-                  return null;
+                enabled: isEnabled,
+                fromClipboard: _clipboardPrefilled,
+                onPaste: _pasteFromClipboard,
+                onClear: _clearUrl,
+              ),
+              // Known before Capture is tapped: this link is already saved.
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: existing != null && !saveOutcomeShown
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: _DuplicateSaveNotice(
+                          message: strings.alreadyInGlimpse,
+                          savedUrlId: existing.id,
+                          isError: false,
+                        ),
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
+              const SizedBox(height: 28),
+              _SectionLabel(strings.collection),
+              const SizedBox(height: 10),
+              _CollectionChips(
+                selected: _selectedCollection,
+                enabled: isEnabled,
+                onSelected: (collection) {
+                  AppHaptics.play(AppHaptics.tick);
+                  setState(() => _selectedCollection = collection);
                 },
-                enabled: isEnabled,
               ),
-              const SizedBox(height: 16),
-              _CollectionSelector(
-                collection: _selectedCollection,
-                enabled: isEnabled,
-                onTap: _chooseCollection,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
+              const SizedBox(height: 28),
+              _NoteField(
                 controller: _notesController,
                 focusNode: _notesFocusNode,
-                decoration: InputDecoration(
-                  label: _notesFocusNode.hasFocus
-                      ? _FieldLabelPill(strings.noteOptional)
-                      : null,
-                  floatingLabelBehavior: _notesFocusNode.hasFocus
-                      ? FloatingLabelBehavior.always
-                      : FloatingLabelBehavior.never,
-                  hintText: _notesFocusNode.hasFocus
-                      ? null
-                      : strings.addNoteOptional,
-                  alignLabelWithHint: true,
-                ),
-                minLines: 3,
-                maxLines: 5,
                 enabled: isEnabled,
-                style: textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurface,
-                ),
               ),
-              if (state.status == AddUrlStatus.error ||
-                  state.status == AddUrlStatus.duplicate) ...[
+              if (saveOutcomeShown) ...[
                 const SizedBox(height: 20),
                 _DuplicateSaveNotice(
                   message: state.status == AddUrlStatus.duplicate
@@ -316,27 +345,40 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
               horizontalPadding,
               16,
             ),
-            child: FilledButton(
-              onPressed: isEnabled ? _onSave : null,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 160),
-                child: isSaving
-                    ? Row(
-                        key: ValueKey('saving'),
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox.square(
-                            dimension: 18,
-                            child: ExpressiveLoadingIndicator(size: 18),
-                          ),
-                          SizedBox(width: 10),
-                          Text(context.l10n.capturing),
-                        ],
-                      )
-                    : Text(
-                        context.l10n.capture,
-                        key: const ValueKey('capture'),
-                      ),
+            child: SizedBox(
+              height: 56,
+              child: FilledButton(
+                onPressed: isEnabled
+                    ? () {
+                        AppHaptics.play(AppHaptics.tap);
+                        _onSave();
+                      }
+                    : null,
+                style: FilledButton.styleFrom(
+                  textStyle: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  child: isSaving
+                      ? Row(
+                          key: const ValueKey('saving'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox.square(
+                              dimension: 18,
+                              child: ExpressiveLoadingIndicator(size: 18),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(context.l10n.capturing),
+                          ],
+                        )
+                      : Text(
+                          context.l10n.capture,
+                          key: const ValueKey('capture'),
+                        ),
+                ),
               ),
             ),
           ),
@@ -346,26 +388,471 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
   }
 }
 
-class _FieldLabelPill extends StatelessWidget {
-  const _FieldLabelPill(this.label);
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    return Text(
+      label,
+      style: theme.textTheme.titleSmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
 
-    return Material(
-      color: colorScheme.primary,
-      borderRadius: BorderRadius.circular(10),
+/// The link, and what it is. Once the text is a real link the well shows it
+/// the way the library will: the source's logo and name over its address.
+class _LinkWell extends StatefulWidget {
+  const _LinkWell({
+    required this.controller,
+    required this.enabled,
+    required this.fromClipboard,
+    required this.onPaste,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final bool fromClipboard;
+  final VoidCallback onPaste;
+  final VoidCallback onClear;
+
+  @override
+  State<_LinkWell> createState() => _LinkWellState();
+}
+
+class _LinkWellState extends State<_LinkWell> {
+  final _focusNode = FocusNode();
+
+  /// A recognised link collapses to its preview; tapping it edits the text.
+  bool _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocus);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocus);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleFocus() {
+    // Typing keeps the field open even once the link becomes recognisable;
+    // it folds into the preview when focus leaves.
+    setState(() {
+      if (!_focusNode.hasFocus) _editing = false;
+    });
+  }
+
+  void _edit() {
+    if (!widget.enabled) return;
+    AppHaptics.play(AppHaptics.tick);
+    setState(() => _editing = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tt = theme.textTheme;
+    final strings = context.l10n;
+
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: widget.controller,
+      builder: (context, value, _) {
+        final text = value.text.trim();
+        final preview = _LinkPreviewData.parse(text);
+        final showField = preview == null || _editing || _focusNode.hasFocus;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: preview != null
+                      ? cs.primary.withValues(alpha: 0.3)
+                      : Colors.transparent,
+                ),
+              ),
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (preview != null)
+                      _LinkPreviewHeader(
+                        preview: preview,
+                        onTap: _edit,
+                        onClear: widget.enabled
+                            ? () {
+                                AppHaptics.play(AppHaptics.tick);
+                                setState(() => _editing = false);
+                                widget.onClear();
+                              }
+                            : null,
+                      ),
+                    if (showField)
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          preview == null ? 12 : 0,
+                          8,
+                          preview == null ? 12 : 10,
+                        ),
+                        child: Row(
+                          children: [
+                            if (preview == null) ...[
+                              AppIcon(
+                                AppIcons.addLink,
+                                size: 20,
+                                color: cs.primary,
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            Expanded(
+                              child: TextFormField(
+                                controller: widget.controller,
+                                focusNode: _focusNode,
+                                enabled: widget.enabled,
+                                keyboardType: TextInputType.url,
+                                autocorrect: false,
+                                minLines: 1,
+                                maxLines: 3,
+                                onFieldSubmitted: (_) => _focusNode.unfocus(),
+                                style:
+                                    (preview == null
+                                            ? tt.bodyLarge
+                                            : tt.bodySmall)
+                                        ?.copyWith(
+                                          color: preview == null
+                                              ? cs.onSurface
+                                              : cs.onSurfaceVariant,
+                                        ),
+                                decoration: InputDecoration(
+                                  hintText: 'https://',
+                                  hintStyle: tt.bodyLarge?.copyWith(
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                  ),
+                                  filled: false,
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  errorBorder: InputBorder.none,
+                                  focusedErrorBorder: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return strings.pleaseEnterUrl;
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            if (text.isEmpty)
+                              FilledButton.tonalIcon(
+                                onPressed: widget.enabled
+                                    ? () {
+                                        AppHaptics.play(AppHaptics.tick);
+                                        widget.onPaste();
+                                      }
+                                    : null,
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
+                                ),
+                                icon: const AppIcon(AppIcons.paste, size: 18),
+                                label: Text(
+                                  MaterialLocalizations.of(
+                                    context,
+                                  ).pasteButtonLabel,
+                                ),
+                              )
+                            else if (preview == null)
+                              IconButton(
+                                tooltip: MaterialLocalizations.of(
+                                  context,
+                                ).deleteButtonTooltip,
+                                onPressed: widget.enabled
+                                    ? () {
+                                        AppHaptics.play(AppHaptics.tick);
+                                        widget.onClear();
+                                      }
+                                    : null,
+                                icon: Icon(
+                                  AppIcons.close,
+                                  size: 18,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            if (preview != null && widget.fromClipboard)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Row(
+                  children: [
+                    AppIcon(AppIcons.paste, size: 14, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      strings.detectedFromClipboard,
+                      style: tt.labelMedium?.copyWith(
+                        color: cs.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// The recognised link: logo, source name and address. Tap to edit.
+class _LinkPreviewHeader extends StatelessWidget {
+  const _LinkPreviewHeader({
+    required this.preview,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  final _LinkPreviewData preview;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tt = theme.textTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(28),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Text(
-          label,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: colorScheme.onPrimary,
-            fontWeight: FontWeight.w600,
+        padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+        child: Row(
+          children: [
+            SourceLogoTile(name: preview.source, size: 48),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    preview.source,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.titleMedium?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    preview.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+              onPressed: onClear,
+              icon: Icon(AppIcons.close, size: 18, color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// What the link well can say about a link without fetching it.
+class _LinkPreviewData {
+  const _LinkPreviewData({required this.source, required this.address});
+
+  /// "Instagram", "YouTube", or the site's own domain.
+  final String source;
+
+  /// Host and path with the scheme and "www." dropped.
+  final String address;
+
+  static _LinkPreviewData? parse(String text) {
+    if (text.isEmpty || text.contains(RegExp(r'\s'))) return null;
+    if (!LinkPreviewService.isValidUrl(text)) return null;
+    final normalized = LinkPreviewService.normalizeUrl(text);
+    final uri = Uri.tryParse(normalized);
+    if (uri == null || uri.host.isEmpty) return null;
+    final host = uri.host.replaceFirst(RegExp(r'^www\.'), '');
+    final path = uri.path == '/' ? '' : uri.path;
+    return _LinkPreviewData(
+      source: CategoryResolver.displaySourceName(
+        rawUrl: normalized,
+        fallbackDomain: host,
+      ),
+      address: '$host$path',
+    );
+  }
+}
+
+/// One tap to file the save: no collection, one of the user's collections,
+/// or a new one, in a single scrolling row.
+class _CollectionChips extends ConsumerWidget {
+  const _CollectionChips({
+    required this.selected,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final UserCollection? selected;
+  final bool enabled;
+  final ValueChanged<UserCollection?> onSelected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = context.l10n;
+    final collections =
+        ref.watch(collectionsListProvider).valueOrNull ??
+        const <UserCollection>[];
+    final chosen = selected;
+    // A collection passed in (or just created) stays visible even before
+    // the list reloads.
+    final shown = [
+      if (chosen != null && !collections.any((c) => c.id == chosen.id)) chosen,
+      ...collections,
+    ];
+
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        children: [
+          _CollectionChip(
+            label: strings.noCollection,
+            selected: chosen == null,
+            onTap: enabled ? () => onSelected(null) : null,
+          ),
+          for (final collection in shown) ...[
+            const SizedBox(width: 8),
+            _CollectionChip(
+              label: collection.name,
+              selected: chosen?.id == collection.id,
+              onTap: enabled ? () => onSelected(collection) : null,
+            ),
+          ],
+          const SizedBox(width: 8),
+          _CollectionChip(
+            label: strings.newCollection,
+            icon: AppIcons.add,
+            selected: false,
+            onTap: enabled
+                ? () async {
+                    final created = await showCreateCollectionSheet(context);
+                    if (created != null) onSelected(created);
+                  }
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionChip extends StatelessWidget {
+  const _CollectionChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final foreground = selected ? cs.onSecondaryContainer : cs.onSurface;
+    final leading = selected ? AppIcons.check : icon;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? cs.secondaryContainer : cs.surfaceContainerLow,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: selected
+                ? Colors.transparent
+                : cs.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[
+                  Icon(leading, size: 16, color: foreground),
+                  const SizedBox(width: 6),
+                ],
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -373,59 +860,60 @@ class _FieldLabelPill extends StatelessWidget {
   }
 }
 
-class _CollectionSelector extends StatelessWidget {
-  const _CollectionSelector({
-    required this.collection,
+class _NoteField extends StatelessWidget {
+  const _NoteField({
+    required this.controller,
+    required this.focusNode,
     required this.enabled,
-    required this.onTap,
   });
 
-  final UserCollection? collection;
+  final TextEditingController controller;
+  final FocusNode focusNode;
   final bool enabled;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final borderRadius = BorderRadius.circular(20);
-    final strings = context.l10n;
-    final selectedName = collection?.name ?? strings.noCollection;
-
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: strings.collectionSelection(selectedName),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: borderRadius,
-          onTap: enabled ? onTap : null,
-          child: InputDecorator(
-            isEmpty: false,
-            decoration: InputDecoration(
-              label: _FieldLabelPill(strings.collection),
-              floatingLabelBehavior: FloatingLabelBehavior.always,
+    final cs = theme.colorScheme;
+    final tt = theme.textTheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: AppIcon(AppIcons.note, size: 20, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              focusNode: focusNode,
               enabled: enabled,
-              suffixIcon: Icon(
-                AppIcons.chevronDown,
-                color: enabled
-                    ? colorScheme.onSurfaceVariant
-                    : colorScheme.onSurface.withValues(alpha: 0.38),
-              ),
-            ),
-            child: Text(
-              selectedName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: enabled
-                    ? colorScheme.onSurface
-                    : colorScheme.onSurface.withValues(alpha: 0.38),
+              minLines: 2,
+              maxLines: 5,
+              textCapitalization: TextCapitalization.sentences,
+              style: tt.bodyLarge?.copyWith(color: cs.onSurface),
+              decoration: InputDecoration(
+                hintText: context.l10n.addNoteOptional,
+                hintStyle: tt.bodyLarge?.copyWith(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                ),
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -454,7 +942,7 @@ class _DuplicateSaveNotice extends ConsumerWidget {
         color: isError
             ? colorScheme.errorContainer
             : colorScheme.secondaryContainer.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -511,7 +999,7 @@ class _DuplicateUrlPreview extends StatelessWidget {
 
     return _DuplicatePreviewShell(
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => context.push('/url/${url.id}'),
         child: Padding(
           padding: const EdgeInsets.all(10),
@@ -523,7 +1011,7 @@ class _DuplicateUrlPreview extends StatelessWidget {
                 isRead: url.openedAt != null,
                 context: context,
                 size: 54,
-                borderRadius: 9,
+                borderRadius: 10,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -536,7 +1024,7 @@ class _DuplicateUrlPreview extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.titleSmall?.copyWith(
                         color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     if (detail.isNotEmpty) ...[
@@ -591,7 +1079,7 @@ class _DuplicatePreviewShell extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: colorScheme.surface,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: child,
     );

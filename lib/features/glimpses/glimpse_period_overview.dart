@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/app_haptics.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_typography.dart';
 import '../rediscover/journey_visual.dart';
 import 'glimpse_activity.dart';
 import 'glimpse_activity_chart.dart';
 import 'glimpse_copy.dart';
+import 'glimpse_page_frame.dart';
 import 'glimpse_source_sheet.dart';
 
 RediscoverArtworkTheme glimpseTopicArtwork(String? key) => switch (key) {
@@ -25,6 +28,8 @@ RediscoverArtworkTheme glimpseTopicArtwork(String? key) => switch (key) {
   _ => RediscoverArtworkTheme.general,
 };
 
+/// A period at a glance: how much was saved (with the day-by-day chart on
+/// one card), then the topics it went to.
 class GlimpsePeriodOverview extends StatelessWidget {
   const GlimpsePeriodOverview({
     super.key,
@@ -44,87 +49,96 @@ class GlimpsePeriodOverview extends StatelessWidget {
     if (period.sources.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         decoration: BoxDecoration(
           color: cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
         ),
         child: Column(
           children: [
-            Icon(AppIcons.bookmark, color: cs.onSurfaceVariant, size: 28),
-            const SizedBox(height: 14),
+            const RediscoverIllustration(
+              artwork: RediscoverArtworkTheme.general,
+              size: 72,
+            ),
+            const SizedBox(height: 16),
             Text(
               l.glimpsesNoSavesPeriod,
-              style: theme.textTheme.bodyLarge,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
         ),
       );
     }
+    final topics = period.topics.take(5).toList(growable: false);
+    final topCount = topics.isEmpty ? 1 : topics.first.sourceIds.length;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 16,
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 16, 16),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                l.saveCount(period.sources.length),
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -.4,
-                ),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    l.saveCount(period.sources.length),
+                    style: AppTypography.editorial(
+                      theme.textTheme.headlineMedium,
+                      color: cs.onSurface,
+                      height: 1.1,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      textStyle: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () {
+                      AppHaptics.play(AppHaptics.tap);
+                      showGlimpseSources(
+                        context,
+                        title: MaterialLocalizations.of(
+                          context,
+                        ).formatMonthYear(period.start),
+                        subtitle: l.saveCount(period.sources.length),
+                        sources: period.sources,
+                      );
+                    },
+                    icon: const Icon(AppIcons.arrowForward, size: 16),
+                    iconAlignment: IconAlignment.end,
+                    label: Text(l.glimpsesBrowsePeriod),
+                  ),
+                ],
               ),
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  alignment: AlignmentDirectional.centerStart,
-                ),
-                onPressed: () => showGlimpseSources(
-                  context,
-                  title: MaterialLocalizations.of(
-                    context,
-                  ).formatMonthYear(period.start),
-                  subtitle: l.saveCount(period.sources.length),
-                  sources: period.sources,
-                ),
-                icon: const Icon(AppIcons.arrowForward, size: 16),
-                iconAlignment: IconAlignment.end,
-                label: Text(l.glimpsesBrowsePeriod),
-              ),
+              if (showChart) ...[
+                const SizedBox(height: 18),
+                GlimpseActivityChart(period: period, now: now),
+              ],
             ],
           ),
         ),
-        if (showChart) ...[
-          const SizedBox(height: 20),
-          GlimpseActivityChart(period: period, now: now),
-        ],
-        if (period.topics.isNotEmpty) ...[
-          Divider(height: 40, color: cs.outlineVariant.withValues(alpha: .4)),
-          Text(l.glimpsesTopTopics, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 12),
-          Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                for (final (index, topic) in period.topics.take(5).indexed) ...[
-                  if (index > 0)
-                    Divider(
-                      height: 1,
-                      indent: 4,
-                      endIndent: 4,
-                      color: cs.outlineVariant.withValues(alpha: .4),
-                    ),
-                  _TopicRow(topic: topic, period: period, rank: index + 1),
-                ],
-              ],
-            ),
+        if (topics.isNotEmpty) ...[
+          GlimpseSectionTitle(l.glimpsesTopTopics),
+          GlimpseGroupedList(
+            children: [
+              for (final topic in topics)
+                _TopicRow(topic: topic, period: period, topCount: topCount),
+            ],
           ),
         ],
       ],
@@ -136,56 +150,58 @@ class _TopicRow extends StatelessWidget {
   const _TopicRow({
     required this.topic,
     required this.period,
-    required this.rank,
+    required this.topCount,
   });
   final GlimpseTopic topic;
   final GlimpsePeriod period;
-  final int rank;
+
+  /// The leading topic's count: bars are measured against it, so the top
+  /// topic fills its track and the rest read as shares of it.
+  final int topCount;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final l = context.l10n;
+    final label = glimpseTopicLabel(topic.subject.key, l);
+    final count = topic.sourceIds.length;
     return InkWell(
-      onTap: () => showGlimpseSources(
-        context,
-        title: glimpseTopicLabel(topic.subject.key, l),
-        sources: period.sources
-            .where((u) => topic.sourceIds.contains(u.id))
-            .toList(),
-      ),
+      onTap: () {
+        AppHaptics.play(AppHaptics.tap);
+        showGlimpseSources(
+          context,
+          title: label,
+          sources: period.sources
+              .where((u) => topic.sourceIds.contains(u.id))
+              .toList(),
+        );
+      },
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
         child: Row(
           children: [
-            SizedBox(
-              width: 20,
-              child: Text(
-                '$rank',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
             ExcludeSemantics(
               child: RediscoverIllustration(
                 artwork: glimpseTopicArtwork(topic.subject.key),
-                size: 36,
+                size: 40,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    glimpseTopicLabel(topic.subject.key, l),
-                    style: theme.textTheme.titleSmall,
+                    label,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    l.saveCount(topic.sourceIds.length),
+                    l.saveCount(count),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -193,18 +209,22 @@ class _TopicRow extends StatelessWidget {
                   const SizedBox(height: 8),
                   ExcludeSemantics(
                     child: LinearProgressIndicator(
-                      value: topic.sourceIds.length / period.sources.length,
-                      minHeight: 2,
+                      value: count / topCount,
+                      minHeight: 4,
                       borderRadius: BorderRadius.circular(4),
-                      color: cs.onSurfaceVariant.withValues(alpha: .55),
+                      color: cs.primary.withValues(alpha: .75),
                       backgroundColor: cs.surfaceContainerHighest,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            Icon(AppIcons.chevronRight, size: 14, color: cs.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Icon(
+              AppIcons.chevronRight,
+              size: 20,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
           ],
         ),
       ),
