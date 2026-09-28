@@ -4,7 +4,6 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import '../../core/constants/app_assets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/app_environment.dart';
 import '../../core/providers/analytics_provider.dart';
@@ -380,24 +379,13 @@ class _PlanHero extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isPro
-                      ? cs.onPrimaryContainer.withValues(alpha: 0.12)
-                      : SettingsAccents.gold.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                alignment: Alignment.center,
-                child: SvgPicture.asset(
-                  AppAssets.brandMark,
-                  width: 24,
-                  height: 24,
-                  colorFilter: ColorFilter.mode(
-                    isPro ? cs.onPrimaryContainer : SettingsAccents.gold,
-                    BlendMode.srcIn,
-                  ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  AppAssets.launcherIcon,
+                  width: 44,
+                  height: 44,
+                  fit: BoxFit.cover,
                 ),
               ),
               const SizedBox(width: 14),

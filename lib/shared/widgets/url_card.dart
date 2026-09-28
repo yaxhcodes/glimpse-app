@@ -1,8 +1,7 @@
 import '../theme/app_shapes.dart';
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'
-    show Clipboard, ClipboardData, HapticFeedback;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
@@ -10,20 +9,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../l10n/l10n.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/url_processing_status.dart';
-import '../../core/providers/usage_providers.dart';
 import '../../core/services/category_resolver.dart';
-import '../../core/services/saved_url_enrichment_state.dart';
-import '../../core/services/tag_noise_filter.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/services/demo_seed_service.dart';
 import '../../features/home/home_provider.dart';
-import '../../features/url_detail/url_detail_provider.dart';
+import '../../features/url_detail/url_detail_provider.dart'
+    show retryingUrlIdsProvider;
 import 'expressive_tap_scale.dart';
 import 'expressive_loading_indicator.dart';
-import 'enrichment_retry_button.dart';
 import 'link_card_thumbnail.dart';
 import 'selection_badge.dart';
-import 'tag_group.dart' show tagChipColors;
 import 'url_processing_presentation.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 import '../../core/services/app_haptics.dart';
@@ -39,8 +34,9 @@ class UrlCard extends ConsumerStatefulWidget {
   final bool isSelected;
   final Map<String, int>? tagFrequency;
   final EdgeInsetsGeometry contentPadding;
-  final bool showTags;
-  final bool showEnrichmentActions;
+
+  /// Off inside a source's own page, where every row would repeat it.
+  final bool showSourceName;
 
   const UrlCard({
     super.key,
@@ -53,8 +49,7 @@ class UrlCard extends ConsumerStatefulWidget {
     this.isSelected = false,
     this.tagFrequency,
     this.contentPadding = const EdgeInsets.all(12),
-    this.showTags = true,
-    this.showEnrichmentActions = true,
+    this.showSourceName = true,
   });
 
   /// Relative time for the source · time row (shared with other link cards).
@@ -91,15 +86,12 @@ class UrlCard extends ConsumerStatefulWidget {
 }
 
 class _UrlCardState extends ConsumerState<UrlCard> {
-  bool _retryingEnrichment = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final strings = context.l10n;
     final cs = theme.colorScheme;
     final tt = theme.textTheme;
-    final tagColors = tagChipColors(cs);
     final tagFrequency = widget.tagFrequency;
     final Map<String, int> tagFreq =
         tagFrequency ?? ref.watch(tagOccurrenceMapProvider);
@@ -108,20 +100,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
       rawUrl: widget.savedUrl.rawUrl,
       fallbackDomain: widget.savedUrl.domain,
     );
-    final normalizedCategories = widget.showTags
-        ? widget.savedUrl.effectiveCategories
-              .map((item) => item.toLowerCase())
-              .toSet()
-        : const <String>{};
-    final tagPool = widget.showTags
-        ? widget.savedUrl.tags
-              .where((tag) => !normalizedCategories.contains(tag.toLowerCase()))
-              .where(
-                (tag) => tag.toLowerCase() != displaySourceName.toLowerCase(),
-              )
-              .toList()
-        : const <String>[];
 
+    // Every list shows a save the way Home does: title, source and time, no
+    // tag chips and no retry. Fixing a save's enrichment lives in Details.
     final retrying = ref.watch(
       retryingUrlIdsProvider.select((ids) => ids.contains(widget.savedUrl.id)),
     );
@@ -130,17 +111,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         widget.savedUrl.isProcessingActive ||
         _isRecentlyEnriching(widget.savedUrl);
     final isProcessingFailed = widget.savedUrl.isProcessingFailed;
-    final showEnrichmentRetry =
-        widget.showEnrichmentActions &&
-        !widget.selectionMode &&
-        SavedUrlEnrichmentState.shouldOfferRetry(
-          widget.savedUrl,
-          hasAiSaveAccess: ref.watch(aiSaveAvailableProvider),
-        );
-    final processingPresentation =
-        isProcessing || (widget.showEnrichmentActions && isProcessingFailed)
+    final processingPresentation = isProcessing
         ? UrlProcessingPresentation.fromStatus(
-            _retryingEnrichment || retrying
+            retrying
                 ? UrlProcessingStatus.retrying
                 : widget.savedUrl.processingStatus,
             sourceName: displaySourceName,
@@ -153,9 +126,6 @@ class _UrlCardState extends ConsumerState<UrlCard> {
           widget.savedUrl,
           tagFrequency: tagFreq,
         );
-    final chipData = (!widget.showTags || isProcessing || isProcessingFailed)
-        ? (visible: <String>[], overflow: 0)
-        : TagNoiseFilter.visibleTagsForCard(tagPool, tagFreq);
     final notePreview = widget.savedUrl.notePreview;
 
     final isRead = widget.savedUrl.openedAt != null;
@@ -226,9 +196,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
             child: Padding(
               padding: widget.contentPadding,
               child: Row(
-                crossAxisAlignment: widget.showTags
-                    ? CrossAxisAlignment.start
-                    : CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   widget.selectionMode
                       ? _SelectionThumbnail(
@@ -325,8 +293,10 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                 runSpacing: 2,
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  Text(displaySourceName, style: metaStyle),
-                                  Text(' · ', style: metaStyle),
+                                  if (widget.showSourceName) ...[
+                                    Text(displaySourceName, style: metaStyle),
+                                    Text(' · ', style: metaStyle),
+                                  ],
                                   Text(
                                     UrlCard.timeAgoSaved(
                                       context,
@@ -334,25 +304,10 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                     ),
                                     style: metaStyle,
                                   ),
-                                  // Read state is carried by the dot and
-                                  // the thumbnail; only transient states
-                                  // get words.
-                                  if (!_retryingEnrichment &&
-                                      widget.showEnrichmentActions &&
-                                      (isProcessing || isProcessingFailed)) ...[
-                                    Text(' · ', style: metaStyle),
-                                    Text(
-                                      isProcessing
-                                          ? context.l10n.processing
-                                          : context.l10n.needsAttention,
-                                      style: metaStyle,
-                                    ),
-                                  ],
                                 ],
                               ),
                             ),
-                            if (!widget.showEnrichmentActions &&
-                                isProcessing) ...[
+                            if (isProcessing) ...[
                               const SizedBox(width: 8),
                               Semantics(
                                 label: context.l10n.enriching,
@@ -360,13 +315,6 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                   size: 14,
                                   color: cs.onSurfaceVariant,
                                 ),
-                              ),
-                            ],
-                            if (showEnrichmentRetry && !isProcessingFailed) ...[
-                              const SizedBox(width: 4),
-                              EnrichmentRetryButton(
-                                retrying: _retryingEnrichment,
-                                onPressed: _retryEnrichment,
                               ),
                             ],
                           ],
@@ -402,65 +350,10 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                             ],
                           ),
                         ],
-                        if (chipData.visible.isNotEmpty ||
-                            chipData.overflow > 0) ...[
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 4,
-                            runSpacing: 3,
-                            children: [
-                              ...chipData.visible.map((tag) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: tagColors.background,
-                                    borderRadius: AppShapes.borderRadius,
-                                  ),
-                                  child: Text(
-                                    localizedTagLabel(strings, tag),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: tagColors.foreground,
-                                      fontFamily: tt.labelSmall?.fontFamily,
-                                      letterSpacing: 0.1,
-                                    ),
-                                  ),
-                                );
-                              }),
-                              if (chipData.overflow > 0)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: tagColors.background,
-                                    borderRadius: AppShapes.borderRadius,
-                                  ),
-                                  child: Text(
-                                    '+${chipData.overflow}',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: tagColors.foreground,
-                                      fontFamily: tt.labelSmall?.fontFamily,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ] else if (processingPresentation != null) ...[
+                        if (processingPresentation != null) ...[
                           const SizedBox(height: 8),
                           _ProcessingStatusPanel(
                             presentation: processingPresentation,
-                            retrying: _retryingEnrichment,
-                            onRetry: isProcessingFailed && showEnrichmentRetry
-                                ? () => _retryEnrichment()
-                                : null,
                           ),
                         ],
                       ],
@@ -501,31 +394,6 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     }
     final noisyTags = {'social', 'instagram', 'youtube', 'tiktok', 'video'};
     return url.tags.any((tag) => noisyTags.contains(tag.trim().toLowerCase()));
-  }
-
-  Future<void> _retryEnrichment() async {
-    if (_retryingEnrichment) return;
-    setState(() => _retryingEnrichment = true);
-    final success = await ref
-        .read(urlDetailNotifierProvider.notifier)
-        .retryEnrichment(widget.savedUrl.id);
-    if (!mounted) return;
-    setState(() => _retryingEnrichment = false);
-    ref.invalidate(urlStreamProvider);
-    ref.invalidate(categoriesProvider);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? context.l10n.enrichmentComplete
-                : context.l10n.couldNotEnrichSave,
-          ),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
   }
 
   void _showActions(BuildContext context) {
@@ -581,15 +449,9 @@ class _UrlCardState extends ConsumerState<UrlCard> {
 }
 
 class _ProcessingStatusPanel extends StatelessWidget {
-  const _ProcessingStatusPanel({
-    required this.presentation,
-    required this.retrying,
-    this.onRetry,
-  });
+  const _ProcessingStatusPanel({required this.presentation});
 
   final UrlProcessingPresentation presentation;
-  final bool retrying;
-  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -643,28 +505,6 @@ class _ProcessingStatusPanel extends StatelessWidget {
                       maxLines: 2,
                     ),
             ),
-            if (failed && onRetry != null) ...[
-              const SizedBox(width: 4),
-              TextButton(
-                onPressed: retrying ? null : onRetry,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(0, 32),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  foregroundColor: accent,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: retrying
-                    ? SizedBox(
-                        width: 13,
-                        height: 13,
-                        child: ExpressiveLoadingIndicator(
-                          size: 13,
-                          color: accent,
-                        ),
-                      )
-                    : Text(context.l10n.retry),
-              ),
-            ],
           ],
         ),
       ),

@@ -6,7 +6,6 @@ import '../../shared/widgets/notification_permission_prompt.dart';
 import '../../core/services/digest_notifications.dart';
 import '../../core/constants/app_assets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -297,13 +296,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       isLoading: authState.isLoading && accountUser == null,
                     ),
                     SettingsTile(
-                      leading: SvgPicture.asset(
-                        AppAssets.brandMark,
-                        width: 22,
-                        height: 22,
-                        colorFilter: ColorFilter.mode(
-                          cs.tertiary,
-                          BlendMode.srcIn,
+                      // The real app icon, in colour: this row is Glimpse
+                      // itself, not a setting.
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.asset(
+                          AppAssets.launcherIcon,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
                         ),
                       ),
                       iconColor: SettingsAccents.gold,

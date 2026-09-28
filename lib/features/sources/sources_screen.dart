@@ -1,47 +1,21 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../l10n/l10n.dart';
-import '../../shared/widgets/category_chip.dart'
-    show faviconUrl, platformColors;
-import '../../shared/widgets/app_glass_surface.dart';
-import '../../shared/widgets/image_decode_size.dart';
-import '../../shared/widgets/expressive_loading_indicator.dart';
-import '../../shared/widgets/premium_design_system.dart';
-import '../../shared/widgets/source_icon_resolver.dart';
-import '../../shared/widgets/source_logo.dart';
-import 'sources_provider.dart';
-import 'package:glimpse/shared/theme/app_icons.dart';
 import '../../core/services/app_haptics.dart';
+import '../../l10n/l10n.dart';
+import '../../shared/theme/app_icons.dart';
+import '../../shared/widgets/category_chip.dart' show platformColors;
+import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../shared/widgets/expressive_tap_scale.dart';
+import '../../shared/widgets/premium_design_system.dart';
+import '../../shared/widgets/url_card.dart';
+import 'source_visuals.dart';
+import 'sources_provider.dart';
 
-/// Lets the user narrow the source list to where saves actually came from.
-enum _SourceFilter {
-  all(AppIcons.infinity),
-  apps(AppIcons.apps),
-  websites(AppIcons.globe);
-
-  const _SourceFilter(this.icon);
-  final IconData icon;
-}
-
-String _localizedFilterLabel(AppLocalizations strings, _SourceFilter filter) =>
-    switch (filter) {
-      _SourceFilter.all => strings.all,
-      _SourceFilter.apps => strings.apps,
-      _SourceFilter.websites => strings.websites,
-    };
-
-String _localizedFilterListTitle(
-  AppLocalizations strings,
-  _SourceFilter filter,
-) => switch (filter) {
-  _SourceFilter.all => strings.allSources,
-  _SourceFilter.apps => strings.apps,
-  _SourceFilter.websites => strings.websites,
-};
-
+/// Where saves come from. The most-saved sources lead as picture cards made
+/// of their own newest saves; everything else is a calm grouped list, apps
+/// first, then websites, each ordered by how much has been saved from it.
 class SourcesScreen extends ConsumerStatefulWidget {
   const SourcesScreen({super.key});
 
@@ -52,13 +26,14 @@ class SourcesScreen extends ConsumerStatefulWidget {
 class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-  _SourceFilter _filter = _SourceFilter.all;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(() {
-      setState(() => _query = _searchController.text);
+      if (_searchController.text != _query) {
+        setState(() => _query = _searchController.text);
+      }
     });
   }
 
@@ -70,209 +45,147 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
     final strings = context.l10n;
     final clustersAsync = ref.watch(filteredClustersProvider(_query));
 
     return Scaffold(
-      backgroundColor: premiumBackground(context),
-      body: clustersAsync.when(
-        data: (clusters) {
-          final searching = _query.trim().isNotEmpty;
-          bool isApp(SourceCluster c) => platformColors.containsKey(c.name);
-
-          final filtered = switch (_filter) {
-            _SourceFilter.all => clusters,
-            _SourceFilter.apps => clusters.where(isApp).toList(),
-            _SourceFilter.websites => clusters.where((c) => !isApp(c)).toList(),
-          };
-          final alphabetical = List<SourceCluster>.from(filtered)
-            ..sort((a, b) {
-              if (a.isEmpty != b.isEmpty) return a.isEmpty ? 1 : -1;
-              return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-            });
-          final topSources = topSourceClusters(clusters);
-          final showRail =
-              !searching &&
-              _filter == _SourceFilter.all &&
-              topSources.isNotEmpty;
-          final listTitle = searching
-              ? strings.results
-              : _localizedFilterListTitle(strings, _filter);
-
-          return CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent,
-                flexibleSpace: AppGlassSurface(
-                  backgroundColor: premiumBackground(context),
-                ),
-                title: Text(
-                  strings.sources,
-                  style: tt.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                actions: [
-                  IconButton(
-                    tooltip: strings.done,
-                    icon: const Icon(AppIcons.checkCircle),
-                    onPressed: () => context.push('/archive'),
-                  ),
-                  PopupMenuButton<_SourceFilter>(
-                    tooltip: strings.filterSources,
-                    icon: Icon(
-                      AppIcons.adjust,
-                      color: _filter == _SourceFilter.all
-                          ? cs.onSurfaceVariant
-                          : cs.primary,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    onSelected: (f) {
-                      AppHaptics.play(AppHaptics.tick);
-                      setState(() => _filter = f);
-                    },
-                    itemBuilder: (context) => _SourceFilter.values.map((f) {
-                      final active = _filter == f;
-                      return PopupMenuItem<_SourceFilter>(
-                        value: f,
-                        child: Row(
-                          children: [
-                            AppIcon(
-                              f.icon,
-                              size: 18,
-                              color: active ? cs.primary : cs.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              _localizedFilterLabel(strings, f),
-                              style: tt.bodyMedium?.copyWith(
-                                fontWeight: active
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                                color: active ? cs.primary : cs.onSurface,
-                              ),
-                            ),
-                            if (active) ...[
-                              const Spacer(),
-                              Icon(AppIcons.check, size: 18, color: cs.primary),
-                            ],
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(width: 4),
-                ],
+      body: CustomScrollView(
+        slivers: [
+          _SourcesAppBar(title: strings.sources),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: PremiumSearchBar(
+                controller: _searchController,
+                hint: strings.searchSources,
+                onClear: _query.isNotEmpty ? _searchController.clear : null,
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: PremiumSearchBar(
-                    controller: _searchController,
-                    hint: strings.searchSources,
-                    onClear: _query.isNotEmpty
-                        ? () {
-                            _searchController.clear();
-                            setState(() => _query = '');
-                          }
-                        : null,
-                  ),
-                ),
+            ),
+          ),
+          ...clustersAsync.when(
+            data: (clusters) => _content(context, clusters),
+            loading: () => const [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: ExpressiveLoadingIndicator()),
               ),
-              if (alphabetical.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: searching
-                      ? _EmptySearch(query: _query)
-                      : _EmptyFilter(filter: _filter),
-                )
-              else ...[
-                if (showRail) ...[
-                  _SectionHeader(title: strings.topSources),
-                  SliverToBoxAdapter(
-                    child: TopSourcesRail(sources: topSources),
-                  ),
-                ],
-                _SectionHeader(title: listTitle, count: alphabetical.length),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _KnowledgeClusterCard(
-                          source: alphabetical[index],
-                        ),
-                      ),
-                      childCount: alphabetical.length,
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 48)),
-              ],
             ],
-          );
-        },
-        loading: () => CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              flexibleSpace: AppGlassSurface(
-                backgroundColor: premiumBackground(context),
+            error: (_, _) => [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyMessage(strings.couldNotLoadSources),
               ),
-              title: Text(strings.sources),
-            ),
-            const SliverFillRemaining(
-              child: Center(child: ExpressiveLoadingIndicator()),
-            ),
-          ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _content(BuildContext context, List<SourceCluster> clusters) {
+    final strings = context.l10n;
+    final searching = _query.trim().isNotEmpty;
+    final sources = clusters.where((c) => !c.isEmpty).toList()..sort(_byVolume);
+    if (sources.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _EmptyMessage(
+            searching ? strings.noSourcesMatch(_query) : strings.noSourcesYet,
+          ),
         ),
-        error: (error, stackTrace) => CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              flexibleSpace: AppGlassSurface(
-                backgroundColor: premiumBackground(context),
-              ),
-              title: Text(strings.sources),
-            ),
-            SliverFillRemaining(
-              child: Center(child: Text(strings.couldNotLoadSources)),
-            ),
-          ],
+      ];
+    }
+
+    if (searching) {
+      return [
+        _Section(title: strings.results, count: sources.length),
+        _SourceGroup(sources: sources),
+        const SliverToBoxAdapter(child: SizedBox(height: 48)),
+      ];
+    }
+
+    bool isApp(SourceCluster c) => platformColors.containsKey(c.name);
+    final top = topSourceClusters(sources);
+    final apps = sources.where(isApp).toList();
+    final websites = sources.where((c) => !isApp(c)).toList();
+    return [
+      if (top.isNotEmpty) ...[
+        _Section(title: strings.topSources),
+        SliverToBoxAdapter(child: TopSourcesRail(sources: top)),
+      ],
+      if (apps.isNotEmpty) ...[
+        _Section(title: strings.apps, count: apps.length),
+        _SourceGroup(sources: apps),
+      ],
+      if (websites.isNotEmpty) ...[
+        _Section(title: strings.websites, count: websites.length),
+        _SourceGroup(sources: websites),
+      ],
+      const SliverToBoxAdapter(child: SizedBox(height: 48)),
+    ];
+  }
+
+  static int _byVolume(SourceCluster a, SourceCluster b) {
+    final byCount = b.count.compareTo(a.count);
+    if (byCount != 0) return byCount;
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  }
+}
+
+class _SourcesAppBar extends StatelessWidget {
+  const _SourcesAppBar({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SliverAppBar.large(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      surfaceTintColor: Colors.transparent,
+      title: Text(
+        title,
+        style: theme.textTheme.headlineMedium?.copyWith(
+          fontWeight: FontWeight.w700,
         ),
+      ),
+      actions: [
+        IconButton(
+          tooltip: context.l10n.done,
+          icon: const AppIcon(AppIcons.checkCircle),
+          onPressed: () {
+            AppHaptics.play(AppHaptics.tap);
+            context.push('/archive');
+          },
+        ),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({required this.title, this.count});
+
+  final String title;
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: SectionTitle(title, count: count),
       ),
     );
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final int? count;
+class _EmptyMessage extends StatelessWidget {
+  const _EmptyMessage(this.message);
 
-  const _SectionHeader({required this.title, this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverToBoxAdapter(child: SectionTitle(title, count: count));
-  }
-}
-
-class _EmptySearch extends StatelessWidget {
-  final String query;
-
-  const _EmptySearch({required this.query});
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -280,254 +193,144 @@ class _EmptySearch extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Text(
-          context.l10n.noSourcesMatch(query),
+          message,
+          textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-          textAlign: TextAlign.center,
         ),
       ),
     );
   }
 }
 
-class _EmptyFilter extends StatelessWidget {
-  final _SourceFilter filter;
+void _openSource(BuildContext context, SourceCluster source) {
+  AppHaptics.play(AppHaptics.tap);
+  context.push('/sources/${Uri.encodeComponent(source.name)}');
+}
 
-  const _EmptyFilter({required this.filter});
+/// One-line summary under a source's name: how much, and how lately.
+String _sourceSummary(BuildContext context, SourceCluster source) {
+  final strings = context.l10n;
+  final parts = [strings.saveCount(source.count)];
+  if (source.savesThisWeek > 0) {
+    parts.add(strings.savesThisWeek(source.savesThisWeek));
+  } else if (source.lastSavedAt != null) {
+    parts.add(UrlCard.timeAgoSaved(context, source.lastSavedAt!));
+  }
+  return parts.join(' · ');
+}
+
+/// Sources as one grouped surface, rows divided by hairlines, the way the
+/// app's settings read. Built lazily: a library can have hundreds of sites.
+class _SourceGroup extends StatelessWidget {
+  const _SourceGroup({required this.sources});
+
+  final List<SourceCluster> sources;
+
+  static const _radius = Radius.circular(24);
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final strings = context.l10n;
-    final message = switch (filter) {
-      _SourceFilter.apps => strings.noSavesFromApps,
-      _SourceFilter.websites => strings.noWebsiteSaves,
-      _SourceFilter.all => strings.noSourcesYet,
-    };
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppIcon(
-              filter.icon,
-              size: 36,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: SliverList.builder(
+        itemCount: sources.length,
+        itemBuilder: (context, index) {
+          final first = index == 0;
+          final last = index == sources.length - 1;
+          return Material(
+            color: cs.surfaceContainerLow,
+            clipBehavior: Clip.antiAlias,
+            borderRadius: BorderRadius.vertical(
+              top: first ? _radius : Radius.zero,
+              bottom: last ? _radius : Radius.zero,
             ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+            child: _SourceRow(source: sources[index], divider: !last),
+          );
+        },
       ),
     );
   }
 }
 
-class _KnowledgeClusterCard extends StatelessWidget {
+class _SourceRow extends StatelessWidget {
+  const _SourceRow({required this.source, required this.divider});
+
   final SourceCluster source;
-
-  const _KnowledgeClusterCard({required this.source});
+  final bool divider;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final iconSpec = resolveSourceIcon(source.name);
-    final fav = faviconUrl(source.name) ?? source.faviconUrl;
-    final brandColor = platformColors[source.name];
-    final isEmpty = source.isEmpty;
-    final strings = context.l10n;
-
-    return Card(
-      elevation: 0,
-      color: isEmpty
-          ? cs.surfaceContainerLowest.withValues(alpha: 0.72)
-          : cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: isEmpty
-              ? cs.outlineVariant.withValues(alpha: 0.18)
-              : Colors.transparent,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: isEmpty
-            ? null
-            : () =>
-                  context.push('/sources/${Uri.encodeComponent(source.name)}'),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ClusterIcon(
-                    label: source.name,
-                    faviconUrl: fav,
-                    fallbackIcon: iconSpec.icon ?? AppIcons.folder,
-                    brandColor: brandColor,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          source.name,
-                          style: tt.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: isEmpty ? cs.onSurfaceVariant : cs.onSurface,
-                            letterSpacing: -0.15,
-                            height: 1.2,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            Text(
-                              isEmpty
-                                  ? strings.noSavesYet
-                                  : strings.saveCount(source.count),
-                              style: tt.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: isEmpty ? 0.62 : 1,
-                                ),
-                                fontWeight: FontWeight.w500,
-                                fontSize: 11,
-                              ),
-                            ),
-                            if (source.savesThisWeek > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                width: 3,
-                                height: 3,
-                                decoration: BoxDecoration(
-                                  color: cs.primary,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                strings.savesThisWeek(source.savesThisWeek),
-                                style: tt.labelSmall?.copyWith(
-                                  color: cs.primary,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                            if (source.isGrowing) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                '· ${strings.growing}',
-                                style: tt.labelSmall?.copyWith(
-                                  color: cs.primary.withValues(alpha: 0.7),
-                                  fontWeight: FontWeight.w400,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!isEmpty)
-                    Icon(
-                      AppIcons.chevronRight,
-                      size: 18,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                    ),
-                ],
-              ),
-              if (source.memoryStripUrls.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                MemoryStrip(
-                  imageUrls: source.memoryStripUrls,
-                  height: 40,
-                  totalCount: source.count,
-                  overlap: 12,
-                  gapWidth: 2,
-                  gapColor: cs.surfaceContainerLow,
+    return InkWell(
+      onTap: () => _openSource(context, source),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+            child: Row(
+              children: [
+                SourceLogoTile(
+                  name: source.name,
+                  fallbackFaviconUrl: source.faviconUrl,
                 ),
-              ],
-              if (source.mostlyAbout.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: source.mostlyAbout
-                      .take(4)
-                      .map((tag) => MonochromePill(tag, compact: true))
-                      .toList(),
-                ),
-              ],
-              if (source.topDomain != null || source.lastSavedAt != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    if (source.topDomain != null)
-                      Expanded(
-                        child: Text(
-                          source.topDomain!,
-                          style: tt.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                            fontWeight: FontWeight.w400,
-                            fontSize: 10,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    if (source.lastSavedAt != null)
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        strings.lastSaved(
-                          _timeAgo(context, source.lastSavedAt!),
-                        ),
-                        style: tt.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                          fontWeight: FontWeight.w400,
-                          fontSize: 10,
+                        source.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodyLarge?.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                  ],
+                      const SizedBox(height: 1),
+                      Text(
+                        _sourceSummary(context, source),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 20,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+          if (divider)
+            Positioned(
+              left: 70,
+              right: 0,
+              bottom: 0,
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: cs.outlineVariant.withValues(alpha: 0.35),
+              ),
+            ),
+        ],
       ),
     );
   }
-
-  String _timeAgo(BuildContext context, DateTime date) {
-    final strings = context.l10n;
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return strings.justNow;
-    if (diff.inMinutes < 60) return strings.minutesAgo(diff.inMinutes);
-    if (diff.inHours < 24) return strings.hoursAgo(diff.inHours);
-    if (diff.inDays == 1) return strings.yesterday;
-    if (diff.inDays < 7) return strings.daysAgo(diff.inDays);
-    if (diff.inDays < 30) return strings.weeksAgo((diff.inDays / 7).floor());
-    if (diff.inDays < 365) {
-      return strings.monthsAgo((diff.inDays / 30).floor());
-    }
-    return strings.yearsAgo((diff.inDays / 365).floor());
-  }
 }
 
+/// The most-saved sources as picture cards: a mosaic of their newest saves,
+/// the logo seated on its edge, then the name and how much came from it.
 class TopSourcesRail extends StatelessWidget {
   const TopSourcesRail({super.key, required this.sources});
 
@@ -537,13 +340,13 @@ class TopSourcesRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var index = 0; index < sources.length; index++) ...[
-              if (index > 0) const SizedBox(width: 8),
+              if (index > 0) const SizedBox(width: 10),
               _TopSourceCard(cluster: sources[index]),
             ],
           ],
@@ -554,154 +357,109 @@ class TopSourcesRail extends StatelessWidget {
 }
 
 class _TopSourceCard extends StatelessWidget {
+  const _TopSourceCard({required this.cluster});
+
   final SourceCluster cluster;
 
-  const _TopSourceCard({required this.cluster});
+  static const _width = 164.0;
+  static const _mosaicHeight = 124.0;
+  static const _badge = 36.0;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final iconSpec = resolveSourceIcon(cluster.name);
-    final fav = faviconUrl(cluster.name) ?? cluster.faviconUrl;
-    final brandColor = platformColors[cluster.name];
     final strings = context.l10n;
+    final hasPreviews = cluster.previews.isNotEmpty;
 
     return SizedBox(
-      width: 148,
-      child: Card(
-        elevation: 0,
-        color: cs.surfaceContainerLow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () =>
-              context.push('/sources/${Uri.encodeComponent(cluster.name)}'),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+      width: _width,
+      child: ExpressiveTapScale(
+        child: Card(
+          margin: EdgeInsets.zero,
+          elevation: 0,
+          color: cs.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _openSource(context, cluster),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ClusterIcon(
-                  label: cluster.name,
-                  faviconUrl: fav,
-                  fallbackIcon: iconSpec.icon ?? AppIcons.folder,
-                  brandColor: brandColor,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  cluster.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: tt.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                    letterSpacing: -0.15,
-                    height: 1.2,
-                    fontSize: 14,
+                SizedBox(
+                  height: _mosaicHeight + _badge / 2,
+                  child: Stack(
+                    children: [
+                      SizedBox(
+                        height: _mosaicHeight,
+                        width: double.infinity,
+                        child: hasPreviews
+                            ? SourcePreviewMosaic(previews: cluster.previews)
+                            : ColoredBox(color: cs.surfaceContainerHigh),
+                      ),
+                      // The logo sits half on the pictures, half on the card,
+                      // ringed in the card colour.
+                      Positioned(
+                        left: 12,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: SourceLogoTile(
+                            name: cluster.name,
+                            fallbackFaviconUrl: cluster.faviconUrl,
+                            size: _badge,
+                            color: cs.surfaceContainerHighest,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  strings.saveCount(cluster.count),
-                  style: tt.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 11,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        cluster.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.titleSmall?.copyWith(
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        strings.saveCount(cluster.count),
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      if (cluster.savesThisWeek > 0) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          strings.savesThisWeek(cluster.savesThisWeek),
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (cluster.savesThisWeek > 0) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    strings.savesThisWeek(cluster.savesThisWeek),
-                    style: tt.labelSmall?.copyWith(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ClusterIcon extends StatelessWidget {
-  final String label;
-  final String? faviconUrl;
-  final IconData fallbackIcon;
-  final Color? brandColor;
-
-  const _ClusterIcon({
-    required this.label,
-    required this.faviconUrl,
-    required this.fallbackIcon,
-    this.brandColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = brandColor != null
-        ? brandColor!.withValues(alpha: isDark ? 0.18 : 0.12)
-        : cs.secondaryContainer.withValues(alpha: 0.5);
-    final iconColor = brandColor ?? cs.onSurfaceVariant;
-    final spec = resolveSourceIcon(label);
-    final knownLogo = spec.isAsset || spec.isGlyph;
-    final fallback = faviconUrl != null && brandColor == null
-        ? _DomainInitialIcon(label: label)
-        : AppIcon(fallbackIcon, size: 18, color: iconColor);
-
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        // Known platforms draw the shared logo; other sites keep their
-        // favicon with a first-letter fallback.
-        child: knownLogo
-            ? SourceLogo(name: label, size: 22)
-            : faviconUrl != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: CachedNetworkImage(
-                  imageUrl: faviconUrl!,
-                  width: 20,
-                  height: 20,
-                  memCacheWidth: imageDecodeSize(context, 20),
-                  errorWidget: (context, error, stackTrace) => fallback,
-                ),
-              )
-            : fallback,
-      ),
-    );
-  }
-}
-
-class _DomainInitialIcon extends StatelessWidget {
-  const _DomainInitialIcon({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final initial = label.trim().isEmpty ? '?' : label.trim()[0].toUpperCase();
-    return Text(
-      initial,
-      style: TextStyle(
-        color: cs.onSecondaryContainer,
-        fontSize: 16,
-        fontWeight: FontWeight.w800,
-        height: 1,
       ),
     );
   }

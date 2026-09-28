@@ -19,16 +19,13 @@ SavedUrl _metadataOnlyUrl() {
     ..category = 'Social'
     ..categoryEmoji = ''
     ..categories = ['Social']
-    ..tags = ['instagram']
+    ..tags = ['instagram', 'philosophy']
     ..summary = 'Saved Instagram post from an exhausted free allowance.'
     ..savedAt = DateTime(2026, 8, 15)
     ..processingStatus = UrlProcessingStatus.completed;
 }
 
-Widget _app({
-  required bool hasAiSaveAccess,
-  bool showEnrichmentActions = true,
-}) {
+Widget _app({required bool hasAiSaveAccess}) {
   return ProviderScope(
     overrides: [aiSaveAvailableProvider.overrideWithValue(hasAiSaveAccess)],
     child: MaterialApp(
@@ -36,7 +33,6 @@ Widget _app({
         body: UrlCard(
           savedUrl: _metadataOnlyUrl(),
           tagFrequency: const {},
-          showEnrichmentActions: showEnrichmentActions,
         ),
       ),
     ),
@@ -44,11 +40,11 @@ Widget _app({
 }
 
 void main() {
-  testWidgets('Home tracks a retry started from Details until it finishes', (
+  testWidgets('Cards track a retry started from Details until it finishes', (
     tester,
   ) async {
     await tester.pumpWidget(
-      _app(hasAiSaveAccess: true, showEnrichmentActions: false),
+      _app(hasAiSaveAccess: true),
     );
     final container = ProviderScope.containerOf(
       tester.element(find.byType(UrlCard)),
@@ -66,11 +62,11 @@ void main() {
     expect(find.text('Trying that step again'), findsNothing);
   });
 
-  testWidgets('Home plain saves stay quiet even when AI access returns', (
+  testWidgets('Plain saves stay quiet even when AI access returns', (
     tester,
   ) async {
     await tester.pumpWidget(
-      _app(hasAiSaveAccess: true, showEnrichmentActions: false),
+      _app(hasAiSaveAccess: true),
     );
     expect(find.byType(EnrichmentRetryButton), findsNothing);
     // Unread state is a dot now, not the word.
@@ -78,30 +74,33 @@ void main() {
     expect(find.text('Instagram'), findsOneWidget);
   });
 
-  testWidgets('shows retry inline with metadata when AI access returns', (
+  testWidgets('list cards never show tag chips or a retry button', (
     tester,
   ) async {
     await tester.pumpWidget(_app(hasAiSaveAccess: true));
 
-    final retry = find.text('Retry');
-    final source = find.text('Instagram');
-    expect(retry, findsOneWidget);
-    expect(source, findsOneWidget);
-    expect(
-      (tester.getCenter(retry).dy - tester.getCenter(source).dy).abs(),
-      lessThan(8),
-    );
-    expect(
-      tester.getSize(find.byType(EnrichmentRetryButton)).height,
-      lessThanOrEqualTo(32),
-    );
+    expect(find.text('Retry'), findsNothing);
+    expect(find.byType(EnrichmentRetryButton), findsNothing);
+    expect(find.text('philosophy'), findsNothing);
   });
 
-  testWidgets('hides retry while the free AI allowance is exhausted', (
+  testWidgets('a source page can drop the repeated source name', (
     tester,
   ) async {
-    await tester.pumpWidget(_app(hasAiSaveAccess: false));
-
-    expect(find.text('Retry'), findsNothing);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [aiSaveAvailableProvider.overrideWithValue(true)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: UrlCard(
+              savedUrl: _metadataOnlyUrl(),
+              tagFrequency: const {},
+              showSourceName: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Instagram'), findsNothing);
   });
 }
