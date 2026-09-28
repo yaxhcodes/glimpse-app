@@ -11,6 +11,7 @@ import '../../core/services/transcript_enrichment_service.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_typography.dart';
+import '../../shared/widgets/saved_toast.dart';
 import '../../shared/widgets/section_header.dart';
 import '../library/library_entity.dart';
 import '../library/places_world_preview.dart';
@@ -365,7 +366,7 @@ class OnboardingShareStage extends StatelessWidget {
                   right: 0,
                   child: Opacity(
                     opacity: toast,
-                    child: const Center(child: _SavedToast()),
+                    child: const Center(child: SavedToast()),
                   ),
                 ),
               ],
@@ -668,49 +669,6 @@ class _ShareSheetMock extends StatelessWidget {
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SavedToast extends StatelessWidget {
-  const _SavedToast();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(6, 6, 16, 6),
-      decoration: BoxDecoration(
-        color: cs.inverseSurface,
-        borderRadius: BorderRadius.circular(99),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .3),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ClipOval(
-            child: Image.asset(AppAssets.launcherIcon, width: 26, height: 26),
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Text(
-              context.l10n.obSavedToast,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: cs.onInverseSurface),
-            ),
-          ),
-          const SizedBox(width: 8),
-          AppIcon(AppIcons.checkCircle, size: 16, color: cs.inversePrimary),
         ],
       ),
     );

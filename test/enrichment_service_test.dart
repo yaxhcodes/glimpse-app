@@ -8,6 +8,7 @@ import 'package:glimpse/core/services/gemini_service.dart';
 import 'package:glimpse/core/services/source_evidence.dart';
 import 'package:glimpse/core/services/transcript_enrichment_service.dart';
 import 'package:glimpse/core/services/usage_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('successful media re-enrichment replaces provisional tags', () async {
@@ -36,6 +37,41 @@ void main() {
     expect(database.url.tags, const ['personal branding', 'career strategy']);
     expect(database.url.tags, isNot(contains('old metadata tag')));
   });
+
+  for (final aiFallback in [false, true]) {
+    test(
+      'a ${aiFallback ? 'backend fallback spends no' : 'real enrichment spends one'} AI save',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final usage = UsageService();
+        final database = _MemoryIsarService(
+          SavedUrl()
+            ..id = 3
+            ..rawUrl = 'https://www.instagram.com/reel/billing'
+            ..domain = 'instagram.com'
+            ..title = 'Brand strategy'
+            ..description = 'A guide to building a thoughtful personal brand.'
+            ..category = 'Web'
+            ..categoryEmoji = '🌐'
+            ..categories = const ['Web']
+            ..tags = const []
+            ..savedAt = DateTime(2026, 9, 28),
+        );
+        final service = EnrichmentService(
+          isarService: database,
+          transcriptEnrichmentService: _SuccessfulTranscriptEnrichmentService(
+            aiFallback: aiFallback,
+          ),
+          usageService: usage,
+          isPro: false,
+        );
+
+        await service.enrichSingle(3, forceAi: true, countAiUsage: true);
+
+        expect(await usage.getUsage(UsageFeature.aiSave), aiFallback ? 0 : 1);
+      },
+    );
+  }
 
   test(
     'rich generic enrichment persists the schema v5 reader contract',
@@ -113,6 +149,10 @@ class _SuccessfulGenericGeminiService extends GeminiService {
 
 class _SuccessfulTranscriptEnrichmentService
     extends TranscriptEnrichmentService {
+  _SuccessfulTranscriptEnrichmentService({this.aiFallback = false});
+
+  final bool aiFallback;
+
   @override
   Future<TranscriptEnrichmentResult?> enrichUrl({
     required String rawUrl,
@@ -126,7 +166,8 @@ class _SuccessfulTranscriptEnrichmentService
     bool forceRefresh = false,
     String outputLocale = 'en',
   }) async {
-    return const TranscriptEnrichmentResult(
+    return TranscriptEnrichmentResult(
+      aiFallback: aiFallback,
       meaningfulTitle: 'A Thoughtful Personal Brand',
       category: 'Career',
       tags: ['personal branding', 'career strategy'],

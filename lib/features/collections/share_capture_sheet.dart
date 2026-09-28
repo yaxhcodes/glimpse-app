@@ -6,14 +6,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
+import '../../core/services/app_haptics.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../shared/widgets/saved_toast.dart';
 import 'collection_visual.dart';
 import 'collections_provider.dart';
 import 'create_collection_sheet.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
 const _defaultCollectionName = 'Inbox';
+
+/// How long the saved pill stays before it gets out of the way.
+const _linger = Duration(milliseconds: 2600);
+
+/// How long the pill stays once both edits are done: nothing is left to
+/// offer, so it only confirms.
+const _confirmLinger = Duration(milliseconds: 1400);
+
+const _morph = Duration(milliseconds: 280);
 
 enum ShareCaptureOutcomeType { captured, duplicate, schedulingFallback, error }
 
@@ -41,58 +52,86 @@ typedef ShareCaptureCallback =
       String? notes,
     );
 
-Future<ShareCaptureOutcome?> showShareCaptureSheet(
+/// Saves a shared link the moment it opens, then shows the "Saved to Glimpse"
+/// pill with a collection and a note as optional edits. The pill gets out of
+/// the way on its own; tapping anywhere else closes it at once (after the
+/// save has landed).
+Future<ShareCaptureOutcome?> showShareCapture(
   BuildContext context, {
   required ShareCaptureCallback onCapture,
   ShareCaptureCallback? onUpdate,
 }) {
-  return showModalBottomSheet<ShareCaptureOutcome>(
+  return showGeneralDialog<ShareCaptureOutcome>(
     context: context,
     useRootNavigator: true,
-    isScrollControlled: true,
-    isDismissible: false,
-    enableDrag: false,
-    showDragHandle: false,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _ShareCaptureSheet(
-      onCapture: onCapture,
-      onUpdate: onUpdate ?? onCapture,
-    ),
+    barrierColor: Colors.transparent,
+    transitionDuration: const Duration(milliseconds: 320),
+    pageBuilder: (_, _, _) =>
+        _ShareCapture(onCapture: onCapture, onUpdate: onUpdate ?? onCapture),
+    transitionBuilder: (_, animation, _, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutQuart,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween(
+            begin: const Offset(0, .12),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
   );
 }
 
-class _ShareCaptureSheet extends ConsumerStatefulWidget {
-  const _ShareCaptureSheet({required this.onCapture, required this.onUpdate});
+enum _Panel { pill, collections, note }
+
+class _ShareCapture extends ConsumerStatefulWidget {
+  const _ShareCapture({required this.onCapture, required this.onUpdate});
 
   final ShareCaptureCallback onCapture;
   final ShareCaptureCallback onUpdate;
 
   @override
-  ConsumerState<_ShareCaptureSheet> createState() => _ShareCaptureSheetState();
+  ConsumerState<_ShareCapture> createState() => _ShareCaptureState();
 }
 
-class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
-  final _notesController = TextEditingController();
-  UserCollection? _defaultCollection;
+class _ShareCaptureState extends ConsumerState<_ShareCapture> {
+  final _noteController = TextEditingController();
+  UserCollection? _collection;
   late final Future<UserCollection?> _defaultCollectionFuture;
-  bool? _hasCollections;
-  bool _choosingCollection = false;
-  bool _capturing = false;
+  _Panel _panel = _Panel.pill;
+  /// The shared link's own save, in flight. The pill already reads as saved
+  /// (it's a local write); edits wait on [_landed] before applying.
+  bool _saving = false;
+  Future<bool>? _landed;
+
+  /// A collection or note edit, in flight.
+  bool _editing = false;
   bool _captureFailed = false;
-  bool _addingNote = false;
+  bool _editFailed = false;
+  bool _closeWhenSaved = false;
+  bool _closed = false;
   ShareCaptureOutcome? _outcome;
+  String? _confirmation;
+  bool _filed = false;
+  bool _noted = false;
   Timer? _closeTimer;
 
   @override
   void initState() {
     super.initState();
     _defaultCollectionFuture = _prepareDefaultCollection();
-    unawaited(_useDefaultCollection());
+    unawaited(_captureDefault());
   }
 
   @override
   void dispose() {
-    _notesController.dispose();
+    _noteController.dispose();
     _closeTimer?.cancel();
     super.dispose();
   }
@@ -101,21 +140,13 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
     try {
       final isar = ref.read(isarServiceProvider);
       final collections = await isar.getAllCollections();
-      UserCollection? inbox;
       for (final collection in collections) {
         if (collection.name.trim().toLowerCase() ==
             _defaultCollectionName.toLowerCase()) {
-          inbox = collection;
-          break;
+          return collection;
         }
       }
-      if (mounted) {
-        setState(() {
-          _hasCollections = collections.isNotEmpty;
-          _defaultCollection = inbox;
-        });
-      }
-      return inbox;
+      return null;
     } catch (error, stackTrace) {
       developer.log(
         'Could not prepare the default share collection.',
@@ -127,57 +158,13 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
     }
   }
 
-  Future<void> _useDefaultCollection() async {
-    if (_choosingCollection || _capturing || !mounted) return;
-    var collection = _defaultCollection;
-    collection ??= await _defaultCollectionFuture;
-    if (!mounted || _choosingCollection || _capturing) return;
-    await _capture(collection);
-  }
-
-  Future<void> _saveEdits() async {
-    if (_outcome == null || _capturing || !mounted) return;
-    await _capture(_defaultCollection);
-  }
-
-  Future<void> _chooseCollection() async {
-    _closeTimer?.cancel();
-    setState(() => _choosingCollection = true);
-    await _defaultCollectionFuture;
-    if (!mounted) return;
-    final UserCollection? selected;
-    if (_hasCollections == false) {
-      selected = await showCreateCollectionSheet(context);
-    } else {
-      selected = await showCollectionPickerSheet(context);
-    }
-    if (!mounted) return;
-    if (selected != null) {
-      setState(() {
-        _choosingCollection = false;
-        _defaultCollection = selected;
-        _hasCollections = true;
-      });
-      await _capture(selected);
-      return;
-    }
-    setState(() => _choosingCollection = false);
-  }
-
-  Future<void> _capture(UserCollection? collection) async {
-    if (_capturing || !mounted) return;
-    _closeTimer?.cancel();
-    setState(() {
-      _capturing = true;
-      _captureFailed = false;
-      _choosingCollection = false;
-    });
-
-    ShareCaptureOutcome outcome;
+  Future<ShareCaptureOutcome> _run(
+    ShareCaptureCallback callback,
+    UserCollection? collection,
+    String? note,
+  ) async {
     try {
-      final notes = _notesController.text.trim();
-      final callback = _outcome == null ? widget.onCapture : widget.onUpdate;
-      outcome = await callback(collection, notes.isEmpty ? null : notes);
+      return await callback(collection, note);
     } catch (error, stackTrace) {
       developer.log(
         'Share capture failed.',
@@ -185,205 +172,457 @@ class _ShareCaptureSheetState extends ConsumerState<_ShareCaptureSheet> {
         error: error,
         stackTrace: stackTrace,
       );
-      outcome = const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
+      return const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
     }
+  }
+
+  Future<void> _captureDefault() async {
+    if (_saving || !mounted) return;
+    final landed = Completer<bool>();
+    _landed = landed.future;
+    setState(() {
+      _saving = true;
+      _captureFailed = false;
+    });
+    final collection = await _defaultCollectionFuture;
     if (!mounted) return;
+    _collection = collection;
+    if (_panel == _Panel.pill) _scheduleClose(_lingerNow);
+    final outcome = await _run(widget.onCapture, collection, null);
+    if (!mounted) return;
+    landed.complete(outcome.saved);
     if (!outcome.saved) {
+      _closeTimer?.cancel();
       setState(() {
-        _capturing = false;
+        _saving = false;
         _captureFailed = true;
+        _closeWhenSaved = false;
+        _panel = _Panel.pill;
       });
       return;
     }
-    _notesController.clear();
+    AppHaptics.play(AppHaptics.success);
     setState(() {
       _outcome = outcome;
-      _capturing = false;
-      _addingNote = false;
+      _saving = false;
     });
+    if (_closeWhenSaved) _close();
+  }
+
+  /// Edits the save that already landed: [collection] moves it, [note] is
+  /// appended. The pill comes back confirming it, still offering whichever
+  /// edit hasn't been made.
+  Future<void> _update({UserCollection? collection, String? note}) async {
+    final landed = _landed;
+    if (_editing || landed == null || !mounted) return;
+    setState(() {
+      _editing = true;
+      _editFailed = false;
+    });
+    // An edit made before the link's own save lands waits for it; if that
+    // save fails, the pill already says so and offers Retry.
+    if (!await landed || !mounted) {
+      if (mounted) setState(() => _editing = false);
+      return;
+    }
+    final target = collection ?? _collection;
+    final outcome = await _run(widget.onUpdate, target, note);
+    if (!mounted) return;
+    if (!outcome.saved) {
+      setState(() {
+        _editing = false;
+        _editFailed = true;
+        _closeWhenSaved = false;
+      });
+      return;
+    }
+    AppHaptics.play(AppHaptics.success);
+    _noteController.clear();
+    final strings = context.l10n;
+    setState(() {
+      _outcome = outcome;
+      _collection = target;
+      _editing = false;
+      _panel = _Panel.pill;
+      if (collection != null) _filed = true;
+      if (note != null) _noted = true;
+      _confirmation = collection != null
+          ? strings.savedToCollection(collection.name)
+          : strings.noteAdded;
+    });
+    if (_closeWhenSaved) {
+      _close();
+    } else {
+      _scheduleClose(_lingerNow);
+    }
+  }
+
+  Duration get _lingerNow => _filed && _noted ? _confirmLinger : _linger;
+
+  void _scheduleClose(Duration delay) {
     _closeTimer?.cancel();
-    _closeTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) Navigator.of(context).pop(outcome);
+    // Screen-reader users close it themselves; a timer would cut them off.
+    if (MediaQuery.accessibleNavigationOf(context)) return;
+    _closeTimer = Timer(delay, _close);
+  }
+
+  /// Closes once nothing is left in flight. A note that was typed but not
+  /// saved is saved on the way out rather than thrown away.
+  void _close() {
+    if (_closed || !mounted) return;
+    if (_saving || _editing) {
+      _closeWhenSaved = true;
+      return;
+    }
+    final note = _noteController.text.trim();
+    if (_panel == _Panel.note && note.isNotEmpty && !_captureFailed) {
+      _closeWhenSaved = true;
+      unawaited(_update(note: note));
+      return;
+    }
+    _closed = true;
+    _closeTimer?.cancel();
+    Navigator.of(context).pop(_outcome);
+  }
+
+  bool get _settledPill =>
+      _panel == _Panel.pill && !_captureFailed && !_editing;
+
+  void _hold() => _closeTimer?.cancel();
+
+  void _release() {
+    if (!_settledPill) return;
+    _scheduleClose(_lingerNow);
+  }
+
+  void _open(_Panel panel) {
+    _closeTimer?.cancel();
+    setState(() {
+      _panel = panel;
+      _editFailed = false;
     });
   }
 
-  String _outcomeTitle(BuildContext context, ShareCaptureOutcome outcome) {
-    return switch (outcome.type) {
-      ShareCaptureOutcomeType.captured => context.l10n.captured,
-      ShareCaptureOutcomeType.duplicate => context.l10n.alreadyInGlimpse,
-      ShareCaptureOutcomeType.schedulingFallback => context.l10n.captured,
-      ShareCaptureOutcomeType.error => context.l10n.captureCouldNotSave,
-    };
-  }
-
-  String? _outcomeDetail(BuildContext context, ShareCaptureOutcome outcome) {
-    return switch (outcome.type) {
-      ShareCaptureOutcomeType.captured =>
-        !outcome.enrichmentPending
-            ? null
-            : outcome.notificationsEnabled
-            ? context.l10n.captureBody
-            : context.l10n.captureQueuedWithoutNotifications,
-      ShareCaptureOutcomeType.schedulingFallback =>
-        context.l10n.captureSchedulingFallback,
-      ShareCaptureOutcomeType.duplicate ||
-      ShareCaptureOutcomeType.error => null,
-    };
+  void _backToPill() {
+    _noteController.clear();
+    setState(() {
+      _panel = _Panel.pill;
+      _editFailed = false;
+    });
+    _scheduleClose(_lingerNow);
   }
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_panel == _Panel.pill) {
+          _close();
+        } else {
+          _backToPill();
+        }
+      },
+      child: Material(
+        type: MaterialType.transparency,
+        child: Stack(
+          children: [
+            // The app the link came from stays visible; touching it closes.
+            Positioned.fill(
+              child: ExcludeSemantics(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _close,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    0,
+                    16,
+                    16 + MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Listener(
+                      onPointerDown: (_) => _hold(),
+                      onPointerUp: (_) => _release(),
+                      onPointerCancel: (_) => _release(),
+                      child: GestureDetector(
+                        onVerticalDragEnd: _panel == _Panel.pill
+                            ? (details) {
+                                if ((details.primaryVelocity ?? 0) > 300) {
+                                  _close();
+                                }
+                              }
+                            : null,
+                        child: _surface(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _surface(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final expanded = _panel != _Panel.pill;
+    return AnimatedContainer(
+      duration: _morph,
+      curve: Curves.easeOutCubic,
+      clipBehavior: Clip.antiAlias,
+      decoration: savedToastDecoration(
+        colors,
+        color: expanded ? colors.surfaceContainerHigh : null,
+        radius: 28,
+      ),
+      child: AnimatedSize(
+        duration: _morph,
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.bottomCenter,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: switch (_panel) {
+            _Panel.pill => _pill(context),
+            _Panel.collections => _collectionsPanel(context),
+            _Panel.note => _notePanel(context),
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _pill(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final strings = context.l10n;
     final outcome = _outcome;
+    final confirmation = _confirmation;
+    final title = _captureFailed
+        ? strings.captureCouldNotSave
+        : confirmation ??
+              (outcome?.type == ShareCaptureOutcomeType.duplicate
+                  ? strings.alreadyInGlimpse
+                  : strings.savedToGlimpse);
 
-    return SafeArea(
-      top: false,
+    return ConstrainedBox(
+      key: const ValueKey('pill'),
+      constraints: const BoxConstraints(minHeight: 56),
       child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        padding: const EdgeInsets.fromLTRB(15, 6, 6, 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_captureFailed)
+              SizedBox.square(
+                dimension: 26,
+                child: Icon(
+                  AppIcons.error,
+                  size: 22,
+                  color: colors.onInverseSurface,
+                ),
+              )
+            else
+              const SavedToastIcon(),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colors.onInverseSurface,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            if (_captureFailed)
+              _PillAction(
+                label: strings.retry,
+                onPressed: _saving ? null : _captureDefault,
+              )
+            else if (!(_filed && _noted)) ...[
+              if (!_filed)
+                _PillAction(
+                  label: strings.collection,
+                  onPressed: () => _open(_Panel.collections),
+                ),
+              if (!_noted)
+                _PillAction(
+                  label: strings.note,
+                  onPressed: () => _open(_Panel.note),
+                ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: AppIcon(
+                  AppIcons.checkCircle,
+                  size: 16,
+                  color: colors.inversePrimary,
+                ),
+              ),
+          ],
         ),
-        child: Material(
-          color: colors.surfaceContainerLow,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          clipBehavior: Clip.antiAlias,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 12, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (_capturing || outcome == null && !_captureFailed)
-                      const ExpressiveLoadingIndicator(size: 22)
-                    else
-                      Icon(
-                        _captureFailed ? AppIcons.error : AppIcons.checkCircle,
-                        size: 22,
-                        color: _captureFailed ? colors.error : colors.primary,
-                      ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          _captureFailed
-                              ? context.l10n.captureCouldNotSave
-                              : outcome == null
-                              ? context.l10n.savingTo
-                              : _outcomeTitle(context, outcome),
-                          style: theme.textTheme.titleMedium,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: context.l10n.done,
-                      onPressed:
-                          _capturing || outcome == null && !_captureFailed
-                          ? null
-                          : () => Navigator.of(context).pop(outcome),
-                      icon: const Icon(Icons.close_rounded, size: 20),
-                    ),
-                  ],
-                ),
-                if (outcome != null)
-                  if (_outcomeDetail(context, outcome) case final String detail)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 34, bottom: 12),
-                      child: Text(
-                        detail,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed:
-                            _capturing || _choosingCollection || outcome == null
-                            ? null
-                            : _chooseCollection,
-                        icon: const Icon(AppIcons.folder, size: 18),
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                _defaultCollection?.name ??
-                                    (_hasCollections == false
-                                        ? context.l10n.newCollection
-                                        : _defaultCollectionName),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(AppIcons.chevronDown, size: 16),
-                          ],
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colors.onSurface,
-                          side: BorderSide(color: colors.outlineVariant),
-                        ),
-                      ),
-                    ),
-                    if (!_addingNote && !_captureFailed) ...[
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: TextButton(
-                          onPressed: _capturing || outcome == null
-                              ? null
-                              : () {
-                                  _closeTimer?.cancel();
-                                  setState(() => _addingNote = true);
-                                },
-                          child: Text(context.l10n.addNoteOptional),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(width: 8),
-                  ],
-                ),
-                if (_addingNote) ...[
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: TextField(
-                      controller: _notesController,
-                      autofocus: true,
-                      enabled: !_capturing,
-                      minLines: 2,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: context.l10n.addNoteOptional,
-                      ),
-                    ),
-                  ),
-                ],
-                if (_addingNote || _captureFailed)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8, right: 8),
-                      child: FilledButton(
-                        onPressed: _capturing || _choosingCollection
-                            ? null
-                            : (_captureFailed
-                                  ? _useDefaultCollection
-                                  : _saveEdits),
-                        child: Text(
-                          _captureFailed
-                              ? context.l10n.retry
-                              : context.l10n.save,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+      ),
+    );
+  }
+
+  Widget _collectionsPanel(BuildContext context) {
+    return Padding(
+      key: const ValueKey('collections'),
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PanelHeader(
+            title: context.l10n.addToCollection,
+            onClose: _backToPill,
+          ),
+          if (_editFailed) const _EditFailed(),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _CollectionChoices(
+              selectedCollectionId: _collection?.id,
+              enabled: !_editing,
+              onSelected: (selection) {
+                final collection = selection.collection;
+                if (collection != null) {
+                  unawaited(_update(collection: collection));
+                }
+              },
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _notePanel(BuildContext context) {
+    final strings = context.l10n;
+    return Padding(
+      key: const ValueKey('note'),
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PanelHeader(title: strings.addNote, onClose: _backToPill),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextField(
+              controller: _noteController,
+              autofocus: true,
+              enabled: !_editing,
+              minLines: 2,
+              maxLines: 4,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ),
+          if (_editFailed) const _EditFailed(),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _noteController,
+                builder: (context, value, _) {
+                  final note = value.text.trim();
+                  return FilledButton(
+                    onPressed: _editing || note.isEmpty
+                        ? null
+                        : () => _update(note: note),
+                    child: _editing
+                        ? const ExpressiveLoadingIndicator(size: 18)
+                        : Text(strings.save),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A snackbar-style text action on the dark pill.
+class _PillAction extends StatelessWidget {
+  const _PillAction({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: theme.colorScheme.inversePrimary,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        minimumSize: const Size(0, 44),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: const StadiumBorder(),
+        textStyle: theme.textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      child: Text(label),
+    );
+  }
+}
+
+class _PanelHeader extends StatelessWidget {
+  const _PanelHeader({required this.title, required this.onClose});
+
+  final String title;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        ),
+        IconButton(
+          tooltip: context.l10n.cancel,
+          onPressed: onClose,
+          icon: const Icon(Icons.close_rounded, size: 20),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditFailed extends StatelessWidget {
+  const _EditFailed();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: Text(
+        context.l10n.saveEditFailed,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.error,
         ),
       ),
     );
@@ -430,7 +669,7 @@ Future<CollectionPickerSelection?> _showCollectionPickerSheet(
   );
 }
 
-class _CollectionPickerSheet extends ConsumerWidget {
+class _CollectionPickerSheet extends StatelessWidget {
   const _CollectionPickerSheet({
     required this.allowNoCollection,
     this.selectedCollectionId,
@@ -440,10 +679,7 @@ class _CollectionPickerSheet extends ConsumerWidget {
   final int? selectedCollectionId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final collections = ref.watch(collectionsListProvider);
-    final theme = Theme.of(context);
-
+  Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -453,85 +689,119 @@ class _CollectionPickerSheet extends ConsumerWidget {
           children: [
             Text(
               context.l10n.chooseCollection,
-              style: theme.textTheme.titleLarge,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
-            FilledButton.tonalIcon(
-              onPressed: () async {
-                final collection = await showCreateCollectionSheet(context);
-                if (collection != null && context.mounted) {
-                  Navigator.of(
-                    context,
-                  ).pop(CollectionPickerSelection(collection));
-                }
-              },
-              icon: const Icon(AppIcons.add),
-              label: Text(context.l10n.newCollection),
-            ),
-            const SizedBox(height: 8),
-            if (allowNoCollection) ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  AppIcons.folderOff,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                title: Text(context.l10n.noCollection),
-                trailing: selectedCollectionId == null
-                    ? Icon(AppIcons.check, color: theme.colorScheme.primary)
-                    : null,
-                onTap: () => Navigator.of(
-                  context,
-                ).pop(const CollectionPickerSelection(null)),
-              ),
-              const Divider(height: 1),
-              const SizedBox(height: 8),
-            ],
-            collections.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: ExpressiveLoadingIndicator()),
-              ),
-              error: (_, _) => Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(context.l10n.couldNotLoadCollections),
-              ),
-              data: (items) => SizedBox(
-                height: (items.length * 56.0).clamp(56, 336),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final collection = items[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CollectionVisual(
-                        style: resolveCollectionVisual(collection),
-
-                        size: 40,
-                        iconSize: 18,
-                      ),
-                      title: Text(collection.name),
-                      subtitle: Text(
-                        context.l10n.linkCount(collection.urlIds.length),
-                      ),
-                      trailing: selectedCollectionId == collection.id
-                          ? Icon(
-                              AppIcons.check,
-                              color: theme.colorScheme.primary,
-                            )
-                          : null,
-                      onTap: () => Navigator.of(
-                        context,
-                      ).pop(CollectionPickerSelection(collection)),
-                    );
-                  },
-                ),
-              ),
+            _CollectionChoices(
+              allowNoCollection: allowNoCollection,
+              selectedCollectionId: selectedCollectionId,
+              onSelected: (selection) => Navigator.of(context).pop(selection),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "New collection" plus the user's collections, shared by the picker sheet
+/// and the share pill.
+class _CollectionChoices extends ConsumerWidget {
+  const _CollectionChoices({
+    required this.onSelected,
+    this.allowNoCollection = false,
+    this.selectedCollectionId,
+    this.enabled = true,
+  });
+
+  final ValueChanged<CollectionPickerSelection> onSelected;
+  final bool allowNoCollection;
+  final int? selectedCollectionId;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final collections = ref.watch(collectionsListProvider);
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FilledButton.tonalIcon(
+          onPressed: enabled
+              ? () async {
+                  final collection = await showCreateCollectionSheet(context);
+                  if (collection != null && context.mounted) {
+                    onSelected(CollectionPickerSelection(collection));
+                  }
+                }
+              : null,
+          icon: const Icon(AppIcons.add),
+          label: Text(context.l10n.newCollection),
+        ),
+        const SizedBox(height: 8),
+        if (allowNoCollection) ...[
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            enabled: enabled,
+            leading: Icon(
+              AppIcons.folderOff,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            title: Text(context.l10n.noCollection),
+            trailing: selectedCollectionId == null
+                ? Icon(AppIcons.check, color: theme.colorScheme.primary)
+                : null,
+            onTap: () => onSelected(const CollectionPickerSelection(null)),
+          ),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+        ],
+        collections.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: ExpressiveLoadingIndicator()),
+          ),
+          error: (_, _) => Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(context.l10n.couldNotLoadCollections),
+          ),
+          data: (items) => items.isEmpty
+              ? const SizedBox.shrink()
+              : SizedBox(
+                  height: (items.length * 56.0).clamp(56, 336),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final collection = items[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        enabled: enabled,
+                        leading: CollectionVisual(
+                          style: resolveCollectionVisual(collection),
+                          size: 40,
+                          iconSize: 18,
+                        ),
+                        title: Text(collection.name),
+                        subtitle: Text(
+                          context.l10n.linkCount(collection.urlIds.length),
+                        ),
+                        trailing: selectedCollectionId == collection.id
+                            ? Icon(
+                                AppIcons.check,
+                                color: theme.colorScheme.primary,
+                              )
+                            : null,
+                        onTap: () =>
+                            onSelected(CollectionPickerSelection(collection)),
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

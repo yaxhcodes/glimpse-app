@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -712,7 +713,9 @@ void main() {
   for (final dark in [false, true]) {
     testWidgets(
       'Rediscover detail ${dark ? 'dark' : 'light'} preserves why and starting save',
-      (tester) async {
+      // Save tiles say how long ago each save was; pin "now" to the fixture's
+      // evening so the golden doesn't age with the calendar.
+      (tester) => withClock(Clock.fixed(activity.now), () async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
@@ -754,7 +757,7 @@ void main() {
             'goldens/glimpse_detail_${dark ? 'dark' : 'light'}.png',
           ),
         );
-      },
+      }),
     );
   }
 }

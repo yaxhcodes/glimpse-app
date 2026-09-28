@@ -36,6 +36,7 @@ class TranscriptEnrichmentResult {
     this.firstComment,
     this.latestComments = const [],
     this.memoryIntent,
+    this.aiFallback = false,
   });
 
   final int schemaVersion;
@@ -82,6 +83,11 @@ class TranscriptEnrichmentResult {
   final String? firstComment;
   final List<String> latestComments;
   final MemoryIntentMetadata? memoryIntent;
+
+  /// The backend's Gemini step failed and this is its extraction-only
+  /// stand-in: shown so the save isn't empty, but never billed as an AI save
+  /// or kept as the enrichment.
+  final bool aiFallback;
 
   bool get hasUsefulContent =>
       meaningfulTitle.trim().isNotEmpty ||
@@ -179,6 +185,7 @@ class TranscriptEnrichmentResult {
     String? firstComment,
     List<String>? latestComments,
     MemoryIntentMetadata? memoryIntent,
+    bool? aiFallback,
   }) {
     return TranscriptEnrichmentResult(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -216,6 +223,7 @@ class TranscriptEnrichmentResult {
       firstComment: firstComment ?? this.firstComment,
       latestComments: latestComments ?? this.latestComments,
       memoryIntent: memoryIntent ?? this.memoryIntent,
+      aiFallback: aiFallback ?? this.aiFallback,
     );
   }
 
@@ -258,6 +266,7 @@ class TranscriptEnrichmentResult {
       'first_comment': firstComment,
       'latest_comments': latestComments,
       'memory_intent': memoryIntent?.toJson(),
+      if (aiFallback) 'ai_fallback': true,
     };
   }
 
@@ -353,6 +362,7 @@ class TranscriptEnrichmentResult {
       memoryIntent: MemoryIntentMetadata.fromJsonOrNull(
         json['memory_intent'] ?? json,
       ),
+      aiFallback: json['ai_fallback'] == true,
     );
   }
 

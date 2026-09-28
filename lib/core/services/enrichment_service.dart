@@ -599,7 +599,8 @@ class EnrichmentService {
             .copyWith(category: category, tags: tags)
             .toJson(),
       );
-      if (countUsage) {
+      // A backend fallback did no AI work, so it doesn't spend an AI save.
+      if (countUsage && !transcriptResult.aiFallback) {
         await _usageService.incrementUsage(UsageFeature.aiSave, isPro: _isPro);
       }
       await _markProcessing(

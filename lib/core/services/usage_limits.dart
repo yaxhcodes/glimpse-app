@@ -10,8 +10,9 @@ enum UsageFeature { aiSave, ask, search }
 /// Centralized limits configuration.
 ///
 /// Production and dev builds share the same logic; only the numeric
-/// thresholds differ. Dev limits are lower so testers can hit ceilings
-/// quickly without waiting for a full month.
+/// thresholds differ. Dev Free limits are lower so testers can hit ceilings
+/// quickly without waiting for a full month; dev Pro AI saves keep the real
+/// allowance.
 ///
 /// Uses [AppEnvironment.isDevContext] so both `--dart-define=ENV=dev` **and**
 /// the Android dev product flavour (`com.shinrinyoku.glimpse.dev`) are
@@ -45,7 +46,12 @@ class UsageLimits {
   }
 
   static int _devLimit(UsageFeature feature, {required bool isPro}) {
-    if (isPro && feature == UsageFeature.aiSave) return 5;
+    // Force Pro is how the dev build is used day to day to test enrichment,
+    // so Pro keeps its real allowance. The Free ceilings below stay tiny;
+    // switch Force Pro off to reach the paywall quickly.
+    if (isPro && feature == UsageFeature.aiSave) {
+      return planAllowance(feature, isPro: true);
+    }
     return switch (feature) {
       UsageFeature.aiSave => 3,
       UsageFeature.ask => 2,

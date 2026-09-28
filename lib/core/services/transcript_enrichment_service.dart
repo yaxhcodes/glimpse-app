@@ -238,6 +238,9 @@ class TranscriptEnrichmentService {
         memoryIntent: MemoryIntentMetadata.fromJsonOrNull(
           data['memory_intent'] ?? data,
         ),
+        itinerary: EnrichedItinerary.fromJsonOrNull(data['itinerary']),
+        visuals: EnrichedVisual.listFromJson(data['visuals']),
+        aiFallback: data['ai_fallback'] == true,
       );
 
       if (!result.hasUsefulContent ||
@@ -248,8 +251,12 @@ class TranscriptEnrichmentService {
           'backend_returned_low_quality_evidence',
         );
       }
-      _memoryCache[cacheKey] = result;
-      await _writePersisted(cacheKey, result);
+      // A fallback stands in for this save only; caching it would serve the
+      // raw caption again on every retry instead of asking for a real one.
+      if (!result.aiFallback) {
+        _memoryCache[cacheKey] = result;
+        await _writePersisted(cacheKey, result);
+      }
       return result;
     } on TranscriptEnrichmentException {
       rethrow;

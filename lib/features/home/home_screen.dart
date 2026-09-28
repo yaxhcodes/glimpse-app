@@ -29,6 +29,7 @@ import '../../shared/widgets/app_error_state.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/entrance_motion.dart';
 import '../../shared/widgets/app_snackbar.dart';
+import '../../shared/widgets/saved_toast.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_motion.dart';
@@ -215,10 +216,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (success) {
       AppHaptics.play(AppHaptics.success);
 
-      // Grab the ID of the just-saved URL for potential undo.
-      final isar = ref.read(isarServiceProvider);
-      final recent = await isar.getAllUrls();
-      final justSavedId = recent.isNotEmpty ? recent.first.id : null;
+      final justSavedId = addState.savedUrlId;
 
       if (isFirstSave) {
         // ── First-save celebration ──
@@ -281,20 +279,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       // Undo snackbar
       if (justSavedId != null) {
-        showAutoDismissSnackBarVia(
+        showSavedSnackBar(
           messenger,
-          SnackBar(
-            content: Text(strings.captured),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: strings.undo,
-              onPressed: () async {
-                final isarService = ref.read(isarServiceProvider);
-                await isarService.deleteUrlPermanently(justSavedId);
-              },
-            ),
-          ),
+          strings,
+          onUndo: () async {
+            final isarService = ref.read(isarServiceProvider);
+            await isarService.deleteUrlPermanently(justSavedId);
+          },
         );
       }
 

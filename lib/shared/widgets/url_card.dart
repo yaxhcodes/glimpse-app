@@ -1,4 +1,5 @@
 import '../theme/app_shapes.dart';
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
@@ -59,7 +60,7 @@ class UrlCard extends ConsumerStatefulWidget {
   /// Relative time for the source · time row (shared with other link cards).
   static String timeAgoSaved(BuildContext context, DateTime savedAt) {
     final strings = context.l10n;
-    final diff = DateTime.now().difference(savedAt);
+    final diff = clock.now().difference(savedAt);
     if (diff.inMinutes < 1) return strings.justNow;
     if (diff.inMinutes < 60) return strings.minutesAgo(diff.inMinutes);
     if (diff.inHours < 24) return strings.hoursAgo(diff.inHours);

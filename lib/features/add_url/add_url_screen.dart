@@ -15,6 +15,7 @@ import '../../core/utils/url_extractor.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/link_card_thumbnail.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../shared/widgets/saved_toast.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../collections/share_capture_sheet.dart';
 import 'add_url_provider.dart';
@@ -157,11 +158,29 @@ class _AddUrlScreenState extends ConsumerState<AddUrlScreen> {
         );
 
     if (success && mounted) {
-      final aiLimitReached = ref.read(addUrlProvider).aiLimitReached;
+      final saved = ref.read(addUrlProvider);
+      final savedUrlId = saved.savedUrlId;
+      // Only a save that created the item can be undone; a link already in
+      // Glimpse that was just filed into a collection must survive Undo.
+      final undoable =
+          saved.outcome == AddUrlOutcome.captured && savedUrlId != null;
+      final isar = ref.read(isarServiceProvider);
       ref.read(addUrlProvider.notifier).reset();
       // App-level ScaffoldMessenger → the snackbar survives this pop.
-      if (aiLimitReached) {
+      if (saved.aiLimitReached) {
         showAiLimitSnackBar(context, isPro: ref.read(isProUserProvider));
+      } else {
+        final collection = _selectedCollection;
+        showSavedSnackBar(
+          ScaffoldMessenger.of(context),
+          context.l10n,
+          label: collection == null
+              ? null
+              : context.l10n.savedToCollection(collection.name),
+          onUndo: undoable
+              ? () => unawaited(isar.deleteUrlPermanently(savedUrlId))
+              : null,
+        );
       }
       context.pop();
     }
