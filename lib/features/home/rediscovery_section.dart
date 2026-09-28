@@ -83,7 +83,11 @@ class RediscoverySection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
             child: InkWell(
-              onTap: () => context.push('/rediscover'),
+              // Without Rediscover cards the header is "Your Glimpses": go
+              // straight there rather than to an empty Rediscover page.
+              onTap: () => context.push(
+                showGlimpsesEntry ? '/glimpses/history' : '/rediscover',
+              ),
               borderRadius: BorderRadius.circular(8),
               child: Padding(
                 padding: EdgeInsets.symmetric(

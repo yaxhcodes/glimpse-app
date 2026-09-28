@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:glimpse/features/rediscover/rediscover_memory_prefs.dart';
 import 'package:glimpse/features/home/rediscovery_section.dart';
@@ -171,5 +172,47 @@ void main() {
       findsNothing,
     );
     expect(find.text('Your Glimpses'), findsOneWidget);
+  });
+
+  testWidgets('without Rediscover cards the header opens Your Glimpses', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(body: RediscoverySection()),
+        ),
+        GoRoute(
+          path: '/glimpses/history',
+          builder: (_, _) => const Text('glimpses page'),
+        ),
+        GoRoute(
+          path: '/rediscover',
+          builder: (_, _) => const Text('rediscover page'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          glimpseHomeHasCardsProvider.overrideWith((ref) async => false),
+          glimpseHomeSetProvider.overrideWith(
+            (ref) async => RediscoverDailySet(
+              localDate: DateTime.now(),
+              memories: const [],
+            ),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Your Glimpses'));
+    await tester.pumpAndSettle();
+    expect(find.text('glimpses page'), findsOneWidget);
+    expect(find.text('rediscover page'), findsNothing);
   });
 }

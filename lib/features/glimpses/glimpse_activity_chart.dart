@@ -69,8 +69,14 @@ class _GlimpseActivityChartState extends State<GlimpseActivityChart> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l.glimpsesActivity, style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 16),
+        Text(
+          l.glimpsesActivity,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 14),
         Semantics(
           label: l.glimpsesActivity,
           value: '$label, ${l.saveCount(ids.length)}',
@@ -91,7 +97,7 @@ class _GlimpseActivityChartState extends State<GlimpseActivityChart> {
               onHorizontalDragUpdate: (d) =>
                   _select(d.localPosition.dx, constraints.maxWidth, direction),
               child: SizedBox(
-                height: 112,
+                height: 104,
                 width: double.infinity,
                 child: CustomPaint(
                   painter: _ActivityPainter(
@@ -112,10 +118,15 @@ class _GlimpseActivityChartState extends State<GlimpseActivityChart> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             for (final d in [1, 8, 15, 22, _days])
-              Text('$d', style: Theme.of(context).textTheme.labelSmall),
+              Text(
+                '$d',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         GlimpseDayNavigation(
           dateLabel: label,
           countLabel: l.saveCount(ids.length),
@@ -129,16 +140,6 @@ class _GlimpseActivityChartState extends State<GlimpseActivityChart> {
             context,
             title: label,
             sources: p.sources.where((u) => ids.contains(u.id)).toList(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: Text(
-            l.glimpsesChartHint,
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
         ),
       ],
@@ -165,39 +166,55 @@ class _ActivityPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final maximum = math.max(1, counts.reduce(math.max));
-    final paint = Paint()
-      ..color = grid.withValues(alpha: .6)
-      ..strokeWidth = .5;
-    for (final fraction in [.0, .5, 1.0]) {
-      final y = size.height * fraction;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
+    final paint = Paint();
+    // One quiet baseline; the bars carry the rest.
+    paint
+      ..color = grid.withValues(alpha: .5)
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(0, size.height - .5),
+      Offset(size.width, size.height - .5),
+      paint,
+    );
     final slot = size.width / counts.length;
+    final barWidth = slot * .62;
     for (var i = 0; i < counts.length; i++) {
       final x =
           (direction == TextDirection.rtl ? counts.length - i - 1 : i) * slot;
-      final height = math.max(2.0, counts[i] / maximum * (size.height - 8));
-      final rect = Rect.fromLTWH(
-        x + slot * .22,
-        size.height - height,
-        slot * .56,
-        height,
-      );
-      if (i + 1 == selected) {
+      final day = i + 1;
+      final left = x + (slot - barWidth) / 2;
+      if (day > available) {
+        // Days still to come: a faint dot on the baseline.
+        paint.color = grid.withValues(alpha: .6);
+        canvas.drawCircle(
+          Offset(x + slot / 2, size.height - 3),
+          math.min(1.5, barWidth / 2),
+          paint,
+        );
+        continue;
+      }
+      if (day == selected) {
         paint.color = color.withValues(alpha: .08);
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromLTWH(x, 0, slot, size.height),
-            const Radius.circular(4),
+            const Radius.circular(6),
           ),
           paint,
         );
       }
-      paint.color = i + 1 > available
-          ? grid.withValues(alpha: .4)
-          : color.withValues(alpha: i + 1 == selected ? 1 : .55);
+      final height = counts[i] == 0
+          ? 3.0
+          : math.max(6.0, counts[i] / maximum * (size.height - 10));
+      paint.color = counts[i] == 0
+          ? grid.withValues(alpha: .7)
+          : color.withValues(alpha: day == selected ? 1 : .38);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(left, size.height - height, barWidth, height),
+          topLeft: Radius.circular(barWidth / 2),
+          topRight: Radius.circular(barWidth / 2),
+        ),
         paint,
       );
     }

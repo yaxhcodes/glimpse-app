@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/app_haptics.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
 
+/// Step through the chart's days and open the chosen one. The day itself is
+/// one tonal bar, flanked by quiet arrows.
 class GlimpseDayNavigation extends StatelessWidget {
   const GlimpseDayNavigation({
     super.key,
@@ -22,83 +25,73 @@ class GlimpseDayNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final l = context.l10n;
-    ButtonStyle edgeStyle(bool leading) => FilledButton.styleFrom(
-      minimumSize: const Size(48, 56),
-      padding: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadiusDirectional.horizontal(
-          start: Radius.circular(leading ? 20 : 8),
-          end: Radius.circular(leading ? 8 : 20),
-        ),
-      ),
-    );
+    VoidCallback? step(VoidCallback? action) => action == null
+        ? null
+        : () {
+            AppHaptics.play(AppHaptics.tick);
+            action();
+          };
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Tooltip(
-            message: l.glimpsesPreviousDay,
-            child: FilledButton.tonal(
-              style: edgeStyle(true),
-              onPressed: onPrevious,
-              child: const Icon(AppIcons.arrowBack, size: 18),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: FilledButton.tonal(
-              key: const ValueKey('glimpse-selected-day'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Color.lerp(
-                  theme.colorScheme.primary,
-                  theme.colorScheme.secondaryContainer,
-                  theme.brightness == Brightness.dark ? .2 : .08,
-                ),
-                foregroundColor: theme.colorScheme.onPrimary,
-                minimumSize: const Size(0, 56),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: onOpen,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    dateLabel,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    countLabel,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onPrimary,
-                    ),
-                  ),
-                ],
+    return Row(
+      children: [
+        IconButton(
+          tooltip: l.glimpsesPreviousDay,
+          onPressed: step(onPrevious),
+          icon: const Icon(AppIcons.arrowBack, size: 18),
+        ),
+        Expanded(
+          child: FilledButton(
+            key: const ValueKey('glimpse-selected-day'),
+            style: FilledButton.styleFrom(
+              backgroundColor: cs.secondaryContainer,
+              foregroundColor: cs.onSecondaryContainer,
+              minimumSize: const Size(0, 52),
+              padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
               ),
             ),
-          ),
-          const SizedBox(width: 4),
-          Tooltip(
-            message: l.glimpsesNextDay,
-            child: FilledButton.tonal(
-              style: edgeStyle(false),
-              onPressed: onNext,
-              child: const Icon(AppIcons.arrowForward, size: 18),
+            onPressed: () {
+              AppHaptics.play(AppHaptics.tap);
+              onOpen();
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        dateLabel,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: cs.onSecondaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        countLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSecondaryContainer.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(AppIcons.arrowForward, size: 18),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+        IconButton(
+          tooltip: l.glimpsesNextDay,
+          onPressed: step(onNext),
+          icon: const Icon(AppIcons.arrowForward, size: 18),
+        ),
+      ],
     );
   }
 }
