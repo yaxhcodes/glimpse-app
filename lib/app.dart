@@ -658,7 +658,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (context == null || !context.mounted) return null;
     ShareCaptureOutcome? captured;
     UserCollection? initialCollection;
-    return showShareCaptureSheet(
+    return showShareCapture(
       context,
       onCapture: (collection, notes) async {
         initialCollection = collection;

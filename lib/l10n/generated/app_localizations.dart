@@ -538,24 +538,6 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 lifetime AI save left} other{{count} lifetime AI saves left}}'**
   String aiSavesLeft(num count);
 
-  /// No description provided for @captureBody.
-  ///
-  /// In en, this message translates to:
-  /// **'We’ll notify you when it’s ready.'**
-  String get captureBody;
-
-  /// No description provided for @captureQueuedWithoutNotifications.
-  ///
-  /// In en, this message translates to:
-  /// **'It’ll be ready in Glimpse.'**
-  String get captureQueuedWithoutNotifications;
-
-  /// No description provided for @captureSchedulingFallback.
-  ///
-  /// In en, this message translates to:
-  /// **'Saved. Open Glimpse to finish organizing it.'**
-  String get captureSchedulingFallback;
-
   /// No description provided for @captureCouldNotSave.
   ///
   /// In en, this message translates to:
@@ -1023,12 +1005,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No Collection'**
   String get noCollection;
-
-  /// No description provided for @savingTo.
-  ///
-  /// In en, this message translates to:
-  /// **'Saving to'**
-  String get savingTo;
 
   /// No description provided for @chooseCollection.
   ///
@@ -5518,11 +5494,29 @@ abstract class AppLocalizations {
   /// **'Messages'**
   String get obShareMessages;
 
-  /// No description provided for @obSavedToast.
+  /// No description provided for @savedToGlimpse.
   ///
   /// In en, this message translates to:
   /// **'Saved to Glimpse'**
-  String get obSavedToast;
+  String get savedToGlimpse;
+
+  /// No description provided for @note.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get note;
+
+  /// No description provided for @noteAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Note added'**
+  String get noteAdded;
+
+  /// No description provided for @saveEditFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t update this save'**
+  String get saveEditFailed;
 
   /// No description provided for @obReelSource.
   ///

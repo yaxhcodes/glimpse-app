@@ -248,16 +248,6 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get captureBody => 'Avisaremos quando estiver pronto.';
-
-  @override
-  String get captureQueuedWithoutNotifications => 'Ficará pronto no Glimpse.';
-
-  @override
-  String get captureSchedulingFallback =>
-      'Salvo. Abra o Glimpse para concluir a organização.';
-
-  @override
   String get captureCouldNotSave => 'Não foi possível salvar este link';
 
   @override
@@ -512,9 +502,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get noCollection => 'Sem coleção';
-
-  @override
-  String get savingTo => 'Salvando em';
 
   @override
   String get chooseCollection => 'Escolher coleção';
@@ -3188,7 +3175,16 @@ class AppLocalizationsPt extends AppLocalizations {
   String get obShareMessages => 'Mensagens';
 
   @override
-  String get obSavedToast => 'Salvo no Glimpse';
+  String get savedToGlimpse => 'Salvo no Glimpse';
+
+  @override
+  String get note => 'Nota';
+
+  @override
+  String get noteAdded => 'Nota adicionada';
+
+  @override
+  String get saveEditFailed => 'Não foi possível atualizar';
 
   @override
   String get obReelSource => 'Reel do Instagram · 0:48';

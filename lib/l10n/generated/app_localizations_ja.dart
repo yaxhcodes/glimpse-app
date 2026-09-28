@@ -234,15 +234,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get captureBody => '準備ができたら通知します。';
-
-  @override
-  String get captureQueuedWithoutNotifications => 'Glimpseでまもなく準備が整います。';
-
-  @override
-  String get captureSchedulingFallback => '保存しました。Glimpseを開いて整理を完了してください。';
-
-  @override
   String get captureCouldNotSave => 'このリンクを保存できませんでした';
 
   @override
@@ -485,9 +476,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get noCollection => 'コレクションなし';
-
-  @override
-  String get savingTo => '保存先';
 
   @override
   String get chooseCollection => 'コレクションを選択';
@@ -2910,7 +2898,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get obShareMessages => 'メッセージ';
 
   @override
-  String get obSavedToast => 'Glimpseに保存しました';
+  String get savedToGlimpse => 'Glimpseに保存しました';
+
+  @override
+  String get note => 'メモ';
+
+  @override
+  String get noteAdded => 'メモを追加しました';
+
+  @override
+  String get saveEditFailed => '更新できませんでした';
 
   @override
   String get obReelSource => 'Instagramリール · 0:48';
