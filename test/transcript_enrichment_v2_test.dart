@@ -96,6 +96,99 @@ void main() {
     },
   );
 
+  test(
+    'a backend fallback is flagged and asked for again, not cached',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final transport = _StaticEnrichmentTransport({
+        'schema_version': 5,
+        'meaningful_title': 'Plants that survive a dry week',
+        'summary': 'Keep succulents in shade and water deeply once.',
+        'caption': 'Keep succulents in shade and water deeply once a week.',
+        'steps': [
+          {'title': 'Move succulents into shade'},
+        ],
+        'ai_fallback': true,
+      });
+      final service = TranscriptEnrichmentService(transport: transport);
+      Future<TranscriptEnrichmentResult?> enrich() => service.enrichUrl(
+        rawUrl: 'https://www.instagram.com/reel/AI_FALLBACK_TEST/',
+        title: '',
+        description: '',
+        thumbnailUrl: null,
+        domain: 'instagram.com',
+      );
+
+      final first = await enrich();
+      expect(first?.aiFallback, isTrue);
+      expect(
+        TranscriptEnrichmentResult.fromJson(first!.toJson())!.aiFallback,
+        isTrue,
+      );
+      await enrich();
+      expect(transport.calls, 2);
+    },
+  );
+
+  test('a live response keeps its itinerary and visuals', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = TranscriptEnrichmentService(
+      transport: _StaticEnrichmentTransport({
+        'schema_version': 5,
+        'meaningful_title': 'Two days in Kyoto',
+        'summary': 'A two-day Kyoto plan from temples to the market.',
+        'caption': 'Day 1 Fushimi Inari then Gion. Day 2 Nishiki Market.',
+        'places': [
+          {'name': 'Fushimi Inari', 'city': 'Kyoto', 'country': 'Japan'},
+          {'name': 'Gion', 'city': 'Kyoto', 'country': 'Japan'},
+          {'name': 'Nishiki Market', 'city': 'Kyoto', 'country': 'Japan'},
+        ],
+        'itinerary': {
+          'days': [
+            {
+              'day': 1,
+              'stops': [
+                {'name': 'Fushimi Inari'},
+                {'name': 'Gion'},
+              ],
+            },
+            {
+              'day': 2,
+              'stops': [
+                {'name': 'Nishiki Market'},
+              ],
+            },
+          ],
+        },
+        'visuals': [
+          {
+            'kind': 'table',
+            'columns': ['Stop', 'Best time'],
+            'rows': [
+              ['Fushimi Inari', 'Sunrise'],
+              ['Nishiki Market', 'Late morning'],
+            ],
+          },
+        ],
+      }),
+    );
+    final result = await service.enrichUrl(
+      rawUrl: 'https://www.instagram.com/reel/ITINERARY_TEST/',
+      title: '',
+      description: '',
+      thumbnailUrl: null,
+      domain: 'instagram.com',
+      forceRefresh: true,
+    );
+
+    expect(result?.aiFallback, isFalse);
+    expect(result?.itinerary?.stopCount, 3);
+    expect(result?.visuals, hasLength(1));
+    final restored = TranscriptEnrichmentResult.fromJson(result!.toJson())!;
+    expect(restored.itinerary?.days, hasLength(2));
+    expect(restored.visuals, hasLength(1));
+  });
+
   test('partial coverage survives storage without changing legacy saves', () {
     for (final data in [
       <String, dynamic>{
@@ -534,10 +627,14 @@ class _StaticEnrichmentTransport extends AiTransport {
   _StaticEnrichmentTransport(this.response);
 
   final Map<String, dynamic> response;
+  var calls = 0;
 
   @override
   Future<Map<String, dynamic>> postEnrichment({
     required Map<String, dynamic> body,
     Duration timeout = const Duration(seconds: 180),
-  }) async => Map<String, dynamic>.from(response);
+  }) async {
+    calls++;
+    return Map<String, dynamic>.from(response);
+  }
 }
