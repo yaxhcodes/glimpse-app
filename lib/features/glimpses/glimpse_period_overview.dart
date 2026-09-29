@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/services/app_haptics.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
-import '../../shared/theme/app_typography.dart';
 import '../rediscover/journey_visual.dart';
 import 'glimpse_activity.dart';
 import 'glimpse_activity_chart.dart';
@@ -94,11 +93,12 @@ class GlimpsePeriodOverview extends StatelessWidget {
                 children: [
                   Text(
                     l.saveCount(period.sources.length),
-                    style: AppTypography.editorial(
-                      theme.textTheme.headlineMedium,
+                    style: theme.textTheme.headlineSmall?.copyWith(
                       color: cs.onSurface,
+                      fontWeight: FontWeight.w700,
                       height: 1.1,
-                      letterSpacing: -0.3,
+                      letterSpacing: -0.4,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                   TextButton.icon(

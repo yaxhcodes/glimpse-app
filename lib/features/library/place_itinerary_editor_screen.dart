@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -968,25 +969,21 @@ class _StopRow extends StatelessWidget {
                           },
                           itemBuilder: (context) => [
                             for (final day in dayChoices)
-                              PopupMenuItem(
+                              appMenuItem(
                                 value: day,
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(AppIcons.calendar),
-                                  title: Text(
+                                icon: AppIcons.calendar,
+                                label:
                                     'Move to ${context.l10n.itineraryDay(day)}',
-                                  ),
-                                ),
                               ),
-                            if (canRemove)
-                              const PopupMenuItem(
+                            if (canRemove) ...[
+                              appMenuDivider,
+                              appMenuItem(
                                 value: -1,
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Icon(AppIcons.removeCircle),
-                                  title: Text('Remove stop'),
-                                ),
+                                icon: AppIcons.removeCircle,
+                                label: 'Remove stop',
+                                destructive: true,
                               ),
+                            ],
                           ],
                         ),
                         ReorderableDragStartListener(

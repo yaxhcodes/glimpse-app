@@ -356,6 +356,11 @@ class RediscoverIllustration extends StatelessWidget {
   }
 }
 
+/// The illustration for a free-text topic (an interest's name and
+/// subtopics), falling back to the general one.
+RediscoverArtworkTheme artworkThemeForText(String text) =>
+    _artworkThemeForText(text.toLowerCase()) ?? RediscoverArtworkTheme.general;
+
 RediscoverArtworkTheme? _artworkThemeForText(String text) {
   bool has(List<String> words) => words.any((word) {
     if (word.length <= 3) {

@@ -481,6 +481,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chooseCollection => 'コレクションを選択';
 
   @override
+  String get searchCollections => 'コレクションを検索';
+
+  @override
+  String get noCollectionsMatch => '一致するコレクションはありません';
+
+  @override
   String get chooseACollection => 'コレクションを選択';
 
   @override
@@ -560,6 +566,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get dismissRediscoverTip => '再発見のヒントを閉じる';
 
   @override
+  String get gotIt => 'OK';
+
+  @override
   String get pinned => '固定済み';
 
   @override
@@ -590,7 +599,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get processing => '処理中';
 
   @override
-  String get processingSavedHeadline => 'ライブラリに保存しました';
+  String get processingSavedHeadline => '準備しています';
 
   @override
   String get processingSavedDetail => '保存内容を理解する準備をしています';
@@ -644,6 +653,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get processingFailedDetail => '保存内容は安全です。もう一度お試しください';
+
+  @override
+  String get processingFailedShort => '処理を完了できませんでした';
 
   @override
   String get processingDefaultHeadline => 'この保存内容を理解しています';
@@ -884,7 +896,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get backInView => '再び注目';
+  String get backInView => 'また保存しています';
 
   @override
   String get couldNotLoadSource => 'このソースを読み込めませんでした';

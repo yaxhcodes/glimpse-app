@@ -134,7 +134,10 @@ class _CollectionCardState extends State<CollectionCard> {
                   Expanded(
                     child: widget.summary.previewUrls.isEmpty
                         ? const SizedBox.shrink()
-                        : _PreviewFan(urls: widget.summary.previewUrls),
+                        : _PreviewFan(
+                            urls: widget.summary.previewUrls,
+                            linkCount: widget.summary.linkCount,
+                          ),
                   ),
                   Text(
                     collection.name,
@@ -401,16 +404,23 @@ CollectionVisualStyle _resolveSummaryVisual(CollectionSummary summary) {
 /// A few of the collection's saves fanned like prints on a desk, so a card
 /// shows what is inside instead of empty space under its icon.
 class _PreviewFan extends StatelessWidget {
-  const _PreviewFan({required this.urls});
+  const _PreviewFan({required this.urls, required this.linkCount});
 
   final List<SavedUrl> urls;
+  final int linkCount;
 
   static const _angles = [-0.09, 0.07, -0.02];
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final shown = urls.take(3).toList(growable: false);
+    final tt = Theme.of(context).textTheme;
+    // Same rule as the list rows: past three saves, the last print becomes
+    // the count of what else is inside.
+    final overflow = linkCount > 3;
+    final shown = urls.take(overflow ? 2 : 3).toList(growable: false);
+    final overflowCount = overflow ? linkCount - shown.length : 0;
+    final prints = shown.length + (overflow ? 1 : 0);
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = (constraints.maxHeight * 0.78).clamp(40.0, 78.0);
@@ -418,7 +428,7 @@ class _PreviewFan extends StatelessWidget {
         return Align(
           alignment: Alignment.centerRight,
           child: SizedBox(
-            width: size + step * (shown.length - 1),
+            width: size + step * (prints - 1),
             height: size + 8,
             child: Stack(
               clipBehavior: Clip.none,
@@ -450,6 +460,48 @@ class _PreviewFan extends StatelessWidget {
                           context: context,
                           size: size,
                           borderRadius: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (overflow)
+                  Positioned(
+                    left: step * shown.length,
+                    top: 4,
+                    child: Transform.rotate(
+                      angle: _angles[shown.length],
+                      child: Container(
+                        key: const ValueKey('collection-fan-overflow'),
+                        width: size,
+                        height: size,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: cs.secondaryContainer,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: cs.surfaceContainerLow,
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: cs.shadow.withValues(alpha: 0.14),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text(
+                              '+$overflowCount',
+                              style: tt.titleSmall?.copyWith(
+                                color: cs.onSecondaryContainer,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

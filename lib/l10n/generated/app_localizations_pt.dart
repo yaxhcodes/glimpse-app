@@ -507,6 +507,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get chooseCollection => 'Escolher coleção';
 
   @override
+  String get searchCollections => 'Buscar coleções';
+
+  @override
+  String get noCollectionsMatch => 'Nenhuma coleção corresponde';
+
+  @override
   String get chooseACollection => 'Escolha uma coleção';
 
   @override
@@ -591,6 +597,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get dismissRediscoverTip => 'Fechar dica do Redescobrir';
 
   @override
+  String get gotIt => 'Entendi';
+
+  @override
   String get pinned => 'Fixados';
 
   @override
@@ -621,7 +630,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get processing => 'Processando';
 
   @override
-  String get processingSavedHeadline => 'Salvo na sua biblioteca';
+  String get processingSavedHeadline => 'Preparando';
 
   @override
   String get processingSavedDetail => 'Preparando o conteúdo salvo';
@@ -679,6 +688,9 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get processingFailedDetail =>
       'Seu item está seguro. Tente processar novamente';
+
+  @override
+  String get processingFailedShort => 'Não concluído';
 
   @override
   String get processingDefaultHeadline => 'Entendendo este item salvo';
@@ -931,14 +943,14 @@ class AppLocalizationsPt extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count pendentes',
-      one: '1 pendente',
+      other: '$count não abertos',
+      one: '1 não aberto',
     );
     return '$_temp0';
   }
 
   @override
-  String get backInView => 'De volta à vista';
+  String get backInView => 'Você voltou a salvar isso';
 
   @override
   String get couldNotLoadSource => 'Não foi possível carregar esta fonte';

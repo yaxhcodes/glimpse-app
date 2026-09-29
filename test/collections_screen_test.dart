@@ -89,15 +89,24 @@ void main() {
     expect(
       find.descendant(
         of: find.byWidgetPredicate((widget) => widget is PopupMenuEntry),
-        matching: find.byIcon(AppIcons.grid),
+        matching: find.byIcon(AppIcons.filledVariant(AppIcons.grid)),
       ),
       findsOneWidget,
     );
-    expect(find.byIcon(AppIcons.list), findsOneWidget);
-    expect(find.byIcon(AppIcons.sortDirection), findsOneWidget);
-    expect(find.byIcon(AppIcons.clock), findsOneWidget);
-    expect(find.byIcon(AppIcons.sortAlphabetical), findsOneWidget);
-    expect(find.byIcon(AppIcons.dragDots), findsOneWidget);
+    expect(find.byIcon(AppIcons.filledVariant(AppIcons.list)), findsOneWidget);
+    expect(
+      find.byIcon(AppIcons.filledVariant(AppIcons.sortDirection)),
+      findsOneWidget,
+    );
+    expect(find.byIcon(AppIcons.filledVariant(AppIcons.clock)), findsOneWidget);
+    expect(
+      find.byIcon(AppIcons.filledVariant(AppIcons.sortAlphabetical)),
+      findsOneWidget,
+    );
+    expect(
+      find.byIcon(AppIcons.filledVariant(AppIcons.dragDots)),
+      findsOneWidget,
+    );
     expect(find.byIcon(AppIcons.check), findsNWidgets(2));
   });
 

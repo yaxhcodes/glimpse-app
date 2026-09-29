@@ -315,6 +315,11 @@ List<ClusterTheme> _mergeThemesForDisplay(List<ClusterTheme> themes) {
 
 List<String> _displaySubtopics(ClusterTheme theme, Set<String> topLabels) {
   final parent = theme.label.trim().toLowerCase();
+  // "Software & AI" shouldn't be subtitled "Software · AI".
+  final parentWords = parent
+      .split(RegExp(r'[\s&,/+·-]+'))
+      .where((word) => word.isNotEmpty && word != 'and')
+      .toSet();
   final seen = <String>{};
   final out = <String>[];
 
@@ -323,7 +328,7 @@ List<String> _displaySubtopics(ClusterTheme theme, Set<String> topLabels) {
       final label = raw.trim();
       final key = label.toLowerCase();
       if (!_isDisplaySafeLabel(label)) continue;
-      if (key == parent) continue;
+      if (key == parent || parentWords.contains(key)) continue;
       if (topLabels.contains(key)) continue;
       if (!seen.add(key)) continue;
       out.add(label);
@@ -865,51 +870,50 @@ class _MindmapScreenState extends ConsumerState<MindmapScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: usesRail,
-            floating: !usesRail && !scrollCaptureActive,
-            snap: !usesRail && !scrollCaptureActive,
-            automaticallyImplyLeading: !widget.embedded,
-            titleSpacing: widget.embedded ? horizontalPadding : 0,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  context.l10n.interests,
-                  style: tt.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
+      // The map rebuilds itself as saves are processed; a full re-cluster
+      // (which re-runs AI naming) is a deliberate pull, not a header button.
+      body: RefreshIndicator(
+        onRefresh: () async {
+          AppHaptics.play(AppHaptics.tap);
+          await clearInterestClusterCache();
+          ref.invalidate(interestClusterThemesProvider);
+          await ref.read(interestClusterThemesProvider.future);
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: usesRail,
+              floating: !usesRail && !scrollCaptureActive,
+              snap: !usesRail && !scrollCaptureActive,
+              automaticallyImplyLeading: !widget.embedded,
+              titleSpacing: widget.embedded ? horizontalPadding : 0,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    context.l10n.interests,
+                    style: tt.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
                   ),
-                ),
-                Text(
-                  subtitle,
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontSize: 13,
+                  Text(
+                    subtitle,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            backgroundColor: cs.surface,
-            surfaceTintColor: Colors.transparent,
-            actions: [
-              IconButton(
-                icon: const Icon(AppIcons.refresh),
-                tooltip: context.l10n.rebuildMap,
-                onPressed: () async {
-                  AppHaptics.play(AppHaptics.tap);
-                  await clearInterestClusterCache();
-                  ref.invalidate(interestClusterThemesProvider);
-                },
+                ],
               ),
-              const SizedBox(width: 4),
-            ],
-          ),
-          ...bodySlivers,
-        ],
+              backgroundColor: cs.surface,
+              surfaceTintColor: Colors.transparent,
+            ),
+            ...bodySlivers,
+          ],
+        ),
       ),
     );
   }

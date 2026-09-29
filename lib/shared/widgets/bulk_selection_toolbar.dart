@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
@@ -56,7 +57,6 @@ class BulkSelectionActionButtons extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final strings = context.l10n;
     final readLabel = _readActionLabel(strings, selectedUrls);
     final pinnedIds = ref.watch(pinnedUrlsProvider);
@@ -112,34 +112,28 @@ class BulkSelectionActionButtons extends ConsumerWidget {
             }
           },
           itemBuilder: (context) => [
-            PopupMenuItem(
+            appMenuItem(
               value: _BulkSelectionMenuAction.addToCollection,
-              child: ListTile(
-                leading: const AppIcon(AppIcons.addToCollection),
-                title: Text(strings.addToCollection),
-              ),
+              icon: AppIcons.addToCollection,
+              label: strings.addToCollection,
             ),
             if (onMoveToCollection != null)
-              PopupMenuItem(
+              appMenuItem(
                 value: _BulkSelectionMenuAction.moveToCollection,
-                child: ListTile(
-                  leading: const Icon(AppIcons.moveToCollection),
-                  title: Text(strings.moveToCollection),
-                ),
+                icon: AppIcons.moveToCollection,
+                label: strings.moveToCollection,
               ),
-            PopupMenuItem(
+            appMenuItem(
               value: _BulkSelectionMenuAction.pin,
-              child: ListTile(
-                leading: AppIcon(_pinActionIcon(selectedUrls, pinnedIds)),
-                title: Text(pinLabel),
-              ),
+              icon: _pinActionIcon(selectedUrls, pinnedIds),
+              label: pinLabel,
             ),
-            PopupMenuItem(
+            appMenuDivider,
+            appMenuItem(
               value: _BulkSelectionMenuAction.delete,
-              child: ListTile(
-                leading: AppIcon(AppIcons.clearData, color: cs.error),
-                title: Text(strings.delete, style: TextStyle(color: cs.error)),
-              ),
+              icon: AppIcons.clearData,
+              label: strings.delete,
+              destructive: true,
             ),
           ],
         ),

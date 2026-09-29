@@ -132,18 +132,14 @@ class _UrlCardState extends ConsumerState<UrlCard> {
     // onSurfaceVariant keeps metadata legible on cards in both themes
     // (outline, a border colour, was ~3:1).
     final metaStyle = TextStyle(fontSize: 12, color: cs.onSurfaceVariant);
-    final baseTitleStyle =
-        (processingPresentation != null ? tt.titleMedium : tt.titleSmall) ??
-        const TextStyle();
-    final cardTitleStyle = baseTitleStyle.copyWith(
+    // A save in progress wears exactly the finished card's shape: same title
+    // style and height, so nothing jumps when the real title lands.
+    final cardTitleStyle = (tt.titleSmall ?? const TextStyle()).copyWith(
       // Medium: regular read as too faint beside the source line, semibold
       // as shouting.
       fontWeight: FontWeight.w500,
-      height: processingPresentation != null ? 1.2 : 1.3,
+      height: 1.3,
       letterSpacing: -0.1,
-      fontSize: processingPresentation == null
-          ? (tt.titleSmall?.fontSize ?? 14)
-          : baseTitleStyle.fontSize,
       // Read saves dim slightly, the same in light and dark themes.
       color: isRead && processingPresentation == null
           ? cs.onSurface.withValues(alpha: 0.78)
@@ -253,17 +249,28 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: AnimatedOpacity(
-                                opacity: 1.0,
-                                duration: const Duration(milliseconds: 300),
+                              // Each stage, then the real title, fades in
+                              // over the last.
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 280),
+                                layoutBuilder: (current, previous) => Stack(
+                                  alignment: AlignmentDirectional.topStart,
+                                  children: [...previous, ?current],
+                                ),
                                 child: shimmerProcessingText
-                                    ? _SubtleTextShimmer(
-                                        text: resolvedTitle,
-                                        style: cardTitleStyle,
-                                        maxLines: 3,
+                                    ? Semantics(
+                                        key: ValueKey('stage:$resolvedTitle'),
+                                        liveRegion: true,
+                                        label: processingPresentation.detail,
+                                        child: _SubtleTextShimmer(
+                                          text: resolvedTitle,
+                                          style: cardTitleStyle,
+                                          maxLines: 3,
+                                        ),
                                       )
                                     : Text(
                                         resolvedTitle,
+                                        key: ValueKey('title:$resolvedTitle'),
                                         maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
                                         style: cardTitleStyle,
@@ -304,6 +311,18 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                     ),
                                     style: metaStyle,
                                   ),
+                                  // The save is safe; this only says the
+                                  // summary didn't come. Retry is in Details.
+                                  if (isProcessingFailed && !isProcessing) ...[
+                                    Text(' · ', style: metaStyle),
+                                    Text(
+                                      strings.processingFailedShort,
+                                      style: metaStyle.copyWith(
+                                        color: cs.error.withValues(alpha: 0.85),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -348,12 +367,6 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                 ),
                               ),
                             ],
-                          ),
-                        ],
-                        if (processingPresentation != null) ...[
-                          const SizedBox(height: 8),
-                          _ProcessingStatusPanel(
-                            presentation: processingPresentation,
                           ),
                         ],
                       ],
@@ -441,70 +454,6 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               },
             ),
             const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProcessingStatusPanel extends StatelessWidget {
-  const _ProcessingStatusPanel({required this.presentation});
-
-  final UrlProcessingPresentation presentation;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final failed = presentation.failed;
-    final accent = failed ? cs.error : cs.primary;
-    final foreground = failed ? cs.onErrorContainer : cs.onSurfaceVariant;
-
-    return Semantics(
-      liveRegion: true,
-      label: presentation.detail,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),
-        decoration: BoxDecoration(
-          color: (failed ? cs.errorContainer : cs.surfaceContainerHighest)
-              .withValues(alpha: failed ? 0.5 : 0.55),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: accent.withValues(alpha: 0.14)),
-        ),
-        child: Row(
-          children: [
-            if (failed) ...[
-              Icon(AppIcons.error, size: 15, color: accent),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: failed
-                  ? Text(
-                      presentation.detail,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: foreground,
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                        letterSpacing: 0.1,
-                      ),
-                    )
-                  : _SubtleTextShimmer(
-                      text: presentation.detail,
-                      style:
-                          theme.textTheme.labelMedium?.copyWith(
-                            color: foreground,
-                            fontWeight: FontWeight.w500,
-                            height: 1.3,
-                            letterSpacing: 0.1,
-                          ) ??
-                          TextStyle(color: foreground),
-                      maxLines: 2,
-                    ),
-            ),
           ],
         ),
       ),

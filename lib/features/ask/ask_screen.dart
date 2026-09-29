@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -368,6 +369,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                   );
                 },
                 trailing: PopupMenuButton<String>(
+                  tooltip: context.l10n.more,
                   onSelected: (action) async {
                     Navigator.pop(sheetContext);
                     if (action == 'delete') {
@@ -383,13 +385,16 @@ class _AskScreenState extends ConsumerState<AskScreen> {
                     }
                   },
                   itemBuilder: (_) => [
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'rename',
-                      child: Text(context.l10n.askRenameChat),
+                      icon: AppIcons.edit,
+                      label: context.l10n.askRenameChat,
                     ),
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'delete',
-                      child: Text(context.l10n.delete),
+                      icon: AppIcons.clearData,
+                      label: context.l10n.delete,
+                      destructive: true,
                     ),
                   ],
                 ),

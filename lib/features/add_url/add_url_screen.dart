@@ -23,6 +23,7 @@ import '../../shared/widgets/saved_toast.dart';
 import '../../shared/widgets/upgrade_gate.dart';
 import '../collections/collections_provider.dart';
 import '../collections/create_collection_sheet.dart';
+import '../collections/share_capture_sheet.dart';
 import '../sources/source_visuals.dart';
 import 'add_url_provider.dart';
 import '../../l10n/l10n.dart';
@@ -732,14 +733,18 @@ class _LinkPreviewData {
   }
 }
 
-/// One tap to file the save: no collection, one of the user's collections,
-/// or a new one, in a single scrolling row.
+/// One tap to file the save. The collections filed into most recently wrap
+/// under the link; the rest are one search away in the full picker, so a
+/// long list never turns into a sideways scroll.
 class _CollectionChips extends ConsumerWidget {
   const _CollectionChips({
     required this.selected,
     required this.enabled,
     required this.onSelected,
   });
+
+  /// Collections shown as chips before the rest move behind "Show all".
+  static const _quickCount = 5;
 
   final UserCollection? selected;
   final bool enabled;
@@ -748,51 +753,78 @@ class _CollectionChips extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = context.l10n;
-    final collections =
-        ref.watch(collectionsListProvider).valueOrNull ??
-        const <UserCollection>[];
+    final summaries = ref.watch(collectionsSummaryProvider).valueOrNull;
+    final collections = summaries != null
+        ? _byRecentUse(summaries)
+        : ref.watch(collectionsListProvider).valueOrNull ??
+              const <UserCollection>[];
     final chosen = selected;
-    // A collection passed in (or just created) stays visible even before
-    // the list reloads.
-    final shown = [
-      if (chosen != null && !collections.any((c) => c.id == chosen.id)) chosen,
-      ...collections,
-    ];
+    // The chosen collection is always on screen, even when it was picked
+    // from the full list (or just created and the list hasn't reloaded).
+    final top = collections.take(_quickCount).toList();
+    final quick = chosen == null || top.any((c) => c.id == chosen.id)
+        ? top
+        : [chosen, ...top.take(_quickCount - 1)];
+    final hasMore = collections.any((c) => !quick.any((q) => q.id == c.id));
 
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        children: [
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _CollectionChip(
+          label: strings.noCollection,
+          selected: chosen == null,
+          onTap: enabled ? () => onSelected(null) : null,
+        ),
+        for (final collection in quick)
           _CollectionChip(
-            label: strings.noCollection,
-            selected: chosen == null,
-            onTap: enabled ? () => onSelected(null) : null,
+            label: collection.name,
+            selected: chosen?.id == collection.id,
+            onTap: enabled ? () => onSelected(collection) : null,
           ),
-          for (final collection in shown) ...[
-            const SizedBox(width: 8),
-            _CollectionChip(
-              label: collection.name,
-              selected: chosen?.id == collection.id,
-              onTap: enabled ? () => onSelected(collection) : null,
-            ),
-          ],
-          const SizedBox(width: 8),
+        if (hasMore)
           _CollectionChip(
-            label: strings.newCollection,
-            icon: AppIcons.add,
+            label: strings.showAllCount(collections.length),
+            icon: AppIcons.search,
             selected: false,
             onTap: enabled
                 ? () async {
-                    final created = await showCreateCollectionSheet(context);
-                    if (created != null) onSelected(created);
+                    AppHaptics.play(AppHaptics.tick);
+                    final selection = await showOptionalCollectionPickerSheet(
+                      context,
+                      selectedCollectionId: chosen?.id,
+                    );
+                    if (selection != null) onSelected(selection.collection);
                   }
                 : null,
           ),
-        ],
-      ),
+        _CollectionChip(
+          label: strings.newCollection,
+          icon: AppIcons.add,
+          selected: false,
+          onTap: enabled
+              ? () async {
+                  final created = await showCreateCollectionSheet(context);
+                  if (created != null) onSelected(created);
+                }
+              : null,
+        ),
+      ],
     );
+  }
+
+  /// Most recently filed into first; a collection nothing has been filed
+  /// into yet counts from when it was made.
+  static List<UserCollection> _byRecentUse(List<CollectionSummary> summaries) {
+    DateTime activity(CollectionSummary s) {
+      final added = s.lastAddedAt;
+      final created = s.collection.createdAt;
+      return added != null && added.isAfter(created) ? added : created;
+    }
+
+    final sorted = [...summaries]
+      ..sort((a, b) => activity(b).compareTo(activity(a)));
+    return [for (final s in sorted) s.collection];
   }
 }
 
@@ -830,7 +862,8 @@ class _CollectionChip extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
+          child: Container(
+            height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               mainAxisSize: MainAxisSize.min,

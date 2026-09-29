@@ -37,6 +37,7 @@ import '../add_url/add_url_provider.dart';
 import '../shell/shell_chrome_provider.dart';
 import '../sources/sources_provider.dart';
 import 'home_provider.dart';
+import 'home_section_header.dart';
 import 'rediscovery_section.dart';
 import 'save_date_group.dart';
 import 'guide_card.dart';
@@ -852,50 +853,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => context.push('/sources'),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 4,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            context.l10n.sources,
-                                            style: theme.textTheme.labelMedium
-                                                ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () => context.push('/sources'),
-                                  tooltip: context.l10n.viewAllSources,
-                                  alignment: Alignment.centerRight,
-                                  padding: EdgeInsets.zero,
-                                  icon: Icon(
-                                    AppIcons.chevronRight,
-                                    size: 20,
-                                    color: theme.colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.48),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          HomeSectionHeader(
+                            title: context.l10n.sources,
+                            tooltip: context.l10n.viewAllSources,
+                            padding: const EdgeInsets.fromLTRB(16, 16, 8, 6),
+                            onTap: () => context.push('/sources'),
                           ),
                           SizedBox(
                             height: 34,
@@ -930,7 +892,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     faviconUrl: fav,
                                     size: 16,
                                   ),
-                                  label: Text(name),
+                                  // "X" beside the X logo reads twice; a
+                                  // one-letter name is its logo.
+                                  label: name.characters.length > 1
+                                      ? Text(name)
+                                      : Semantics(
+                                          label: name,
+                                          child: const SizedBox.shrink(),
+                                        ),
                                   color: WidgetStatePropertyAll(
                                     theme.colorScheme.surfaceContainerLow,
                                   ),
@@ -1122,31 +1091,18 @@ class _SavesHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final strings = context.l10n;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 12, 2),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              strings.yourSaves,
-              style: theme.textTheme.titleSmall,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Bounded so long translations scale down instead of overflowing.
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 240),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: _CompactReadFilter(filter: filter, onChanged: onChanged),
-            ),
-          ),
-        ],
+    return HomeSectionHeader(
+      title: strings.yourSaves,
+      padding: const EdgeInsets.fromLTRB(16, 20, 12, 2),
+      // Bounded so long translations scale down instead of overflowing.
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 240),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: _CompactReadFilter(filter: filter, onChanged: onChanged),
+        ),
       ),
     );
   }

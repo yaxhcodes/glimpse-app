@@ -305,6 +305,23 @@ abstract final class AppIcons {
     PhosphorIconsBold.trendUp: PhosphorIconsFill.trendUp,
     people: PhosphorIconsFill.users,
     PhosphorIconsBold.wrench: PhosphorIconsFill.wrench,
+
+    // Menu glyphs (appMenuItem draws them filled).
+    rediscover: PhosphorIconsFill.clockCounterClockwise,
+    copy: PhosphorIconsFill.copy,
+    tag: PhosphorIconsFill.tag,
+    edit: PhosphorIconsFill.pencilSimple,
+    deleteForever: PhosphorIconsFill.trash,
+    dragDots: PhosphorIconsFill.dotsSixVertical,
+    moveToCollection: PhosphorIconsFill.folderOpen,
+    removeCircle: PhosphorIconsFill.minusCircle,
+    clock: PhosphorIconsFill.clock,
+    sortAlphabetical: PhosphorIconsFill.sortAscending,
+    sortDirection: PhosphorIconsFill.arrowsDownUp,
+    dislike: PhosphorIconsFill.thumbsDown,
+    adjust: PhosphorIconsFill.slidersHorizontal,
+    list: PhosphorIconsFill.list,
+    visibilityOff: PhosphorIconsFill.eyeSlash,
   };
 
   static IconData filledVariant(IconData icon) {

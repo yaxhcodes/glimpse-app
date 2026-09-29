@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
+import '../rediscover/journey_visual.dart';
 import 'cluster_pattern.dart';
 import '../../shared/theme/topic_visual.dart';
 import '../../shared/widgets/topic_emblem.dart';
@@ -143,10 +144,19 @@ class ClusterCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                TopicEmblem(
-                                  visual: visual,
-                                  size: isHero ? 48 : 40,
+                                // The Rediscover illustration family, so a
+                                // tile shows its topic instead of an empty
+                                // field under a small glyph.
+                                RediscoverIllustration(
+                                  artwork: artworkThemeForText(
+                                    [
+                                      cluster.label,
+                                      ...cluster.subtopics,
+                                    ].join(' '),
+                                  ),
+                                  size: compact ? 56 : 72,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(

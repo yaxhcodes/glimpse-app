@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -238,13 +239,16 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
                             }
                           },
                           itemBuilder: (context) => [
-                            PopupMenuItem(
+                            appMenuItem(
                               value: _AskNoteAction.copy,
-                              child: Text(context.l10n.copyAnswer),
+                              icon: AppIcons.copy,
+                              label: context.l10n.copyAnswer,
                             ),
-                            PopupMenuItem(
+                            appMenuItem(
                               value: _AskNoteAction.delete,
-                              child: Text(context.l10n.delete),
+                              icon: AppIcons.clearData,
+                              label: context.l10n.delete,
+                              destructive: true,
                             ),
                           ],
                           icon: Icon(
@@ -1512,7 +1516,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   onPressed: () => _showAddToCollection(url),
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(AppIcons.more, size: 26),
+                  icon: const Icon(AppIcons.more),
                   tooltip: context.l10n.more,
                   onSelected: (value) {
                     if (value == 'copy_link') {
@@ -1530,95 +1534,38 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     }
                   },
                   itemBuilder: (context) => [
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'copy_link',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.copy,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.copyLink),
-                        ],
-                      ),
+                      icon: AppIcons.copy,
+                      label: context.l10n.copyLink,
                     ),
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'share',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.share,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.share),
-                        ],
-                      ),
+                      icon: AppIcons.share,
+                      label: context.l10n.share,
                     ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
+                    appMenuDivider,
+                    appMenuItem(
                       value: 'toggle_pin',
-                      child: Row(
-                        children: [
-                          Icon(
-                            isPinned ? AppIcons.pinFilled : AppIcons.pin,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            isPinned ? context.l10n.unpin : context.l10n.pin,
-                          ),
-                        ],
-                      ),
+                      icon: isPinned ? AppIcons.pinFilled : AppIcons.pin,
+                      label: isPinned ? context.l10n.unpin : context.l10n.pin,
                     ),
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'add_tag',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.tag,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.addTag),
-                        ],
-                      ),
+                      icon: AppIcons.tag,
+                      label: context.l10n.addTag,
                     ),
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'change_category',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.category,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.changeCategory),
-                        ],
-                      ),
+                      icon: AppIcons.category,
+                      label: context.l10n.changeCategory,
                     ),
-                    PopupMenuItem(
+                    appMenuDivider,
+                    appMenuItem(
                       value: 'delete',
-                      child: Row(
-                        children: [
-                          AppIcon(
-                            AppIcons.clearData,
-                            size: 20,
-                            color: colorScheme.error,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            context.l10n.delete,
-                            style: TextStyle(color: colorScheme.error),
-                          ),
-                        ],
-                      ),
+                      icon: AppIcons.clearData,
+                      label: context.l10n.delete,
+                      destructive: true,
                     ),
                   ],
                 ),
