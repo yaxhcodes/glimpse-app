@@ -3154,6 +3154,37 @@ class AppLocalizationsPt extends AppLocalizations {
   String get obNext => 'Próximo';
 
   @override
+  String get authTitleFirstRun => 'Só mais um passo.';
+
+  @override
+  String get authTitleReturning => 'Que bom ter você de volta.';
+
+  @override
+  String get authBody =>
+      'Sua conta guarda seu plano. Seus itens salvos ficam armazenados neste celular.';
+
+  @override
+  String authContinueAs(String name) {
+    return 'Continuar como $name';
+  }
+
+  @override
+  String get authContinueGoogle => 'Continuar com Google';
+
+  @override
+  String get authAnotherGoogle => 'Usar outra conta do Google';
+
+  @override
+  String get authContinueApple => 'Continuar com Apple';
+
+  @override
+  String get authPrivacy => 'Política de Privacidade';
+
+  @override
+  String get authPrivacyError =>
+      'Não foi possível abrir a Política de Privacidade.';
+
+  @override
   String get obStartSaving => 'Começar a salvar';
 
   @override

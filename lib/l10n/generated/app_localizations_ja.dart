@@ -2878,6 +2878,35 @@ class AppLocalizationsJa extends AppLocalizations {
   String get obNext => '次へ';
 
   @override
+  String get authTitleFirstRun => 'あと一歩です。';
+
+  @override
+  String get authTitleReturning => 'おかえりなさい。';
+
+  @override
+  String get authBody => 'アカウントではプランを管理します。保存した内容はこの端末に保管されます。';
+
+  @override
+  String authContinueAs(String name) {
+    return '$name として続行';
+  }
+
+  @override
+  String get authContinueGoogle => 'Google で続行';
+
+  @override
+  String get authAnotherGoogle => '別の Google アカウントを使う';
+
+  @override
+  String get authContinueApple => 'Apple で続行';
+
+  @override
+  String get authPrivacy => 'プライバシーポリシー';
+
+  @override
+  String get authPrivacyError => 'プライバシーポリシーを開けませんでした。';
+
+  @override
   String get obStartSaving => '保存をはじめる';
 
   @override

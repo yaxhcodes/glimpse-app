@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:glimpse/core/constants/app_assets.dart';
 import 'package:glimpse/core/models/app_user.dart';
 import 'package:glimpse/core/providers/auth_provider.dart';
 import 'package:glimpse/core/services/auth_service.dart';
 import 'package:glimpse/features/auth/auth_screen.dart';
+import 'package:glimpse/features/onboarding/onboarding_stages.dart';
+import 'package:glimpse/l10n/l10n.dart';
 import 'package:glimpse/shared/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -99,6 +100,8 @@ Future<void> _pump(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: AppTheme.amoledTheme(const Color(0xFF7CB342)),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(
               context,
@@ -112,7 +115,7 @@ Future<void> _pump(
   );
   await tester.runAsync(() async {
     await precacheImage(
-      const AssetImage(AppAssets.logo),
+      const AssetImage(OnboardingArt.reel),
       tester.element(find.byType(AuthScreen)),
     );
     await GoogleFonts.pendingFonts();

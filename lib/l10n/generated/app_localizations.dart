@@ -5458,6 +5458,60 @@ abstract class AppLocalizations {
   /// **'Next'**
   String get obNext;
 
+  /// No description provided for @authTitleFirstRun.
+  ///
+  /// In en, this message translates to:
+  /// **'One last step.'**
+  String get authTitleFirstRun;
+
+  /// No description provided for @authTitleReturning.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back.'**
+  String get authTitleReturning;
+
+  /// No description provided for @authBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account holds your plan. Your saves are stored on this phone.'**
+  String get authBody;
+
+  /// No description provided for @authContinueAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue as {name}'**
+  String authContinueAs(String name);
+
+  /// No description provided for @authContinueGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get authContinueGoogle;
+
+  /// No description provided for @authAnotherGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use another Google account'**
+  String get authAnotherGoogle;
+
+  /// No description provided for @authContinueApple.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple'**
+  String get authContinueApple;
+
+  /// No description provided for @authPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get authPrivacy;
+
+  /// No description provided for @authPrivacyError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t open the Privacy Policy.'**
+  String get authPrivacyError;
+
   /// No description provided for @obStartSaving.
   ///
   /// In en, this message translates to:
