@@ -1009,6 +1009,22 @@
   "obGrowBody": "Glimpse learns what you’re into and brings the good stuff back.",
   "obGetStarted": "Get started",
   "obNext": "Next",
+  "authTitleFirstRun": "One last step.",
+  "authTitleReturning": "Welcome back.",
+  "authBody": "Your account holds your plan. Your saves are stored on this phone.",
+  "authContinueAs": "Continue as {name}",
+  "@authContinueAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "authContinueGoogle": "Continue with Google",
+  "authAnotherGoogle": "Use another Google account",
+  "authContinueApple": "Continue with Apple",
+  "authPrivacy": "Privacy Policy",
+  "authPrivacyError": "Couldn’t open the Privacy Policy.",
   "obStartSaving": "Start saving",
   "obFreeNote": "Free includes {count} AI-read saves. Upgrade whenever you like.",
   "obReelFollow": "Follow",

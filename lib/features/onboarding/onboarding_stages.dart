@@ -240,9 +240,22 @@ class _Cover extends StatelessWidget {
 
 // ── 1 · Welcome ────────────────────────────────────────────────────────────
 
+/// A painting that dissolves into the page below it. Also closes the story
+/// on the sign-in screen, which is drawn as one more chapter.
 class OnboardingWelcomeArt extends StatelessWidget {
-  const OnboardingWelcomeArt({super.key, required this.active});
+  const OnboardingWelcomeArt({
+    super.key,
+    required this.active,
+    this.image = OnboardingArt.opening,
+    this.alignment = const Alignment(0, -.2),
+    this.swell = true,
+  });
   final bool active;
+  final String image;
+  final Alignment alignment;
+
+  /// Whether the push-in opens with a haptic swell.
+  final bool swell;
 
   @override
   Widget build(BuildContext context) {
@@ -274,14 +287,16 @@ class OnboardingWelcomeArt extends StatelessWidget {
               duration: const Duration(seconds: 14),
               still: 0,
               // The painting breathes in as the story opens.
-              cues: {.004: () => _feel(AppHaptics.swell, .7)},
+              cues: swell
+                  ? {.004: () => _feel(AppHaptics.swell, .7)}
+                  : const {},
               builder: (context, t) => Transform.scale(
                 scale: 1 + .07 * Curves.easeOutSine.transform(t),
                 alignment: const Alignment(.2, .3),
                 child: Image.asset(
-                  OnboardingArt.opening,
+                  image,
                   fit: BoxFit.cover,
-                  alignment: const Alignment(0, -.2),
+                  alignment: alignment,
                   excludeFromSemantics: true,
                 ),
               ),

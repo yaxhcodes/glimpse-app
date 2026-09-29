@@ -1138,6 +1138,10 @@ class _RootGate extends ConsumerStatefulWidget {
 class _RootGateState extends ConsumerState<_RootGate> {
   bool _splashRemovalScheduled = false;
 
+  /// Whether onboarding ran in this session, so sign-in can read as its
+  /// last step rather than a welcome back.
+  bool _cameFromOnboarding = false;
+
   void _removeSplashAfterDestinationFrame() {
     if (_splashRemovalScheduled) return;
     _splashRemovalScheduled = true;
@@ -1156,12 +1160,16 @@ class _RootGateState extends ConsumerState<_RootGate> {
     final authState = ref.watch(authControllerProvider);
     final hasSeenOnboarding = ref.watch(hasSeenOnboardingProvider);
     final destinationReady = !hasSeenOnboarding || !authState.isLoading;
+    if (!hasSeenOnboarding) _cameFromOnboarding = true;
     final child = !hasSeenOnboarding
         ? const OnboardingScreen(key: ValueKey('onboarding'))
         : authState.when(
             data: (user) {
               if (user == null) {
-                return const AuthScreen(key: ValueKey('auth'));
+                return AuthScreen(
+                  key: const ValueKey('auth'),
+                  isOnboardingEntry: _cameFromOnboarding,
+                );
               }
               if (!user.onboardingCompleted) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1173,7 +1181,10 @@ class _RootGateState extends ConsumerState<_RootGate> {
               return const MainShell(key: ValueKey('main-shell'));
             },
             loading: () => const _StartupProgress(key: ValueKey('startup')),
-            error: (_, _) => const AuthScreen(key: ValueKey('auth-error')),
+            error: (_, _) => AuthScreen(
+              key: const ValueKey('auth-error'),
+              isOnboardingEntry: _cameFromOnboarding,
+            ),
           );
     final destination = AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),

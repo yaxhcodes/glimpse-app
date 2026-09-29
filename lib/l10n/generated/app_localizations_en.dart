@@ -3129,6 +3129,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get obNext => 'Next';
 
   @override
+  String get authTitleFirstRun => 'One last step.';
+
+  @override
+  String get authTitleReturning => 'Welcome back.';
+
+  @override
+  String get authBody =>
+      'Your account holds your plan. Your saves are stored on this phone.';
+
+  @override
+  String authContinueAs(String name) {
+    return 'Continue as $name';
+  }
+
+  @override
+  String get authContinueGoogle => 'Continue with Google';
+
+  @override
+  String get authAnotherGoogle => 'Use another Google account';
+
+  @override
+  String get authContinueApple => 'Continue with Apple';
+
+  @override
+  String get authPrivacy => 'Privacy Policy';
+
+  @override
+  String get authPrivacyError => 'Couldn’t open the Privacy Policy.';
+
+  @override
   String get obStartSaving => 'Start saving';
 
   @override

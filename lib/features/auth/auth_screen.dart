@@ -1,24 +1,30 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/constants/app_assets.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/services/app_haptics.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/dev_auth_service.dart';
+import '../../l10n/l10n.dart';
+import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
-import 'package:glimpse/shared/theme/app_icons.dart';
-import 'auth_backdrop.dart';
-import '../../core/services/app_haptics.dart';
+import '../onboarding/onboarding_stages.dart';
 
+/// Sign-in, drawn as the closing chapter of onboarding: the same painted
+/// stage, editorial headline and primary button, in the app's own theme.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key, this.isOnboardingEntry = false});
 
+  /// True when the user arrives straight from onboarding; otherwise they
+  /// are coming back after signing out.
   final bool isOnboardingEntry;
 
   @override
@@ -26,26 +32,25 @@ class AuthScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
-  bool _introVisible = false;
-  bool _exiting = false;
   bool _submitting = false;
   static final Uri _privacyPolicyUri = Uri.parse(
     'https://www.getglimpse.xyz/privacy',
   );
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() => _introVisible = true);
-    });
-  }
+  /// How far the painting runs on under the headline before it has fully
+  /// faded, matching the onboarding welcome chapter.
+  static const _artOverlap = 96.0;
+
+  /// The least of the painting that stays visible before the text scrolls
+  /// instead (small phones, large text).
+  static const _minArt = 120.0;
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final tt = theme.textTheme;
     final authState = ref.watch(authControllerProvider);
     final accountHint = ref.watch(googleAccountHintProvider).valueOrNull;
     final authService = ref.watch(authServiceProvider);
@@ -73,158 +78,143 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final wasLoading = previous?.isLoading ?? false;
       if (!signedIn || !wasLoading) return;
       AppHaptics.play(AppHaptics.success);
-      if (!mounted) return;
-      setState(() => _exiting = true);
     });
 
-    final darkScheme = cs.brightness == Brightness.dark
-        ? cs
-        : ColorScheme.fromSeed(
-            seedColor: cs.primary,
-            brightness: Brightness.dark,
-          );
+    final bodyStyle = tt.bodyLarge?.copyWith(
+      color: cs.onSurfaceVariant,
+      height: 1.45,
+    );
+    final controller = ref.read(authControllerProvider.notifier);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      // The painting sits under the status bar: light icons there.
+      value: SystemUiOverlayStyle.light.copyWith(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-        systemStatusBarContrastEnforced: false,
+        systemNavigationBarColor: cs.surface,
       ),
-      child: Theme(
-        data: theme.copyWith(
-          colorScheme: darkScheme.copyWith(
-            primary: const Color(0xFFB8CBB0),
-            onSurface: const Color(0xFFF3EEDC),
-            onSurfaceVariant: const Color(0xFFC4C5BA),
-          ),
-        ),
-        child: Builder(
-          builder: (context) {
-            final localTheme = Theme.of(context);
-            final localCs = localTheme.colorScheme;
-            return Scaffold(
-              backgroundColor: const Color(0xFF050505),
-              body: AnimatedOpacity(
-                opacity: _exiting ? 0 : 1,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                child: Stack(
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 540),
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final padding = MediaQuery.paddingOf(context);
+                return Column(
                   children: [
-                    const Positioned.fill(child: AuthBackdrop()),
-                    SafeArea(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final compact = constraints.maxWidth < 390;
-                          final identity = _IdentityBlock(
-                            logo: _animatedLogo(size: compact ? 112 : 128),
-                            isOnboardingEntry: widget.isOnboardingEntry,
-                          );
-                          final actions = _ActionBlock(
-                            accountHint: accountHint,
-                            isConfigured: isConfigured,
-                            isLoading: isLoading,
-                            isLocalDevAuth: isLocalDevAuth,
-                            onContinueHint: () => unawaited(
-                              _startAuthentication(
-                                ref
-                                    .read(authControllerProvider.notifier)
-                                    .signInWithGoogleHint,
+                    Expanded(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: 0,
+                            bottom: -_artOverlap,
+                            // The example reel's still life: the story
+                            // ends on the thing the user just learned to save.
+                            child: const OnboardingWelcomeArt(
+                              active: true,
+                              image: OnboardingArt.reel,
+                              alignment: Alignment(-.2, 0),
+                              swell: false,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: math.max(
+                          0,
+                          c.maxHeight - padding.top - _minArt,
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          24,
+                          24,
+                          24,
+                          8 + padding.bottom,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Semantics(
+                              header: true,
+                              child: Text(
+                                widget.isOnboardingEntry
+                                    ? l.authTitleFirstRun
+                                    : l.authTitleReturning,
+                                style: AppTypography.editorial(
+                                  tt.headlineLarge,
+                                  color: cs.onSurface,
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: -.6,
+                                  height: 1.08,
+                                ),
                               ),
                             ),
-                            onContinueGoogle: () => unawaited(
-                              _startAuthentication(
-                                ref
-                                    .read(authControllerProvider.notifier)
-                                    .signInWithGoogle,
+                            const SizedBox(height: 10),
+                            Text(l.authBody, style: bodyStyle),
+                            const SizedBox(height: 28),
+                            _AuthActions(
+                              accountHint: isLocalDevAuth ? null : accountHint,
+                              isConfigured: isConfigured,
+                              isLoading: isLoading,
+                              isLocalDevAuth: isLocalDevAuth,
+                              onContinueHint: () => unawaited(
+                                _startAuthentication(
+                                  controller.signInWithGoogleHint,
+                                ),
+                              ),
+                              onContinueGoogle: () => unawaited(
+                                _startAuthentication(
+                                  controller.signInWithGoogle,
+                                ),
+                              ),
+                              onContinueApple: () => unawaited(
+                                _startAuthentication(
+                                  controller.signInWithApple,
+                                ),
                               ),
                             ),
-                            onContinueApple: () => unawaited(
-                              _startAuthentication(
-                                ref
-                                    .read(authControllerProvider.notifier)
-                                    .signInWithApple,
-                              ),
-                            ),
-                            onPrivacyPolicy: _openPrivacyPolicy,
-                          );
-
-                          return Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 478),
-                              child: CustomScrollView(
-                                slivers: [
-                                  SliverFillRemaining(
-                                    hasScrollBody: false,
-                                    child: Padding(
-                                      padding: EdgeInsets.fromLTRB(
-                                        compact ? 24 : 32,
-                                        24,
-                                        compact ? 24 : 32,
-                                        12,
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Glimpse',
-                                            style: localTheme
-                                                .textTheme
-                                                .titleLarge
-                                                ?.copyWith(
-                                                  color: localCs.onSurface,
-                                                  fontWeight: FontWeight.w700,
-                                                  letterSpacing: -0.6,
-                                                ),
-                                          ),
-                                          const Spacer(),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 32,
-                                            ),
-                                            child: identity,
-                                          ),
-                                          const Spacer(),
-                                          actions,
-                                        ],
-                                      ),
-                                    ),
+                            const SizedBox(height: 4),
+                            Center(
+                              child: TextButton(
+                                onPressed: _openPrivacyPolicy,
+                                style: TextButton.styleFrom(
+                                  foregroundColor: cs.onSurfaceVariant,
+                                  textStyle: tt.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                ],
+                                ),
+                                child: Text(l.authPrivacy),
                               ),
                             ),
-                          );
-                        },
+                            if (isLocalDevAuth)
+                              Text(
+                                'Local dev session. Supabase is not configured for this build.',
+                                textAlign: TextAlign.center,
+                                style: tt.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            if (!isConfigured && !isLocalDevAuth)
+                              Text(
+                                'Authentication is not configured for this build.',
+                                textAlign: TextAlign.center,
+                                style: tt.bodySmall?.copyWith(color: cs.error),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _animatedLogo({required double size}) {
-    return AnimatedOpacity(
-      opacity: _introVisible ? 1 : 0,
-      duration: const Duration(milliseconds: 330),
-      curve: Curves.easeOutCubic,
-      child: AnimatedScale(
-        scale: _introVisible ? 1 : 0.96,
-        duration: const Duration(milliseconds: 330),
-        curve: Curves.easeOutCubic,
-        child: Semantics(
-          image: true,
-          label: 'Glimpse logo',
-          child: Image.asset(
-            AppAssets.logo,
-            width: size,
-            height: size,
-            fit: BoxFit.contain,
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -240,8 +230,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Could not open Privacy Policy.'),
+        SnackBar(
+          content: Text(context.l10n.authPrivacyError),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -249,136 +239,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Future<void> _startAuthentication(Future<void> Function() action) async {
     if (_submitting) return;
+    unawaited(AppHaptics.play(AppHaptics.confirm));
     setState(() => _submitting = true);
     await action();
     if (!mounted || ref.read(authControllerProvider).valueOrNull != null) {
       return;
     }
     setState(() => _submitting = false);
-  }
-}
-
-class _IdentityBlock extends StatelessWidget {
-  const _IdentityBlock({required this.logo, required this.isOnboardingEntry});
-
-  final Widget logo;
-  final bool isOnboardingEntry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        logo,
-        const SizedBox(height: 24),
-        Semantics(
-          header: true,
-          child: Text.rich(
-            TextSpan(
-              children: [
-                const TextSpan(text: 'Good finds.\n'),
-                TextSpan(
-                  text: 'Never forgotten.',
-                  style: TextStyle(color: cs.primary),
-                ),
-              ],
-            ),
-            style: theme.textTheme.displaySmall?.copyWith(
-              color: cs.onSurface,
-              fontSize: 38,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -1.4,
-              height: 1.12,
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        Text(
-          isOnboardingEntry
-              ? 'Save links. Find the ideas inside.\nBuild a library that stays with you.'
-              : 'Save links. Find the ideas inside.\nCome back to what matters.',
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: cs.onSurfaceVariant,
-            height: 1.5,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionBlock extends StatelessWidget {
-  const _ActionBlock({
-    required this.accountHint,
-    required this.isConfigured,
-    required this.isLoading,
-    required this.isLocalDevAuth,
-    required this.onContinueHint,
-    required this.onContinueGoogle,
-    required this.onContinueApple,
-    required this.onPrivacyPolicy,
-  });
-
-  final GoogleAccountHint? accountHint;
-  final bool isConfigured;
-  final bool isLoading;
-  final bool isLocalDevAuth;
-  final VoidCallback onContinueHint;
-  final VoidCallback onContinueGoogle;
-  final VoidCallback onContinueApple;
-  final VoidCallback onPrivacyPolicy;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _AuthActions(
-          accountHint: accountHint,
-          isConfigured: isConfigured,
-          isLoading: isLoading,
-          isLocalDevAuth: isLocalDevAuth,
-          onContinueHint: onContinueHint,
-          onContinueGoogle: onContinueGoogle,
-          onContinueApple: onContinueApple,
-        ),
-        const SizedBox(height: 4),
-        TextButton(
-          onPressed: onPrivacyPolicy,
-          style: TextButton.styleFrom(
-            foregroundColor: cs.primary.withValues(alpha: 0.9),
-            textStyle: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-            ),
-          ),
-          child: const Text('Privacy Policy'),
-        ),
-        if (isLocalDevAuth) ...[
-          const SizedBox(height: 10),
-          Text(
-            'Local dev session. Supabase is not configured for this build.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ],
-        if (!isConfigured && !isLocalDevAuth) ...[
-          const SizedBox(height: 12),
-          Text(
-            'Authentication is not configured for this build.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
-          ),
-        ],
-      ],
-    );
   }
 }
 
@@ -403,49 +270,55 @@ class _AuthActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = isConfigured && !isLoading;
+    final l = context.l10n;
+    final cs = Theme.of(context).colorScheme;
+    final hint = accountHint;
+    // While a sign-in runs the primary button keeps its colour and shows
+    // progress; repeat taps are ignored upstream.
+    final secondaryEnabled = isConfigured && !isLoading;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (accountHint != null && !isLocalDevAuth) ...[
+        if (hint != null) ...[
           _AccountHintButton(
-            hint: accountHint!,
-            enabled: canSubmit,
+            hint: hint,
             loading: isLoading,
-            onPressed: onContinueHint,
+            onPressed: isConfigured ? onContinueHint : null,
           ),
-          const SizedBox(height: 4),
-        ],
-        if (accountHint != null && !isLocalDevAuth)
+          const SizedBox(height: 8),
           TextButton(
-            onPressed: canSubmit ? onContinueGoogle : null,
+            onPressed: secondaryEnabled ? onContinueGoogle : null,
             style: TextButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
-              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              foregroundColor: cs.onSurfaceVariant,
             ),
-            child: const Text('Use another Google account'),
-          )
-        else
-          _AuthPillButton(
-            label: isLocalDevAuth
-                ? 'Continue in local dev'
-                : 'Continue with Google',
-            leading: isLocalDevAuth
-                ? const Icon(AppIcons.code, size: 22)
-                : SvgPicture.asset('assets/brands/google.svg', width: 24),
-            enabled: canSubmit,
-            loading: isLoading && (accountHint == null || isLocalDevAuth),
-            onPressed: onContinueGoogle,
-            primary: true,
+            child: Text(l.authAnotherGoogle),
+          ),
+        ] else
+          FilledButton.icon(
+            key: const ValueKey('auth-primary-cta'),
+            onPressed: isConfigured ? onContinueGoogle : null,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+            ),
+            icon: isLoading
+                ? _Progress(color: cs.onPrimary)
+                : isLocalDevAuth
+                ? const AppIcon(AppIcons.code, size: 20)
+                : const _GoogleMark(),
+            label: Text(
+              isLocalDevAuth ? 'Continue in local dev' : l.authContinueGoogle,
+            ),
           ),
         if (Platform.isIOS || Platform.isMacOS) ...[
           const SizedBox(height: 12),
-          _AuthPillButton(
-            label: 'Continue with Apple',
-            leading: const Icon(AppIcons.apple, size: 22),
-            enabled: canSubmit,
-            loading: false,
-            onPressed: onContinueApple,
+          OutlinedButton.icon(
+            onPressed: secondaryEnabled ? onContinueApple : null,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+            ),
+            icon: const AppIcon(AppIcons.apple, size: 20),
+            label: Text(l.authContinueApple),
           ),
         ],
       ],
@@ -453,191 +326,97 @@ class _AuthActions extends StatelessWidget {
   }
 }
 
+/// The one-tap path for the Google account last used on this phone: the
+/// onboarding CTA, carrying who it will sign in as.
 class _AccountHintButton extends StatelessWidget {
   const _AccountHintButton({
     required this.hint,
-    required this.enabled,
     required this.loading,
     required this.onPressed,
   });
 
   final GoogleAccountHint hint;
-  final bool enabled;
   final bool loading;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final name = hint.displayName?.trim();
-    final accountName = name == null || name.isEmpty ? null : name;
-    final title = accountName == null
-        ? 'Continue with Google'
-        : 'Continue as $accountName';
-    final accountLine = hint.email;
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: 'Continue with ${hint.email}',
-      child: _PressScale(
-        enabled: enabled,
-        child: Material(
-          color: enabled ? cs.onSurface : cs.onSurface.withValues(alpha: 0.34),
-          borderRadius: BorderRadius.circular(24),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: enabled ? onPressed : null,
-            canRequestFocus: enabled,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 72),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    _GoogleAvatar(hint: hint),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: cs.surface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            accountLine,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.surface.withValues(alpha: 0.72),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (loading) ...[
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: ExpressiveLoadingIndicator(
-                          size: 18,
-                          color: cs.surface,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+    final title = name == null || name.isEmpty
+        ? l.authContinueGoogle
+        : l.authContinueAs(name);
+    return FilledButton(
+      key: const ValueKey('auth-primary-cta'),
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(56),
+        padding: const EdgeInsets.fromLTRB(12, 8, 20, 8),
       ),
-    );
-  }
-}
-
-class _AuthPillButton extends StatelessWidget {
-  const _AuthPillButton({
-    required this.label,
-    required this.leading,
-    required this.enabled,
-    required this.loading,
-    required this.onPressed,
-    this.primary = false,
-  });
-
-  final bool primary;
-  final String label;
-  final Widget leading;
-  final bool enabled;
-  final bool loading;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: label,
-      child: _PressScale(
-        enabled: enabled,
-        child: OutlinedButton.icon(
-          onPressed: enabled ? onPressed : null,
-          icon: loading
-              ? SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: ExpressiveLoadingIndicator(
-                    size: 18,
-                    color: primary ? cs.surface : cs.onSurface,
+      child: Row(
+        children: [
+          _GoogleAvatar(hint: hint),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(
+                  hint.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onPrimary.withValues(alpha: .72),
                   ),
-                )
-              : leading,
-          label: Text(label),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(60),
-            backgroundColor: primary ? cs.onSurface : null,
-            foregroundColor: primary ? cs.surface : cs.onSurface,
-            disabledForegroundColor: cs.onSurface.withValues(alpha: 0.38),
-            textStyle: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.38)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+                ),
+              ],
             ),
           ),
-        ),
+          if (loading) ...[
+            const SizedBox(width: 12),
+            _Progress(color: cs.onPrimary),
+          ],
+        ],
       ),
     );
   }
 }
 
-class _PressScale extends StatefulWidget {
-  const _PressScale({required this.enabled, required this.child});
-
-  final bool enabled;
-  final Widget child;
-
-  @override
-  State<_PressScale> createState() => _PressScaleState();
-}
-
-class _PressScaleState extends State<_PressScale> {
-  bool _pressed = false;
+class _Progress extends StatelessWidget {
+  const _Progress({required this.color});
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: widget.enabled ? (_) => _setPressed(true) : null,
-      onPointerUp: widget.enabled ? (_) => _setPressed(false) : null,
-      onPointerCancel: widget.enabled ? (_) => _setPressed(false) : null,
-      child: AnimatedScale(
-        scale: _pressed ? 0.985 : 1,
-        duration: const Duration(milliseconds: 90),
-        curve: Curves.easeOutCubic,
-        child: widget.child,
-      ),
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: ExpressiveLoadingIndicator(size: 18, color: color),
     );
   }
+}
 
-  void _setPressed(bool value) {
-    if (_pressed == value) return;
-    setState(() => _pressed = value);
+/// Google's mark always sits on white, whatever the button colour.
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark({this.size = 24});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: SvgPicture.asset('assets/brands/google.svg', width: size * .6),
+    );
   }
 }
 
@@ -646,63 +425,48 @@ class _GoogleAvatar extends StatelessWidget {
 
   final GoogleAccountHint hint;
 
+  static const _size = 36.0;
+
   @override
   Widget build(BuildContext context) {
     final photoUrl = hint.photoUrl;
     final cs = Theme.of(context).colorScheme;
+    final fallback = ColoredBox(
+      color: cs.onPrimary.withValues(alpha: .12),
+      child: Center(
+        child: Text(
+          _initial(hint),
+          style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
     return SizedBox(
-      width: 46,
-      height: 46,
+      width: _size,
+      height: _size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
             child: ClipOval(
               child: photoUrl == null
-                  ? ColoredBox(
-                      color: cs.surfaceContainerHighest,
-                      child: Center(
-                        child: Text(
-                          _initial(hint),
-                          style: TextStyle(
-                            color: cs.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    )
+                  ? fallback
                   : Image.network(
                       photoUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => ColoredBox(
-                        color: cs.surfaceContainerHighest,
-                        child: Center(
-                          child: Text(
-                            _initial(hint),
-                            style: TextStyle(
-                              color: cs.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
+                      errorBuilder: (_, _, _) => fallback,
                     ),
             ),
           ),
           Positioned(
-            right: -2,
-            bottom: -2,
-            child: Container(
-              width: 19,
-              height: 19,
+            right: -3,
+            bottom: -3,
+            child: DecoratedBox(
+              // A ring in the button colour cuts the badge out of the photo.
               decoration: BoxDecoration(
-                color: cs.surface,
                 shape: BoxShape.circle,
-                border: Border.all(color: cs.onSurface, width: 1.4),
+                border: Border.all(color: cs.primary, width: 1.5),
               ),
-              child: Center(
-                child: SvgPicture.asset('assets/brands/google.svg', width: 13),
-              ),
+              child: const _GoogleMark(size: 16),
             ),
           ),
         ],
