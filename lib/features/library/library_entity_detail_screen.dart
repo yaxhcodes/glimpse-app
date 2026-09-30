@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,7 +13,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/analytics_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../l10n/l10n.dart';
-import '../../shared/theme/app_typography.dart';
 import '../../shared/widgets/source_logo.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/music_actions.dart';
@@ -25,6 +26,7 @@ import 'library_status_picker.dart';
 import 'library_widgets.dart';
 import 'place_itinerary_editor_screen.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../shared/widgets/swipe_deck.dart';
 import '../../core/services/app_haptics.dart';
 
 class LibraryEntityDetailScreen extends ConsumerStatefulWidget {
@@ -54,9 +56,28 @@ class _LibraryEntityDetailScreenState
     initialPage: _keys.indexOf(widget.entityKey),
   );
 
+  /// Where each page's cover wash sits, for the shared backdrop.
+  final Map<String, _WashTrack> _washes = {};
+  final _washMoved = ValueNotifier<int>(0);
+
+  _WashTrack _wash(String key) =>
+      _washes[key] ??= _WashTrack(() => _washMoved.value++);
+
+  /// Between two pages. At rest each page draws its own wash (no frame
+  /// waits on a measurement); only mid-swipe does the backdrop take over.
+  final _swiping = ValueNotifier<bool>(false);
+
+  @override
+  void initState() {
+    super.initState();
+    _pages.addListener(() => _swiping.value = _isBetweenPages(_pages));
+  }
+
   @override
   void dispose() {
     _pages.dispose();
+    _washMoved.dispose();
+    _swiping.dispose();
     super.dispose();
   }
 
@@ -72,16 +93,38 @@ class _LibraryEntityDetailScreenState
       ),
       data: (data) {
         if (_keys.length == 1) return _page(context, data, _keys.single);
-        return PageView.builder(
+        // The covers and titles slide; the blurred cover behind them doesn't
+        // — it dissolves from one item's to the next in place.
+        return SwipeDeck(
           controller: _pages,
           itemCount: _keys.length,
-          itemBuilder: (context, index) => _page(context, data, _keys[index]),
+          cards: false,
+          background: _WashBackdrop(
+            pages: _pages,
+            keys: _keys,
+            data: data,
+            washes: _washes,
+            moved: _washMoved,
+          ),
+          itemBuilder: (context, index) => _page(
+            context,
+            data,
+            _keys[index],
+            wash: _wash(_keys[index]),
+            swiping: _swiping,
+          ),
         );
       },
     );
   }
 
-  Widget _page(BuildContext context, LibrarySnapshot data, String key) {
+  Widget _page(
+    BuildContext context,
+    LibrarySnapshot data,
+    String key, {
+    _WashTrack? wash,
+    ValueListenable<bool>? swiping,
+  }) {
     final entity = data.byKey(key);
     if (entity == null) {
       return Scaffold(
@@ -92,6 +135,8 @@ class _LibraryEntityDetailScreenState
     return _EntityDetail(
       key: ValueKey(key),
       entity: entity,
+      wash: wash,
+      swiping: swiping,
       onStatusChanged: (status) => _setStatus(context, ref, entity, status),
       onReadingPageChanged: (page) =>
           _setReadingPage(context, ref, entity, page),
@@ -175,9 +220,19 @@ class _EntityDetail extends StatelessWidget {
     required this.onStatusChanged,
     required this.onReadingPageChanged,
     required this.onHide,
+    this.wash,
+    this.swiping,
   });
 
   final LibraryEntity entity;
+
+  /// In the pager: the page shows through to the pager's backdrop and
+  /// reports where its cover wash belongs, so mid-swipe the backdrop can
+  /// draw it (see [swiping]).
+  final _WashTrack? wash;
+
+  /// While true, the pager's backdrop draws this page's wash.
+  final ValueListenable<bool>? swiping;
   final Future<void> Function(LibraryItemStatus status) onStatusChanged;
   final Future<void> Function(int page) onReadingPageChanged;
   final Future<void> Function() onHide;
@@ -219,7 +274,9 @@ class _EntityDetail extends StatelessWidget {
         child: _SourceSaves(entity: entity),
       ),
     ];
+    final wash = this.wash;
     return Scaffold(
+      backgroundColor: wash == null ? null : Colors.transparent,
       extendBodyBehindAppBar: !isPlace,
       appBar: AppBar(
         // Clear over the cover wash, solid once the page scrolls under it.
@@ -249,34 +306,53 @@ class _EntityDetail extends StatelessWidget {
           ),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: isPlace
-                ? _Constrained(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                    child: _PlaceHeader(
-                      entity: entity,
-                      onStatusChanged: onStatusChanged,
+      body: NotificationListener<Notification>(
+        // Scrolls, and first layout too: a page built again starts at the top.
+        onNotification: (notification) {
+          final metrics = switch (notification) {
+            ScrollNotification(depth: 0, :final metrics) => metrics,
+            ScrollMetricsNotification(depth: 0, :final metrics) => metrics,
+            _ => null,
+          };
+          if (metrics != null) wash?.scrolledTo(metrics.pixels);
+          return false;
+        },
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: isPlace
+                  ? _Constrained(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                      child: _PlaceHeader(
+                        entity: entity,
+                        onStatusChanged: onStatusChanged,
+                      ),
+                    )
+                  : _ReportHeight(
+                      onHeight: (height) => wash?.sized(height),
+                      child: _MediaHero(
+                        entity: entity,
+                        onStatusChanged: onStatusChanged,
+                        washHandedOff: wash == null ? null : swiping,
+                      ),
                     ),
-                  )
-                : _MediaHero(entity: entity, onStatusChanged: onStatusChanged),
-          ),
-          SliverToBoxAdapter(
-            child: _Constrained(
-              padding: EdgeInsets.fromLTRB(20, isPlace ? 24 : 4, 20, 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var index = 0; index < sections.length; index++) ...[
-                    if (index > 0) const SizedBox(height: 28),
-                    sections[index],
+            ),
+            SliverToBoxAdapter(
+              child: _Constrained(
+                padding: EdgeInsets.fromLTRB(20, isPlace ? 24 : 4, 20, 40),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var index = 0; index < sections.length; index++) ...[
+                      if (index > 0) const SizedBox(height: 28),
+                      sections[index],
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -303,10 +379,17 @@ class _Constrained extends StatelessWidget {
 /// top of the screen behind the status bar and melts into the page, with the
 /// cover itself centred on it. Titles without art wash in their printed ink.
 class _MediaHero extends StatelessWidget {
-  const _MediaHero({required this.entity, required this.onStatusChanged});
+  const _MediaHero({
+    required this.entity,
+    required this.onStatusChanged,
+    this.washHandedOff,
+  });
 
   final LibraryEntity entity;
   final Future<void> Function(LibraryItemStatus status) onStatusChanged;
+
+  /// In the pager: while true, the pager's backdrop draws the wash instead.
+  final ValueListenable<bool>? washHandedOff;
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +411,16 @@ class _MediaHero extends StatelessWidget {
     final metaStyle = tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant);
     return Stack(
       children: [
-        Positioned.fill(child: _CoverWash(entity: entity)),
+        Positioned.fill(
+          child: washHandedOff == null
+              ? _CoverWash(entity: entity)
+              : ValueListenableBuilder<bool>(
+                  valueListenable: washHandedOff!,
+                  builder: (context, handedOff, _) => handedOff
+                      ? const SizedBox.shrink()
+                      : _CoverWash(entity: entity),
+                ),
+        ),
         _Constrained(
           padding: EdgeInsets.fromLTRB(24, top + 8, 24, 28),
           child: Column(
@@ -362,12 +454,12 @@ class _MediaHero extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.editorial(
-                  tt.headlineMedium,
+                // The app's sans, like every other title in the app.
+                style: tt.headlineMedium?.copyWith(
                   color: cs.onSurface,
-                  fontWeight: FontWeight.w600,
-                  height: 1.1,
-                  letterSpacing: -0.2,
+                  fontWeight: FontWeight.w700,
+                  height: 1.12,
+                  letterSpacing: -0.4,
                 ),
               ),
               const SizedBox(height: 8),
@@ -865,4 +957,136 @@ String _metadata(BuildContext context, LibraryEntity entity) {
   return label.isEmpty
       ? localizedLibraryKindSingular(context.l10n, entity.kind)
       : label;
+}
+
+bool _isBetweenPages(PageController pages) {
+  if (!pages.hasClients || !pages.position.haveDimensions) return false;
+  final position = pages.page;
+  if (position == null) return false;
+  return (position - position.roundToDouble()).abs() > 0.001;
+}
+
+/// Where one page's cover wash belongs: as tall as the page's hero, moved
+/// up as the page scrolls.
+class _WashTrack {
+  _WashTrack(this._moved);
+
+  final VoidCallback _moved;
+  double scroll = 0;
+  double height = 0;
+
+  void scrolledTo(double pixels) {
+    if (pixels == scroll) return;
+    scroll = pixels;
+    _moved();
+  }
+
+  void sized(double value) {
+    if (value == height) return;
+    height = value;
+    _moved();
+  }
+}
+
+/// The pager's backdrop: the showing item's cover wash, with the next one's
+/// fading in over it as the swipe goes. Each stays where its own page's
+/// hero is, following that page's scroll.
+class _WashBackdrop extends StatelessWidget {
+  const _WashBackdrop({
+    required this.pages,
+    required this.keys,
+    required this.data,
+    required this.washes,
+    required this.moved,
+  });
+
+  final PageController pages;
+  final List<String> keys;
+  final LibrarySnapshot data;
+  final Map<String, _WashTrack> washes;
+  final Listenable moved;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([pages, moved]),
+        builder: (context, _) {
+          // At rest the page draws its own wash.
+          if (!_isBetweenPages(pages)) return const SizedBox.shrink();
+          final position = pages.page!;
+          final showing = position.floor().clamp(0, keys.length - 1);
+          final next = showing + 1;
+          final fade = (position - showing).clamp(0.0, 1.0);
+          return Stack(
+            children: [
+              _layer(showing, 1),
+              if (next < keys.length) _layer(next, fade),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _layer(int index, double opacity) {
+    final key = keys[index];
+    final entity = data.byKey(key);
+    final track = washes[key];
+    if (entity == null ||
+        entity.kind == LibraryEntityKind.place ||
+        track == null ||
+        track.height <= 0) {
+      return const SizedBox.shrink();
+    }
+    return Positioned(
+      key: ValueKey(key),
+      top: -track.scroll,
+      left: 0,
+      right: 0,
+      height: track.height,
+      // Only between two pages, and only over the wash, is this a layer.
+      child: Opacity(
+        opacity: opacity,
+        child: _CoverWash(entity: entity),
+      ),
+    );
+  }
+}
+
+/// Reports its child's height after layout.
+class _ReportHeight extends SingleChildRenderObjectWidget {
+  const _ReportHeight({required this.onHeight, required super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderReportHeight(onHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderReportHeight renderObject,
+  ) {
+    renderObject.onHeight = onHeight;
+  }
+}
+
+class _RenderReportHeight extends RenderProxyBox {
+  _RenderReportHeight(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _reported;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final height = size.height;
+    if (height == _reported) return;
+    _reported = height;
+    // Not during layout: the backdrop rebuilds in response.
+    WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(height));
+  }
 }

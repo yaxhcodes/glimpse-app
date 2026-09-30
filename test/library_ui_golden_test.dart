@@ -210,6 +210,52 @@ void main() {
     await tester.pumpAndSettle();
     await _expectGolden(tester, 'goldens/library_options_menu_compactDark.png');
   });
+
+  testWidgets('Swiping items dissolves the blurred cover in place', (
+    tester,
+  ) async {
+    final books = [
+      for (final entity in fixtures)
+        if (entity.kind == LibraryEntityKind.book) entity.key,
+    ];
+    await _pumpGolden(
+      tester,
+      layout: _GoldenLayout.compactLight,
+      snapshot: LibrarySnapshot(entities: fixtures),
+      child: LibraryEntityDetailScreen(
+        entityKey: books.first,
+        siblingKeys: books,
+      ),
+    );
+    final washes = find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_CoverWash',
+    );
+    // At rest the page draws its own wash.
+    expect(washes, findsOneWidget);
+
+    final gesture = await tester.startGesture(const Offset(300, 600));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-130, 0));
+    await tester.pump();
+    // The incoming page is measured after its first frame.
+    await tester.pump();
+    // Mid-swipe the backdrop holds both covers' washes, still in place while
+    // the pages move over them.
+    expect(washes, findsNWidgets(2));
+    for (final wash in washes.evaluate()) {
+      expect(tester.getRect(find.byWidget(wash.widget)).left, 0);
+    }
+    final covers = find.text('Piranesi');
+    expect(tester.getRect(covers.first).center.dx, lessThan(195));
+
+    await gesture.moveBy(const Offset(-120, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(washes, findsOneWidget);
+    expect(find.text('The Sea Around Us'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 enum _GoldenLayout {
