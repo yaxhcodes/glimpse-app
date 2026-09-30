@@ -7,6 +7,7 @@ import 'cluster_pattern.dart';
 import '../../shared/theme/topic_visual.dart';
 import '../../shared/widgets/topic_emblem.dart';
 import '../../shared/widgets/surface_grain.dart';
+import '../../shared/widgets/card_open_transition.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
 class InterestCluster {
@@ -77,140 +78,149 @@ class ClusterCard extends StatelessWidget {
       label:
           '${cluster.label}, $count${subtopics.isEmpty ? '' : ', $subtopics'}',
       excludeSemantics: true,
-      child: ExpressiveTapScale(
-        child: Material(
-          color: isHero
-              ? visual.cardSurface(cs, opacity: .45)
-              : cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(isSlim ? 20 : 24),
-          clipBehavior: Clip.antiAlias,
-          child: SurfaceGrain(
-            strength: .8,
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: EdgeInsets.all(isHero ? 0 : 16),
-                child: isSlim
-                    ? Row(
-                        children: [
-                          TopicEmblem(visual: visual, size: 40),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  cluster.label,
-                                  style: theme.textTheme.titleSmall,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  [
-                                    count,
-                                    if (subtopics.isNotEmpty) subtopics,
-                                  ].join(' · '),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            AppIcons.chevronRight,
-                            size: 20,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ],
-                      )
-                    : isHero
-                    ? _HeroInterestContent(
-                        cluster: cluster,
-                        visual: visual,
-                        count: count,
-                        subtopics: subtopics,
-                        theme: theme,
-                        colorScheme: cs,
-                        compact: compact,
-                      )
-                    : ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: minHeight - (isHero ? 40 : 32),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+      // Its interest's page opens out of it, and closes back into it.
+      child: CardOpenOrigin(
+        borderRadius: isSlim ? 20 : 24,
+        color: isHero
+            ? visual.cardSurface(cs, opacity: .45)
+            : cs.surfaceContainerLow,
+        child: ExpressiveTapScale(
+          child: Material(
+            color: isHero
+                ? visual.cardSurface(cs, opacity: .45)
+                : cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(isSlim ? 20 : 24),
+            clipBehavior: Clip.antiAlias,
+            child: SurfaceGrain(
+              strength: .8,
+              child: InkWell(
+                onTap: onTap,
+                child: Padding(
+                  padding: EdgeInsets.all(isHero ? 0 : 16),
+                  child: isSlim
+                      ? Row(
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // The Rediscover illustration family, so a
-                                // tile shows its topic instead of an empty
-                                // field under a small glyph.
-                                RediscoverIllustration(
-                                  artwork: artworkThemeForText(
-                                    [
-                                      cluster.label,
-                                      ...cluster.subtopics,
-                                    ].join(' '),
-                                  ),
-                                  size: compact ? 56 : 72,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    count,
-                                    textAlign: TextAlign.end,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 20),
+                            TopicEmblem(visual: visual, size: 40),
+                            const SizedBox(width: 14),
+                            Expanded(
                               child: Column(
-                                mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     cluster.label,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontSize: titleSize,
-                                      fontWeight: isHero
-                                          ? FontWeight.w700
-                                          : FontWeight.w600,
-                                      height: 1.2,
-                                      color: cs.onSurface,
+                                    style: theme.textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    [
+                                      count,
+                                      if (subtopics.isNotEmpty) subtopics,
+                                    ].join(' · '),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
                                     ),
                                   ),
-                                  if (subtopics.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      subtopics,
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              AppIcons.chevronRight,
+                              size: 20,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ],
+                        )
+                      : isHero
+                      ? _HeroInterestContent(
+                          cluster: cluster,
+                          visual: visual,
+                          count: count,
+                          subtopics: subtopics,
+                          theme: theme,
+                          colorScheme: cs,
+                          compact: compact,
+                        )
+                      : ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: minHeight - (isHero ? 40 : 32),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // The Rediscover illustration family, so a
+                                  // tile shows its topic instead of an empty
+                                  // field under a small glyph.
+                                  RediscoverIllustration(
+                                    artwork: artworkThemeForText(
+                                      [
+                                        cluster.label,
+                                        ...cluster.subtopics,
+                                      ].join(' '),
+                                    ),
+                                    size: compact ? 56 : 72,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      count,
+                                      textAlign: TextAlign.end,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
-                                            fontSize: 12,
-                                            height: 1.3,
                                             color: cs.onSurfaceVariant,
                                           ),
                                     ),
-                                  ],
+                                  ),
                                 ],
                               ),
-                            ),
-                          ],
+                              Padding(
+                                padding: const EdgeInsets.only(top: 20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      cluster.label,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                            fontSize: titleSize,
+                                            fontWeight: isHero
+                                                ? FontWeight.w700
+                                                : FontWeight.w600,
+                                            height: 1.2,
+                                            color: cs.onSurface,
+                                          ),
+                                    ),
+                                    if (subtopics.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        subtopics,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontSize: 12,
+                                              height: 1.3,
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                ),
               ),
             ),
           ),

@@ -173,10 +173,15 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/collections/:id',
-      builder: (context, state) {
-        final id = int.parse(state.pathParameters['id']!);
-        return CollectionDetailScreen(collectionId: id);
-      },
+      // Opens out of the collection's card and closes back into it.
+      pageBuilder: (context, state) => CardOpenPage(
+        key: state.pageKey,
+        name: state.name ?? state.path,
+        restorationId: state.pageKey.value,
+        child: CollectionDetailScreen(
+          collectionId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
     ),
     GoRoute(
       path: '/library',
@@ -302,10 +307,15 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/mindmap/cluster/:id',
-      builder: (context, state) {
-        final id = int.parse(state.pathParameters['id']!);
-        return MindmapClusterScreen(clusterId: id);
-      },
+      // Opens out of the interest's tile and closes back into it.
+      pageBuilder: (context, state) => CardOpenPage(
+        key: state.pageKey,
+        name: state.name ?? state.path,
+        restorationId: state.pageKey.value,
+        child: MindmapClusterScreen(
+          clusterId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
     ),
     GoRoute(path: '/recap', builder: (context, state) => const RecapScreen()),
     GoRoute(

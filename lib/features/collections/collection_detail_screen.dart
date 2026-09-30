@@ -18,6 +18,7 @@ import '../add_url/add_url_screen.dart';
 import 'collections_provider.dart';
 import 'collections_preferences_provider.dart';
 import 'create_collection_sheet.dart';
+import '../../shared/widgets/card_open_transition.dart';
 import 'move_collection_contents_sheet.dart';
 
 class CollectionDetailScreen extends ConsumerStatefulWidget {
@@ -32,6 +33,21 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
 
 class _CollectionDetailScreenState
     extends ConsumerState<CollectionDetailScreen> {
+  bool _askedOpenToWait = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_askedOpenToWait) return;
+    _askedOpenToWait = true;
+    // Opening out of its card: the list arrives under the card, not
+    // mid-flight.
+    CardOpenRoute.waitForContent(
+      context,
+      ref.read(collectionUrlsProvider(widget.collectionId).future),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final metaAsync = ref.watch(collectionMetaProvider(widget.collectionId));

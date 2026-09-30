@@ -22,6 +22,7 @@ import 'interest_cluster_service.dart' show interestThemeMergeKey;
 import 'interest_clusters_provider.dart';
 import 'title_cleaner.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import '../../shared/widgets/card_open_transition.dart';
 import '../../core/services/app_haptics.dart';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -931,6 +932,20 @@ class MindmapClusterScreen extends ConsumerStatefulWidget {
 
 class _MindmapClusterScreenState extends ConsumerState<MindmapClusterScreen> {
   int? _selectedSub;
+  bool _askedOpenToWait = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_askedOpenToWait) return;
+    _askedOpenToWait = true;
+    // Opening out of its tile: the interest's saves arrive under the tile,
+    // not mid-flight.
+    CardOpenRoute.waitForContent(
+      context,
+      ref.read(interestClusterThemesProvider.future),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

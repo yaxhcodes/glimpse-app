@@ -489,6 +489,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
     super.didChangeDependencies();
     if (_routeChecked) return;
     _routeChecked = true;
+    // Opening out of a card: the database read lands under the card rather
+    // than as a whole-page rebuild mid-flight.
+    CardOpenRoute.waitForContent(
+      context,
+      ref.read(urlDetailProvider(widget.urlId).future),
+    );
     // Found through the route's settings, which never change, so the page
     // doesn't rebuild whenever the route's status does (a close, a swipe).
     final route = CardOpenPage.routeOf(ModalRoute.settingsOf(context));

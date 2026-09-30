@@ -299,6 +299,35 @@ class CardOpenRoute extends PageRoute<void> {
     _visibleTag = _openTag;
   }
 
+  /// A page opening out of a card that loads its content (a list, a save)
+  /// can hand over the load: the card holds, opened but still, until it has
+  /// arrived — briefly, at most [_contentWait] — so the page is built and
+  /// painted under the card before anything moves, rather than arriving
+  /// mid-flight. Call it from the page's first `didChangeDependencies`.
+  static void waitForContent(BuildContext context, Future<Object?> content) {
+    final route = CardOpenPage.routeOf(ModalRoute.settingsOf(context));
+    if (route == null || route._contentTaken) return;
+    route._content.add(content);
+  }
+
+  static const _contentWait = Duration(milliseconds: 200);
+  final List<Future<Object?>> _content = [];
+  bool _contentTaken = false;
+
+  /// Resolves once the page's content has arrived and been painted (or the
+  /// wait ran out).
+  Future<void> _contentReady() async {
+    _contentTaken = true;
+    if (_content.isEmpty) return;
+    try {
+      await Future.wait(_content).timeout(_contentWait);
+    } catch (_) {
+      // Too slow or failed: open anyway, the page shows its own state.
+    }
+    // The content's rebuild, laid out and painted under the card.
+    await WidgetsBinding.instance.endOfFrame;
+  }
+
   /// Tells the route which save the Details pager is showing, so the page
   /// closes into that save's card.
   static void reportVisibleUrl(RouteSettings? settings, int urlId) {
@@ -705,9 +734,11 @@ class _CardOpenState extends State<_CardOpen>
       } else {
         // This first onstage frame paints the page for the first time,
         // hidden under the card: its text and images reach the GPU here,
-        // not in the middle of the motion. The spring starts after it.
+        // not in the middle of the motion. The spring starts after it —
+        // and after any content the page asked to wait for.
         _openScheduled = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await route._contentReady();
           if (mounted && _phase == _Phase.opening) {
             _run(_open, AppMotion.spatialDefault);
           }
