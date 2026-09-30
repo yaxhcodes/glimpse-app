@@ -362,6 +362,7 @@
   "deleteAccountFreeWarning": "Glimpseアカウントのメタデータを削除します。端末内のライブラリはSupabaseにアップロードされていません。",
   "details": "詳細",
   "openInSource": "{source}で開く",
+  "openSourcePage": "{source}の保存をすべて見る",
   "summary": "要約",
   "inBrief": "概要",
   "fullExplanation": "詳しい解説",

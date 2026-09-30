@@ -1239,6 +1239,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String openSourcePage(Object source) {
+    return 'Voir tout ce qui vient de $source';
+  }
+
+  @override
   String get summary => 'Résumé';
 
   @override

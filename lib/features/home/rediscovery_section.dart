@@ -9,6 +9,8 @@ import '../../core/providers/dev_simulation_providers.dart';
 import '../../core/services/app_haptics.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
+import '../../shared/widgets/card_open_transition.dart';
+import '../url_detail/url_detail_provider.dart' show UrlDetailSeed;
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../rediscover/journey_visual.dart';
@@ -113,47 +115,64 @@ class RediscoverySection extends ConsumerWidget {
                     : Padding(
                         key: const ValueKey('rediscover-journey-carousel'),
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: CarouselView(
-                          itemExtent: cardWidth + 12,
-                          shrinkExtent: 0,
-                          itemSnapping: true,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
-                          ),
-                          backgroundColor: Colors.transparent,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          itemClipBehavior: Clip.antiAlias,
-                          onTap: (i) {
-                            markTipSeen();
-                            final memory = memories[i];
-                            openGlimpse(
-                              context,
-                              memory.id,
-                              memory.journey.items
-                                  .map((item) => item.url.id)
-                                  .toList(),
-                            );
-                          },
-                          children: [
-                            for (var i = 0; i < previewCount; i++)
-                              ClipRect(
-                                child: OverflowBox(
-                                  alignment: AlignmentDirectional.centerStart,
-                                  minWidth: cardWidth,
-                                  maxWidth: cardWidth,
-                                  child: ExpressiveTapScale(
-                                    child: _RediscoverJourneyCard(
-                                      memory: memories[i],
-                                      height: 224,
+                        // The carousel's tap layer covers the cards, so tell
+                        // them where the finger went down: a single save
+                        // then opens out of its card.
+                        child: Listener(
+                          behavior: HitTestBehavior.translucent,
+                          onPointerDown: (event) =>
+                              CardOpenOrigin.notePress(event.position),
+                          child: CarouselView(
+                            itemExtent: cardWidth + 12,
+                            shrinkExtent: 0,
+                            itemSnapping: true,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            itemClipBehavior: Clip.antiAlias,
+                            onTap: (i) {
+                              markTipSeen();
+                              final memory = memories[i];
+                              // A single save opens its Details: hand over
+                              // the save so its first frame isn't a spinner.
+                              final saves = {
+                                for (final item in memory.journey.items)
+                                  item.url.id: item.url,
+                              };
+                              if (saves.length == 1) {
+                                UrlDetailSeed.offer(saves.values.single);
+                              }
+                              openGlimpse(
+                                context,
+                                memory.id,
+                                memory.journey.items
+                                    .map((item) => item.url.id)
+                                    .toList(),
+                              );
+                            },
+                            children: [
+                              for (var i = 0; i < previewCount; i++)
+                                ClipRect(
+                                  child: OverflowBox(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    minWidth: cardWidth,
+                                    maxWidth: cardWidth,
+                                    child: ExpressiveTapScale(
+                                      child: _RediscoverJourneyCard(
+                                        memory: memories[i],
+                                        height: 224,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
               ),
@@ -282,6 +301,8 @@ class _RediscoverJourneyCard extends StatelessWidget {
       supportingText: memory.homeCopy.subtitle,
       metadata: _metadataLine(context, memory),
       height: height,
+      // Flies into the same card at the top of the Glimpse it opens.
+      heroTag: rediscoverCardHeroTag(memory.id),
     );
   }
 

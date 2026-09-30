@@ -1234,6 +1234,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String openSourcePage(Object source) {
+    return 'Ver todo lo guardado de $source';
+  }
+
+  @override
   String get summary => 'Resumen';
 
   @override

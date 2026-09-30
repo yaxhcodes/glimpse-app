@@ -14,6 +14,7 @@ import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../rediscover/journey_visual.dart';
+import '../url_detail/url_detail_provider.dart' show UrlDetailSeed;
 import 'glimpse_activity_provider.dart';
 import 'glimpse_open.dart';
 import 'glimpse_page_frame.dart';
@@ -108,13 +109,20 @@ class _GlimpsesScreenState extends ConsumerState<GlimpsesScreen>
                 GlimpseTile(
                   key: ValueKey(item.glimpse.key),
                   showActions: true,
+                  heroTag: rediscoverCardHeroTag(item.glimpse.key),
                   glimpse: item.glimpse,
                   urls: urls,
-                  onTap: () => openGlimpse(
-                    context,
-                    item.glimpse.key,
-                    item.glimpse.sourceIds,
-                  ),
+                  onTap: () {
+                    final single = item.glimpse.sourceIds.toSet();
+                    final save = single.length == 1 ? urls[single.first] : null;
+                    // Its Details' first frame draws from this, not a spinner.
+                    if (save != null) UrlDetailSeed.offer(save);
+                    openGlimpse(
+                      context,
+                      item.glimpse.key,
+                      item.glimpse.sourceIds,
+                    );
+                  },
                 ),
             ] else
               const _NothingToday(),

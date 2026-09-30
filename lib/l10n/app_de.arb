@@ -404,6 +404,7 @@
   "deleteAccountFreeWarning": "Dadurch werden die Metadaten deines Glimpse-Kontos entfernt. Deine Bibliothek auf dem Gerät wird nicht zu Supabase hochgeladen.",
   "details": "Details",
   "openInSource": "In {source} öffnen",
+  "openSourcePage": "Alle Speicherungen von {source}",
   "summary": "Zusammenfassung",
   "inBrief": "Kurz gesagt",
   "fullExplanation": "Ausführliche Erklärung",

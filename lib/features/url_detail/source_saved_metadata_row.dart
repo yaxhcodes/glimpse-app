@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
+import '../../shared/theme/app_icons.dart';
 
 class SourceSavedMetadataRow extends StatelessWidget {
   const SourceSavedMetadataRow({
@@ -12,6 +13,7 @@ class SourceSavedMetadataRow extends StatelessWidget {
     required this.isRead,
     required this.sourceColor,
     required this.onSavedLabelTap,
+    this.onSourceTap,
     this.creatorLink,
   });
 
@@ -22,6 +24,9 @@ class SourceSavedMetadataRow extends StatelessWidget {
   final bool isRead;
   final Color sourceColor;
   final VoidCallback onSavedLabelTap;
+
+  /// Opens the source's page (every save from Instagram, say).
+  final VoidCallback? onSourceTap;
   final Widget? creatorLink;
 
   @override
@@ -29,7 +34,8 @@ class SourceSavedMetadataRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final sourceAndTime = Row(
+    final sourceLabel = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         leading,
         const SizedBox(width: 6),
@@ -44,6 +50,38 @@ class SourceSavedMetadataRow extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+        ),
+        if (onSourceTap != null) ...[
+          const SizedBox(width: 2),
+          Icon(
+            AppIcons.chevronRight,
+            key: const ValueKey('source-page-chevron'),
+            size: 11,
+            color: sourceColor.withValues(alpha: 0.72),
+          ),
+        ],
+      ],
+    );
+
+    final sourceAndTime = Row(
+      children: [
+        Flexible(
+          child: onSourceTap == null
+              ? sourceLabel
+              : Semantics(
+                  button: true,
+                  label: context.l10n.openSourcePage(sourceName),
+                  excludeSemantics: true,
+                  child: InkWell(
+                    key: const ValueKey('source-page-link'),
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: onSourceTap,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: sourceLabel,
+                    ),
+                  ),
+                ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6),

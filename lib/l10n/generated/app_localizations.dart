@@ -2278,6 +2278,12 @@ abstract class AppLocalizations {
   /// **'Open in {source}'**
   String openInSource(Object source);
 
+  /// No description provided for @openSourcePage.
+  ///
+  /// In en, this message translates to:
+  /// **'See all saves from {source}'**
+  String openSourcePage(Object source);
+
   /// No description provided for @summary.
   ///
   /// In en, this message translates to:

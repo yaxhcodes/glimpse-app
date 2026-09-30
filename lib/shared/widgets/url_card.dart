@@ -13,8 +13,9 @@ import '../../core/services/category_resolver.dart';
 import '../../core/services/title_resolver.dart';
 import '../../core/services/demo_seed_service.dart';
 import '../../features/home/home_provider.dart';
+import 'card_open_transition.dart';
 import '../../features/url_detail/url_detail_provider.dart'
-    show retryingUrlIdsProvider;
+    show UrlDetailSeed, retryingUrlIdsProvider;
 import 'expressive_tap_scale.dart';
 import 'expressive_loading_indicator.dart';
 import 'link_card_thumbnail.dart';
@@ -67,6 +68,10 @@ class UrlCard extends ConsumerStatefulWidget {
     }
     return strings.yearsAgo((diff.inDays / 365).floor());
   }
+
+  /// The list thumbnail's side. Details shows the thumbnail decoded at this
+  /// size while its own larger image loads, so the flight never goes blank.
+  static const double thumbnailSize = 56;
 
   /// Shared with search / notification list rows: neutral light cards, tinted dark.
   static Color listCardFillColor(ThemeData theme) {
@@ -160,219 +165,234 @@ class _UrlCardState extends ConsumerState<UrlCard> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ExpressiveTapScale(
-        child: Material(
-          color: widget.isSelected
-              ? selectedFill
-              : UrlCard.listCardFillColor(theme),
-          elevation: widget.isSelected ? 2 : 0,
-          shadowColor: widget.isSelected
-              ? cs.shadow.withValues(alpha: 0.18)
-              : Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          shape: cardShape,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () {
-              AppHaptics.play(AppHaptics.tap);
-              if (widget.selectionMode) {
-                widget.onSelectionTap?.call();
-              } else {
-                widget.onTap?.call();
-              }
-            },
-            onLongPress: () {
-              AppHaptics.play(AppHaptics.hold);
-              if (widget.onLongPress != null) {
-                widget.onLongPress?.call();
-              } else if (!widget.selectionMode) {
-                _showActions(context);
-              }
-            },
-            child: Padding(
-              padding: widget.contentPadding,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  widget.selectionMode
-                      ? _SelectionThumbnail(
-                          selected: widget.isSelected,
-                          size: 56,
-                          child: LinkCardThumbnail.build(
-                            url: widget.savedUrl,
-                            isRead: isRead,
-                            context: context,
+      child: CardOpenOrigin(
+        openTag: CardOpenOrigin.urlTag(widget.savedUrl.id),
+        borderRadius: AppShapes.cornerRadius,
+        color: widget.isSelected
+            ? selectedFill
+            : UrlCard.listCardFillColor(theme),
+        child: ExpressiveTapScale(
+          child: Material(
+            color: widget.isSelected
+                ? selectedFill
+                : UrlCard.listCardFillColor(theme),
+            elevation: widget.isSelected ? 2 : 0,
+            shadowColor: widget.isSelected
+                ? cs.shadow.withValues(alpha: 0.18)
+                : Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            shape: cardShape,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                AppHaptics.play(AppHaptics.tap);
+                if (widget.selectionMode) {
+                  widget.onSelectionTap?.call();
+                } else {
+                  UrlDetailSeed.offer(widget.savedUrl);
+                  widget.onTap?.call();
+                }
+              },
+              onLongPress: () {
+                AppHaptics.play(AppHaptics.hold);
+                if (widget.onLongPress != null) {
+                  widget.onLongPress?.call();
+                } else if (!widget.selectionMode) {
+                  _showActions(context);
+                }
+              },
+              child: Padding(
+                padding: widget.contentPadding,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    widget.selectionMode
+                        ? _SelectionThumbnail(
+                            selected: widget.isSelected,
                             size: 56,
-                            borderRadius: 10,
-                          ),
-                        )
-                      : Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            LinkCardThumbnail.build(
+                            child: LinkCardThumbnail.build(
                               url: widget.savedUrl,
                               isRead: isRead,
                               context: context,
                               size: 56,
                               borderRadius: 10,
                             ),
-                            // Unread sits on the thumbnail's corner like a
-                            // badge, keeping the text lines clean.
-                            if (!isRead && !isProcessing && !isProcessingFailed)
-                              Positioned(
-                                top: -3,
-                                right: -3,
-                                child: _UnreadDot(
-                                  color: cs.primary,
-                                  ring: UrlCard.listCardFillColor(
-                                    Theme.of(context),
-                                  ),
-                                  label: context.l10n.unread,
-                                ),
-                              ),
-                          ],
-                        ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (DemoSeedService.isDemoUrl(widget.savedUrl.rawUrl))
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              context.l10n.obExample,
-                              style: tt.labelSmall?.copyWith(color: cs.primary),
-                            ),
-                          ),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              // Each stage, then the real title, fades in
-                              // over the last.
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 280),
-                                layoutBuilder: (current, previous) => Stack(
-                                  alignment: AlignmentDirectional.topStart,
-                                  children: [...previous, ?current],
-                                ),
-                                child: shimmerProcessingText
-                                    ? Semantics(
-                                        key: ValueKey('stage:$resolvedTitle'),
-                                        liveRegion: true,
-                                        label: processingPresentation.detail,
-                                        child: _SubtleTextShimmer(
-                                          text: resolvedTitle,
-                                          style: cardTitleStyle,
-                                          maxLines: 3,
-                                        ),
-                                      )
-                                    : Text(
-                                        resolvedTitle,
-                                        key: ValueKey('title:$resolvedTitle'),
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: cardTitleStyle,
-                                      ),
-                              ),
-                            ),
-                            if (widget.isPinned) ...[
-                              const SizedBox(width: 8),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 1),
-                                child: Icon(
-                                  AppIcons.pinFilled,
-                                  size: 13,
-                                  color: cs.primary.withValues(alpha: 0.68),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Wrap(
-                                spacing: 0,
-                                runSpacing: 2,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  if (widget.showSourceName) ...[
-                                    Text(displaySourceName, style: metaStyle),
-                                    Text(' · ', style: metaStyle),
-                                  ],
-                                  Text(
-                                    UrlCard.timeAgoSaved(
-                                      context,
-                                      widget.savedUrl.savedAt,
-                                    ),
-                                    style: metaStyle,
-                                  ),
-                                  // The save is safe; this only says the
-                                  // summary didn't come. Retry is in Details.
-                                  if (isProcessingFailed && !isProcessing) ...[
-                                    Text(' · ', style: metaStyle),
-                                    Text(
-                                      strings.processingFailedShort,
-                                      style: metaStyle.copyWith(
-                                        color: cs.error.withValues(alpha: 0.85),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            if (isProcessing) ...[
-                              const SizedBox(width: 8),
-                              Semantics(
-                                label: context.l10n.enriching,
-                                child: ExpressiveLoadingIndicator(
-                                  size: 14,
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (notePreview != null) ...[
-                          const SizedBox(height: 6),
-                          Row(
+                          )
+                        : Stack(
+                            clipBehavior: Clip.none,
                             children: [
-                              AppIcon(
-                                widget.savedUrl.notePreviewIsAsk
-                                    ? AppIcons.sparkle
-                                    : AppIcons.note,
-                                size: 13,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.72,
+                              LinkCardThumbnail.build(
+                                url: widget.savedUrl,
+                                isRead: isRead,
+                                context: context,
+                                size: UrlCard.thumbnailSize,
+                                borderRadius: 10,
+                              ),
+                              // Unread sits on the thumbnail's corner like a
+                              // badge, keeping the text lines clean.
+                              if (!isRead &&
+                                  !isProcessing &&
+                                  !isProcessingFailed)
+                                Positioned(
+                                  top: -3,
+                                  right: -3,
+                                  child: _UnreadDot(
+                                    color: cs.primary,
+                                    ring: UrlCard.listCardFillColor(
+                                      Theme.of(context),
+                                    ),
+                                    label: context.l10n.unread,
+                                  ),
+                                ),
+                            ],
+                          ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (DemoSeedService.isDemoUrl(widget.savedUrl.rawUrl))
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                context.l10n.obExample,
+                                style: tt.labelSmall?.copyWith(
+                                  color: cs.primary,
                                 ),
                               ),
-                              const SizedBox(width: 5),
+                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Expanded(
-                                child: Text(
-                                  notePreview,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.bodySmall?.copyWith(
-                                    fontSize: 11.5,
-                                    height: 1.25,
-                                    color: cs.onSurfaceVariant.withValues(
-                                      alpha: 0.82,
+                                // Each stage, then the real title, fades in
+                                // over the last.
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 280),
+                                  layoutBuilder: (current, previous) => Stack(
+                                    alignment: AlignmentDirectional.topStart,
+                                    children: [...previous, ?current],
+                                  ),
+                                  child: shimmerProcessingText
+                                      ? Semantics(
+                                          key: ValueKey('stage:$resolvedTitle'),
+                                          liveRegion: true,
+                                          label: processingPresentation.detail,
+                                          child: _SubtleTextShimmer(
+                                            text: resolvedTitle,
+                                            style: cardTitleStyle,
+                                            maxLines: 3,
+                                          ),
+                                        )
+                                      : Text(
+                                          resolvedTitle,
+                                          key: ValueKey('title:$resolvedTitle'),
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: cardTitleStyle,
+                                        ),
+                                ),
+                              ),
+                              if (widget.isPinned) ...[
+                                const SizedBox(width: 8),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 1),
+                                  child: Icon(
+                                    AppIcons.pinFilled,
+                                    size: 13,
+                                    color: cs.primary.withValues(alpha: 0.68),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Wrap(
+                                  spacing: 0,
+                                  runSpacing: 2,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    if (widget.showSourceName) ...[
+                                      Text(displaySourceName, style: metaStyle),
+                                      Text(' · ', style: metaStyle),
+                                    ],
+                                    Text(
+                                      UrlCard.timeAgoSaved(
+                                        context,
+                                        widget.savedUrl.savedAt,
+                                      ),
+                                      style: metaStyle,
+                                    ),
+                                    // The save is safe; this only says the
+                                    // summary didn't come. Retry is in Details.
+                                    if (isProcessingFailed &&
+                                        !isProcessing) ...[
+                                      Text(' · ', style: metaStyle),
+                                      Text(
+                                        strings.processingFailedShort,
+                                        style: metaStyle.copyWith(
+                                          color: cs.error.withValues(
+                                            alpha: 0.85,
+                                          ),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              if (isProcessing) ...[
+                                const SizedBox(width: 8),
+                                Semantics(
+                                  label: context.l10n.enriching,
+                                  child: ExpressiveLoadingIndicator(
+                                    size: 14,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (notePreview != null) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                AppIcon(
+                                  widget.savedUrl.notePreviewIsAsk
+                                      ? AppIcons.sparkle
+                                      : AppIcons.note,
+                                  size: 13,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.72,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    notePreview,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: tt.bodySmall?.copyWith(
+                                      fontSize: 11.5,
+                                      height: 1.25,
+                                      color: cs.onSurfaceVariant.withValues(
+                                        alpha: 0.82,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

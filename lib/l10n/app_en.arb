@@ -411,6 +411,7 @@
   "deleteAccountFreeWarning": "This removes your Glimpse account metadata. Your on-device library is not uploaded to Supabase.",
   "details": "Details",
   "openInSource": "Open in {source}",
+  "openSourcePage": "See all saves from {source}",
   "summary": "Summary",
   "inBrief": "In brief",
   "fullExplanation": "Full explanation",

@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 import '../../core/providers/swipe_preferences_provider.dart';
 import '../../core/services/app_haptics.dart';
+import '../theme/app_motion.dart';
+import 'card_open_transition.dart';
 
 typedef SwipeActionCallback = FutureOr<bool> Function(SwipeActionType action);
 typedef SwipeDismissedCallback =
@@ -45,11 +48,25 @@ class PremiumSwipeCard extends StatefulWidget {
 }
 
 class _PremiumSwipeCardState extends State<PremiumSwipeCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _softThreshold = 0.38;
   static const _hardThreshold = 0.68;
 
   late final AnimationController _controller;
+
+  /// A released card springing home (M3 Expressive spatial spring).
+  late final AnimationController _snap = AnimationController.unbounded(
+    vsync: this,
+  )..addListener(_followSnap);
+
+  /// The row's height after a swipe-away, 1 → 0 on a spring, so the cards
+  /// below slide up into the gap instead of jumping into it.
+  late final AnimationController _collapse = AnimationController.unbounded(
+    vsync: this,
+    value: 1,
+  );
+
+  double _snapFrom = 0;
   Animation<double>? _offsetAnimation;
   Animation<double>? _opacityAnimation;
 
@@ -79,8 +96,23 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
   @override
   void dispose() {
     _controller.dispose();
+    _snap.dispose();
+    _collapse.dispose();
     super.dispose();
   }
+
+  void _followSnap() {
+    if (!mounted) return;
+    // Settles into place without crossing it, which would flash a sliver of
+    // the other side's action.
+    final value = _snap.value;
+    setState(() {
+      _offset = value.sign == _snapFrom.sign ? value : 0;
+      _rawOffset = _offset;
+    });
+  }
+
+  bool get _reduceMotion => MediaQuery.disableAnimationsOf(context);
 
   bool get _hasAnySwipe =>
       widget.leftSwipeAction != SwipeActionType.none ||
@@ -125,6 +157,7 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
   void _handleDragStart(DragStartDetails details) {
     if (_busy || !_hasAnySwipe) return;
     _controller.stop();
+    _snap.stop();
     _rawOffset = _offset;
     _opacity = 1;
   }
@@ -151,7 +184,7 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
     final progress = width <= 0 ? 0.0 : (_offset.abs() / width);
     final action = _actionForOffset(_offset);
     if (action == SwipeActionType.none || progress < _softThreshold) {
-      await _animateBack();
+      await _animateBack(velocity: details.primaryVelocity ?? 0);
       return;
     }
     await _commitAction(action, width);
@@ -182,6 +215,8 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
           duration: const Duration(milliseconds: 230),
           curve: Curves.easeInCubic,
         );
+        if (!mounted) return;
+        await _closeUpRow();
         await widget.onDismissed?.call(action);
       } else {
         await _animateBack();
@@ -196,18 +231,78 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
             _offset = 0;
             _rawOffset = 0;
             _opacity = 1;
+            // Still here (the removal was refused or undone): full height.
+            _collapse.value = 1;
           }
         });
       }
     }
   }
 
-  Future<void> _animateBack() {
-    return _animateTo(
-      0,
-      duration: const Duration(milliseconds: 190),
-      curve: Curves.easeOutCubic,
-    );
+  /// Springs the card home, carrying on from the finger's [velocity].
+  Future<void> _animateBack({double velocity = 0}) async {
+    if (_offset == 0) return;
+    if (_reduceMotion) {
+      return _animateTo(
+        0,
+        duration: const Duration(milliseconds: 190),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    _controller.stop();
+    _snapFrom = _offset;
+    _snap.value = _offset;
+    try {
+      await _snap
+          .animateWith(
+            SpringSimulation(AppMotion.spatialDefault, _offset, 0, velocity),
+          )
+          .orCancel;
+    } on TickerCanceled {
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _offset = 0;
+      _rawOffset = 0;
+      _opacity = 1;
+      _softHapticSent = false;
+      _hardHapticSent = false;
+    });
+  }
+
+  /// Closes up the row the card leaves behind, and lets the cards below
+  /// catch it: they carry on a few pixels past, then settle.
+  Future<void> _closeUpRow() async {
+    if (_reduceMotion) {
+      _collapse.value = 0;
+      return;
+    }
+    var caught = false;
+    void catchBelow() {
+      if (caught || _collapse.value > 0.15 || !mounted) return;
+      caught = true;
+      CardOpenOrigin.settleBelow(context);
+    }
+
+    _collapse.addListener(catchBelow);
+    try {
+      await _collapse
+          .animateWith(
+            SpringSimulation(
+              AppMotion.spatialDefault,
+              1,
+              0,
+              0,
+              tolerance: const Tolerance(distance: 0.01, velocity: 0.05),
+            ),
+          )
+          .orCancel;
+    } on TickerCanceled {
+      return;
+    } finally {
+      _collapse.removeListener(catchBelow);
+    }
   }
 
   Future<void> _animateTo(
@@ -241,6 +336,24 @@ class _PremiumSwipeCardState extends State<PremiumSwipeCard>
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _collapse,
+      builder: (context, child) {
+        final height = _collapse.value.clamp(0.0, 1.0);
+        return ClipRect(
+          clipBehavior: height < 1 ? Clip.hardEdge : Clip.none,
+          child: Align(
+            alignment: Alignment.topCenter,
+            heightFactor: height,
+            child: child,
+          ),
+        );
+      },
+      child: _buildCard(),
+    );
+  }
+
+  Widget _buildCard() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth > 0

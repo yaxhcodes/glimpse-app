@@ -62,6 +62,7 @@ import 'features/digest/notifications_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/search/search_provider.dart';
 import 'features/url_detail/url_detail_screen.dart';
+import 'shared/widgets/card_open_transition.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/bin_screen.dart';
 import 'features/settings/look_and_feel_screen.dart';
@@ -222,7 +223,8 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/url/:id',
-      builder: (context, state) {
+      // Opens out of the tapped card and closes back into it.
+      pageBuilder: (context, state) {
         final id = int.parse(state.pathParameters['id']!);
         final args = state.extra is UrlDetailRouteArgs
             ? state.extra as UrlDetailRouteArgs
@@ -230,17 +232,23 @@ final _router = GoRouter(
         final siblings =
             args?.siblingIds ??
             (state.extra is List<int> ? state.extra as List<int> : null);
-        if (siblings != null && siblings.length > 1) {
-          final index = siblings.indexOf(id);
-          return UrlDetailPagerScreen(
-            urlIds: siblings,
-            initialIndex: index < 0 ? 0 : index,
-            rediscoverContext: args?.rediscoverContext,
-          );
-        }
-        return UrlDetailScreen(
+        final index = siblings?.indexOf(id) ?? -1;
+        return CardOpenPage(
+          key: state.pageKey,
+          name: state.name ?? state.path,
+          arguments: {...state.pathParameters, ...state.uri.queryParameters},
+          restorationId: state.pageKey.value,
           urlId: id,
-          rediscoverContext: args?.rediscoverContext,
+          child: siblings != null && siblings.length > 1
+              ? UrlDetailPagerScreen(
+                  urlIds: siblings,
+                  initialIndex: index < 0 ? 0 : index,
+                  rediscoverContext: args?.rediscoverContext,
+                )
+              : UrlDetailScreen(
+                  urlId: id,
+                  rediscoverContext: args?.rediscoverContext,
+                ),
         );
       },
     ),

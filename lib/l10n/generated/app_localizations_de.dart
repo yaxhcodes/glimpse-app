@@ -1240,6 +1240,11 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String openSourcePage(Object source) {
+    return 'Alle Speicherungen von $source';
+  }
+
+  @override
   String get summary => 'Zusammenfassung';
 
   @override

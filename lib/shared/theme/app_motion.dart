@@ -43,4 +43,26 @@ class AppMotion {
     stiffness: 520.0,
     damping: 44.0,
   );
+
+  // ── M3 Expressive motion scheme (Android 16 on Pixel) ───────────────────────
+  // The expressive scheme's spring tokens, as Compose defines them: spatial
+  // springs move things and may overshoot; effects springs change colour and
+  // opacity and never do.
+
+  /// Things moving into place: a card opening, a page settling.
+  static final SpringDescription spatialDefault =
+      SpringDescription.withDampingRatio(mass: 1, stiffness: 380, ratio: 0.8);
+
+  /// Small, quick, visibly bouncy moves: a card taking a landing, a neighbour
+  /// jostled by it.
+  static final SpringDescription spatialFast =
+      SpringDescription.withDampingRatio(mass: 1, stiffness: 800, ratio: 0.6);
+
+  /// Large, slow moves.
+  static final SpringDescription spatialSlow =
+      SpringDescription.withDampingRatio(mass: 1, stiffness: 200, ratio: 0.8);
+
+  /// Colour and opacity, without overshoot.
+  static final SpringDescription effectsDefault =
+      SpringDescription.withDampingRatio(mass: 1, stiffness: 1600, ratio: 1);
 }

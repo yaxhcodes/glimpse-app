@@ -1158,6 +1158,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String openSourcePage(Object source) {
+    return '$sourceの保存をすべて見る';
+  }
+
+  @override
   String get summary => '要約';
 
   @override

@@ -362,6 +362,7 @@
   "deleteAccountFreeWarning": "Isso remove os metadados da sua conta do Glimpse. Sua biblioteca no dispositivo não é enviada ao Supabase.",
   "details": "Detalhes",
   "openInSource": "Abrir no {source}",
+  "openSourcePage": "Ver tudo o que salvou do {source}",
   "summary": "Resumo",
   "inBrief": "Em resumo",
   "fullExplanation": "Explicação completa",
