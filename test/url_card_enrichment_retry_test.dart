@@ -30,10 +30,7 @@ Widget _app({required bool hasAiSaveAccess}) {
     overrides: [aiSaveAvailableProvider.overrideWithValue(hasAiSaveAccess)],
     child: MaterialApp(
       home: Scaffold(
-        body: UrlCard(
-          savedUrl: _metadataOnlyUrl(),
-          tagFrequency: const {},
-        ),
+        body: UrlCard(savedUrl: _metadataOnlyUrl(), tagFrequency: const {}),
       ),
     ),
   );
@@ -43,9 +40,7 @@ void main() {
   testWidgets('Cards track a retry started from Details until it finishes', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _app(hasAiSaveAccess: true),
-    );
+    await tester.pumpWidget(_app(hasAiSaveAccess: true));
     final container = ProviderScope.containerOf(
       tester.element(find.byType(UrlCard)),
     );
@@ -54,7 +49,16 @@ void main() {
     await tester.pump();
     expect(find.byType(ExpressiveLoadingIndicator), findsOneWidget);
     expect(find.text('Trying that step again'), findsOneWidget);
-    expect(find.text('Trying this processing step again'), findsOneWidget);
+    // The detail is announced, not printed: one status line per card.
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Semantics &&
+            w.properties.label == 'Trying this processing step again',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Trying this processing step again'), findsNothing);
     expect(find.byType(EnrichmentRetryButton), findsNothing);
     container.read(retryingUrlIdsProvider.notifier).state = {};
     await tester.pump();
@@ -65,9 +69,7 @@ void main() {
   testWidgets('Plain saves stay quiet even when AI access returns', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _app(hasAiSaveAccess: true),
-    );
+    await tester.pumpWidget(_app(hasAiSaveAccess: true));
     expect(find.byType(EnrichmentRetryButton), findsNothing);
     // Unread state is a dot now, not the word.
     expect(find.text('Unread'), findsNothing);

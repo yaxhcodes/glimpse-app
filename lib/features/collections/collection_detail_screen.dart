@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -120,6 +121,7 @@ class _CollectionDetailScreenState
                   ),
                   PopupMenuButton<String>(
                     icon: const Icon(AppIcons.more),
+                    tooltip: context.l10n.more,
                     onSelected: (value) async {
                       switch (value) {
                         case 'delete':
@@ -131,13 +133,11 @@ class _CollectionDetailScreenState
                       }
                     },
                     itemBuilder: (context) => [
-                      PopupMenuItem(
+                      appMenuItem(
                         value: 'delete',
-                        child: ListTile(
-                          leading: const AppIcon(AppIcons.clearData),
-                          title: Text(context.l10n.deleteCollection),
-                          contentPadding: EdgeInsets.zero,
-                        ),
+                        icon: AppIcons.clearData,
+                        label: context.l10n.deleteCollection,
+                        destructive: true,
                       ),
                     ],
                   ),

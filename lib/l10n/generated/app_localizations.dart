@@ -1012,6 +1012,18 @@ abstract class AppLocalizations {
   /// **'Choose collection'**
   String get chooseCollection;
 
+  /// No description provided for @searchCollections.
+  ///
+  /// In en, this message translates to:
+  /// **'Search collections'**
+  String get searchCollections;
+
+  /// No description provided for @noCollectionsMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No collections match'**
+  String get noCollectionsMatch;
+
   /// No description provided for @chooseACollection.
   ///
   /// In en, this message translates to:
@@ -1150,6 +1162,12 @@ abstract class AppLocalizations {
   /// **'Dismiss Rediscover tip'**
   String get dismissRediscoverTip;
 
+  /// No description provided for @gotIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get gotIt;
+
   /// No description provided for @pinned.
   ///
   /// In en, this message translates to:
@@ -1201,7 +1219,7 @@ abstract class AppLocalizations {
   /// No description provided for @processingSavedHeadline.
   ///
   /// In en, this message translates to:
-  /// **'Saved to your library'**
+  /// **'Getting it ready'**
   String get processingSavedHeadline;
 
   /// No description provided for @processingSavedDetail.
@@ -1305,6 +1323,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your save is safe. Try processing again'**
   String get processingFailedDetail;
+
+  /// No description provided for @processingFailedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t finish'**
+  String get processingFailedShort;
 
   /// No description provided for @processingDefaultHeadline.
   ///
@@ -1753,13 +1777,13 @@ abstract class AppLocalizations {
   /// No description provided for @waitingCount.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 waiting} other{{count} waiting}}'**
+  /// **'{count, plural, =1{1 unopened} other{{count} unopened}}'**
   String waitingCount(num count);
 
   /// No description provided for @backInView.
   ///
   /// In en, this message translates to:
-  /// **'Back in view'**
+  /// **'You\'re saving this again'**
   String get backInView;
 
   /// No description provided for @couldNotLoadSource.
@@ -2253,6 +2277,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open in {source}'**
   String openInSource(Object source);
+
+  /// No description provided for @openSourcePage.
+  ///
+  /// In en, this message translates to:
+  /// **'See all saves from {source}'**
+  String openSourcePage(Object source);
 
   /// No description provided for @summary.
   ///

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -455,58 +456,21 @@ class _LibraryOptionsMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        PopupMenuItem(
+        appMenuItem(
           value: _LibraryMenuAction.filters,
-          padding: EdgeInsets.zero,
-          child: _LibraryMenuRow(
-            icon: AppIcons.adjust,
-            label: context.l10n.filters,
-            selected: activeFilterCount > 0,
-          ),
+          icon: AppIcons.adjust,
+          label: context.l10n.filters,
+          selected: activeFilterCount > 0,
         ),
-        const PopupMenuDivider(),
+        appMenuDivider,
         for (final option in LibrarySortOrder.values)
-          PopupMenuItem(
+          appMenuItem(
             value: _menuActionForSortOrder(option),
-            padding: EdgeInsets.zero,
-            child: _LibraryMenuRow(
-              icon: option.icon,
-              label: _localizedSortOrder(context, option),
-              selected: option == sortOrder,
-            ),
+            icon: option.icon,
+            label: _localizedSortOrder(context, option),
+            selected: option == sortOrder,
           ),
       ],
-    );
-  }
-}
-
-class _LibraryMenuRow extends StatelessWidget {
-  const _LibraryMenuRow({
-    required this.icon,
-    required this.label,
-    required this.selected,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          AppIcon(icon, size: 20, color: cs.onSurfaceVariant),
-          const SizedBox(width: 10),
-          Expanded(child: Text(label)),
-          if (selected) ...[
-            const SizedBox(width: 12),
-            Icon(AppIcons.check, size: 20, color: cs.primary),
-          ],
-        ],
-      ),
     );
   }
 }

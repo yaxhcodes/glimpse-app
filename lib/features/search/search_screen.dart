@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../mindmap/interest_clusters_provider.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/models/user_collection.dart';
+import '../../core/services/app_haptics.dart';
 import '../../core/models/engagement_event.dart';
 import '../../core/providers/bulk_selection_provider.dart';
 import '../../core/providers/service_providers.dart';
@@ -17,7 +18,9 @@ import '../../shared/theme/app_icons.dart';
 import '../../shared/widgets/premium_design_system.dart';
 import '../../shared/widgets/swipeable_url_card.dart';
 import '../../shared/widgets/upgrade_gate.dart';
+import '../collections/collection_visual.dart';
 import '../collections/collections_provider.dart';
+import '../collections/share_capture_sheet.dart';
 import 'search_provider.dart';
 import '../../l10n/l10n.dart';
 
@@ -164,17 +167,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _searchFocus.requestFocus();
       });
     }
-  }
-
-  List<String> _interestSuggestions() {
-    final themes = ref.watch(interestClusterThemesProvider).valueOrNull;
-    if (themes == null) return const [];
-    final sorted = [...themes]
-      ..sort((a, b) => b.urls.length.compareTo(a.urls.length));
-    return [
-      for (final theme in sorted.take(6))
-        if (theme.label.trim().isNotEmpty) theme.label.trim(),
-    ];
   }
 
   void _runQuery(String query) {
@@ -499,28 +491,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            // Something to tap instead of a blank page: the
-                            // interests this library already has.
-                            if (_interestSuggestions() case final labels
-                                when labels.isNotEmpty) ...[
-                              const SizedBox(height: 22),
-                              Wrap(
-                                alignment: WrapAlignment.center,
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final label in labels)
-                                    ActionChip(
-                                      label: Text(label),
-                                      side: BorderSide(
-                                        color: colorScheme.outlineVariant,
-                                      ),
-                                      backgroundColor: Colors.transparent,
-                                      onPressed: () => _runQuery(label),
-                                    ),
-                                ],
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -824,7 +794,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 20),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 16),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -834,7 +804,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
               children: [
                 Text(
                   context.l10n.filters,
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -846,10 +816,9 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
             _FilterSection(
               title: context.l10n.time,
-              child: _ChoiceWrap<DateFilter>(
+              child: _ChoicePills<DateFilter>(
                 values: DateFilter.values,
                 selected: _draft.date,
                 labelFor: (value) => _dateFilterLabel(context, value),
@@ -859,7 +828,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
             ),
             _FilterSection(
               title: context.l10n.status,
-              child: _ChoiceWrap<SearchStatusFilter>(
+              child: _ChoicePills<SearchStatusFilter>(
                 values: SearchStatusFilter.values,
                 selected: _draft.status,
                 labelFor: (value) => _statusFilterLabel(context, value),
@@ -869,7 +838,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
             ),
             _FilterSection(
               title: context.l10n.notes,
-              child: _ChoiceWrap<SearchNotesFilter>(
+              child: _ChoicePills<SearchNotesFilter>(
                 values: SearchNotesFilter.values,
                 selected: _draft.notes,
                 labelFor: (value) => _notesFilterLabel(context, value),
@@ -882,7 +851,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _ChoiceWrap<SearchCollectionFilterMode>(
+                  _ChoicePills<SearchCollectionFilterMode>(
                     values: widget.collections.isEmpty
                         ? SearchCollectionFilterMode.values
                               .where(
@@ -915,26 +884,18 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                           SearchCollectionFilterMode.specific &&
                       widget.collections.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    DropdownButtonFormField<int>(
-                      icon: const Icon(AppIcons.chevronDown),
-                      initialValue:
-                          _draft.collectionId ??
-                          widget.collections.first.collection.id,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.collection,
-                        border: const OutlineInputBorder(),
-                      ),
-                      items: [
-                        for (final summary in widget.collections)
-                          DropdownMenuItem(
-                            value: summary.collection.id,
-                            child: Text(summary.collection.name),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
+                    _CollectionPickerTile(
+                      collection: widget.collections
+                          .map((summary) => summary.collection)
+                          .where((c) => c.id == _draft.collectionId)
+                          .firstOrNull,
+                      onTap: () async {
+                        AppHaptics.play(AppHaptics.tick);
+                        final picked = await showCollectionPickerSheet(context);
+                        if (picked == null || !mounted) return;
                         setState(
-                          () => _draft = _draft.copyWith(collectionId: value),
+                          () =>
+                              _draft = _draft.copyWith(collectionId: picked.id),
                         );
                       },
                     ),
@@ -944,7 +905,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
             ),
             _FilterSection(
               title: context.l10n.sort,
-              child: _ChoiceWrap<SearchSortMode>(
+              child: _ChoicePills<SearchSortMode>(
                 values: SearchSortMode.values,
                 selected: _draft.sort,
                 labelFor: (value) => _sortLabel(context, value),
@@ -952,7 +913,7 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                     setState(() => _draft = _draft.copyWith(sort: value)),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -977,17 +938,18 @@ class _FilterSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           child,
         ],
       ),
@@ -995,8 +957,9 @@ class _FilterSection extends StatelessWidget {
   }
 }
 
-class _ChoiceWrap<T> extends StatelessWidget {
-  const _ChoiceWrap({
+/// A single-choice set as compact pills that hug their labels and wrap.
+class _ChoicePills<T> extends StatelessWidget {
+  const _ChoicePills({
     required this.values,
     required this.selected,
     required this.labelFor,
@@ -1011,16 +974,160 @@ class _ChoiceWrap<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 6,
+      runSpacing: 6,
       children: [
         for (final value in values)
-          ChoiceChip(
-            label: Text(labelFor(value)),
+          _ChoiceCell(
+            label: labelFor(value),
             selected: value == selected,
-            onSelected: (_) => onSelected(value),
+            onTap: () {
+              if (value == selected) return;
+              AppHaptics.play(AppHaptics.tick);
+              onSelected(value);
+            },
           ),
       ],
+    );
+  }
+}
+
+/// An unchosen cell against the sheet (surfaceContainerHighest): lighter in
+/// light theme, a softly inset well in dark, where nothing sits above it.
+Color _choiceIdleFill(ThemeData theme) => theme.brightness == Brightness.dark
+    ? theme.colorScheme.surfaceContainer
+    : theme.colorScheme.surface;
+
+class _ChoiceCell extends StatelessWidget {
+  const _ChoiceCell({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    // The sheet is surfaceContainerHighest, which in dark already matches
+    // secondaryContainer: there the chosen cell takes a primary tint.
+    final dark = theme.brightness == Brightness.dark;
+    final fill = selected
+        ? (dark
+              ? Color.alphaBlend(
+                  cs.primary.withValues(alpha: 0.24),
+                  cs.surfaceContainerHighest,
+                )
+              : cs.secondaryContainer)
+        : _choiceIdleFill(theme);
+    final foreground = selected && !dark
+        ? cs.onSecondaryContainer
+        : cs.onSurface;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: fill,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 36),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOutCubic,
+                    child: selected
+                        ? Padding(
+                            padding: const EdgeInsetsDirectional.only(end: 5),
+                            child: Icon(
+                              AppIcons.check,
+                              size: 14,
+                              color: foreground,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: foreground,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The chosen collection for the "Specific collection" filter; opens the
+/// same searchable picker used when saving.
+class _CollectionPickerTile extends StatelessWidget {
+  const _CollectionPickerTile({required this.collection, required this.onTap});
+
+  final UserCollection? collection;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final chosen = collection;
+    return Material(
+      color: _choiceIdleFill(theme),
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 4, 14, 4),
+          child: Row(
+            children: [
+              if (chosen != null)
+                CollectionVisual(
+                  style: resolveCollectionVisual(chosen),
+                  size: 28,
+                  iconSize: 14,
+                )
+              else
+                Icon(AppIcons.folder, size: 20, color: cs.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  chosen?.name ?? context.l10n.chooseCollection,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(AppIcons.chevronDown, size: 18, color: cs.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

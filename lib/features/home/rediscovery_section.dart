@@ -6,11 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/dev_simulation_providers.dart';
+import '../../core/services/app_haptics.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/theme/app_icons.dart';
+import '../../shared/widgets/card_open_transition.dart';
+import '../url_detail/url_detail_provider.dart' show UrlDetailSeed;
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../rediscover/journey_visual.dart';
+import 'home_section_header.dart';
 import '../rediscover/rediscover_journey_provider.dart';
 import '../rediscover/rediscover_memory.dart';
 
@@ -54,9 +58,13 @@ class RediscoverySection extends ConsumerWidget {
         pending && memories.isEmpty && (availability?.valueOrNull ?? false);
     final showGlimpsesEntry = memories.isEmpty && !showSkeleton;
 
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final seenTip = ref.watch(hasSeenRediscoverTipProvider);
+    final showTip =
+        !ref.watch(hasSeenRediscoverTipProvider) && memories.isNotEmpty;
+    // Opening Rediscover is as good as reading the tip.
+    void markTipSeen() {
+      if (showTip) ref.read(hasSeenRediscoverTipProvider.notifier).set(true);
+    }
+
     final size = MediaQuery.sizeOf(context);
     final isTablet = size.width > 600;
     // Keep the next card visible, while reserving height for enlarged text.
@@ -75,67 +83,24 @@ class RediscoverySection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!seenTip && memories.isNotEmpty)
-            _RediscoverTip(
-              onDismiss: () =>
-                  ref.read(hasSeenRediscoverTipProvider.notifier).set(true),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
-            child: InkWell(
-              // Without Rediscover cards the header is "Your Glimpses": go
-              // straight there rather than to an empty Rediscover page.
-              onTap: () => context.push(
+          HomeSectionHeader(
+            title: showGlimpsesEntry
+                ? context.l10n.glimpsesTitle
+                : context.l10n.rediscover,
+            subtitle: showGlimpsesEntry
+                ? null
+                : context.l10n.rediscoverSubtitle,
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+            // Without Rediscover cards the header is "Your Glimpses": go
+            // straight there rather than to an empty Rediscover page.
+            onTap: () {
+              markTipSeen();
+              context.push(
                 showGlimpsesEntry ? '/glimpses/history' : '/rediscover',
-              ),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  vertical: showGlimpsesEntry ? 12 : 4,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            showGlimpsesEntry
-                                ? context.l10n.glimpsesTitle
-                                : context.l10n.rediscover,
-                            // Same weight as "Your saves": section headers
-                            // share one voice.
-                            style: tt.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: cs.onSurface,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                          if (!showGlimpsesEntry) ...[
-                            const SizedBox(height: 1),
-                            Text(
-                              context.l10n.rediscoverSubtitle,
-                              style: tt.labelSmall?.copyWith(
-                                fontSize: 10,
-                                color: cs.onSurfaceVariant,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      AppIcons.chevronRight,
-                      size: 20,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-              ),
-            ),
+              );
+            },
           ),
+          if (showTip) _RediscoverTip(onDismiss: markTipSeen),
           if (previewCount > 0 || showSkeleton)
             SizedBox(
               height: cardHeight + 8,
@@ -150,46 +115,64 @@ class RediscoverySection extends ConsumerWidget {
                     : Padding(
                         key: const ValueKey('rediscover-journey-carousel'),
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: CarouselView(
-                          itemExtent: cardWidth + 12,
-                          shrinkExtent: 0,
-                          itemSnapping: true,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 4,
-                          ),
-                          backgroundColor: Colors.transparent,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          itemClipBehavior: Clip.antiAlias,
-                          onTap: (i) {
-                            final memory = memories[i];
-                            openGlimpse(
-                              context,
-                              memory.id,
-                              memory.journey.items
-                                  .map((item) => item.url.id)
-                                  .toList(),
-                            );
-                          },
-                          children: [
-                            for (var i = 0; i < previewCount; i++)
-                              ClipRect(
-                                child: OverflowBox(
-                                  alignment: AlignmentDirectional.centerStart,
-                                  minWidth: cardWidth,
-                                  maxWidth: cardWidth,
-                                  child: ExpressiveTapScale(
-                                    child: _RediscoverJourneyCard(
-                                      memory: memories[i],
-                                      height: 224,
+                        // The carousel's tap layer covers the cards, so tell
+                        // them where the finger went down: a single save
+                        // then opens out of its card.
+                        child: Listener(
+                          behavior: HitTestBehavior.translucent,
+                          onPointerDown: (event) =>
+                              CardOpenOrigin.notePress(event.position),
+                          child: CarouselView(
+                            itemExtent: cardWidth + 12,
+                            shrinkExtent: 0,
+                            itemSnapping: true,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            itemClipBehavior: Clip.antiAlias,
+                            onTap: (i) {
+                              markTipSeen();
+                              final memory = memories[i];
+                              // A single save opens its Details: hand over
+                              // the save so its first frame isn't a spinner.
+                              final saves = {
+                                for (final item in memory.journey.items)
+                                  item.url.id: item.url,
+                              };
+                              if (saves.length == 1) {
+                                UrlDetailSeed.offer(saves.values.single);
+                              }
+                              openGlimpse(
+                                context,
+                                memory.id,
+                                memory.journey.items
+                                    .map((item) => item.url.id)
+                                    .toList(),
+                              );
+                            },
+                            children: [
+                              for (var i = 0; i < previewCount; i++)
+                                ClipRect(
+                                  child: OverflowBox(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    minWidth: cardWidth,
+                                    maxWidth: cardWidth,
+                                    child: ExpressiveTapScale(
+                                      child: _RediscoverJourneyCard(
+                                        memory: memories[i],
+                                        height: 224,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
               ),
@@ -240,6 +223,9 @@ class _RediscoverJourneySkeleton extends StatelessWidget {
 }
 
 /// One-time explainer shown the first time the Rediscover row appears.
+/// First-run note under the Rediscover header: what the cards below are.
+/// A quiet tonal surface in the section's own voice, not an alert; it goes
+/// away on "Got it" or as soon as a card or the page is opened.
 class _RediscoverTip extends StatelessWidget {
   const _RediscoverTip({required this.onDismiss});
 
@@ -250,28 +236,50 @@ class _RediscoverTip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 6, 10),
       decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
+        color: cs.secondaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          AppIcon(AppIcons.rediscover, size: 18, color: cs.primary),
-          const SizedBox(width: 10),
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: cs.surface.withValues(alpha: 0.7),
+              shape: BoxShape.circle,
+            ),
+            child: AppIcon(
+              AppIcons.rediscover,
+              size: 16,
+              color: cs.onSecondaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               context.l10n.rediscoverTip,
-              style: tt.bodySmall?.copyWith(color: cs.onSurface, height: 1.3),
+              style: tt.bodyMedium?.copyWith(
+                color: cs.onSecondaryContainer,
+                height: 1.3,
+              ),
             ),
           ),
-          const SizedBox(width: 6),
-          IconButton(
-            onPressed: onDismiss,
-            tooltip: context.l10n.dismissRediscoverTip,
-            icon: Icon(AppIcons.close, size: 16, color: cs.onSurfaceVariant),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: () {
+              AppHaptics.play(AppHaptics.tick);
+              onDismiss();
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: cs.onSecondaryContainer,
+              visualDensity: VisualDensity.compact,
+              textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            child: Text(context.l10n.gotIt),
           ),
         ],
       ),
@@ -293,6 +301,8 @@ class _RediscoverJourneyCard extends StatelessWidget {
       supportingText: memory.homeCopy.subtitle,
       metadata: _metadataLine(context, memory),
       height: height,
+      // Flies into the same card at the top of the Glimpse it opens.
+      heroTag: rediscoverCardHeroTag(memory.id),
     );
   }
 

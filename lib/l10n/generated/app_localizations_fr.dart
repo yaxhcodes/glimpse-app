@@ -512,6 +512,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chooseCollection => 'Choisir une collection';
 
   @override
+  String get searchCollections => 'Rechercher des collections';
+
+  @override
+  String get noCollectionsMatch => 'Aucune collection ne correspond';
+
+  @override
   String get chooseACollection => 'Choisissez une collection';
 
   @override
@@ -597,6 +603,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get dismissRediscoverTip => 'Fermer l’astuce Redécouvrir';
 
   @override
+  String get gotIt => 'Compris';
+
+  @override
   String get pinned => 'Épinglés';
 
   @override
@@ -627,7 +636,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get processing => 'Traitement';
 
   @override
-  String get processingSavedHeadline => 'Enregistré dans votre bibliothèque';
+  String get processingSavedHeadline => 'Préparation en cours';
 
   @override
   String get processingSavedDetail => 'Préparation de votre enregistrement';
@@ -685,6 +694,9 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get processingFailedDetail =>
       'Votre enregistrement est sûr. Réessayez';
+
+  @override
+  String get processingFailedShort => 'Inachevé';
 
   @override
   String get processingDefaultHeadline => 'Analyse de cet enregistrement';
@@ -938,14 +950,14 @@ class AppLocalizationsFr extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count en attente',
-      one: '1 en attente',
+      other: '$count non ouverts',
+      one: '1 non ouvert',
     );
     return '$_temp0';
   }
 
   @override
-  String get backInView => 'De retour';
+  String get backInView => 'Vous y revenez';
 
   @override
   String get couldNotLoadSource => 'Impossible de charger cette source';
@@ -1224,6 +1236,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String openInSource(Object source) {
     return 'Ouvrir dans $source';
+  }
+
+  @override
+  String openSourcePage(Object source) {
+    return 'Voir tout ce qui vient de $source';
   }
 
   @override

@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -45,6 +46,8 @@ import '../../shared/widgets/content_recommendation_section.dart';
 import '../../shared/widgets/creator_profile_link.dart';
 import '../../shared/widgets/enrichment_retry_button.dart';
 import '../../shared/widgets/loading_indicator.dart';
+import '../../shared/widgets/image_decode_size.dart';
+import '../../shared/widgets/url_card.dart' show UrlCard;
 import '../../shared/widgets/lightweight_markdown_text.dart';
 import '../../shared/theme/topic_visual.dart';
 import '../../shared/widgets/music_actions.dart';
@@ -70,16 +73,22 @@ import 'notable_item_card.dart';
 import 'notable_term_grid.dart';
 import 'reader_selectable_text.dart';
 import 'reader_enrichment_progress.dart';
+import 'reader_enrichment_reveal.dart';
 import 'reader_ask_actions.dart';
 import 'reader_itinerary_section.dart';
 import 'reader_visual_blocks.dart';
 import 'source_saved_metadata_row.dart';
 import 'url_detail_provider.dart';
+import '../../shared/widgets/card_open_transition.dart';
 import '../../l10n/l10n.dart';
 import '../../core/services/app_haptics.dart';
 
 part 'url_detail_pager.dart';
 part 'recipe_cooking_mode.dart';
+
+/// The hero a Details image shares with the full-screen gallery.
+String urlDetailImageHeroTag(int urlId, [int slide = 0]) =>
+    'detail-image-$urlId-slide-$slide';
 
 class UrlDetailScreen extends ConsumerStatefulWidget {
   final int urlId;
@@ -238,13 +247,16 @@ class _SavedAskNoteCardState extends State<_SavedAskNoteCard> {
                             }
                           },
                           itemBuilder: (context) => [
-                            PopupMenuItem(
+                            appMenuItem(
                               value: _AskNoteAction.copy,
-                              child: Text(context.l10n.copyAnswer),
+                              icon: AppIcons.copy,
+                              label: context.l10n.copyAnswer,
                             ),
-                            PopupMenuItem(
+                            appMenuItem(
                               value: _AskNoteAction.delete,
-                              child: Text(context.l10n.delete),
+                              icon: AppIcons.clearData,
+                              label: context.l10n.delete,
+                              destructive: true,
                             ),
                           ],
                           icon: Icon(
@@ -367,7 +379,8 @@ class _NoteSuggestionChip extends StatelessWidget {
   }
 }
 
-class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
+class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
+    with TickerProviderStateMixin {
   late TextEditingController _notesController;
   final ScrollController _scrollController = ScrollController();
   final PageController _mediaPageController = PageController();
@@ -397,6 +410,30 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
   bool? _hadNoteWhenOpened;
   bool _noteOutcomeRecorded = false;
 
+  /// Drives the reveal of content that enrichment brought in while the
+  /// reader was already on the page. Rests at 1 (everything shown).
+  late final AnimationController _revealController;
+
+  /// This page was seen waiting on its first enrichment.
+  bool _awaitingEnrichment = false;
+
+  /// New content is in the tree but not yet revealed: held hidden until the
+  /// next frame starts the reveal (or, in the pager, until this page is the
+  /// one showing).
+  bool _revealArmed = false;
+  int _revealBlockCount = 1;
+
+  /// Whether the page has finished opening. The whole page is built up
+  /// front — the card-open transition holds still through that first build
+  /// and paint — but the background repair of truncated content (a database
+  /// write, then a rebuild) waits for the open to finish.
+  bool _routeSettled = true;
+  bool _routeChecked = false;
+  Animation<double>? _routeAnimation;
+
+  String? _decodedEnrichmentJson;
+  TranscriptEnrichmentResult? _decodedEnrichment;
+
   @override
   void didUpdateWidget(covariant UrlDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -418,6 +455,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       if (_mediaPageController.hasClients) {
         _mediaPageController.jumpToPage(0);
       }
+      _awaitingEnrichment = false;
+      _revealArmed = false;
+      _revealController.value = 1;
+    } else if (!oldWidget.isActive && widget.isActive && _revealArmed) {
+      _scheduleReveal();
     }
   }
 
@@ -426,14 +468,47 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     super.initState();
     _notesController = TextEditingController();
     _notesFocusNode.addListener(_handleNotesFocusChange);
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final repaired = await ref
-          .read(urlDetailNotifierProvider.notifier)
-          .refreshContentIfLikelyTruncated(widget.urlId);
-      if (repaired && mounted) {
-        ref.invalidate(urlDetailProvider(widget.urlId));
-      }
+    _revealController = AnimationController(vsync: this, value: 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Opening pages repair once they have settled (see _handleRouteStatus).
+      if (_routeSettled) _repairIfTruncated();
     });
+  }
+
+  Future<void> _repairIfTruncated() async {
+    final repaired = await ref
+        .read(urlDetailNotifierProvider.notifier)
+        .refreshContentIfLikelyTruncated(widget.urlId);
+    if (repaired && mounted) {
+      ref.invalidate(urlDetailProvider(widget.urlId));
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeChecked) return;
+    _routeChecked = true;
+    // Found through the route's settings, which never change, so the page
+    // doesn't rebuild whenever the route's status does (a close, a swipe).
+    final route = CardOpenPage.routeOf(ModalRoute.settingsOf(context));
+    final animation = route?.animation;
+    // A push's first frame is offstage (heroes measure it), and meanwhile the
+    // route's animation reads as complete; it is still opening.
+    if (animation != null &&
+        (route!.offstage || animation.status == AnimationStatus.forward)) {
+      _routeSettled = false;
+      _routeAnimation = animation..addStatusListener(_handleRouteStatus);
+    }
+  }
+
+  void _handleRouteStatus(AnimationStatus status) {
+    if (status.isAnimating) return;
+    _routeAnimation?.removeStatusListener(_handleRouteStatus);
+    _routeAnimation = null;
+    if (!mounted || _routeSettled) return;
+    _routeSettled = true;
+    unawaited(_repairIfTruncated());
   }
 
   @override
@@ -449,7 +524,72 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     _notesController.dispose();
     _mediaPageController.dispose();
     _scrollController.dispose();
+    _revealController.dispose();
+    _routeAnimation?.removeStatusListener(_handleRouteStatus);
     super.dispose();
+  }
+
+  /// Notes, from build, whether enrichment just finished under the reader's
+  /// eyes, and if so holds the new content back for a reveal.
+  void _trackEnrichmentArrival({
+    required bool enriching,
+    required bool hasEnrichment,
+  }) {
+    if (enriching) {
+      if (!hasEnrichment) _awaitingEnrichment = true;
+      return;
+    }
+    if (!_awaitingEnrichment) return;
+    _awaitingEnrichment = false;
+    if (!hasEnrichment || MediaQuery.disableAnimationsOf(context)) return;
+    _revealArmed = true;
+    if (widget.isActive) _scheduleReveal();
+  }
+
+  void _scheduleReveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_revealArmed) return;
+      AppHaptics.play(AppHaptics.success);
+      _revealController
+        ..duration = enrichmentRevealDuration(_revealBlockCount)
+        ..value = 0;
+      setState(() => _revealArmed = false);
+      _revealController.forward();
+    });
+  }
+
+  Animation<double> get _revealAnimation =>
+      _revealArmed ? kAlwaysDismissedAnimation : _revealController;
+
+  /// Wraps each block, with the spacing above it, so blocks arrive in turn
+  /// and no gap opens before its content.
+  List<Widget> _revealInTurn(List<Widget> children) {
+    final blocks = children.where((child) => child is! SizedBox).length;
+    _revealBlockCount = blocks < 1 ? 1 : blocks;
+    final out = <Widget>[];
+    final spacing = <Widget>[];
+    for (final child in children) {
+      if (child is SizedBox) {
+        spacing.add(child);
+        continue;
+      }
+      out.add(
+        EnrichmentReveal(
+          animation: _revealAnimation,
+          order: out.length,
+          blockCount: _revealBlockCount,
+          child: spacing.isEmpty
+              ? child
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [...spacing, child],
+                ),
+        ),
+      );
+      spacing.clear();
+    }
+    return [...out, ...spacing];
   }
 
   void _handleNotesFocusChange() {
@@ -1483,7 +1623,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final url = urlAsync.valueOrNull;
+    final url = urlAsync.valueOrNull ?? UrlDetailSeed.peek(widget.urlId);
     if (url != null) {
       _hadNoteWhenOpened ??= (url.userNotes ?? '').trim().isNotEmpty;
     }
@@ -1512,7 +1652,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   onPressed: () => _showAddToCollection(url),
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(AppIcons.more, size: 26),
+                  icon: const Icon(AppIcons.more),
                   tooltip: context.l10n.more,
                   onSelected: (value) {
                     if (value == 'copy_link') {
@@ -1530,95 +1670,38 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     }
                   },
                   itemBuilder: (context) => [
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'copy_link',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.copy,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.copyLink),
-                        ],
-                      ),
+                      icon: AppIcons.copy,
+                      label: context.l10n.copyLink,
                     ),
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'share',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.share,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.share),
-                        ],
-                      ),
+                      icon: AppIcons.share,
+                      label: context.l10n.share,
                     ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
+                    appMenuDivider,
+                    appMenuItem(
                       value: 'toggle_pin',
-                      child: Row(
-                        children: [
-                          Icon(
-                            isPinned ? AppIcons.pinFilled : AppIcons.pin,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            isPinned ? context.l10n.unpin : context.l10n.pin,
-                          ),
-                        ],
-                      ),
+                      icon: isPinned ? AppIcons.pinFilled : AppIcons.pin,
+                      label: isPinned ? context.l10n.unpin : context.l10n.pin,
                     ),
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'add_tag',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.tag,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.addTag),
-                        ],
-                      ),
+                      icon: AppIcons.tag,
+                      label: context.l10n.addTag,
                     ),
-                    PopupMenuItem(
+                    appMenuItem(
                       value: 'change_category',
-                      child: Row(
-                        children: [
-                          Icon(
-                            AppIcons.category,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(context.l10n.changeCategory),
-                        ],
-                      ),
+                      icon: AppIcons.category,
+                      label: context.l10n.changeCategory,
                     ),
-                    PopupMenuItem(
+                    appMenuDivider,
+                    appMenuItem(
                       value: 'delete',
-                      child: Row(
-                        children: [
-                          AppIcon(
-                            AppIcons.clearData,
-                            size: 20,
-                            color: colorScheme.error,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            context.l10n.delete,
-                            style: TextStyle(color: colorScheme.error),
-                          ),
-                        ],
-                      ),
+                      icon: AppIcons.clearData,
+                      label: context.l10n.delete,
+                      destructive: true,
                     ),
                   ],
                 ),
@@ -1739,6 +1822,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       );
     }
 
+    _trackEnrichmentArrival(
+      enriching: showEnriching,
+      hasEnrichment: live != null,
+    );
+
     return SliverToBoxAdapter(
       child: ReaderSelectionArea(
         child: Center(
@@ -1781,18 +1869,41 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                   const SizedBox(height: 16),
 
                   // ── Hero recognition ────────────────────────────────────────
-                  _buildReaderText(
-                    url: url,
-                    sectionKey: 'title',
-                    isHeading: true,
-                    text: displayTitle,
-                    style: AppTypography.editorial(
-                      theme.textTheme.titleLarge,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                      color: colorScheme.onSurface,
-                      letterSpacing: 0,
+                  // A title that lands with enrichment crossfades in.
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 420),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: Alignment.topLeft,
+                      children: [...previous, ?current],
+                    ),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.08),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey('detail-title-$displayTitle'),
+                      child: _buildReaderText(
+                        url: url,
+                        sectionKey: 'title',
+                        isHeading: true,
+                        text: displayTitle,
+                        style: AppTypography.editorial(
+                          theme.textTheme.titleLarge,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                          color: colorScheme.onSurface,
+                          letterSpacing: 0,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1805,103 +1916,143 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     creatorUsername: creatorUsername,
                   ),
 
-                  if (showFirstSaveProgress) ...[
-                    const SizedBox(height: 16),
-                    const ReaderEnrichmentProgress(),
-                  ] else if (showEnriching || showEnrichmentRetry) ...[
-                    const SizedBox(height: 12),
-                    _buildEnrichmentRetryPanel(
-                      theme,
-                      colorScheme,
-                      failed: url.isProcessingFailed,
-                      enriching: showEnriching,
+                  // The waiting state folds away as the content it promised
+                  // arrives, rather than blinking out.
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 380),
+                    curve: Curves.easeInOutCubicEmphasized,
+                    alignment: Alignment.topCenter,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 240),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      layoutBuilder: (current, previous) => Stack(
+                        alignment: Alignment.topLeft,
+                        children: [...previous, ?current],
+                      ),
+                      child: showFirstSaveProgress
+                          ? const Padding(
+                              key: ValueKey('enrichment-status-progress'),
+                              padding: EdgeInsets.only(top: 16),
+                              child: ReaderEnrichmentProgress(),
+                            )
+                          : showEnriching || showEnrichmentRetry
+                          ? Padding(
+                              key: const ValueKey('enrichment-status-panel'),
+                              padding: const EdgeInsets.only(top: 12),
+                              child: _buildEnrichmentRetryPanel(
+                                theme,
+                                colorScheme,
+                                failed: url.isProcessingFailed,
+                                enriching: showEnriching,
+                              ),
+                            )
+                          : const SizedBox(
+                              key: ValueKey('enrichment-status-none'),
+                              width: double.infinity,
+                            ),
                     ),
-                  ],
+                  ),
 
                   SizedBox(height: creatorUsername != null ? 8 : 14),
                   _buildOpenButton(url, displaySourceName),
 
-                  if (showSummary) ...[
-                    const SizedBox(height: 28),
-                    _buildSummarySection(
-                      url: url,
-                      summary: summaryDisplayText,
-                      theme: theme,
-                      colorScheme: colorScheme,
-                      onAddNote: showSummaryAddNote ? _beginEditingNotes : null,
-                    ),
-                    if (live?.hasPartialMediaEvidence == true) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        context.l10n.readerAudioUnavailable,
-                        key: const ValueKey('reader-audio-unavailable'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.5,
-                        ),
-                      ),
-                    ] else if (live != null &&
-                        live.steps.isEmpty &&
-                        live.contentSections.isEmpty &&
-                        live.mentions.isEmpty &&
-                        live.notableItems.isEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        context.l10n.readerOverviewOnly,
-                        key: const ValueKey('reader-overview-only'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.5,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ],
-
-                  ..._buildEnrichmentSections(
-                    url: url,
-                    live: live,
-                    theme: theme,
-                    colorScheme: colorScheme,
-                  ),
-
-                  if (resourceItems.isNotEmpty) ...[
-                    const SizedBox(height: 28),
-                    _buildResourcesSection(
-                      items: resourceItems,
-                      theme: theme,
-                      colorScheme: colorScheme,
-                    ),
-                  ],
-
-                  if (live != null && !showEnriching) ...[
-                    const SizedBox(height: 28),
-                    if (!DemoSeedService.isDemoUrl(url.rawUrl))
-                      const FirstUseGuide(kind: FirstUseKind.reader),
-                    ReaderAskActions(
-                      onOpen: () => DemoSeedService.isDemoUrl(url.rawUrl)
-                          ? showDialog<void>(
-                              context: context,
-                              builder: (dialog) => AlertDialog(
-                                title: Text(context.l10n.obExample),
-                                content: Text(context.l10n.obAnswer),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(dialog),
-                                    child: Text(context.l10n.obContinue),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : context.push(
-                              '/ask',
-                              extra: AskLaunchRequest(
-                                source: url,
-                                autofocus: true,
+                  // ── What enrichment brings ─────────────────────────────────
+                  // When it lands with the reader already here, each block
+                  // opens up and comes into focus in turn, easing notes and
+                  // tags down. Otherwise it is simply there.
+                  SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _revealInTurn([
+                        if (showSummary) ...[
+                          const SizedBox(height: 28),
+                          _buildSummarySection(
+                            url: url,
+                            summary: summaryDisplayText,
+                            theme: theme,
+                            colorScheme: colorScheme,
+                            onAddNote: showSummaryAddNote
+                                ? _beginEditingNotes
+                                : null,
+                          ),
+                          if (live?.hasPartialMediaEvidence == true) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              context.l10n.readerAudioUnavailable,
+                              key: const ValueKey('reader-audio-unavailable'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.5,
                               ),
                             ),
+                          ] else if (live != null &&
+                              live.steps.isEmpty &&
+                              live.contentSections.isEmpty &&
+                              live.mentions.isEmpty &&
+                              live.notableItems.isEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              context.l10n.readerOverviewOnly,
+                              key: const ValueKey('reader-overview-only'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.5,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ],
+
+                        ..._buildEnrichmentSections(
+                          url: url,
+                          live: live,
+                          theme: theme,
+                          colorScheme: colorScheme,
+                        ),
+
+                        if (resourceItems.isNotEmpty) ...[
+                          const SizedBox(height: 28),
+                          _buildResourcesSection(
+                            items: resourceItems,
+                            theme: theme,
+                            colorScheme: colorScheme,
+                          ),
+                        ],
+
+                        if (live != null && !showEnriching) ...[
+                          const SizedBox(height: 28),
+                          if (!DemoSeedService.isDemoUrl(url.rawUrl))
+                            const FirstUseGuide(kind: FirstUseKind.reader),
+                          ReaderAskActions(
+                            onOpen: () => DemoSeedService.isDemoUrl(url.rawUrl)
+                                ? showDialog<void>(
+                                    context: context,
+                                    builder: (dialog) => AlertDialog(
+                                      title: Text(context.l10n.obExample),
+                                      content: Text(context.l10n.obAnswer),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(dialog),
+                                          child: Text(context.l10n.obContinue),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : context.push(
+                                    '/ask',
+                                    extra: AskLaunchRequest(
+                                      source: url,
+                                      autofocus: true,
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ]),
                     ),
-                  ],
+                  ),
 
                   _buildAnimatedNotesRegion(
                     expanded: !showSummaryAddNote,
@@ -2093,21 +2244,40 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
                     },
                     itemBuilder: (context, index) {
                       final imageUrl = imageUrls[index];
+                      final loading = ColoredBox(
+                        color: TopicVisual.forTopicNames([
+                          ...url.categories,
+                          ...url.tags,
+                        ]).container(colorScheme),
+                      );
                       return Hero(
-                        tag: 'detail-image-${url.id}-slide-$index',
+                        tag: urlDetailImageHeroTag(url.id, index),
                         child: CachedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.cover,
+                          // Decoded at the size it shows, not the source's.
+                          memCacheWidth: _detailImageDecodeWidth(context),
                           fadeInDuration: const Duration(milliseconds: 260),
                           httpHeaders: SavedMediaResolver.imageHttpHeaders(
                             imageUrl,
                           ),
-                          // A tinted surface while it loads, not a black box.
-                          placeholder: (_, _) => ColoredBox(
-                            color: TopicVisual.forTopicNames([
-                              ...url.categories,
-                              ...url.tags,
-                            ]).container(colorScheme),
+                          // The card's thumbnail is already decoded: show it
+                          // (and fly it in) until this sharper one lands. A
+                          // tinted surface only when there is no thumbnail.
+                          placeholder: (_, _) => CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            memCacheHeight: imageDecodeSize(
+                              context,
+                              UrlCard.thumbnailSize,
+                              headroom: 1.3,
+                            ),
+                            fadeInDuration: Duration.zero,
+                            httpHeaders: SavedMediaResolver.imageHttpHeaders(
+                              imageUrl,
+                            ),
+                            placeholder: (_, _) => loading,
+                            errorWidget: (_, _, _) => loading,
                           ),
                           errorWidget: (_, _, _) => _buildMediaPlaceholder(
                             url: url,
@@ -2214,6 +2384,14 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
       ),
     );
   }
+
+  /// The width Details decodes its images at: as wide as they can show.
+  static int _detailImageDecodeWidth(BuildContext context) => imageDecodeSize(
+    context,
+    MediaQuery.sizeOf(
+      context,
+    ).width.clamp(0, AppLayout.maxReaderContentWidth + 48),
+  );
 
   List<String> _detailMediaImages(
     SavedUrl url,
@@ -2815,10 +2993,34 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
               username: creatorUsername,
               platform: displaySourceName,
             ),
+      onSourceTap: DemoSeedService.isDemoUrl(url.rawUrl)
+          ? null
+          : () => _openSourcePage(displaySourceName),
       onSavedLabelTap: () {
         setState(() => _showExactSavedDate = !_showExactSavedDate);
       },
     );
+  }
+
+  /// The byline's source opens its page in Sources. Arriving from that very
+  /// page, going back to it beats stacking a second copy on top.
+  void _openSourcePage(String sourceName) {
+    final name = sourceName.trim();
+    if (name.isEmpty) return;
+    AppHaptics.play(AppHaptics.tap);
+    final location = '/sources/${Uri.encodeComponent(name)}';
+    final matches = GoRouter.of(
+      context,
+    ).routerDelegate.currentConfiguration.matches;
+    if (matches.length >= 2) {
+      final previous = matches[matches.length - 2].matchedLocation;
+      if (Uri.decodeFull(previous).toLowerCase() ==
+          '/sources/${name.toLowerCase()}') {
+        context.pop();
+        return;
+      }
+    }
+    context.push(location);
   }
 
   List<Widget> _buildEnrichmentSections({
@@ -3070,8 +3272,17 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen> {
     }.contains(item.type.trim().toLowerCase());
   }
 
+  /// Decoded once per distinct JSON: every rebuild of the page (the database
+  /// read replacing the card's copy, a note keystroke) would otherwise
+  /// re-parse the whole enrichment.
   TranscriptEnrichmentResult? _savedEnrichment(SavedUrl url) {
     final raw = url.enrichmentJson;
+    if (raw == _decodedEnrichmentJson) return _decodedEnrichment;
+    _decodedEnrichmentJson = raw;
+    return _decodedEnrichment = _decodeEnrichment(raw);
+  }
+
+  static TranscriptEnrichmentResult? _decodeEnrichment(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);

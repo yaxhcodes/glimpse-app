@@ -32,6 +32,10 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   bool _isDraggingHorizontal = false;
   bool _mediaPointerActive = false;
 
+  /// The route's settings, not the route: [ModalRoute.of] would rebuild
+  /// every page in the pager whenever the route's status changes.
+  RouteSettings? _settings;
+
   // Snap threshold: must drag at least this far to flip pages.
   static const double _snapFraction = 0.3;
 
@@ -40,6 +44,12 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _settings = ModalRoute.settingsOf(context);
   }
 
   @override
@@ -127,6 +137,8 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
         onPageChanged: (index) {
           if (_currentIndex == index) return;
           setState(() => _currentIndex = index);
+          // Closing lands in the card for the save now showing.
+          CardOpenRoute.reportVisibleUrl(_settings, widget.urlIds[index]);
         },
         // Let our GestureDetector drive paging; disable built-in page physics
         // so there's no double-handling and no scroll-axis fight.
@@ -232,6 +244,20 @@ class _ImageViewerScreenState extends State<_ImageViewerScreen> {
                         fit: BoxFit.contain,
                         httpHeaders: SavedMediaResolver.imageHttpHeaders(
                           imageUrl,
+                        ),
+                        // Details' copy is already decoded: fly and show it
+                        // until the full-resolution image is ready.
+                        placeholder: (context, _) => CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          memCacheWidth:
+                              _UrlDetailScreenState._detailImageDecodeWidth(
+                                context,
+                              ),
+                          fadeInDuration: Duration.zero,
+                          httpHeaders: SavedMediaResolver.imageHttpHeaders(
+                            imageUrl,
+                          ),
                         ),
                       ),
                     ),

@@ -16,6 +16,9 @@ class CollectionThumbnailPreview extends StatelessWidget {
   static const _tileSize = 36.0;
   static const _tileOffset = 24.0;
 
+  /// The grid card's fan, in miniature: prints dropped on a desk.
+  static const _angles = [-0.09, 0.07, -0.02];
+
   @override
   Widget build(BuildContext context) {
     final thumbnails = linkCount > 3
@@ -34,17 +37,23 @@ class CollectionThumbnailPreview extends StatelessWidget {
           for (var index = 0; index < thumbnails.length; index++)
             Positioned(
               left: index * _tileOffset,
-              child: _ThumbnailTile(
-                key: ValueKey(
-                  'collection-preview-thumbnail-${thumbnails[index].id}',
+              child: Transform.rotate(
+                angle: _angles[index],
+                child: _ThumbnailTile(
+                  key: ValueKey(
+                    'collection-preview-thumbnail-${thumbnails[index].id}',
+                  ),
+                  url: thumbnails[index],
                 ),
-                url: thumbnails[index],
               ),
             ),
           if (overflowCount > 0)
             Positioned(
               left: thumbnails.length * _tileOffset,
-              child: _OverflowTile(count: overflowCount),
+              child: Transform.rotate(
+                angle: _angles[thumbnails.length],
+                child: _OverflowTile(count: overflowCount),
+              ),
             ),
         ],
       ),
@@ -68,6 +77,13 @@ class _ThumbnailTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(11),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: LinkCardThumbnail.build(
         url: url,
@@ -98,6 +114,13 @@ class _OverflowTile extends StatelessWidget {
         color: cs.secondaryContainer,
         border: Border.all(color: cs.surfaceContainerLow, width: 2),
         borderRadius: BorderRadius.circular(11),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       alignment: Alignment.center,
       child: FittedBox(

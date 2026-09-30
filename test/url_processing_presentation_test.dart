@@ -150,14 +150,23 @@ void main() {
     );
 
     expect(find.text('Reading the reel'), findsOneWidget);
-    expect(find.text('Pulling out the useful details'), findsOneWidget);
+    // One status line: the detail is announced to screen readers only.
+    expect(find.text('Pulling out the useful details'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Semantics &&
+            w.properties.label == 'Pulling out the useful details',
+      ),
+      findsOneWidget,
+    );
     // The byline stays "Instagram · time"; a small spinner marks the work,
     // the same on every list as on Home.
     expect(find.text('Processing'), findsNothing);
     expect(find.byType(ExpressiveLoadingIndicator), findsOneWidget);
     expect(find.textContaining('Enriching Instagram save'), findsNothing);
     expect(find.byType(LinearProgressIndicator), findsNothing);
-    expect(find.byType(Shimmer), findsNWidgets(2));
+    expect(find.byType(Shimmer), findsOneWidget);
     final shimmer = tester.widget<Shimmer>(find.byType(Shimmer).first);
     final gradient = shimmer.gradient as LinearGradient;
     final luminanceDifference =
@@ -187,7 +196,12 @@ void main() {
     await tester.pump();
 
     expect(find.text('リールを読み取っています'), findsOneWidget);
-    expect(find.text('役立つ情報を取り出しています'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Semantics && w.properties.label == '役立つ情報を取り出しています',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Reading the reel'), findsNothing);
     expect(find.text('Pulling out the useful details'), findsNothing);
   });

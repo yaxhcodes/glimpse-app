@@ -29,6 +29,25 @@ final urlDetailProvider = FutureProvider.autoDispose.family<SavedUrl?, int>((
   return isarService.getUrlById(id);
 });
 
+/// The save a card was showing when it was tapped. Details draws its first
+/// frame from it — during the open animation — instead of a spinner that
+/// turns into the whole page a frame or two later, mid-flight. The database
+/// read replaces it as soon as it lands.
+abstract final class UrlDetailSeed {
+  static final _seeds = <int, SavedUrl>{};
+
+  static void offer(SavedUrl url) {
+    _seeds
+      ..remove(url.id)
+      ..[url.id] = url;
+    while (_seeds.length > 8) {
+      _seeds.remove(_seeds.keys.first);
+    }
+  }
+
+  static SavedUrl? peek(int id) => _seeds[id];
+}
+
 /// Explicit retries shared by Home and Details for this app session.
 final retryingUrlIdsProvider = StateProvider<Set<int>>((ref) => const {});
 

@@ -149,6 +149,7 @@ class _GlimpseDetailScreenState extends ConsumerState<GlimpseDetailScreen> {
         metadata: l.saveCount(g.sourceIds.length),
         height: 252,
         hero: true,
+        heroTag: rediscoverCardHeroTag(g.key),
       ),
       const SizedBox(height: 24),
       Text(l.glimpsesWhyToday, style: theme.textTheme.labelLarge),

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../shared/theme/app_typography.dart';
-
 /// The frame Rediscover and Your Glimpses share: a serif page title with a
 /// one-line subtitle that hands its name to the app bar once scrolled away,
 /// pull to refresh, and a single scrolling column of sections.
@@ -88,11 +86,13 @@ class _GlimpsePageFrameState extends State<GlimpsePageFrame> {
                   children: [
                     Text(
                       widget.title,
-                      style: AppTypography.editorial(
-                        tt.headlineLarge,
+                      // Sans, in the Home wordmark's voice: the serif read
+                      // as out of place on these data-led pages.
+                      style: tt.headlineMedium?.copyWith(
                         color: cs.onSurface,
-                        height: 1.1,
-                        letterSpacing: -0.3,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 6),

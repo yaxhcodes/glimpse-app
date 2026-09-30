@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../shared/theme/app_shapes.dart';
 import '../../shared/theme/app_typography.dart';
 import '../../shared/theme/topic_visual.dart';
+import '../../shared/widgets/card_open_transition.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../../shared/widgets/surface_grain.dart';
 import 'rediscover_journey_provider.dart';
@@ -57,6 +58,53 @@ RediscoverArtworkTheme artworkThemeForJourney(
   return _artworkThemeForText(supporting) ?? RediscoverArtworkTheme.general;
 }
 
+/// The hero a Rediscover card shares with the same card at the top of the
+/// Glimpse it opens.
+String rediscoverCardHeroTag(String glimpseKey) => 'glimpse-card-$glimpseKey';
+
+/// The two cards at either end of the flight are laid out differently (the
+/// page's is the larger "hero" variant), so neither is laid out again
+/// mid-flight — text would reflow every frame. Each keeps its own layout,
+/// scaled to the flying rect, and the page's card fades in over the list's.
+Widget _cardFlight(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection direction,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final push = direction == HeroFlightDirection.push;
+  final listContext = push ? fromHeroContext : toHeroContext;
+  final pageContext = push ? toHeroContext : fromHeroContext;
+  Widget frozen(BuildContext heroContext) {
+    final box = heroContext.findRenderObject();
+    final size = box is RenderBox && box.hasSize ? box.size : null;
+    final card = (heroContext.widget as Hero).child;
+    if (size == null || size.isEmpty) return card;
+    return FittedBox(
+      fit: BoxFit.fill,
+      child: SizedBox.fromSize(size: size, child: card),
+    );
+  }
+
+  final listCard = frozen(listContext);
+  final pageCard = frozen(pageContext);
+  return AnimatedBuilder(
+    animation: animation,
+    builder: (context, _) {
+      // 0 is the list's card, 1 the page's, whichever way it flies.
+      final t = ((animation.value - 0.15) / 0.6).clamp(0.0, 1.0);
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Opacity(opacity: 1 - t, child: listCard),
+          Opacity(opacity: t, child: pageCard),
+        ],
+      );
+    },
+  );
+}
+
 class RediscoverArtworkCard extends StatelessWidget {
   const RediscoverArtworkCard({
     super.key,
@@ -70,6 +118,7 @@ class RediscoverArtworkCard extends StatelessWidget {
     this.borderRadius = 24,
     this.hasMenu = false,
     this.fixedHeight,
+    this.heroTag,
   });
 
   final RediscoverJourney journey;
@@ -84,6 +133,14 @@ class RediscoverArtworkCard extends StatelessWidget {
 
   /// Optional shared height for a stack of cards that should align visually.
   final double? fixedHeight;
+
+  /// Makes the card a hero, like the Library's covers: it flies into the
+  /// same card at the top of the page it opens (see [rediscoverCardHeroTag]).
+  final Object? heroTag;
+
+  Widget _heroed(Widget card) => heroTag == null
+      ? card
+      : Hero(tag: heroTag!, flightShuttleBuilder: _cardFlight, child: card);
 
   static double resolvedHeight(
     BuildContext context,
@@ -177,108 +234,116 @@ class RediscoverArtworkCard extends StatelessWidget {
           container: true,
           excludeSemantics: true,
           label: label,
-          child: ExpressiveTapScale(
-            enabled: onTap != null,
-            child: Material(
-              color: surface,
-              borderRadius: BorderRadius.circular(borderRadius),
-              clipBehavior: Clip.antiAlias,
-              child: SurfaceGrain(
-                child: InkWell(
-                  onTap: onTap,
-                  child: SizedBox(
-                    height:
-                        fixedHeight ??
-                        resolvedHeight(context, height, hero: hero) +
-                            (hasMenu ? 24 : 0),
-                    child: Padding(
-                      padding: EdgeInsets.all(
-                        hero
-                            ? 22
-                            : compact
-                            ? 14
-                            : 18,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: stacked
-                                ? Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: Align(
-                                          alignment:
-                                              AlignmentDirectional.centerEnd,
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: RediscoverIllustration(
-                                              artwork: artwork,
-                                              size: imageSize,
+          child: CardOpenOrigin(
+            borderRadius: borderRadius,
+            color: surface,
+            child: ExpressiveTapScale(
+              enabled: onTap != null,
+              child: _heroed(
+                Material(
+                  color: surface,
+                  borderRadius: BorderRadius.circular(borderRadius),
+                  clipBehavior: Clip.antiAlias,
+                  child: SurfaceGrain(
+                    child: InkWell(
+                      onTap: onTap,
+                      child: SizedBox(
+                        height:
+                            fixedHeight ??
+                            resolvedHeight(context, height, hero: hero) +
+                                (hasMenu ? 24 : 0),
+                        child: Padding(
+                          padding: EdgeInsets.all(
+                            hero
+                                ? 22
+                                : compact
+                                ? 14
+                                : 18,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: stacked
+                                    ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Align(
+                                              alignment: AlignmentDirectional
+                                                  .centerEnd,
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: RediscoverIllustration(
+                                                  artwork: artwork,
+                                                  size: imageSize,
+                                                ),
+                                              ),
                                             ),
                                           ),
-                                        ),
+                                          titleWidget,
+                                        ],
+                                      )
+                                    : Row(
+                                        children: [
+                                          Expanded(
+                                            child: Align(
+                                              alignment: AlignmentDirectional
+                                                  .bottomStart,
+                                              child: titleWidget,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          RediscoverIllustration(
+                                            artwork: artwork,
+                                            size: imageSize,
+                                          ),
+                                        ],
                                       ),
-                                      titleWidget,
-                                    ],
-                                  )
-                                : Row(
-                                    children: [
-                                      Expanded(
-                                        child: Align(
-                                          alignment:
-                                              AlignmentDirectional.bottomStart,
-                                          child: titleWidget,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      RediscoverIllustration(
-                                        artwork: artwork,
-                                        size: imageSize,
-                                      ),
-                                    ],
+                              ),
+                              if (supportingText.trim().isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  supportingText,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                    height: 1.3,
                                   ),
-                          ),
-                          if (supportingText.trim().isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              supportingText,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
-                          if (metadata.trim().isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Padding(
-                              padding: EdgeInsetsDirectional.only(
-                                end: hasMenu ? 40 : 0,
-                              ),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: hasMenu ? 40 : 0,
                                 ),
-                                child: Align(
-                                  alignment: AlignmentDirectional.centerStart,
-                                  child: Text(
-                                    metadata,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                      fontSize: 12,
+                              ],
+                              if (metadata.trim().isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Padding(
+                                  padding: EdgeInsetsDirectional.only(
+                                    end: hasMenu ? 40 : 0,
+                                  ),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: hasMenu ? 40 : 0,
+                                    ),
+                                    child: Align(
+                                      alignment:
+                                          AlignmentDirectional.centerStart,
+                                      child: Text(
+                                        metadata,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: cs.onSurfaceVariant,
+                                              fontSize: 12,
+                                            ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ],
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -355,6 +420,11 @@ class RediscoverIllustration extends StatelessWidget {
     );
   }
 }
+
+/// The illustration for a free-text topic (an interest's name and
+/// subtopics), falling back to the general one.
+RediscoverArtworkTheme artworkThemeForText(String text) =>
+    _artworkThemeForText(text.toLowerCase()) ?? RediscoverArtworkTheme.general;
 
 RediscoverArtworkTheme? _artworkThemeForText(String text) {
   bool has(List<String> words) => words.any((word) {

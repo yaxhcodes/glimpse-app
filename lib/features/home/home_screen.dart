@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,6 +38,7 @@ import '../add_url/add_url_provider.dart';
 import '../shell/shell_chrome_provider.dart';
 import '../sources/sources_provider.dart';
 import 'home_provider.dart';
+import 'home_section_header.dart';
 import 'rediscovery_section.dart';
 import 'save_date_group.dart';
 import 'guide_card.dart';
@@ -852,50 +854,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => context.push('/sources'),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 4,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            context.l10n.sources,
-                                            style: theme.textTheme.labelMedium
-                                                ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () => context.push('/sources'),
-                                  tooltip: context.l10n.viewAllSources,
-                                  alignment: Alignment.centerRight,
-                                  padding: EdgeInsets.zero,
-                                  icon: Icon(
-                                    AppIcons.chevronRight,
-                                    size: 20,
-                                    color: theme.colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.48),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          HomeSectionHeader(
+                            title: context.l10n.sources,
+                            tooltip: context.l10n.viewAllSources,
+                            padding: const EdgeInsets.fromLTRB(16, 16, 8, 6),
+                            onTap: () => context.push('/sources'),
                           ),
                           SizedBox(
                             height: 34,
@@ -930,7 +893,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     faviconUrl: fav,
                                     size: 16,
                                   ),
-                                  label: Text(name),
+                                  // "X" beside the X logo reads twice; a
+                                  // one-letter name is its logo.
+                                  label: name.characters.length > 1
+                                      ? Text(name)
+                                      : Semantics(
+                                          label: name,
+                                          child: const SizedBox.shrink(),
+                                        ),
                                   color: WidgetStatePropertyAll(
                                     theme.colorScheme.surfaceContainerLow,
                                   ),
@@ -975,6 +945,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SliverToBoxAdapter(
                       child: EntranceMotion(
                         key: ValueKey('home-filter-empty-${_readFilter.name}'),
+                        spring: true,
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(32, 48, 32, 0),
                           child: Text(
@@ -1024,6 +995,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         return EntranceMotion(
                           key: ValueKey('home-entrance-${url.id}'),
                           animate: animateEntrance,
+                          // Rises into place on a spring, a touch past and
+                          // back: first load, a filter switch, a new save.
+                          spring: true,
+                          offset: 18,
                           delay: staggered
                               ? EntranceMotion.stagger(listIndex)
                               : Duration.zero,
@@ -1122,31 +1097,18 @@ class _SavesHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final strings = context.l10n;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 12, 2),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              strings.yourSaves,
-              style: theme.textTheme.titleSmall,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Bounded so long translations scale down instead of overflowing.
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 240),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: _CompactReadFilter(filter: filter, onChanged: onChanged),
-            ),
-          ),
-        ],
+    return HomeSectionHeader(
+      title: strings.yourSaves,
+      padding: const EdgeInsets.fromLTRB(16, 20, 12, 2),
+      // Bounded so long translations scale down instead of overflowing.
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 240),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: _CompactReadFilter(filter: filter, onChanged: onChanged),
+        ),
       ),
     );
   }
@@ -1171,16 +1133,13 @@ class _CompactReadFilter extends StatefulWidget {
 
 class _CompactReadFilterState extends State<_CompactReadFilter>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
+  /// 0 folded, 1 open, on M3 Expressive springs: it opens with a little
+  /// bounce (the options stretch a touch past their width and settle) and
+  /// folds without one. Unbounded so the bounce isn't clipped.
+  late final AnimationController _controller = AnimationController.unbounded(
     vsync: this,
-    duration: const Duration(milliseconds: 300),
-    reverseDuration: const Duration(milliseconds: 240),
   );
-  late final Animation<double> _open = CurvedAnimation(
-    parent: _controller,
-    curve: AppMotion.emphasizedDecelerate,
-    reverseCurve: Curves.easeInCubic,
-  );
+  bool _opened = false;
 
   /// The option just tapped. It stays in view and highlighted while the pill
   /// folds; the feed is filtered only once the fold finishes, so rebuilding
@@ -1189,16 +1148,11 @@ class _CompactReadFilterState extends State<_CompactReadFilter>
 
   _ReadFilter get _shown => _pending ?? widget.filter;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller.addStatusListener((status) {
-      if (status != AnimationStatus.dismissed) return;
-      final pending = _pending;
-      if (pending == null) return;
-      _pending = null;
-      if (pending != widget.filter) widget.onChanged(pending);
-    });
+  void _applyPending() {
+    final pending = _pending;
+    if (pending == null) return;
+    _pending = null;
+    if (pending != widget.filter) widget.onChanged(pending);
   }
 
   @override
@@ -1207,9 +1161,7 @@ class _CompactReadFilterState extends State<_CompactReadFilter>
     super.dispose();
   }
 
-  bool get _isOpen =>
-      _controller.status == AnimationStatus.forward ||
-      _controller.status == AnimationStatus.completed;
+  bool get _isOpen => _opened;
 
   String _label(BuildContext context, _ReadFilter option) {
     final strings = context.l10n;
@@ -1221,16 +1173,31 @@ class _CompactReadFilterState extends State<_CompactReadFilter>
   }
 
   void _setOpen(bool open) {
-    if (_isOpen == open) return;
+    if (_opened == open) return;
     AppHaptics.play(AppHaptics.tick);
+    setState(() => _opened = open);
+    final target = open ? 1.0 : 0.0;
     if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.value = open ? 1 : 0;
-    } else if (open) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
+      _controller.value = target;
+      if (!open) _applyPending();
+      return;
     }
-    setState(() {});
+    _controller
+        .animateWith(
+          SpringSimulation(
+            open ? AppMotion.spatialFast : AppMotion.spatialDefault,
+            _controller.value,
+            target,
+            _controller.velocity,
+          ),
+        )
+        // The feed is filtered only once the pill has folded, so rebuilding
+        // the list never competes with it.
+        .then((_) {
+          if (!mounted) return;
+          _controller.value = target;
+          if (!_opened) _applyPending();
+        });
   }
 
   void _tap(_ReadFilter option) {
@@ -1240,12 +1207,6 @@ class _CompactReadFilterState extends State<_CompactReadFilter>
     }
     setState(() => _pending = option);
     _setOpen(false);
-    // Reduced motion snaps shut without a dismissed transition to wait on.
-    if (_controller.isDismissed && _pending != null) {
-      final pending = _pending!;
-      _pending = null;
-      if (pending != widget.filter) widget.onChanged(pending);
-    }
   }
 
   @override
@@ -1259,9 +1220,12 @@ class _CompactReadFilterState extends State<_CompactReadFilter>
       onTapOutside: _isOpen ? (_) => _setOpen(false) : null,
       child: RepaintBoundary(
         child: AnimatedBuilder(
-          animation: _open,
+          animation: _controller,
           builder: (context, _) {
-            final t = _open.value;
+            // Width follows the spring, bounce and all; colour and opacity
+            // stay within their range.
+            final spread = math.max(0.0, _controller.value);
+            final t = spread.clamp(0.0, 1.0);
             final pillColor = Color.lerp(
               filtered ? cs.secondaryContainer : cs.surfaceContainerLow,
               cs.surfaceContainerLow,
@@ -1296,7 +1260,7 @@ class _CompactReadFilterState extends State<_CompactReadFilter>
                         ClipRect(
                           child: Align(
                             alignment: Alignment.center,
-                            widthFactor: t,
+                            widthFactor: spread,
                             child: Opacity(
                               opacity: Curves.easeIn.transform(t),
                               child: _CompactReadFilterSegment(

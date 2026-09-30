@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/saved_url.dart';
@@ -325,19 +326,16 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                         }
                       },
                       itemBuilder: (context) => [
-                        PopupMenuItem(
+                        appMenuItem(
                           value: 'restore',
-                          child: ListTile(
-                            leading: Icon(AppIcons.rediscover),
-                            title: Text(context.l10n.restoreAll),
-                          ),
+                          icon: AppIcons.rediscover,
+                          label: context.l10n.restoreAll,
                         ),
-                        PopupMenuItem(
+                        appMenuItem(
                           value: 'empty',
-                          child: ListTile(
-                            leading: Icon(AppIcons.deleteForever),
-                            title: Text(context.l10n.emptyBin),
-                          ),
+                          icon: AppIcons.deleteForever,
+                          label: context.l10n.emptyBin,
+                          destructive: true,
                         ),
                       ],
                     ),
@@ -569,20 +567,16 @@ class _BinItem extends StatelessWidget {
                         }
                       },
                       itemBuilder: (context) => [
-                        PopupMenuItem(
+                        appMenuItem(
                           value: 'restore',
-                          child: _ItemMenuRow(
-                            icon: AppIcons.rediscover,
-                            label: context.l10n.restore,
-                          ),
+                          icon: AppIcons.rediscover,
+                          label: context.l10n.restore,
                         ),
-                        PopupMenuItem(
+                        appMenuItem(
                           value: 'delete',
-                          child: _ItemMenuRow(
-                            icon: AppIcons.deleteForever,
-                            label: context.l10n.deletePermanently,
-                            color: cs.error,
-                          ),
+                          icon: AppIcons.deleteForever,
+                          label: context.l10n.deletePermanently,
+                          destructive: true,
                         ),
                       ],
                     )
@@ -670,32 +664,6 @@ class _SwipeActionBackground extends StatelessWidget {
                 ],
         ),
       ),
-    );
-  }
-}
-
-class _ItemMenuRow extends StatelessWidget {
-  const _ItemMenuRow({required this.icon, required this.label, this.color});
-
-  final IconData icon;
-  final String label;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        AppIcon(icon, color: color),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: color),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -239,13 +240,10 @@ class _EntityDetail extends StatelessWidget {
               if (value == 'hide') onHide();
             },
             itemBuilder: (context) => [
-              PopupMenuItem(
+              appMenuItem(
                 value: 'hide',
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(AppIcons.visibilityOff),
-                  title: Text(context.l10n.hideFromLibrary),
-                ),
+                icon: AppIcons.visibilityOff,
+                label: context.l10n.hideFromLibrary,
               ),
             ],
           ),

@@ -105,6 +105,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
   UserCollection? _collection;
   late final Future<UserCollection?> _defaultCollectionFuture;
   _Panel _panel = _Panel.pill;
+
   /// The shared link's own save, in flight. The pill already reads as saved
   /// (it's a local write); edits wait on [_landed] before applying.
   bool _saving = false;
@@ -682,7 +683,12 @@ class _CollectionPickerSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          4,
+          16,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -694,6 +700,7 @@ class _CollectionPickerSheet extends StatelessWidget {
             const SizedBox(height: 12),
             _CollectionChoices(
               allowNoCollection: allowNoCollection,
+              searchable: true,
               selectedCollectionId: selectedCollectionId,
               onSelected: (selection) => Navigator.of(context).pop(selection),
             ),
@@ -705,43 +712,76 @@ class _CollectionPickerSheet extends StatelessWidget {
 }
 
 /// "New collection" plus the user's collections, shared by the picker sheet
-/// and the share pill.
-class _CollectionChoices extends ConsumerWidget {
+/// and the share pill. The sheet can search a long list by name.
+class _CollectionChoices extends ConsumerStatefulWidget {
   const _CollectionChoices({
     required this.onSelected,
     this.allowNoCollection = false,
     this.selectedCollectionId,
     this.enabled = true,
+    this.searchable = false,
   });
 
   final ValueChanged<CollectionPickerSelection> onSelected;
   final bool allowNoCollection;
   final int? selectedCollectionId;
   final bool enabled;
+  final bool searchable;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CollectionChoices> createState() => _CollectionChoicesState();
+}
+
+class _CollectionChoicesState extends ConsumerState<_CollectionChoices> {
+  /// Below this many collections the whole list fits and search is noise.
+  static const _searchThreshold = 7;
+
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final collections = ref.watch(collectionsListProvider);
     final theme = Theme.of(context);
+    final enabled = widget.enabled;
+    final onSelected = widget.onSelected;
+    final selectedCollectionId = widget.selectedCollectionId;
+    final showSearch =
+        widget.searchable &&
+        (collections.valueOrNull?.length ?? 0) >= _searchThreshold;
+    final query = _query.trim().toLowerCase();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton.tonalIcon(
-          onPressed: enabled
-              ? () async {
-                  final collection = await showCreateCollectionSheet(context);
-                  if (collection != null && context.mounted) {
-                    onSelected(CollectionPickerSelection(collection));
+        if (showSearch) ...[
+          TextField(
+            textInputAction: TextInputAction.search,
+            onChanged: (value) => setState(() => _query = value),
+            decoration: InputDecoration(
+              hintText: context.l10n.searchCollections,
+              prefixIcon: const Icon(AppIcons.search, size: 20),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (query.isEmpty) ...[
+          FilledButton.tonalIcon(
+            onPressed: enabled
+                ? () async {
+                    final collection = await showCreateCollectionSheet(context);
+                    if (collection != null && context.mounted) {
+                      onSelected(CollectionPickerSelection(collection));
+                    }
                   }
-                }
-              : null,
-          icon: const Icon(AppIcons.add),
-          label: Text(context.l10n.newCollection),
-        ),
-        const SizedBox(height: 8),
-        if (allowNoCollection) ...[
+                : null,
+            icon: const Icon(AppIcons.add),
+            label: Text(context.l10n.newCollection),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (widget.allowNoCollection && query.isEmpty) ...[
           ListTile(
             contentPadding: EdgeInsets.zero,
             enabled: enabled,
@@ -767,39 +807,56 @@ class _CollectionChoices extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             child: Text(context.l10n.couldNotLoadCollections),
           ),
-          data: (items) => items.isEmpty
-              ? const SizedBox.shrink()
-              : SizedBox(
-                  height: (items.length * 56.0).clamp(56, 336),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: items.length,
-                    itemBuilder: (context, index) {
-                      final collection = items[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        enabled: enabled,
-                        leading: CollectionVisual(
-                          style: resolveCollectionVisual(collection),
-                          size: 40,
-                          iconSize: 18,
+          data: (all) {
+            final items = query.isEmpty
+                ? all
+                : [
+                    for (final c in all)
+                      if (c.name.toLowerCase().contains(query)) c,
+                  ];
+            if (items.isEmpty) {
+              return query.isEmpty
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        context.l10n.noCollectionsMatch,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                        title: Text(collection.name),
-                        subtitle: Text(
-                          context.l10n.linkCount(collection.urlIds.length),
-                        ),
-                        trailing: selectedCollectionId == collection.id
-                            ? Icon(
-                                AppIcons.check,
-                                color: theme.colorScheme.primary,
-                              )
-                            : null,
-                        onTap: () =>
-                            onSelected(CollectionPickerSelection(collection)),
-                      );
-                    },
-                  ),
-                ),
+                      ),
+                    );
+            }
+            return SizedBox(
+              height: (items.length * 56.0).clamp(56, 336),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final collection = items[index];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    enabled: enabled,
+                    leading: CollectionVisual(
+                      style: resolveCollectionVisual(collection),
+                      size: 40,
+                      iconSize: 18,
+                    ),
+                    title: Text(collection.name),
+                    subtitle: Text(
+                      context.l10n.linkCount(collection.urlIds.length),
+                    ),
+                    trailing: selectedCollectionId == collection.id
+                        ? Icon(AppIcons.check, color: theme.colorScheme.primary)
+                        : null,
+                    onTap: () =>
+                        onSelected(CollectionPickerSelection(collection)),
+                  );
+                },
+              ),
+            );
+          },
         ),
       ],
     );

@@ -506,6 +506,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseCollection => 'Choose collection';
 
   @override
+  String get searchCollections => 'Search collections';
+
+  @override
+  String get noCollectionsMatch => 'No collections match';
+
+  @override
   String get chooseACollection => 'Choose a collection';
 
   @override
@@ -587,6 +593,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dismissRediscoverTip => 'Dismiss Rediscover tip';
 
   @override
+  String get gotIt => 'Got it';
+
+  @override
   String get pinned => 'Pinned';
 
   @override
@@ -617,7 +626,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get processing => 'Processing';
 
   @override
-  String get processingSavedHeadline => 'Saved to your library';
+  String get processingSavedHeadline => 'Getting it ready';
 
   @override
   String get processingSavedDetail => 'Waiting to understand your save';
@@ -672,6 +681,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get processingFailedDetail =>
       'Your save is safe. Try processing again';
+
+  @override
+  String get processingFailedShort => 'Couldn\'t finish';
 
   @override
   String get processingDefaultHeadline => 'Understanding this save';
@@ -922,14 +934,14 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count waiting',
-      one: '1 waiting',
+      other: '$count unopened',
+      one: '1 unopened',
     );
     return '$_temp0';
   }
 
   @override
-  String get backInView => 'Back in view';
+  String get backInView => 'You\'re saving this again';
 
   @override
   String get couldNotLoadSource => 'Could not load this source';
@@ -1207,6 +1219,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String openInSource(Object source) {
     return 'Open in $source';
+  }
+
+  @override
+  String openSourcePage(Object source) {
+    return 'See all saves from $source';
   }
 
   @override

@@ -509,6 +509,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chooseCollection => 'Elegir colección';
 
   @override
+  String get searchCollections => 'Buscar colecciones';
+
+  @override
+  String get noCollectionsMatch => 'Ninguna colección coincide';
+
+  @override
   String get chooseACollection => 'Elige una colección';
 
   @override
@@ -593,6 +599,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dismissRediscoverTip => 'Cerrar consejo de Redescubrir';
 
   @override
+  String get gotIt => 'Entendido';
+
+  @override
   String get pinned => 'Fijados';
 
   @override
@@ -623,7 +632,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get processing => 'Procesando';
 
   @override
-  String get processingSavedHeadline => 'Guardado en tu biblioteca';
+  String get processingSavedHeadline => 'Preparándolo';
 
   @override
   String get processingSavedDetail => 'Preparando el contenido guardado';
@@ -680,6 +689,9 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get processingFailedDetail =>
       'Tu guardado está seguro. Inténtalo de nuevo';
+
+  @override
+  String get processingFailedShort => 'No se completó';
 
   @override
   String get processingDefaultHeadline => 'Comprendiendo este guardado';
@@ -932,14 +944,14 @@ class AppLocalizationsEs extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count pendientes',
-      one: '1 pendiente',
+      other: '$count sin abrir',
+      one: '1 sin abrir',
     );
     return '$_temp0';
   }
 
   @override
-  String get backInView => 'De nuevo a la vista';
+  String get backInView => 'Vuelves a guardar esto';
 
   @override
   String get couldNotLoadSource => 'No se pudo cargar esta fuente';
@@ -1219,6 +1231,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String openInSource(Object source) {
     return 'Abrir en $source';
+  }
+
+  @override
+  String openSourcePage(Object source) {
+    return 'Ver todo lo guardado de $source';
   }
 
   @override

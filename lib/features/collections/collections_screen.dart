@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -299,16 +300,16 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                                       ? EntranceMotion.stagger(i)
                                       : Duration.zero,
                                   child: ExpressiveTapScale(
-                                  child: CollectionCard(
-                                    key: ValueKey('collection-card-$id'),
-                                    summary: summary,
-                                    selectionMode: selectionState.isActive,
-                                    isSelected: selectionState.isSelected(id),
-                                    onSelectionStart: () =>
-                                        selectionNotifier.startWith(id),
-                                    onSelectionToggle: () =>
-                                        selectionNotifier.toggle(id),
-                                  ),
+                                    child: CollectionCard(
+                                      key: ValueKey('collection-card-$id'),
+                                      summary: summary,
+                                      selectionMode: selectionState.isActive,
+                                      isSelected: selectionState.isSelected(id),
+                                      onSelectionStart: () =>
+                                          selectionNotifier.startWith(id),
+                                      onSelectionToggle: () =>
+                                          selectionNotifier.toggle(id),
+                                    ),
                                   ),
                                 );
                               },
@@ -826,109 +827,48 @@ class _CollectionsOptionsMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<_CollectionsMenuAction>(
       tooltip: context.l10n.collectionOptions,
-      icon: const Icon(AppIcons.more, size: 26),
+      icon: const Icon(AppIcons.more),
       onSelected: onSelected,
       itemBuilder: (context) => [
-        PopupMenuItem(
+        appMenuItem(
           value: _CollectionsMenuAction.viewGrid,
-          padding: EdgeInsets.zero,
-          child: _CollectionsMenuRow(
-            icon: AppIcons.grid,
-            label: context.l10n.grid,
-            selected: preferences.layout == CollectionsLayout.grid,
-          ),
+          icon: AppIcons.grid,
+          label: context.l10n.grid,
+          selected: preferences.layout == CollectionsLayout.grid,
         ),
-        PopupMenuItem(
+        appMenuItem(
           value: _CollectionsMenuAction.viewList,
-          padding: EdgeInsets.zero,
-          child: _CollectionsMenuRow(
-            icon: AppIcons.list,
-            label: context.l10n.list,
-            selected: preferences.layout == CollectionsLayout.list,
-          ),
+          icon: AppIcons.list,
+          label: context.l10n.list,
+          selected: preferences.layout == CollectionsLayout.list,
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
+        appMenuDivider,
+        appMenuItem(
           value: _CollectionsMenuAction.sortManual,
-          padding: EdgeInsets.zero,
-          child: _CollectionsMenuRow(
-            icon: AppIcons.sortDirection,
-            label: context.l10n.manual,
-            selected: preferences.sort == CollectionsSort.manual,
-          ),
+          icon: AppIcons.sortDirection,
+          label: context.l10n.manual,
+          selected: preferences.sort == CollectionsSort.manual,
         ),
-        PopupMenuItem(
+        appMenuItem(
           value: _CollectionsMenuAction.sortNewest,
-          padding: EdgeInsets.zero,
-          child: _CollectionsMenuRow(
-            icon: AppIcons.clock,
-            label: context.l10n.newest,
-            selected: preferences.sort == CollectionsSort.newest,
-          ),
+          icon: AppIcons.clock,
+          label: context.l10n.newest,
+          selected: preferences.sort == CollectionsSort.newest,
         ),
-        PopupMenuItem(
+        appMenuItem(
           value: _CollectionsMenuAction.sortName,
-          padding: EdgeInsets.zero,
-          child: _CollectionsMenuRow(
-            icon: AppIcons.sortAlphabetical,
-            label: context.l10n.alphabetical,
-            selected: preferences.sort == CollectionsSort.name,
-          ),
+          icon: AppIcons.sortAlphabetical,
+          label: context.l10n.alphabetical,
+          selected: preferences.sort == CollectionsSort.name,
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
+        appMenuDivider,
+        appMenuItem(
           value: _CollectionsMenuAction.reorder,
+          icon: AppIcons.dragDots,
+          label: context.l10n.reorder,
           enabled: canReorder,
-          padding: EdgeInsets.zero,
-          child: _CollectionsMenuRow(
-            icon: AppIcons.dragDots,
-            label: context.l10n.reorder,
-            enabled: canReorder,
-          ),
         ),
       ],
-    );
-  }
-}
-
-class _CollectionsMenuRow extends StatelessWidget {
-  const _CollectionsMenuRow({
-    required this.icon,
-    required this.label,
-    this.selected = false,
-    this.enabled = true,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final iconColor = enabled
-        ? colorScheme.onSurfaceVariant
-        : colorScheme.onSurface.withValues(alpha: 0.38);
-    final textColor = enabled
-        ? colorScheme.onSurface
-        : colorScheme.onSurface.withValues(alpha: 0.38);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          AppIcon(icon, size: 20, color: iconColor),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(label, style: TextStyle(color: textColor)),
-          ),
-          if (selected) ...[
-            const SizedBox(width: 12),
-            Icon(AppIcons.check, size: 20, color: colorScheme.primary),
-          ],
-        ],
-      ),
     );
   }
 }

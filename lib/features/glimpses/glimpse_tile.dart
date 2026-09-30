@@ -16,11 +16,15 @@ class GlimpseTile extends StatelessWidget {
     required this.urls,
     required this.onTap,
     this.showActions = false,
+    this.heroTag,
   });
   final Glimpse glimpse;
   final Map<int, SavedUrl> urls;
   final VoidCallback onTap;
   final bool showActions;
+
+  /// See [RediscoverArtworkCard.heroTag].
+  final Object? heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +44,7 @@ class GlimpseTile extends StatelessWidget {
             height: 224,
             onTap: onTap,
             hasMenu: showActions,
+            heroTag: heroTag,
           ),
           if (showActions)
             Positioned.directional(

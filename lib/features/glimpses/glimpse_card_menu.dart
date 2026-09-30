@@ -1,7 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
@@ -73,23 +73,17 @@ class _GlimpseCardMenuState extends ConsumerState<GlimpseCardMenu> {
         icon: Icon(AppIcons.moreHorizontal, color: cs.onSurface),
         onSelected: _act,
         itemBuilder: (_) => [
-          PopupMenuItem(
+          appMenuItem(
             value: GlimpseAction.later,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(AppIcons.clock),
-              title: Text(l.notNow),
-              subtitle: Text(l.glimpsesLaterFeedback),
-            ),
+            icon: AppIcons.clock,
+            label: l.notNow,
+            subtitle: l.glimpsesLaterFeedback,
           ),
-          PopupMenuItem(
+          appMenuItem(
             value: GlimpseAction.lessLikeThis,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(AppIcons.dislike),
-              title: Text(l.lessLikeThis),
-              subtitle: Text(l.reduceSimilarTopics),
-            ),
+            icon: AppIcons.dislike,
+            label: l.lessLikeThis,
+            subtitle: l.reduceSimilarTopics,
           ),
         ],
       ),

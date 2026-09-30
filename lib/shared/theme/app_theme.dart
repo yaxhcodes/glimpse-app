@@ -530,6 +530,7 @@ class AppTheme {
         color: colorScheme.surfaceContainer,
         surfaceTintColor: Colors.transparent,
         elevation: 2,
+        menuPadding: const EdgeInsets.symmetric(vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       menuTheme: MenuThemeData(
