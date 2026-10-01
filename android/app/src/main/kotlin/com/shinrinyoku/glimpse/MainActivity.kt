@@ -46,6 +46,7 @@ open class MainActivity : FlutterFragmentActivity() {
     private var pendingShortcut: String? = null
     private var stableIdBridge: StableIdBridge? = null
     private var hapticsBridge: HapticsBridge? = null
+    private var vaultBridge: VaultBridge? = null
     private var scrollCaptureBridge: ScrollCaptureBridge? = null
     private var scrollCaptureRootLayout: ScrollCaptureRootLayout? = null
 
@@ -96,6 +97,11 @@ open class MainActivity : FlutterFragmentActivity() {
         )
 
         hapticsBridge = HapticsBridge(
+            activity = this,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+        )
+
+        vaultBridge = VaultBridge(
             activity = this,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
@@ -166,6 +172,17 @@ open class MainActivity : FlutterFragmentActivity() {
                 when (call.method) {
                     // Keep the Activity and Flutter engine alive while returning
                     // the user to the app that opened Android's share sheet.
+                    // The share sheet hands off to the full app on the Vault
+                    // (its Pro offer needs billing, which only the app starts).
+                    "openVault" -> {
+                        startActivity(
+                            Intent(this, MainActivity::class.java)
+                                .setAction(ACTION_VAULT)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                        result.success(true)
+                        if (this is ShareActivity) finish()
+                    }
                     "moveToBackground" -> {
                         if (this is ShareActivity) {
                             result.success(true)
@@ -233,6 +250,8 @@ open class MainActivity : FlutterFragmentActivity() {
     override fun onDestroy() {
         scrollCaptureBridge?.dispose()
         scrollCaptureBridge = null
+        vaultBridge?.dispose()
+        vaultBridge = null
         super.onDestroy()
     }
 
@@ -310,6 +329,7 @@ open class MainActivity : FlutterFragmentActivity() {
             ACTION_SEARCH -> SHORTCUT_SEARCH
             ACTION_ASK -> SHORTCUT_ASK
             ACTION_REDISCOVER -> SHORTCUT_REDISCOVER
+            ACTION_VAULT -> SHORTCUT_VAULT
             else -> null
         } ?: return null
 
@@ -421,5 +441,7 @@ open class MainActivity : FlutterFragmentActivity() {
         const val SHORTCUT_SEARCH = "search"
         const val SHORTCUT_ASK = "ask"
         const val SHORTCUT_REDISCOVER = "rediscover"
+        const val ACTION_VAULT = "com.shinrinyoku.glimpse.action.VAULT"
+        const val SHORTCUT_VAULT = "vault"
     }
 }

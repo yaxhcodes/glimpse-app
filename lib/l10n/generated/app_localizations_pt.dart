@@ -3961,4 +3961,198 @@ class AppLocalizationsPt extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get vault => 'Cofre';
+
+  @override
+  String get vaultSubtitle =>
+      'Salvos privados, atrás do bloqueio do seu celular';
+
+  @override
+  String get vaultLockedTitle => 'Seu cofre está trancado';
+
+  @override
+  String get vaultLockedBody =>
+      'Só você pode abrir, com sua digital, rosto ou bloqueio de tela.';
+
+  @override
+  String get vaultUnlock => 'Desbloquear';
+
+  @override
+  String get vaultUnlockPromptTitle => 'Desbloquear cofre';
+
+  @override
+  String get vaultUnlockPromptSubtitle =>
+      'Confirme que é você para ver seus salvos privados';
+
+  @override
+  String get vaultUnlockLockout =>
+      'Tentativas demais. Tente de novo daqui a pouco.';
+
+  @override
+  String get vaultUnlockFailed =>
+      'Não foi possível desbloquear. Tente de novo.';
+
+  @override
+  String vaultItemCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count salvos privados',
+      one: '1 salvo privado',
+      zero: 'Vazio',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultEmptyTitle => 'Nada no seu cofre ainda';
+
+  @override
+  String get vaultEmptyBody =>
+      'Compartilhe um link e escolha Cofre, ou mova um salvo para cá pelo menu dele.';
+
+  @override
+  String get vaultNoScreenLockTitle => 'Configure um bloqueio de tela primeiro';
+
+  @override
+  String get vaultNoScreenLockBody =>
+      'O cofre usa o bloqueio do seu celular. Adicione um PIN, padrão ou senha nas configurações e volte.';
+
+  @override
+  String get vaultInvalidatedTitle => 'Este cofre não pode ser aberto';
+
+  @override
+  String get vaultInvalidatedBody =>
+      'O bloqueio de tela foi removido, ou este é outro celular, e o Android destruiu a chave do cofre. Redefina o cofre para recomeçar.';
+
+  @override
+  String get vaultReset => 'Redefinir cofre';
+
+  @override
+  String get vaultResetQuestion => 'Redefinir o cofre?';
+
+  @override
+  String get vaultResetBody =>
+      'Tudo no cofre é apagado para sempre. Não dá para desfazer.';
+
+  @override
+  String get vaultResetDone => 'Cofre redefinido';
+
+  @override
+  String get vaultHowItWorks => 'Como o cofre funciona';
+
+  @override
+  String get vaultHowLock =>
+      'Trancado pelo seu celular: só sua digital, rosto ou bloqueio de tela abrem.';
+
+  @override
+  String get vaultHowLocal =>
+      'Fica neste celular: links do cofre nunca vão para os servidores ou a IA do Glimpse, e não entram nos backups.';
+
+  @override
+  String get vaultHowHidden =>
+      'Fora de vista: nada dele aparece na busca, no Rediscover, na Biblioteca ou no Ask.';
+
+  @override
+  String get vaultHowLoss =>
+      'Se perder este celular ou remover o bloqueio de tela, o que está no cofre também se perde.';
+
+  @override
+  String get vaultMoveTo => 'Mover para o cofre';
+
+  @override
+  String get vaultMoveQuestion => 'Mover para o seu cofre?';
+
+  @override
+  String get vaultMoveBody =>
+      'O link, o título e a nota entram e só abrem com o bloqueio do seu celular. Ele sai dos seus salvos, da busca e da Biblioteca, e o resumo fica para trás.';
+
+  @override
+  String get vaultMoved => 'Movido para o cofre';
+
+  @override
+  String get vaultMoveOut => 'Tirar do cofre';
+
+  @override
+  String get vaultMovedOut => 'De volta aos seus salvos';
+
+  @override
+  String get vaultCouldNotMove => 'Não foi possível mover. Tente de novo.';
+
+  @override
+  String get vaultProTitle => 'O cofre faz parte do Glimpse Pro';
+
+  @override
+  String get vaultProBody =>
+      'Guarde links privados atrás do bloqueio do seu celular, só neste aparelho.';
+
+  @override
+  String get vaultSeePro => 'Ver o Pro';
+
+  @override
+  String get savedToVault => 'Salvo no cofre';
+
+  @override
+  String get vaultNeedsPro => 'O cofre precisa do Glimpse Pro';
+
+  @override
+  String get vaultCouldNotSave => 'Não foi possível salvar no cofre';
+
+  @override
+  String vaultUnreadable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count itens não puderam ser abertos desta vez',
+      one: '1 item não pôde ser aberto desta vez',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultLock => 'Trancar';
+
+  @override
+  String get vaultDeleteQuestion => 'Apagar do cofre?';
+
+  @override
+  String get vaultDeleteBody =>
+      'É apagado para sempre. Itens do cofre não vão para a lixeira.';
+
+  @override
+  String get vaultDeleted => 'Apagado do cofre';
+
+  @override
+  String get vaultEditNote => 'Editar nota';
+
+  @override
+  String get vaultName => 'Nome';
+
+  @override
+  String get vaultNamePanelTitle => 'Dê um nome para achar depois';
+
+  @override
+  String vaultNamedAs(String name) {
+    return 'Salvo como “$name”';
+  }
+
+  @override
+  String get vaultRename => 'Renomear';
+
+  @override
+  String get vaultSearch => 'Buscar no seu cofre';
+
+  @override
+  String get vaultNoMatches => 'Nada no seu cofre corresponde';
+
+  @override
+  String get vaultResetPromptSubtitle => 'Confirme que é você para apagar tudo';
+
+  @override
+  String get vaultFootnote => 'Só neste celular · nunca enviado';
+
+  @override
+  String get vaultLocksOnLeave => 'Tranca quando você sai';
 }

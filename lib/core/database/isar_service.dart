@@ -13,6 +13,7 @@ import '../models/place_itinerary.dart';
 import '../models/saved_url.dart';
 import '../services/link_preview_service.dart';
 import '../models/user_collection.dart';
+import '../models/vault_item.dart';
 import '../services/category_resolver.dart';
 import '../services/category_taxonomy.dart';
 import '../services/session_tracking_service.dart';
@@ -52,6 +53,7 @@ class IsarService {
       EngagementEventSchema,
       GlimpseRecordSchema,
       PlaceItinerarySchema,
+      VaultItemSchema,
     ], directory: dir.path);
   }
 

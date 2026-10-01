@@ -191,9 +191,7 @@ void main() {
     expect((await result)?.saved, isTrue);
   });
 
-  testWidgets('a note made before the save lands waits for it', (
-    tester,
-  ) async {
+  testWidgets('a note made before the save lands waits for it', (tester) async {
     final save = Completer<ShareCaptureOutcome>();
     String? updatedNote;
     await _openCapture(
@@ -301,6 +299,73 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('the Vault offers a name and a note, never a collection', (
+    tester,
+  ) async {
+    String? named;
+    final result = await _openCapture(
+      tester,
+      isar: _FakeIsarService(const []),
+      vault: true,
+      onCapture: (_, _) async =>
+          const ShareCaptureOutcome(type: ShareCaptureOutcomeType.captured),
+      onRename: (name) async {
+        named = name;
+        return const ShareCaptureOutcome(
+          type: ShareCaptureOutcomeType.captured,
+        );
+      },
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Saved to Vault'), findsOneWidget);
+    expect(find.text('Collection'), findsNothing);
+    expect(find.text('Name'), findsOneWidget);
+    expect(find.text('Note'), findsOneWidget);
+
+    await tester.tap(find.text('Name'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '  Gift ideas for Mum ');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(named, 'Gift ideas for Mum');
+    expect(find.text('Saved as “Gift ideas for Mum”'), findsOneWidget);
+    expect(find.text('Name'), findsNothing);
+    expect(find.text('Note'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect((await result)?.type, ShareCaptureOutcomeType.captured);
+  });
+
+  testWidgets('a name typed but not saved is kept when the pill closes', (
+    tester,
+  ) async {
+    String? named;
+    final result = await _openCapture(
+      tester,
+      isar: _FakeIsarService(const []),
+      vault: true,
+      onCapture: (_, _) async =>
+          const ShareCaptureOutcome(type: ShareCaptureOutcomeType.captured),
+      onRename: (name) async {
+        named = name;
+        return const ShareCaptureOutcome(
+          type: ShareCaptureOutcomeType.captured,
+        );
+      },
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Name'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Clinic');
+    // Tapping the app behind the pill closes it.
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+    expect(named, 'Clinic');
+    expect(await result, isNotNull);
+  });
 }
 
 /// Opens the capture and pumps through its entrance. Callers settle
@@ -310,6 +375,8 @@ Future<Future<ShareCaptureOutcome?>> _openCapture(
   required IsarService isar,
   required ShareCaptureCallback onCapture,
   ShareCaptureCallback? onUpdate,
+  ShareCaptureRename? onRename,
+  bool vault = false,
 }) async {
   late Future<ShareCaptureOutcome?> result;
   await tester.pumpWidget(
@@ -322,6 +389,8 @@ Future<Future<ShareCaptureOutcome?>> _openCapture(
               context,
               onCapture: onCapture,
               onUpdate: onUpdate,
+              onRename: onRename,
+              vault: vault,
             ),
             child: const Text('Open'),
           ),

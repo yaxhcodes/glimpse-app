@@ -8,7 +8,10 @@ enum AppShortcutAction {
   capture('capture'),
   search('search'),
   ask('ask'),
-  rediscover('rediscover');
+  rediscover('rediscover'),
+
+  /// Not a launcher shortcut: the share sheet's way into the Vault.
+  vault('vault');
 
   const AppShortcutAction(this.platformValue);
 

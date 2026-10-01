@@ -79,7 +79,9 @@ void main() async {
   // workers. The root gate removes the native splash only after the first
   // destination screen has completed a frame.
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (widgetsBinding.platformDispatcher.defaultRouteName != '/share') {
+    if (!widgetsBinding.platformDispatcher.defaultRouteName.startsWith(
+      '/share',
+    )) {
       unawaited(_initializeDeferredServices());
     }
   });

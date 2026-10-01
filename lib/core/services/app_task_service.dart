@@ -73,4 +73,22 @@ class AppTaskService {
       return false;
     }
   }
+
+  /// Opens the full app on the Vault, closing the share sheet behind it.
+  Future<bool> openVault() async {
+    if (!_isAndroid) return false;
+    try {
+      return await _channel.invokeMethod<bool>('openVault') ?? false;
+    } on PlatformException catch (error, stackTrace) {
+      developer.log(
+        'Could not open the Vault from the share sheet.',
+        name: _tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 }

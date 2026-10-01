@@ -147,6 +147,9 @@ abstract final class AppIcons {
   static const place = PhosphorIconsBold.mapPin;
   static const lockedClock = PhosphorIconsBold.clockCountdown;
   static const lock = PhosphorIconsBold.lockSimple;
+  static const vault = PhosphorIconsBold.vault;
+  static const fingerprint = PhosphorIconsBold.fingerprintSimple;
+  static const moveOut = PhosphorIconsBold.trayArrowUp;
   static const research = PhosphorIconsBold.magnifyingGlass;
   static const map = PhosphorIconsBold.mapTrifold;
   static const read = PhosphorIconsBold.bookOpen;
@@ -246,6 +249,8 @@ abstract final class AppIcons {
     collections: PhosphorIconsFill.stack,
     interests: PhosphorIconsFill.circlesThreePlus,
     search: PhosphorIconsFill.magnifyingGlass,
+    vault: PhosphorIconsFill.vault,
+    lock: PhosphorIconsFill.lockSimple,
     notifications: PhosphorIconsFill.bell,
     settings: PhosphorIconsFill.gearSix,
     addToCollection: PhosphorIconsFill.folderSimplePlus,

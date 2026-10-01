@@ -6771,6 +6771,324 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{Ask anything about your save} other{Ask anything across your {count} saves}}'**
   String askAcrossSaves(int count);
+
+  /// No description provided for @vault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get vault;
+
+  /// No description provided for @vaultSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Private saves, behind your phone\'s lock'**
+  String get vaultSubtitle;
+
+  /// No description provided for @vaultLockedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your vault is locked'**
+  String get vaultLockedTitle;
+
+  /// No description provided for @vaultLockedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Only you can open it, with your fingerprint, face or screen lock.'**
+  String get vaultLockedBody;
+
+  /// No description provided for @vaultUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get vaultUnlock;
+
+  /// No description provided for @vaultUnlockPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Vault'**
+  String get vaultUnlockPromptTitle;
+
+  /// No description provided for @vaultUnlockPromptSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm it\'s you to see your private saves'**
+  String get vaultUnlockPromptSubtitle;
+
+  /// No description provided for @vaultUnlockLockout.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in a little while.'**
+  String get vaultUnlockLockout;
+
+  /// No description provided for @vaultUnlockFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t unlock. Try again.'**
+  String get vaultUnlockFailed;
+
+  /// No description provided for @vaultItemCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Empty} =1{1 private save} other{{count} private saves}}'**
+  String vaultItemCount(int count);
+
+  /// No description provided for @vaultEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing in your vault yet'**
+  String get vaultEmptyTitle;
+
+  /// No description provided for @vaultEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a link and pick Vault, or move a save here from its menu.'**
+  String get vaultEmptyBody;
+
+  /// No description provided for @vaultNoScreenLockTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set a screen lock first'**
+  String get vaultNoScreenLockTitle;
+
+  /// No description provided for @vaultNoScreenLockBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault uses your phone\'s own lock. Add a PIN, pattern or password in your phone\'s settings, then come back.'**
+  String get vaultNoScreenLockBody;
+
+  /// No description provided for @vaultInvalidatedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This vault can\'t be opened'**
+  String get vaultInvalidatedTitle;
+
+  /// No description provided for @vaultInvalidatedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your phone\'s screen lock was removed, or this is a different phone, and Android destroyed the vault\'s key. Reset the vault to start again.'**
+  String get vaultInvalidatedBody;
+
+  /// No description provided for @vaultReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset vault'**
+  String get vaultReset;
+
+  /// No description provided for @vaultResetQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset vault?'**
+  String get vaultResetQuestion;
+
+  /// No description provided for @vaultResetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything in your vault is deleted for good. This can\'t be undone.'**
+  String get vaultResetBody;
+
+  /// No description provided for @vaultResetDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault reset'**
+  String get vaultResetDone;
+
+  /// No description provided for @vaultHowItWorks.
+  ///
+  /// In en, this message translates to:
+  /// **'How Vault works'**
+  String get vaultHowItWorks;
+
+  /// No description provided for @vaultHowLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked by your phone: your fingerprint, face or screen lock opens it, and nothing else can.'**
+  String get vaultHowLock;
+
+  /// No description provided for @vaultHowLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Stays on this phone: vault links are never sent to Glimpse\'s servers or AI, and aren\'t in backups.'**
+  String get vaultHowLocal;
+
+  /// No description provided for @vaultHowHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Out of sight: nothing in it shows up in search, Rediscover, the Library or Ask.'**
+  String get vaultHowHidden;
+
+  /// No description provided for @vaultHowLoss.
+  ///
+  /// In en, this message translates to:
+  /// **'Lose this phone or remove its screen lock, and what\'s in the vault is gone too.'**
+  String get vaultHowLoss;
+
+  /// No description provided for @vaultMoveTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to vault'**
+  String get vaultMoveTo;
+
+  /// No description provided for @vaultMoveQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to your vault?'**
+  String get vaultMoveQuestion;
+
+  /// No description provided for @vaultMoveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Its link, title and note go in and only open with your phone\'s lock. It leaves your saves, search and Library, and its summary stays behind.'**
+  String get vaultMoveBody;
+
+  /// No description provided for @vaultMoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to vault'**
+  String get vaultMoved;
+
+  /// No description provided for @vaultMoveOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Move out of vault'**
+  String get vaultMoveOut;
+
+  /// No description provided for @vaultMovedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Back in your saves'**
+  String get vaultMovedOut;
+
+  /// No description provided for @vaultCouldNotMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t move it. Try again.'**
+  String get vaultCouldNotMove;
+
+  /// No description provided for @vaultProTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault is part of Glimpse Pro'**
+  String get vaultProTitle;
+
+  /// No description provided for @vaultProBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep private links behind your phone\'s own lock, on this phone only.'**
+  String get vaultProBody;
+
+  /// No description provided for @vaultSeePro.
+  ///
+  /// In en, this message translates to:
+  /// **'See Pro'**
+  String get vaultSeePro;
+
+  /// No description provided for @savedToVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to Vault'**
+  String get savedToVault;
+
+  /// No description provided for @vaultNeedsPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault needs Glimpse Pro'**
+  String get vaultNeedsPro;
+
+  /// No description provided for @vaultCouldNotSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save to Vault'**
+  String get vaultCouldNotSave;
+
+  /// No description provided for @vaultUnreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 item couldn\'t be opened this time} other{{count} items couldn\'t be opened this time}}'**
+  String vaultUnreadable(int count);
+
+  /// No description provided for @vaultLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock'**
+  String get vaultLock;
+
+  /// No description provided for @vaultDeleteQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete from vault?'**
+  String get vaultDeleteQuestion;
+
+  /// No description provided for @vaultDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s deleted for good. Vault items don\'t go to the Bin.'**
+  String get vaultDeleteBody;
+
+  /// No description provided for @vaultDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted from vault'**
+  String get vaultDeleted;
+
+  /// No description provided for @vaultEditNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit note'**
+  String get vaultEditNote;
+
+  /// No description provided for @vaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get vaultName;
+
+  /// No description provided for @vaultNamePanelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Name it so you can find it'**
+  String get vaultNamePanelTitle;
+
+  /// No description provided for @vaultNamedAs.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved as “{name}”'**
+  String vaultNamedAs(String name);
+
+  /// No description provided for @vaultRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get vaultRename;
+
+  /// No description provided for @vaultSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search your vault'**
+  String get vaultSearch;
+
+  /// No description provided for @vaultNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing in your vault matches'**
+  String get vaultNoMatches;
+
+  /// No description provided for @vaultResetPromptSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm it\'s you to delete everything in it'**
+  String get vaultResetPromptSubtitle;
+
+  /// No description provided for @vaultFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'Only on this phone · never uploaded'**
+  String get vaultFootnote;
+
+  /// No description provided for @vaultLocksOnLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Locks when you leave'**
+  String get vaultLocksOnLeave;
 }
 
 class _AppLocalizationsDelegate

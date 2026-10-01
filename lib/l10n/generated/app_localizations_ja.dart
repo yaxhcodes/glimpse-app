@@ -3642,4 +3642,184 @@ class AppLocalizationsJa extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get vault => '金庫';
+
+  @override
+  String get vaultSubtitle => 'スマホのロックで守るプライベートな保存';
+
+  @override
+  String get vaultLockedTitle => '金庫はロックされています';
+
+  @override
+  String get vaultLockedBody => '指紋・顔・画面ロックで、あなただけが開けます。';
+
+  @override
+  String get vaultUnlock => 'ロック解除';
+
+  @override
+  String get vaultUnlockPromptTitle => '金庫のロックを解除';
+
+  @override
+  String get vaultUnlockPromptSubtitle => '本人確認をしてプライベートな保存を表示';
+
+  @override
+  String get vaultUnlockLockout => '試行回数が多すぎます。しばらくしてからお試しください。';
+
+  @override
+  String get vaultUnlockFailed => 'ロックを解除できませんでした。もう一度お試しください。';
+
+  @override
+  String vaultItemCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'プライベートな保存 $count件',
+      zero: '空',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultEmptyTitle => '金庫にはまだ何もありません';
+
+  @override
+  String get vaultEmptyBody => 'リンクを共有して「金庫」を選ぶか、保存のメニューからここへ移動できます。';
+
+  @override
+  String get vaultNoScreenLockTitle => '先に画面ロックを設定してください';
+
+  @override
+  String get vaultNoScreenLockBody =>
+      '金庫はスマホ自体のロックを使います。端末の設定でPIN・パターン・パスワードを設定してから戻ってください。';
+
+  @override
+  String get vaultInvalidatedTitle => 'この金庫は開けません';
+
+  @override
+  String get vaultInvalidatedBody =>
+      '画面ロックが解除されたか別のスマホのため、Androidが金庫の鍵を破棄しました。金庫をリセットしてやり直してください。';
+
+  @override
+  String get vaultReset => '金庫をリセット';
+
+  @override
+  String get vaultResetQuestion => '金庫をリセットしますか？';
+
+  @override
+  String get vaultResetBody => '金庫の中身はすべて完全に削除されます。元に戻せません。';
+
+  @override
+  String get vaultResetDone => '金庫をリセットしました';
+
+  @override
+  String get vaultHowItWorks => '金庫のしくみ';
+
+  @override
+  String get vaultHowLock => 'スマホがロック：指紋・顔・画面ロック以外では開きません。';
+
+  @override
+  String get vaultHowLocal =>
+      'このスマホだけに保存：金庫のリンクはGlimpseのサーバーやAIに送られず、バックアップにも含まれません。';
+
+  @override
+  String get vaultHowHidden => '表示されない：検索・Rediscover・ライブラリ・Askには出てきません。';
+
+  @override
+  String get vaultHowLoss => 'スマホをなくしたり画面ロックを外したりすると、金庫の中身も失われます。';
+
+  @override
+  String get vaultMoveTo => '金庫に移動';
+
+  @override
+  String get vaultMoveQuestion => '金庫に移動しますか？';
+
+  @override
+  String get vaultMoveBody =>
+      'リンク・タイトル・メモが移り、スマホのロックでのみ開けます。保存・検索・ライブラリからは消え、要約は引き継がれません。';
+
+  @override
+  String get vaultMoved => '金庫に移動しました';
+
+  @override
+  String get vaultMoveOut => '金庫から出す';
+
+  @override
+  String get vaultMovedOut => '保存に戻しました';
+
+  @override
+  String get vaultCouldNotMove => '移動できませんでした。もう一度お試しください。';
+
+  @override
+  String get vaultProTitle => '金庫はGlimpse Proの機能です';
+
+  @override
+  String get vaultProBody => 'プライベートなリンクをスマホのロックで守り、この端末だけに保存。';
+
+  @override
+  String get vaultSeePro => 'Proを見る';
+
+  @override
+  String get savedToVault => '金庫に保存しました';
+
+  @override
+  String get vaultNeedsPro => '金庫にはGlimpse Proが必要です';
+
+  @override
+  String get vaultCouldNotSave => '金庫に保存できませんでした';
+
+  @override
+  String vaultUnreadable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '今回は$count件を開けませんでした',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultLock => 'ロック';
+
+  @override
+  String get vaultDeleteQuestion => '金庫から削除しますか？';
+
+  @override
+  String get vaultDeleteBody => '完全に削除されます。金庫の項目はゴミ箱に移りません。';
+
+  @override
+  String get vaultDeleted => '金庫から削除しました';
+
+  @override
+  String get vaultEditNote => 'メモを編集';
+
+  @override
+  String get vaultName => '名前';
+
+  @override
+  String get vaultNamePanelTitle => 'あとで見つけやすい名前を付ける';
+
+  @override
+  String vaultNamedAs(String name) {
+    return '「$name」として保存しました';
+  }
+
+  @override
+  String get vaultRename => '名前を変更';
+
+  @override
+  String get vaultSearch => '金庫を検索';
+
+  @override
+  String get vaultNoMatches => '一致するものはありません';
+
+  @override
+  String get vaultResetPromptSubtitle => '本人確認をして中身をすべて削除';
+
+  @override
+  String get vaultFootnote => 'この端末だけ・アップロードなし';
+
+  @override
+  String get vaultLocksOnLeave => '離れると自動でロック';
 }
