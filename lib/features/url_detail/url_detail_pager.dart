@@ -21,8 +21,21 @@ class UrlDetailPagerScreen extends StatefulWidget {
   State<UrlDetailPagerScreen> createState() => _UrlDetailPagerScreenState();
 }
 
-class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
+class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen>
+    with SingleTickerProviderStateMixin {
   late final PageController _pageController;
+
+  /// Settles a released swipe on the deck's spring, carrying the finger's
+  /// speed into the page it lands on.
+  late final AnimationController _settle = AnimationController.unbounded(
+    vsync: this,
+  )..addListener(_followSettle);
+
+  /// Where [_settle] started and is headed. The page stays between them even
+  /// if a fast flick would carry the spring past: overshooting shows a
+  /// sliver of the page beyond.
+  double _settleFrom = 0;
+  double _settleTarget = 0;
   late int _currentIndex;
 
   // Drag tracking for custom horizontal-swipe detection.
@@ -36,6 +49,13 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
   /// every page in the pager whenever the route's status changes.
   RouteSettings? _settings;
 
+  /// Each page's state, so the pager's one app bar can offer the showing
+  /// save's actions.
+  final Map<int, GlobalKey<_UrlDetailScreenState>> _pageKeys = {};
+
+  GlobalKey<_UrlDetailScreenState> _pageKey(int urlId) =>
+      _pageKeys[urlId] ??= GlobalKey<_UrlDetailScreenState>();
+
   // Snap threshold: must drag at least this far to flip pages.
   static const double _snapFraction = 0.3;
 
@@ -44,6 +64,10 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+    // The first page exists after this frame: give the app bar its actions.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -54,12 +78,25 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
 
   @override
   void dispose() {
+    _settle.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
+  void _followSettle() {
+    if (!_pageController.hasClients) return;
+    final from = _settleFrom;
+    final target = _settleTarget;
+    _pageController.jumpTo(
+      from < target
+          ? _settle.value.clamp(from, target)
+          : _settle.value.clamp(target, from),
+    );
+  }
+
   void _onDragStart(DragStartDetails d) {
     if (_mediaPointerActive) return;
+    _settle.stop();
     _dragStartX = d.globalPosition.dx;
     _dragDeltaX = 0;
     _isDraggingHorizontal = false;
@@ -117,48 +154,115 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen> {
       }
     }
 
-    _pageController.animateToPage(
-      targetPage,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    final target = targetPage * screenWidth;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pageController.jumpTo(target);
+      return;
+    }
+    _settleFrom = _pageController.offset;
+    _settleTarget = target;
+    _settle.value = _settleFrom;
+    _settle
+        .animateWith(
+          SpringSimulation(
+            SwipeDeckPhysics.settleSpring,
+            _pageController.offset,
+            target,
+            // The finger moving right scrolls the pages left.
+            -d.velocity.pixelsPerSecond.dx,
+            tolerance: const Tolerance(distance: 0.5, velocity: 20),
+          ),
+        )
+        // A spring stops within a pixel of the page: land exactly on it.
+        .then((_) {
+          if (mounted && _pageController.hasClients) {
+            _pageController.jumpTo(target);
+          }
+        });
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onHorizontalDragStart: _mediaPointerActive ? null : _onDragStart,
-      onHorizontalDragUpdate: _mediaPointerActive ? null : _onDragUpdate,
-      onHorizontalDragEnd: _mediaPointerActive ? null : _onDragEnd,
-      // Exclude the gesture from competing with vertical scrolls inside pages.
-      excludeFromSemantics: true,
-      child: PageView.builder(
-        controller: _pageController,
-        onPageChanged: (index) {
-          if (_currentIndex == index) return;
-          setState(() => _currentIndex = index);
-          // Closing lands in the card for the save now showing.
-          CardOpenRoute.reportVisibleUrl(_settings, widget.urlIds[index]);
-        },
-        // Let our GestureDetector drive paging; disable built-in page physics
-        // so there's no double-handling and no scroll-axis fight.
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: widget.urlIds.length,
-        itemBuilder: (context, index) {
-          return _KeepAlivePage(
-            child: UrlDetailScreen(
-              key: ValueKey(widget.urlIds[index]),
-              urlId: widget.urlIds[index],
-              rediscoverContext: widget.rediscoverContext,
-              isActive: index == _currentIndex,
-              onMediaPointerActiveChanged: (active) {
-                if (_mediaPointerActive == active) return;
-                setState(() => _mediaPointerActive = active);
-              },
-            ),
-          );
-        },
-      ),
+    final currentId = widget.urlIds[_currentIndex];
+    // The app bar never changes from save to save, so it stays still while
+    // the pages swipe underneath it.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        GestureDetector(
+          onHorizontalDragStart: _mediaPointerActive ? null : _onDragStart,
+          onHorizontalDragUpdate: _mediaPointerActive ? null : _onDragUpdate,
+          onHorizontalDragEnd: _mediaPointerActive ? null : _onDragEnd,
+          // Exclude the gesture from competing with vertical scrolls inside pages.
+          excludeFromSemantics: true,
+          // Pages become cards while a swipe is under way.
+          child: SwipeDeck(
+            controller: _pageController,
+            onPageChanged: (index) {
+              if (_currentIndex == index) return;
+              setState(() => _currentIndex = index);
+              // Closing lands in the card for the save now showing.
+              CardOpenRoute.reportVisibleUrl(_settings, widget.urlIds[index]);
+            },
+            // Let our GestureDetector drive paging; disable built-in page physics
+            // so there's no double-handling and no scroll-axis fight.
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: widget.urlIds.length,
+            itemBuilder: (context, index) {
+              return _KeepAlivePage(
+                child: UrlDetailScreen(
+                  key: _pageKey(widget.urlIds[index]),
+                  showAppBar: false,
+                  urlId: widget.urlIds[index],
+                  rediscoverContext: widget.rediscoverContext,
+                  isActive: index == _currentIndex,
+                  onMediaPointerActiveChanged: (active) {
+                    if (_mediaPointerActive == active) return;
+                    setState(() => _mediaPointerActive = active);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          // An app bar outside a Scaffold sizes to what it's given.
+          height: MediaQuery.paddingOf(context).top + kToolbarHeight,
+          child: _PagerAppBar(urlId: currentId, page: _pageKey(currentId)),
+        ),
+      ],
+    );
+  }
+}
+
+/// The pager's app bar, over every page: the showing save's actions, from
+/// that page.
+class _PagerAppBar extends ConsumerWidget {
+  const _PagerAppBar({required this.urlId, required this.page});
+
+  final int urlId;
+  final GlobalKey<_UrlDetailScreenState> page;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final url =
+        ref.watch(urlDetailProvider(urlId)).valueOrNull ??
+        UrlDetailSeed.peek(urlId);
+    final isPinned = ref.watch(
+      pinnedUrlsProvider.select((ids) => ids.contains(urlId)),
+    );
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      flexibleSpace: const AppGlassSurface(),
+      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      title: Text(context.l10n.details),
+      actions:
+          page.currentState?._appBarActions(url, isPinned: isPinned) ??
+          const [],
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:isar/isar.dart';
 
 import '../../core/database/isar_service.dart';
 import '../../core/models/glimpse_record.dart';
+import 'glimpse_notification_prefs.dart';
 import 'glimpse.dart';
 
 class StoredGlimpse {
@@ -121,13 +122,25 @@ class GlimpseStore {
 
   /// Recheck the entire budget while holding the database write lock so two
   /// background workers cannot both spend the same delivery slot.
-  Future<bool> claim(String key, DateTime now) async {
+  Future<bool> claim(
+    String key,
+    DateTime now, {
+    int windowStart = GlimpseNotificationPrefs.defaultStartHour,
+    int windowEnd = GlimpseNotificationPrefs.defaultEndHour,
+  }) async {
     final db = await isar.database;
     return db.writeTxn(() async {
       final records = await db.glimpseRecords.where().findAll();
       final all = records.map(decode).whereType<StoredGlimpse>().toList();
       final item = all.where((s) => s.glimpse.key == key).firstOrNull;
-      if (item == null || !GlimpseDeliveryPolicy.canPost(item, all, now)) {
+      if (item == null ||
+          !GlimpseDeliveryPolicy.canPost(
+            item,
+            all,
+            now,
+            windowStart: windowStart,
+            windowEnd: windowEnd,
+          )) {
         return false;
       }
       item.record.deliveryLeaseUntil = now.add(const Duration(minutes: 10));
@@ -146,15 +159,19 @@ class GlimpseDeliveryPolicy {
             item.record.reminderPostedAt!.isBefore(due));
   }
 
+  /// [windowStart] and [windowEnd] are the hours the person lets Glimpse
+  /// notify between (Settings › Notifications › Delivery hours).
   static bool canPost(
     StoredGlimpse item,
     List<StoredGlimpse> all,
-    DateTime now,
-  ) {
+    DateTime now, {
+    int windowStart = GlimpseNotificationPrefs.defaultStartHour,
+    int windowEnd = GlimpseNotificationPrefs.defaultEndHour,
+  }) {
     final g = item.glimpse;
     final requested = isRequestedReturn(item, now);
-    if (now.hour < 9 ||
-        now.hour >= 21 ||
+    if (now.hour < windowStart ||
+        now.hour >= windowEnd ||
         !item.visibleAt(now) ||
         !g.canNotify ||
         g.availableAt.isAfter(now) ||

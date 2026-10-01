@@ -19,8 +19,12 @@ class AskAnswerText extends StatelessWidget {
     final spans = <InlineSpan>[];
     // "[12]" and grouped "[4, 9]" render the same way: one small pill per
     // source, so a sentence never mixes bold brackets with plain ones.
+    // Single-star and underscore emphasis read as italics; they must hug
+    // their words so "5 * 3 * 2" and snake_case stay as written.
     final pattern = RegExp(
-      r'\[(\d+(?:\s*,\s*\d+)*)\]|\*\*([^*]+)\*\*|`([^`]+)`',
+      r'\[(\d+(?:\s*,\s*\d+)*)\]|\*\*([^*]+)\*\*|`([^`]+)`'
+      r'|\*(?=\S)([^*\n]+?)(?<=\S)\*'
+      r'|(?<![A-Za-z0-9])_(?=\S)([^_\n]+?)(?<=\S)_(?![A-Za-z0-9])',
     );
     var offset = 0;
     for (final match in pattern.allMatches(value)) {
@@ -42,11 +46,14 @@ class AskAnswerText extends StatelessWidget {
           spans.add(_citation(context, index));
         }
       } else {
+        final italic = match.group(4) ?? match.group(5);
         spans.add(
           TextSpan(
-            text: match.group(2) ?? match.group(3) ?? match.group(0),
+            text: match.group(2) ?? match.group(3) ?? italic ?? match.group(0),
             style: match.group(2) != null
                 ? const TextStyle(fontWeight: FontWeight.w600)
+                : italic != null
+                ? const TextStyle(fontStyle: FontStyle.italic)
                 : null,
           ),
         );

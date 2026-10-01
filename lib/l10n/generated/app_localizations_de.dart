@@ -139,7 +139,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get loadingPreference => 'Einstellung wird geladen';
 
   @override
-  String get libraryGestures => 'Bibliotheksgesten';
+  String get libraryGestures => 'Wischaktionen';
 
   @override
   String get notifications => 'Benachrichtigungen';
@@ -1175,6 +1175,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String lastBackup(Object time) {
     return 'Letzte Sicherung: $time';
   }
+
+  @override
+  String get noBackupsYet => 'Noch keine Sicherungen';
 
   @override
   String get backupLocalInfo =>
@@ -3333,4 +3336,648 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get obFindStage =>
       'Beispiel: Filme, Musik und Orte aus deinen Inhalten und eine Suche, die die Zwei-Minuten-Regel findet.';
+
+  @override
+  String get planNamePro => 'Glimpse Pro';
+
+  @override
+  String get planNameFree => 'Glimpse Free';
+
+  @override
+  String get accountLoading => 'Konto wird geladen';
+
+  @override
+  String get accountSignedIn => 'Angemeldet';
+
+  @override
+  String get accountCheckingSession => 'Sitzung wird geprüft…';
+
+  @override
+  String get accountFallbackSubtitle => 'Glimpse-Konto';
+
+  @override
+  String get couldNotDeleteAccount =>
+      'Dein Konto konnte nicht gelöscht werden. Prüfe deine Verbindung und versuche es erneut.';
+
+  @override
+  String get privacyOnDevice => 'Auf diesem Gerät';
+
+  @override
+  String get privacyOnDeviceNote =>
+      'Deine Bibliothek liegt auf diesem Handy. Sicherungen landen nur dort, wo du sie ablegst.';
+
+  @override
+  String get privacySentToServers => 'An die Server von Glimpse gesendet';
+
+  @override
+  String get privacyLinksTitle => 'Links, die du speicherst';
+
+  @override
+  String get privacyLinksDetail =>
+      'Der Link mit Titel und Beschreibung, damit Glimpse ihn lesen und zusammenfassen kann';
+
+  @override
+  String get privacyAskTitle => 'Fragen, die du stellst';
+
+  @override
+  String get privacyAskDetail =>
+      'Mit den Speicherungen, auf die sie sich beziehen, damit Glimpse antworten kann';
+
+  @override
+  String get privacyAccountDetail =>
+      'Dein Name und deine E-Mail, um dich anzumelden';
+
+  @override
+  String get privacySubscriptionDetail => 'Ob du Pro hast';
+
+  @override
+  String get privacyAnalyticsTitle => 'Nutzungsanalyse';
+
+  @override
+  String get privacyAnalyticsDetail =>
+      'Welche Funktionen du nutzt und dein Gerätemodell – nie, was du speicherst';
+
+  @override
+  String get privacyAnalyticsOff =>
+      'Aus – es wird nichts darüber gesendet, wie du Glimpse nutzt';
+
+  @override
+  String get privacyServersNote =>
+      'Glimpse verkauft deine Daten nie. In der Datenschutzerklärung steht, wie lange sie gespeichert werden und wie du sie löschst.';
+
+  @override
+  String get binItemGone => 'Dieses Element ist nicht mehr im Papierkorb';
+
+  @override
+  String get binRestored => 'Wiederhergestellt';
+
+  @override
+  String get binCouldNotRestore =>
+      'Element konnte nicht wiederhergestellt werden';
+
+  @override
+  String get binNoneRestored => 'Es wurden keine Elemente wiederhergestellt';
+
+  @override
+  String binItemsRestored(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Elemente wiederhergestellt',
+      one: '1 Element wiederhergestellt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binCouldNotRestoreMany =>
+      'Elemente konnten nicht wiederhergestellt werden';
+
+  @override
+  String get cannotBeUndone => 'Das kann nicht rückgängig gemacht werden.';
+
+  @override
+  String deleteItemsPermanentlyQuestion(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Elemente endgültig löschen?',
+      one: 'Endgültig löschen?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binPermanentlyDeleted => 'Endgültig gelöscht';
+
+  @override
+  String binItemsPermanentlyDeleted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Elemente endgültig gelöscht',
+      one: '1 Element endgültig gelöscht',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binCouldNotDelete => 'Element konnte nicht gelöscht werden';
+
+  @override
+  String get binCouldNotDeleteMany => 'Elemente konnten nicht gelöscht werden';
+
+  @override
+  String get emptyBinQuestion => 'Papierkorb leeren?';
+
+  @override
+  String get binEmptied => 'Papierkorb geleert';
+
+  @override
+  String get binCouldNotEmpty => 'Papierkorb konnte nicht geleert werden';
+
+  @override
+  String get restoreSelected => 'Auswahl wiederherstellen';
+
+  @override
+  String get deleteSelectedPermanently => 'Auswahl endgültig löschen';
+
+  @override
+  String get backupPreview => 'Sicherungsvorschau';
+
+  @override
+  String get noBackupData => 'Keine Sicherungsdaten';
+
+  @override
+  String get backupDetails => 'Sicherungsdetails';
+
+  @override
+  String get backupDate => 'Datum';
+
+  @override
+  String get backupAppVersion => 'App-Version';
+
+  @override
+  String get backupDevice => 'Gerät';
+
+  @override
+  String get backupLinksLabel => 'Links';
+
+  @override
+  String get backupSaveSessions => 'Speichersitzungen';
+
+  @override
+  String get backupEmbeddings => 'Enthaltene Embeddings';
+
+  @override
+  String get restoreMode => 'Wiederherstellungsart';
+
+  @override
+  String get restoreMergeTitle => 'Mit bestehender Bibliothek zusammenführen';
+
+  @override
+  String get restoreMergeSubtitle =>
+      'Fügt neue Links aus der Sicherung hinzu (auch gelöschte) und aktualisiert vorhandene. Aus deiner aktuellen Bibliothek wird nichts entfernt.';
+
+  @override
+  String get restoreReplaceTitle => 'Aktuelle Bibliothek ersetzen';
+
+  @override
+  String get restoreReplaceSubtitle =>
+      'Ersetzt alle aktuellen Daten durch die Sicherung. Deine aktuelle Bibliothek wird gelöscht.';
+
+  @override
+  String restoringProgress(int percent) {
+    return 'Wird wiederhergestellt… $percent %';
+  }
+
+  @override
+  String get replaceLibraryQuestion => 'Bibliothek ersetzen?';
+
+  @override
+  String get mergeBackupQuestion => 'Sicherung zusammenführen?';
+
+  @override
+  String get replaceLibraryWarning =>
+      'Deine aktuelle Bibliothek wird durch die Sicherung ersetzt. Alle aktuellen Links und Sammlungen werden endgültig gelöscht.';
+
+  @override
+  String get mergeBackupExplanation =>
+      'Links aus der Sicherung werden mit deiner aktuellen Bibliothek zusammengeführt. Duplikate werden übersprungen.';
+
+  @override
+  String get replaceAction => 'Ersetzen';
+
+  @override
+  String get mergeAction => 'Zusammenführen';
+
+  @override
+  String collectionCountLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Sammlungen',
+      one: '1 Sammlung',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String restoreImpactReplace(String links, String collections) {
+    return 'Deine aktuelle Bibliothek wird gelöscht, danach werden $links und $collections aus der Sicherung wiederhergestellt.';
+  }
+
+  @override
+  String get impactNewLinks => 'Neue Links zum Wiederherstellen';
+
+  @override
+  String get impactNewLinksHint => 'Einschließlich zuvor gelöschter Links.';
+
+  @override
+  String get impactUpdatedLinks => 'Vorhandene Links zum Aktualisieren';
+
+  @override
+  String get impactNewCollections => 'Neue Sammlungen';
+
+  @override
+  String get impactUpdatedCollections => 'Sammlungen zum Aktualisieren';
+
+  @override
+  String get calculatingChanges => 'Änderungen werden berechnet…';
+
+  @override
+  String get couldNotPreviewChanges =>
+      'Änderungen konnten nicht angezeigt werden.';
+
+  @override
+  String restoredLinksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Links wiederhergestellt',
+      one: '1 Link wiederhergestellt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get restoreComplete => 'Wiederherstellung abgeschlossen';
+
+  @override
+  String get subscriptionsUnavailableBuild =>
+      'Abos sind in dieser Version nicht verfügbar.';
+
+  @override
+  String get subscriptionsUnavailableNow => 'Abos sind gerade nicht verfügbar.';
+
+  @override
+  String get welcomeToPro => 'Willkommen bei Glimpse Pro!';
+
+  @override
+  String get purchasePending =>
+      'Dein Kauf steht noch aus. Pro wird freigeschaltet, sobald die Zahlung bestätigt ist.';
+
+  @override
+  String get purchaseFailed =>
+      'Der Kauf konnte nicht abgeschlossen werden. Bitte versuche es erneut.';
+
+  @override
+  String get purchaseNotVerified =>
+      'Der Kauf war erfolgreich, aber Pro konnte noch nicht bestätigt werden. Versuche „Käufe wiederherstellen“.';
+
+  @override
+  String get purchasesRestored =>
+      'Käufe wiederhergestellt – willkommen zurück!';
+
+  @override
+  String get noPurchasesFound => 'Keine früheren Käufe gefunden';
+
+  @override
+  String get restorePurchasesFailed =>
+      'Käufe konnten nicht wiederhergestellt werden. Bitte versuche es erneut.';
+
+  @override
+  String get couldNotOpenGooglePlay =>
+      'Google Play konnte nicht geöffnet werden.';
+
+  @override
+  String get subscriptionOtherAccount =>
+      'Dieses Abo gehört zu einem anderen Glimpse-Konto. Melde dich mit dem Konto an, mit dem du es abgeschlossen hast.';
+
+  @override
+  String get planYourUsage => 'Deine Nutzung';
+
+  @override
+  String usageAiSavesFree(int used, int limit) {
+    return '$used von $limit kostenlosen KI-Speicherungen genutzt';
+  }
+
+  @override
+  String usageAiSavesPro(int used, int limit) {
+    return '$used von $limit KI-Speicherungen diesen Monat';
+  }
+
+  @override
+  String usageAsk(int used, int limit) {
+    return '$used von $limit Fragen diesen Monat';
+  }
+
+  @override
+  String usageSearch(int used, int limit) {
+    return '$used von $limit Suchen diesen Monat';
+  }
+
+  @override
+  String get compareTitle => 'Free und Pro';
+
+  @override
+  String get compareAiSaves => 'KI-angereicherte Speicherungen';
+
+  @override
+  String get compareAsk => 'Glimpse fragen';
+
+  @override
+  String get compareSearch => 'Stichwortsuche';
+
+  @override
+  String get compareFreeAiSaves => '30 zum Start';
+
+  @override
+  String perMonthCount(int count) {
+    return '$count / Monat';
+  }
+
+  @override
+  String get unlimitedFairUse => 'Unbegrenzt*';
+
+  @override
+  String get fairUseNote => '* Im Rahmen der fairen Nutzung.';
+
+  @override
+  String get choosePlan => 'Wähle ein Abo';
+
+  @override
+  String get planMonthly => 'Monatlich';
+
+  @override
+  String get planYearly => 'Jährlich';
+
+  @override
+  String pricePerMonth(String price) {
+    return '$price / Monat';
+  }
+
+  @override
+  String pricePerYear(String price) {
+    return '$price / Jahr';
+  }
+
+  @override
+  String savePercent(int percent) {
+    return '$percent % sparen';
+  }
+
+  @override
+  String startProWithPrice(String price) {
+    return 'Pro starten · $price';
+  }
+
+  @override
+  String get subscriptionTerms =>
+      'Verlängert sich automatisch, bis du kündigst. Jederzeit in Google Play kündbar.';
+
+  @override
+  String get hapticsTitle => 'Haptik';
+
+  @override
+  String get hapticsFull => 'Voll';
+
+  @override
+  String get hapticsSubtle => 'Dezent';
+
+  @override
+  String get hapticsFullDetail => 'Reichhaltiges, detailliertes Feedback';
+
+  @override
+  String get hapticsSubtleDetail => 'Nur die leichtesten Impulse';
+
+  @override
+  String get hapticsOffDetail => 'Keine Vibration';
+
+  @override
+  String get defaultMusicApp => 'Standard-Musik-App';
+
+  @override
+  String get musicAskEachTime => 'Jedes Mal fragen';
+
+  @override
+  String get notifWhatToSend => 'Was gesendet wird';
+
+  @override
+  String get notifKindConnections => 'Verbindungen';
+
+  @override
+  String get notifKindConnectionsDetail =>
+      'Wenn Speicherungen aus verschiedenen Zeiten dasselbe Thema haben';
+
+  @override
+  String get notifKindIdeas => 'Gespeicherte Ideen';
+
+  @override
+  String get notifKindIdeasDetail =>
+      'Eine gespeicherte Idee, wenn sie einen zweiten Blick wert ist';
+
+  @override
+  String get notifKindWeekly => 'Wochenrückblick';
+
+  @override
+  String get notifKindWeeklyDetail => 'Sonntags ein Blick auf deine Woche';
+
+  @override
+  String get notifKindReminders => 'Erinnerungen zum Wiederansehen';
+
+  @override
+  String get notifKindRemindersDetail =>
+      'Speicherungen, an die du erinnert werden wolltest';
+
+  @override
+  String get notifDeliveryHours => 'Zustellzeiten';
+
+  @override
+  String get notifDeliveryHoursDetail =>
+      'Glimpse benachrichtigt dich nur in diesem Zeitraum';
+
+  @override
+  String timeRange(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String get notifKindsAll => 'Alles';
+
+  @override
+  String get notifKindsNone => 'Nichts';
+
+  @override
+  String notifKindsSome(int count) {
+    return '$count von 4 Arten';
+  }
+
+  @override
+  String get binCouldNotLoad => 'Papierkorb konnte nicht geladen werden';
+
+  @override
+  String get askThinking => 'Durchsuche deine Speicherungen…';
+
+  @override
+  String askSourcesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Quellen',
+      one: '1 Quelle',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askAddNote => 'Als Notiz hinzufügen';
+
+  @override
+  String get askNoteSaved => 'In Notizen gespeichert';
+
+  @override
+  String get askNoteSaveFailed =>
+      'Speichern fehlgeschlagen. Versuch es noch einmal.';
+
+  @override
+  String get askRegenerate => 'Neu generieren';
+
+  @override
+  String get askCopied => 'Kopiert';
+
+  @override
+  String get askAllSaves => 'Alle';
+
+  @override
+  String get askAskingAbout => 'Frage zu';
+
+  @override
+  String get askActionSaveToCollection => 'In Sammlung speichern';
+
+  @override
+  String get askActionSynthesize => 'Zusammenführen';
+
+  @override
+  String get askActionBuildPlan => 'Plan erstellen';
+
+  @override
+  String get askActionSaveItinerary => 'Als Reiseplan speichern';
+
+  @override
+  String get askEarlier => 'Früher';
+
+  @override
+  String get askOpenNow => 'Gerade geöffnet';
+
+  @override
+  String get askNoChats => 'Noch keine Chats';
+
+  @override
+  String get askNoChatsHint => 'Deine Fragen werden hier aufbewahrt.';
+
+  @override
+  String get askSearchChats => 'Chats durchsuchen';
+
+  @override
+  String get askNoChatsMatch => 'Keine passenden Chats';
+
+  @override
+  String get askChatDeleted => 'Chat gelöscht';
+
+  @override
+  String get askNewCollectionHint => 'Benennen – und sie kommen hinein';
+
+  @override
+  String get askAlreadyInCollection => 'Schon enthalten';
+
+  @override
+  String askSomeInCollection(int count) {
+    return '$count schon enthalten';
+  }
+
+  @override
+  String askAddedToCollection(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Speicherungen zu $name hinzugefügt',
+      one: 'Zu $name hinzugefügt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askTryAsking => 'Frag zum Beispiel';
+
+  @override
+  String askSuggestBigIdea(String title) {
+    return 'Was ist die Kernidee von $title?';
+  }
+
+  @override
+  String askSuggestTopic(String topic) {
+    return 'Was habe ich über $topic gelernt?';
+  }
+
+  @override
+  String get askSuggestThisWeek => 'Was habe ich diese Woche gespeichert?';
+
+  @override
+  String askSuggestRemind(String title) {
+    return 'Worum ging es noch mal bei $title?';
+  }
+
+  @override
+  String askSuggestConnect(String topic) {
+    return 'Wie hängen meine $topic-Speicherungen zusammen?';
+  }
+
+  @override
+  String get askHowToSave => 'Wie speichere ich einen Link?';
+
+  @override
+  String get askEditingQuestion => 'Du bearbeitest deine Frage';
+
+  @override
+  String get askEditingReplaces =>
+      'Bearbeiten · spätere Antworten werden ersetzt';
+
+  @override
+  String get askAskAgain => 'Erneut fragen';
+
+  @override
+  String get askHeadBigIdea => 'Die Kernidee';
+
+  @override
+  String askHeadTopic(String topic) {
+    return '$topic auffrischen';
+  }
+
+  @override
+  String get askSubTopic => 'Was du zuletzt gelernt hast';
+
+  @override
+  String get askHeadWeek => 'Diese Woche';
+
+  @override
+  String get askSubWeek => 'Ein kurzer Rückblick';
+
+  @override
+  String get askHeadRemind => 'Alten Fund wiederentdecken';
+
+  @override
+  String get askHeadConnect => 'Zusammenhänge finden';
+
+  @override
+  String askSubConnect(String topic) {
+    return 'Über deine $topic-Speicherungen';
+  }
+
+  @override
+  String get askHeadLibrary => 'Deine Bibliothek';
+
+  @override
+  String get askHeadStart => 'Los geht’s';
+
+  @override
+  String askAcrossSaves(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Frag alles zu deinen $count Speicherungen',
+      one: 'Frag alles zu deiner Speicherung',
+    );
+    return '$_temp0';
+  }
 }

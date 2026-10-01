@@ -20,6 +20,7 @@ import '../home/home_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
 import '../rediscover/rediscover_provider.dart';
 import 'bin_provider.dart';
+import 'settings_components.dart';
 import '../../core/services/app_haptics.dart';
 
 class BinScreen extends ConsumerStatefulWidget {
@@ -69,12 +70,14 @@ class _BinScreenState extends ConsumerState<BinScreen> {
     setState(() => _pendingIds.removeAll(ids));
   }
 
-  void _showSnackBar(String message) {
+  /// [message] is resolved only once the screen is known to still be up.
+  void _showSnackBar(String Function(AppLocalizations strings) message) {
     if (!mounted) return;
+    final text = message(context.l10n);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+        SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
       );
   }
 
@@ -87,15 +90,15 @@ class _BinScreenState extends ConsumerState<BinScreen> {
           .restoreUrlFromBin(url.id);
       if (!restored) {
         _releasePending(ids);
-        _showSnackBar('This item is no longer in Bin');
+        _showSnackBar((s) => s.binItemGone);
         return;
       }
       _refreshActiveSurfaces();
-      _showSnackBar('Restored');
+      _showSnackBar((s) => s.binRestored);
     } catch (error, stackTrace) {
       debugPrint('Could not restore Bin item: $error\n$stackTrace');
       _releasePending(ids);
-      _showSnackBar('Could not restore item');
+      _showSnackBar((s) => s.binCouldNotRestore);
     }
   }
 
@@ -110,15 +113,15 @@ class _BinScreenState extends ConsumerState<BinScreen> {
           .restoreUrlsFromBin(ids);
       if (restored != ids.length) _releasePending(ids);
       if (restored == 0) {
-        _showSnackBar('No items were restored');
+        _showSnackBar((s) => s.binNoneRestored);
         return;
       }
       _refreshActiveSurfaces();
-      _showSnackBar('$restored ${restored == 1 ? 'item' : 'items'} restored');
+      _showSnackBar((s) => s.binItemsRestored(restored));
     } catch (error, stackTrace) {
       debugPrint('Could not restore Bin items: $error\n$stackTrace');
       _releasePending(ids);
-      _showSnackBar('Could not restore items');
+      _showSnackBar((s) => s.binCouldNotRestoreMany);
     }
   }
 
@@ -127,11 +130,11 @@ class _BinScreenState extends ConsumerState<BinScreen> {
           context: context,
           builder: (dialogContext) => AlertDialog(
             title: Text(title),
-            content: const Text('This cannot be undone.'),
+            content: Text(dialogContext.l10n.cannotBeUndone),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
+                child: Text(dialogContext.l10n.cancel),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
@@ -139,7 +142,7 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                   foregroundColor: Theme.of(dialogContext).colorScheme.onError,
                 ),
                 onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Delete permanently'),
+                child: Text(dialogContext.l10n.deletePermanently),
               ),
             ],
           ),
@@ -153,7 +156,9 @@ class _BinScreenState extends ConsumerState<BinScreen> {
   }) async {
     final confirmed =
         alreadyConfirmed ||
-        await _confirmPermanentDelete(title: 'Delete permanently?');
+        await _confirmPermanentDelete(
+          title: context.l10n.deleteItemsPermanentlyQuestion(1),
+        );
     if (!confirmed) return;
     final ids = [url.id];
     _markPending(ids);
@@ -163,15 +168,15 @@ class _BinScreenState extends ConsumerState<BinScreen> {
           .deleteUrlPermanently(url.id);
       if (!deleted) {
         _releasePending(ids);
-        _showSnackBar('This item is no longer in Bin');
+        _showSnackBar((s) => s.binItemGone);
         return;
       }
       await ref.read(pinnedUrlsProvider.notifier).unpin(url.id);
-      _showSnackBar('Permanently deleted');
+      _showSnackBar((s) => s.binPermanentlyDeleted);
     } catch (error, stackTrace) {
       debugPrint('Could not permanently delete Bin item: $error\n$stackTrace');
       _releasePending(ids);
-      _showSnackBar('Could not delete item');
+      _showSnackBar((s) => s.binCouldNotDelete);
     }
   }
 
@@ -179,9 +184,7 @@ class _BinScreenState extends ConsumerState<BinScreen> {
     if (urls.isEmpty) return;
     final count = urls.length;
     final confirmed = await _confirmPermanentDelete(
-      title: count == 1
-          ? 'Delete permanently?'
-          : 'Delete $count items permanently?',
+      title: context.l10n.deleteItemsPermanentlyQuestion(count),
     );
     if (!confirmed) return;
     final ids = urls.map((url) => url.id).toList(growable: false);
@@ -193,19 +196,18 @@ class _BinScreenState extends ConsumerState<BinScreen> {
           .deleteUrlsPermanently(ids);
       if (deletedIds.length != ids.length) _releasePending(ids);
       await ref.read(pinnedUrlsProvider.notifier).unpinAll(deletedIds);
-      _showSnackBar(
-        '${deletedIds.length} '
-        '${deletedIds.length == 1 ? 'item' : 'items'} permanently deleted',
-      );
+      _showSnackBar((s) => s.binItemsPermanentlyDeleted(deletedIds.length));
     } catch (error, stackTrace) {
       debugPrint('Could not permanently delete Bin items: $error\n$stackTrace');
       _releasePending(ids);
-      _showSnackBar('Could not delete items');
+      _showSnackBar((s) => s.binCouldNotDeleteMany);
     }
   }
 
   Future<void> _emptyBin(List<SavedUrl> urls) async {
-    final confirmed = await _confirmPermanentDelete(title: 'Empty Bin?');
+    final confirmed = await _confirmPermanentDelete(
+      title: context.l10n.emptyBinQuestion,
+    );
     if (!confirmed) return;
     final visibleIds = urls.map((url) => url.id).toList(growable: false);
     _markPending(visibleIds);
@@ -215,11 +217,11 @@ class _BinScreenState extends ConsumerState<BinScreen> {
         _releasePending(visibleIds);
       }
       await ref.read(pinnedUrlsProvider.notifier).unpinAll(deletedIds);
-      _showSnackBar('Bin emptied');
+      _showSnackBar((s) => s.binEmptied);
     } catch (error, stackTrace) {
       debugPrint('Could not empty Bin: $error\n$stackTrace');
       _releasePending(visibleIds);
-      _showSnackBar('Could not empty Bin');
+      _showSnackBar((s) => s.binCouldNotEmpty);
     }
   }
 
@@ -292,14 +294,14 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                     icon: const Icon(AppIcons.selectAll),
                   ),
                   IconButton(
-                    tooltip: 'Restore selected',
+                    tooltip: context.l10n.restoreSelected,
                     onPressed: selectedUrls.isEmpty
                         ? null
                         : () => unawaited(_restoreMany(selectedUrls)),
                     icon: const Icon(AppIcons.rediscover),
                   ),
                   IconButton(
-                    tooltip: 'Delete selected permanently',
+                    tooltip: context.l10n.deleteSelectedPermanently,
                     color: cs.error,
                     onPressed: selectedUrls.isEmpty
                         ? null
@@ -309,10 +311,8 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                 ],
               )
             else
-              SliverAppBar.large(
-                backgroundColor: cs.surface,
-                foregroundColor: cs.onSurface,
-                title: Text(context.l10n.bin),
+              SettingsLargeAppBar(
+                title: context.l10n.bin,
                 actions: [
                   if (_maintenanceComplete && urls.isNotEmpty)
                     PopupMenuButton<String>(
@@ -349,7 +349,7 @@ class _BinScreenState extends ConsumerState<BinScreen> {
               SliverFillRemaining(
                 child: Center(
                   child: Text(
-                    'Could not load Bin',
+                    context.l10n.binCouldNotLoad,
                     style: theme.textTheme.bodyLarge,
                   ),
                 ),
@@ -362,19 +362,11 @@ class _BinScreenState extends ConsumerState<BinScreen> {
             else ...[
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(padding, 4, padding, 12),
+                // A quiet note, like the rest of Settings — not a callout box.
                 sliver: SliverToBoxAdapter(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Text(
-                      context.l10n.deletedItemsRetention,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: SettingsFootnote(context.l10n.deletedItemsRetention),
                   ),
                 ),
               ),
@@ -398,8 +390,9 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                         selectionNotifier.toggle(url.id);
                       },
                       onRestore: () => unawaited(_restore(url)),
-                      onConfirmPermanentDelete: () =>
-                          _confirmPermanentDelete(title: 'Delete permanently?'),
+                      onConfirmPermanentDelete: () => _confirmPermanentDelete(
+                        title: context.l10n.deleteItemsPermanentlyQuestion(1),
+                      ),
                       onDeletePermanently: () =>
                           unawaited(_deletePermanently(url)),
                       onDeletePermanentlyConfirmed: () => unawaited(

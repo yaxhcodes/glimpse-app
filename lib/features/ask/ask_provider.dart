@@ -522,16 +522,18 @@ class AskSuggestionGuard {
     return shared / min(aTokens.length, bTokens.length) >= 0.8;
   }
 
-  static Set<String> _tokens(String value) => RegExp(r'[\p{L}\p{N}]+', unicode: true)
-      .allMatches(value.toLowerCase())
-      .map((match) => match.group(0)!)
-      .where((token) => !_stopWords.contains(token))
-      .map(_stem)
-      .where((token) => token.length > 2 && !_stopWords.contains(token))
-      .toSet();
+  static Set<String> _tokens(String value) =>
+      RegExp(r'[\p{L}\p{N}]+', unicode: true)
+          .allMatches(value.toLowerCase())
+          .map((match) => match.group(0)!)
+          .where((token) => !_stopWords.contains(token))
+          .map(_stem)
+          .where((token) => token.length > 2 && !_stopWords.contains(token))
+          .toSet();
 
   static String _normalize(String value) => RegExp(
-    r'[\p{L}\p{N}]+', unicode: true,
+    r'[\p{L}\p{N}]+',
+    unicode: true,
   ).allMatches(value.toLowerCase()).map((match) => match.group(0)!).join(' ');
 
   static String _stem(String token) {
@@ -842,6 +844,15 @@ class AskNotifier extends StateNotifier<AskState> {
     }
     await _writes;
     await _store.delete(chat.id);
+  }
+
+  /// The chat on screen, for marking it in history.
+  String? get conversationKey => _conversation?.key;
+
+  /// Puts back a chat deleted from history (its Undo).
+  Future<void> restoreConversation(AskConversation chat) async {
+    await _writes;
+    await _store.save(chat);
   }
 
   Future<void> renameConversation(AskConversation chat, String title) async {

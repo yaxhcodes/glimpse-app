@@ -827,7 +827,7 @@ class _CollectionsOptionsMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<_CollectionsMenuAction>(
       tooltip: context.l10n.collectionOptions,
-      icon: const Icon(AppIcons.more),
+      icon: const Icon(AppIcons.more, size: 26),
       onSelected: onSelected,
       itemBuilder: (context) => [
         appMenuItem(

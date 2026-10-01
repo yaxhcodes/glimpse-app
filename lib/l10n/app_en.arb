@@ -46,7 +46,7 @@
   "musicApp": "Music app",
   "chooseWhereSongsOpen": "Choose where songs open",
   "loadingPreference": "Loading preference",
-  "libraryGestures": "Library gestures",
+  "libraryGestures": "Swipe actions",
   "notifications": "Notifications",
   "privacyAndData": "Privacy & data",
   "privacy": "Privacy",
@@ -395,6 +395,7 @@
   "createBackup": "Create backup",
   "restoreBackup": "Restore backup",
   "lastBackup": "Last backup: {time}",
+  "noBackupsYet": "No backups yet",
   "backupLocalInfo": "Backups contain your full library — links, collections, tags, and metadata. They stay on your device.",
   "deletedItemsRetention": "Deleted items are kept for 30 days, then removed permanently the next time Glimpse runs cleanup.",
   "daysLeft": "{count, plural, =1{1 day left} other{{count} days left}}",
@@ -1065,6 +1066,393 @@
   "obReadStage": "Example: the saved reel as a page with a brief, key takeaways, terms and the books it mentions.",
   "obFindStage": "Example: films, music and places from your saves, and a search that finds the two-minute rule.",
   "@obFreeNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "planNamePro": "Glimpse Pro",
+  "planNameFree": "Glimpse Free",
+  "accountLoading": "Loading account",
+  "accountSignedIn": "Signed in",
+  "accountCheckingSession": "Checking session…",
+  "accountFallbackSubtitle": "Glimpse account",
+  "couldNotDeleteAccount": "Couldn't delete your account. Check your connection and try again.",
+  "privacyOnDevice": "On this device",
+  "privacyOnDeviceNote": "Your library lives on this phone. Backups go only where you put them.",
+  "privacySentToServers": "Sent to Glimpse's servers",
+  "privacyLinksTitle": "Links you save",
+  "privacyLinksDetail": "The link, its title and description, so Glimpse can read and summarise it",
+  "privacyAskTitle": "Questions you ask",
+  "privacyAskDetail": "With the saves they draw on, so Glimpse can answer",
+  "privacyAccountDetail": "Your name and email, to sign you in",
+  "privacySubscriptionDetail": "Whether you have Pro",
+  "privacyAnalyticsTitle": "Usage analytics",
+  "privacyAnalyticsDetail": "Which features you use and your device model — never what you save",
+  "privacyAnalyticsOff": "Off — nothing about how you use Glimpse is sent",
+  "privacyServersNote": "Glimpse never sells your data. The privacy policy explains how long it’s kept and how to delete it.",
+  "binItemGone": "This item is no longer in Bin",
+  "binRestored": "Restored",
+  "binCouldNotRestore": "Could not restore item",
+  "binNoneRestored": "No items were restored",
+  "binItemsRestored": "{count, plural, =1{1 item restored} other{{count} items restored}}",
+  "@binItemsRestored": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "binCouldNotRestoreMany": "Could not restore items",
+  "cannotBeUndone": "This cannot be undone.",
+  "deleteItemsPermanentlyQuestion": "{count, plural, =1{Delete permanently?} other{Delete {count} items permanently?}}",
+  "@deleteItemsPermanentlyQuestion": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "binPermanentlyDeleted": "Permanently deleted",
+  "binItemsPermanentlyDeleted": "{count, plural, =1{1 item permanently deleted} other{{count} items permanently deleted}}",
+  "@binItemsPermanentlyDeleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "binCouldNotDelete": "Could not delete item",
+  "binCouldNotDeleteMany": "Could not delete items",
+  "emptyBinQuestion": "Empty Bin?",
+  "binEmptied": "Bin emptied",
+  "binCouldNotEmpty": "Could not empty Bin",
+  "restoreSelected": "Restore selected",
+  "deleteSelectedPermanently": "Delete selected permanently",
+  "backupPreview": "Backup preview",
+  "noBackupData": "No backup data",
+  "backupDetails": "Backup details",
+  "backupDate": "Date",
+  "backupAppVersion": "App version",
+  "backupDevice": "Device",
+  "backupLinksLabel": "Links",
+  "backupSaveSessions": "Save sessions",
+  "backupEmbeddings": "Embeddings included",
+  "restoreMode": "Restore mode",
+  "restoreMergeTitle": "Merge with existing library",
+  "restoreMergeSubtitle": "Adds new links from the backup (including ones you’ve deleted) and updates existing ones. Nothing in your current library is removed.",
+  "restoreReplaceTitle": "Replace current library",
+  "restoreReplaceSubtitle": "Replaces all current data with the backup. Your current library will be deleted.",
+  "restoringProgress": "Restoring… {percent}%",
+  "@restoringProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "replaceLibraryQuestion": "Replace library?",
+  "mergeBackupQuestion": "Merge backup?",
+  "replaceLibraryWarning": "This will replace your current library with the backup. All your current links and collections will be permanently deleted.",
+  "mergeBackupExplanation": "Links from the backup will be merged into your current library. Duplicates will be skipped.",
+  "replaceAction": "Replace",
+  "mergeAction": "Merge",
+  "collectionCountLabel": "{count, plural, =1{1 collection} other{{count} collections}}",
+  "@collectionCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "restoreImpactReplace": "Your current library will be deleted, then {links} and {collections} will be restored from the backup.",
+  "@restoreImpactReplace": {
+    "placeholders": {
+      "links": {
+        "type": "String"
+      },
+      "collections": {
+        "type": "String"
+      }
+    }
+  },
+  "impactNewLinks": "New links to restore",
+  "impactNewLinksHint": "Includes any links you previously deleted.",
+  "impactUpdatedLinks": "Existing links to update",
+  "impactNewCollections": "New collections",
+  "impactUpdatedCollections": "Collections to update",
+  "calculatingChanges": "Calculating changes…",
+  "couldNotPreviewChanges": "Could not preview changes.",
+  "restoredLinksCount": "{count, plural, =1{Restored 1 link} other{Restored {count} links}}",
+  "@restoredLinksCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "restoreComplete": "Restore complete",
+  "subscriptionsUnavailableBuild": "Subscriptions are unavailable in this build.",
+  "subscriptionsUnavailableNow": "Subscriptions are unavailable right now.",
+  "welcomeToPro": "Welcome to Glimpse Pro!",
+  "purchasePending": "Your purchase is pending. Pro will unlock once payment is confirmed.",
+  "purchaseFailed": "The purchase couldn't be completed. Please try again.",
+  "purchaseNotVerified": "The purchase went through, but Pro couldn't be verified yet. Try Restore purchases.",
+  "purchasesRestored": "Purchases restored — welcome back!",
+  "noPurchasesFound": "No previous purchases found",
+  "restorePurchasesFailed": "Purchases couldn't be restored. Please try again.",
+  "couldNotOpenGooglePlay": "Couldn't open Google Play.",
+  "subscriptionOtherAccount": "This subscription belongs to another Glimpse account. Sign in with the account that subscribed.",
+  "planYourUsage": "Your usage",
+  "usageAiSavesFree": "{used} of {limit} free AI saves used",
+  "@usageAiSavesFree": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "usageAiSavesPro": "{used} of {limit} AI saves this month",
+  "@usageAiSavesPro": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "usageAsk": "{used} of {limit} questions this month",
+  "@usageAsk": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "usageSearch": "{used} of {limit} searches this month",
+  "@usageSearch": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "compareTitle": "Free and Pro",
+  "compareAiSaves": "AI-enriched saves",
+  "compareAsk": "Ask Glimpse",
+  "compareSearch": "Keyword search",
+  "compareFreeAiSaves": "30 to start",
+  "perMonthCount": "{count} / month",
+  "@perMonthCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unlimitedFairUse": "Unlimited*",
+  "fairUseNote": "* Within fair use.",
+  "choosePlan": "Choose a plan",
+  "planMonthly": "Monthly",
+  "planYearly": "Yearly",
+  "pricePerMonth": "{price} / month",
+  "@pricePerMonth": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "pricePerYear": "{price} / year",
+  "@pricePerYear": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "savePercent": "Save {percent}%",
+  "@savePercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "startProWithPrice": "Start Pro · {price}",
+  "@startProWithPrice": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "subscriptionTerms": "Renews automatically until you cancel. Cancel anytime in Google Play.",
+  "hapticsTitle": "Haptics",
+  "hapticsFull": "Full",
+  "hapticsSubtle": "Subtle",
+  "hapticsFullDetail": "Rich, textured feedback",
+  "hapticsSubtleDetail": "The lightest taps only",
+  "hapticsOffDetail": "No vibration",
+  "defaultMusicApp": "Default music app",
+  "musicAskEachTime": "Ask each time",
+  "notifWhatToSend": "What to send",
+  "notifKindConnections": "Connections",
+  "notifKindConnectionsDetail": "When saves from different times turn out to be about the same thing",
+  "notifKindIdeas": "Saved ideas",
+  "notifKindIdeasDetail": "An idea you saved, back when it’s worth another look",
+  "notifKindWeekly": "Weekly brief",
+  "notifKindWeeklyDetail": "A Sunday look back at your week of saving",
+  "notifKindReminders": "Revisit reminders",
+  "notifKindRemindersDetail": "The saves you asked to come back to",
+  "notifDeliveryHours": "Delivery hours",
+  "notifDeliveryHoursDetail": "Glimpse only notifies you between these times",
+  "timeRange": "{start} – {end}",
+  "@timeRange": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "notifKindsAll": "Everything",
+  "notifKindsNone": "Nothing",
+  "notifKindsSome": "{count} of 4 kinds",
+  "@notifKindsSome": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "binCouldNotLoad": "Could not load Bin",
+  "askThinking": "Looking through your saves…",
+  "askSourcesCount": "{count, plural, =1{1 source} other{{count} sources}}",
+  "@askSourcesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "askAddNote": "Add as a note",
+  "askNoteSaved": "Saved to notes",
+  "askNoteSaveFailed": "Couldn't save. Try again.",
+  "askRegenerate": "Regenerate",
+  "askCopied": "Copied",
+  "askAllSaves": "All saves",
+  "askAskingAbout": "Asking about",
+  "askActionSaveToCollection": "Save to a collection",
+  "askActionSynthesize": "Synthesize these",
+  "askActionBuildPlan": "Build a plan",
+  "askActionSaveItinerary": "Save as itinerary",
+  "askEarlier": "Earlier",
+  "askOpenNow": "Open now",
+  "askNoChats": "No chats yet",
+  "askNoChatsHint": "Questions you ask will be kept here.",
+  "askSearchChats": "Search chats",
+  "askNoChatsMatch": "No chats match",
+  "askChatDeleted": "Chat deleted",
+  "askNewCollectionHint": "Name it, and these go in",
+  "askAlreadyInCollection": "Already here",
+  "askSomeInCollection": "{count} already here",
+  "@askSomeInCollection": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "askAddedToCollection": "{count, plural, =1{Added to {name}} other{Added {count} saves to {name}}}",
+  "@askAddedToCollection": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "askTryAsking": "Try asking",
+  "askSuggestBigIdea": "What’s the big idea in {title}?",
+  "@askSuggestBigIdea": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askSuggestTopic": "What have I learned about {topic}?",
+  "@askSuggestTopic": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "askSuggestThisWeek": "What did I save this week?",
+  "askSuggestRemind": "Remind me what {title} was about",
+  "@askSuggestRemind": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askSuggestConnect": "How do my {topic} saves connect?",
+  "@askSuggestConnect": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "askHowToSave": "How do I save a link?",
+  "askEditingQuestion": "Editing your question",
+  "askEditingReplaces": "Editing · later replies will be replaced",
+  "askAskAgain": "Ask again",
+  "askHeadBigIdea": "Get the big idea",
+  "askHeadTopic": "Catch up on {topic}",
+  "@askHeadTopic": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "askSubTopic": "What you’ve been learning lately",
+  "askHeadWeek": "This week’s saves",
+  "askSubWeek": "A quick recap",
+  "askHeadRemind": "Revisit an old save",
+  "askHeadConnect": "Connect the dots",
+  "askSubConnect": "Across your {topic} saves",
+  "@askSubConnect": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "askHeadLibrary": "Your library",
+  "askHeadStart": "Get started",
+  "askAcrossSaves": "{count, plural, =1{Ask anything about your save} other{Ask anything across your {count} saves}}",
+  "@askAcrossSaves": {
     "placeholders": {
       "count": {
         "type": "int"

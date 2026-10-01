@@ -1,3 +1,5 @@
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_assets.dart';
@@ -15,6 +17,38 @@ class StartupReveal extends StatefulWidget {
   final bool ready;
   final VoidCallback onPrepared;
   final Widget child;
+
+  /// Android 12+ draws its splash edge to edge, ignoring insets: the icon
+  /// centred on the whole window and the branding 60dp above its bottom
+  /// (AOSP splash_screen_view.xml). Flutter's view stops at the nav bar on
+  /// Android 12–14, so the overlay extends [overhang] below it to land
+  /// on the same pixels. Older versions paint launch_background, which
+  /// ends at the nav bar with the branding 40dp above it.
+  @visibleForTesting
+  static ({double overhang, double? brandingBottom}) splashGeometry({
+    required bool edgeToEdgeSplash,
+    required double viewHeight,
+    required double screenHeight,
+    required double bottomPadding,
+  }) {
+    if (!edgeToEdgeSplash) {
+      return (overhang: 0, brandingBottom: 40 + bottomPadding);
+    }
+    final gap = screenHeight - viewHeight;
+    final overhang = gap > 0 && gap < screenHeight / 4 ? gap : 0.0;
+    // SplashScreenView.onLayout: halve the margin when the branding would
+    // crowd the 192dp icon view, hide it when it cannot fit at all.
+    const margin = 60.0, brandingHeight = 80.0, iconHeight = 192.0;
+    final maxMargin = (viewHeight + overhang - iconHeight) / 2 - brandingHeight;
+    return (
+      overhang: overhang,
+      brandingBottom: maxMargin < 0
+          ? null
+          : maxMargin < margin
+          ? maxMargin / 2
+          : margin,
+    );
+  }
 
   @override
   State<StartupReveal> createState() => _StartupRevealState();
@@ -36,6 +70,7 @@ class _StartupRevealState extends State<StartupReveal>
   bool _started = false;
   bool _finished = false;
   bool _imageFailed = false;
+  bool _edgeToEdgeSplash = false;
 
   @override
   void didChangeDependencies() {
@@ -52,26 +87,41 @@ class _StartupRevealState extends State<StartupReveal>
   }
 
   Future<void> _prepareArtwork() async {
-    await precacheImage(
-      const AssetImage(AppAssets.homeHero),
-      context,
-      onError: (error, stack) {
-        _imageFailed = true;
-        FlutterError.reportError(
-          FlutterErrorDetails(
-            exception: error,
-            stack: stack,
-            context: ErrorDescription('preparing the splash artwork'),
-          ),
-        );
-      },
-    );
+    await Future.wait([
+      precacheImage(
+        const AssetImage(AppAssets.homeHero),
+        context,
+        onError: (error, stack) {
+          _imageFailed = true;
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stack,
+              context: ErrorDescription('preparing the splash artwork'),
+            ),
+          );
+        },
+      ),
+      _readSplashGeometry(),
+    ]);
     if (!mounted) return;
     setState(() {
       _prepared = true;
       if (_imageFailed) _finished = true;
     });
     _tryStart();
+  }
+
+  // Frames stay deferred until the native splash is removed, so this resolves
+  // before the overlay is ever visible.
+  Future<void> _readSplashGeometry() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      _edgeToEdgeSplash = info.version.sdkInt >= 31;
+    } catch (_) {
+      // Unknown: keep the pre-12 layout.
+    }
   }
 
   @override
@@ -104,12 +154,23 @@ class _StartupRevealState extends State<StartupReveal>
   @override
   Widget build(BuildContext context) {
     final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final display = View.of(context).display;
+    final geometry = StartupReveal.splashGeometry(
+      edgeToEdgeSplash: _edgeToEdgeSplash,
+      viewHeight: MediaQuery.sizeOf(context).height,
+      screenHeight: display.size.height / display.devicePixelRatio,
+      bottomPadding: MediaQuery.viewPaddingOf(context).bottom,
+    );
     return Stack(
       fit: StackFit.expand,
       children: [
         widget.child,
         if (!_finished)
-          Positioned.fill(
+          Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: -geometry.overhang,
             child: ExcludeSemantics(
               child: AnimatedBuilder(
                 animation: _controller,
@@ -146,20 +207,21 @@ class _StartupRevealState extends State<StartupReveal>
                             ),
                           ),
                         ),
-                        Positioned(
-                          bottom: 40 + MediaQuery.viewPaddingOf(context).bottom,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Image.asset(
-                              dark
-                                  ? 'assets/splash_branding_dark.png'
-                                  : 'assets/splash_branding.png',
-                              width: 200,
-                              height: 80,
+                        if (geometry.brandingBottom case final bottom?)
+                          Positioned(
+                            bottom: bottom,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Image.asset(
+                                dark
+                                    ? 'assets/splash_branding_dark.png'
+                                    : 'assets/splash_branding.png',
+                                width: 200,
+                                height: 80,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),

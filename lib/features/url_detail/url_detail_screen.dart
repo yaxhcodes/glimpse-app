@@ -81,6 +81,8 @@ import 'source_saved_metadata_row.dart';
 import 'url_detail_provider.dart';
 import '../../shared/widgets/card_open_transition.dart';
 import '../../l10n/l10n.dart';
+import 'package:flutter/physics.dart';
+import '../../shared/widgets/swipe_deck.dart';
 import '../../core/services/app_haptics.dart';
 
 part 'url_detail_pager.dart';
@@ -96,12 +98,16 @@ class UrlDetailScreen extends ConsumerStatefulWidget {
   final ValueChanged<bool>? onMediaPointerActiveChanged;
   final RediscoverOpenContext? rediscoverContext;
 
+  /// Off in the pager, which keeps one app bar still over all its pages.
+  final bool showAppBar;
+
   const UrlDetailScreen({
     super.key,
     required this.urlId,
     this.isActive = true,
     this.onMediaPointerActiveChanged,
     this.rediscoverContext,
+    this.showAppBar = true,
   });
 
   @override
@@ -489,6 +495,12 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
     super.didChangeDependencies();
     if (_routeChecked) return;
     _routeChecked = true;
+    // Opening out of a card: the database read lands under the card rather
+    // than as a whole-page rebuild mid-flight.
+    CardOpenRoute.waitForContent(
+      context,
+      ref.read(urlDetailProvider(widget.urlId).future),
+    );
     // Found through the route's settings, which never change, so the page
     // doesn't rebuild whenever the route's status does (a close, a swipe).
     final route = CardOpenPage.routeOf(ModalRoute.settingsOf(context));
@@ -1637,77 +1649,23 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            flexibleSpace: const AppGlassSurface(),
-            foregroundColor: colorScheme.onSurfaceVariant,
-            title: Text(context.l10n.details),
-            actions: [
-              if (url != null) ...[
-                IconButton(
-                  icon: const AppIcon(AppIcons.addToCollection, filled: true),
-                  tooltip: context.l10n.addToCollection,
-                  onPressed: () => _showAddToCollection(url),
-                ),
-                PopupMenuButton<String>(
-                  icon: const Icon(AppIcons.more),
-                  tooltip: context.l10n.more,
-                  onSelected: (value) {
-                    if (value == 'copy_link') {
-                      _copyUrlToClipboard(url.rawUrl);
-                    } else if (value == 'share') {
-                      Share.share(url.rawUrl);
-                    } else if (value == 'toggle_pin') {
-                      unawaited(togglePinnedUrl(context, ref, url));
-                    } else if (value == 'add_tag') {
-                      _addTag(url);
-                    } else if (value == 'change_category') {
-                      _changeCategory(url);
-                    } else if (value == 'delete') {
-                      _deleteUrl();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    appMenuItem(
-                      value: 'copy_link',
-                      icon: AppIcons.copy,
-                      label: context.l10n.copyLink,
-                    ),
-                    appMenuItem(
-                      value: 'share',
-                      icon: AppIcons.share,
-                      label: context.l10n.share,
-                    ),
-                    appMenuDivider,
-                    appMenuItem(
-                      value: 'toggle_pin',
-                      icon: isPinned ? AppIcons.pinFilled : AppIcons.pin,
-                      label: isPinned ? context.l10n.unpin : context.l10n.pin,
-                    ),
-                    appMenuItem(
-                      value: 'add_tag',
-                      icon: AppIcons.tag,
-                      label: context.l10n.addTag,
-                    ),
-                    appMenuItem(
-                      value: 'change_category',
-                      icon: AppIcons.category,
-                      label: context.l10n.changeCategory,
-                    ),
-                    appMenuDivider,
-                    appMenuItem(
-                      value: 'delete',
-                      icon: AppIcons.clearData,
-                      label: context.l10n.delete,
-                      destructive: true,
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
+          if (!widget.showAppBar)
+            // The pager's own app bar sits over this space.
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: MediaQuery.paddingOf(context).top + kToolbarHeight,
+              ),
+            )
+          else
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              flexibleSpace: const AppGlassSurface(),
+              foregroundColor: colorScheme.onSurfaceVariant,
+              title: Text(context.l10n.details),
+              actions: _appBarActions(url, isPinned: isPinned),
+            ),
           if (urlAsync.isLoading && url == null)
             const SliverFillRemaining(child: LoadingIndicator())
           else if (urlAsync.hasError && url == null)
@@ -1723,6 +1681,74 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
         ],
       ),
     );
+  }
+
+  /// The app bar's actions for [url]. The Details pager shows them in its
+  /// own app bar, which stays still while pages swipe underneath it.
+  List<Widget> _appBarActions(SavedUrl? url, {required bool isPinned}) {
+    return [
+      if (url != null) ...[
+        IconButton(
+          icon: const AppIcon(AppIcons.addToCollection, filled: true),
+          tooltip: context.l10n.addToCollection,
+          onPressed: () => _showAddToCollection(url),
+        ),
+        PopupMenuButton<String>(
+          icon: const Icon(AppIcons.more, size: 26),
+          tooltip: context.l10n.more,
+          onSelected: (value) {
+            if (value == 'copy_link') {
+              _copyUrlToClipboard(url.rawUrl);
+            } else if (value == 'share') {
+              Share.share(url.rawUrl);
+            } else if (value == 'toggle_pin') {
+              unawaited(togglePinnedUrl(context, ref, url));
+            } else if (value == 'add_tag') {
+              _addTag(url);
+            } else if (value == 'change_category') {
+              _changeCategory(url);
+            } else if (value == 'delete') {
+              _deleteUrl();
+            }
+          },
+          itemBuilder: (context) => [
+            appMenuItem(
+              value: 'copy_link',
+              icon: AppIcons.copy,
+              label: context.l10n.copyLink,
+            ),
+            appMenuItem(
+              value: 'share',
+              icon: AppIcons.share,
+              label: context.l10n.share,
+            ),
+            appMenuDivider,
+            appMenuItem(
+              value: 'toggle_pin',
+              icon: isPinned ? AppIcons.pinFilled : AppIcons.pin,
+              label: isPinned ? context.l10n.unpin : context.l10n.pin,
+            ),
+            appMenuItem(
+              value: 'add_tag',
+              icon: AppIcons.tag,
+              label: context.l10n.addTag,
+            ),
+            appMenuItem(
+              value: 'change_category',
+              icon: AppIcons.category,
+              label: context.l10n.changeCategory,
+            ),
+            appMenuDivider,
+            appMenuItem(
+              value: 'delete',
+              icon: AppIcons.clearData,
+              label: context.l10n.delete,
+              destructive: true,
+            ),
+          ],
+        ),
+      ],
+    ];
   }
 
   Widget _buildBody(

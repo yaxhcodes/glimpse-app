@@ -6,7 +6,6 @@ import 'library_entity.dart';
 import 'library_localization.dart';
 import 'library_radial_status_menu.dart';
 import 'library_status_picker.dart';
-import '../../shared/theme/app_typography.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
 class LibraryArtwork extends StatelessWidget {
@@ -389,10 +388,9 @@ class _ArtworkFallback extends StatelessWidget {
                             title.isEmpty
                                 ? ''
                                 : title.characters.first.toUpperCase(),
-                            style: AppTypography.editorial(
-                              tt.headlineSmall,
+                            style: tt.headlineSmall?.copyWith(
                               color: ink.withValues(alpha: 0.9),
-                              fontWeight: FontWeight.w400,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         )
@@ -417,12 +415,12 @@ class _ArtworkFallback extends StatelessWidget {
                                 title,
                                 maxLines: 5,
                                 overflow: TextOverflow.ellipsis,
-                                style: AppTypography.editorial(
-                                  tt.titleLarge,
+                                style: tt.titleLarge?.copyWith(
                                   color: ink.withValues(alpha: 0.94),
                                   fontSize: titleSize,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.08,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.1,
+                                  letterSpacing: -0.2,
                                 ),
                               ),
                               if (footer.isNotEmpty) ...[

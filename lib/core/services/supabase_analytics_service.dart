@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/device_diagnostics.dart';
+import 'analytics_consent.dart';
 import 'analytics_service.dart';
 import 'device_diagnostics_service.dart';
 import 'supabase_config.dart';
@@ -51,6 +52,7 @@ class SupabaseAnalyticsService implements AnalyticsService {
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
+    await AnalyticsConsent.load();
     _diagnostics = await _diagnosticsService.load();
     await _restoreQueue();
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
@@ -70,6 +72,15 @@ class SupabaseAnalyticsService implements AnalyticsService {
     AnalyticsScreen? screen,
   }) async {
     if (!_initialized) await initialize();
+    // Turned off in Settings › Privacy: record nothing, and let go of
+    // anything still waiting to be sent.
+    if (!AnalyticsConsent.enabled) {
+      if (_queue.isNotEmpty) {
+        _queue.clear();
+        await _persistQueue();
+      }
+      return;
+    }
     _queue.add(
       _QueuedAnalyticsEvent(
         eventName: event.name,
@@ -104,6 +115,11 @@ class SupabaseAnalyticsService implements AnalyticsService {
   @override
   Future<void> flush() async {
     if (_flushing || _queue.isEmpty || !SupabaseConfig.isConfigured) return;
+    if (!AnalyticsConsent.enabled) {
+      _queue.clear();
+      await _persistQueue();
+      return;
+    }
     final userId = await _userIdProvider();
     if (userId == null || userId.isEmpty) return;
     final connectivity = await _connectivity.checkConnectivity();

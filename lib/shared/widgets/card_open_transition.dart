@@ -299,6 +299,35 @@ class CardOpenRoute extends PageRoute<void> {
     _visibleTag = _openTag;
   }
 
+  /// A page opening out of a card that loads its content (a list, a save)
+  /// can hand over the load: the card holds, opened but still, until it has
+  /// arrived — briefly, at most [_contentWait] — so the page is built and
+  /// painted under the card before anything moves, rather than arriving
+  /// mid-flight. Call it from the page's first `didChangeDependencies`.
+  static void waitForContent(BuildContext context, Future<Object?> content) {
+    final route = CardOpenPage.routeOf(ModalRoute.settingsOf(context));
+    if (route == null || route._contentTaken) return;
+    route._content.add(content);
+  }
+
+  static const _contentWait = Duration(milliseconds: 200);
+  final List<Future<Object?>> _content = [];
+  bool _contentTaken = false;
+
+  /// Resolves once the page's content has arrived and been painted (or the
+  /// wait ran out).
+  Future<void> _contentReady() async {
+    _contentTaken = true;
+    if (_content.isEmpty) return;
+    try {
+      await Future.wait(_content).timeout(_contentWait);
+    } catch (_) {
+      // Too slow or failed: open anyway, the page shows its own state.
+    }
+    // The content's rebuild, laid out and painted under the card.
+    await WidgetsBinding.instance.endOfFrame;
+  }
+
   /// Tells the route which save the Details pager is showing, so the page
   /// closes into that save's card.
   static void reportVisibleUrl(RouteSettings? settings, int urlId) {
@@ -588,7 +617,10 @@ class _CardOpenState extends State<_CardOpen>
 
   void _becomeOpen() {
     if (!mounted) return;
-    setState(() => _phase = _Phase.open);
+    setState(() {
+      _phase = _Phase.open;
+      _widthLeads = false;
+    });
     widget.route._finishOpen();
   }
 
@@ -690,6 +722,23 @@ class _CardOpenState extends State<_CardOpen>
     }
   }
 
+  /// Set while opening, and kept by a close that interrupts it so the
+  /// window doesn't jump: on the way open the width leads, so a narrow card
+  /// (a grid tile) is full width while it is still growing tall instead of
+  /// opening through a slot onto a corner of the page. Closing and the back
+  /// gesture move both edges together, back into the card.
+  bool _widthLeads = true;
+
+  Rect _openRect(Rect begin, Rect full, double p) {
+    final px = _widthLeads && p < 1 ? 1 - math.pow(1 - p, 3).toDouble() : p;
+    return Rect.fromLTRB(
+      lerpDouble(begin.left, full.left, px)!,
+      lerpDouble(begin.top, full.top, p)!,
+      lerpDouble(begin.right, full.right, px)!,
+      lerpDouble(begin.bottom, full.bottom, p)!,
+    );
+  }
+
   static double _interval(double t, double begin, double end, [Curve? curve]) {
     final v = ((t - begin) / (end - begin)).clamp(0.0, 1.0);
     return curve == null ? v : curve.transform(v);
@@ -705,9 +754,11 @@ class _CardOpenState extends State<_CardOpen>
       } else {
         // This first onstage frame paints the page for the first time,
         // hidden under the card: its text and images reach the GPU here,
-        // not in the middle of the motion. The spring starts after it.
+        // not in the middle of the motion. The spring starts after it —
+        // and after any content the page asked to wait for.
         _openScheduled = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await route._contentReady();
           if (mounted && _phase == _Phase.opening) {
             _run(_open, AppMotion.spatialDefault);
           }
@@ -751,7 +802,7 @@ class _CardOpenState extends State<_CardOpen>
               width: size.width - 32,
               height: 0,
             );
-        final rect = reduceMotion ? full : Rect.lerp(begin, full, p)!;
+        final rect = reduceMotion ? full : _openRect(begin, full, p);
         final beginRadius = origin?.radius ?? 28;
         final radius = reduceMotion || settled
             ? 0.0

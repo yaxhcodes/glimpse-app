@@ -589,6 +589,63 @@ void main() {
     expect(find.text('Context'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('the Details pager keeps one app bar still over the swipe', (
+    tester,
+  ) async {
+    final saves = {
+      5: _savedUrl()..title = 'First save',
+      6: _savedUrl()
+        ..id = 6
+        ..title = 'Second save',
+    };
+    final database = _PagerIsarService(saves);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isarServiceProvider.overrideWithValue(database),
+          for (final entry in saves.entries)
+            urlDetailProvider(
+              entry.key,
+            ).overrideWith((ref) async => entry.value),
+          tagOccurrenceMapProvider.overrideWithValue(const {}),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const UrlDetailPagerScreen(urlIds: [5, 6], initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final bar = find.byType(AppBar);
+    // One bar for the pager, none per page; the showing save's actions.
+    expect(bar, findsOneWidget);
+    expect(find.byTooltip('Add to collection'), findsOneWidget);
+    final barRect = tester.getRect(bar);
+    final titleStart = tester.getRect(find.text('First save')).left;
+
+    // Below the photo, whose own swipes belong to its carousel.
+    final gesture = await tester.startGesture(const Offset(200, 700));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-100, 0));
+    await tester.pump();
+    expect(bar, findsOneWidget);
+    expect(tester.getRect(bar), barRect);
+    expect(tester.getRect(find.text('First save')).left, lessThan(titleStart));
+
+    await gesture.moveBy(const Offset(-120, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(bar), barRect);
+    expect(find.text('Second save'), findsOneWidget);
+    expect(find.byTooltip('Add to collection'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 double _veil(WidgetTester tester, Finder reveal) {
@@ -627,6 +684,22 @@ class _MemoryIsarService implements IsarService {
 
   @override
   Future<SavedUrl?> getUrlById(int id) async => id == url.id ? url : null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    throw UnsupportedError(
+      'Unexpected database call: ${invocation.memberName}',
+    );
+  }
+}
+
+class _PagerIsarService implements IsarService {
+  _PagerIsarService(this.urls);
+
+  final Map<int, SavedUrl> urls;
+
+  @override
+  Future<SavedUrl?> getUrlById(int id) async => urls[id];
 
   @override
   dynamic noSuchMethod(Invocation invocation) {

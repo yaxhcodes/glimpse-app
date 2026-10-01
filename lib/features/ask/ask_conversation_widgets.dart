@@ -1,61 +1,241 @@
 part of 'ask_screen.dart';
 
-/// Placeholder chips while Ask suggestions load (M3 surface tones only).
+/// Placeholder cards while Ask suggestions load (M3 surface tones only).
 class _SuggestionShimmerRow extends StatelessWidget {
   const _SuggestionShimmerRow();
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.center,
-      children: List.generate(3, (i) {
-        final w = 88.0 + (i * 24.0);
-        return Shimmer.fromColors(
-          baseColor: colorScheme.surfaceContainerHigh,
-          highlightColor: colorScheme.surfaceContainerHighest,
-          child: Container(
-            width: w,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-        );
-      }),
+    return Shimmer.fromColors(
+      baseColor: colorScheme.surfaceContainer,
+      highlightColor: colorScheme.surfaceContainerHigh,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            for (var i = 0; i < 3; i++)
+              Container(
+                width: _SuggestionCard.width,
+                height: 84,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// Clean Glimpse mark for the empty state.
-class _GlimpseMark extends StatelessWidget {
-  const _GlimpseMark();
+/// Glimpse's mascot on a new chat, floating gently as it does on Home.
+class _AskMascot extends StatefulWidget {
+  const _AskMascot();
+
+  static const size = 112.0;
+
+  @override
+  State<_AskMascot> createState() => _AskMascotState();
+}
+
+class _AskMascotState extends State<_AskMascot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _float = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2800),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _float.stop();
+    } else if (!_float.isAnimating) {
+      _float.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _float.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      AppAssets.brandMark,
-      width: 60,
-      height: 60,
-      colorFilter: ColorFilter.mode(
-        Theme.of(context).colorScheme.primary,
-        BlendMode.srcIn,
+    return AnimatedBuilder(
+      animation: _float,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, Curves.easeInOut.transform(_float.value) * 6 - 3),
+        child: child,
       ),
-      excludeFromSemantics: true,
+      child: Image.asset(
+        AppAssets.emptySearch,
+        width: _AskMascot.size,
+        height: _AskMascot.size,
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+      ),
     );
   }
 }
 
-/// One user or assistant message block (modern chat layout).
+/// A prompt to ask next: quiet tonal pill with a leading glyph. Used for the
+/// empty state's suggestions and the follow-ups under an answer.
+class _PromptPill extends StatelessWidget {
+  const _PromptPill({required this.text, required this.icon, this.onTap});
+
+  final String text;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return ExpressiveTapScale(
+      enabled: onTap != null,
+      pressedScale: 0.97,
+      child: Material(
+        color: cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap == null
+              ? null
+              : () {
+                  AppHaptics.play(AppHaptics.tick);
+                  onTap!();
+                },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 40),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 9, 16, 9),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppIcon(icon, size: 16, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      text,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A starting point on a new chat: a short lead with its glyph, and the
+/// save or question under it.
+class _SuggestionCard extends StatelessWidget {
+  const _SuggestionCard({required this.suggestion, required this.onTap});
+
+  static const width = 224.0;
+
+  final AskSuggestionChipData suggestion;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final icon = switch (suggestion.kind) {
+      AskSuggestionKind.explain => AppIcons.idea,
+      AskSuggestionKind.topic => AppIcons.tag,
+      AskSuggestionKind.recent => AppIcons.calendar,
+      AskSuggestionKind.rediscover => AppIcons.chatHistory,
+      AskSuggestionKind.connect => AppIcons.link,
+      AskSuggestionKind.start => AppIcons.chat,
+    };
+    final headline = suggestion.headline;
+    return SizedBox(
+      width: width,
+      child: ExpressiveTapScale(
+        pressedScale: 0.97,
+        child: Material(
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              AppHaptics.play(AppHaptics.tick);
+              onTap();
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: AppIcon(icon, size: 16, color: cs.primary),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          headline ?? suggestion.display,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (headline != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      suggestion.display,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One user or assistant turn.
 class _ChatTurn extends StatelessWidget {
   const _ChatTurn({
     super.key,
     required this.message,
+    this.first = false,
+    this.latest = false,
     this.streaming = false,
     this.onEdit,
+    this.onAskAgain,
+    this.editing = false,
+    this.onRegenerate,
     this.onProactiveTipTap,
     this.onFollowUpTap,
     this.onActionConsumed,
@@ -67,8 +247,22 @@ class _ChatTurn extends StatelessWidget {
   });
 
   final ChatMessage message;
+
+  /// Top of the conversation: no gap above.
+  final bool first;
+
+  /// The newest turn: the only one whose extras animate in.
+  final bool latest;
   final bool streaming;
+
+  /// Holding one of your messages opens Edit, Copy and (on the latest)
+  /// Ask again.
   final VoidCallback? onEdit;
+  final VoidCallback? onAskAgain;
+
+  /// This message is back in the composer being edited.
+  final bool editing;
+  final VoidCallback? onRegenerate;
   final VoidCallback? onProactiveTipTap;
   final ValueChanged<String>? onFollowUpTap;
   final VoidCallback? onActionConsumed;
@@ -81,22 +275,21 @@ class _ChatTurn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (message.isUser) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          _UserBubble(text: message.text),
-          if (onEdit != null)
-            IconButton(
-              tooltip: context.l10n.askEditMessage,
-              icon: const Icon(Icons.edit_outlined, size: 16),
-              onPressed: onEdit,
-            ),
-        ],
+      return Padding(
+        padding: EdgeInsets.only(top: first ? 4 : 20, bottom: 16),
+        child: _UserBubble(
+          text: message.text,
+          onEdit: onEdit,
+          onAskAgain: onAskAgain,
+          editing: editing,
+        ),
       );
     }
     return _AssistantBlock(
       message: message,
+      latest: latest,
       streaming: streaming,
+      onRegenerate: onRegenerate,
       onProactiveTipTap: onProactiveTipTap,
       onFollowUpTap: onFollowUpTap,
       onActionConsumed: onActionConsumed,
@@ -110,50 +303,123 @@ class _ChatTurn extends StatelessWidget {
 }
 
 class _UserBubble extends StatelessWidget {
-  const _UserBubble({required this.text});
+  const _UserBubble({
+    required this.text,
+    this.onEdit,
+    this.onAskAgain,
+    this.editing = false,
+  });
 
   final String text;
+  final VoidCallback? onEdit;
+  final VoidCallback? onAskAgain;
+  final bool editing;
+
+  /// Edit, Copy and Ask again, opened by holding the bubble and anchored to
+  /// it.
+  Future<void> _showMenu(BuildContext bubbleContext) async {
+    AppHaptics.play(AppHaptics.tick);
+    final strings = bubbleContext.l10n;
+    final box = bubbleContext.findRenderObject()! as RenderBox;
+    final overlay =
+        Overlay.of(bubbleContext).context.findRenderObject()! as RenderBox;
+    final rect = Rect.fromPoints(
+      box.localToGlobal(Offset.zero, ancestor: overlay),
+      box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
+    );
+    final action = await showMenu<String>(
+      context: bubbleContext,
+      position: RelativeRect.fromRect(
+        // Opens just under the bubble, right-aligned with it.
+        Rect.fromLTWH(rect.right, rect.bottom + 4, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        if (onEdit != null)
+          appMenuItem(
+            value: 'edit',
+            icon: AppIcons.edit,
+            label: strings.askEditMessage,
+          ),
+        appMenuItem(value: 'copy', icon: AppIcons.copy, label: strings.copy),
+        if (onAskAgain != null)
+          appMenuItem(
+            value: 'again',
+            icon: AppIcons.refresh,
+            label: strings.askAskAgain,
+          ),
+      ],
+    );
+    switch (action) {
+      case 'edit':
+        onEdit?.call();
+      case 'copy':
+        await Clipboard.setData(ClipboardData(text: text));
+      case 'again':
+        AppHaptics.play(AppHaptics.tap);
+        onAskAgain?.call();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    final maxW = math.min(520.0, MediaQuery.sizeOf(context).width * 0.86);
     final textStyle =
-        textTheme.bodyLarge?.copyWith(
-          color: colorScheme.onPrimary,
+        theme.textTheme.bodyLarge?.copyWith(
+          color: colorScheme.onPrimaryContainer,
           height: 1.45,
         ) ??
-        TextStyle(color: colorScheme.onPrimary, height: 1.45);
-    final bubbleWidth = _balancedBubbleWidth(
-      context: context,
-      text: text,
-      style: textStyle,
-      maxWidth: maxW,
-    );
+        TextStyle(color: colorScheme.onPrimaryContainer, height: 1.45);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: SizedBox(
-          width: bubbleWidth,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(4),
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = math.min(520.0, constraints.maxWidth * 0.84);
+        final bubbleWidth = _balancedBubbleWidth(
+          context: context,
+          text: text,
+          style: textStyle,
+          maxWidth: maxW,
+        );
+        return Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: SizedBox(
+            width: bubbleWidth,
+            child: AnimatedOpacity(
+              // While it's back in the composer, the original steps back.
+              opacity: editing ? 0.45 : 1,
+              duration: AppMotion.short,
+              child: Builder(
+                builder: (bubbleContext) => Semantics(
+                  onLongPressHint: context.l10n.more,
+                  child: ExpressiveTapScale(
+                    pressedScale: 0.96,
+                    child: GestureDetector(
+                      onLongPress: () => _showMenu(bubbleContext),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(22),
+                            topRight: Radius.circular(22),
+                            bottomLeft: Radius.circular(22),
+                            bottomRight: Radius.circular(6),
+                          ),
+                        ),
+                        child: Text(text, style: textStyle),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-            child: Text(text, style: textStyle),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -163,7 +429,7 @@ class _UserBubble extends StatelessWidget {
     required TextStyle style,
     required double maxWidth,
   }) {
-    const horizontalPadding = 32.0;
+    const horizontalPadding = 36.0;
     final maxTextWidth = math.max(1.0, maxWidth - horizontalPadding);
     TextPainter painter(double width) => TextPainter(
       text: TextSpan(text: text, style: style),
@@ -174,7 +440,7 @@ class _UserBubble extends StatelessWidget {
     final widestLayout = painter(maxTextWidth);
     final targetLines = widestLayout.computeLineMetrics().length;
     if (targetLines <= 1) {
-      return math.min(maxWidth, widestLayout.width + horizontalPadding);
+      return math.min(maxWidth, widestLayout.width + horizontalPadding + 1);
     }
 
     var low = math.min(96.0, maxTextWidth);
@@ -195,7 +461,9 @@ class _UserBubble extends StatelessWidget {
 class _AssistantBlock extends StatefulWidget {
   const _AssistantBlock({
     required this.message,
+    this.latest = false,
     this.streaming = false,
+    this.onRegenerate,
     this.onProactiveTipTap,
     this.onFollowUpTap,
     this.onActionConsumed,
@@ -207,7 +475,9 @@ class _AssistantBlock extends StatefulWidget {
   });
 
   final ChatMessage message;
+  final bool latest;
   final bool streaming;
+  final VoidCallback? onRegenerate;
   final VoidCallback? onProactiveTipTap;
   final ValueChanged<String>? onFollowUpTap;
   final VoidCallback? onActionConsumed;
@@ -223,243 +493,300 @@ class _AssistantBlock extends StatefulWidget {
 
 class _AssistantBlockState extends State<_AssistantBlock> {
   bool _actionConsumed = false;
-  String get _intro => widget.message.text;
-  String get _displayedIntro => _intro;
-  bool get _hasBody => _intro.trim().isNotEmpty;
-  bool get _introComplete => !widget.message.incomplete;
-  int get _cardTotal => widget.message.sections.isNotEmpty
-      ? widget.message.sections.length
-      : widget.message.sources.length;
+  bool _sourcesOpen = false;
+  bool _copied = false;
+  Timer? _copiedTimer;
   int _resultPageSize = 12;
-  int get _visibleCardCount => widget.message.isResultList
+
+  ChatMessage get _message => widget.message;
+  bool get _hasBody => _message.text.trim().isNotEmpty;
+  bool get _complete => !_message.incomplete;
+  int get _cardTotal => _message.sections.isNotEmpty
+      ? _message.sections.length
+      : _message.sources.length;
+  int get _visibleCardCount => _message.isResultList
       ? math.min(_resultPageSize, _cardTotal)
       : _cardTotal;
-  bool get _tipVisible => _introComplete;
-  bool get _chipVisible => _introComplete;
-  bool get _followUpsVisible => _introComplete && widget.onFollowUpTap != null;
-  bool get _saveActionVisible => _introComplete;
+
+  @override
+  void dispose() {
+    _copiedTimer?.cancel();
+    super.dispose();
+  }
+
+  void _copy() {
+    AppHaptics.play(AppHaptics.tick);
+    Clipboard.setData(ClipboardData(text: _message.text));
+    _copiedTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  Future<void> _runAction() async {
+    AppHaptics.play(AppHaptics.tap);
+    if (_message.action == ChatAction.saveItinerary) {
+      final saved = await widget.onSaveItineraryTap?.call() ?? false;
+      if (!saved || !mounted) return;
+    }
+    setState(() => _actionConsumed = true);
+    widget.onActionConsumed?.call();
+    switch (_message.action) {
+      case ChatAction.saveToCollection:
+        widget.onSaveToCollectionTap?.call();
+      case ChatAction.synthesize:
+        widget.onSynthesizeTap?.call();
+      case ChatAction.buildPlan:
+        widget.onBuildPlanTap?.call();
+      case ChatAction.saveItinerary:
+      case ChatAction.none:
+        break;
+    }
+  }
+
+  /// The saves behind the answer, as rows.
+  List<Widget> _sourceRows() {
+    final sections = _message.sections;
+    if (sections.isNotEmpty) {
+      return [
+        for (var i = 0; i < sections.length && i < _visibleCardCount; i++)
+          _SourceRow(
+            source: sections[i].source,
+            title: sections[i].heading,
+            summary: sections[i].summary,
+            order: sections[i].citationIndex > 0
+                ? sections[i].citationIndex
+                : i + 1,
+            showIndex: sections.length > 1 || sections[i].citationIndex > 0,
+          ),
+      ];
+    }
+    final sources = _message.sources;
+    return [
+      for (var i = 0; i < sources.length && i < _visibleCardCount; i++)
+        _SourceRow(
+          source: sources[i],
+          title: sources[i].title.isNotEmpty
+              ? sources[i].title
+              : sources[i].domain,
+          summary: sources[i].summary ?? sources[i].description,
+          order: i + 1,
+          showIndex: sources.length > 1,
+        ),
+    ];
+  }
+
+  Widget _enter(Widget child, {int order = 0}) => EntranceMotion(
+    animate: widget.latest,
+    spring: true,
+    offset: 10,
+    delay: EntranceMotion.stagger(order),
+    child: child,
+  );
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final hasSections = widget.message.sections.isNotEmpty;
-    final hasSources = widget.message.sources.isNotEmpty;
+    final strings = context.l10n;
+    final hasCards = _cardTotal > 0;
     final collapsesSources =
-        !widget.message.isResultList &&
-        widget.message.answerType != ChatAnswerType.fallback;
-    final tip = widget.message.proactiveTip;
-    final label = widget.message.label;
+        !_message.isResultList &&
+        _message.answerType != ChatAnswerType.fallback;
+    final tip = _message.proactiveTip;
+    final label = _message.label;
+    final interrupted = _message.incomplete && !widget.streaming;
+    final showAction =
+        _message.action != ChatAction.none && !_actionConsumed && _complete;
+    final followUps = _complete && widget.onFollowUpTap != null
+        ? _message.followUpSuggestions.take(3).toList()
+        : const <String>[];
+    final sourcesPill = collapsesSources && hasCards
+        ? _SourcesPill(
+            sources: [
+              if (_message.sections.isNotEmpty)
+                for (final section in _message.sections) section.source
+              else
+                ..._message.sources,
+            ],
+            open: _sourcesOpen,
+            onTap: () {
+              AppHaptics.play(AppHaptics.tick);
+              setState(() => _sourcesOpen = !_sourcesOpen);
+            },
+          )
+        : null;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (label != null && _introComplete) ...[
+          if (label != null && _complete)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6, left: 4),
+              padding: const EdgeInsets.only(bottom: 6),
               child: Text(
                 label,
-                style: textTheme.labelSmall?.copyWith(
-                  color: colorScheme.primary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          ],
           if (_hasBody)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(4),
-                  topRight: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                ),
-              ),
-              child: AskAnswerText(
-                text: _introComplete ? _intro : _displayedIntro,
-                onCitation: !_introComplete
-                    ? null
-                    : (index) {
-                        final source = widget.message.sections
-                            .where((s) => s.citationIndex == index)
-                            .firstOrNull
-                            ?.source;
-                        if (source != null) context.push('/url/${source.id}');
-                      },
-                style:
-                    textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurface,
-                      height: 1.5,
-                    ) ??
-                    const TextStyle(),
-                selectable: _introComplete,
-              ),
+            AskAnswerText(
+              text: _message.text,
+              onCitation: !_complete
+                  ? null
+                  : (index) {
+                      final source = _message.sections
+                          .where((s) => s.citationIndex == index)
+                          .firstOrNull
+                          ?.source;
+                      if (source != null) context.push('/url/${source.id}');
+                    },
+              style:
+                  textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    height: 1.55,
+                  ) ??
+                  const TextStyle(),
+              selectable: _complete,
             ),
-          if (collapsesSources &&
-              (hasSections || hasSources) &&
-              _visibleCardCount == _cardTotal)
-            _SourceDisclosure(
-              count: _cardTotal,
-              children: hasSections
-                  ? [
-                      for (
-                        var index = 0;
-                        index < widget.message.sections.length;
-                        index++
-                      )
-                        _AnswerSectionCard(
-                          order:
-                              widget.message.sections[index].citationIndex > 0
-                              ? widget.message.sections[index].citationIndex
-                              : index + 1,
-                          showIndex: true,
-                          section: widget.message.sections[index],
-                        ),
-                    ]
-                  : [
-                      for (
-                        var index = 0;
-                        index < widget.message.sources.length;
-                        index++
-                      )
-                        _SourceCard(
-                          source: widget.message.sources[index],
-                          order: index + 1,
-                          showIndex: widget.message.sources.length > 1,
-                        ),
-                    ],
-            )
-          else if (!collapsesSources && hasSections) ...[
-            for (var index = 0; index < widget.message.sections.length; index++)
-              if (index < _visibleCardCount)
-                _SourceAppear(
-                  child: _AnswerSectionCard(
-                    order: index + 1,
-                    showIndex: widget.message.sections.length > 1,
-                    section: widget.message.sections[index],
-                  ),
-                ),
-          ] else if (!collapsesSources && hasSources) ...[
-            for (var index = 0; index < widget.message.sources.length; index++)
-              if (index < _visibleCardCount)
-                _SourceAppear(
-                  child: _SourceCard(
-                    source: widget.message.sources[index],
-                    order: index + 1,
-                    showIndex: widget.message.sources.length > 1,
-                  ),
-                ),
-          ],
-          if (widget.message.isResultList && _visibleCardCount < _cardTotal)
-            TextButton(
-              onPressed: () => setState(() => _resultPageSize += 12),
-              child: Text(context.l10n.showMore),
-            ),
-          if ((widget.message.action != ChatAction.none &&
-                  !_actionConsumed &&
-                  _chipVisible) ||
-              ((widget.onSaveAnswerToNotesTap != null && _saveActionVisible) ||
-                  widget.message.noteSaved)) ...[
-            const SizedBox(height: 10),
-            AnimatedOpacity(
-              opacity: 1,
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOut,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+          if (interrupted)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
                 children: [
-                  if (widget.message.action != ChatAction.none &&
-                      !_actionConsumed &&
-                      _chipVisible)
-                    _ChatActionChip(
-                      action: widget.message.action,
-                      onTap: () async {
-                        if (widget.message.action == ChatAction.saveItinerary) {
-                          final saved =
-                              await widget.onSaveItineraryTap?.call() ?? false;
-                          if (!saved || !mounted) return;
-                        }
-                        setState(() => _actionConsumed = true);
-                        widget.onActionConsumed?.call();
-                        switch (widget.message.action) {
-                          case ChatAction.saveToCollection:
-                            widget.onSaveToCollectionTap?.call();
-                          case ChatAction.synthesize:
-                            widget.onSynthesizeTap?.call();
-                          case ChatAction.buildPlan:
-                            widget.onBuildPlanTap?.call();
-                          case ChatAction.saveItinerary:
-                            break;
-                          case ChatAction.none:
-                            break;
-                        }
-                      },
+                  Text(
+                    strings.askInterrupted,
+                    style: textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                  if (widget.onSaveAnswerToNotesTap != null &&
-                      _saveActionVisible)
-                    _AssistantUtilityAction(
-                      icon: AppIcons.addNote,
-                      label: widget.message.sources.length == 1
-                          ? 'Add as a note'
-                          : 'Add as a note to ${widget.message.sources.length} saves',
-                      onTap: widget.onSaveAnswerToNotesTap!,
+                  ),
+                  if (widget.onRegenerate != null) ...[
+                    const SizedBox(width: 4),
+                    TextButton(
+                      onPressed: widget.onRegenerate,
+                      child: Text(strings.retry),
                     ),
-                  if (widget.message.noteSaved)
-                    const _AssistantUtilityAction(
-                      icon: AppIcons.check,
-                      label: 'Saved',
-                    ),
+                  ],
                 ],
               ),
             ),
-          ],
-          if (tip != null && _introComplete) ...[
-            const SizedBox(height: 10),
-            AnimatedOpacity(
-              opacity: _tipVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOut,
-              child: _ProactiveTipNudge(
-                tip: tip,
-                onTap: widget.onProactiveTipTap,
-              ),
-            ),
-          ],
-          if (_hasBody)
-            Row(
-              children: [
-                IconButton(
-                  tooltip: context.l10n.askCopyAnswer,
-                  icon: const Icon(Icons.copy_rounded, size: 18),
-                  onPressed: () =>
-                      Clipboard.setData(ClipboardData(text: _intro)),
+          if (_complete && (_hasBody || sourcesPill != null))
+            _enter(
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    if (_hasBody)
+                      _AnswerIconButton(
+                        tooltip: strings.askCopyAnswer,
+                        onPressed: _copy,
+                        child: AnimatedSwitcher(
+                          duration: AppMotion.short,
+                          transitionBuilder: (child, animation) =>
+                              ScaleTransition(scale: animation, child: child),
+                          child: AppIcon(
+                            _copied ? AppIcons.check : AppIcons.copy,
+                            key: ValueKey(_copied),
+                            size: 18,
+                            color: _copied ? colorScheme.primary : null,
+                          ),
+                        ),
+                      ),
+                    if (widget.onRegenerate != null)
+                      _AnswerIconButton(
+                        tooltip: strings.askRegenerate,
+                        onPressed: () {
+                          AppHaptics.play(AppHaptics.tap);
+                          widget.onRegenerate!();
+                        },
+                        child: const AppIcon(AppIcons.refresh, size: 18),
+                      ),
+                    if (_message.noteSaved)
+                      _AnswerIconButton(
+                        tooltip: strings.askNoteSaved,
+                        child: AppIcon(
+                          AppIcons.check,
+                          size: 18,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    else if (widget.onSaveAnswerToNotesTap != null)
+                      _AnswerIconButton(
+                        tooltip: strings.askAddNote,
+                        onPressed: widget.onSaveAnswerToNotesTap,
+                        child: const AppIcon(AppIcons.addNote, size: 18),
+                      ),
+                    // The pill takes what's left and sits at the end.
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: sourcesPill,
+                      ),
+                    ),
+                  ],
                 ),
-                if (widget.message.incomplete && !widget.streaming)
-                  Text(
-                    context.l10n.askInterrupted,
-                    style: textTheme.labelSmall,
-                  ),
-              ],
-            ),
-          if (widget.message.followUpSuggestions.isNotEmpty &&
-              _followUpsVisible) ...[
-            const SizedBox(height: 10),
-            AnimatedOpacity(
-              opacity: _followUpsVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              child: _FollowUpChips(
-                prompts: widget.message.followUpSuggestions,
-                onTap: widget.onFollowUpTap,
               ),
             ),
+          if (sourcesPill != null)
+            AnimatedSize(
+              duration: AppMotion.medium,
+              curve: AppMotion.emphasizedDecelerate,
+              alignment: Alignment.topCenter,
+              child: _sourcesOpen
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: _SourceGroup(children: _sourceRows()),
+                    )
+                  : const SizedBox(width: double.infinity),
+            )
+          else if (!collapsesSources && hasCards) ...[
+            const SizedBox(height: 12),
+            _enter(_SourceGroup(children: _sourceRows())),
+            if (_message.isResultList && _visibleCardCount < _cardTotal)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: TextButton(
+                  onPressed: () => setState(() => _resultPageSize += 12),
+                  child: Text(strings.showMore),
+                ),
+              ),
+          ],
+          if (showAction) ...[
+            const SizedBox(height: 10),
+            _enter(
+              _ChatActionChip(action: _message.action, onTap: _runAction),
+              order: 1,
+            ),
+          ],
+          if (tip != null && _complete) ...[
+            const SizedBox(height: 12),
+            _enter(
+              _ProactiveTipNudge(tip: tip, onTap: widget.onProactiveTipTap),
+              order: 2,
+            ),
+          ],
+          if (followUps.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            for (var i = 0; i < followUps.length; i++)
+              Padding(
+                padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+                child: _enter(
+                  _PromptPill(
+                    text: followUps[i],
+                    icon: AppIcons.followUp,
+                    onTap: () => widget.onFollowUpTap!(followUps[i]),
+                  ),
+                  order: 2 + i,
+                ),
+              ),
           ],
         ],
       ),
@@ -467,161 +794,280 @@ class _AssistantBlockState extends State<_AssistantBlock> {
   }
 }
 
-class _AssistantUtilityAction extends StatelessWidget {
-  const _AssistantUtilityAction({
-    required this.icon,
-    required this.label,
-    this.onTap,
+/// A quiet 40dp icon under an answer.
+class _AnswerIconButton extends StatelessWidget {
+  const _AnswerIconButton({
+    required this.tooltip,
+    required this.child,
+    this.onPressed,
   });
 
-  final IconData icon;
-  final String label;
-  final Future<void> Function()? onTap;
+  final String tooltip;
+  final Widget child;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: AppIcon(icon, size: 16),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: colorScheme.primary,
-        side: BorderSide(color: colorScheme.outlineVariant),
-        minimumSize: const Size(48, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+    final cs = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      color: cs.onSurfaceVariant,
+      disabledColor: cs.onSurfaceVariant,
+      icon: child,
     );
   }
 }
 
-class _SourceDisclosure extends StatelessWidget {
-  const _SourceDisclosure({required this.count, required this.children});
+/// "3 sources", with the first few sites as overlapping initials; opens the
+/// list of saves behind the answer.
+class _SourcesPill extends StatelessWidget {
+  const _SourcesPill({
+    required this.sources,
+    required this.open,
+    required this.onTap,
+  });
 
-  final int count;
-  final List<Widget> children;
+  final List<SavedUrl> sources;
+  final bool open;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          trailing: const AppExpansionChevron(),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-          childrenPadding: const EdgeInsets.only(bottom: 4),
-          minTileHeight: 44,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(14),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final faces = <String>[];
+    for (final source in sources) {
+      final name = CategoryResolver.displaySourceName(
+        rawUrl: source.rawUrl,
+        fallbackDomain: source.domain,
+      );
+      final initial = name.trim().isEmpty ? '·' : name.trim()[0].toUpperCase();
+      if (!faces.contains(initial)) faces.add(initial);
+      if (faces.length == 3) break;
+    }
+    final tones = [
+      (cs.primaryContainer, cs.onPrimaryContainer),
+      (cs.tertiaryContainer, cs.onTertiaryContainer),
+      (cs.secondaryContainer, cs.onSecondaryContainer),
+    ];
+    const face = 22.0;
+    const overlap = 7.0;
+
+    return Semantics(
+      button: true,
+      expanded: open,
+      child: Material(
+        color: open ? cs.secondaryContainer : cs.surfaceContainer,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(6, 9, 12, 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: face + (faces.length - 1) * (face - overlap),
+                  height: face,
+                  child: Stack(
+                    children: [
+                      for (var i = faces.length - 1; i >= 0; i--)
+                        Positioned(
+                          left: i * (face - overlap),
+                          child: Container(
+                            width: face,
+                            height: face,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: tones[i].$1,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: open
+                                    ? cs.secondaryContainer
+                                    : cs.surfaceContainer,
+                                width: 2,
+                              ),
+                            ),
+                            child: Text(
+                              faces[i],
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: tones[i].$2,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
+                                height: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    context.l10n.askSourcesCount(sources.length),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: open ? cs.onSecondaryContainer : cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: open ? 0.5 : 0,
+                  duration: AppMotion.medium,
+                  curve: AppMotion.emphasized,
+                  child: AppIcon(
+                    AppIcons.chevronDown,
+                    size: 14,
+                    color: open ? cs.onSecondaryContainer : cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-          collapsedShape: RoundedRectangleBorder(
-            side: BorderSide(color: colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          leading: Icon(AppIcons.library, size: 18, color: colorScheme.primary),
-          title: Text(count == 1 ? '1 source' : '$count sources'),
-          subtitle: const Text('Used for this answer'),
-          children: children,
         ),
       ),
     );
   }
 }
 
-class _FollowUpChips extends StatelessWidget {
-  const _FollowUpChips({required this.prompts, this.onTap});
+/// Saves behind an answer, as one rounded group of rows.
+class _SourceGroup extends StatelessWidget {
+  const _SourceGroup({required this.children});
 
-  final List<String> prompts;
-  final ValueChanged<String>? onTap;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var index = 0; index < prompts.take(3).length; index++) ...[
-          if (index > 0) const SizedBox(height: 8),
-          Material(
-            // Suggestions, not answers: outlined and quiet so the answer
-            // above stays the loudest thing on screen.
-            color: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: colorScheme.outlineVariant),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onTap == null
-                  ? null
-                  : () {
-                      AppHaptics.play(AppHaptics.tick);
-                      onTap!(prompts[index]);
-                    },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        prompts[index],
-                        softWrap: true,
-                        style: textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w500,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    // Tapping asks it; a forward arrow says so.
-                    Icon(
-                      AppIcons.arrowForward,
-                      size: 16,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ],
-                ),
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                indent: 16,
+                endIndent: 16,
+                color: cs.outlineVariant.withValues(alpha: 0.4),
               ),
-            ),
-          ),
+            children[i],
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
-/// Fade + slight slide when a card first appears (ChatGPT-style stagger).
-class _SourceAppear extends StatelessWidget {
-  const _SourceAppear({required this.child});
+/// One save behind an answer: opens its details; the arrow opens the page.
+class _SourceRow extends StatelessWidget {
+  const _SourceRow({
+    required this.source,
+    required this.title,
+    required this.summary,
+    required this.order,
+    required this.showIndex,
+  });
 
-  final Widget child;
+  final SavedUrl source;
+  final String title;
+  final String summary;
+  final int order;
+  final bool showIndex;
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      builder: (context, t, c) {
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(offset: Offset(0, 10 * (1 - t)), child: c),
-        );
-      },
-      child: child,
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final domain = CategoryResolver.displaySourceName(
+      rawUrl: source.rawUrl,
+      fallbackDomain: source.domain,
+    );
+    return InkWell(
+      onTap: () => context.push('/url/${source.id}'),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showIndex) ...[
+              Container(
+                width: 22,
+                height: 22,
+                margin: const EdgeInsets.only(top: 1),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.secondaryContainer,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Text(
+                  '$order',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSecondaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                  if (summary.trim().isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      summary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Text(
+                    domain,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: context.l10n.open,
+              visualDensity: VisualDensity.compact,
+              color: cs.onSurfaceVariant,
+              icon: const AppIcon(AppIcons.externalLink, size: 18),
+              onPressed: () => _openExternalUrl(source.rawUrl),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -635,32 +1081,25 @@ class _ProactiveTipNudge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
+    final cs = theme.colorScheme;
     return Material(
-      color: colorScheme.primaryContainer,
-      borderRadius: BorderRadius.circular(12),
+      color: cs.tertiaryContainer.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: colorScheme.primary.withValues(alpha: 0.25),
-            ),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(AppIcons.idea, size: 18, color: colorScheme.primary),
-              const SizedBox(width: 8),
+              AppIcon(AppIcons.idea, size: 18, color: cs.onTertiaryContainer),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   tip,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontStyle: FontStyle.italic,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onTertiaryContainer,
                     height: 1.4,
                   ),
                 ),
@@ -673,351 +1112,39 @@ class _ProactiveTipNudge extends StatelessWidget {
   }
 }
 
-class _AnswerSectionCard extends StatelessWidget {
-  const _AnswerSectionCard({
-    required this.order,
-    required this.showIndex,
-    required this.section,
-  });
-
-  final int order;
-  final bool showIndex;
-  final ChatMessageSection section;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final source = section.source;
-    final title = section.heading;
-    final summary = section.summary;
-    final domain = CategoryResolver.displaySourceName(
-      rawUrl: source.rawUrl,
-      fallbackDomain: source.domain,
-    );
-
-    return Container(
-      margin: const EdgeInsets.only(top: 6),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant, width: 0.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showIndex) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2, right: 8),
-                    child: Text(
-                      '$order',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: cs.primary,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ],
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurface,
-                      height: 1.3,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 2),
-                  child: Icon(
-                    AppIcons.grid,
-                    size: 14,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            // Summary — indented only when numbered
-            Padding(
-              padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
-              child: Text(
-                summary,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant,
-                  height: 1.5,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 10),
-            // Footer
-            Padding(
-              padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
-              child: _SourceCardFooter(
-                domain: domain,
-                onDetails: () => context.push('/url/${source.id}'),
-                onOpen: () => _openExternalUrl(source.rawUrl),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SourceCard extends StatelessWidget {
-  const _SourceCard({
-    required this.source,
-    required this.order,
-    required this.showIndex,
-  });
-
-  final SavedUrl source;
-  final int order;
-  final bool showIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final title = source.title.isNotEmpty ? source.title : source.domain;
-    final summary = source.summary ?? source.description;
-    final domain = CategoryResolver.displaySourceName(
-      rawUrl: source.rawUrl,
-      fallbackDomain: source.domain,
-    );
-
-    return Container(
-      margin: const EdgeInsets.only(top: 6),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant, width: 0.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showIndex) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2, right: 8),
-                    child: Text(
-                      '$order',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: cs.primary,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ],
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurface,
-                      height: 1.3,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 2),
-                  child: Icon(
-                    AppIcons.grid,
-                    size: 14,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            // Summary — indented only when numbered
-            Padding(
-              padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
-              child: Text(
-                summary,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant,
-                  height: 1.5,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 10),
-            // Footer
-            Padding(
-              padding: EdgeInsets.only(left: showIndex ? 18.0 : 0),
-              child: _SourceCardFooter(
-                domain: domain,
-                onDetails: () => context.push('/url/${source.id}'),
-                onOpen: () => _openExternalUrl(source.rawUrl),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SourceCardFooter extends StatelessWidget {
-  const _SourceCardFooter({
-    required this.domain,
-    required this.onDetails,
-    required this.onOpen,
-  });
-
-  final String domain;
-  final VoidCallback onDetails;
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: cs.outlineVariant, width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              domain,
-              style: theme.textTheme.labelSmall?.copyWith(color: cs.outline),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          TextButton(onPressed: onDetails, child: Text(context.l10n.details)),
-          TextButton.icon(
-            onPressed: onOpen,
-            iconAlignment: IconAlignment.end,
-            icon: const Icon(AppIcons.externalLink, size: 16),
-            label: Text(context.l10n.open),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 Future<void> _openExternalUrl(String rawUrl) async {
   final uri = Uri.tryParse(rawUrl);
   if (uri == null) return;
   await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
-class GlimpseTypingIndicator extends StatefulWidget {
+/// While Glimpse works: a shimmering line where the answer will be.
+class GlimpseTypingIndicator extends StatelessWidget {
   const GlimpseTypingIndicator({super.key});
 
   @override
-  State<GlimpseTypingIndicator> createState() => _GlimpseTypingIndicatorState();
-}
-
-class _GlimpseTypingIndicatorState extends State<GlimpseTypingIndicator>
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-  late final List<AnimationController> _controllers;
-  late final List<Animation<double>> _animations;
-
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controllers = List.generate(
-      3,
-      (i) => AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 400),
-      ),
-    );
-    _animations = _controllers
-        .map(
-          (c) => Tween<double>(
-            begin: 0,
-            end: -6,
-          ).animate(CurvedAnimation(parent: c, curve: Curves.easeInOut)),
-        )
-        .toList();
-
-    for (int i = 0; i < 3; i++) {
-      Future.delayed(Duration(milliseconds: i * 150), () {
-        if (mounted) _controllers[i].repeat(reverse: true);
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    for (final c in _controllers) {
-      c.stop();
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    super.build(context);
-    final colorScheme = Theme.of(context).colorScheme;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(
-            3,
-            (i) => AnimatedBuilder(
-              animation: _animations[i],
-              builder: (_, _) => Transform.translate(
-                offset: Offset(0, _animations[i].value),
-                child: Container(
-                  margin: EdgeInsets.only(right: i < 2 ? 5 : 0),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.7),
-                    shape: BoxShape.circle,
-                  ),
-                ),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final text = Text(
+      context.l10n.askThinking,
+      style: theme.textTheme.bodyLarge?.copyWith(height: 1.55),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 16),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: MediaQuery.disableAnimationsOf(context)
+            ? DefaultTextStyle.merge(
+                style: TextStyle(color: cs.onSurfaceVariant),
+                child: text,
+              )
+            : Shimmer.fromColors(
+                baseColor: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                highlightColor: cs.onSurface,
+                period: const Duration(milliseconds: 1500),
+                child: text,
               ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -1030,22 +1157,31 @@ class _ComposerBar extends StatelessWidget {
     required this.isLoading,
     this.attachedSource,
     this.onClearAttachedSource,
+    this.editing,
+    this.editingReplacesLater = false,
+    this.onCancelEdit,
     required this.onSubmit,
+    required this.onStop,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isLoading;
+
+  /// The question being edited in place, if any.
+  final ChatMessage? editing;
+  final bool editingReplacesLater;
+  final VoidCallback? onCancelEdit;
   final SavedUrl? attachedSource;
   final VoidCallback? onClearAttachedSource;
   final ValueChanged<String> onSubmit;
+  final VoidCallback onStop;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final transparent = colorScheme.surface.withValues(alpha: 0);
 
     return SafeArea(
       top: false,
@@ -1053,143 +1189,93 @@ class _ComposerBar extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _kChatMaxWidth),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (attachedSource != null) ...[
-                  _AttachedSourceBar(
-                    source: attachedSource!,
-                    onClear: onClearAttachedSource,
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+            child: Material(
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(28),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSize(
+                    duration: AppMotion.medium,
+                    curve: AppMotion.emphasizedDecelerate,
+                    alignment: Alignment.bottomCenter,
+                    child: editing != null
+                        ? _ComposerStrip(
+                            icon: AppIcons.edit,
+                            overline: editingReplacesLater
+                                ? context.l10n.askEditingReplaces
+                                : context.l10n.askEditingQuestion,
+                            title: editing!.text,
+                            actionLabel: context.l10n.cancel,
+                            onAction: onCancelEdit,
+                          )
+                        : attachedSource == null
+                        ? const SizedBox(width: double.infinity)
+                        : _AttachedSourceBar(
+                            source: attachedSource!,
+                            onClear: onClearAttachedSource,
+                          ),
                   ),
-                  const SizedBox(height: 8),
-                ],
-                Material(
-                  color: transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                    side: BorderSide(
-                      color: colorScheme.outlineVariant,
-                      width: 0.5,
-                    ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Row(
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Expanded(
-                        child: Theme(
-                          data: theme.copyWith(
-                            splashFactory: NoSplash.splashFactory,
-                            highlightColor: transparent,
-                            focusColor: transparent,
-                            hoverColor: transparent,
-                            inputDecorationTheme: const InputDecorationTheme(
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              filled: false,
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 8),
-                            ),
+                        child: TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          onSubmitted: (_) {
+                            if (controller.text.trim().isNotEmpty) {
+                              onSubmit(controller.text);
+                            }
+                          },
+                          minLines: 1,
+                          maxLines: 5,
+                          textInputAction: TextInputAction.newline,
+                          textCapitalization: TextCapitalization.sentences,
+                          textAlignVertical: TextAlignVertical.center,
+                          style: textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurface,
                           ),
-                          child: TextField(
-                            controller: controller,
-                            focusNode: focusNode,
-                            onTap: () => focusNode.requestFocus(),
-                            onSubmitted: (_) {
-                              if (controller.text.trim().isNotEmpty) {
-                                onSubmit(controller.text);
-                              }
-                            },
-                            minLines: 1,
-                            maxLines: 5,
-                            textInputAction: TextInputAction.newline,
-                            textCapitalization: TextCapitalization.sentences,
-                            textAlignVertical: TextAlignVertical.center,
-                            style: textTheme.bodyLarge?.copyWith(
-                              color: colorScheme.onSurface,
+                          decoration: InputDecoration(
+                            hintText: attachedSource == null
+                                ? context.l10n.messageGlimpse
+                                : context.l10n.askAboutThisSave,
+                            hintStyle: textTheme.bodyLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                            decoration: InputDecoration(
-                              hintText: attachedSource == null
-                                  ? context.l10n.messageGlimpse
-                                  : context.l10n.askAboutThisSave,
-                              hintStyle: textTheme.bodyLarge?.copyWith(
-                                color: colorScheme.outline,
-                              ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              isDense: true,
-                              constraints: const BoxConstraints(minHeight: 56),
-                              contentPadding: const EdgeInsets.fromLTRB(
-                                16,
-                                15,
-                                8,
-                                13,
-                              ),
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            isDense: true,
+                            constraints: const BoxConstraints(minHeight: 56),
+                            contentPadding: const EdgeInsets.fromLTRB(
+                              20,
+                              16,
+                              8,
+                              16,
                             ),
                           ),
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: ValueListenableBuilder<TextEditingValue>(
-                          valueListenable: controller,
-                          builder: (context, value, _) {
-                            final hasText = value.text.trim().isNotEmpty;
-                            final isActive = hasText || isLoading;
-                            return IconButton(
-                              tooltip: isLoading
-                                  ? context.l10n.sending
-                                  : context.l10n.send,
-                              onPressed: hasText && !isLoading
-                                  ? () {
-                                      AppHaptics.play(AppHaptics.tap);
-                                      onSubmit(controller.text);
-                                    }
-                                  : null,
-                              style: IconButton.styleFrom(
-                                minimumSize: const Size.square(48),
-                                maximumSize: const Size.square(48),
-                                padding: EdgeInsets.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                backgroundColor: isActive
-                                    ? colorScheme.primary
-                                    : Colors.transparent,
-                                disabledBackgroundColor: isLoading
-                                    ? colorScheme.primary
-                                    : Colors.transparent,
-                                foregroundColor: colorScheme.onPrimary,
-                                disabledForegroundColor: isLoading
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.onSurfaceVariant,
-                                shape: const CircleBorder(),
-                                side: BorderSide.none,
-                              ),
-                              icon: isLoading
-                                  ? SizedBox.square(
-                                      dimension: 24,
-                                      child: ExpressiveLoadingIndicator(
-                                        size: 24,
-                                        color: colorScheme.onPrimary,
-                                      ),
-                                    )
-                                  : const Icon(AppIcons.arrowUp, size: 20),
-                            );
-                          },
+                        padding: const EdgeInsets.all(6),
+                        child: _SendButton(
+                          controller: controller,
+                          isLoading: isLoading,
+                          onSubmit: onSubmit,
+                          onStop: onStop,
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1198,6 +1284,72 @@ class _ComposerBar extends StatelessWidget {
   }
 }
 
+/// Send when there's a question, Stop while an answer is coming, quiet
+/// otherwise.
+class _SendButton extends StatelessWidget {
+  const _SendButton({
+    required this.controller,
+    required this.isLoading,
+    required this.onSubmit,
+    required this.onStop,
+  });
+
+  final TextEditingController controller;
+  final bool isLoading;
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        final hasText = value.text.trim().isNotEmpty;
+        final active = isLoading || hasText;
+        return AnimatedContainer(
+          duration: AppMotion.short,
+          curve: AppMotion.emphasizedDecelerate,
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: active ? cs.primary : cs.primary.withValues(alpha: 0),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            tooltip: isLoading ? context.l10n.askStop : context.l10n.send,
+            padding: EdgeInsets.zero,
+            color: cs.onPrimary,
+            disabledColor: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            onPressed: isLoading
+                ? () {
+                    AppHaptics.play(AppHaptics.tap);
+                    onStop();
+                  }
+                : hasText
+                ? () {
+                    AppHaptics.play(AppHaptics.tap);
+                    onSubmit(controller.text);
+                  }
+                : null,
+            icon: AnimatedSwitcher(
+              duration: AppMotion.short,
+              transitionBuilder: (child, animation) =>
+                  ScaleTransition(scale: animation, child: child),
+              child: AppIcon(
+                isLoading ? AppIcons.stop : AppIcons.arrowUp,
+                key: ValueKey(isLoading),
+                size: isLoading ? 16 : 20,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The save a question is about, at the top of the composer.
 class _AttachedSourceBar extends ConsumerWidget {
   const _AttachedSourceBar({required this.source, this.onClear});
 
@@ -1206,8 +1358,6 @@ class _AttachedSourceBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final tagFreq = ref.watch(tagOccurrenceMapProvider);
     final title = TitleResolver.resolveDetailTitle(
       source,
@@ -1218,63 +1368,94 @@ class _AttachedSourceBar extends ConsumerWidget {
       fallbackDomain: source.domain,
     );
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: cs.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Icon(AppIcons.link, size: 18, color: cs.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: cs.onPrimaryContainer,
-                    fontWeight: FontWeight.w800,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  platform,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onPrimaryContainer.withValues(alpha: 0.74),
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (onClear != null) ...[
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: onClear,
-              style: TextButton.styleFrom(
-                foregroundColor: cs.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+    return _ComposerStrip(
+      icon: AppIcons.link,
+      overline: '${context.l10n.askAskingAbout} · $platform',
+      title: title,
+      actionLabel: onClear == null ? null : context.l10n.askAllSaves,
+      onAction: onClear,
+    );
+  }
+}
+
+/// The line at the top of the composer saying what the next send does:
+/// asks about one save, or replaces an edited question.
+class _ComposerStrip extends StatelessWidget {
+  const _ComposerStrip({
+    required this.icon,
+    required this.overline,
+    required this.title,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String overline;
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                shape: BoxShape.circle,
               ),
-              child: const Text('All saves'),
+              child: AppIcon(icon, size: 16, color: cs.onPrimaryContainer),
             ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    overline,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (actionLabel != null)
+              TextButton(onPressed: onAction, child: Text(actionLabel!)),
           ],
-        ],
+        ),
       ),
     );
   }
 }
 
+/// The one next step an answer suggests, as a tonal pill.
 class _ChatActionChip extends StatelessWidget {
   final ChatAction action;
   final VoidCallback onTap;
@@ -1283,99 +1464,535 @@ class _ChatActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
+    final strings = context.l10n;
     final (icon, label) = switch (action) {
       ChatAction.saveToCollection => (
         AppIcons.bookmarkAdd,
-        'Save these to a collection',
+        strings.askActionSaveToCollection,
       ),
-      ChatAction.synthesize => (AppIcons.sparkle, 'Synthesize these'),
-      ChatAction.buildPlan => (AppIcons.calendar, 'Build a plan from these'),
+      ChatAction.synthesize => (AppIcons.sparkle, strings.askActionSynthesize),
+      ChatAction.buildPlan => (AppIcons.calendar, strings.askActionBuildPlan),
       ChatAction.saveItinerary => (
         AppIcons.route,
-        'Save as editable itinerary',
+        strings.askActionSaveItinerary,
       ),
       ChatAction.none => (null, ''),
     };
+    if (icon == null) return const SizedBox.shrink();
 
-    if (action == ChatAction.none) return const SizedBox.shrink();
-
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: AppIcon(icon, size: 16),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: cs.primary,
-        side: BorderSide(color: cs.outlineVariant),
-        minimumSize: const Size(48, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return ExpressiveTapScale(
+      pressedScale: 0.97,
+      child: FilledButton.tonalIcon(
+        onPressed: onTap,
+        icon: AppIcon(icon, size: 16),
+        label: Text(label),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(48, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          textStyle: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          shape: const StadiumBorder(),
+        ),
       ),
     );
   }
 }
 
-class _CollectionTile extends StatelessWidget {
-  final CollectionVisualStyle visualStyle;
-  final String name;
-  final String subtitle;
-  final bool isCreate;
-  final VoidCallback onTap;
+/// A rounded group of rows, as in Settings: the sheets' one container.
+class _SheetGroup extends StatelessWidget {
+  const _SheetGroup({required this.children});
 
-  const _CollectionTile({
-    required this.visualStyle,
-    required this.name,
-    required this.subtitle,
-    this.isCreate = false,
-    required this.onTap,
-  });
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      leading: Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        child: CollectionVisual(
-          style: visualStyle,
-
-          selected: isCreate,
-          size: 40,
-          iconSize: isCreate ? 19 : 18,
-        ),
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                indent: 66,
+                endIndent: 16,
+                color: cs.outlineVariant.withValues(alpha: 0.4),
+              ),
+            children[i],
+          ],
+        ],
       ),
-      title: Text(
-        name,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: isCreate ? cs.primary : cs.onSurface,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 12,
-          color: cs.onSurface.withValues(alpha: 0.4),
-        ),
-      ),
-      trailing: Icon(
-        isCreate ? AppIcons.add : AppIcons.chevronRight,
-        size: 18,
-        color: isCreate ? cs.primary : cs.onSurface.withValues(alpha: 0.3),
-      ),
-      onTap: onTap,
     );
   }
 }
 
-class _SaveToCollectionSheet extends StatefulWidget {
+/// A filled search field for long lists in a sheet.
+class _SheetSearchField extends StatelessWidget {
+  const _SheetSearchField({required this.hint, required this.onChanged});
+
+  final String hint;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return TextField(
+      onChanged: onChanged,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(left: 16, right: 8),
+          child: AppIcon(AppIcons.search, size: 18, color: cs.onSurfaceVariant),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0),
+        filled: true,
+        fillColor: cs.surfaceContainerHigh,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(28),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(28),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(28),
+          borderSide: BorderSide(color: cs.primary, width: 1.5),
+        ),
+      ),
+    );
+  }
+}
+
+/// Recent chats, grouped by when they last moved. Rename and delete stay in
+/// the sheet; a deleted chat leaves an Undo in its place.
+class _ChatHistorySheet extends StatefulWidget {
+  const _ChatHistorySheet({
+    required this.chats,
+    required this.currentKey,
+    required this.onOpen,
+    required this.onNewChat,
+    required this.onRename,
+    required this.onDelete,
+    required this.onRestore,
+  });
+
+  final List<AskConversation> chats;
+  final String? currentKey;
+  final ValueChanged<AskConversation> onOpen;
+  final VoidCallback onNewChat;
+  final Future<String?> Function(AskConversation chat) onRename;
+  final Future<void> Function(AskConversation chat) onDelete;
+  final Future<void> Function(AskConversation chat) onRestore;
+
+  @override
+  State<_ChatHistorySheet> createState() => _ChatHistorySheetState();
+}
+
+enum _ChatAge { today, yesterday, thisWeek, earlier }
+
+class _ChatHistorySheetState extends State<_ChatHistorySheet> {
+  /// Below this many chats the whole list fits and search is noise.
+  static const _searchThreshold = 8;
+
+  late final List<AskConversation> _chats = [...widget.chats]
+    ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  final Set<String> _deleted = {};
+  String _query = '';
+
+  static _ChatAge _age(DateTime at, DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(at.year, at.month, at.day);
+    final days = today.difference(day).inDays;
+    if (days <= 0) return _ChatAge.today;
+    if (days == 1) return _ChatAge.yesterday;
+    if (days < 7) return _ChatAge.thisWeek;
+    return _ChatAge.earlier;
+  }
+
+  String _ageLabel(AppLocalizations strings, _ChatAge age) => switch (age) {
+    _ChatAge.today => strings.today,
+    _ChatAge.yesterday => strings.yesterday,
+    _ChatAge.thisWeek => strings.thisWeek,
+    _ChatAge.earlier => strings.askEarlier,
+  };
+
+  String _when(BuildContext context, DateTime at, _ChatAge age) {
+    final material = MaterialLocalizations.of(context);
+    final local = at.toLocal();
+    return switch (age) {
+      _ChatAge.today || _ChatAge.yesterday => material.formatTimeOfDay(
+        TimeOfDay.fromDateTime(local),
+        alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+      ),
+      _ChatAge.thisWeek => material.formatMediumDate(local),
+      _ChatAge.earlier => material.formatShortMonthDay(local),
+    };
+  }
+
+  Future<void> _rename(AskConversation chat) async {
+    final title = await widget.onRename(chat);
+    if (title != null && mounted) setState(() => chat.title = title);
+  }
+
+  Future<void> _delete(AskConversation chat) async {
+    AppHaptics.play(AppHaptics.tap);
+    setState(() => _deleted.add(chat.key));
+    await widget.onDelete(chat);
+  }
+
+  Future<void> _restore(AskConversation chat) async {
+    AppHaptics.play(AppHaptics.tick);
+    setState(() => _deleted.remove(chat.key));
+    await widget.onRestore(chat);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final strings = context.l10n;
+    final now = DateTime.now();
+    final query = _query.trim().toLowerCase();
+    final groups = <_ChatAge, List<AskConversation>>{};
+    for (final chat in _chats) {
+      if (query.isNotEmpty && !chat.title.toLowerCase().contains(query)) {
+        continue;
+      }
+      groups.putIfAbsent(_age(chat.updatedAt, now), () => []).add(chat);
+    }
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      strings.askRecentChats,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: () {
+                      AppHaptics.play(AppHaptics.tap);
+                      widget.onNewChat();
+                    },
+                    icon: const AppIcon(AppIcons.newChat, size: 18),
+                    label: Text(strings.newChat),
+                  ),
+                ],
+              ),
+            ),
+            if (_chats.length >= _searchThreshold)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: _SheetSearchField(
+                  hint: strings.askSearchChats,
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+              ),
+            if (_chats.isEmpty || groups.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        shape: BoxShape.circle,
+                      ),
+                      child: AppIcon(
+                        _chats.isEmpty ? AppIcons.chat : AppIcons.search,
+                        size: 24,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      _chats.isEmpty
+                          ? strings.askNoChats
+                          : strings.askNoChatsMatch,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    if (_chats.isEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        strings.askNoChatsHint,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              )
+            else
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  children: [
+                    for (final age in _ChatAge.values)
+                      if (groups[age] case final chats?) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                          child: Text(
+                            _ageLabel(strings, age),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        _SheetGroup(
+                          children: [
+                            for (final chat in chats)
+                              _deleted.contains(chat.key)
+                                  ? _DeletedChatRow(
+                                      onUndo: () => _restore(chat),
+                                    )
+                                  : _ChatRow(
+                                      title: chat.title,
+                                      when: _when(context, chat.updatedAt, age),
+                                      current: chat.key == widget.currentKey,
+                                      onTap: () => widget.onOpen(chat),
+                                      onRename: () => _rename(chat),
+                                      onDelete: () => _delete(chat),
+                                    ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatRow extends StatelessWidget {
+  const _ChatRow({
+    required this.title,
+    required this.when,
+    required this.current,
+    required this.onTap,
+    required this.onRename,
+    required this.onDelete,
+  });
+
+  final String title;
+  final String when;
+  final bool current;
+  final VoidCallback onTap;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final strings = context.l10n;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: current
+                    ? cs.primaryContainer
+                    : cs.surfaceContainerHighest,
+                shape: BoxShape.circle,
+              ),
+              child: AppIcon(
+                AppIcons.chat,
+                filled: current,
+                size: 18,
+                color: current ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    current ? strings.askOpenNow : when,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: current ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: strings.more,
+              icon: AppIcon(
+                AppIcons.more,
+                size: 18,
+                color: cs.onSurfaceVariant,
+              ),
+              onSelected: (action) =>
+                  action == 'delete' ? onDelete() : onRename(),
+              itemBuilder: (_) => [
+                appMenuItem(
+                  value: 'rename',
+                  icon: AppIcons.edit,
+                  label: strings.askRenameChat,
+                ),
+                appMenuItem(
+                  value: 'delete',
+                  icon: AppIcons.clearData,
+                  label: strings.delete,
+                  destructive: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeletedChatRow extends StatelessWidget {
+  const _DeletedChatRow({required this.onUndo});
+
+  final VoidCallback onUndo;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(66, 8, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.l10n.askChatDeleted,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(onPressed: onUndo, child: Text(context.l10n.undo)),
+        ],
+      ),
+    );
+  }
+}
+
+/// One choice in the save-to-collection sheet: a new collection, or one of
+/// yours with how many of these saves it already holds.
+class _CollectionTile extends StatelessWidget {
+  const _CollectionTile({
+    required this.leading,
+    required this.name,
+    required this.subtitle,
+    this.isCreate = false,
+    this.added = false,
+    this.onTap,
+  });
+
+  final Widget leading;
+  final String name;
+  final String subtitle;
+  final bool isCreate;
+
+  /// Every save is already in it: shown, but nothing to do.
+  final bool added;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 16, 10),
+        child: Row(
+          children: [
+            SizedBox.square(dimension: 44, child: Center(child: leading)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isCreate ? cs.primary : cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: added ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (added) AppIcon(AppIcons.check, size: 20, color: cs.primary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SaveToCollectionSheet extends ConsumerStatefulWidget {
   final BuildContext hostContext;
   final List<SavedUrl> sources;
   final IsarService isarService;
@@ -1389,116 +2006,178 @@ class _SaveToCollectionSheet extends StatefulWidget {
   });
 
   @override
-  State<_SaveToCollectionSheet> createState() => _SaveToCollectionSheetState();
+  ConsumerState<_SaveToCollectionSheet> createState() =>
+      _SaveToCollectionSheetState();
 }
 
-class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
-  List<UserCollection> _existing = [];
-  bool _loading = true;
+class _SaveToCollectionSheetState
+    extends ConsumerState<_SaveToCollectionSheet> {
+  /// Below this many collections the whole list fits and search is noise.
+  static const _searchThreshold = 7;
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+  String _query = '';
 
-  Future<void> _load() async {
-    final cols = await widget.isarService.getAllCollections();
-    setState(() {
-      _existing = cols;
-      _loading = false;
-    });
-  }
+  late final Set<int> _ids = {for (final s in widget.sources) s.id};
+
+  int _alreadyIn(UserCollection collection) =>
+      collection.urlIds.where(_ids.contains).length;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final strings = context.l10n;
+    final collections = ref.watch(collectionsListProvider);
+    final all = collections.valueOrNull ?? const <UserCollection>[];
+    final query = _query.trim().toLowerCase();
+    final shown = [
+      for (final c in all)
+        if (query.isEmpty || c.name.toLowerCase().contains(query)) c,
+    ];
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.85,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 20),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: cs.onSurface.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Save to collection',
-                  style: tt.titleMedium?.copyWith(
-                    color: cs.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${widget.sources.length} links will be added',
-                  style: tt.bodySmall?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Create new — always first
-          _CollectionTile(
-            visualStyle: CollectionVisualStyle.knowledge,
-            name: 'New collection',
-            subtitle: 'Create a focused space',
-            isCreate: true,
-            onTap: () => _createAndSave(context),
-          ),
-
-          if (_loading)
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Padding(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: ExpressiveLoadingIndicator(size: 32, color: cs.primary),
-              ),
-            )
-          else
-            ..._existing.map(
-              (col) => _CollectionTile(
-                visualStyle: resolveCollectionVisual(col),
-                name: col.name,
-                subtitle: '${col.urlIds.length} links',
-                onTap: () => _addToExisting(context, col),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 2),
+              child: Text(
+                strings.askActionSaveToCollection,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-
-          const SizedBox(height: 24),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: Text(
+                strings.linkCount(widget.sources.length),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+            if (all.length >= _searchThreshold)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: _SheetSearchField(
+                  hint: strings.searchCollections,
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+              ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                children: [
+                  if (query.isEmpty) ...[
+                    _SheetGroup(
+                      children: [
+                        _CollectionTile(
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: cs.primaryContainer,
+                              shape: BoxShape.circle,
+                            ),
+                            child: AppIcon(
+                              AppIcons.add,
+                              size: 20,
+                              color: cs.onPrimaryContainer,
+                            ),
+                          ),
+                          name: strings.newCollection,
+                          subtitle: strings.askNewCollectionHint,
+                          isCreate: true,
+                          onTap: () => _createAndSave(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (collections.isLoading && all.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Center(
+                        child: ExpressiveLoadingIndicator(
+                          size: 32,
+                          color: cs.primary,
+                        ),
+                      ),
+                    )
+                  else if (shown.isNotEmpty)
+                    _SheetGroup(
+                      children: [
+                        for (final col in shown) _collectionRow(strings, col),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  Widget _collectionRow(AppLocalizations strings, UserCollection col) {
+    final inIt = _alreadyIn(col);
+    final added = inIt == _ids.length;
+    return _CollectionTile(
+      leading: CollectionVisual(
+        style: resolveCollectionVisual(col),
+        size: 40,
+        iconSize: 18,
+      ),
+      name: col.name,
+      subtitle: added
+          ? strings.askAlreadyInCollection
+          : inIt > 0
+          ? strings.askSomeInCollection(inIt)
+          : strings.linkCount(col.urlIds.length),
+      added: added,
+      onTap: added ? null : () => _addToExisting(context, col, inIt),
+    );
+  }
+
+  void _announce(UserCollection collection, int count, {bool open = true}) {
+    final host = widget.hostContext;
+    if (!host.mounted) return;
+    final strings = host.l10n;
+    ScaffoldMessenger.of(host)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(strings.askAddedToCollection(count, collection.name)),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          action: open
+              ? SnackBarAction(
+                  label: strings.open,
+                  onPressed: () => host.push('/collections/${collection.id}'),
+                )
+              : null,
+        ),
+      );
+  }
+
   Future<void> _createAndSave(BuildContext context) async {
+    AppHaptics.play(AppHaptics.tap);
     Navigator.pop(context);
 
     final defaultName = widget.sources.length == 1
         ? widget.sources.first.title
-        : '${widget.sources.length} links';
+        : '';
     final collection = await showCreateCollectionSheet(
       widget.hostContext,
       initialName: defaultName.isNotEmpty ? defaultName : null,
@@ -1515,60 +2194,26 @@ class _SaveToCollectionSheetState extends State<_SaveToCollectionSheet> {
       urlIds: widget.sources.map((u) => u.id).toList(),
     );
     widget.onCollectionChanged(collection.id);
+    AppHaptics.play(AppHaptics.success);
+    _announce(collection, widget.sources.length, open: false);
     if (widget.hostContext.mounted) {
-      ScaffoldMessenger.of(widget.hostContext).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.sources.length == 1
-                ? 'Added to ${collection.name}'
-                : 'Added ${widget.sources.length} items to '
-                      '${collection.name}',
-          ),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
       widget.hostContext.push('/collections/${collection.id}');
     }
   }
 
-  Future<void> _addToExisting(BuildContext context, UserCollection col) async {
+  Future<void> _addToExisting(
+    BuildContext context,
+    UserCollection col,
+    int alreadyIn,
+  ) async {
+    AppHaptics.play(AppHaptics.success);
     Navigator.pop(context);
     await widget.isarService.addUrlsToCollection(
       collectionId: col.id,
       urlIds: widget.sources.map((u) => u.id).toList(),
     );
     widget.onCollectionChanged(col.id);
-    if (widget.hostContext.mounted) {
-      final cs = Theme.of(widget.hostContext).colorScheme;
-      ScaffoldMessenger.of(widget.hostContext).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Expanded(child: Text('Added to ${col.name}')),
-              GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(
-                    widget.hostContext,
-                  ).hideCurrentSnackBar();
-                  widget.hostContext.push('/collections/${col.id}');
-                },
-                child: Text(
-                  'View',
-                  style: TextStyle(
-                    color: cs.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: cs.surfaceContainerHigh,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
+    _announce(col, _ids.length - alreadyIn);
   }
 }
 

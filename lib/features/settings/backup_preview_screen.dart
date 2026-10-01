@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/backup_provider.dart';
 import '../../core/services/backup/backup_models.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../l10n/l10n.dart';
 import '../shell/navigation_discovery_provider.dart';
+import 'settings_components.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
 class BackupPreviewScreen extends ConsumerStatefulWidget {
@@ -20,19 +22,22 @@ class BackupPreviewScreen extends ConsumerStatefulWidget {
 class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
   RestoreMode _restoreMode = RestoreMode.merge;
 
-  String _formatDate(String isoDate) {
-    try {
-      final dt = DateTime.parse(isoDate);
-      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} at ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return isoDate;
-    }
+  String _formatDate(BuildContext context, String isoDate) {
+    final dt = DateTime.tryParse(isoDate)?.toLocal();
+    if (dt == null) return isoDate;
+    final material = MaterialLocalizations.of(context);
+    final time = material.formatTimeOfDay(
+      TimeOfDay.fromDateTime(dt),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
+    return '${material.formatMediumDate(dt)}, $time';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final strings = context.l10n;
     final state = ref.watch(backupProvider);
     final backup = state.previewData;
 
@@ -49,8 +54,8 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
             SnackBar(
               content: Text(
                 next.restoredCount! > 0
-                    ? 'Restored ${next.restoredCount} links'
-                    : 'Restore complete',
+                    ? strings.restoredLinksCount(next.restoredCount!)
+                    : strings.restoreComplete,
               ),
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 3),
@@ -72,149 +77,102 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
     });
 
     if (backup == null) {
-      return Scaffold(
-        backgroundColor: cs.surface,
-        appBar: AppBar(),
-        body: const Center(child: Text('No backup data')),
+      return SettingsPageScaffold(
+        title: strings.backupPreview,
+        children: [
+          const SizedBox(height: 48),
+          Center(child: Text(strings.noBackupData)),
+        ],
       );
     }
 
     final isRestoring = state.status == BackupStatus.restoring;
     final progress = state.progress;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar.large(
-            title: Text(
-              'Backup Preview',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: 'Backup Details'),
-                      const SizedBox(height: 16),
-                      _DetailRow(
-                        label: 'Date',
-                        value: _formatDate(backup.createdAt),
-                      ),
-                      if (backup.appVersion.isNotEmpty)
-                        _DetailRow(
-                          label: 'App version',
-                          value: backup.appVersion,
-                        ),
-                      if (backup.device != null && backup.device!.isNotEmpty)
-                        _DetailRow(label: 'Device', value: backup.device!),
-                      const Divider(height: 24),
-                      _DetailRow(
-                        label: 'Links',
-                        value: '${backup.links.length}',
-                      ),
-                      _DetailRow(
-                        label: 'Collections',
-                        value: '${backup.collections.length}',
-                      ),
-                      if (backup.saveSessions.isNotEmpty)
-                        _DetailRow(
-                          label: 'Save sessions',
-                          value: '${backup.saveSessions.length}',
-                        ),
-                      if (backup.links.any((l) => l.embedding != null))
-                        _DetailRow(
-                          label: 'Embeddings included',
-                          value:
-                              '${backup.links.where((l) => l.embedding != null).length}',
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: 'Restore Mode'),
-                      const SizedBox(height: 12),
-                      _RestoreModeOption(
-                        icon: AppIcons.merge,
-                        title: 'Merge with existing library',
-                        subtitle:
-                            'Adds new links from the backup (including ones you\u2019ve deleted) and updates existing ones. Nothing in your current library is removed.',
-                        isSelected: _restoreMode == RestoreMode.merge,
-                        onTap: () =>
-                            setState(() => _restoreMode = RestoreMode.merge),
-                      ),
-                      const SizedBox(height: 8),
-                      _RestoreModeOption(
-                        icon: AppIcons.swapHorizontal,
-                        title: 'Replace current library',
-                        subtitle:
-                            'Replaces all current data with the backup. Your current library will be deleted.',
-                        isSelected: _restoreMode == RestoreMode.replace,
-                        isDestructive: true,
-                        onTap: () =>
-                            setState(() => _restoreMode = RestoreMode.replace),
-                      ),
-                      const SizedBox(height: 16),
-                      _RestoreImpactSummary(mode: _restoreMode),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                if (isRestoring) ...[
-                  Column(
-                    children: [
-                      LinearProgressIndicator(value: progress),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Restoring... ${(progress * 100).round()}%',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else ...[
-                  FilledButton(
-                    onPressed: _confirmRestore,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Restore'),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () {
-                      ref.read(backupProvider.notifier).reset();
-                      Navigator.of(context).pop();
-                    },
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Cancel'),
-                  ),
-                ],
-              ]),
-            ),
-          ),
-        ],
+    return SettingsPageScaffold(
+      title: strings.backupPreview,
+      bottomPadding: 24,
+      // What to do next stays in reach under the details.
+      bottomBar: _PreviewActions(
+        isRestoring: isRestoring,
+        progress: progress,
+        onRestore: _confirmRestore,
+        onCancel: () {
+          ref.read(backupProvider.notifier).reset();
+          Navigator.of(context).pop();
+        },
       ),
+      children: [
+        SettingsGroupLabel(strings.backupDetails),
+        SettingsPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _DetailRow(
+                label: strings.backupDate,
+                value: _formatDate(context, backup.createdAt),
+              ),
+              if (backup.appVersion.isNotEmpty)
+                _DetailRow(
+                  label: strings.backupAppVersion,
+                  value: backup.appVersion,
+                ),
+              if (backup.device != null && backup.device!.isNotEmpty)
+                _DetailRow(label: strings.backupDevice, value: backup.device!),
+              Divider(
+                height: 24,
+                color: cs.outlineVariant.withValues(alpha: 0.4),
+              ),
+              _DetailRow(
+                label: strings.backupLinksLabel,
+                value: '${backup.links.length}',
+              ),
+              _DetailRow(
+                label: strings.collections,
+                value: '${backup.collections.length}',
+              ),
+              if (backup.saveSessions.isNotEmpty)
+                _DetailRow(
+                  label: strings.backupSaveSessions,
+                  value: '${backup.saveSessions.length}',
+                ),
+              if (backup.links.any((l) => l.embedding != null))
+                _DetailRow(
+                  label: strings.backupEmbeddings,
+                  value:
+                      '${backup.links.where((l) => l.embedding != null).length}',
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        SettingsGroupLabel(strings.restoreMode),
+        SettingsPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _RestoreModeOption(
+                icon: AppIcons.merge,
+                title: strings.restoreMergeTitle,
+                subtitle: strings.restoreMergeSubtitle,
+                isSelected: _restoreMode == RestoreMode.merge,
+                onTap: () => setState(() => _restoreMode = RestoreMode.merge),
+              ),
+              const SizedBox(height: 8),
+              _RestoreModeOption(
+                icon: AppIcons.swapHorizontal,
+                title: strings.restoreReplaceTitle,
+                subtitle: strings.restoreReplaceSubtitle,
+                isSelected: _restoreMode == RestoreMode.replace,
+                isDestructive: true,
+                onTap: () => setState(() => _restoreMode = RestoreMode.replace),
+              ),
+              const SizedBox(height: 16),
+              _RestoreImpactSummary(mode: _restoreMode),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -224,16 +182,20 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isReplace ? 'Replace library?' : 'Merge backup?'),
+        title: Text(
+          isReplace
+              ? context.l10n.replaceLibraryQuestion
+              : context.l10n.mergeBackupQuestion,
+        ),
         content: Text(
           isReplace
-              ? 'This will replace your current library with the backup. All your current links and collections will be permanently deleted.'
-              : 'Links from the backup will be merged into your current library. Duplicates will be skipped.',
+              ? context.l10n.replaceLibraryWarning
+              : context.l10n.mergeBackupExplanation,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -242,7 +204,9 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
                     backgroundColor: Theme.of(context).colorScheme.error,
                   )
                 : null,
-            child: Text(isReplace ? 'Replace' : 'Merge'),
+            child: Text(
+              isReplace ? context.l10n.replaceAction : context.l10n.mergeAction,
+            ),
           ),
         ],
       ),
@@ -254,38 +218,66 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
   }
 }
 
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.child});
-  final Widget child;
+/// Restore and Cancel, pinned under the page; the progress while it runs.
+class _PreviewActions extends StatelessWidget {
+  const _PreviewActions({
+    required this.isRestoring,
+    required this.progress,
+    required this.onRestore,
+    required this.onCancel,
+  });
+
+  final bool isRestoring;
+  final double progress;
+  final VoidCallback onRestore;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-        child: child,
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(
+          top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        ),
       ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-        color: cs.primary,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.2,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: isRestoring
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.l10n.restoringProgress((progress * 100).round()),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FilledButton(
+                      onPressed: onRestore,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                      child: Text(context.l10n.restore),
+                    ),
+                    TextButton(
+                      onPressed: onCancel,
+                      child: Text(context.l10n.cancel),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -341,9 +333,10 @@ class _RestoreImpactSummary extends ConsumerWidget {
         }
         if (mode == RestoreMode.replace) {
           return Text(
-            'Your current library will be deleted, then ${impact.addedLinks} '
-            '${_links(impact.addedLinks)} and ${impact.addedCollections} '
-            '${_collections(impact.addedCollections)} will be restored from the backup.',
+            context.l10n.restoreImpactReplace(
+              context.l10n.linkCount(impact.addedLinks),
+              context.l10n.collectionCountLabel(impact.addedCollections),
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
               height: 1.4,
@@ -360,16 +353,14 @@ class _RestoreImpactSummary extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _ImpactRow(
-              label: 'New links to restore',
+              label: context.l10n.impactNewLinks,
               value: added,
-              hint: added > 0
-                  ? 'Includes any links you previously deleted.'
-                  : null,
+              hint: added > 0 ? context.l10n.impactNewLinksHint : null,
               tint: cs.primary,
             ),
             const SizedBox(height: 6),
             _ImpactRow(
-              label: 'Existing links to update',
+              label: context.l10n.impactUpdatedLinks,
               value: updated,
               tint: cs.tertiary,
             ),
@@ -382,14 +373,14 @@ class _RestoreImpactSummary extends ConsumerWidget {
               const SizedBox(height: 10),
               if (addedCol > 0)
                 _ImpactRow(
-                  label: 'New collections',
+                  label: context.l10n.impactNewCollections,
                   value: addedCol,
                   tint: cs.primary,
                 ),
               if (addedCol > 0 && updatedCol > 0) const SizedBox(height: 6),
               if (updatedCol > 0)
                 _ImpactRow(
-                  label: 'Collections to update',
+                  label: context.l10n.impactUpdatedCollections,
                   value: updatedCol,
                   tint: cs.tertiary,
                 ),
@@ -408,7 +399,7 @@ class _RestoreImpactSummary extends ConsumerWidget {
             ),
             const SizedBox(width: 10),
             Text(
-              'Calculating changes\u2026',
+              context.l10n.calculatingChanges,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -417,7 +408,7 @@ class _RestoreImpactSummary extends ConsumerWidget {
         ),
       ),
       error: (e, _) => Text(
-        'Could not preview changes.',
+        context.l10n.couldNotPreviewChanges,
         style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
       ),
     );
@@ -426,14 +417,11 @@ class _RestoreImpactSummary extends ConsumerWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: body,
     );
   }
-
-  static String _links(int n) => n == 1 ? 'link' : 'links';
-  static String _collections(int n) => n == 1 ? 'collection' : 'collections';
 }
 
 class _ImpactRow extends StatelessWidget {
@@ -535,14 +523,14 @@ class _RestoreModeOption extends StatelessWidget {
 
     return Material(
       color: bgColor,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
           ),
           child: Row(
@@ -556,8 +544,9 @@ class _RestoreModeOption extends StatelessWidget {
                             ? cs.errorContainer
                             : cs.primaryContainer)
                       : cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                alignment: Alignment.center,
                 child: AppIcon(
                   icon,
                   size: 20,

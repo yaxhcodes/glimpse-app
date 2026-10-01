@@ -9,6 +9,7 @@ import 'glimpse.dart';
 import 'glimpse_copy.dart';
 import 'glimpse_service.dart';
 import 'glimpse_store.dart';
+import 'glimpse_notification_prefs.dart';
 import 'glimpse_synthesis.dart';
 
 class GlimpseDelivery {
@@ -19,6 +20,7 @@ class GlimpseDelivery {
       return 'skipped: permission disabled';
     }
     final now = DateTime.now();
+    final prefs = await GlimpseNotificationPrefs.load();
     final receipts = await service.store.load();
     final strings = await loadBackgroundLocalizations();
     final urls = {for (final u in await isar.getAllUrls()) u.id: u};
@@ -35,7 +37,17 @@ class GlimpseDelivery {
         );
     for (final item in items) {
       if (kind != null && item.glimpse.kind != kind) continue;
-      if (!GlimpseDeliveryPolicy.canPost(item, receipts, now)) continue;
+      // Kinds turned off in Settings never notify.
+      if (!prefs.allows(item.glimpse.kind)) continue;
+      if (!GlimpseDeliveryPolicy.canPost(
+        item,
+        receipts,
+        now,
+        windowStart: prefs.startHour,
+        windowEnd: prefs.endHour,
+      )) {
+        continue;
+      }
       final g = item.glimpse;
       final requested = GlimpseDeliveryPolicy.isRequestedReturn(item, now);
       if (weeklyDue &&
@@ -44,7 +56,14 @@ class GlimpseDelivery {
           g.kind != GlimpseKind.weekly) {
         continue;
       }
-      if (!await service.store.claim(g.key, now)) continue;
+      if (!await service.store.claim(
+        g.key,
+        now,
+        windowStart: prefs.startHour,
+        windowEnd: prefs.endHour,
+      )) {
+        continue;
+      }
       var posted = false;
       try {
         final title = glimpseTitle(g, strings, urls);

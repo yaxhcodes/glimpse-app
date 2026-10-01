@@ -1,111 +1,156 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/services/analytics_consent.dart';
+import '../../core/services/app_haptics.dart';
 import '../../l10n/l10n.dart';
-import '../../shared/theme/app_layout.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
+import 'settings_components.dart';
 
-class PrivacyScreen extends StatelessWidget {
+/// What stays on the phone and what leaves it — kept in step with the Play
+/// Data safety form and the privacy policy.
+class PrivacyScreen extends ConsumerWidget {
   const PrivacyScreen({super.key});
 
+  static final privacyPolicyUri = Uri.parse(
+    'https://www.getglimpse.xyz/privacy',
+  );
+
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+  Widget build(BuildContext context, WidgetRef ref) {
     final strings = context.l10n;
-    final localItems = [
-      strings.bookmarks,
-      strings.notes,
-      strings.collections,
-      strings.tags,
-      strings.aiSummaries,
-    ];
-    final uploadedItems = [
-      strings.accountInformation,
-      strings.subscriptionStatus,
-      strings.anonymousProductAnalytics,
-    ];
-    final pagePadding = AppLayout.pageHorizontalPadding(
-      MediaQuery.sizeOf(context).width,
-      compactPadding: 20,
-    );
+    final analyticsOn = ref.watch(analyticsConsentProvider);
+    void setAnalytics(bool enabled) {
+      AppHaptics.play(AppHaptics.tick);
+      ref.read(analyticsConsentProvider.notifier).set(enabled);
+    }
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppBar(
-        title: Text(strings.privacy),
-        backgroundColor: cs.surface,
-        foregroundColor: cs.onSurface,
-      ),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(pagePadding, 12, pagePadding, 32),
-        children: [
-          _PrivacySection(title: strings.local, items: localItems),
-          const SizedBox(height: 24),
-          _PrivacySection(title: strings.uploaded, items: uploadedItems),
-        ],
-      ),
-    );
-  }
-}
-
-class _PrivacySection extends StatelessWidget {
-  const _PrivacySection({required this.title, required this.items});
-
-  final String title;
-  final List<String> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return SettingsPageScaffold(
+      title: strings.privacy,
       children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+        SettingsGroupLabel(strings.privacyOnDevice),
+        SettingsGroup(
+          children: [
+            _PrivacyRow(
+              icon: AppIcons.bookmark,
+              accent: SettingsAccents.violet,
+              label: strings.bookmarks,
+            ),
+            _PrivacyRow(
+              icon: AppIcons.note,
+              accent: SettingsAccents.amber,
+              label: strings.notes,
+            ),
+            _PrivacyRow(
+              icon: AppIcons.collections,
+              accent: SettingsAccents.teal,
+              label: strings.collections,
+            ),
+            _PrivacyRow(
+              icon: AppIcons.tag,
+              accent: SettingsAccents.rose,
+              label: strings.tags,
+            ),
+            _PrivacyRow(
+              icon: AppIcons.sparkle,
+              accent: SettingsAccents.indigo,
+              label: strings.aiSummaries,
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                _PrivacyRow(label: items[i]),
-                if (i != items.length - 1)
-                  Divider(height: 1, color: cs.outlineVariant),
-              ],
-            ],
-          ),
+        SettingsFootnote(strings.privacyOnDeviceNote),
+        const SizedBox(height: 24),
+        SettingsGroupLabel(strings.privacySentToServers),
+        SettingsGroup(
+          children: [
+            _PrivacyRow(
+              icon: AppIcons.link,
+              accent: SettingsAccents.blue,
+              label: strings.privacyLinksTitle,
+              detail: strings.privacyLinksDetail,
+            ),
+            _PrivacyRow(
+              icon: AppIcons.chat,
+              accent: SettingsAccents.indigo,
+              label: strings.privacyAskTitle,
+              detail: strings.privacyAskDetail,
+            ),
+            _PrivacyRow(
+              icon: AppIcons.account,
+              accent: SettingsAccents.teal,
+              label: strings.accountInformation,
+              detail: strings.privacyAccountDetail,
+            ),
+            _PrivacyRow(
+              icon: AppIcons.gem,
+              accent: SettingsAccents.gold,
+              label: strings.subscriptionStatus,
+              detail: strings.privacySubscriptionDetail,
+            ),
+            SettingsTile(
+              icon: AppIcons.analytics,
+              iconColor: SettingsAccents.slate,
+              title: strings.privacyAnalyticsTitle,
+              subtitle: analyticsOn
+                  ? strings.privacyAnalyticsDetail
+                  : strings.privacyAnalyticsOff,
+              onTap: () => setAnalytics(!analyticsOn),
+              trailing: Switch(
+                value: analyticsOn,
+                thumbIcon: settingsSwitchThumbIcon(),
+                onChanged: setAnalytics,
+              ),
+            ),
+          ],
+        ),
+        SettingsFootnote(strings.privacyServersNote),
+        const SizedBox(height: 24),
+        SettingsGroup(
+          children: [
+            SettingsTile(
+              icon: AppIcons.privacy,
+              iconColor: SettingsAccents.green,
+              title: strings.privacyPolicy,
+              trailing: AppIcon(
+                AppIcons.externalLink,
+                size: 20,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+              onTap: () => launchUrl(
+                privacyPolicyUri,
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 }
 
+/// One kind of data, named with its own icon — information, not a row to
+/// tap.
 class _PrivacyRow extends StatelessWidget {
-  const _PrivacyRow({required this.label});
+  const _PrivacyRow({
+    required this.icon,
+    required this.accent,
+    required this.label,
+    this.detail,
+  });
 
+  final IconData icon;
+  final Color accent;
   final String label;
+  final String? detail;
 
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Icon(AppIcons.check, size: 20, color: cs.primary),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label)),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SettingsTile(
+    icon: icon,
+    iconColor: accent,
+    title: label,
+    subtitle: detail,
+  );
 }

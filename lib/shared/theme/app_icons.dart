@@ -29,6 +29,12 @@ abstract final class AppIcons {
   static const privacy = PhosphorIconsBold.shieldCheck;
   static const backup = PhosphorIconsBold.archive;
   static const clearData = PhosphorIconsBold.trashSimple;
+
+  /// Erasing everything at once — distinct from the Bin's trash can.
+  static const eraseAll = PhosphorIconsBold.eraser;
+  static const account = PhosphorIconsBold.userCircle;
+  static const analytics = PhosphorIconsBold.chartBar;
+  static const haptics = PhosphorIconsBold.vibrate;
   static const about = PhosphorIconsBold.info;
   static const logout = PhosphorIconsBold.signOut;
   static const deleteAccount = PhosphorIconsBold.userMinus;
@@ -164,6 +170,11 @@ abstract final class AppIcons {
   static const radioSelected = PhosphorIconsBold.radioButton;
   static const radioUnselected = PhosphorIconsBold.circle;
   static const refresh = PhosphorIconsBold.arrowClockwise;
+  static const stop = PhosphorIconsFill.stop;
+  static const arrowDown = PhosphorIconsBold.arrowDown;
+  static const followUp = PhosphorIconsBold.arrowBendDownRight;
+  static const newChat = PhosphorIconsBold.notePencil;
+  static const chatHistory = PhosphorIconsBold.clockCounterClockwise;
   static const removeCircle = PhosphorIconsBold.minusCircle;
   static const food = PhosphorIconsBold.forkKnife;
   static const rocket = PhosphorIconsBold.rocketLaunch;
@@ -244,6 +255,10 @@ abstract final class AppIcons {
     privacy: PhosphorIconsFill.shieldCheck,
     backup: PhosphorIconsFill.archive,
     clearData: PhosphorIconsFill.trashSimple,
+    eraseAll: PhosphorIconsFill.eraser,
+    account: PhosphorIconsFill.userCircle,
+    analytics: PhosphorIconsFill.chartBar,
+    haptics: PhosphorIconsFill.vibrate,
     about: PhosphorIconsFill.info,
     logout: PhosphorIconsFill.signOut,
     deleteAccount: PhosphorIconsFill.userMinus,
