@@ -346,6 +346,7 @@
   "createBackup": "Crear copia",
   "restoreBackup": "Restaurar copia",
   "lastBackup": "Última copia: {time}",
+  "noBackupsYet": "Aún no hay copias de seguridad",
   "backupLocalInfo": "Las copias contienen toda tu biblioteca: enlaces, colecciones, etiquetas y metadatos. Permanecen en tu dispositivo.",
   "deletedItemsRetention": "Los elementos eliminados se conservan durante 30 días y se borran definitivamente la próxima vez que Glimpse haga limpieza.",
   "daysLeft": "{count, plural, =1{Queda 1 día} other{Quedan {count} días}}",

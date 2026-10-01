@@ -1171,6 +1171,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get noBackupsYet => 'Aún no hay copias de seguridad';
+
+  @override
   String get backupLocalInfo =>
       'Las copias contienen toda tu biblioteca: enlaces, colecciones, etiquetas y metadatos. Permanecen en tu dispositivo.';
 

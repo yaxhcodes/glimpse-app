@@ -346,6 +346,7 @@
   "createBackup": "Créer une sauvegarde",
   "restoreBackup": "Restaurer une sauvegarde",
   "lastBackup": "Dernière sauvegarde : {time}",
+  "noBackupsYet": "Aucune sauvegarde pour l’instant",
   "backupLocalInfo": "Les sauvegardes contiennent toute votre bibliothèque : liens, collections, étiquettes et métadonnées. Elles restent sur votre appareil.",
   "deletedItemsRetention": "Les éléments supprimés sont conservés pendant 30 jours, puis effacés définitivement lors du prochain nettoyage de Glimpse.",
   "daysLeft": "{count, plural, =1{Encore 1 jour} other{Encore {count} jours}}",

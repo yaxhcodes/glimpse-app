@@ -20,6 +20,7 @@ import '../home/home_provider.dart';
 import '../mindmap/interest_clusters_provider.dart';
 import '../rediscover/rediscover_provider.dart';
 import 'bin_provider.dart';
+import 'settings_components.dart';
 import '../../core/services/app_haptics.dart';
 
 class BinScreen extends ConsumerStatefulWidget {
@@ -309,10 +310,8 @@ class _BinScreenState extends ConsumerState<BinScreen> {
                 ],
               )
             else
-              SliverAppBar.large(
-                backgroundColor: cs.surface,
-                foregroundColor: cs.onSurface,
-                title: Text(context.l10n.bin),
+              SettingsLargeAppBar(
+                title: context.l10n.bin,
                 actions: [
                   if (_maintenanceComplete && urls.isNotEmpty)
                     PopupMenuButton<String>(
@@ -362,19 +361,11 @@ class _BinScreenState extends ConsumerState<BinScreen> {
             else ...[
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(padding, 4, padding, 12),
+                // A quiet note, like the rest of Settings — not a callout box.
                 sliver: SliverToBoxAdapter(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Text(
-                      context.l10n.deletedItemsRetention,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: SettingsFootnote(context.l10n.deletedItemsRetention),
                   ),
                 ),
               ),

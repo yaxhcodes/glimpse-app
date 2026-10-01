@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/theme/app_icons.dart';
-import '../../shared/theme/app_layout.dart';
 import '../../shared/theme/app_motion.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/theme/theme_provider.dart';
@@ -20,246 +19,275 @@ class LookAndFeelScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final lightOnly = themeMode == ThemeMode.light;
-    final pagePadding = AppLayout.pageHorizontalPadding(
-      MediaQuery.sizeOf(context).width,
-    );
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar.large(
-            backgroundColor: cs.surface,
-            foregroundColor: cs.onSurface,
-            title: Text(
-              strings.lookAndFeel,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 40),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _ThemePreviewStrip(colorScheme: cs),
-                const SizedBox(height: 24),
+    return SettingsPageScaffold(
+      title: strings.lookAndFeel,
+      children: [
+        const _ThemePreview(),
+        const SizedBox(height: 24),
 
-                // ─── Brightness ──────────────────────────
-                SettingsGroupLabel(strings.brightness),
-                _Panel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        strings.brightnessDescription,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<ThemeMode>(
-                          segments: [
-                            ButtonSegment(
-                              value: ThemeMode.system,
-                              icon: const AppIcon(AppIcons.automaticTheme),
-                              label: Text(strings.systemTheme),
-                            ),
-                            ButtonSegment(
-                              value: ThemeMode.light,
-                              icon: const AppIcon(AppIcons.lightTheme),
-                              label: Text(strings.lightTheme),
-                            ),
-                            ButtonSegment(
-                              value: ThemeMode.dark,
-                              icon: const AppIcon(AppIcons.darkTheme),
-                              label: Text(strings.darkTheme),
-                            ),
-                          ],
-                          selected: {themeMode},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (s) {
-                            ref.read(themeModeProvider.notifier).set(s.first);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+        // ─── Brightness ──────────────────────────
+        SettingsGroupLabel(strings.brightness),
+        SettingsPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                strings.brightnessDescription,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.3,
                 ),
-                const SizedBox(height: 12),
-                SettingsGroup(
-                  children: [
-                    SettingsTile(
-                      icon: AppIcons.amoledTheme,
-                      iconColor: lightOnly
-                          ? cs.onSurfaceVariant
-                          : SettingsAccents.indigo,
-                      title: strings.amoledBlack,
-                      subtitle: lightOnly
-                          ? strings.amoledUnavailable
-                          : strings.amoledDescription,
-                      onTap: lightOnly
-                          ? null
-                          : () => ref
-                                .read(amoledSurfacesProvider.notifier)
-                                .set(!amoledSurfaces),
-                      trailing: Switch(
-                        value: amoledSurfaces,
-                        thumbIcon: settingsSwitchThumbIcon(),
-                        onChanged: lightOnly
-                            ? null
-                            : (v) => ref
-                                  .read(amoledSurfacesProvider.notifier)
-                                  .set(v),
-                      ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<ThemeMode>(
+                  segments: [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: const AppIcon(AppIcons.automaticTheme),
+                      label: Text(strings.systemTheme),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: const AppIcon(AppIcons.lightTheme),
+                      label: Text(strings.lightTheme),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: const AppIcon(AppIcons.darkTheme),
+                      label: Text(strings.darkTheme),
                     ),
                   ],
+                  selected: {themeMode},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) {
+                    ref.read(themeModeProvider.notifier).set(s.first);
+                  },
                 ),
-                const SizedBox(height: 24),
-
-                // ─── Accent color ────────────────────────
-                SettingsGroupLabel(strings.accentColor),
-                _Panel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        strings.dynamicAccentDescription,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        height: 68,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.only(right: 8),
-                          itemCount: _accentPickerOrder.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(width: 12),
-                          itemBuilder: (context, i) {
-                            final c = _accentPickerOrder[i];
-                            return _AccentSwatch(
-                              accent: c,
-                              selected: c == accent,
-                              onTap: () =>
-                                  ref.read(accentColorProvider.notifier).set(c),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        strings.selectedAccent(
-                          _localizedAccentLabel(strings, accent),
-                        ),
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ]),
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        SettingsGroup(
+          children: [
+            SettingsTile(
+              icon: AppIcons.amoledTheme,
+              iconColor: lightOnly
+                  ? cs.onSurfaceVariant
+                  : SettingsAccents.indigo,
+              title: strings.amoledBlack,
+              subtitle: lightOnly
+                  ? strings.amoledUnavailable
+                  : strings.amoledDescription,
+              onTap: lightOnly
+                  ? null
+                  : () => ref
+                        .read(amoledSurfacesProvider.notifier)
+                        .set(!amoledSurfaces),
+              trailing: Switch(
+                value: amoledSurfaces,
+                thumbIcon: settingsSwitchThumbIcon(),
+                onChanged: lightOnly
+                    ? null
+                    : (v) => ref.read(amoledSurfacesProvider.notifier).set(v),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // ─── Accent color ────────────────────────
+        SettingsGroupLabel(strings.accentColor),
+        SettingsPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                strings.dynamicAccentDescription,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Every accent in view: a grid, not a row that hides
+              // most of them off the edge.
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const columns = 5;
+                  const gap = 12.0;
+                  final size =
+                      ((constraints.maxWidth - gap * (columns - 1)) / columns)
+                          .clamp(40.0, 60.0);
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: [
+                      for (final c in _accentPickerOrder)
+                        _AccentSwatch(
+                          accent: c,
+                          size: size,
+                          selected: c == accent,
+                          onTap: () =>
+                              ref.read(accentColorProvider.notifier).set(c),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              Text(
+                strings.selectedAccent(_localizedAccentLabel(strings, accent)),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// Rounded tonal panel matching [SettingsGroup]'s shape but for free-form
-/// content (descriptions, segmented buttons, swatch rows).
-class _Panel extends StatelessWidget {
-  const _Panel({required this.child});
-
-  final Widget child;
+/// A small, text-free mock of the app in the current colours — a save card,
+/// a chip, a button and a switch — so a change of theme or accent shows
+/// where it lands. Theme changes animate app-wide, so it animates too.
+class _ThemePreview extends StatelessWidget {
+  const _ThemePreview();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(kSettingsGroupRadius),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-        child: child,
+    Widget bar(double width, double height, Color color) => Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(height / 2),
       ),
     );
-  }
-}
 
-/// Compact preview like Material “Look & feel” cards — accent + surface sample.
-class _ThemePreviewStrip extends StatelessWidget {
-  const _ThemePreviewStrip({required this.colorScheme});
-
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final radius = BorderRadius.circular(kSettingsGroupRadius);
-
-    return Material(
-      color: colorScheme.primaryContainer,
-      borderRadius: radius,
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        height: 112,
-        child: Row(
-          children: [
-            Expanded(
-              flex: 5,
-              child: Container(
-                color: colorScheme.primary,
-                alignment: Alignment.center,
-                child: AppIcon(
-                  AppIcons.appearance,
-                  size: 36,
-                  color: colorScheme.onPrimary,
+    return ExcludeSemantics(
+      child: Material(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(kSettingsGroupRadius),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // A save card.
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-              ),
-            ),
-            Expanded(
-              flex: 7,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Row(
                   children: [
-                    Text(
-                      context.l10n.themePreview,
-                      style: tt.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onPrimaryContainer,
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: AppIcon(
+                        AppIcons.sparkle,
+                        size: 20,
+                        color: cs.onPrimaryContainer,
+                        filled: true,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.l10n.themePreviewDescription,
-                      style: tt.bodySmall?.copyWith(
-                        color: colorScheme.onPrimaryContainer.withValues(
-                          alpha: 0.7,
-                        ),
-                        height: 1.35,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          bar(150, 10, cs.onSurface.withValues(alpha: 0.82)),
+                          const SizedBox(height: 7),
+                          bar(
+                            96,
+                            8,
+                            cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ],
                       ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  // A chip.
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.secondaryContainer,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: bar(
+                      40,
+                      7,
+                      cs.onSecondaryContainer.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // A button.
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: bar(52, 7, cs.onPrimary.withValues(alpha: 0.85)),
+                  ),
+                  const Spacer(),
+                  // A switch, on.
+                  Container(
+                    width: 44,
+                    height: 26,
+                    padding: const EdgeInsets.all(3),
+                    alignment: Alignment.centerRight,
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: cs.onPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -301,11 +329,13 @@ class _AccentSwatch extends StatelessWidget {
     required this.accent,
     required this.selected,
     required this.onTap,
+    this.size = 58,
   });
 
   final AppAccentColor accent;
   final bool selected;
   final VoidCallback onTap;
+  final double size;
 
   /// Four tones laid into crisp quadrants via a hard-stop sweep gradient —
   /// a true circle with no clip seams.
@@ -364,8 +394,8 @@ class _AccentSwatch extends StatelessWidget {
         child: AnimatedContainer(
           duration: AppMotion.short,
           curve: AppMotion.emphasizedDecelerate,
-          width: 58,
-          height: 58,
+          width: size,
+          height: size,
           // Outer ring (with a gap) appears only when selected.
           padding: EdgeInsets.all(selected ? 4 : 0),
           decoration: BoxDecoration(

@@ -132,16 +132,7 @@ class _AboutScreenState extends State<AboutScreen> {
       backgroundColor: cs.surface,
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.large(
-            backgroundColor: cs.surface,
-            foregroundColor: cs.onSurface,
-            title: Text(
-              strings.about,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
+          SettingsLargeAppBar(title: strings.about),
           SliverPadding(
             padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 40),
             sliver: SliverList(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_icons.dart';
+import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_tap_scale.dart';
 import '../../core/services/app_haptics.dart';
 
@@ -10,11 +11,128 @@ import '../../core/services/app_haptics.dart';
 /// The look: small muted labels sitting *above* large, extra-rounded tonal
 /// containers (instead of bold colored headers inside flat cards). Every row
 /// carries a colorful tinted icon chip, generous touch targets, and big
-/// switches with a check / âœ• in the handle.
+/// switches with a check / ✕ in the handle.
 /// ─────────────────────────────────────────────────────────────────────────────
 
 /// Corner radius for grouped containers — the expressive "large" shape.
 const double kSettingsGroupRadius = 28;
+
+/// Every settings page: a large bold title that collapses into an opaque
+/// bar (content never shows through it), then the page's groups in the
+/// shared gutter. [bottomBar] stays pinned under the scroll (a plan's
+/// call to action, say).
+class SettingsPageScaffold extends StatelessWidget {
+  const SettingsPageScaffold({
+    super.key,
+    required this.title,
+    required this.children,
+    this.actions,
+    this.bottomBar,
+    this.bottomPadding = 40,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final List<Widget>? actions;
+  final Widget? bottomBar;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final gutter = AppLayout.pageHorizontalPadding(
+      MediaQuery.sizeOf(context).width,
+    );
+    return Scaffold(
+      backgroundColor: cs.surface,
+      bottomNavigationBar: bottomBar,
+      body: CustomScrollView(
+        slivers: [
+          SettingsLargeAppBar(title: title, actions: actions),
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(gutter, 8, gutter, bottomPadding),
+            sliver: SliverList(delegate: SliverChildListDelegate(children)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The settings pages' large title bar. Opaque in both states, with no
+/// scrolled-under tint, so collapsing it never shows the page through.
+class SettingsLargeAppBar extends StatelessWidget {
+  const SettingsLargeAppBar({super.key, required this.title, this.actions});
+
+  final String title;
+  final List<Widget>? actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return SliverAppBar.large(
+      backgroundColor: cs.surface,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      foregroundColor: cs.onSurface,
+      actions: actions,
+      title: Text(
+        title,
+        style: theme.textTheme.headlineMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+/// A rounded tonal panel in the groups' shape, for free-form content: a
+/// status line with buttons, a segmented control, a swatch grid.
+class SettingsPanel extends StatelessWidget {
+  const SettingsPanel({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(kSettingsGroupRadius),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// A short, quiet note under a group — the Android settings footer, not a
+/// boxed callout.
+class SettingsFootnote extends StatelessWidget {
+  const SettingsFootnote(this.text, {super.key, this.color});
+
+  final String text;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Text(
+        text,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: color ?? theme.colorScheme.onSurfaceVariant,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+}
 
 /// Small, muted label that sits above a [SettingsGroup].
 class SettingsGroupLabel extends StatelessWidget {
@@ -118,9 +236,9 @@ class SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final accent = destructive
-        ? cs.error
-        : SettingsAccents.resolve(cs, iconColor);
+    final chip = destructive
+        ? (background: cs.errorContainer, glyph: cs.onErrorContainer)
+        : SettingsAccents.chip(cs, iconColor);
     final effectiveTitleColor =
         titleColor ?? (destructive ? cs.error : cs.onSurface);
 
@@ -134,13 +252,13 @@ class SettingsTile extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.14),
+                color: chip.background,
                 borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
               child:
                   leading ??
-                  AppIcon(icon!, color: accent, size: 22, filled: true),
+                  AppIcon(icon!, color: chip.glyph, size: 22, filled: true),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -168,13 +286,16 @@ class SettingsTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            trailing ??
-                Icon(
-                  AppIcons.chevronRight,
-                  size: 24,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
+            // A chevron only on a row that goes somewhere.
+            if (trailing != null || onTap != null) const SizedBox(width: 12),
+            ?trailing ??
+                (onTap == null
+                    ? null
+                    : Icon(
+                        AppIcons.chevronRight,
+                        size: 24,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      )),
           ],
         ),
       ),
@@ -243,7 +364,7 @@ class SettingsBadge extends StatelessWidget {
   }
 }
 
-/// Android 16 switch handle: a check when on, a âœ• when off.
+/// Android 16 switch handle: a check when on, a ✕ when off.
 WidgetStateProperty<Icon?> settingsSwitchThumbIcon() {
   return WidgetStateProperty.resolveWith((states) {
     if (states.contains(WidgetState.selected)) {
@@ -264,6 +385,24 @@ class SettingsAccents {
     return hsl
         .withLightness(cs.brightness == Brightness.dark ? 0.72 : 0.40)
         .toColor();
+  }
+
+  /// A tonal icon chip for [accent], the Material container / on-container
+  /// pairing: a deep, clearly coloured tile under a light glyph in dark
+  /// mode, a pale tile under a deep glyph in light — never a faint tint.
+  static ({Color background, Color glyph}) chip(ColorScheme cs, Color accent) {
+    if (accent == cs.error) {
+      return (background: cs.errorContainer, glyph: cs.onErrorContainer);
+    }
+    final hsl = HSLColor.fromColor(accent);
+    // Muted accents still read as a colour at these lightnesses.
+    final saturation = hsl.saturation.clamp(0.36, 0.62);
+    final tone = hsl.withSaturation(saturation);
+    final dark = cs.brightness == Brightness.dark;
+    return (
+      background: tone.withLightness(dark ? 0.27 : 0.90).toColor(),
+      glyph: tone.withLightness(dark ? 0.84 : 0.34).toColor(),
+    );
   }
 
   static const Color violet = Color(0xFF917EDD);

@@ -1102,6 +1102,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get noBackupsYet => 'バックアップはまだありません';
+
+  @override
   String get backupLocalInfo =>
       'バックアップにはリンク、コレクション、タグ、メタデータを含むライブラリ全体が保存されます。データは端末内に残ります。';
 

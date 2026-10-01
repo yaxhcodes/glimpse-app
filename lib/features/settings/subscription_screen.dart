@@ -11,7 +11,6 @@ import '../../core/services/analytics_service.dart';
 import '../../core/services/entitlement_service.dart';
 import '../../core/services/subscription_service.dart';
 import '../../l10n/l10n.dart';
-import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'settings_components.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
@@ -36,148 +35,134 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final colorScheme = theme.colorScheme;
     final strings = context.l10n;
     final tierAsync = ref.watch(subscriptionTierProvider);
-    final pagePadding = AppLayout.pageHorizontalPadding(
-      MediaQuery.sizeOf(context).width,
-    );
     developer.log(
       'SubscriptionScreen: rebuild with tier=$tierAsync',
       name: 'Subscription',
     );
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: colorScheme.surface,
-        title: Text(
-          strings.subscription,
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+    return tierAsync.when(
+      loading: () => SettingsPageScaffold(
+        title: strings.subscription,
+        children: const [
+          SizedBox(height: 80),
+          Center(child: ExpressiveLoadingIndicator()),
+        ],
       ),
-      body: tierAsync.when(
-        loading: () => const Center(child: ExpressiveLoadingIndicator()),
-        error: (_, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(AppIcons.error, size: 48),
-              const SizedBox(height: 12),
-              Text(strings.couldNotLoadSubscription),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => ref.invalidate(subscriptionTierProvider),
-                child: Text(strings.retry),
-              ),
-            ],
+      error: (_, _) => SettingsPageScaffold(
+        title: strings.subscription,
+        children: [
+          const SizedBox(height: 48),
+          Icon(AppIcons.error, size: 48, color: colorScheme.onSurfaceVariant),
+          const SizedBox(height: 12),
+          Text(
+            strings.couldNotLoadSubscription,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyLarge,
           ),
-        ),
-        data: (rcTier) {
-          final isPro = ref.watch(isProUserProvider);
-          final showDevOverrideHint =
-              AppEnvironment.allowsLocalProOverride &&
-              (ref.watch(devProOverrideProvider).valueOrNull ?? false) &&
-              rcTier == SubscriptionTier.free;
+          const SizedBox(height: 16),
+          Center(
+            child: FilledButton(
+              onPressed: () => ref.invalidate(subscriptionTierProvider),
+              child: Text(strings.retry),
+            ),
+          ),
+        ],
+      ),
+      data: (rcTier) {
+        final isPro = ref.watch(isProUserProvider);
+        final showDevOverrideHint =
+            AppEnvironment.allowsLocalProOverride &&
+            (ref.watch(devProOverrideProvider).valueOrNull ?? false) &&
+            rcTier == SubscriptionTier.free;
 
-          return Column(
-            children: [
-              // Scrollable feature list.
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 24),
-                  children: [
-                    _PlanHero(
-                      isPro: isPro,
-                      showDevOverrideHint: showDevOverrideHint,
-                    ),
-                    const SizedBox(height: 28),
+        return SettingsPageScaffold(
+          title: strings.subscription,
+          bottomPadding: 24,
+          // The call to action stays in reach, under the scroll.
+          bottomBar: _CtaFooter(
+            rcTier: rcTier,
+            onUpgrade: () => _showPaywall(context, ref),
+            onRestore: () => _restorePurchases(context, ref),
+            onManage: () => _openCustomerCenter(context, ref),
+            onManageOnPlay: () => _manageSubscription(context),
+          ),
+          children: [
+            _PlanHero(isPro: isPro, showDevOverrideHint: showDevOverrideHint),
+            const SizedBox(height: 28),
 
-                    // ── Core Library (free) ──
-                    SettingsGroupLabel(strings.coreLibrary),
-                    SettingsGroup(
-                      children: [
-                        _PlanFeatureTile(
-                          title: strings.unlimitedLinkSaving,
-                          subtitle: strings.unlimitedLinkSavingDescription,
-                          included: true,
-                        ),
-                        _PlanFeatureTile(
-                          title: strings.collectionsOrganization,
-                          subtitle: strings.collectionsOrganizationDescription,
-                          included: true,
-                        ),
-                        _PlanFeatureTile(
-                          title: strings.smartNotifications,
-                          subtitle: strings.smartNotificationsLongDescription,
-                          included: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ── AI Assistant (plan-specific allowances) ──
-                    SettingsGroupLabel(strings.aiAssistant),
-                    SettingsGroup(
-                      children: [
-                        _PlanFeatureTile(
-                          title: strings.aiTaggingCategorization,
-                          subtitle: strings.freeSavesProUnlimited,
-                          included: true,
-                        ),
-                        _PlanFeatureTile(
-                          title: strings.keywordSearch,
-                          subtitle: strings.freeSearchesProUnlimited,
-                          included: true,
-                        ),
-                        _PlanFeatureTile(
-                          title: strings.askYourBookmarks,
-                          subtitle: strings.freeQuestionsProUnlimited,
-                          included: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ── Pro Insights (Pro only) ──
-                    SettingsGroupLabel(strings.proInsights),
-                    SettingsGroup(
-                      children: [
-                        _PlanFeatureTile(
-                          title: strings.semanticSearch,
-                          subtitle: strings.semanticSearchDescription,
-                          included: isPro,
-                          proOnly: true,
-                        ),
-                        _PlanFeatureTile(
-                          title: strings.weeklyRecap,
-                          subtitle: strings.weeklyRecapDescription,
-                          included: isPro,
-                          proOnly: true,
-                        ),
-                        _PlanFeatureTile(
-                          title: strings.multiLinkSynthesis,
-                          subtitle: strings.multiLinkSynthesisDescription,
-                          included: isPro,
-                          proOnly: true,
-                        ),
-                      ],
-                    ),
-                  ],
+            // ── Core Library (free) ──
+            SettingsGroupLabel(strings.coreLibrary),
+            SettingsGroup(
+              children: [
+                _PlanFeatureTile(
+                  title: strings.unlimitedLinkSaving,
+                  subtitle: strings.unlimitedLinkSavingDescription,
+                  included: true,
                 ),
-              ),
+                _PlanFeatureTile(
+                  title: strings.collectionsOrganization,
+                  subtitle: strings.collectionsOrganizationDescription,
+                  included: true,
+                ),
+                _PlanFeatureTile(
+                  title: strings.smartNotifications,
+                  subtitle: strings.smartNotificationsLongDescription,
+                  included: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
 
-              // Pinned action bar — the CTA is always visible, no scroll.
-              _CtaFooter(
-                rcTier: rcTier,
-                onUpgrade: () => _showPaywall(context, ref),
-                onRestore: () => _restorePurchases(context, ref),
-                onManage: () => _openCustomerCenter(context, ref),
-                onManageOnPlay: () => _manageSubscription(context),
-              ),
-            ],
-          );
-        },
-      ),
+            // ── AI Assistant (plan-specific allowances) ──
+            SettingsGroupLabel(strings.aiAssistant),
+            SettingsGroup(
+              children: [
+                _PlanFeatureTile(
+                  title: strings.aiTaggingCategorization,
+                  subtitle: strings.freeSavesProUnlimited,
+                  included: true,
+                ),
+                _PlanFeatureTile(
+                  title: strings.keywordSearch,
+                  subtitle: strings.freeSearchesProUnlimited,
+                  included: true,
+                ),
+                _PlanFeatureTile(
+                  title: strings.askYourBookmarks,
+                  subtitle: strings.freeQuestionsProUnlimited,
+                  included: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── Pro Insights (Pro only) ──
+            SettingsGroupLabel(strings.proInsights),
+            SettingsGroup(
+              children: [
+                _PlanFeatureTile(
+                  title: strings.semanticSearch,
+                  subtitle: strings.semanticSearchDescription,
+                  included: isPro,
+                  proOnly: true,
+                ),
+                _PlanFeatureTile(
+                  title: strings.weeklyRecap,
+                  subtitle: strings.weeklyRecapDescription,
+                  included: isPro,
+                  proOnly: true,
+                ),
+                _PlanFeatureTile(
+                  title: strings.multiLinkSynthesis,
+                  subtitle: strings.multiLinkSynthesisDescription,
+                  included: isPro,
+                  proOnly: true,
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 

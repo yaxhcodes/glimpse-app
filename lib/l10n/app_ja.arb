@@ -346,6 +346,7 @@
   "createBackup": "バックアップを作成",
   "restoreBackup": "バックアップを復元",
   "lastBackup": "前回のバックアップ：{time}",
+  "noBackupsYet": "バックアップはまだありません",
   "backupLocalInfo": "バックアップにはリンク、コレクション、タグ、メタデータを含むライブラリ全体が保存されます。データは端末内に残ります。",
   "deletedItemsRetention": "削除した項目は30日間保管され、その後Glimpseの次回クリーンアップ時に完全に削除されます。",
   "daysLeft": "残り{count}日",

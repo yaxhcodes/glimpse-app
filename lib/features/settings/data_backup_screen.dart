@@ -6,14 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/backup_provider.dart';
 import '../../core/services/backup/backup_models.dart';
 import '../../core/services/backup/backup_service.dart';
 import '../../core/services/backup_scheduler.dart';
 import '../../l10n/l10n.dart';
-import '../../shared/theme/app_layout.dart';
+import 'settings_components.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 
@@ -42,62 +41,20 @@ class DataBackupScreen extends ConsumerStatefulWidget {
 }
 
 class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
-  String? _lastBackupDate;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMetadata();
-  }
-
-  Future<void> _loadMetadata() async {
-    final prefs = await SharedPreferences.getInstance();
-    final date = prefs.getString('glimpse_last_backup_date');
-    if (!mounted) return;
-    setState(() {
-      _lastBackupDate = date;
-    });
-  }
-
-  String _formatDate(BuildContext context, String isoDate) {
-    try {
-      final dt = DateTime.parse(isoDate);
-      final now = DateTime.now();
-      final diff = now.difference(dt);
-      if (diff.inMinutes < 1) return context.l10n.justNow;
-      if (diff.inHours < 1) {
-        final m = diff.inMinutes;
-        return context.l10n.minutesAgo(m);
-      }
-      if (diff.inDays < 1) {
-        final h = diff.inHours;
-        return context.l10n.hoursAgo(h);
-      }
-      if (diff.inDays < 7) {
-        final d = diff.inDays;
-        return context.l10n.daysAgo(d);
-      }
-      return MaterialLocalizations.of(context).formatMediumDate(dt.toLocal());
-    } catch (_) {
-      return isoDate;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final strings = context.l10n;
     final state = ref.watch(backupProvider);
 
     ref.listen<BackupState>(backupProvider, (prev, next) {
       if (next.status == BackupStatus.success && next.filePath != null) {
         ref.read(backupProvider.notifier).shareBackup();
-        _loadMetadata();
+        ref.invalidate(lastBackupDateProvider);
       } else if (next.status == BackupStatus.savedLocal &&
           next.filePath != null) {
         _showLocalSaveSuccess(next.filePath!, next.restoredCount);
-        _loadMetadata();
+        ref.invalidate(lastBackupDateProvider);
         ref.read(backupProvider.notifier).reset();
       } else if (next.status == BackupStatus.error && next.error != null) {
         _showBackupError(next.error!);
@@ -109,113 +66,65 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
     final isSavingLocal = state.status == BackupStatus.savingLocal;
     final isImporting = state.status == BackupStatus.validating;
     final exportBusy = isExporting || isSavingLocal;
-    final pagePadding = AppLayout.pageHorizontalPadding(
-      MediaQuery.sizeOf(context).width,
-    );
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar.large(
-            title: Text(
-              strings.dataAndBackup,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+    return SettingsPageScaffold(
+      title: strings.dataAndBackup,
+      bottomPadding: 32,
+      children: [
+        // What matters most, first: when the last backup was, and the two
+        // things you come here to do.
+        SettingsGroupLabel(strings.backupAndRestore),
+        SettingsPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _BackupStatusLine(),
+              const SizedBox(height: 16),
+              _DualBackupActions(
+                isCreating: isSavingLocal,
+                isRestoring: isImporting,
+                onCreate: exportBusy ? null : () => _saveBackupLocally(context),
+                onRestore: isImporting ? null : _importBackup,
+              ),
+            ],
           ),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 32),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: strings.storageLocation),
-                      const SizedBox(height: 16),
-                      const _StorageLocationTile(),
-                      const SizedBox(height: 8),
-                      _Note(text: strings.backupFolderInfo),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: strings.automaticBackup),
-                      const SizedBox(height: 16),
-                      const _AutoBackupSection(),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: strings.backupAndRestore),
-                      const SizedBox(height: 16),
-                      _DualBackupActions(
-                        isCreating: isSavingLocal,
-                        isRestoring: isImporting,
-                        onCreate: exportBusy
-                            ? null
-                            : () => _saveBackupLocally(context),
-                        onRestore: isImporting ? null : _importBackup,
+        ),
+        SettingsFootnote(strings.backupLocalInfo),
+        const SizedBox(height: 24),
+
+        // Where, then how often.
+        SettingsGroupLabel(strings.storageLocation),
+        const SettingsGroup(children: [_StorageLocationTile()]),
+        SettingsFootnote(strings.backupFolderInfo),
+        const SizedBox(height: 24),
+
+        SettingsGroupLabel(strings.automaticBackup),
+        const _AutoBackupGroup(),
+        SettingsFootnote(strings.backupSensitiveInfo),
+        const SizedBox(height: 24),
+
+        SettingsGroupLabel(strings.other),
+        SettingsGroup(
+          children: [
+            SettingsTile(
+              icon: AppIcons.share,
+              iconColor: SettingsAccents.teal,
+              title: strings.shareBackup,
+              subtitle: strings.shareBackupDescription,
+              trailing: isExporting
+                  ? SizedBox.square(
+                      dimension: 20,
+                      child: ExpressiveLoadingIndicator(
+                        size: 20,
+                        color: cs.primary,
                       ),
-                      if (_lastBackupDate != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          strings.lastBackup(
-                            _formatDate(context, _lastBackupDate!),
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      _Note(text: strings.backupLocalInfo),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const _RecentBackupsSection(),
-                _SettingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(text: strings.other),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(strings.shareBackup),
-                        subtitle: Text(strings.shareBackupDescription),
-                        trailing: isExporting
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: ExpressiveLoadingIndicator(
-                                  size: 18,
-                                  color: cs.primary,
-                                ),
-                              )
-                            : Icon(
-                                AppIcons.chevronRight,
-                                color: cs.onSurfaceVariant,
-                              ),
-                        onTap: exportBusy ? null : _exportBackup,
-                      ),
-                    ],
-                  ),
-                ),
-              ]),
+                    )
+                  : null,
+              onTap: exportBusy ? null : _exportBackup,
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -366,300 +275,184 @@ class _DataBackupScreenState extends ConsumerState<DataBackupScreen> {
 //  Sub-widgets
 // ─────────────────────────────────────────────────────────────────────────
 
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-        child: child,
-      ),
-    );
-  }
+String _relative(BuildContext context, DateTime dt) {
+  final diff = DateTime.now().difference(dt);
+  if (diff.inMinutes < 1) return context.l10n.justNow;
+  if (diff.inHours < 1) return context.l10n.minutesAgo(diff.inMinutes);
+  if (diff.inDays < 1) return context.l10n.hoursAgo(diff.inHours);
+  if (diff.inDays < 7) return context.l10n.daysAgo(diff.inDays);
+  return MaterialLocalizations.of(context).formatMediumDate(dt.toLocal());
 }
 
-/// Matches [SettingsScreen] / [BackupPreviewScreen] — seed [ColorScheme.primary].
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-        color: cs.primary,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.2,
-      ),
-    );
-  }
-}
-
-/// Material 3 hint surface inside a settings card.
-class _Note extends StatelessWidget {
-  const _Note({required this.text});
-
-  final String text;
+/// One line for the state of your backups: the newest one from any source
+/// (made here, automatic, or found in the folder), or the automatic attempt
+/// that failed since.
+class _BackupStatusLine extends ConsumerWidget {
+  const _BackupStatusLine();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppIcon(AppIcons.about, size: 18, color: cs.tertiary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                text,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
+    final strings = context.l10n;
+    final manual = ref.watch(lastBackupDateProvider).valueOrNull;
+    final auto = ref.watch(autoBackupSettingsProvider).valueOrNull;
+    final hasFolder =
+        ref.watch(backupStorageLocationProvider).valueOrNull?.uri != null;
+    final folderEntries = hasFolder
+        ? ref.watch(backupStorageEntriesProvider).valueOrNull
+        : null;
+
+    final dates = <DateTime>[
+      ?DateTime.tryParse(manual ?? ''),
+      ?DateTime.tryParse(auto?.lastAutoBackupIso ?? ''),
+      if (folderEntries != null && folderEntries.isNotEmpty)
+        ?folderEntries.first.lastModified,
+    ]..sort();
+    final newest = dates.isEmpty ? null : dates.last;
+    final failedAt = auto?.lastError == null
+        ? null
+        : DateTime.tryParse(auto?.lastAttemptIso ?? '');
+    final failedSince =
+        failedAt != null && (newest == null || failedAt.isAfter(newest));
+
+    final chip = SettingsAccents.chip(cs, SettingsAccents.green);
+    final (text, color) = failedSince
+        ? (
+            strings.lastBackupAttemptFailed(_relative(context, failedAt)),
+            cs.error,
+          )
+        : newest != null
+        ? (strings.lastBackup(_relative(context, newest)), cs.onSurface)
+        : (strings.noBackupsYet, cs.onSurfaceVariant);
+
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: failedSince ? cs.errorContainer : chip.background,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: AppIcon(
+            failedSince ? AppIcons.error : AppIcons.backup,
+            size: 22,
+            filled: true,
+            color: failedSince ? cs.onErrorContainer : chip.glyph,
+          ),
         ),
-      ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// Path only (no leading icon). Tap to pick folder; trailing clears.
+/// The folder backups are written into. Tap to choose it; the trailing
+/// button forgets it.
 class _StorageLocationTile extends ConsumerWidget {
   const _StorageLocationTile();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final asyncLocation = ref.watch(backupStorageLocationProvider);
-
-    final value = asyncLocation.maybeWhen(data: (v) => v, orElse: () => null);
-    final hasLocation = value?.uri != null;
-    final pathText = hasLocation
-        ? (value!.label ?? context.l10n.folderSelected)
-        : context.l10n.pickAFolder;
+    final cs = Theme.of(context).colorScheme;
+    final strings = context.l10n;
+    final location = ref.watch(backupStorageLocationProvider).valueOrNull;
+    final hasLocation = location?.uri != null;
     final isAndroid = Platform.isAndroid;
 
-    final row = InkWell(
-      onTap: !isAndroid
-          ? null
-          : () async {
-              try {
-                await ref.read(backupProvider.notifier).pickStorageLocation();
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      content: Text(context.l10n.couldNotSaveFolderPermission),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-              }
-            },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SelectableText(
-                    pathText,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: hasLocation ? cs.onSurface : cs.onSurfaceVariant,
-                    ),
-                  ),
-                  if (!hasLocation) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      isAndroid
-                          ? context.l10n.chooseBackupFolderDescription
-                          : context.l10n.permanentBackupFolderAndroid,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      context.l10n.tapToChange,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (hasLocation && isAndroid)
-              IconButton(
-                tooltip: context.l10n.forgetFolder,
-                icon: const Icon(AppIcons.close),
-                style: IconButton.styleFrom(
-                  foregroundColor: cs.onSurfaceVariant,
-                ),
-                onPressed: () =>
-                    ref.read(backupProvider.notifier).clearStorageLocation(),
-              )
-            else if (!hasLocation && isAndroid)
-              Icon(AppIcons.chevronRight, color: cs.onSurfaceVariant),
-          ],
-        ),
-      ),
+    return SettingsTile(
+      icon: AppIcons.folder,
+      iconColor: SettingsAccents.amber,
+      title: hasLocation
+          ? (location!.label ?? strings.folderSelected)
+          : strings.pickAFolder,
+      subtitle: !isAndroid
+          ? strings.permanentBackupFolderAndroid
+          : hasLocation
+          ? strings.tapToChange
+          : strings.chooseBackupFolderDescription,
+      trailing: hasLocation && isAndroid
+          ? IconButton(
+              tooltip: strings.forgetFolder,
+              icon: const Icon(AppIcons.close),
+              style: IconButton.styleFrom(foregroundColor: cs.onSurfaceVariant),
+              onPressed: () =>
+                  ref.read(backupProvider.notifier).clearStorageLocation(),
+            )
+          : null,
+      onTap: isAndroid ? () => pickBackupFolder(context, ref) : null,
     );
-
-    if (!isAndroid) {
-      return Opacity(opacity: 0.65, child: row);
-    }
-    return row;
   }
 }
 
-/// Automatic backup frequency (WorkManager on Android).
-class _AutoBackupSection extends ConsumerWidget {
-  const _AutoBackupSection();
+/// Asks for the backup folder, explaining a refused permission.
+Future<void> pickBackupFolder(BuildContext context, WidgetRef ref) async {
+  try {
+    await ref.read(backupProvider.notifier).pickStorageLocation();
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.couldNotSaveFolderPermission),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+}
+
+/// Automatic backup frequency (WorkManager on Android), and — when it's on
+/// without a folder to write to — a row that picks one.
+class _AutoBackupGroup extends ConsumerWidget {
+  const _AutoBackupGroup();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final asyncSettings = ref.watch(autoBackupSettingsProvider);
-    final asyncLocation = ref.watch(backupStorageLocationProvider);
+    final cs = Theme.of(context).colorScheme;
+    final strings = context.l10n;
+    final settings = ref.watch(autoBackupSettingsProvider).valueOrNull;
+    final hasFolder =
+        ref.watch(backupStorageLocationProvider).valueOrNull?.uri != null;
+    final android = Platform.isAndroid;
+    final hours = settings?.intervalHours ?? 0;
+    final needsFolder = android && hours > 0 && !hasFolder;
 
-    return asyncSettings.when(
-      data: (settings) {
-        final hours = settings.intervalHours;
-        final hasFolder = asyncLocation.maybeWhen(
-          data: (v) => v.uri != null,
-          orElse: () => false,
-        );
-        final android = Platform.isAndroid;
-        final needsFolder = android && hours > 0 && !hasFolder;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                _localizedBackupInterval(context, hours),
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              subtitle: Text(
-                android
-                    ? context.l10n.backupFrequencyDescription
-                    : context.l10n.autoBackupAndroidOnly,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              trailing: Icon(AppIcons.chevronDown, color: cs.onSurfaceVariant),
-              onTap: android
-                  ? () => _showFrequencySheet(context, ref, hours)
-                  : null,
-            ),
-            _Note(text: context.l10n.backupSensitiveInfo),
-            if (settings.lastAutoBackupIso != null) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  context.l10n.lastAutomaticBackup(
-                    _formatAutoBackupRelative(
-                      context,
-                      settings.lastAutoBackupIso!,
-                    ),
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-            if (settings.lastError != null &&
-                settings.lastAttemptIso != null) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  context.l10n.lastBackupAttemptFailed(
-                    _formatAutoBackupRelative(
-                      context,
-                      settings.lastAttemptIso!,
-                    ),
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
-                ),
-              ),
-            ],
-            if (needsFolder)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(
-                  context.l10n.setStorageBeforeAutoBackup,
-                  style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
-                ),
-              ),
-          ],
-        );
-      },
-      loading: () => SizedBox(
-        height: 48,
-        child: Center(
-          child: ExpressiveLoadingIndicator(
-            size: 32,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+    return SettingsGroup(
+      children: [
+        SettingsTile(
+          icon: AppIcons.history,
+          iconColor: SettingsAccents.blue,
+          title: _localizedBackupInterval(context, hours),
+          subtitle: android
+              ? strings.backupFrequencyDescription
+              : strings.autoBackupAndroidOnly,
+          trailing: Icon(AppIcons.chevronDown, color: cs.onSurfaceVariant),
+          onTap: android && settings != null
+              ? () => _showFrequencySheet(context, ref, hours)
+              : null,
         ),
-      ),
-      error: (_, _) => const SizedBox.shrink(),
+        if (needsFolder)
+          SettingsTile(
+            icon: AppIcons.folderOff,
+            iconColor: cs.error,
+            title: strings.setStorageBeforeAutoBackup,
+            titleColor: cs.error,
+            onTap: () => pickBackupFolder(context, ref),
+          ),
+      ],
     );
-  }
-
-  static String _formatAutoBackupRelative(BuildContext context, String iso) {
-    try {
-      final dt = DateTime.parse(iso);
-      final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 1) return context.l10n.justNow;
-      if (diff.inHours < 1) {
-        return context.l10n.minutesAgo(diff.inMinutes);
-      }
-      if (diff.inDays < 1) {
-        return context.l10n.hoursAgo(diff.inHours);
-      }
-      if (diff.inDays < 7) {
-        return context.l10n.daysAgo(diff.inDays);
-      }
-      return MaterialLocalizations.of(context).formatMediumDate(dt.toLocal());
-    } catch (_) {
-      return iso;
-    }
   }
 
   Future<void> _showFrequencySheet(
@@ -761,97 +554,5 @@ class _DualBackupActions extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-/// One-row summary: last time a backup was written to the chosen folder.
-/// Hidden when no folder is configured.
-class _RecentBackupsSection extends ConsumerWidget {
-  const _RecentBackupsSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final asyncLocation = ref.watch(backupStorageLocationProvider);
-
-    return asyncLocation.when(
-      data: (loc) {
-        if (loc.uri == null) return const SizedBox.shrink();
-        final asyncEntries = ref.watch(backupStorageEntriesProvider);
-        final asyncLast = ref.watch(lastBackupDateProvider);
-        return asyncEntries.when(
-          data: (entries) {
-            return asyncLast.when(
-              data: (isoFromPrefs) {
-                final primary = entries.isNotEmpty ? entries.first : null;
-                final fromPrefs = isoFromPrefs != null
-                    ? DateTime.tryParse(isoFromPrefs)
-                    : null;
-                final fromFile = primary?.lastModified;
-                final display = fromPrefs ?? fromFile;
-                final label = display != null
-                    ? _formatRelative(context, display)
-                    : null;
-
-                final body = label != null
-                    ? Text(
-                        context.l10n.lastSavedToFolder(label),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.4,
-                        ),
-                      )
-                    : Text(
-                        context.l10n.noBackupFileInFolder,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.4,
-                        ),
-                      );
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SettingsCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _SectionHeader(text: context.l10n.folderBackup),
-                          const SizedBox(height: 16),
-                          body,
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                );
-              },
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => const SizedBox.shrink(),
-            );
-          },
-          loading: () => const SizedBox.shrink(),
-          error: (_, _) => const SizedBox.shrink(),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-    );
-  }
-
-  static String _formatRelative(BuildContext context, DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return context.l10n.justNow;
-    if (diff.inHours < 1) {
-      return context.l10n.minutesAgo(diff.inMinutes);
-    }
-    if (diff.inDays < 1) {
-      return context.l10n.hoursAgo(diff.inHours);
-    }
-    if (diff.inDays < 7) {
-      return context.l10n.daysAgo(diff.inDays);
-    }
-    return MaterialLocalizations.of(context).formatMediumDate(dt.toLocal());
   }
 }

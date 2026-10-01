@@ -273,16 +273,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       backgroundColor: cs.surface,
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.large(
-            backgroundColor: cs.surface,
-            foregroundColor: cs.onSurface,
-            title: Text(
-              strings.settings,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
+          SettingsLargeAppBar(title: strings.settings),
           SliverPadding(
             padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 40),
             sliver: SliverList(
@@ -404,20 +395,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                SettingsGroup(
-                  children: [
-                    SettingsTile(
-                      icon: AppIcons.clearData,
-                      iconColor: cs.error,
-                      destructive: true,
-                      title: strings.clearAllData,
-                      subtitle: strings.clearAllDataSubtitle,
-                      trailing: const SizedBox.shrink(),
-                      onTap: _clearData,
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 24),
 
                 // ─── About ───────────────────────────────
@@ -446,6 +423,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: strings.logOut,
                       subtitle: strings.logOutSubtitle,
                       onTap: _logout,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // The two things that can't be undone, together and last.
+                SettingsGroup(
+                  children: [
+                    SettingsTile(
+                      icon: AppIcons.eraseAll,
+                      iconColor: cs.error,
+                      destructive: true,
+                      title: strings.clearAllData,
+                      subtitle: strings.clearAllDataSubtitle,
+                      onTap: _clearData,
                     ),
                     SettingsTile(
                       icon: AppIcons.deleteAccount,
@@ -674,10 +665,10 @@ class _SwipeActionsGroup extends ConsumerWidget {
       children: [
         SettingsTile(
           leading: prefs.leftSwipeAction.iconWidget(
-            color: SettingsAccents.resolve(
+            color: SettingsAccents.chip(
               Theme.of(context).colorScheme,
               SettingsAccents.rose,
-            ),
+            ).glyph,
             size: 22,
             filled: true,
           ),
@@ -696,10 +687,10 @@ class _SwipeActionsGroup extends ConsumerWidget {
         ),
         SettingsTile(
           leading: prefs.rightSwipeAction.iconWidget(
-            color: SettingsAccents.resolve(
+            color: SettingsAccents.chip(
               Theme.of(context).colorScheme,
               SettingsAccents.teal,
-            ),
+            ).glyph,
             size: 22,
             filled: true,
           ),

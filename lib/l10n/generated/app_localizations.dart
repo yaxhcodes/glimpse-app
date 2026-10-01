@@ -2182,6 +2182,12 @@ abstract class AppLocalizations {
   /// **'Last backup: {time}'**
   String lastBackup(Object time);
 
+  /// No description provided for @noBackupsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No backups yet'**
+  String get noBackupsYet;
+
   /// No description provided for @backupLocalInfo.
   ///
   /// In en, this message translates to:

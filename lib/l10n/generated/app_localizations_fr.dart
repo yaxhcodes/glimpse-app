@@ -1176,6 +1176,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get noBackupsYet => 'Aucune sauvegarde pour l’instant';
+
+  @override
   String get backupLocalInfo =>
       'Les sauvegardes contiennent toute votre bibliothèque : liens, collections, étiquettes et métadonnées. Elles restent sur votre appareil.';
 

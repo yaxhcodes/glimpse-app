@@ -29,6 +29,11 @@ abstract final class AppIcons {
   static const privacy = PhosphorIconsBold.shieldCheck;
   static const backup = PhosphorIconsBold.archive;
   static const clearData = PhosphorIconsBold.trashSimple;
+
+  /// Erasing everything at once — distinct from the Bin's trash can.
+  static const eraseAll = PhosphorIconsBold.eraser;
+  static const account = PhosphorIconsBold.userCircle;
+  static const analytics = PhosphorIconsBold.chartBar;
   static const about = PhosphorIconsBold.info;
   static const logout = PhosphorIconsBold.signOut;
   static const deleteAccount = PhosphorIconsBold.userMinus;
@@ -244,6 +249,9 @@ abstract final class AppIcons {
     privacy: PhosphorIconsFill.shieldCheck,
     backup: PhosphorIconsFill.archive,
     clearData: PhosphorIconsFill.trashSimple,
+    eraseAll: PhosphorIconsFill.eraser,
+    account: PhosphorIconsFill.userCircle,
+    analytics: PhosphorIconsFill.chartBar,
     about: PhosphorIconsFill.info,
     logout: PhosphorIconsFill.signOut,
     deleteAccount: PhosphorIconsFill.userMinus,

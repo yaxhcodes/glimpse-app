@@ -395,6 +395,7 @@
   "createBackup": "Create backup",
   "restoreBackup": "Restore backup",
   "lastBackup": "Last backup: {time}",
+  "noBackupsYet": "No backups yet",
   "backupLocalInfo": "Backups contain your full library — links, collections, tags, and metadata. They stay on your device.",
   "deletedItemsRetention": "Deleted items are kept for 30 days, then removed permanently the next time Glimpse runs cleanup.",
   "daysLeft": "{count, plural, =1{1 day left} other{{count} days left}}",

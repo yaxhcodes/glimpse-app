@@ -388,6 +388,7 @@
   "createBackup": "Sicherung erstellen",
   "restoreBackup": "Sicherung wiederherstellen",
   "lastBackup": "Letzte Sicherung: {time}",
+  "noBackupsYet": "Noch keine Sicherungen",
   "backupLocalInfo": "Sicherungen enthalten deine gesamte Bibliothek — Links, Sammlungen, Tags und Metadaten. Sie bleiben auf deinem Gerät.",
   "deletedItemsRetention": "Gelöschte Elemente werden 30 Tage aufbewahrt und bei der nächsten Bereinigung durch Glimpse endgültig entfernt.",
   "daysLeft": "{count, plural, =1{Noch 1 Tag} other{Noch {count} Tage}}",
