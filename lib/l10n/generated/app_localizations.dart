@@ -7089,6 +7089,294 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Locks when you leave'**
   String get vaultLocksOnLeave;
+
+  /// No description provided for @remind.
+  ///
+  /// In en, this message translates to:
+  /// **'Remind'**
+  String get remind;
+
+  /// No description provided for @remindMe.
+  ///
+  /// In en, this message translates to:
+  /// **'Remind me'**
+  String get remindMe;
+
+  /// No description provided for @reminderChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change reminder'**
+  String get reminderChange;
+
+  /// No description provided for @reminderRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove reminder'**
+  String get reminderRemove;
+
+  /// No description provided for @reminderRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder removed'**
+  String get reminderRemoved;
+
+  /// No description provided for @reminderLaterToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Later today'**
+  String get reminderLaterToday;
+
+  /// No description provided for @reminderTonight.
+  ///
+  /// In en, this message translates to:
+  /// **'Tonight'**
+  String get reminderTonight;
+
+  /// No description provided for @reminderTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow morning'**
+  String get reminderTomorrow;
+
+  /// No description provided for @reminderWeekend.
+  ///
+  /// In en, this message translates to:
+  /// **'This weekend'**
+  String get reminderWeekend;
+
+  /// No description provided for @reminderNextWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Next week'**
+  String get reminderNextWeek;
+
+  /// No description provided for @reminderPickTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a date & time'**
+  String get reminderPickTime;
+
+  /// No description provided for @reminderRing.
+  ///
+  /// In en, this message translates to:
+  /// **'Ring at the exact time'**
+  String get reminderRing;
+
+  /// No description provided for @reminderRingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'An alarm sound, right on the minute'**
+  String get reminderRingSubtitle;
+
+  /// No description provided for @reminderRingNeedsPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'To ring on the minute, allow Glimpse to set alarms and reminders.'**
+  String get reminderRingNeedsPermission;
+
+  /// No description provided for @reminderRingUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact timing isn\'t allowed, so it will arrive about on time.'**
+  String get reminderRingUnavailable;
+
+  /// No description provided for @reminderAllow.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow'**
+  String get reminderAllow;
+
+  /// No description provided for @reminderSetFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder set · {when}'**
+  String reminderSetFor(String when);
+
+  /// No description provided for @reminderPastTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a time that hasn\'t passed yet.'**
+  String get reminderPastTime;
+
+  /// No description provided for @reminderCouldNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t set the reminder'**
+  String get reminderCouldNotSet;
+
+  /// No description provided for @reminderNotificationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You asked Glimpse to bring this back now.'**
+  String get reminderNotificationBody;
+
+  /// No description provided for @reminderSnooze.
+  ///
+  /// In en, this message translates to:
+  /// **'Snooze 1 hour'**
+  String get reminderSnooze;
+
+  /// No description provided for @reminderChannelName.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get reminderChannelName;
+
+  /// No description provided for @reminderRingChannelName.
+  ///
+  /// In en, this message translates to:
+  /// **'Ringing reminders'**
+  String get reminderRingChannelName;
+
+  /// No description provided for @reminderChannelDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders you set on your saves'**
+  String get reminderChannelDescription;
+
+  /// No description provided for @comingUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming up'**
+  String get comingUp;
+
+  /// No description provided for @reminderToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today {time}'**
+  String reminderToday(String time);
+
+  /// No description provided for @reminderTomorrowAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow {time}'**
+  String reminderTomorrowAt(String time);
+
+  /// No description provided for @reminderRepeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat'**
+  String get reminderRepeat;
+
+  /// No description provided for @repeatOnce.
+  ///
+  /// In en, this message translates to:
+  /// **'Once'**
+  String get repeatOnce;
+
+  /// No description provided for @repeatDaily.
+  ///
+  /// In en, this message translates to:
+  /// **'Every day'**
+  String get repeatDaily;
+
+  /// No description provided for @repeatWeekdays.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekdays'**
+  String get repeatWeekdays;
+
+  /// No description provided for @repeatWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Every week'**
+  String get repeatWeekly;
+
+  /// No description provided for @reminderEveryDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Every day {time}'**
+  String reminderEveryDay(String time);
+
+  /// No description provided for @reminderWeekdaysAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekdays {time}'**
+  String reminderWeekdaysAt(String time);
+
+  /// No description provided for @reminderEveryWeekday.
+  ///
+  /// In en, this message translates to:
+  /// **'Every {day} {time}'**
+  String reminderEveryWeekday(String day, String time);
+
+  /// No description provided for @reminderLeadWatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to watch'**
+  String get reminderLeadWatch;
+
+  /// No description provided for @reminderLeadRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to read'**
+  String get reminderLeadRead;
+
+  /// No description provided for @reminderLeadCook.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to cook'**
+  String get reminderLeadCook;
+
+  /// No description provided for @reminderLeadTry.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to try it'**
+  String get reminderLeadTry;
+
+  /// No description provided for @reminderLeadListen.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to listen'**
+  String get reminderLeadListen;
+
+  /// No description provided for @reminderLeadPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to plan it'**
+  String get reminderLeadPlan;
+
+  /// No description provided for @reminderLeadBuy.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to get it'**
+  String get reminderLeadBuy;
+
+  /// No description provided for @reminderLeadLearn.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to learn'**
+  String get reminderLeadLearn;
+
+  /// No description provided for @reminderLeadRevisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to come back to this'**
+  String get reminderLeadRevisit;
+
+  /// No description provided for @reminderLeadDaily.
+  ///
+  /// In en, this message translates to:
+  /// **'Your daily link'**
+  String get reminderLeadDaily;
+
+  /// No description provided for @reminderLeadWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Your weekly link'**
+  String get reminderLeadWeekly;
+
+  /// No description provided for @comingUpSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Due in the next day'**
+  String get comingUpSubtitle;
+
+  /// No description provided for @remindersFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get remindersFilter;
 }
 
 class _AppLocalizationsDelegate

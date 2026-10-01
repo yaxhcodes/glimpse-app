@@ -107,6 +107,20 @@ class SavedUrl {
   /// Null = no specific time (treated as "soon").
   DateTime? revisitAfter;
 
+  /// When the person asked to be reminded of this save; null for none. Unlike
+  /// [revisitAfter] (the engine's loose "no sooner than"), this is a time
+  /// they chose, and a notification is scheduled for it.
+  @Index()
+  DateTime? remindAt;
+
+  /// Ring at exactly [remindAt] with an alarm sound, instead of a quiet
+  /// notification that may arrive a few minutes late.
+  bool remindRing = false;
+
+  /// How [remindAt] repeats: 'daily', 'weekdays' or 'weekly' (on
+  /// [remindAt]'s weekday), at [remindAt]'s time of day. Null for once.
+  String? remindRepeat;
+
   /// Embedding vector for semantic search (1024-dim from Voyage AI).
   /// Null or empty until embedded (new saves or backfill).
   List<double>? embedding;

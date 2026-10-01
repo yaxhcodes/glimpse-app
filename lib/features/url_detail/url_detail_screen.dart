@@ -85,6 +85,8 @@ import 'package:flutter/physics.dart';
 import '../../shared/widgets/swipe_deck.dart';
 import '../../core/services/app_haptics.dart';
 import '../vault/vault_actions.dart';
+import '../reminders/reminder_flow.dart';
+import '../../core/services/reminders/reminder_times.dart';
 
 part 'url_detail_pager.dart';
 part 'recipe_cooking_mode.dart';
@@ -1713,6 +1715,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
               _addTag(url);
             } else if (value == 'change_category') {
               _changeCategory(url);
+            } else if (value == 'remind') {
+              unawaited(showReminderSheet(context, ref, url));
             } else if (value == 'vault') {
               unawaited(_moveToVault(url));
             } else if (value == 'delete') {
@@ -1747,6 +1751,13 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
               label: context.l10n.changeCategory,
             ),
             appMenuDivider,
+            appMenuItem(
+              value: 'remind',
+              icon: AppIcons.notifications,
+              label: liveReminder(url) != null
+                  ? context.l10n.reminderChange
+                  : context.l10n.remindMe,
+            ),
             appMenuItem(
               value: 'vault',
               icon: AppIcons.lock,
@@ -1954,6 +1965,18 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
                     colorScheme: colorScheme,
                     creatorUsername: creatorUsername,
                   ),
+                  if (liveReminder(url) case final reminder?) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _ReminderChip(
+                        anchor: reminder.anchor,
+                        repeat: reminder.repeat,
+                        ring: url.remindRing,
+                        onTap: () => showReminderSheet(context, ref, url),
+                      ),
+                    ),
+                  ],
 
                   // The waiting state folds away as the content it promised
                   // arrives, rather than blinking out.
@@ -5659,6 +5682,73 @@ class _IngredientRow extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The pending reminder under the byline; tapping changes or removes it.
+class _ReminderChip extends StatelessWidget {
+  const _ReminderChip({
+    required this.anchor,
+    required this.repeat,
+    required this.ring,
+    required this.onTap,
+  });
+
+  final DateTime anchor;
+  final ReminderRepeat repeat;
+  final bool ring;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final when = formatReminderSchedule(
+      context.l10n,
+      Localizations.localeOf(context).toLanguageTag(),
+      anchor,
+      repeat,
+    );
+    return Material(
+      color: cs.secondaryContainer,
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          AppHaptics.play(AppHaptics.tap);
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 7, 14, 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppIcon(
+                repeat.repeats ? AppIcons.repeat : AppIcons.notifications,
+                size: 16,
+                filled: !repeat.repeats,
+                color: cs.onSecondaryContainer,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                context.l10n.reminderSetFor(when),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: cs.onSecondaryContainer,
+                ),
+              ),
+              if (ring) ...[
+                const SizedBox(width: 6),
+                AppIcon(
+                  AppIcons.alarm,
+                  size: 14,
+                  color: cs.onSecondaryContainer,
+                ),
+              ],
+            ],
           ),
         ),
       ),

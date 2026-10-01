@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/isar_service.dart';
+import 'reminders/save_reminders.dart';
 import '../../features/glimpses/glimpse.dart';
 import '../../features/glimpses/glimpse_service.dart';
 
@@ -109,6 +110,40 @@ class NotificationActionHandler {
           _ => GlimpseAction.gotIt,
         }, at: receipt.actedAt);
       }
+    } else if (receipt.notificationType == SaveReminders.notificationType &&
+        receipt.linkIds.length == 1) {
+      // A reminder the person set: Done settles it, Snooze brings it back in
+      // an hour, keeping whether it rings.
+      final isar = IsarService();
+      await isar.ensureInitialized();
+      final id = receipt.linkIds.single;
+      final url = await isar.getUrlById(id);
+      final repeats = url?.remindRepeat != null;
+      if (repeats) {
+        // A repeating reminder carries on: Done just clears today's, and
+        // Snooze adds one more an hour out.
+        if (receipt.actionId == NotificationActions.snooze && url != null) {
+          await SaveReminders.snoozeOnce(
+            url,
+            receipt.actedAt ?? DateTime.now(),
+          );
+        }
+      } else if (receipt.actionId == NotificationActions.markDone) {
+        await SaveReminders.set(isar, id, null);
+        await isar.updateIntent(
+          id,
+          status: 'done',
+          action: 'reminder_done',
+          awaitEngagement: true,
+        );
+      } else {
+        await SaveReminders.set(
+          isar,
+          id,
+          (receipt.actedAt ?? DateTime.now()).add(SaveReminders.snoozeFor),
+          ring: url?.remindRing ?? false,
+        );
+      }
     } else if (receipt.linkIds.length == 1 &&
         !(receipt.notificationType?.startsWith('url_') ?? false) &&
         receipt.actionId != NotificationActions.gotIt) {
@@ -137,7 +172,10 @@ class NotificationActionHandler {
       }
     }
 
-    if (receipt.notificationId != null) {
+    // A snoozed reminder was just scheduled again under this same id;
+    // cancelling it here would undo the snooze.
+    if (receipt.notificationId != null &&
+        receipt.notificationType != SaveReminders.notificationType) {
       await FlutterLocalNotificationsPlugin().cancel(receipt.notificationId!);
     }
 

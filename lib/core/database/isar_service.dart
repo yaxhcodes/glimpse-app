@@ -14,6 +14,7 @@ import '../models/saved_url.dart';
 import '../services/link_preview_service.dart';
 import '../models/user_collection.dart';
 import '../models/vault_item.dart';
+import '../services/reminders/save_reminders.dart';
 import '../services/category_resolver.dart';
 import '../services/category_taxonomy.dart';
 import '../services/session_tracking_service.dart';
@@ -1060,6 +1061,53 @@ class IsarService {
     }
   }
 
+  /// Sets the reminder on [urlId] ([at] null clears it). Returns the save as
+  /// stored, or null when it's gone. Scheduling is the caller's job (see
+  /// `SaveReminders`), so this stays a plain write.
+  Future<SavedUrl?> setReminder(
+    int urlId,
+    DateTime? at, {
+    bool ring = false,
+    String? repeat,
+  }) async {
+    final isar = await _db;
+    SavedUrl? changed;
+    await isar.writeTxn(() async {
+      final url = await isar.savedUrls.get(urlId);
+      if (url == null) return;
+      url.remindAt = at;
+      url.remindRing = at != null && ring;
+      url.remindRepeat = at == null ? null : repeat;
+      await isar.savedUrls.put(url);
+      changed = url;
+    });
+    return changed;
+  }
+
+  /// Saves with a reminder still to come (not in the Bin): one-off ones
+  /// ahead of [now], and every repeating one. Ordered by the save's
+  /// [SavedUrl.remindAt]; callers wanting the next occurrence sort by it.
+  Future<List<SavedUrl>> getUpcomingReminders({DateTime? now}) async {
+    final isar = await _db;
+    final from = now ?? DateTime.now();
+    final withReminders = await isar.savedUrls
+        .filter()
+        .remindAtIsNotNull()
+        .and()
+        .deletedAtIsNull()
+        .sortByRemindAt()
+        .findAll();
+    return withReminders
+        .where((url) => url.remindRepeat != null || url.remindAt!.isAfter(from))
+        .toList();
+  }
+
+  /// Every save carrying a reminder, past or future, in or out of the Bin.
+  Future<List<SavedUrl>> getAllWithReminders() async {
+    final isar = await _db;
+    return isar.savedUrls.filter().remindAtIsNotNull().findAll();
+  }
+
   /// Clear any intent (toggle a chip back off).
   Future<void> clearIntent(int urlId) async {
     final isar = await _db;
@@ -1541,6 +1589,10 @@ class IsarService {
       url.deletedAt = now;
     }
     await isar.writeTxn(() => isar.savedUrls.putAll(changed));
+    // A save in the Bin doesn't remind anyone; restoring it brings it back.
+    for (final url in changed.where((url) => url.remindAt != null)) {
+      unawaited(SaveReminders.cancel(url.id));
+    }
     return changed.length;
   }
 
@@ -1562,6 +1614,9 @@ class IsarService {
       url.deletedAt = null;
     }
     await isar.writeTxn(() => isar.savedUrls.putAll(changed));
+    for (final url in changed.where((url) => url.remindAt != null)) {
+      unawaited(SaveReminders.schedule(url));
+    }
     return changed.length;
   }
 
@@ -1604,6 +1659,9 @@ class IsarService {
     final rows = await isar.savedUrls.getAll(requested.toList());
     final existingIds = rows.whereType<SavedUrl>().map((url) => url.id).toSet();
     if (existingIds.isEmpty) return const [];
+    for (final url in rows.whereType<SavedUrl>()) {
+      if (url.remindAt != null) unawaited(SaveReminders.cancel(url.id));
+    }
 
     final removedCollectionPairs = <(int, int)>[];
     await isar.writeTxn(() async {

@@ -45,6 +45,8 @@ import 'guide_card.dart';
 import 'home_loading_skeleton.dart';
 import '../../l10n/l10n.dart';
 import '../../core/services/app_haptics.dart';
+import '../reminders/coming_up_section.dart';
+import '../../core/services/reminders/reminder_times.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -56,7 +58,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 enum _InputUiState { idle, processing, success, error }
 
 /// Home list filter by read state (opened or not).
-enum _ReadFilter { all, unread, read }
+enum _ReadFilter { all, unread, read, reminders }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
@@ -65,6 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _unreadDigests = 0;
   int _titleTapCount = 0;
   _ReadFilter _readFilter = _ReadFilter.all;
+  final _savesHeaderKey = GlobalKey();
 
   /// Save ids from the previous content build; null until the list first
   /// paints. A save missing from it is new and enters with motion.
@@ -668,6 +671,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _ReadFilter.all => true,
       _ReadFilter.unread => url.openedAt == null,
       _ReadFilter.read => url.openedAt != null,
+      _ReadFilter.reminders => liveReminder(url) != null,
     };
     final visiblePinnedUrls = pinnedUrls.where(passesReadFilter).toList();
     final regularUrls = urls
@@ -841,6 +845,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   if (showGuideCard)
                     const SliverToBoxAdapter(child: GuideCard()),
+                  // Reminders due in the next day; nothing when none.
+                  if (!simulateFirstSave && !forceEmptyLibrary)
+                    SliverToBoxAdapter(
+                      child: ComingUpSection(onSeeAll: _showAllReminders),
+                    ),
                   if (!simulateFirstSave &&
                       !forceEmptyLibrary &&
                       actualUrls.isNotEmpty)
@@ -937,6 +946,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   SliverToBoxAdapter(
                     child: _SavesHeader(
+                      key: _savesHeaderKey,
                       filter: _readFilter,
                       onChanged: _setReadFilter,
                     ),
@@ -1050,6 +1060,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Coming up's "see all": every reminder, in the saves list below.
+  void _showAllReminders() {
+    _setReadFilter(_ReadFilter.reminders);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final header = _savesHeaderKey.currentContext;
+      if (header == null || !header.mounted) return;
+      Scrollable.ensureVisible(
+        header,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   void _setReadFilter(_ReadFilter filter) {
     if (filter == _readFilter) return;
     AppHaptics.play(AppHaptics.tick);
@@ -1087,10 +1111,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// "Your saves" heading with a compact All / Unread / Read filter on the
+/// "Your saves" heading with a compact All / Unread / Read / Reminders filter on the
 /// right of the same line.
 class _SavesHeader extends StatelessWidget {
-  const _SavesHeader({required this.filter, required this.onChanged});
+  const _SavesHeader({
+    super.key,
+    required this.filter,
+    required this.onChanged,
+  });
 
   final _ReadFilter filter;
   final ValueChanged<_ReadFilter> onChanged;
@@ -1115,7 +1143,7 @@ class _SavesHeader extends StatelessWidget {
 }
 
 /// One small pill naming the current filter ("All ⌄"). Tapping it grows the
-/// pill into All / Unread / Read; choosing one, or tapping elsewhere, folds
+/// pill into All / Unread / Read / Reminders; choosing one, or tapping elsewhere, folds
 /// it back. Tinted while a filter other than All is on, so a filtered feed
 /// is never a surprise.
 ///
@@ -1169,6 +1197,7 @@ class _CompactReadFilterState extends State<_CompactReadFilter>
       _ReadFilter.all => strings.all,
       _ReadFilter.unread => strings.unread,
       _ReadFilter.read => strings.read,
+      _ReadFilter.reminders => strings.remindersFilter,
     };
   }
 

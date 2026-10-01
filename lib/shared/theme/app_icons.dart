@@ -182,6 +182,8 @@ abstract final class AppIcons {
   static const food = PhosphorIconsBold.forkKnife;
   static const rocket = PhosphorIconsBold.rocketLaunch;
   static const clock = PhosphorIconsBold.clock;
+  static const alarm = PhosphorIconsBold.alarm;
+  static const repeat = PhosphorIconsBold.repeat;
   static const education = PhosphorIconsBold.graduationCap;
   static const science = PhosphorIconsBold.flask;
   static const searchEmpty = PhosphorIconsBold.magnifyingGlassMinus;

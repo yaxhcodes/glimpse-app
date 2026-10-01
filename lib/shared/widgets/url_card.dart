@@ -23,6 +23,7 @@ import 'selection_badge.dart';
 import 'url_processing_presentation.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
 import '../../core/services/app_haptics.dart';
+import '../../core/services/reminders/reminder_times.dart';
 
 /// Card widget for displaying a saved URL entry.
 class UrlCard extends ConsumerStatefulWidget {
@@ -115,6 +116,7 @@ class _UrlCardState extends ConsumerState<UrlCard> {
         retrying ||
         widget.savedUrl.isProcessingActive ||
         _isRecentlyEnriching(widget.savedUrl);
+    final upcomingReminder = liveReminder(widget.savedUrl);
     final isProcessingFailed = widget.savedUrl.isProcessingFailed;
     final processingPresentation = isProcessing
         ? UrlProcessingPresentation.fromStatus(
@@ -327,6 +329,14 @@ class _UrlCardState extends ConsumerState<UrlCard> {
                                       ),
                                       style: metaStyle,
                                     ),
+                                    if (upcomingReminder != null) ...[
+                                      Text(' · ', style: metaStyle),
+                                      _ReminderBadge(
+                                        anchor: upcomingReminder.anchor,
+                                        repeat: upcomingReminder.repeat,
+                                        style: metaStyle,
+                                      ),
+                                    ],
                                     // The save is safe; this only says the
                                     // summary didn't come. Retry is in Details.
                                     if (isProcessingFailed &&
@@ -474,6 +484,51 @@ class _UrlCardState extends ConsumerState<UrlCard> {
               },
             ),
             const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "🔔 Sat 10:00" in the byline while a reminder is still to come.
+class _ReminderBadge extends StatelessWidget {
+  const _ReminderBadge({
+    required this.anchor,
+    required this.repeat,
+    required this.style,
+  });
+
+  final DateTime anchor;
+  final ReminderRepeat repeat;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    final when = formatReminderSchedule(
+      context.l10n,
+      Localizations.localeOf(context).toLanguageTag(),
+      anchor,
+      repeat,
+    );
+    return Semantics(
+      label: context.l10n.reminderSetFor(when),
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppIcon(
+              repeat.repeats ? AppIcons.repeat : AppIcons.notifications,
+              size: 12,
+              filled: !repeat.repeats,
+              color: color,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              when,
+              style: style.copyWith(color: color, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),

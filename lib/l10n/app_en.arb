@@ -1532,5 +1532,98 @@
   "vaultNoMatches": "Nothing in your vault matches",
   "vaultResetPromptSubtitle": "Confirm it's you to delete everything in it",
   "vaultFootnote": "Only on this phone · never uploaded",
-  "vaultLocksOnLeave": "Locks when you leave"
+  "vaultLocksOnLeave": "Locks when you leave",
+  "remind": "Remind",
+  "remindMe": "Remind me",
+  "reminderChange": "Change reminder",
+  "reminderRemove": "Remove reminder",
+  "reminderRemoved": "Reminder removed",
+  "reminderLaterToday": "Later today",
+  "reminderTonight": "Tonight",
+  "reminderTomorrow": "Tomorrow morning",
+  "reminderWeekend": "This weekend",
+  "reminderNextWeek": "Next week",
+  "reminderPickTime": "Pick a date & time",
+  "reminderRing": "Ring at the exact time",
+  "reminderRingSubtitle": "An alarm sound, right on the minute",
+  "reminderRingNeedsPermission": "To ring on the minute, allow Glimpse to set alarms and reminders.",
+  "reminderRingUnavailable": "Exact timing isn't allowed, so it will arrive about on time.",
+  "reminderAllow": "Allow",
+  "reminderSetFor": "Reminder set · {when}",
+  "@reminderSetFor": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderPastTime": "Pick a time that hasn't passed yet.",
+  "reminderCouldNotSet": "Couldn't set the reminder",
+  "reminderNotificationBody": "You asked Glimpse to bring this back now.",
+  "reminderSnooze": "Snooze 1 hour",
+  "reminderChannelName": "Reminders",
+  "reminderRingChannelName": "Ringing reminders",
+  "reminderChannelDescription": "Reminders you set on your saves",
+  "comingUp": "Coming up",
+  "reminderToday": "Today {time}",
+  "@reminderToday": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderTomorrowAt": "Tomorrow {time}",
+  "@reminderTomorrowAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderRepeat": "Repeat",
+  "repeatOnce": "Once",
+  "repeatDaily": "Every day",
+  "repeatWeekdays": "Weekdays",
+  "repeatWeekly": "Every week",
+  "reminderEveryDay": "Every day {time}",
+  "@reminderEveryDay": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderWeekdaysAt": "Weekdays {time}",
+  "@reminderWeekdaysAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderEveryWeekday": "Every {day} {time}",
+  "@reminderEveryWeekday": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderLeadWatch": "Time to watch",
+  "reminderLeadRead": "Time to read",
+  "reminderLeadCook": "Time to cook",
+  "reminderLeadTry": "Time to try it",
+  "reminderLeadListen": "Time to listen",
+  "reminderLeadPlan": "Time to plan it",
+  "reminderLeadBuy": "Time to get it",
+  "reminderLeadLearn": "Time to learn",
+  "reminderLeadRevisit": "Time to come back to this",
+  "reminderLeadDaily": "Your daily link",
+  "reminderLeadWeekly": "Your weekly link",
+  "comingUpSubtitle": "Due in the next day",
+  "remindersFilter": "Reminders"
 }

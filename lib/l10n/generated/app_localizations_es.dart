@@ -4153,4 +4153,164 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get vaultLocksOnLeave => 'Se bloquea al salir';
+
+  @override
+  String get remind => 'Recordar';
+
+  @override
+  String get remindMe => 'Recuérdamelo';
+
+  @override
+  String get reminderChange => 'Cambiar recordatorio';
+
+  @override
+  String get reminderRemove => 'Quitar recordatorio';
+
+  @override
+  String get reminderRemoved => 'Recordatorio quitado';
+
+  @override
+  String get reminderLaterToday => 'Más tarde hoy';
+
+  @override
+  String get reminderTonight => 'Esta noche';
+
+  @override
+  String get reminderTomorrow => 'Mañana por la mañana';
+
+  @override
+  String get reminderWeekend => 'Este fin de semana';
+
+  @override
+  String get reminderNextWeek => 'La próxima semana';
+
+  @override
+  String get reminderPickTime => 'Elegir fecha y hora';
+
+  @override
+  String get reminderRing => 'Sonar a la hora exacta';
+
+  @override
+  String get reminderRingSubtitle => 'Un sonido de alarma, al minuto';
+
+  @override
+  String get reminderRingNeedsPermission =>
+      'Para sonar al minuto, permite que Glimpse configure alarmas y recordatorios.';
+
+  @override
+  String get reminderRingUnavailable =>
+      'No se permite la hora exacta, así que llegará más o menos a tiempo.';
+
+  @override
+  String get reminderAllow => 'Permitir';
+
+  @override
+  String reminderSetFor(String when) {
+    return 'Recordatorio · $when';
+  }
+
+  @override
+  String get reminderPastTime => 'Elige una hora que aún no haya pasado.';
+
+  @override
+  String get reminderCouldNotSet => 'No se pudo crear el recordatorio';
+
+  @override
+  String get reminderNotificationBody =>
+      'Pediste a Glimpse que te lo recordara ahora.';
+
+  @override
+  String get reminderSnooze => 'Posponer 1 hora';
+
+  @override
+  String get reminderChannelName => 'Recordatorios';
+
+  @override
+  String get reminderRingChannelName => 'Recordatorios con sonido';
+
+  @override
+  String get reminderChannelDescription =>
+      'Recordatorios que pones en tus guardados';
+
+  @override
+  String get comingUp => 'Próximamente';
+
+  @override
+  String reminderToday(String time) {
+    return 'Hoy $time';
+  }
+
+  @override
+  String reminderTomorrowAt(String time) {
+    return 'Mañana $time';
+  }
+
+  @override
+  String get reminderRepeat => 'Repetir';
+
+  @override
+  String get repeatOnce => 'Una vez';
+
+  @override
+  String get repeatDaily => 'Cada día';
+
+  @override
+  String get repeatWeekdays => 'Entre semana';
+
+  @override
+  String get repeatWeekly => 'Cada semana';
+
+  @override
+  String reminderEveryDay(String time) {
+    return 'Cada día $time';
+  }
+
+  @override
+  String reminderWeekdaysAt(String time) {
+    return 'Entre semana $time';
+  }
+
+  @override
+  String reminderEveryWeekday(String day, String time) {
+    return 'Cada $day $time';
+  }
+
+  @override
+  String get reminderLeadWatch => 'Hora de verlo';
+
+  @override
+  String get reminderLeadRead => 'Hora de leer';
+
+  @override
+  String get reminderLeadCook => 'Hora de cocinar';
+
+  @override
+  String get reminderLeadTry => 'Hora de probarlo';
+
+  @override
+  String get reminderLeadListen => 'Hora de escuchar';
+
+  @override
+  String get reminderLeadPlan => 'Hora de planearlo';
+
+  @override
+  String get reminderLeadBuy => 'Hora de conseguirlo';
+
+  @override
+  String get reminderLeadLearn => 'Hora de aprender';
+
+  @override
+  String get reminderLeadRevisit => 'Hora de volver a esto';
+
+  @override
+  String get reminderLeadDaily => 'Tu enlace del día';
+
+  @override
+  String get reminderLeadWeekly => 'Tu enlace de la semana';
+
+  @override
+  String get comingUpSubtitle => 'Para las próximas 24 horas';
+
+  @override
+  String get remindersFilter => 'Recordatorios';
 }

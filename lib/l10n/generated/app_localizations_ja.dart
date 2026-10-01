@@ -3822,4 +3822,161 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get vaultLocksOnLeave => '離れると自動でロック';
+
+  @override
+  String get remind => 'リマインド';
+
+  @override
+  String get remindMe => 'リマインドする';
+
+  @override
+  String get reminderChange => 'リマインダーを変更';
+
+  @override
+  String get reminderRemove => 'リマインダーを削除';
+
+  @override
+  String get reminderRemoved => 'リマインダーを削除しました';
+
+  @override
+  String get reminderLaterToday => '今日のあとで';
+
+  @override
+  String get reminderTonight => '今夜';
+
+  @override
+  String get reminderTomorrow => '明日の朝';
+
+  @override
+  String get reminderWeekend => '今週末';
+
+  @override
+  String get reminderNextWeek => '来週';
+
+  @override
+  String get reminderPickTime => '日時を選ぶ';
+
+  @override
+  String get reminderRing => '時間ちょうどに鳴らす';
+
+  @override
+  String get reminderRingSubtitle => 'アラーム音で、時間ちょうどに';
+
+  @override
+  String get reminderRingNeedsPermission =>
+      '時間ちょうどに鳴らすには、Glimpseにアラームとリマインダーの設定を許可してください。';
+
+  @override
+  String get reminderRingUnavailable => '正確な時刻は許可されていないため、ほぼ時間どおりに届きます。';
+
+  @override
+  String get reminderAllow => '許可';
+
+  @override
+  String reminderSetFor(String when) {
+    return 'リマインダー設定 · $when';
+  }
+
+  @override
+  String get reminderPastTime => 'まだ過ぎていない時刻を選んでください。';
+
+  @override
+  String get reminderCouldNotSet => 'リマインダーを設定できませんでした';
+
+  @override
+  String get reminderNotificationBody => '今思い出すようにGlimpseに頼んでいました。';
+
+  @override
+  String get reminderSnooze => '1時間後に';
+
+  @override
+  String get reminderChannelName => 'リマインダー';
+
+  @override
+  String get reminderRingChannelName => '鳴るリマインダー';
+
+  @override
+  String get reminderChannelDescription => '保存に設定したリマインダー';
+
+  @override
+  String get comingUp => 'このあと';
+
+  @override
+  String reminderToday(String time) {
+    return '今日 $time';
+  }
+
+  @override
+  String reminderTomorrowAt(String time) {
+    return '明日 $time';
+  }
+
+  @override
+  String get reminderRepeat => '繰り返し';
+
+  @override
+  String get repeatOnce => '1回';
+
+  @override
+  String get repeatDaily => '毎日';
+
+  @override
+  String get repeatWeekdays => '平日';
+
+  @override
+  String get repeatWeekly => '毎週';
+
+  @override
+  String reminderEveryDay(String time) {
+    return '毎日 $time';
+  }
+
+  @override
+  String reminderWeekdaysAt(String time) {
+    return '平日 $time';
+  }
+
+  @override
+  String reminderEveryWeekday(String day, String time) {
+    return '毎週$day $time';
+  }
+
+  @override
+  String get reminderLeadWatch => '見る時間です';
+
+  @override
+  String get reminderLeadRead => '読む時間です';
+
+  @override
+  String get reminderLeadCook => '作る時間です';
+
+  @override
+  String get reminderLeadTry => '試す時間です';
+
+  @override
+  String get reminderLeadListen => '聴く時間です';
+
+  @override
+  String get reminderLeadPlan => '計画する時間です';
+
+  @override
+  String get reminderLeadBuy => '手に入れる時間です';
+
+  @override
+  String get reminderLeadLearn => '学ぶ時間です';
+
+  @override
+  String get reminderLeadRevisit => 'これに戻る時間です';
+
+  @override
+  String get reminderLeadDaily => '今日のリンク';
+
+  @override
+  String get reminderLeadWeekly => '今週のリンク';
+
+  @override
+  String get comingUpSubtitle => '24時間以内';
+
+  @override
+  String get remindersFilter => 'リマインダー';
 }

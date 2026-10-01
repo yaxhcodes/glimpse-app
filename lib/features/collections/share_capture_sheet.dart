@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/user_collection.dart';
 import '../../core/providers/service_providers.dart';
 import '../../core/services/app_haptics.dart';
+import '../../core/services/reminders/reminder_times.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
 import '../../shared/widgets/saved_toast.dart';
@@ -63,6 +64,9 @@ typedef ShareCaptureCallback =
 
 typedef ShareCaptureRename = Future<ShareCaptureOutcome> Function(String name);
 
+typedef ShareCaptureRemind =
+    Future<ShareCaptureOutcome> Function(DateTime at);
+
 /// Saves a shared link the moment it opens, then shows the "Saved to Glimpse"
 /// pill with a collection and a note as optional edits. The pill gets out of
 /// the way on its own; tapping anywhere else closes it at once (after the
@@ -76,6 +80,7 @@ Future<ShareCaptureOutcome?> showShareCapture(
   required ShareCaptureCallback onCapture,
   ShareCaptureCallback? onUpdate,
   ShareCaptureRename? onRename,
+  ShareCaptureRemind? onRemind,
   bool vault = false,
   ShareCaptureBlock? block,
 }) {
@@ -88,6 +93,7 @@ Future<ShareCaptureOutcome?> showShareCapture(
       onCapture: onCapture,
       onUpdate: onUpdate ?? onCapture,
       onRename: onRename,
+      onRemind: onRemind,
       vault: vault,
       block: block,
     ),
@@ -111,13 +117,14 @@ Future<ShareCaptureOutcome?> showShareCapture(
   );
 }
 
-enum _Panel { pill, collections, note, name }
+enum _Panel { pill, collections, note, name, remind }
 
 class _ShareCapture extends ConsumerStatefulWidget {
   const _ShareCapture({
     required this.onCapture,
     required this.onUpdate,
     this.onRename,
+    this.onRemind,
     this.vault = false,
     this.block,
   });
@@ -125,6 +132,9 @@ class _ShareCapture extends ConsumerStatefulWidget {
   final ShareCaptureCallback onCapture;
   final ShareCaptureCallback onUpdate;
   final ShareCaptureRename? onRename;
+
+  /// Offers Remind when set: the reminder lands on the save just made.
+  final ShareCaptureRemind? onRemind;
   final bool vault;
   final ShareCaptureBlock? block;
 
@@ -155,6 +165,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
   // In the Vault there are no collections; this slot is the name instead.
   late bool _filed = widget.vault && widget.onRename == null;
   bool _noted = false;
+  late bool _reminded = widget.onRemind == null;
   Timer? _closeTimer;
 
   @override
@@ -260,6 +271,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     UserCollection? collection,
     String? note,
     String? name,
+    DateTime? remindAt,
   }) async {
     final landed = _landed;
     if (_editing || landed == null || !mounted) return;
@@ -275,7 +287,10 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     }
     final target = collection ?? _collection;
     final rename = widget.onRename;
-    final outcome = name != null && rename != null
+    final remind = widget.onRemind;
+    final outcome = remindAt != null && remind != null
+        ? await _run((_, _) => remind(remindAt), null, null)
+        : name != null && rename != null
         ? await _run((_, _) => rename(name), null, null)
         : await _run(widget.onUpdate, target, note);
     if (!mounted) return;
@@ -298,7 +313,16 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
       _panel = _Panel.pill;
       if (collection != null || name != null) _filed = true;
       if (note != null) _noted = true;
-      _confirmation = name != null
+      if (remindAt != null) _reminded = true;
+      _confirmation = remindAt != null
+          ? strings.reminderSetFor(
+              formatReminderWhen(
+                strings,
+                Localizations.localeOf(context).toLanguageTag(),
+                remindAt,
+              ),
+            )
+          : name != null
           ? strings.vaultNamedAs(name)
           : collection != null
           ? strings.savedToCollection(collection.name)
@@ -311,7 +335,9 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     }
   }
 
-  Duration get _lingerNow => _filed && _noted ? _confirmLinger : _linger;
+  bool get _allDone => _filed && _noted && _reminded;
+
+  Duration get _lingerNow => _allDone ? _confirmLinger : _linger;
 
   void _scheduleClose(Duration delay) {
     _closeTimer?.cancel();
@@ -459,6 +485,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
             _Panel.collections => _collectionsPanel(context),
             _Panel.note => _notePanel(context),
             _Panel.name => _namePanel(context),
+            _Panel.remind => _remindPanel(context),
           },
         ),
       ),
@@ -525,7 +552,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
                 label: strings.retry,
                 onPressed: _saving ? null : _captureDefault,
               )
-            else if (!(_filed && _noted)) ...[
+            else if (!_allDone) ...[
               if (!_filed)
                 _PillAction(
                   label: widget.vault ? strings.vaultName : strings.collection,
@@ -536,6 +563,21 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
                 _PillAction(
                   label: strings.note,
                   onPressed: () => _open(_Panel.note),
+                ),
+              // A bell, not a word: three words would crowd out "Saved to
+              // Glimpse".
+              if (!_reminded)
+                IconButton(
+                  tooltip: strings.remindMe,
+                  onPressed: () => _open(_Panel.remind),
+                  style: IconButton.styleFrom(
+                    foregroundColor: colors.inversePrimary,
+                    minimumSize: const Size(40, 44),
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: const AppIcon(AppIcons.notifications, size: 20),
                 ),
             ] else
               Padding(
@@ -625,6 +667,76 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
         ],
       ),
     );
+  }
+
+  Widget _remindPanel(BuildContext context) {
+    final strings = context.l10n;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final presets = reminderPresets(reminderNow());
+    return Padding(
+      key: const ValueKey('remind'),
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PanelHeader(title: strings.remindMe, onClose: _backToPill),
+          if (_editFailed) const _EditFailed(),
+          Padding(
+            padding: const EdgeInsets.only(right: 12, top: 4),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (preset, at) in presets)
+                  ActionChip(
+                    label: Text(
+                      '${reminderPresetLabel(strings, preset)} · '
+                      '${reminderPresetTime(locale, preset, at)}',
+                    ),
+                    onPressed: _editing
+                        ? null
+                        : () => unawaited(_update(remindAt: at)),
+                  ),
+                ActionChip(
+                  avatar: const Icon(AppIcons.calendar, size: 18),
+                  label: Text(strings.reminderPickTime),
+                  onPressed: _editing ? null : _pickReminderTime,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickReminderTime() async {
+    final now = reminderNow();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 1)),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 730)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (time == null || !mounted) return;
+    final at = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    if (!at.isAfter(reminderNow())) {
+      setState(() => _editFailed = true);
+      return;
+    }
+    await _update(remindAt: at);
   }
 
   Widget _namePanel(BuildContext context) {
@@ -763,7 +875,7 @@ class _PillAction extends StatelessWidget {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         foregroundColor: theme.colorScheme.inversePrimary,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 9),
         minimumSize: const Size(0, 44),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: const StadiumBorder(),

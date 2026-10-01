@@ -115,6 +115,9 @@ class SavedUrlBackup {
   final String? intentAction;
   final String? intentSetAt;
   final String? revisitAfter;
+  final String? remindAt;
+  final bool remindRing;
+  final String? remindRepeat;
   final List<double>? embedding;
 
   SavedUrlBackup({
@@ -146,6 +149,9 @@ class SavedUrlBackup {
     this.intentAction,
     this.intentSetAt,
     this.revisitAfter,
+    this.remindAt,
+    this.remindRing = false,
+    this.remindRepeat,
     this.embedding,
   });
 
@@ -184,6 +190,9 @@ class SavedUrlBackup {
       if (intentAction != null) 'intentAction': intentAction,
       if (intentSetAt != null) 'intentSetAt': intentSetAt,
       if (revisitAfter != null) 'revisitAfter': revisitAfter,
+      if (remindAt != null) 'remindAt': remindAt,
+      if (remindRing) 'remindRing': true,
+      if (remindRepeat != null) 'remindRepeat': remindRepeat,
       ...?_optionalEmbeddingJson(sanitizedEmbedding),
     };
   }
@@ -244,6 +253,9 @@ class SavedUrlBackup {
     intentAction: json['intentAction'] as String?,
     intentSetAt: json['intentSetAt'] as String?,
     revisitAfter: json['revisitAfter'] as String?,
+    remindAt: json['remindAt'] as String?,
+    remindRing: json['remindRing'] == true,
+    remindRepeat: json['remindRepeat'] as String?,
     embedding: _sanitizeEmbeddingForJson(
       (json['embedding'] as List<dynamic>?)
           ?.map((e) => (e as num).toDouble())
