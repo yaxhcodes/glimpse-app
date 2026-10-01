@@ -3785,4 +3785,178 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get binCouldNotLoad => 'No se pudo cargar la papelera';
+
+  @override
+  String get askThinking => 'Revisando lo que guardaste…';
+
+  @override
+  String askSourcesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fuentes',
+      one: '1 fuente',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askAddNote => 'Añadir como nota';
+
+  @override
+  String get askNoteSaved => 'Guardado en notas';
+
+  @override
+  String get askNoteSaveFailed => 'No se pudo guardar. Inténtalo de nuevo.';
+
+  @override
+  String get askRegenerate => 'Regenerar';
+
+  @override
+  String get askCopied => 'Copiado';
+
+  @override
+  String get askAllSaves => 'Todo';
+
+  @override
+  String get askAskingAbout => 'Preguntando sobre';
+
+  @override
+  String get askActionSaveToCollection => 'Guardar en una colección';
+
+  @override
+  String get askActionSynthesize => 'Sintetizar';
+
+  @override
+  String get askActionBuildPlan => 'Crear un plan';
+
+  @override
+  String get askActionSaveItinerary => 'Guardar como itinerario';
+
+  @override
+  String get askEarlier => 'Antes';
+
+  @override
+  String get askOpenNow => 'Abierto ahora';
+
+  @override
+  String get askNoChats => 'Aún no hay chats';
+
+  @override
+  String get askNoChatsHint => 'Tus preguntas se guardarán aquí.';
+
+  @override
+  String get askSearchChats => 'Buscar chats';
+
+  @override
+  String get askNoChatsMatch => 'Ningún chat coincide';
+
+  @override
+  String get askChatDeleted => 'Chat eliminado';
+
+  @override
+  String get askNewCollectionHint => 'Ponle nombre y se añadirán';
+
+  @override
+  String get askAlreadyInCollection => 'Ya están aquí';
+
+  @override
+  String askSomeInCollection(int count) {
+    return '$count ya están aquí';
+  }
+
+  @override
+  String askAddedToCollection(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count guardados añadidos a $name',
+      one: 'Añadido a $name',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askTryAsking => 'Prueba a preguntar';
+
+  @override
+  String askSuggestBigIdea(String title) {
+    return '¿Cuál es la idea principal de $title?';
+  }
+
+  @override
+  String askSuggestTopic(String topic) {
+    return '¿Qué he aprendido sobre $topic?';
+  }
+
+  @override
+  String get askSuggestThisWeek => '¿Qué guardé esta semana?';
+
+  @override
+  String askSuggestRemind(String title) {
+    return 'Recuérdame de qué trataba $title';
+  }
+
+  @override
+  String askSuggestConnect(String topic) {
+    return '¿Cómo se conectan mis guardados de $topic?';
+  }
+
+  @override
+  String get askHowToSave => '¿Cómo guardo un enlace?';
+
+  @override
+  String get askEditingQuestion => 'Editando tu pregunta';
+
+  @override
+  String get askEditingReplaces =>
+      'Editando · se reemplazarán las respuestas posteriores';
+
+  @override
+  String get askAskAgain => 'Preguntar de nuevo';
+
+  @override
+  String get askHeadBigIdea => 'La idea principal';
+
+  @override
+  String askHeadTopic(String topic) {
+    return 'Repasa $topic';
+  }
+
+  @override
+  String get askSubTopic => 'Lo que has aprendido últimamente';
+
+  @override
+  String get askHeadWeek => 'Lo de esta semana';
+
+  @override
+  String get askSubWeek => 'Un resumen rápido';
+
+  @override
+  String get askHeadRemind => 'Recupera algo antiguo';
+
+  @override
+  String get askHeadConnect => 'Une los puntos';
+
+  @override
+  String askSubConnect(String topic) {
+    return 'En tus guardados de $topic';
+  }
+
+  @override
+  String get askHeadLibrary => 'Tu biblioteca';
+
+  @override
+  String get askHeadStart => 'Empieza';
+
+  @override
+  String askAcrossSaves(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Pregunta lo que quieras sobre tus $count guardados',
+      one: 'Pregunta lo que quieras sobre tu guardado',
+    );
+    return '$_temp0';
+  }
 }

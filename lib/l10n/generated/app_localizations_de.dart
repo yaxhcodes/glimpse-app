@@ -3805,4 +3805,179 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get binCouldNotLoad => 'Papierkorb konnte nicht geladen werden';
+
+  @override
+  String get askThinking => 'Durchsuche deine Speicherungen…';
+
+  @override
+  String askSourcesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Quellen',
+      one: '1 Quelle',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askAddNote => 'Als Notiz hinzufügen';
+
+  @override
+  String get askNoteSaved => 'In Notizen gespeichert';
+
+  @override
+  String get askNoteSaveFailed =>
+      'Speichern fehlgeschlagen. Versuch es noch einmal.';
+
+  @override
+  String get askRegenerate => 'Neu generieren';
+
+  @override
+  String get askCopied => 'Kopiert';
+
+  @override
+  String get askAllSaves => 'Alle';
+
+  @override
+  String get askAskingAbout => 'Frage zu';
+
+  @override
+  String get askActionSaveToCollection => 'In Sammlung speichern';
+
+  @override
+  String get askActionSynthesize => 'Zusammenführen';
+
+  @override
+  String get askActionBuildPlan => 'Plan erstellen';
+
+  @override
+  String get askActionSaveItinerary => 'Als Reiseplan speichern';
+
+  @override
+  String get askEarlier => 'Früher';
+
+  @override
+  String get askOpenNow => 'Gerade geöffnet';
+
+  @override
+  String get askNoChats => 'Noch keine Chats';
+
+  @override
+  String get askNoChatsHint => 'Deine Fragen werden hier aufbewahrt.';
+
+  @override
+  String get askSearchChats => 'Chats durchsuchen';
+
+  @override
+  String get askNoChatsMatch => 'Keine passenden Chats';
+
+  @override
+  String get askChatDeleted => 'Chat gelöscht';
+
+  @override
+  String get askNewCollectionHint => 'Benennen – und sie kommen hinein';
+
+  @override
+  String get askAlreadyInCollection => 'Schon enthalten';
+
+  @override
+  String askSomeInCollection(int count) {
+    return '$count schon enthalten';
+  }
+
+  @override
+  String askAddedToCollection(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Speicherungen zu $name hinzugefügt',
+      one: 'Zu $name hinzugefügt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askTryAsking => 'Frag zum Beispiel';
+
+  @override
+  String askSuggestBigIdea(String title) {
+    return 'Was ist die Kernidee von $title?';
+  }
+
+  @override
+  String askSuggestTopic(String topic) {
+    return 'Was habe ich über $topic gelernt?';
+  }
+
+  @override
+  String get askSuggestThisWeek => 'Was habe ich diese Woche gespeichert?';
+
+  @override
+  String askSuggestRemind(String title) {
+    return 'Worum ging es noch mal bei $title?';
+  }
+
+  @override
+  String askSuggestConnect(String topic) {
+    return 'Wie hängen meine $topic-Speicherungen zusammen?';
+  }
+
+  @override
+  String get askHowToSave => 'Wie speichere ich einen Link?';
+
+  @override
+  String get askEditingQuestion => 'Du bearbeitest deine Frage';
+
+  @override
+  String get askEditingReplaces =>
+      'Bearbeiten · spätere Antworten werden ersetzt';
+
+  @override
+  String get askAskAgain => 'Erneut fragen';
+
+  @override
+  String get askHeadBigIdea => 'Die Kernidee';
+
+  @override
+  String askHeadTopic(String topic) {
+    return '$topic auffrischen';
+  }
+
+  @override
+  String get askSubTopic => 'Was du zuletzt gelernt hast';
+
+  @override
+  String get askHeadWeek => 'Diese Woche';
+
+  @override
+  String get askSubWeek => 'Ein kurzer Rückblick';
+
+  @override
+  String get askHeadRemind => 'Alten Fund wiederentdecken';
+
+  @override
+  String get askHeadConnect => 'Zusammenhänge finden';
+
+  @override
+  String askSubConnect(String topic) {
+    return 'Über deine $topic-Speicherungen';
+  }
+
+  @override
+  String get askHeadLibrary => 'Deine Bibliothek';
+
+  @override
+  String get askHeadStart => 'Los geht’s';
+
+  @override
+  String askAcrossSaves(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Frag alles zu deinen $count Speicherungen',
+      one: 'Frag alles zu deiner Speicherung',
+    );
+    return '$_temp0';
+  }
 }

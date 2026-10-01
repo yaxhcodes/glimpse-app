@@ -3787,4 +3787,178 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get binCouldNotLoad => 'Não foi possível carregar a lixeira';
+
+  @override
+  String get askThinking => 'Procurando nos seus salvos…';
+
+  @override
+  String askSourcesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fontes',
+      one: '1 fonte',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askAddNote => 'Adicionar como nota';
+
+  @override
+  String get askNoteSaved => 'Salvo nas notas';
+
+  @override
+  String get askNoteSaveFailed => 'Não foi possível salvar. Tente novamente.';
+
+  @override
+  String get askRegenerate => 'Gerar novamente';
+
+  @override
+  String get askCopied => 'Copiado';
+
+  @override
+  String get askAllSaves => 'Tudo';
+
+  @override
+  String get askAskingAbout => 'Perguntando sobre';
+
+  @override
+  String get askActionSaveToCollection => 'Salvar numa coleção';
+
+  @override
+  String get askActionSynthesize => 'Sintetizar';
+
+  @override
+  String get askActionBuildPlan => 'Montar um plano';
+
+  @override
+  String get askActionSaveItinerary => 'Salvar como roteiro';
+
+  @override
+  String get askEarlier => 'Antes';
+
+  @override
+  String get askOpenNow => 'Aberto agora';
+
+  @override
+  String get askNoChats => 'Ainda não há conversas';
+
+  @override
+  String get askNoChatsHint => 'Suas perguntas ficam guardadas aqui.';
+
+  @override
+  String get askSearchChats => 'Buscar conversas';
+
+  @override
+  String get askNoChatsMatch => 'Nenhuma conversa encontrada';
+
+  @override
+  String get askChatDeleted => 'Conversa excluída';
+
+  @override
+  String get askNewCollectionHint => 'Dê um nome e elas entram';
+
+  @override
+  String get askAlreadyInCollection => 'Já estão aqui';
+
+  @override
+  String askSomeInCollection(int count) {
+    return '$count já estão aqui';
+  }
+
+  @override
+  String askAddedToCollection(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count salvos adicionados a $name',
+      one: 'Adicionado a $name',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askTryAsking => 'Experimente perguntar';
+
+  @override
+  String askSuggestBigIdea(String title) {
+    return 'Qual é a ideia principal de $title?';
+  }
+
+  @override
+  String askSuggestTopic(String topic) {
+    return 'O que aprendi sobre $topic?';
+  }
+
+  @override
+  String get askSuggestThisWeek => 'O que salvei esta semana?';
+
+  @override
+  String askSuggestRemind(String title) {
+    return 'Me lembre do que era $title';
+  }
+
+  @override
+  String askSuggestConnect(String topic) {
+    return 'Como meus salvos de $topic se conectam?';
+  }
+
+  @override
+  String get askHowToSave => 'Como salvo um link?';
+
+  @override
+  String get askEditingQuestion => 'Editando sua pergunta';
+
+  @override
+  String get askEditingReplaces =>
+      'Editando · as respostas seguintes serão substituídas';
+
+  @override
+  String get askAskAgain => 'Perguntar de novo';
+
+  @override
+  String get askHeadBigIdea => 'A ideia principal';
+
+  @override
+  String askHeadTopic(String topic) {
+    return 'Revise $topic';
+  }
+
+  @override
+  String get askSubTopic => 'O que você tem aprendido';
+
+  @override
+  String get askHeadWeek => 'Salvos da semana';
+
+  @override
+  String get askSubWeek => 'Um resumo rápido';
+
+  @override
+  String get askHeadRemind => 'Reveja algo antigo';
+
+  @override
+  String get askHeadConnect => 'Ligue os pontos';
+
+  @override
+  String askSubConnect(String topic) {
+    return 'Nos seus salvos de $topic';
+  }
+
+  @override
+  String get askHeadLibrary => 'Sua biblioteca';
+
+  @override
+  String get askHeadStart => 'Comece';
+
+  @override
+  String askAcrossSaves(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Pergunte qualquer coisa sobre seus $count salvos',
+      one: 'Pergunte qualquer coisa sobre seu salvo',
+    );
+    return '$_temp0';
+  }
 }

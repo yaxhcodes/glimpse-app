@@ -5,7 +5,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:glimpse/shared/widgets/app_menu.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,11 +14,11 @@ import '../../core/constants/app_assets.dart';
 import '../../core/models/saved_url.dart';
 import '../../core/models/place_itinerary.dart';
 import '../../core/providers/analytics_provider.dart';
+import '../../core/models/ask_conversation.dart';
 import '../../core/models/user_collection.dart';
 import '../../core/providers/user_display_name_provider.dart';
 import '../../core/services/usage_service.dart';
 import '../../shared/widgets/upgrade_gate.dart';
-import '../../shared/widgets/app_expansion_chevron.dart';
 import '../../shared/widgets/usage_badge.dart';
 import '../../core/database/isar_service.dart';
 import '../../core/providers/service_providers.dart';
@@ -34,7 +33,10 @@ import '../collections/create_collection_sheet.dart';
 import '../library/library_entity.dart';
 import '../library/library_provider.dart';
 import '../library/place_itinerary_provider.dart';
+import '../../shared/widgets/entrance_motion.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../shared/widgets/expressive_tap_scale.dart';
+import '../../shared/theme/app_motion.dart';
 import '../../shared/theme/app_icons.dart';
 import 'ask_itinerary_builder.dart';
 import 'ask_empty_suggestions_provider.dart';
@@ -78,6 +80,9 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   bool _clearedForInitialSource = false;
   SavedUrl? _attachedSource;
   bool _nearBottom = true;
+
+  /// The question being edited in the composer; sending replaces it.
+  ChatMessage? _editing;
 
   @override
   void initState() {
@@ -149,6 +154,15 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final question = text.trim();
     if (question.isEmpty) return;
     _controller.clear();
+    final editing = _editing;
+    if (editing != null) {
+      setState(() => _editing = null);
+      ref.read(askProvider.notifier).editAndResend(editing.id, question);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _scrollToBottom(force: true),
+      );
+      return;
+    }
     if (RegExp(
       r'\b(whole library|all my saves|entire library|across my library)\b',
       caseSensitive: false,
@@ -268,12 +282,9 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final isar = ref.read(isarServiceProvider);
     showModalBottomSheet(
       context: context,
-      showDragHandle: false,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      showDragHandle: true,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => _SaveToCollectionSheet(
         hostContext: context,
         sources: sources,
@@ -326,82 +337,62 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     return result;
   }
 
-  Future<void> _editMessage(ChatMessage message) async {
-    final text = await _editText(
-      context.l10n.askEditMessage,
-      message.text,
-      warning: context.l10n.askEditConfirm,
+  /// Puts [message] back in the composer to edit; sending replaces it.
+  void _editMessage(ChatMessage message) {
+    setState(() => _editing = message);
+    _controller.value = TextEditingValue(
+      text: message.text,
+      selection: TextSelection.collapsed(offset: message.text.length),
     );
-    if (!mounted || text == null || text.trim().isEmpty) return;
-    ref.read(askProvider.notifier).editAndResend(message.id, text);
+    _focusNode.requestFocus();
+  }
+
+  void _cancelEdit() {
+    AppHaptics.play(AppHaptics.tick);
+    setState(() => _editing = null);
+    _controller.clear();
   }
 
   Future<void> _showHistory() async {
     final notifier = ref.read(askProvider.notifier);
     final chats = await notifier.conversations();
     if (!mounted) return;
-    await showModalBottomSheet<void>(
+    final picked = await showModalBottomSheet<AskConversation>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(title: Text(context.l10n.askRecentChats)),
-            for (final chat in chats)
-              ListTile(
-                title: Text(
-                  chat.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await notifier.openConversation(chat);
-                  final saves = await ref
-                      .read(isarServiceProvider)
-                      .getAllUrls();
-                  if (!mounted) return;
-                  setState(
-                    () => _attachedSource = saves
-                        .where((s) => s.rawUrl == notifier.focusedUrl)
-                        .firstOrNull,
-                  );
-                },
-                trailing: PopupMenuButton<String>(
-                  tooltip: context.l10n.more,
-                  onSelected: (action) async {
-                    Navigator.pop(sheetContext);
-                    if (action == 'delete') {
-                      await notifier.deleteConversation(chat);
-                    } else {
-                      final title = await _editText(
-                        context.l10n.askRenameChat,
-                        chat.title,
-                      );
-                      if (title != null) {
-                        await notifier.renameConversation(chat, title);
-                      }
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    appMenuItem(
-                      value: 'rename',
-                      icon: AppIcons.edit,
-                      label: context.l10n.askRenameChat,
-                    ),
-                    appMenuItem(
-                      value: 'delete',
-                      icon: AppIcons.clearData,
-                      label: context.l10n.delete,
-                      destructive: true,
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => _ChatHistorySheet(
+        chats: chats,
+        currentKey: notifier.conversationKey,
+        onOpen: (chat) => Navigator.pop(sheetContext, chat),
+        onNewChat: () {
+          Navigator.pop(sheetContext);
+          notifier.clearHistory();
+          setState(() => _attachedSource = null);
+        },
+        onRename: (chat) async {
+          final title = await _editText(context.l10n.askRenameChat, chat.title);
+          if (title == null || title.trim().isEmpty) return null;
+          await notifier.renameConversation(chat, title);
+          return title.trim();
+        },
+        onDelete: (chat) async {
+          final wasOpen = chat.key == notifier.conversationKey;
+          await notifier.deleteConversation(chat);
+          if (wasOpen && mounted) setState(() => _attachedSource = null);
+        },
+        onRestore: notifier.restoreConversation,
       ),
+    );
+    if (picked == null || !mounted) return;
+    await notifier.openConversation(picked);
+    final saves = await ref.read(isarServiceProvider).getAllUrls();
+    if (!mounted) return;
+    setState(
+      () => _attachedSource = saves
+          .where((s) => s.rawUrl == notifier.focusedUrl)
+          .firstOrNull,
     );
   }
 
@@ -424,7 +415,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
     final urlsAsync = ref.watch(urlStreamProvider);
-    final linkCount = urlsAsync.valueOrNull?.length;
+    final hasBack = !widget.embedded && context.canPop();
+    final lastUserIndex = askState.messages.lastIndexWhere((m) => m.isUser);
     final savedUrlCount = urlsAsync.valueOrNull?.length ?? 0;
     final userName = ref.watch(userDisplayNameProvider).valueOrNull;
     final suggestionsAsync = ref.watch(askEmptySuggestionsProvider);
@@ -451,9 +443,11 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       resizeToAvoidBottomInset: true,
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        surfaceTintColor: colorScheme.surfaceTint,
-        titleSpacing: 0,
-        leading: !widget.embedded && context.canPop()
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        titleSpacing: hasBack ? 0 : 20,
+        leading: hasBack
             ? IconButton(
                 icon: const AppIcon(AppIcons.arrowBack),
                 onPressed: () => context.pop(),
@@ -462,202 +456,182 @@ class _AskScreenState extends ConsumerState<AskScreen> {
         automaticallyImplyLeading: false,
         title: Text(
           context.l10n.askGlimpse,
-          style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
         centerTitle: false,
         actions: [
+          const UsageBadge(feature: UsageFeature.ask),
           IconButton(
-            icon: const Icon(Icons.history_rounded),
+            icon: const AppIcon(AppIcons.chatHistory),
             tooltip: context.l10n.askRecentChats,
             onPressed: _showHistory,
           ),
-          const UsageBadge(feature: UsageFeature.ask),
           if (askState.messages.isNotEmpty)
             IconButton(
-              icon: const Icon(AppIcons.edit),
+              icon: const AppIcon(AppIcons.newChat),
               tooltip: context.l10n.newChat,
               onPressed: () {
                 AppHaptics.play(AppHaptics.tap);
                 ref.read(askProvider.notifier).clearHistory();
-                setState(() => _attachedSource = null);
+                setState(() {
+                  _attachedSource = null;
+                  _editing = null;
+                });
               },
             ),
-          if (linkCount != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Center(
-                child: Text(
-                  context.l10n.linkCount(linkCount),
-                  style: textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
+          const SizedBox(width: 4),
         ],
       ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.surface,
-              colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
-            ],
-          ),
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: askState.messages.isEmpty
-                  ? _buildEmptyState(
-                      textTheme,
-                      colorScheme,
-                      suggestionsAsync,
-                      savedUrlCount,
-                      userName,
-                    )
-                  : Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: _kChatMaxWidth,
-                        ),
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          physics: const ClampingScrollPhysics(),
-                          cacheExtent: 600,
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                          itemCount:
-                              askState.messages.length + (showTyping ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (showTyping &&
-                                index == askState.messages.length) {
-                              return const GlimpseTypingIndicator(
-                                key: PageStorageKey('typing-indicator'),
-                              );
-                            }
-                            final msg = askState.messages[index];
-                            return GestureDetector(
-                              onLongPress: msg.isUser && !askState.isLoading
-                                  ? () => _editMessage(msg)
-                                  : null,
-                              child: _ChatTurn(
-                                key: ValueKey(msg.id),
-                                message: msg,
-                                onEdit: msg.isUser && !askState.isLoading
-                                    ? () => _editMessage(msg)
-                                    : null,
-                                streaming:
-                                    askState.isLoading &&
-                                    index == askState.messages.length - 1,
-                                onProactiveTipTap: msg.proactiveTip != null
-                                    ? () => _usePromptChip(msg.proactiveTip!)
-                                    : null,
-                                onFollowUpTap:
-                                    index == askState.messages.length - 1 &&
-                                        !askState.isLoading
-                                    ? _usePromptChip
-                                    : null,
-                                onActionConsumed: () => ref
-                                    .read(askProvider.notifier)
-                                    .consumeAction(msg.id),
-                                onSaveAnswerToNotesTap:
-                                    msg.canSaveAsNote && !msg.noteSaved
-                                    ? () async {
-                                        AppHaptics.play(AppHaptics.success);
-                                        final saved = await ref
-                                            .read(askProvider.notifier)
-                                            .saveAnswerAsNote(msg.id);
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              saved
-                                                  ? 'Saved to notes'
-                                                  : 'Could not save. Try again.',
-                                            ),
-                                            behavior: SnackBarBehavior.floating,
-                                          ),
-                                        );
-                                      }
-                                    : null,
-                                onSynthesizeTap:
-                                    msg.action == ChatAction.synthesize
-                                    ? () => _onSynthesizeTapped(msg.sources)
-                                    : null,
-                                onBuildPlanTap:
-                                    msg.action == ChatAction.buildPlan
-                                    ? () => _onBuildPlanTapped(
-                                        msg.sources,
-                                        msg.originalQuestion ?? msg.text,
-                                      )
-                                    : null,
-                                onSaveItineraryTap:
-                                    msg.action == ChatAction.saveItinerary
-                                    ? () => _saveItineraryFromAnswer(msg)
-                                    : null,
-                                onSaveToCollectionTap:
-                                    msg.action == ChatAction.saveToCollection
-                                    ? () => _showSaveToCollectionSheet(
-                                        context,
-                                        msg.sources,
-                                      )
-                                    : null,
-                              ),
-                            );
-                          },
+      body: Column(
+        children: [
+          Expanded(
+            child: askState.messages.isEmpty
+                ? _buildEmptyState(
+                    textTheme,
+                    colorScheme,
+                    suggestionsAsync,
+                    savedUrlCount,
+                    userName,
+                  )
+                : Stack(
+                    children: [
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: _kChatMaxWidth,
+                          ),
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            physics: const ClampingScrollPhysics(),
+                            cacheExtent: 600,
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                            itemCount:
+                                askState.messages.length + (showTyping ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (showTyping &&
+                                  index == askState.messages.length) {
+                                return const GlimpseTypingIndicator(
+                                  key: PageStorageKey('typing-indicator'),
+                                );
+                              }
+                              return _turn(askState, index, lastUserIndex);
+                            },
+                          ),
                         ),
                       ),
-                    ),
-            ),
-            if (askState.messages.isNotEmpty)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (!_nearBottom)
-                    TextButton(
-                      onPressed: () {
-                        if (_scrollController.hasClients) {
-                          _scrollController.jumpTo(
-                            _scrollController.position.maxScrollExtent,
-                          );
-                        }
-                      },
-                      child: Text(context.l10n.askJumpLatest),
-                    ),
-                  if (askState.isLoading)
-                    TextButton(
-                      onPressed: () => ref.read(askProvider.notifier).stop(),
-                      child: Text(context.l10n.askStop),
-                    )
-                  else
-                    TextButton(
-                      onPressed: () =>
-                          ref.read(askProvider.notifier).retryLast(),
-                      child: Text(context.l10n.retry),
-                    ),
-                ],
-              ),
-            _ComposerBar(
-              controller: _controller,
-              focusNode: _focusNode,
-              isLoading: askState.isLoading,
-              attachedSource: _attachedSource,
-              onClearAttachedSource: _attachedSource == null
-                  ? null
-                  : () {
-                      AppHaptics.play(AppHaptics.tick);
-                      setState(() => _attachedSource = null);
-                      ref.read(askProvider.notifier).setFocusedSource(null);
-                    },
-              onSubmit: (text) => _onSendMessage(text),
-            ),
-          ],
-        ),
+                      // Back to the newest answer after reading up.
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 8,
+                        child: Center(
+                          child: IgnorePointer(
+                            ignoring: _nearBottom,
+                            child: AnimatedScale(
+                              scale: _nearBottom ? 0.6 : 1,
+                              duration: AppMotion.medium,
+                              curve: AppMotion.emphasized,
+                              child: AnimatedOpacity(
+                                opacity: _nearBottom ? 0 : 1,
+                                duration: AppMotion.short,
+                                child: IconButton.filledTonal(
+                                  tooltip: context.l10n.askJumpLatest,
+                                  icon: const AppIcon(
+                                    AppIcons.arrowDown,
+                                    size: 20,
+                                  ),
+                                  onPressed: () {
+                                    AppHaptics.play(AppHaptics.tick);
+                                    _scrollToBottom(force: true);
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          _ComposerBar(
+            controller: _controller,
+            focusNode: _focusNode,
+            isLoading: askState.isLoading,
+            attachedSource: _attachedSource,
+            onClearAttachedSource: _attachedSource == null
+                ? null
+                : () {
+                    AppHaptics.play(AppHaptics.tick);
+                    setState(() => _attachedSource = null);
+                    ref.read(askProvider.notifier).setFocusedSource(null);
+                  },
+            editing: _editing,
+            editingReplacesLater:
+                _editing != null &&
+                askState.messages.lastIndexWhere((m) => m.isUser) !=
+                    askState.messages.indexWhere((m) => m.id == _editing!.id),
+            onCancelEdit: _cancelEdit,
+            onSubmit: (text) => _onSendMessage(text),
+            onStop: () => ref.read(askProvider.notifier).stop(),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _turn(AskState askState, int index, int lastUserIndex) {
+    final msg = askState.messages[index];
+    final last = index == askState.messages.length - 1;
+    final idle = !askState.isLoading;
+    final notifier = ref.read(askProvider.notifier);
+    return _ChatTurn(
+      key: ValueKey(msg.id),
+      message: msg,
+      first: index == 0,
+      latest: last,
+      streaming: askState.isLoading && last,
+      onEdit: msg.isUser && idle ? () => _editMessage(msg) : null,
+      onAskAgain: msg.isUser && idle && index == lastUserIndex
+          ? notifier.retryLast
+          : null,
+      editing: msg.id == _editing?.id,
+      onRegenerate: !msg.isUser && last && idle ? notifier.retryLast : null,
+      onProactiveTipTap: msg.proactiveTip != null
+          ? () => _usePromptChip(msg.proactiveTip!)
+          : null,
+      onFollowUpTap: last && idle ? _usePromptChip : null,
+      onActionConsumed: () => notifier.consumeAction(msg.id),
+      onSaveAnswerToNotesTap: msg.canSaveAsNote && !msg.noteSaved
+          ? () async {
+              AppHaptics.play(AppHaptics.success);
+              final saved = await notifier.saveAnswerAsNote(msg.id);
+              if (!mounted) return;
+              final strings = context.l10n;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    saved ? strings.askNoteSaved : strings.askNoteSaveFailed,
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          : null,
+      onSynthesizeTap: msg.action == ChatAction.synthesize
+          ? () => _onSynthesizeTapped(msg.sources)
+          : null,
+      onBuildPlanTap: msg.action == ChatAction.buildPlan
+          ? () => _onBuildPlanTapped(
+              msg.sources,
+              msg.originalQuestion ?? msg.text,
+            )
+          : null,
+      onSaveItineraryTap: msg.action == ChatAction.saveItinerary
+          ? () => _saveItineraryFromAnswer(msg)
+          : null,
+      onSaveToCollectionTap: msg.action == ChatAction.saveToCollection
+          ? () => _showSaveToCollectionSheet(context, msg.sources)
+          : null,
     );
   }
 
@@ -685,120 +659,116 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _kChatMaxWidth),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 12),
-              const _GlimpseMark(),
-              const SizedBox(height: 12),
-              FutureBuilder<AskGreeting>(
-                future: _greetingFuture,
-                builder: (context, snapshot) {
-                  final greeting = snapshot.data;
-                  final line = _localizedGreeting(greeting);
-                  final hint = greeting?.hint == null
-                      ? null
-                      : context.l10n.saveYourFirstLink;
-
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        line,
-                        textAlign: TextAlign.center,
-                        style: textTheme.headlineMedium?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                        ),
-                      ),
-                      if (hint != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          hint,
-                          textAlign: TextAlign.center,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
-                    ],
-                  );
-                },
-              ),
-              AnimatedOpacity(
-                opacity: keyboardOpen ? 0 : 1,
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                child: AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  alignment: Alignment.topCenter,
-                  child: keyboardOpen
-                      ? const SizedBox(width: double.infinity, height: 0)
-                      : Padding(
-                          padding: const EdgeInsets.only(top: 20),
-                          child: suggestionsAsync.when(
-                            data: (chips) => Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.center,
-                              children: chips.take(3).map((chip) {
-                                return ActionChip(
-                                  label: Text(chip.display),
-                                  onPressed: () {
-                                    AppHaptics.play(AppHaptics.tick);
-                                    final t = chip.promptText;
-                                    _controller.value = TextEditingValue(
-                                      text: t,
-                                      selection: TextSelection.collapsed(
-                                        offset: t.length,
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 16),
+                          const _AskMascot(),
+                          const SizedBox(height: 20),
+                          FutureBuilder<AskGreeting>(
+                            future: _greetingFuture,
+                            builder: (context, snapshot) {
+                              final greeting = snapshot.data;
+                              final subline = greeting?.hint != null
+                                  ? context.l10n.saveYourFirstLink
+                                  : savedUrlCount > 0
+                                  ? context.l10n.askAcrossSaves(savedUrlCount)
+                                  : null;
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _localizedGreeting(greeting),
+                                    textAlign: TextAlign.center,
+                                    style: textTheme.headlineSmall?.copyWith(
+                                      color: colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                  if (subline != null) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      subline,
+                                      textAlign: TextAlign.center,
+                                      style: textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                        height: 1.45,
                                       ),
-                                    );
-                                    _focusNode.requestFocus();
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                            loading: () => const _SuggestionShimmerRow(),
-                            error: (_, _) => Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.center,
-                              children: kAskOnboardingSuggestionChips
-                                  .take(3)
-                                  .map((chip) {
-                                    return ActionChip(
-                                      label: Text(chip.display),
-                                      onPressed: () {
-                                        AppHaptics.play(AppHaptics.tick);
-                                        final t = chip.promptText;
-                                        _controller.value = TextEditingValue(
-                                          text: t,
-                                          selection: TextSelection.collapsed(
-                                            offset: t.length,
-                                          ),
-                                        );
-                                        _focusNode.requestFocus();
-                                      },
-                                    );
-                                  })
-                                  .toList(),
-                            ),
+                                    ),
+                                  ],
+                                ],
+                              );
+                            },
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+            // Starting points sit by the message box, where the thumb is;
+            // typing tucks them away.
+            AnimatedSize(
+              duration: AppMotion.medium,
+              curve: AppMotion.emphasizedDecelerate,
+              alignment: Alignment.bottomCenter,
+              child: keyboardOpen
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: suggestionsAsync.when(
+                        data: _suggestionRow,
+                        loading: () => const _SuggestionShimmerRow(),
+                        error: (_, _) =>
+                            _suggestionRow(kAskOnboardingSuggestionChips),
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _suggestionRow(List<AskSuggestionChipData> chips) =>
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, chip) in chips.indexed)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: EntranceMotion(
+                    spring: true,
+                    offset: 12,
+                    delay: EntranceMotion.stagger(i + 1),
+                    child: _SuggestionCard(
+                      suggestion: chip,
+                      onTap: () => _usePromptChip(chip.promptText),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
 
   String _localizedGreeting(AskGreeting? greeting) {
     if (greeting == null) return context.l10n.askGreetingAfternoon;

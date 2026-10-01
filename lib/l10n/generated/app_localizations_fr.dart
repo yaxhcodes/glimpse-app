@@ -3801,4 +3801,178 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get binCouldNotLoad => 'Impossible de charger la corbeille';
+
+  @override
+  String get askThinking => 'Je parcours vos enregistrements…';
+
+  @override
+  String askSourcesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sources',
+      one: '1 source',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askAddNote => 'Ajouter en note';
+
+  @override
+  String get askNoteSaved => 'Enregistré dans les notes';
+
+  @override
+  String get askNoteSaveFailed => 'Impossible d\'enregistrer. Réessayez.';
+
+  @override
+  String get askRegenerate => 'Régénérer';
+
+  @override
+  String get askCopied => 'Copié';
+
+  @override
+  String get askAllSaves => 'Tout';
+
+  @override
+  String get askAskingAbout => 'Question sur';
+
+  @override
+  String get askActionSaveToCollection => 'Enregistrer dans une collection';
+
+  @override
+  String get askActionSynthesize => 'Synthétiser';
+
+  @override
+  String get askActionBuildPlan => 'Créer un plan';
+
+  @override
+  String get askActionSaveItinerary => 'Enregistrer comme itinéraire';
+
+  @override
+  String get askEarlier => 'Plus tôt';
+
+  @override
+  String get askOpenNow => 'Ouvert';
+
+  @override
+  String get askNoChats => 'Aucune conversation';
+
+  @override
+  String get askNoChatsHint => 'Vos questions seront conservées ici.';
+
+  @override
+  String get askSearchChats => 'Rechercher';
+
+  @override
+  String get askNoChatsMatch => 'Aucune conversation trouvée';
+
+  @override
+  String get askChatDeleted => 'Conversation supprimée';
+
+  @override
+  String get askNewCollectionHint => 'Nommez-la, ils y seront ajoutés';
+
+  @override
+  String get askAlreadyInCollection => 'Déjà ici';
+
+  @override
+  String askSomeInCollection(int count) {
+    return '$count déjà ici';
+  }
+
+  @override
+  String askAddedToCollection(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count enregistrements ajoutés à $name',
+      one: 'Ajouté à $name',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askTryAsking => 'Essayez de demander';
+
+  @override
+  String askSuggestBigIdea(String title) {
+    return 'Quelle est l’idée principale de $title ?';
+  }
+
+  @override
+  String askSuggestTopic(String topic) {
+    return 'Qu’ai-je appris sur $topic ?';
+  }
+
+  @override
+  String get askSuggestThisWeek => 'Qu’ai-je enregistré cette semaine ?';
+
+  @override
+  String askSuggestRemind(String title) {
+    return 'Rappelle-moi de quoi parlait $title';
+  }
+
+  @override
+  String askSuggestConnect(String topic) {
+    return 'Quels liens entre mes enregistrements sur $topic ?';
+  }
+
+  @override
+  String get askHowToSave => 'Comment enregistrer un lien ?';
+
+  @override
+  String get askEditingQuestion => 'Modification de votre question';
+
+  @override
+  String get askEditingReplaces =>
+      'Modification · les réponses suivantes seront remplacées';
+
+  @override
+  String get askAskAgain => 'Redemander';
+
+  @override
+  String get askHeadBigIdea => 'L’idée principale';
+
+  @override
+  String askHeadTopic(String topic) {
+    return 'Faire le point sur $topic';
+  }
+
+  @override
+  String get askSubTopic => 'Ce que vous avez appris récemment';
+
+  @override
+  String get askHeadWeek => 'Cette semaine';
+
+  @override
+  String get askSubWeek => 'Un récap rapide';
+
+  @override
+  String get askHeadRemind => 'Redécouvrir un ancien';
+
+  @override
+  String get askHeadConnect => 'Relier les idées';
+
+  @override
+  String askSubConnect(String topic) {
+    return 'Dans vos enregistrements $topic';
+  }
+
+  @override
+  String get askHeadLibrary => 'Votre bibliothèque';
+
+  @override
+  String get askHeadStart => 'Commencer';
+
+  @override
+  String askAcrossSaves(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Posez vos questions sur vos $count enregistrements',
+      one: 'Posez vos questions sur votre enregistrement',
+    );
+    return '$_temp0';
+  }
 }

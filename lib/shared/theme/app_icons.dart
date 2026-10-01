@@ -170,6 +170,11 @@ abstract final class AppIcons {
   static const radioSelected = PhosphorIconsBold.radioButton;
   static const radioUnselected = PhosphorIconsBold.circle;
   static const refresh = PhosphorIconsBold.arrowClockwise;
+  static const stop = PhosphorIconsFill.stop;
+  static const arrowDown = PhosphorIconsBold.arrowDown;
+  static const followUp = PhosphorIconsBold.arrowBendDownRight;
+  static const newChat = PhosphorIconsBold.notePencil;
+  static const chatHistory = PhosphorIconsBold.clockCounterClockwise;
   static const removeCircle = PhosphorIconsBold.minusCircle;
   static const food = PhosphorIconsBold.forkKnife;
   static const rocket = PhosphorIconsBold.rocketLaunch;

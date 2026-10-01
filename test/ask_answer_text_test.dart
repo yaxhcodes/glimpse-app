@@ -77,4 +77,31 @@ void main() {
     expect(find.byType(InkWell), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('single-star emphasis is italic; arithmetic stays as written', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AskAnswerText(
+            text:
+                'The film *The Boy, the Mole* and 5 * 3 * 2 or snake_case_name.',
+            style: const TextStyle(fontSize: 16),
+            onCitation: (_) {},
+          ),
+        ),
+      ),
+    );
+    final rich = tester.widget<RichText>(find.byType(RichText).first);
+    final spans = <TextSpan>[];
+    rich.text.visitChildren((span) {
+      if (span is TextSpan) spans.add(span);
+      return true;
+    });
+    final italic = spans.where((s) => s.style?.fontStyle == FontStyle.italic);
+    expect(italic.map((s) => s.text), ['The Boy, the Mole']);
+    expect(rich.text.toPlainText(), contains('5 * 3 * 2'));
+    expect(rich.text.toPlainText(), contains('snake_case_name'));
+  });
 }

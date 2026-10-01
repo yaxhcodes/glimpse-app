@@ -3754,4 +3754,177 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get binCouldNotLoad => 'Could not load Bin';
+
+  @override
+  String get askThinking => 'Looking through your saves…';
+
+  @override
+  String askSourcesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sources',
+      one: '1 source',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askAddNote => 'Add as a note';
+
+  @override
+  String get askNoteSaved => 'Saved to notes';
+
+  @override
+  String get askNoteSaveFailed => 'Couldn\'t save. Try again.';
+
+  @override
+  String get askRegenerate => 'Regenerate';
+
+  @override
+  String get askCopied => 'Copied';
+
+  @override
+  String get askAllSaves => 'All saves';
+
+  @override
+  String get askAskingAbout => 'Asking about';
+
+  @override
+  String get askActionSaveToCollection => 'Save to a collection';
+
+  @override
+  String get askActionSynthesize => 'Synthesize these';
+
+  @override
+  String get askActionBuildPlan => 'Build a plan';
+
+  @override
+  String get askActionSaveItinerary => 'Save as itinerary';
+
+  @override
+  String get askEarlier => 'Earlier';
+
+  @override
+  String get askOpenNow => 'Open now';
+
+  @override
+  String get askNoChats => 'No chats yet';
+
+  @override
+  String get askNoChatsHint => 'Questions you ask will be kept here.';
+
+  @override
+  String get askSearchChats => 'Search chats';
+
+  @override
+  String get askNoChatsMatch => 'No chats match';
+
+  @override
+  String get askChatDeleted => 'Chat deleted';
+
+  @override
+  String get askNewCollectionHint => 'Name it, and these go in';
+
+  @override
+  String get askAlreadyInCollection => 'Already here';
+
+  @override
+  String askSomeInCollection(int count) {
+    return '$count already here';
+  }
+
+  @override
+  String askAddedToCollection(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Added $count saves to $name',
+      one: 'Added to $name',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askTryAsking => 'Try asking';
+
+  @override
+  String askSuggestBigIdea(String title) {
+    return 'What’s the big idea in $title?';
+  }
+
+  @override
+  String askSuggestTopic(String topic) {
+    return 'What have I learned about $topic?';
+  }
+
+  @override
+  String get askSuggestThisWeek => 'What did I save this week?';
+
+  @override
+  String askSuggestRemind(String title) {
+    return 'Remind me what $title was about';
+  }
+
+  @override
+  String askSuggestConnect(String topic) {
+    return 'How do my $topic saves connect?';
+  }
+
+  @override
+  String get askHowToSave => 'How do I save a link?';
+
+  @override
+  String get askEditingQuestion => 'Editing your question';
+
+  @override
+  String get askEditingReplaces => 'Editing · later replies will be replaced';
+
+  @override
+  String get askAskAgain => 'Ask again';
+
+  @override
+  String get askHeadBigIdea => 'Get the big idea';
+
+  @override
+  String askHeadTopic(String topic) {
+    return 'Catch up on $topic';
+  }
+
+  @override
+  String get askSubTopic => 'What you’ve been learning lately';
+
+  @override
+  String get askHeadWeek => 'This week’s saves';
+
+  @override
+  String get askSubWeek => 'A quick recap';
+
+  @override
+  String get askHeadRemind => 'Revisit an old save';
+
+  @override
+  String get askHeadConnect => 'Connect the dots';
+
+  @override
+  String askSubConnect(String topic) {
+    return 'Across your $topic saves';
+  }
+
+  @override
+  String get askHeadLibrary => 'Your library';
+
+  @override
+  String get askHeadStart => 'Get started';
+
+  @override
+  String askAcrossSaves(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ask anything across your $count saves',
+      one: 'Ask anything about your save',
+    );
+    return '$_temp0';
+  }
 }

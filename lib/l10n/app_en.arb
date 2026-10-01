@@ -1340,5 +1340,123 @@
       }
     }
   },
-  "binCouldNotLoad": "Could not load Bin"
+  "binCouldNotLoad": "Could not load Bin",
+  "askThinking": "Looking through your saves…",
+  "askSourcesCount": "{count, plural, =1{1 source} other{{count} sources}}",
+  "@askSourcesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "askAddNote": "Add as a note",
+  "askNoteSaved": "Saved to notes",
+  "askNoteSaveFailed": "Couldn't save. Try again.",
+  "askRegenerate": "Regenerate",
+  "askCopied": "Copied",
+  "askAllSaves": "All saves",
+  "askAskingAbout": "Asking about",
+  "askActionSaveToCollection": "Save to a collection",
+  "askActionSynthesize": "Synthesize these",
+  "askActionBuildPlan": "Build a plan",
+  "askActionSaveItinerary": "Save as itinerary",
+  "askEarlier": "Earlier",
+  "askOpenNow": "Open now",
+  "askNoChats": "No chats yet",
+  "askNoChatsHint": "Questions you ask will be kept here.",
+  "askSearchChats": "Search chats",
+  "askNoChatsMatch": "No chats match",
+  "askChatDeleted": "Chat deleted",
+  "askNewCollectionHint": "Name it, and these go in",
+  "askAlreadyInCollection": "Already here",
+  "askSomeInCollection": "{count} already here",
+  "@askSomeInCollection": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "askAddedToCollection": "{count, plural, =1{Added to {name}} other{Added {count} saves to {name}}}",
+  "@askAddedToCollection": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "askTryAsking": "Try asking",
+  "askSuggestBigIdea": "What’s the big idea in {title}?",
+  "@askSuggestBigIdea": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askSuggestTopic": "What have I learned about {topic}?",
+  "@askSuggestTopic": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "askSuggestThisWeek": "What did I save this week?",
+  "askSuggestRemind": "Remind me what {title} was about",
+  "@askSuggestRemind": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "askSuggestConnect": "How do my {topic} saves connect?",
+  "@askSuggestConnect": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "askHowToSave": "How do I save a link?",
+  "askEditingQuestion": "Editing your question",
+  "askEditingReplaces": "Editing · later replies will be replaced",
+  "askAskAgain": "Ask again",
+  "askHeadBigIdea": "Get the big idea",
+  "askHeadTopic": "Catch up on {topic}",
+  "@askHeadTopic": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "askSubTopic": "What you’ve been learning lately",
+  "askHeadWeek": "This week’s saves",
+  "askSubWeek": "A quick recap",
+  "askHeadRemind": "Revisit an old save",
+  "askHeadConnect": "Connect the dots",
+  "askSubConnect": "Across your {topic} saves",
+  "@askSubConnect": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "askHeadLibrary": "Your library",
+  "askHeadStart": "Get started",
+  "askAcrossSaves": "{count, plural, =1{Ask anything about your save} other{Ask anything across your {count} saves}}",
+  "@askAcrossSaves": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

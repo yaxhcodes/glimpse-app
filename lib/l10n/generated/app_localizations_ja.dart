@@ -3472,4 +3472,174 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get binCouldNotLoad => 'ゴミ箱を読み込めませんでした';
+
+  @override
+  String get askThinking => '保存したものを確認しています…';
+
+  @override
+  String askSourcesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件のソース',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askAddNote => 'メモとして追加';
+
+  @override
+  String get askNoteSaved => 'メモに保存しました';
+
+  @override
+  String get askNoteSaveFailed => '保存できませんでした。もう一度お試しください。';
+
+  @override
+  String get askRegenerate => '再生成';
+
+  @override
+  String get askCopied => 'コピーしました';
+
+  @override
+  String get askAllSaves => 'すべて';
+
+  @override
+  String get askAskingAbout => '質問の対象';
+
+  @override
+  String get askActionSaveToCollection => 'コレクションに保存';
+
+  @override
+  String get askActionSynthesize => 'まとめる';
+
+  @override
+  String get askActionBuildPlan => 'プランを作る';
+
+  @override
+  String get askActionSaveItinerary => '旅程として保存';
+
+  @override
+  String get askEarlier => 'それ以前';
+
+  @override
+  String get askOpenNow => '表示中';
+
+  @override
+  String get askNoChats => 'まだチャットはありません';
+
+  @override
+  String get askNoChatsHint => '質問はここに保存されます。';
+
+  @override
+  String get askSearchChats => 'チャットを検索';
+
+  @override
+  String get askNoChatsMatch => '一致するチャットはありません';
+
+  @override
+  String get askChatDeleted => 'チャットを削除しました';
+
+  @override
+  String get askNewCollectionHint => '名前を付けると追加されます';
+
+  @override
+  String get askAlreadyInCollection => '追加済み';
+
+  @override
+  String askSomeInCollection(int count) {
+    return '$count件は追加済み';
+  }
+
+  @override
+  String askAddedToCollection(int count, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$nameに$count件追加しました',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get askTryAsking => '質問の例';
+
+  @override
+  String askSuggestBigIdea(String title) {
+    return '$titleの要点は？';
+  }
+
+  @override
+  String askSuggestTopic(String topic) {
+    return '$topicについて何を学んだ？';
+  }
+
+  @override
+  String get askSuggestThisWeek => '今週は何を保存した？';
+
+  @override
+  String askSuggestRemind(String title) {
+    return '$titleは何についてだった？';
+  }
+
+  @override
+  String askSuggestConnect(String topic) {
+    return '$topicの保存同士はどうつながる？';
+  }
+
+  @override
+  String get askHowToSave => 'リンクはどう保存する？';
+
+  @override
+  String get askEditingQuestion => '質問を編集中';
+
+  @override
+  String get askEditingReplaces => '編集中・以降の回答は置き換えられます';
+
+  @override
+  String get askAskAgain => 'もう一度聞く';
+
+  @override
+  String get askHeadBigIdea => '要点をつかむ';
+
+  @override
+  String askHeadTopic(String topic) {
+    return '$topicをおさらい';
+  }
+
+  @override
+  String get askSubTopic => '最近学んだこと';
+
+  @override
+  String get askHeadWeek => '今週の保存';
+
+  @override
+  String get askSubWeek => 'さっと振り返る';
+
+  @override
+  String get askHeadRemind => '昔の保存を振り返る';
+
+  @override
+  String get askHeadConnect => 'つながりを見つける';
+
+  @override
+  String askSubConnect(String topic) {
+    return '$topicの保存全体から';
+  }
+
+  @override
+  String get askHeadLibrary => 'ライブラリ';
+
+  @override
+  String get askHeadStart => 'はじめる';
+
+  @override
+  String askAcrossSaves(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件の保存について何でも聞いてください',
+    );
+    return '$_temp0';
+  }
 }

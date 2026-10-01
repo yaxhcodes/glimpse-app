@@ -6501,6 +6501,276 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load Bin'**
   String get binCouldNotLoad;
+
+  /// No description provided for @askThinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking through your saves…'**
+  String get askThinking;
+
+  /// No description provided for @askSourcesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 source} other{{count} sources}}'**
+  String askSourcesCount(int count);
+
+  /// No description provided for @askAddNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Add as a note'**
+  String get askAddNote;
+
+  /// No description provided for @askNoteSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to notes'**
+  String get askNoteSaved;
+
+  /// No description provided for @askNoteSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Try again.'**
+  String get askNoteSaveFailed;
+
+  /// No description provided for @askRegenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Regenerate'**
+  String get askRegenerate;
+
+  /// No description provided for @askCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get askCopied;
+
+  /// No description provided for @askAllSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'All saves'**
+  String get askAllSaves;
+
+  /// No description provided for @askAskingAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'Asking about'**
+  String get askAskingAbout;
+
+  /// No description provided for @askActionSaveToCollection.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to a collection'**
+  String get askActionSaveToCollection;
+
+  /// No description provided for @askActionSynthesize.
+  ///
+  /// In en, this message translates to:
+  /// **'Synthesize these'**
+  String get askActionSynthesize;
+
+  /// No description provided for @askActionBuildPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Build a plan'**
+  String get askActionBuildPlan;
+
+  /// No description provided for @askActionSaveItinerary.
+  ///
+  /// In en, this message translates to:
+  /// **'Save as itinerary'**
+  String get askActionSaveItinerary;
+
+  /// No description provided for @askEarlier.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier'**
+  String get askEarlier;
+
+  /// No description provided for @askOpenNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Open now'**
+  String get askOpenNow;
+
+  /// No description provided for @askNoChats.
+  ///
+  /// In en, this message translates to:
+  /// **'No chats yet'**
+  String get askNoChats;
+
+  /// No description provided for @askNoChatsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Questions you ask will be kept here.'**
+  String get askNoChatsHint;
+
+  /// No description provided for @askSearchChats.
+  ///
+  /// In en, this message translates to:
+  /// **'Search chats'**
+  String get askSearchChats;
+
+  /// No description provided for @askNoChatsMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No chats match'**
+  String get askNoChatsMatch;
+
+  /// No description provided for @askChatDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat deleted'**
+  String get askChatDeleted;
+
+  /// No description provided for @askNewCollectionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Name it, and these go in'**
+  String get askNewCollectionHint;
+
+  /// No description provided for @askAlreadyInCollection.
+  ///
+  /// In en, this message translates to:
+  /// **'Already here'**
+  String get askAlreadyInCollection;
+
+  /// No description provided for @askSomeInCollection.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} already here'**
+  String askSomeInCollection(int count);
+
+  /// No description provided for @askAddedToCollection.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Added to {name}} other{Added {count} saves to {name}}}'**
+  String askAddedToCollection(int count, String name);
+
+  /// No description provided for @askTryAsking.
+  ///
+  /// In en, this message translates to:
+  /// **'Try asking'**
+  String get askTryAsking;
+
+  /// No description provided for @askSuggestBigIdea.
+  ///
+  /// In en, this message translates to:
+  /// **'What’s the big idea in {title}?'**
+  String askSuggestBigIdea(String title);
+
+  /// No description provided for @askSuggestTopic.
+  ///
+  /// In en, this message translates to:
+  /// **'What have I learned about {topic}?'**
+  String askSuggestTopic(String topic);
+
+  /// No description provided for @askSuggestThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'What did I save this week?'**
+  String get askSuggestThisWeek;
+
+  /// No description provided for @askSuggestRemind.
+  ///
+  /// In en, this message translates to:
+  /// **'Remind me what {title} was about'**
+  String askSuggestRemind(String title);
+
+  /// No description provided for @askSuggestConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'How do my {topic} saves connect?'**
+  String askSuggestConnect(String topic);
+
+  /// No description provided for @askHowToSave.
+  ///
+  /// In en, this message translates to:
+  /// **'How do I save a link?'**
+  String get askHowToSave;
+
+  /// No description provided for @askEditingQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing your question'**
+  String get askEditingQuestion;
+
+  /// No description provided for @askEditingReplaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing · later replies will be replaced'**
+  String get askEditingReplaces;
+
+  /// No description provided for @askAskAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask again'**
+  String get askAskAgain;
+
+  /// No description provided for @askHeadBigIdea.
+  ///
+  /// In en, this message translates to:
+  /// **'Get the big idea'**
+  String get askHeadBigIdea;
+
+  /// No description provided for @askHeadTopic.
+  ///
+  /// In en, this message translates to:
+  /// **'Catch up on {topic}'**
+  String askHeadTopic(String topic);
+
+  /// No description provided for @askSubTopic.
+  ///
+  /// In en, this message translates to:
+  /// **'What you’ve been learning lately'**
+  String get askSubTopic;
+
+  /// No description provided for @askHeadWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This week’s saves'**
+  String get askHeadWeek;
+
+  /// No description provided for @askSubWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'A quick recap'**
+  String get askSubWeek;
+
+  /// No description provided for @askHeadRemind.
+  ///
+  /// In en, this message translates to:
+  /// **'Revisit an old save'**
+  String get askHeadRemind;
+
+  /// No description provided for @askHeadConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect the dots'**
+  String get askHeadConnect;
+
+  /// No description provided for @askSubConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Across your {topic} saves'**
+  String askSubConnect(String topic);
+
+  /// No description provided for @askHeadLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Your library'**
+  String get askHeadLibrary;
+
+  /// No description provided for @askHeadStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get askHeadStart;
+
+  /// No description provided for @askAcrossSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Ask anything about your save} other{Ask anything across your {count} saves}}'**
+  String askAcrossSaves(int count);
 }
 
 class _AppLocalizationsDelegate
