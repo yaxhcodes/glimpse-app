@@ -25,11 +25,17 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen>
     with SingleTickerProviderStateMixin {
   late final PageController _pageController;
 
-  /// Settles a released swipe on the M3 Expressive spatial spring, carrying
-  /// the finger's speed: into the next page, a touch past, and back.
+  /// Settles a released swipe on the deck's spring, carrying the finger's
+  /// speed into the page it lands on.
   late final AnimationController _settle = AnimationController.unbounded(
     vsync: this,
   )..addListener(_followSettle);
+
+  /// Where [_settle] started and is headed. The page stays between them even
+  /// if a fast flick would carry the spring past: overshooting shows a
+  /// sliver of the page beyond.
+  double _settleFrom = 0;
+  double _settleTarget = 0;
   late int _currentIndex;
 
   // Drag tracking for custom horizontal-swipe detection.
@@ -79,8 +85,13 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen>
 
   void _followSettle() {
     if (!_pageController.hasClients) return;
-    final max = _pageController.position.maxScrollExtent;
-    _pageController.jumpTo(_settle.value.clamp(0.0, max));
+    final from = _settleFrom;
+    final target = _settleTarget;
+    _pageController.jumpTo(
+      from < target
+          ? _settle.value.clamp(from, target)
+          : _settle.value.clamp(target, from),
+    );
   }
 
   void _onDragStart(DragStartDetails d) {
@@ -148,11 +159,13 @@ class _UrlDetailPagerScreenState extends State<UrlDetailPagerScreen>
       _pageController.jumpTo(target);
       return;
     }
-    _settle.value = _pageController.offset;
+    _settleFrom = _pageController.offset;
+    _settleTarget = target;
+    _settle.value = _settleFrom;
     _settle
         .animateWith(
           SpringSimulation(
-            AppMotion.spatialDefault,
+            SwipeDeckPhysics.settleSpring,
             _pageController.offset,
             target,
             // The finger moving right scrolls the pages left.

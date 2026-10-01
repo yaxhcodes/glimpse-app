@@ -82,7 +82,6 @@ import 'url_detail_provider.dart';
 import '../../shared/widgets/card_open_transition.dart';
 import '../../l10n/l10n.dart';
 import 'package:flutter/physics.dart';
-import '../../shared/theme/app_motion.dart';
 import '../../shared/widgets/swipe_deck.dart';
 import '../../core/services/app_haptics.dart';
 
@@ -1695,7 +1694,7 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
           onPressed: () => _showAddToCollection(url),
         ),
         PopupMenuButton<String>(
-          icon: const Icon(AppIcons.more),
+          icon: const Icon(AppIcons.more, size: 26),
           tooltip: context.l10n.more,
           onSelected: (value) {
             if (value == 'copy_link') {

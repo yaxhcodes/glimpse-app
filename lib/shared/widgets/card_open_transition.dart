@@ -617,7 +617,10 @@ class _CardOpenState extends State<_CardOpen>
 
   void _becomeOpen() {
     if (!mounted) return;
-    setState(() => _phase = _Phase.open);
+    setState(() {
+      _phase = _Phase.open;
+      _widthLeads = false;
+    });
     widget.route._finishOpen();
   }
 
@@ -719,6 +722,23 @@ class _CardOpenState extends State<_CardOpen>
     }
   }
 
+  /// Set while opening, and kept by a close that interrupts it so the
+  /// window doesn't jump: on the way open the width leads, so a narrow card
+  /// (a grid tile) is full width while it is still growing tall instead of
+  /// opening through a slot onto a corner of the page. Closing and the back
+  /// gesture move both edges together, back into the card.
+  bool _widthLeads = true;
+
+  Rect _openRect(Rect begin, Rect full, double p) {
+    final px = _widthLeads && p < 1 ? 1 - math.pow(1 - p, 3).toDouble() : p;
+    return Rect.fromLTRB(
+      lerpDouble(begin.left, full.left, px)!,
+      lerpDouble(begin.top, full.top, p)!,
+      lerpDouble(begin.right, full.right, px)!,
+      lerpDouble(begin.bottom, full.bottom, p)!,
+    );
+  }
+
   static double _interval(double t, double begin, double end, [Curve? curve]) {
     final v = ((t - begin) / (end - begin)).clamp(0.0, 1.0);
     return curve == null ? v : curve.transform(v);
@@ -782,7 +802,7 @@ class _CardOpenState extends State<_CardOpen>
               width: size.width - 32,
               height: 0,
             );
-        final rect = reduceMotion ? full : Rect.lerp(begin, full, p)!;
+        final rect = reduceMotion ? full : _openRect(begin, full, p);
         final beginRadius = origin?.radius ?? 28;
         final radius = reduceMotion || settled
             ? 0.0

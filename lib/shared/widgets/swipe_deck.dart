@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/services/app_haptics.dart';
-import '../theme/app_motion.dart';
 
 /// Swiping between full pages (Details, a Library item) as a deck of cards:
 /// while a swipe is under way the pages pull in from the screen's edges and
@@ -179,15 +178,19 @@ class _InsetClipper extends CustomClipper<RRect> {
       old.inset != inset || old.radius != radius;
 }
 
-/// Page snapping on the M3 Expressive spatial spring: a fling carries into
-/// the next page, a touch past it, and settles.
+/// Page snapping on the spatial spring's stiffness, critically damped: a
+/// fling carries into the next page and settles there. Never past it — a
+/// page that overshoots shows a sliver of the page after it at the edge.
 class SwipeDeckPhysics extends PageScrollPhysics {
   const SwipeDeckPhysics({super.parent});
+
+  static final SpringDescription settleSpring =
+      SpringDescription.withDampingRatio(mass: 1, stiffness: 380, ratio: 1);
 
   @override
   SwipeDeckPhysics applyTo(ScrollPhysics? ancestor) =>
       SwipeDeckPhysics(parent: buildParent(ancestor));
 
   @override
-  SpringDescription get spring => AppMotion.spatialDefault;
+  SpringDescription get spring => settleSpring;
 }
