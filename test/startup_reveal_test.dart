@@ -29,6 +29,69 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  group('splash geometry matches the system splash', () {
+    test('Android 12+ hidden gesture bar: branding 60dp from the edge', () {
+      final g = StartupReveal.splashGeometry(
+        edgeToEdgeSplash: true,
+        viewHeight: 941,
+        screenHeight: 941,
+        bottomPadding: 0,
+      );
+      expect(g.overhang, 0);
+      expect(g.brandingBottom, 60);
+    });
+
+    test('Android 15+ edge to edge ignores the nav bar padding', () {
+      final g = StartupReveal.splashGeometry(
+        edgeToEdgeSplash: true,
+        viewHeight: 915,
+        screenHeight: 915,
+        bottomPadding: 48,
+      );
+      expect(g.overhang, 0);
+      expect(g.brandingBottom, 60);
+    });
+
+    test('Android 12-14 nav bar: overlay reaches under it', () {
+      final g = StartupReveal.splashGeometry(
+        edgeToEdgeSplash: true,
+        viewHeight: 867,
+        screenHeight: 915,
+        bottomPadding: 0,
+      );
+      expect(g.overhang, 48);
+      expect(g.brandingBottom, 60);
+    });
+
+    test('short windows shrink, then hide, the branding like AOSP', () {
+      final short = StartupReveal.splashGeometry(
+        edgeToEdgeSplash: true,
+        viewHeight: 411,
+        screenHeight: 411,
+        bottomPadding: 0,
+      );
+      expect(short.brandingBottom, closeTo(14.75, 0.01));
+      final tiny = StartupReveal.splashGeometry(
+        edgeToEdgeSplash: true,
+        viewHeight: 300,
+        screenHeight: 300,
+        bottomPadding: 0,
+      );
+      expect(tiny.brandingBottom, isNull);
+    });
+
+    test('pre-12 launch background keeps 40dp above the nav bar', () {
+      final g = StartupReveal.splashGeometry(
+        edgeToEdgeSplash: false,
+        viewHeight: 867,
+        screenHeight: 915,
+        bottomPadding: 0,
+      );
+      expect(g.overhang, 0);
+      expect(g.brandingBottom, 40);
+    });
+  });
+
   testWidgets('keeps the destination mounted and plays only once', (
     tester,
   ) async {
