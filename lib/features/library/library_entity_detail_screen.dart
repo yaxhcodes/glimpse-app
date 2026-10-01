@@ -506,29 +506,48 @@ class _MediaHero extends StatelessWidget {
                 )
               else
                 SizedBox(
-                  width: double.infinity,
                   height: 52,
-                  child: entity.status == LibraryItemStatus.unlisted
-                      ? FilledButton.icon(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: entity.status == LibraryItemStatus.unlisted
+                            ? FilledButton.icon(
+                                onPressed: () {
+                                  AppHaptics.play(AppHaptics.tick);
+                                  _chooseStatus(context);
+                                },
+                                icon: AppIcon(
+                                  libraryStatusIcon(entity.status, entity.kind),
+                                ),
+                                label: Text(_statusLabel(context)),
+                              )
+                            : FilledButton.tonalIcon(
+                                onPressed: () {
+                                  AppHaptics.play(AppHaptics.tick);
+                                  _chooseStatus(context);
+                                },
+                                icon: AppIcon(
+                                  libraryStatusIcon(entity.status, entity.kind),
+                                ),
+                                label: Text(_statusLabel(context)),
+                              ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Square, so the status keeps the width its label needs.
+                      AspectRatio(
+                        aspectRatio: 1,
+                        child: IconButton.filledTonal(
                           onPressed: () {
-                            AppHaptics.play(AppHaptics.tick);
-                            _chooseStatus(context);
+                            AppHaptics.play(AppHaptics.tap);
+                            _searchWeb(context);
                           },
-                          icon: AppIcon(
-                            libraryStatusIcon(entity.status, entity.kind),
-                          ),
-                          label: Text(_statusLabel(context)),
-                        )
-                      : FilledButton.tonalIcon(
-                          onPressed: () {
-                            AppHaptics.play(AppHaptics.tick);
-                            _chooseStatus(context);
-                          },
-                          icon: AppIcon(
-                            libraryStatusIcon(entity.status, entity.kind),
-                          ),
-                          label: Text(_statusLabel(context)),
+                          tooltip: context.l10n.searchForResource,
+                          icon: const Icon(AppIcons.search),
                         ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -548,6 +567,30 @@ class _MediaHero extends StatelessWidget {
     final selected = await showLibraryStatusPicker(context, entity: entity);
     if (selected == null || selected == entity.status) return;
     await onStatusChanged(selected);
+  }
+
+  /// A web search pinned to this exact title: the year tells a film from its
+  /// remakes, the author tells a book from others that share its name, and
+  /// the subtype keeps a series from landing on a film of the same name.
+  Future<void> _searchWeb(BuildContext context) async {
+    final isBook = entity.kind == LibraryEntityKind.book;
+    final qualifier = isBook ? entity.mention.creator : entity.mention.year;
+    final subtype = entity.mention.subtype?.trim() ?? '';
+    final query = [
+      entity.title,
+      qualifier,
+      subtype.isNotEmpty ? subtype : (isBook ? 'book' : 'film'),
+    ].map((part) => part?.trim() ?? '').where((p) => p.isNotEmpty).join(' ');
+    final uri = Uri.https('www.google.com', '/search', {'q': query});
+    var opened = false;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.couldNotOpenLink)));
+    }
   }
 }
 
