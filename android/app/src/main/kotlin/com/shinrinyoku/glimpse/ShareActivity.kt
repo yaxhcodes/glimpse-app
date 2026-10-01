@@ -23,7 +23,7 @@ class ShareActivity : MainActivity() {
 
     override fun createFlutterFragment(): FlutterFragment =
         FlutterFragment.NewEngineFragmentBuilder(ShareCaptureFragment::class.java)
-            .initialRoute("/share")
+            .initialRoute(shareRoute())
             .dartEntrypoint(getDartEntrypointFunctionName())
             .appBundlePath(getAppBundlePath())
             .flutterShellArgs(FlutterShellArgs.fromIntent(intent))
@@ -62,7 +62,15 @@ class ShareActivity : MainActivity() {
         pendingEnrichment.clear()
     }
 
-    override fun getInitialRoute(): String = "/share"
+    override fun getInitialRoute(): String = shareRoute()
+
+    /** The Vault alias opens the same surface, filing into the Vault. */
+    private fun shareRoute(): String =
+        if (intent?.component?.className?.endsWith(".VaultShareActivity") == true) {
+            "/share-vault"
+        } else {
+            "/share"
+        }
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
     override fun getRenderMode(): RenderMode = RenderMode.texture
 }

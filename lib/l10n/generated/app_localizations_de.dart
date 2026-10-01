@@ -3980,4 +3980,199 @@ class AppLocalizationsDe extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get vault => 'Tresor';
+
+  @override
+  String get vaultSubtitle => 'Private Saves, hinter der Sperre deines Handys';
+
+  @override
+  String get vaultLockedTitle => 'Dein Tresor ist gesperrt';
+
+  @override
+  String get vaultLockedBody =>
+      'Nur du kannst ihn öffnen – mit Fingerabdruck, Gesicht oder Displaysperre.';
+
+  @override
+  String get vaultUnlock => 'Entsperren';
+
+  @override
+  String get vaultUnlockPromptTitle => 'Tresor entsperren';
+
+  @override
+  String get vaultUnlockPromptSubtitle =>
+      'Bestätige, dass du es bist, um deine privaten Saves zu sehen';
+
+  @override
+  String get vaultUnlockLockout =>
+      'Zu viele Versuche. Versuche es gleich noch einmal.';
+
+  @override
+  String get vaultUnlockFailed =>
+      'Entsperren fehlgeschlagen. Versuche es noch einmal.';
+
+  @override
+  String vaultItemCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count private Saves',
+      one: '1 privater Save',
+      zero: 'Leer',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultEmptyTitle => 'Noch nichts in deinem Tresor';
+
+  @override
+  String get vaultEmptyBody =>
+      'Teile einen Link und wähle Tresor – oder verschiebe einen Save über sein Menü hierher.';
+
+  @override
+  String get vaultNoScreenLockTitle => 'Richte zuerst eine Displaysperre ein';
+
+  @override
+  String get vaultNoScreenLockBody =>
+      'Der Tresor nutzt die Sperre deines Handys. Lege in den Einstellungen eine PIN, ein Muster oder ein Passwort fest und komm dann zurück.';
+
+  @override
+  String get vaultInvalidatedTitle => 'Dieser Tresor lässt sich nicht öffnen';
+
+  @override
+  String get vaultInvalidatedBody =>
+      'Die Displaysperre wurde entfernt oder dies ist ein anderes Handy – Android hat den Schlüssel des Tresors gelöscht. Setze den Tresor zurück, um neu anzufangen.';
+
+  @override
+  String get vaultReset => 'Tresor zurücksetzen';
+
+  @override
+  String get vaultResetQuestion => 'Tresor zurücksetzen?';
+
+  @override
+  String get vaultResetBody =>
+      'Alles im Tresor wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.';
+
+  @override
+  String get vaultResetDone => 'Tresor zurückgesetzt';
+
+  @override
+  String get vaultHowItWorks => 'So funktioniert der Tresor';
+
+  @override
+  String get vaultHowLock =>
+      'Gesperrt von deinem Handy: Nur Fingerabdruck, Gesicht oder Displaysperre öffnen ihn.';
+
+  @override
+  String get vaultHowLocal =>
+      'Bleibt auf diesem Handy: Links im Tresor gehen nie an Glimpses Server oder KI und sind nicht in Backups.';
+
+  @override
+  String get vaultHowHidden =>
+      'Außer Sicht: Nichts davon erscheint in Suche, Rediscover, Bibliothek oder Ask.';
+
+  @override
+  String get vaultHowLoss =>
+      'Verlierst du das Handy oder entfernst die Displaysperre, ist auch der Inhalt des Tresors weg.';
+
+  @override
+  String get vaultMoveTo => 'In den Tresor';
+
+  @override
+  String get vaultMoveQuestion => 'In deinen Tresor verschieben?';
+
+  @override
+  String get vaultMoveBody =>
+      'Link, Titel und Notiz kommen hinein und öffnen sich nur mit der Sperre deines Handys. Der Save verschwindet aus Saves, Suche und Bibliothek; die Zusammenfassung bleibt zurück.';
+
+  @override
+  String get vaultMoved => 'In den Tresor verschoben';
+
+  @override
+  String get vaultMoveOut => 'Aus dem Tresor holen';
+
+  @override
+  String get vaultMovedOut => 'Wieder in deinen Saves';
+
+  @override
+  String get vaultCouldNotMove =>
+      'Verschieben fehlgeschlagen. Versuche es noch einmal.';
+
+  @override
+  String get vaultProTitle => 'Der Tresor gehört zu Glimpse Pro';
+
+  @override
+  String get vaultProBody =>
+      'Bewahre private Links hinter der Sperre deines Handys auf – nur auf diesem Gerät.';
+
+  @override
+  String get vaultSeePro => 'Pro ansehen';
+
+  @override
+  String get savedToVault => 'Im Tresor gespeichert';
+
+  @override
+  String get vaultNeedsPro => 'Der Tresor braucht Glimpse Pro';
+
+  @override
+  String get vaultCouldNotSave => 'Speichern im Tresor fehlgeschlagen';
+
+  @override
+  String vaultUnreadable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Elemente ließen sich diesmal nicht öffnen',
+      one: '1 Element ließ sich diesmal nicht öffnen',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultLock => 'Sperren';
+
+  @override
+  String get vaultDeleteQuestion => 'Aus dem Tresor löschen?';
+
+  @override
+  String get vaultDeleteBody =>
+      'Es wird endgültig gelöscht. Tresor-Elemente landen nicht im Papierkorb.';
+
+  @override
+  String get vaultDeleted => 'Aus dem Tresor gelöscht';
+
+  @override
+  String get vaultEditNote => 'Notiz bearbeiten';
+
+  @override
+  String get vaultName => 'Name';
+
+  @override
+  String get vaultNamePanelTitle => 'Benenne es, damit du es wiederfindest';
+
+  @override
+  String vaultNamedAs(String name) {
+    return 'Gespeichert als „$name“';
+  }
+
+  @override
+  String get vaultRename => 'Umbenennen';
+
+  @override
+  String get vaultSearch => 'Tresor durchsuchen';
+
+  @override
+  String get vaultNoMatches => 'Nichts im Tresor passt dazu';
+
+  @override
+  String get vaultResetPromptSubtitle =>
+      'Bestätige, dass du es bist, um alles darin zu löschen';
+
+  @override
+  String get vaultFootnote => 'Nur auf diesem Handy · nie hochgeladen';
+
+  @override
+  String get vaultLocksOnLeave => 'Sperrt sich, wenn du gehst';
 }

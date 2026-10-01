@@ -28,6 +28,17 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <!-- A second share target that files straight into the locked Vault. -->
+        <activity-alias
+            android:name="com.shinrinyoku.glimpse.VaultShareActivity"
+            android:targetActivity="com.shinrinyoku.glimpse.ShareActivity"
+            android:exported="true">
+            <intent-filter android:label="Vault">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
         <activity
             android:name="com.shinrinyoku.glimpse.MainActivity"
             android:exported="true"

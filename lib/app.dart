@@ -49,6 +49,9 @@ import 'features/collections/collections_screen.dart';
 import 'features/collections/collections_provider.dart';
 import 'features/collections/create_collection_screen.dart';
 import 'features/collections/share_capture_sheet.dart';
+import 'features/vault/vault_provider.dart';
+import 'features/vault/vault_screen.dart';
+import 'core/services/vault/vault_repository.dart';
 import 'features/library/library_browser_screen.dart';
 import 'features/library/library_entity.dart';
 import 'features/library/library_entity_detail_screen.dart';
@@ -101,8 +104,16 @@ final sharedUrlProvider = StateProvider<String?>((ref) => null);
 /// Root navigator for notification deep links.
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-bool get _isShareSurface =>
-    WidgetsBinding.instance.platformDispatcher.defaultRouteName == '/share';
+bool get _isShareSurface => _shareRoutes.contains(
+  WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+);
+
+/// The share sheet's "Vault" target: the same surface, filing into the Vault.
+bool get _isVaultShare =>
+    WidgetsBinding.instance.platformDispatcher.defaultRouteName ==
+    '/share-vault';
+
+const _shareRoutes = {'/share', '/share-vault'};
 
 // GoRouter configuration — needs to be accessible for programmatic navigation
 final _router = GoRouter(
@@ -116,6 +127,7 @@ final _router = GoRouter(
       builder: (context, state) => const SizedBox.expand(),
     ),
     GoRoute(path: '/', builder: (context, state) => const _RootGate()),
+    GoRoute(path: '/vault', builder: (context, state) => const VaultScreen()),
     GoRoute(
       path: '/add',
       builder: (context, state) {
@@ -587,6 +599,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         case AppShortcutAction.rediscover:
           _router.push('/rediscover');
           break;
+        case AppShortcutAction.vault:
+          _router.push('/vault');
+          break;
         case AppShortcutAction.search:
           break;
       }
@@ -644,6 +659,12 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       }
 
       _pendingSharedUrls = null;
+      if (_isVaultShare) {
+        if (await _shareToVault(urls)) return;
+        final movedToBackground = await AppTaskService().moveToBackground();
+        if (!movedToBackground) await SystemNavigator.pop();
+        return;
+      }
       if (urls.length > 1) {
         // Multi-share → batch preview
         _router.push('/batch-save', extra: urls);
@@ -669,6 +690,93 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     } finally {
       _processingSharedUrls = false;
     }
+  }
+
+  /// Files [urls] into the Vault from the share sheet. True when it handed
+  /// off to the app (to see Pro) instead of finishing.
+  Future<bool> _shareToVault(List<String> urls) async {
+    final context = _router.routerDelegate.navigatorKey.currentContext;
+    if (context == null || !context.mounted) return false;
+    final strings = context.l10n;
+    final repository = ref.read(vaultRepositoryProvider);
+    var handedOff = false;
+
+    ShareCaptureBlock? block;
+    if (!await canAddToVault(liveIsPro: ref.read(isProUserProvider))) {
+      block = ShareCaptureBlock(
+        message: strings.vaultNeedsPro,
+        action: strings.vaultSeePro,
+        onAction: () {
+          handedOff = true;
+          unawaited(AppTaskService().openVault());
+        },
+      );
+    } else {
+      try {
+        final device = await repository.deviceStatus();
+        if (!device.hasScreenLock) {
+          block = ShareCaptureBlock(message: strings.vaultNoScreenLockTitle);
+        } else if (device.keyInvalidated) {
+          block = ShareCaptureBlock(message: strings.vaultInvalidatedTitle);
+        }
+      } catch (error, stackTrace) {
+        developer.log(
+          'Vault status unavailable; trying the save anyway.',
+          name: 'ShareIntent',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+    if (!context.mounted) return false;
+
+    final filed = <(int, String)>[];
+    String? name;
+    String? note;
+    // A name or note given on the pill seals the item again with both.
+    Future<ShareCaptureOutcome> refile() async {
+      for (final (id, url) in filed) {
+        await repository.rewrite(
+          id,
+          VaultPayload(url: url, title: name, note: note),
+        );
+      }
+      return const ShareCaptureOutcome(type: ShareCaptureOutcomeType.captured);
+    }
+
+    await showShareCapture(
+      context,
+      vault: true,
+      block: block,
+      onCapture: (_, _) async {
+        try {
+          for (final url in urls) {
+            if (filed.any((item) => item.$2 == url)) continue;
+            filed.add((await repository.add(url: url), url));
+          }
+          return const ShareCaptureOutcome(
+            type: ShareCaptureOutcomeType.captured,
+          );
+        } catch (error, stackTrace) {
+          developer.log(
+            'Could not file the share into the Vault.',
+            name: 'ShareIntent',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          return const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
+        }
+      },
+      onUpdate: (_, value) {
+        note = value;
+        return refile();
+      },
+      onRename: (value) {
+        name = value;
+        return refile();
+      },
+    );
+    return handedOff;
   }
 
   Future<ShareCaptureOutcome?> _showShareCapturePrompt(String url) async {

@@ -46,28 +46,51 @@ class ShareCaptureOutcome {
   bool get saved => type != ShareCaptureOutcomeType.error;
 }
 
+/// Why the pill can't save: it says so instead, with an optional way on.
+class ShareCaptureBlock {
+  const ShareCaptureBlock({required this.message, this.action, this.onAction});
+
+  final String message;
+  final String? action;
+  final VoidCallback? onAction;
+}
+
 typedef ShareCaptureCallback =
     Future<ShareCaptureOutcome> Function(
       UserCollection? collection,
       String? notes,
     );
 
+typedef ShareCaptureRename = Future<ShareCaptureOutcome> Function(String name);
+
 /// Saves a shared link the moment it opens, then shows the "Saved to Glimpse"
 /// pill with a collection and a note as optional edits. The pill gets out of
 /// the way on its own; tapping anywhere else closes it at once (after the
 /// save has landed).
+///
+/// [vault] files into the Vault instead: a lock, and a name ([onRename])
+/// and a note as the edits, since nothing names a vault item but its owner.
+/// [block] shows why nothing can be saved, and saves nothing.
 Future<ShareCaptureOutcome?> showShareCapture(
   BuildContext context, {
   required ShareCaptureCallback onCapture,
   ShareCaptureCallback? onUpdate,
+  ShareCaptureRename? onRename,
+  bool vault = false,
+  ShareCaptureBlock? block,
 }) {
   return showGeneralDialog<ShareCaptureOutcome>(
     context: context,
     useRootNavigator: true,
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 320),
-    pageBuilder: (_, _, _) =>
-        _ShareCapture(onCapture: onCapture, onUpdate: onUpdate ?? onCapture),
+    pageBuilder: (_, _, _) => _ShareCapture(
+      onCapture: onCapture,
+      onUpdate: onUpdate ?? onCapture,
+      onRename: onRename,
+      vault: vault,
+      block: block,
+    ),
     transitionBuilder: (_, animation, _, child) {
       final curved = CurvedAnimation(
         parent: animation,
@@ -88,13 +111,22 @@ Future<ShareCaptureOutcome?> showShareCapture(
   );
 }
 
-enum _Panel { pill, collections, note }
+enum _Panel { pill, collections, note, name }
 
 class _ShareCapture extends ConsumerStatefulWidget {
-  const _ShareCapture({required this.onCapture, required this.onUpdate});
+  const _ShareCapture({
+    required this.onCapture,
+    required this.onUpdate,
+    this.onRename,
+    this.vault = false,
+    this.block,
+  });
 
   final ShareCaptureCallback onCapture;
   final ShareCaptureCallback onUpdate;
+  final ShareCaptureRename? onRename;
+  final bool vault;
+  final ShareCaptureBlock? block;
 
   @override
   ConsumerState<_ShareCapture> createState() => _ShareCaptureState();
@@ -102,6 +134,7 @@ class _ShareCapture extends ConsumerStatefulWidget {
 
 class _ShareCaptureState extends ConsumerState<_ShareCapture> {
   final _noteController = TextEditingController();
+  final _nameController = TextEditingController();
   UserCollection? _collection;
   late final Future<UserCollection?> _defaultCollectionFuture;
   _Panel _panel = _Panel.pill;
@@ -119,20 +152,30 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
   bool _closed = false;
   ShareCaptureOutcome? _outcome;
   String? _confirmation;
-  bool _filed = false;
+  // In the Vault there are no collections; this slot is the name instead.
+  late bool _filed = widget.vault && widget.onRename == null;
   bool _noted = false;
   Timer? _closeTimer;
 
   @override
   void initState() {
     super.initState();
-    _defaultCollectionFuture = _prepareDefaultCollection();
-    unawaited(_captureDefault());
+    _defaultCollectionFuture = widget.vault
+        ? Future.value(null)
+        : _prepareDefaultCollection();
+    if (widget.block == null) {
+      unawaited(_captureDefault());
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scheduleClose(_linger);
+      });
+    }
   }
 
   @override
   void dispose() {
     _noteController.dispose();
+    _nameController.dispose();
     _closeTimer?.cancel();
     super.dispose();
   }
@@ -210,10 +253,14 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     if (_closeWhenSaved) _close();
   }
 
-  /// Edits the save that already landed: [collection] moves it, [note] is
-  /// appended. The pill comes back confirming it, still offering whichever
-  /// edit hasn't been made.
-  Future<void> _update({UserCollection? collection, String? note}) async {
+  /// Edits the save that already landed: [collection] moves it (or, in the
+  /// Vault, [name] names it), [note] is appended. The pill comes back
+  /// confirming it, still offering whichever edit hasn't been made.
+  Future<void> _update({
+    UserCollection? collection,
+    String? note,
+    String? name,
+  }) async {
     final landed = _landed;
     if (_editing || landed == null || !mounted) return;
     setState(() {
@@ -227,7 +274,10 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
       return;
     }
     final target = collection ?? _collection;
-    final outcome = await _run(widget.onUpdate, target, note);
+    final rename = widget.onRename;
+    final outcome = name != null && rename != null
+        ? await _run((_, _) => rename(name), null, null)
+        : await _run(widget.onUpdate, target, note);
     if (!mounted) return;
     if (!outcome.saved) {
       setState(() {
@@ -239,15 +289,18 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     }
     AppHaptics.play(AppHaptics.success);
     _noteController.clear();
+    _nameController.clear();
     final strings = context.l10n;
     setState(() {
       _outcome = outcome;
       _collection = target;
       _editing = false;
       _panel = _Panel.pill;
-      if (collection != null) _filed = true;
+      if (collection != null || name != null) _filed = true;
       if (note != null) _noted = true;
-      _confirmation = collection != null
+      _confirmation = name != null
+          ? strings.vaultNamedAs(name)
+          : collection != null
           ? strings.savedToCollection(collection.name)
           : strings.noteAdded;
     });
@@ -281,6 +334,12 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
       unawaited(_update(note: note));
       return;
     }
+    final name = _nameController.text.trim();
+    if (_panel == _Panel.name && name.isNotEmpty && !_captureFailed) {
+      _closeWhenSaved = true;
+      unawaited(_update(name: name));
+      return;
+    }
     _closed = true;
     _closeTimer?.cancel();
     Navigator.of(context).pop(_outcome);
@@ -306,6 +365,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
 
   void _backToPill() {
     _noteController.clear();
+    _nameController.clear();
     setState(() {
       _panel = _Panel.pill;
       _editFailed = false;
@@ -398,6 +458,7 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
             _Panel.pill => _pill(context),
             _Panel.collections => _collectionsPanel(context),
             _Panel.note => _notePanel(context),
+            _Panel.name => _namePanel(context),
           },
         ),
       ),
@@ -410,10 +471,16 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
     final strings = context.l10n;
     final outcome = _outcome;
     final confirmation = _confirmation;
+    final block = widget.block;
+    if (block != null) return _blockedPill(context, block);
     final title = _captureFailed
-        ? strings.captureCouldNotSave
+        ? (widget.vault
+              ? strings.vaultCouldNotSave
+              : strings.captureCouldNotSave)
         : confirmation ??
-              (outcome?.type == ShareCaptureOutcomeType.duplicate
+              (widget.vault
+                  ? strings.savedToVault
+                  : outcome?.type == ShareCaptureOutcomeType.duplicate
                   ? strings.alreadyInGlimpse
                   : strings.savedToGlimpse);
 
@@ -434,6 +501,8 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
                   color: colors.onInverseSurface,
                 ),
               )
+            else if (widget.vault)
+              _VaultGlyph(color: colors.inversePrimary)
             else
               const SavedToastIcon(),
             const SizedBox(width: 10),
@@ -459,8 +528,9 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
             else if (!(_filed && _noted)) ...[
               if (!_filed)
                 _PillAction(
-                  label: strings.collection,
-                  onPressed: () => _open(_Panel.collections),
+                  label: widget.vault ? strings.vaultName : strings.collection,
+                  onPressed: () =>
+                      _open(widget.vault ? _Panel.name : _Panel.collections),
                 ),
               if (!_noted)
                 _PillAction(
@@ -476,6 +546,50 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
                   color: colors.inversePrimary,
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _blockedPill(BuildContext context, ShareCaptureBlock block) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final onAction = block.onAction;
+    return ConstrainedBox(
+      key: const ValueKey('blocked'),
+      constraints: const BoxConstraints(minHeight: 56),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(15, 6, 6, 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _VaultGlyph(color: colors.inversePrimary),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  block.message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colors.onInverseSurface,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            if (block.action != null && onAction != null)
+              _PillAction(
+                label: block.action!,
+                onPressed: () {
+                  _close();
+                  onAction();
+                },
+              )
+            else
+              const SizedBox(width: 10),
           ],
         ),
       ),
@@ -506,6 +620,62 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
                   unawaited(_update(collection: collection));
                 }
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _namePanel(BuildContext context) {
+    final strings = context.l10n;
+    return Padding(
+      key: const ValueKey('name'),
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PanelHeader(
+            title: strings.vaultNamePanelTitle,
+            onClose: _backToPill,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextField(
+              controller: _nameController,
+              autofocus: true,
+              enabled: !_editing,
+              maxLength: 120,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (value) {
+                final name = value.trim();
+                if (name.isNotEmpty) unawaited(_update(name: name));
+              },
+              decoration: const InputDecoration(counterText: ''),
+            ),
+          ),
+          if (_editFailed) const _EditFailed(),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _nameController,
+                builder: (context, value, _) {
+                  final name = value.text.trim();
+                  return FilledButton(
+                    onPressed: _editing || name.isEmpty
+                        ? null
+                        : () => _update(name: name),
+                    child: _editing
+                        ? const ExpressiveLoadingIndicator(size: 18)
+                        : Text(strings.save),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -557,6 +727,23 @@ class _ShareCaptureState extends ConsumerState<_ShareCapture> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The Vault's mark on the pill, where a save shows the app icon.
+class _VaultGlyph extends StatelessWidget {
+  const _VaultGlyph({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 26,
+      child: Center(
+        child: AppIcon(AppIcons.lock, size: 20, filled: true, color: color),
       ),
     );
   }

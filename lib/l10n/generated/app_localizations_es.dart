@@ -3959,4 +3959,198 @@ class AppLocalizationsEs extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get vault => 'Bóveda';
+
+  @override
+  String get vaultSubtitle => 'Guardados privados, tras el bloqueo de tu móvil';
+
+  @override
+  String get vaultLockedTitle => 'Tu bóveda está bloqueada';
+
+  @override
+  String get vaultLockedBody =>
+      'Solo tú puedes abrirla, con tu huella, tu cara o el bloqueo de pantalla.';
+
+  @override
+  String get vaultUnlock => 'Desbloquear';
+
+  @override
+  String get vaultUnlockPromptTitle => 'Desbloquear bóveda';
+
+  @override
+  String get vaultUnlockPromptSubtitle =>
+      'Confirma que eres tú para ver tus guardados privados';
+
+  @override
+  String get vaultUnlockLockout =>
+      'Demasiados intentos. Vuelve a intentarlo en un rato.';
+
+  @override
+  String get vaultUnlockFailed => 'No se pudo desbloquear. Inténtalo de nuevo.';
+
+  @override
+  String vaultItemCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count guardados privados',
+      one: '1 guardado privado',
+      zero: 'Vacía',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultEmptyTitle => 'Aún no hay nada en tu bóveda';
+
+  @override
+  String get vaultEmptyBody =>
+      'Comparte un enlace y elige Bóveda, o mueve aquí un guardado desde su menú.';
+
+  @override
+  String get vaultNoScreenLockTitle =>
+      'Primero configura un bloqueo de pantalla';
+
+  @override
+  String get vaultNoScreenLockBody =>
+      'La bóveda usa el bloqueo de tu móvil. Añade un PIN, patrón o contraseña en los ajustes del móvil y vuelve.';
+
+  @override
+  String get vaultInvalidatedTitle => 'Esta bóveda no se puede abrir';
+
+  @override
+  String get vaultInvalidatedBody =>
+      'Se quitó el bloqueo de pantalla, o este es otro móvil, y Android destruyó la clave de la bóveda. Restablécela para empezar de nuevo.';
+
+  @override
+  String get vaultReset => 'Restablecer bóveda';
+
+  @override
+  String get vaultResetQuestion => '¿Restablecer la bóveda?';
+
+  @override
+  String get vaultResetBody =>
+      'Todo lo que hay en la bóveda se elimina para siempre. No se puede deshacer.';
+
+  @override
+  String get vaultResetDone => 'Bóveda restablecida';
+
+  @override
+  String get vaultHowItWorks => 'Cómo funciona la bóveda';
+
+  @override
+  String get vaultHowLock =>
+      'Bloqueada por tu móvil: solo tu huella, tu cara o el bloqueo de pantalla la abren.';
+
+  @override
+  String get vaultHowLocal =>
+      'Se queda en este móvil: los enlaces de la bóveda nunca van a los servidores ni a la IA de Glimpse, y no están en las copias de seguridad.';
+
+  @override
+  String get vaultHowHidden =>
+      'Fuera de la vista: nada de ella aparece en la búsqueda, Rediscover, la Biblioteca ni Ask.';
+
+  @override
+  String get vaultHowLoss =>
+      'Si pierdes este móvil o quitas el bloqueo de pantalla, lo que hay en la bóveda también se pierde.';
+
+  @override
+  String get vaultMoveTo => 'Mover a la bóveda';
+
+  @override
+  String get vaultMoveQuestion => '¿Mover a tu bóveda?';
+
+  @override
+  String get vaultMoveBody =>
+      'El enlace, el título y la nota entran y solo se abren con el bloqueo de tu móvil. Sale de tus guardados, la búsqueda y la Biblioteca, y el resumen no se conserva.';
+
+  @override
+  String get vaultMoved => 'Movido a la bóveda';
+
+  @override
+  String get vaultMoveOut => 'Sacar de la bóveda';
+
+  @override
+  String get vaultMovedOut => 'De vuelta en tus guardados';
+
+  @override
+  String get vaultCouldNotMove => 'No se pudo mover. Inténtalo de nuevo.';
+
+  @override
+  String get vaultProTitle => 'La bóveda es parte de Glimpse Pro';
+
+  @override
+  String get vaultProBody =>
+      'Guarda enlaces privados tras el bloqueo de tu móvil, solo en este móvil.';
+
+  @override
+  String get vaultSeePro => 'Ver Pro';
+
+  @override
+  String get savedToVault => 'Guardado en la bóveda';
+
+  @override
+  String get vaultNeedsPro => 'La bóveda requiere Glimpse Pro';
+
+  @override
+  String get vaultCouldNotSave => 'No se pudo guardar en la bóveda';
+
+  @override
+  String vaultUnreadable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count elementos no se pudieron abrir esta vez',
+      one: '1 elemento no se pudo abrir esta vez',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultLock => 'Bloquear';
+
+  @override
+  String get vaultDeleteQuestion => '¿Eliminar de la bóveda?';
+
+  @override
+  String get vaultDeleteBody =>
+      'Se elimina para siempre. Lo de la bóveda no va a la papelera.';
+
+  @override
+  String get vaultDeleted => 'Eliminado de la bóveda';
+
+  @override
+  String get vaultEditNote => 'Editar nota';
+
+  @override
+  String get vaultName => 'Nombre';
+
+  @override
+  String get vaultNamePanelTitle => 'Ponle nombre para encontrarlo';
+
+  @override
+  String vaultNamedAs(String name) {
+    return 'Guardado como «$name»';
+  }
+
+  @override
+  String get vaultRename => 'Cambiar nombre';
+
+  @override
+  String get vaultSearch => 'Buscar en tu bóveda';
+
+  @override
+  String get vaultNoMatches => 'Nada en tu bóveda coincide';
+
+  @override
+  String get vaultResetPromptSubtitle =>
+      'Confirma que eres tú para borrar todo lo que contiene';
+
+  @override
+  String get vaultFootnote => 'Solo en este móvil · nunca se sube';
+
+  @override
+  String get vaultLocksOnLeave => 'Se bloquea al salir';
 }

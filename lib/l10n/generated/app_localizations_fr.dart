@@ -3975,4 +3975,199 @@ class AppLocalizationsFr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get vault => 'Coffre';
+
+  @override
+  String get vaultSubtitle =>
+      'Enregistrements privés, derrière le verrouillage de ton téléphone';
+
+  @override
+  String get vaultLockedTitle => 'Ton coffre est verrouillé';
+
+  @override
+  String get vaultLockedBody =>
+      'Toi seul peux l\'ouvrir, avec ton empreinte, ton visage ou ton verrouillage d\'écran.';
+
+  @override
+  String get vaultUnlock => 'Déverrouiller';
+
+  @override
+  String get vaultUnlockPromptTitle => 'Déverrouiller le coffre';
+
+  @override
+  String get vaultUnlockPromptSubtitle =>
+      'Confirme que c\'est toi pour voir tes enregistrements privés';
+
+  @override
+  String get vaultUnlockLockout =>
+      'Trop de tentatives. Réessaie dans un moment.';
+
+  @override
+  String get vaultUnlockFailed => 'Déverrouillage impossible. Réessaie.';
+
+  @override
+  String vaultItemCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count enregistrements privés',
+      one: '1 enregistrement privé',
+      zero: 'Vide',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultEmptyTitle => 'Rien dans ton coffre pour l\'instant';
+
+  @override
+  String get vaultEmptyBody =>
+      'Partage un lien et choisis Coffre, ou déplace un enregistrement ici depuis son menu.';
+
+  @override
+  String get vaultNoScreenLockTitle =>
+      'Configure d\'abord un verrouillage d\'écran';
+
+  @override
+  String get vaultNoScreenLockBody =>
+      'Le coffre utilise le verrouillage de ton téléphone. Ajoute un code, un schéma ou un mot de passe dans les réglages, puis reviens.';
+
+  @override
+  String get vaultInvalidatedTitle => 'Ce coffre ne peut pas être ouvert';
+
+  @override
+  String get vaultInvalidatedBody =>
+      'Le verrouillage d\'écran a été retiré, ou c\'est un autre téléphone, et Android a détruit la clé du coffre. Réinitialise le coffre pour recommencer.';
+
+  @override
+  String get vaultReset => 'Réinitialiser le coffre';
+
+  @override
+  String get vaultResetQuestion => 'Réinitialiser le coffre ?';
+
+  @override
+  String get vaultResetBody =>
+      'Tout le contenu du coffre est supprimé définitivement. Impossible d\'annuler.';
+
+  @override
+  String get vaultResetDone => 'Coffre réinitialisé';
+
+  @override
+  String get vaultHowItWorks => 'Comment fonctionne le coffre';
+
+  @override
+  String get vaultHowLock =>
+      'Verrouillé par ton téléphone : seuls ton empreinte, ton visage ou ton verrouillage d\'écran l\'ouvrent.';
+
+  @override
+  String get vaultHowLocal =>
+      'Reste sur ce téléphone : les liens du coffre ne sont jamais envoyés aux serveurs ni à l\'IA de Glimpse, et ne sont pas sauvegardés.';
+
+  @override
+  String get vaultHowHidden =>
+      'Hors de vue : rien n\'apparaît dans la recherche, Rediscover, la Bibliothèque ou Ask.';
+
+  @override
+  String get vaultHowLoss =>
+      'Si tu perds ce téléphone ou retires son verrouillage d\'écran, le contenu du coffre est perdu aussi.';
+
+  @override
+  String get vaultMoveTo => 'Déplacer dans le coffre';
+
+  @override
+  String get vaultMoveQuestion => 'Déplacer dans ton coffre ?';
+
+  @override
+  String get vaultMoveBody =>
+      'Le lien, le titre et la note y entrent et ne s\'ouvrent qu\'avec le verrouillage de ton téléphone. Il quitte tes enregistrements, la recherche et la Bibliothèque, et son résumé n\'est pas conservé.';
+
+  @override
+  String get vaultMoved => 'Déplacé dans le coffre';
+
+  @override
+  String get vaultMoveOut => 'Sortir du coffre';
+
+  @override
+  String get vaultMovedOut => 'De retour dans tes enregistrements';
+
+  @override
+  String get vaultCouldNotMove => 'Déplacement impossible. Réessaie.';
+
+  @override
+  String get vaultProTitle => 'Le coffre fait partie de Glimpse Pro';
+
+  @override
+  String get vaultProBody =>
+      'Garde tes liens privés derrière le verrouillage de ton téléphone, sur ce téléphone uniquement.';
+
+  @override
+  String get vaultSeePro => 'Voir Pro';
+
+  @override
+  String get savedToVault => 'Enregistré dans le coffre';
+
+  @override
+  String get vaultNeedsPro => 'Le coffre nécessite Glimpse Pro';
+
+  @override
+  String get vaultCouldNotSave => 'Enregistrement dans le coffre impossible';
+
+  @override
+  String vaultUnreadable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count éléments n\'ont pas pu être ouverts cette fois',
+      one: '1 élément n\'a pas pu être ouvert cette fois',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultLock => 'Verrouiller';
+
+  @override
+  String get vaultDeleteQuestion => 'Supprimer du coffre ?';
+
+  @override
+  String get vaultDeleteBody =>
+      'Il est supprimé définitivement. Les éléments du coffre ne passent pas par la corbeille.';
+
+  @override
+  String get vaultDeleted => 'Supprimé du coffre';
+
+  @override
+  String get vaultEditNote => 'Modifier la note';
+
+  @override
+  String get vaultName => 'Nom';
+
+  @override
+  String get vaultNamePanelTitle => 'Nomme-le pour le retrouver';
+
+  @override
+  String vaultNamedAs(String name) {
+    return 'Enregistré comme « $name »';
+  }
+
+  @override
+  String get vaultRename => 'Renommer';
+
+  @override
+  String get vaultSearch => 'Rechercher dans ton coffre';
+
+  @override
+  String get vaultNoMatches => 'Rien dans ton coffre ne correspond';
+
+  @override
+  String get vaultResetPromptSubtitle =>
+      'Confirme que c\'est toi pour tout supprimer';
+
+  @override
+  String get vaultFootnote => 'Uniquement sur ce téléphone · jamais envoyé';
+
+  @override
+  String get vaultLocksOnLeave => 'Se verrouille quand tu pars';
 }

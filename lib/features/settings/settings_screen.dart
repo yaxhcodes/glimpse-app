@@ -368,6 +368,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SettingsGroup(
                   children: [
                     SettingsTile(
+                      icon: AppIcons.vault,
+                      iconColor: SettingsAccents.violet,
+                      title: strings.vault,
+                      subtitle: strings.vaultSubtitle,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!isPro) ...[
+                            const SettingsBadge(label: 'Pro'),
+                            const SizedBox(width: 8),
+                          ],
+                          Icon(
+                            AppIcons.chevronRight,
+                            size: 24,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ],
+                      ),
+                      onTap: () => context.push('/vault'),
+                    ),
+                    SettingsTile(
                       icon: AppIcons.privacy,
                       iconColor: SettingsAccents.indigo,
                       title: strings.privacy,

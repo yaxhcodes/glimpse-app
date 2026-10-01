@@ -84,6 +84,7 @@ import '../../l10n/l10n.dart';
 import 'package:flutter/physics.dart';
 import '../../shared/widgets/swipe_deck.dart';
 import '../../core/services/app_haptics.dart';
+import '../vault/vault_actions.dart';
 
 part 'url_detail_pager.dart';
 part 'recipe_cooking_mode.dart';
@@ -1071,6 +1072,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
     );
   }
 
+  Future<void> _moveToVault(SavedUrl url) async {
+    final moved = await moveSaveToVault(context, ref, url);
+    if (moved && mounted) context.pop();
+  }
+
   Future<void> _deleteUrl() async {
     final url = await ref.read(isarServiceProvider).getUrlById(widget.urlId);
     if (url == null || !mounted) return;
@@ -1707,6 +1713,8 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
               _addTag(url);
             } else if (value == 'change_category') {
               _changeCategory(url);
+            } else if (value == 'vault') {
+              unawaited(_moveToVault(url));
             } else if (value == 'delete') {
               _deleteUrl();
             }
@@ -1739,6 +1747,11 @@ class _UrlDetailScreenState extends ConsumerState<UrlDetailScreen>
               label: context.l10n.changeCategory,
             ),
             appMenuDivider,
+            appMenuItem(
+              value: 'vault',
+              icon: AppIcons.lock,
+              label: context.l10n.vaultMoveTo,
+            ),
             appMenuItem(
               value: 'delete',
               icon: AppIcons.clearData,

@@ -3927,4 +3927,197 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get vault => 'Vault';
+
+  @override
+  String get vaultSubtitle => 'Private saves, behind your phone\'s lock';
+
+  @override
+  String get vaultLockedTitle => 'Your vault is locked';
+
+  @override
+  String get vaultLockedBody =>
+      'Only you can open it, with your fingerprint, face or screen lock.';
+
+  @override
+  String get vaultUnlock => 'Unlock';
+
+  @override
+  String get vaultUnlockPromptTitle => 'Unlock Vault';
+
+  @override
+  String get vaultUnlockPromptSubtitle =>
+      'Confirm it\'s you to see your private saves';
+
+  @override
+  String get vaultUnlockLockout =>
+      'Too many attempts. Try again in a little while.';
+
+  @override
+  String get vaultUnlockFailed => 'Couldn\'t unlock. Try again.';
+
+  @override
+  String vaultItemCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count private saves',
+      one: '1 private save',
+      zero: 'Empty',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultEmptyTitle => 'Nothing in your vault yet';
+
+  @override
+  String get vaultEmptyBody =>
+      'Share a link and pick Vault, or move a save here from its menu.';
+
+  @override
+  String get vaultNoScreenLockTitle => 'Set a screen lock first';
+
+  @override
+  String get vaultNoScreenLockBody =>
+      'Vault uses your phone\'s own lock. Add a PIN, pattern or password in your phone\'s settings, then come back.';
+
+  @override
+  String get vaultInvalidatedTitle => 'This vault can\'t be opened';
+
+  @override
+  String get vaultInvalidatedBody =>
+      'Your phone\'s screen lock was removed, or this is a different phone, and Android destroyed the vault\'s key. Reset the vault to start again.';
+
+  @override
+  String get vaultReset => 'Reset vault';
+
+  @override
+  String get vaultResetQuestion => 'Reset vault?';
+
+  @override
+  String get vaultResetBody =>
+      'Everything in your vault is deleted for good. This can\'t be undone.';
+
+  @override
+  String get vaultResetDone => 'Vault reset';
+
+  @override
+  String get vaultHowItWorks => 'How Vault works';
+
+  @override
+  String get vaultHowLock =>
+      'Locked by your phone: your fingerprint, face or screen lock opens it, and nothing else can.';
+
+  @override
+  String get vaultHowLocal =>
+      'Stays on this phone: vault links are never sent to Glimpse\'s servers or AI, and aren\'t in backups.';
+
+  @override
+  String get vaultHowHidden =>
+      'Out of sight: nothing in it shows up in search, Rediscover, the Library or Ask.';
+
+  @override
+  String get vaultHowLoss =>
+      'Lose this phone or remove its screen lock, and what\'s in the vault is gone too.';
+
+  @override
+  String get vaultMoveTo => 'Move to vault';
+
+  @override
+  String get vaultMoveQuestion => 'Move to your vault?';
+
+  @override
+  String get vaultMoveBody =>
+      'Its link, title and note go in and only open with your phone\'s lock. It leaves your saves, search and Library, and its summary stays behind.';
+
+  @override
+  String get vaultMoved => 'Moved to vault';
+
+  @override
+  String get vaultMoveOut => 'Move out of vault';
+
+  @override
+  String get vaultMovedOut => 'Back in your saves';
+
+  @override
+  String get vaultCouldNotMove => 'Couldn\'t move it. Try again.';
+
+  @override
+  String get vaultProTitle => 'Vault is part of Glimpse Pro';
+
+  @override
+  String get vaultProBody =>
+      'Keep private links behind your phone\'s own lock, on this phone only.';
+
+  @override
+  String get vaultSeePro => 'See Pro';
+
+  @override
+  String get savedToVault => 'Saved to Vault';
+
+  @override
+  String get vaultNeedsPro => 'Vault needs Glimpse Pro';
+
+  @override
+  String get vaultCouldNotSave => 'Couldn\'t save to Vault';
+
+  @override
+  String vaultUnreadable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items couldn\'t be opened this time',
+      one: '1 item couldn\'t be opened this time',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultLock => 'Lock';
+
+  @override
+  String get vaultDeleteQuestion => 'Delete from vault?';
+
+  @override
+  String get vaultDeleteBody =>
+      'It\'s deleted for good. Vault items don\'t go to the Bin.';
+
+  @override
+  String get vaultDeleted => 'Deleted from vault';
+
+  @override
+  String get vaultEditNote => 'Edit note';
+
+  @override
+  String get vaultName => 'Name';
+
+  @override
+  String get vaultNamePanelTitle => 'Name it so you can find it';
+
+  @override
+  String vaultNamedAs(String name) {
+    return 'Saved as “$name”';
+  }
+
+  @override
+  String get vaultRename => 'Rename';
+
+  @override
+  String get vaultSearch => 'Search your vault';
+
+  @override
+  String get vaultNoMatches => 'Nothing in your vault matches';
+
+  @override
+  String get vaultResetPromptSubtitle =>
+      'Confirm it\'s you to delete everything in it';
+
+  @override
+  String get vaultFootnote => 'Only on this phone · never uploaded';
+
+  @override
+  String get vaultLocksOnLeave => 'Locks when you leave';
 }

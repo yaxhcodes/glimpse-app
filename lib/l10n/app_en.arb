@@ -1458,5 +1458,79 @@
         "type": "int"
       }
     }
-  }
+  },
+  "vault": "Vault",
+  "vaultSubtitle": "Private saves, behind your phone's lock",
+  "vaultLockedTitle": "Your vault is locked",
+  "vaultLockedBody": "Only you can open it, with your fingerprint, face or screen lock.",
+  "vaultUnlock": "Unlock",
+  "vaultUnlockPromptTitle": "Unlock Vault",
+  "vaultUnlockPromptSubtitle": "Confirm it's you to see your private saves",
+  "vaultUnlockLockout": "Too many attempts. Try again in a little while.",
+  "vaultUnlockFailed": "Couldn't unlock. Try again.",
+  "vaultItemCount": "{count, plural, =0{Empty} =1{1 private save} other{{count} private saves}}",
+  "@vaultItemCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultEmptyTitle": "Nothing in your vault yet",
+  "vaultEmptyBody": "Share a link and pick Vault, or move a save here from its menu.",
+  "vaultNoScreenLockTitle": "Set a screen lock first",
+  "vaultNoScreenLockBody": "Vault uses your phone's own lock. Add a PIN, pattern or password in your phone's settings, then come back.",
+  "vaultInvalidatedTitle": "This vault can't be opened",
+  "vaultInvalidatedBody": "Your phone's screen lock was removed, or this is a different phone, and Android destroyed the vault's key. Reset the vault to start again.",
+  "vaultReset": "Reset vault",
+  "vaultResetQuestion": "Reset vault?",
+  "vaultResetBody": "Everything in your vault is deleted for good. This can't be undone.",
+  "vaultResetDone": "Vault reset",
+  "vaultHowItWorks": "How Vault works",
+  "vaultHowLock": "Locked by your phone: your fingerprint, face or screen lock opens it, and nothing else can.",
+  "vaultHowLocal": "Stays on this phone: vault links are never sent to Glimpse's servers or AI, and aren't in backups.",
+  "vaultHowHidden": "Out of sight: nothing in it shows up in search, Rediscover, the Library or Ask.",
+  "vaultHowLoss": "Lose this phone or remove its screen lock, and what's in the vault is gone too.",
+  "vaultMoveTo": "Move to vault",
+  "vaultMoveQuestion": "Move to your vault?",
+  "vaultMoveBody": "Its link, title and note go in and only open with your phone's lock. It leaves your saves, search and Library, and its summary stays behind.",
+  "vaultMoved": "Moved to vault",
+  "vaultMoveOut": "Move out of vault",
+  "vaultMovedOut": "Back in your saves",
+  "vaultCouldNotMove": "Couldn't move it. Try again.",
+  "vaultProTitle": "Vault is part of Glimpse Pro",
+  "vaultProBody": "Keep private links behind your phone's own lock, on this phone only.",
+  "vaultSeePro": "See Pro",
+  "savedToVault": "Saved to Vault",
+  "vaultNeedsPro": "Vault needs Glimpse Pro",
+  "vaultCouldNotSave": "Couldn't save to Vault",
+  "vaultUnreadable": "{count, plural, =1{1 item couldn't be opened this time} other{{count} items couldn't be opened this time}}",
+  "@vaultUnreadable": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultLock": "Lock",
+  "vaultDeleteQuestion": "Delete from vault?",
+  "vaultDeleteBody": "It's deleted for good. Vault items don't go to the Bin.",
+  "vaultDeleted": "Deleted from vault",
+  "vaultEditNote": "Edit note",
+  "vaultName": "Name",
+  "vaultNamePanelTitle": "Name it so you can find it",
+  "vaultNamedAs": "Saved as “{name}”",
+  "@vaultNamedAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultRename": "Rename",
+  "vaultSearch": "Search your vault",
+  "vaultNoMatches": "Nothing in your vault matches",
+  "vaultResetPromptSubtitle": "Confirm it's you to delete everything in it",
+  "vaultFootnote": "Only on this phone · never uploaded",
+  "vaultLocksOnLeave": "Locks when you leave"
 }

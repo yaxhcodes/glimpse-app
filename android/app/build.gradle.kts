@@ -26,7 +26,7 @@ android {
         applicationId = "com.shinrinyoku.glimpse"
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
-        versionCode = 168
+        versionCode = 170
         versionName = flutter.versionName
     }
 
@@ -86,4 +86,7 @@ dependencies {
     // to keep the server-side AI quota from being reset by reinstalling. Backed
     // by the device's existing Google account — no in-app login required.
     implementation("com.google.android.gms:play-services-auth-blockstore:16.4.0")
+
+    // Vault: the phone's own fingerprint / face / screen-lock prompt.
+    implementation("androidx.biometric:biometric:1.1.0")
 }
