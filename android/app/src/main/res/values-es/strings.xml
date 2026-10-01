@@ -12,4 +12,17 @@
     <string name="background_enrichment_channel_description">Finaliza en segundo plano los enlaces compartidos con Glimpse</string>
     <string name="background_enrichment_title">Terminando de guardar</string>
     <string name="background_enrichment_body">Glimpse lo está organizando en segundo plano</string>
+    <string name="widget_rediscover_label">Redescubrir</string>
+    <string name="widget_rediscover_description">Algo que guardaste y quizá olvidaste, de vuelta en tu pantalla de inicio</string>
+    <string name="widget_action_bar_label">Buscar y guardar</string>
+    <string name="widget_action_bar_description">Busca en lo guardado, pregunta a Glimpse o guarda un enlace</string>
+    <string name="widget_eyebrow">Redescubrir</string>
+    <string name="widget_next">Mostrar otro</string>
+    <string name="widget_empty_title">Aquí volverá a aparecer lo que guardas</string>
+    <string name="widget_empty_body">Guarda algunos enlaces y Glimpse te traerá uno cuando lo hayas olvidado.</string>
+    <string name="widget_capture">Guardar un enlace</string>
+    <string name="widget_search_hint">Buscar en lo guardado</string>
+    <string name="widget_ask">Preguntar a Glimpse</string>
+    <string name="widget_preview_title">Ese ramen de Osaka que guardaste</string>
+    <string name="widget_preview_meta">Instagram · hace 3 meses</string>
 </resources>

@@ -11,7 +11,11 @@ enum AppShortcutAction {
   rediscover('rediscover'),
 
   /// Not a launcher shortcut: the share sheet's way into the Vault.
-  vault('vault');
+  vault('vault'),
+
+  /// Not a launcher shortcut: a save tapped on the Rediscover home screen
+  /// widget. Always arrives with its id (see [AppShortcutRequest]).
+  openSave('save');
 
   const AppShortcutAction(this.platformValue);
 
@@ -20,13 +24,36 @@ enum AppShortcutAction {
   static AppShortcutAction? fromPlatformValue(Object? value) {
     if (value is! String) return null;
     for (final action in values) {
+      if (action == openSave) continue;
       if (action.platformValue == value) return action;
     }
     return null;
   }
 }
 
-/// Delivers Android launcher shortcut actions for cold and warm app starts.
+/// A shortcut as it reaches the app, with the save it names when it came
+/// from the Rediscover widget (`save:<id>` on the wire).
+class AppShortcutRequest {
+  const AppShortcutRequest(this.action, {this.saveId});
+
+  final AppShortcutAction action;
+  final int? saveId;
+
+  static const _savePrefix = 'save:';
+
+  static AppShortcutRequest? fromPlatformValue(Object? value) {
+    if (value is String && value.startsWith(_savePrefix)) {
+      final id = int.tryParse(value.substring(_savePrefix.length));
+      if (id == null || id <= 0) return null;
+      return AppShortcutRequest(AppShortcutAction.openSave, saveId: id);
+    }
+    final action = AppShortcutAction.fromPlatformValue(value);
+    return action == null ? null : AppShortcutRequest(action);
+  }
+}
+
+/// Delivers Android launcher shortcut and widget taps for cold and warm
+/// app starts.
 class AppShortcutService {
   AppShortcutService({
     MethodChannel channel = const MethodChannel(_channelName),
@@ -39,11 +66,11 @@ class AppShortcutService {
 
   final MethodChannel _channel;
   final bool _isAndroid;
-  final StreamController<AppShortcutAction> _controller =
+  final StreamController<AppShortcutRequest> _controller =
       StreamController.broadcast();
   bool _started = false;
 
-  Stream<AppShortcutAction> get incoming => _controller.stream;
+  Stream<AppShortcutRequest> get incoming => _controller.stream;
 
   Future<void> start() async {
     if (_started) return;
@@ -73,13 +100,13 @@ class AppShortcutService {
   }
 
   void _emit(Object? value, {required String launchType}) {
-    final action = AppShortcutAction.fromPlatformValue(value);
-    if (action == null || _controller.isClosed) return;
+    final request = AppShortcutRequest.fromPlatformValue(value);
+    if (request == null || _controller.isClosed) return;
     developer.log(
-      'Received ${action.platformValue} shortcut ($launchType).',
+      'Received ${request.action.platformValue} shortcut ($launchType).',
       name: _tag,
     );
-    _controller.add(action);
+    _controller.add(request);
   }
 
   Future<void> dispose() async {

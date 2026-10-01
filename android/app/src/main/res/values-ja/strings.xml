@@ -12,4 +12,17 @@
     <string name="background_enrichment_channel_description">Glimpse に共有したリンクをバックグラウンドで仕上げます</string>
     <string name="background_enrichment_title">保存を仕上げています</string>
     <string name="background_enrichment_body">Glimpse がバックグラウンドで整理しています</string>
+    <string name="widget_rediscover_label">再発見</string>
+    <string name="widget_rediscover_description">忘れていた保存をホーム画面にもう一度</string>
+    <string name="widget_action_bar_label">検索と保存</string>
+    <string name="widget_action_bar_description">保存を検索、Glimpse に質問、リンクを保存</string>
+    <string name="widget_eyebrow">再発見</string>
+    <string name="widget_next">別の保存を表示</string>
+    <string name="widget_empty_title">保存したものがここに戻ってきます</string>
+    <string name="widget_empty_body">リンクをいくつか保存すると、忘れた頃に Glimpse が思い出させます。</string>
+    <string name="widget_capture">リンクを保存</string>
+    <string name="widget_search_hint">保存を検索</string>
+    <string name="widget_ask">Glimpse に質問</string>
+    <string name="widget_preview_title">保存していた大阪のラーメン店</string>
+    <string name="widget_preview_meta">Instagram · 3 か月前</string>
 </resources>

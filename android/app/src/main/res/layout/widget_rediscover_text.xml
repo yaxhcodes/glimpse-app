@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The words of a picture-less Rediscover memory. The title is medium
+     sans: widgets can't load the app's fonts, and OEM skins (OnePlus)
+     swap the system serif for a light face and drop its bold. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:alpha="0.7"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_ic_rewind" />
+
+        <TextView
+            android:id="@+id/widget_eyebrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.1"
+            android:maxLines="1"
+            android:text="@string/widget_eyebrow"
+            android:textAllCaps="true"
+            android:textColor="@color/widget_on_primary_container_muted"
+            android:textSize="10.5sp" />
+
+        <ImageView
+            android:id="@+id/widget_eyebrow_art"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:importantForAccessibility="no"
+            android:scaleType="fitStart"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:lineSpacingExtra="1sp"
+        android:maxLines="3"
+        android:textColor="@color/widget_on_primary_container"
+        android:textSize="18sp" />
+
+    <ImageView
+        android:id="@+id/widget_title_art"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:importantForAccessibility="no"
+        android:scaleType="fitStart"
+        android:visibility="gone" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_meta"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif"
+            android:maxLines="1"
+            android:textColor="@color/widget_on_primary_container_muted"
+            android:textSize="12sp" />
+
+        <ImageView
+            android:id="@+id/widget_meta_art"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:scaleType="fitStart"
+            android:visibility="gone" />
+
+        <FrameLayout
+            android:id="@+id/widget_next"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_button_memory"
+            android:contentDescription="@string/widget_next">
+
+            <ImageView
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/widget_ic_next" />
+        </FrameLayout>
+    </LinearLayout>
+</merge>

@@ -27,6 +27,7 @@ import 'core/services/backup/backup_intent_service.dart';
 import 'core/services/backup/backup_models.dart';
 import 'core/services/app_update_service.dart';
 import 'core/services/app_shortcut_service.dart';
+import 'core/services/home_widget_sync.dart';
 import 'core/services/app_task_service.dart';
 import 'core/services/digest_notifications.dart';
 import 'core/services/notification_router.dart';
@@ -416,7 +417,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     with WidgetsBindingObserver {
   late StreamSubscription _shareIntentSub;
   StreamSubscription<String>? _backupIntentSub;
-  StreamSubscription<AppShortcutAction>? _appShortcutSub;
+  StreamSubscription<AppShortcutRequest>? _appShortcutSub;
   StreamSubscription<void>? _appUpdateReadySub;
   final BackupIntentService _backupIntentService = BackupIntentService();
   final AppShortcutService _appShortcutService = AppShortcutService();
@@ -427,7 +428,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   bool _processingSharedUrls = false;
   bool _hasCompletedInitialResume = false;
   String? _lastTrackedLocation;
-  ({AppShortcutAction action, int revision})? _pendingAppShortcut;
+  ({AppShortcutRequest request, int revision})? _pendingAppShortcut;
   int _appShortcutRevision = 0;
   bool _appShortcutNavigationScheduled = false;
 
@@ -487,7 +488,12 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
 
     _maintenanceStartupTimer = Timer(const Duration(seconds: 6), () {
       if (!mounted) return;
-      unawaited(_runDeferredLocalMaintenance());
+      unawaited(
+        _runDeferredLocalMaintenance().whenComplete(() {
+          if (!mounted) return;
+          unawaited(ref.read(homeWidgetSyncProvider).sync(force: true));
+        }),
+      );
     });
 
     _appUpdateStartupTimer = Timer(const Duration(seconds: 10), () {
@@ -561,9 +567,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     });
   }
 
-  void _handleAppShortcut(AppShortcutAction action) {
+  void _handleAppShortcut(AppShortcutRequest request) {
     unawaited(OnboardingProgress.clearPro());
-    _pendingAppShortcut = (action: action, revision: ++_appShortcutRevision);
+    _pendingAppShortcut = (request: request, revision: ++_appShortcutRevision);
     _schedulePendingAppShortcut();
   }
 
@@ -583,7 +589,8 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (ref.read(authControllerProvider).valueOrNull == null) return;
 
     _pendingAppShortcut = null;
-    if (request.action == AppShortcutAction.search) {
+    final action = request.request.action;
+    if (action == AppShortcutAction.search) {
       ref.read(searchShellQueryRequestProvider.notifier).state =
           SearchShellQueryRequest.focus(revision: request.revision);
       _router.go('/');
@@ -593,7 +600,7 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     _router.go('/');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || request.revision != _appShortcutRevision) return;
-      switch (request.action) {
+      switch (action) {
         case AppShortcutAction.capture:
           _router.push('/add');
           break;
@@ -606,10 +613,22 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
         case AppShortcutAction.vault:
           _router.push('/vault');
           break;
+        case AppShortcutAction.openSave:
+          unawaited(_openSaveFromWidget(request.request.saveId));
+          break;
         case AppShortcutAction.search:
           break;
       }
     });
+  }
+
+  /// A save tapped on the Rediscover widget. The widget can lag behind the
+  /// library, so a save binned since then just leaves the user on Home.
+  Future<void> _openSaveFromWidget(int? saveId) async {
+    if (saveId == null) return;
+    final save = await ref.read(isarServiceProvider).getUrlById(saveId);
+    if (!mounted || save == null) return;
+    _router.push('/url/$saveId');
   }
 
   void _showBackupOpenError(String message) {
@@ -944,6 +963,11 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     unawaited(ref.read(analyticsServiceProvider).handleLifecycleState(state));
+    if (state == AppLifecycleState.paused && !_isShareSurface) {
+      // Leaving the app is when the library has settled: what was opened,
+      // saved or binned this visit decides what the widget shows next.
+      unawaited(ref.read(homeWidgetSyncProvider).sync());
+    }
     if (state == AppLifecycleState.resumed) {
       unawaited(
         DigestNotifications.replayPendingActionsAndReconcile().then((_) {

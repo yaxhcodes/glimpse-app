@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home screen widgets. Below Android 12 they wear the brand scheme;
+     values-v31 swaps in the wallpaper's Material You palette. -->
+<resources>
+    <color name="widget_surface">#EFEBE0</color>
+    <color name="widget_on_surface">#22281E</color>
+    <color name="widget_on_surface_variant">#585E51</color>
+    <color name="widget_primary">#46553E</color>
+    <color name="widget_on_primary">#FAF7EE</color>
+    <color name="widget_primary_container">#DCE4CC</color>
+    <color name="widget_on_primary_container">#18220F</color>
+    <color name="widget_secondary_container">#E2E5D5</color>
+    <color name="widget_on_secondary_container">#262D1F</color>
+</resources>

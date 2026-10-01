@@ -13,4 +13,17 @@
     <string name="background_enrichment_channel_description">Finishes links shared to Glimpse in the background</string>
     <string name="background_enrichment_title">Finishing your save</string>
     <string name="background_enrichment_body">Glimpse is organizing it in the background</string>
+    <string name="widget_rediscover_label">Rediscover</string>
+    <string name="widget_rediscover_description">A save you may have forgotten, back on your home screen</string>
+    <string name="widget_action_bar_label">Search &amp; save</string>
+    <string name="widget_action_bar_description">Search your saves, ask Glimpse, or save a link</string>
+    <string name="widget_eyebrow">Rediscover</string>
+    <string name="widget_next">Show another save</string>
+    <string name="widget_empty_title">Your saves will resurface here</string>
+    <string name="widget_empty_body">Save a few links and Glimpse brings one back when you\'ve forgotten it.</string>
+    <string name="widget_capture">Save a link</string>
+    <string name="widget_search_hint">Search your saves</string>
+    <string name="widget_ask">Ask Glimpse</string>
+    <string name="widget_preview_title">That ramen spot in Osaka you saved</string>
+    <string name="widget_preview_meta">Instagram · 3 months ago</string>
 </resources>

@@ -12,4 +12,17 @@
     <string name="background_enrichment_channel_description">Conclui em segundo plano os links compartilhados com o Glimpse</string>
     <string name="background_enrichment_title">Finalizando o salvamento</string>
     <string name="background_enrichment_body">O Glimpse está organizando em segundo plano</string>
+    <string name="widget_rediscover_label">Redescobrir</string>
+    <string name="widget_rediscover_description">Algo que você salvou e talvez esqueceu, de volta à tela inicial</string>
+    <string name="widget_action_bar_label">Buscar e salvar</string>
+    <string name="widget_action_bar_description">Busque no que salvou, pergunte ao Glimpse ou salve um link</string>
+    <string name="widget_eyebrow">Redescobrir</string>
+    <string name="widget_next">Mostrar outro</string>
+    <string name="widget_empty_title">O que você salva vai reaparecer aqui</string>
+    <string name="widget_empty_body">Salve alguns links e o Glimpse traz um de volta quando você tiver esquecido.</string>
+    <string name="widget_capture">Salvar um link</string>
+    <string name="widget_search_hint">Buscar no que salvou</string>
+    <string name="widget_ask">Perguntar ao Glimpse</string>
+    <string name="widget_preview_title">Aquele ramen em Osaka que você salvou</string>
+    <string name="widget_preview_meta">Instagram · há 3 meses</string>
 </resources>

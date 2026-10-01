@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcut tiles, from the app's brand scheme. The launcher
+     resolves these with the system night mode, so dark popups get dark
+     tiles instead of near-black glyphs on charcoal. -->
+<resources>
+    <!-- Sage: the everyday actions. -->
+    <color name="shortcut_capture_bg">#DCE4CC</color>
+    <color name="shortcut_capture_fg">#3A4833</color>
+    <color name="shortcut_search_bg">#DCE4CC</color>
+    <color name="shortcut_search_fg">#3A4833</color>
+    <!-- Ask Glimpse is the mascot, on the launcher icon's own green. -->
+    <color name="shortcut_ask_bg">#527A68</color>
+    <color name="shortcut_ask_fg">#FAF7EE</color>
+    <!-- Terracotta: Rediscover is the app's moment of delight. -->
+    <color name="shortcut_rediscover_bg">#F7DCCB</color>
+    <color name="shortcut_rediscover_fg">#8A4528</color>
+</resources>
