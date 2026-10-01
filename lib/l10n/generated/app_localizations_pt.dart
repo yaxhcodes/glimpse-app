@@ -4155,4 +4155,164 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get vaultLocksOnLeave => 'Tranca quando você sai';
+
+  @override
+  String get remind => 'Lembrar';
+
+  @override
+  String get remindMe => 'Me lembrar';
+
+  @override
+  String get reminderChange => 'Alterar lembrete';
+
+  @override
+  String get reminderRemove => 'Remover lembrete';
+
+  @override
+  String get reminderRemoved => 'Lembrete removido';
+
+  @override
+  String get reminderLaterToday => 'Mais tarde hoje';
+
+  @override
+  String get reminderTonight => 'Hoje à noite';
+
+  @override
+  String get reminderTomorrow => 'Amanhã de manhã';
+
+  @override
+  String get reminderWeekend => 'Neste fim de semana';
+
+  @override
+  String get reminderNextWeek => 'Semana que vem';
+
+  @override
+  String get reminderPickTime => 'Escolher data e hora';
+
+  @override
+  String get reminderRing => 'Tocar na hora exata';
+
+  @override
+  String get reminderRingSubtitle => 'Um som de alarme, no minuto certo';
+
+  @override
+  String get reminderRingNeedsPermission =>
+      'Para tocar no minuto certo, permita que o Glimpse defina alarmes e lembretes.';
+
+  @override
+  String get reminderRingUnavailable =>
+      'O horário exato não é permitido, então ele chega mais ou menos na hora.';
+
+  @override
+  String get reminderAllow => 'Permitir';
+
+  @override
+  String reminderSetFor(String when) {
+    return 'Lembrete definido · $when';
+  }
+
+  @override
+  String get reminderPastTime => 'Escolha um horário que ainda não passou.';
+
+  @override
+  String get reminderCouldNotSet => 'Não foi possível definir o lembrete';
+
+  @override
+  String get reminderNotificationBody =>
+      'Você pediu ao Glimpse para trazer isto de volta agora.';
+
+  @override
+  String get reminderSnooze => 'Adiar 1 hora';
+
+  @override
+  String get reminderChannelName => 'Lembretes';
+
+  @override
+  String get reminderRingChannelName => 'Lembretes que tocam';
+
+  @override
+  String get reminderChannelDescription =>
+      'Lembretes que você define nos seus salvos';
+
+  @override
+  String get comingUp => 'Em breve';
+
+  @override
+  String reminderToday(String time) {
+    return 'Hoje $time';
+  }
+
+  @override
+  String reminderTomorrowAt(String time) {
+    return 'Amanhã $time';
+  }
+
+  @override
+  String get reminderRepeat => 'Repetir';
+
+  @override
+  String get repeatOnce => 'Uma vez';
+
+  @override
+  String get repeatDaily => 'Todo dia';
+
+  @override
+  String get repeatWeekdays => 'Dias úteis';
+
+  @override
+  String get repeatWeekly => 'Toda semana';
+
+  @override
+  String reminderEveryDay(String time) {
+    return 'Todo dia $time';
+  }
+
+  @override
+  String reminderWeekdaysAt(String time) {
+    return 'Dias úteis $time';
+  }
+
+  @override
+  String reminderEveryWeekday(String day, String time) {
+    return 'Toda $day $time';
+  }
+
+  @override
+  String get reminderLeadWatch => 'Hora de assistir';
+
+  @override
+  String get reminderLeadRead => 'Hora de ler';
+
+  @override
+  String get reminderLeadCook => 'Hora de cozinhar';
+
+  @override
+  String get reminderLeadTry => 'Hora de experimentar';
+
+  @override
+  String get reminderLeadListen => 'Hora de ouvir';
+
+  @override
+  String get reminderLeadPlan => 'Hora de planejar';
+
+  @override
+  String get reminderLeadBuy => 'Hora de comprar';
+
+  @override
+  String get reminderLeadLearn => 'Hora de aprender';
+
+  @override
+  String get reminderLeadRevisit => 'Hora de voltar a isto';
+
+  @override
+  String get reminderLeadDaily => 'Seu link do dia';
+
+  @override
+  String get reminderLeadWeekly => 'Seu link da semana';
+
+  @override
+  String get comingUpSubtitle => 'Nas próximas 24 horas';
+
+  @override
+  String get remindersFilter => 'Lembretes';
 }

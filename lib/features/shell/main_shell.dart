@@ -6,6 +6,7 @@ import '../../core/constants/app_assets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/analytics_provider.dart';
 import '../../core/providers/bulk_selection_provider.dart';
@@ -56,9 +57,26 @@ class _MainShellState extends ConsumerState<MainShell> {
   final Set<int> _loadedTabIndexes = {0};
   Timer? _initialAnalyticsTimer;
 
+  /// "Ask Glimpse" spells itself out for a moment when Home appears, then
+  /// settles into the round button so it doesn't sit across the saves.
+  /// Until someone has used Ask once it stays spelled out, so it's found.
+  static const _askLearnedKey = 'ask_fab_learned_v1';
+  static const _askLabelFor = Duration(seconds: 4);
+  bool _askLabelShown = true;
+  bool _askLearned = false;
+  Timer? _askLabelTimer;
+
   @override
   void initState() {
     super.initState();
+    _showAskLabelBriefly();
+    unawaited(() async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final learned = prefs.getBool(_askLearnedKey) ?? false;
+        if (mounted && learned) setState(() => _askLearned = true);
+      } catch (_) {}
+    }());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _initialAnalyticsTimer = Timer(const Duration(seconds: 3), () {
@@ -76,7 +94,27 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   void dispose() {
     _initialAnalyticsTimer?.cancel();
+    _askLabelTimer?.cancel();
     super.dispose();
+  }
+
+  void _showAskLabelBriefly() {
+    _askLabelTimer?.cancel();
+    if (!_askLabelShown) setState(() => _askLabelShown = true);
+    _askLabelTimer = Timer(_askLabelFor, () {
+      if (mounted) setState(() => _askLabelShown = false);
+    });
+  }
+
+  void _learnAsk() {
+    if (_askLearned) return;
+    setState(() => _askLearned = true);
+    unawaited(() async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_askLearnedKey, true);
+      } catch (_) {}
+    }());
   }
 
   @override
@@ -285,10 +323,13 @@ class _MainShellState extends ConsumerState<MainShell> {
                       hasLinks &&
                       !homeSelection.isActive
                   ? ExpressiveExtendedFab(
-                      isExtended: shellChromeVisible,
+                      isExtended:
+                          shellChromeVisible &&
+                          (_askLabelShown || !_askLearned),
                       tooltip: strings.askGlimpse,
                       onPressed: () {
                         AppHaptics.play(AppHaptics.tap);
+                        _learnAsk();
                         context.push('/ask');
                       },
                       icon: SvgPicture.asset(
@@ -421,6 +462,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     setState(() {
       _currentIndex = index;
     });
+    if (index == 0) _showAskLabelBriefly();
     if (!_loadedTabIndexes.contains(index)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _currentIndex != index) return;

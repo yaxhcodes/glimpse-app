@@ -52,6 +52,7 @@ import 'features/collections/share_capture_sheet.dart';
 import 'features/vault/vault_provider.dart';
 import 'features/vault/vault_screen.dart';
 import 'core/services/vault/vault_repository.dart';
+import 'core/services/reminders/save_reminders.dart';
 import 'features/library/library_browser_screen.dart';
 import 'features/library/library_entity.dart';
 import 'features/library/library_entity_detail_screen.dart';
@@ -502,6 +503,9 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
     if (purgedIds.isNotEmpty) {
       await ref.read(pinnedUrlsProvider.notifier).unpinAll(purgedIds);
     }
+    // Reminders back in step after a restore, reinstall or reboot.
+    await SaveReminders.reconcile(isar);
+    if (!mounted) return;
     final repaired = await CategoryRepairService(
       isarService: isar,
     ).repairIfNeeded();
@@ -837,6 +841,27 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
           collectionName: collection?.name,
           notificationsEnabled: saved.notificationsEnabled,
           enrichmentPending: saved.enrichmentPending,
+        );
+      },
+      onRemind: (at) async {
+        final id = captured?.savedUrlId;
+        if (id == null) {
+          return const ShareCaptureOutcome(type: ShareCaptureOutcomeType.error);
+        }
+        // A reminder nobody can see isn't one.
+        if (!await DigestNotifications.areNotificationsEnabled()) {
+          await DigestNotifications.requestPermission();
+        }
+        final scheduled = await SaveReminders.set(
+          ref.read(isarServiceProvider),
+          id,
+          at,
+        );
+        return ShareCaptureOutcome(
+          type: scheduled == ReminderScheduling.failed
+              ? ShareCaptureOutcomeType.error
+              : ShareCaptureOutcomeType.captured,
+          savedUrlId: id,
         );
       },
     );

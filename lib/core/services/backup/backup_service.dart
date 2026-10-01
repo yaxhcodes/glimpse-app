@@ -71,6 +71,9 @@ class BackupService {
       intentAction: url.intentAction,
       intentSetAt: url.intentSetAt?.toIso8601String(),
       revisitAfter: url.revisitAfter?.toIso8601String(),
+      remindAt: url.remindAt?.toIso8601String(),
+      remindRing: url.remindRing,
+      remindRepeat: url.remindRepeat,
       embedding: embedding,
     );
   }
@@ -147,6 +150,9 @@ class BackupService {
       ..intentAction = b.intentAction
       ..intentSetAt = _parseOptionalDate(b.intentSetAt)
       ..revisitAfter = _parseOptionalDate(b.revisitAfter)
+      ..remindAt = _parseOptionalDate(b.remindAt)
+      ..remindRing = b.remindRing
+      ..remindRepeat = b.remindRepeat
       ..embedding = b.embedding != null
           ? List<double>.from(b.embedding!)
           : null;
@@ -551,6 +557,7 @@ class BackupService {
         'rediscoverDismissedAt',
         'intentSetAt',
         'revisitAfter',
+        'remindAt',
         'processingUpdatedAt',
         'deletedAt',
       ]) {
@@ -1159,6 +1166,13 @@ class BackupService {
       ..revisitAfter = useIncomingIntent
           ? _parseOptionalDate(incoming.revisitAfter)
           : existing.revisitAfter
+      // A reminder on either side survives a merge; the later one wins.
+      ..remindAt = _latestNullable(
+        existing.remindAt,
+        _parseOptionalDate(incoming.remindAt),
+      )
+      ..remindRing = existing.remindRing || incoming.remindRing
+      ..remindRepeat = existing.remindRepeat ?? incoming.remindRepeat
       ..embedding = mergedEmbedding;
   }
 

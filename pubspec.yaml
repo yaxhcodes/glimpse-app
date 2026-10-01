@@ -94,6 +94,8 @@ dependencies:
   # Collections — emoji picker
   # Weekly digest
   flutter_local_notifications: ^17.0.0
+  # Reminders: scheduled notifications take a zoned time.
+  timezone: ^0.9.0
   workmanager: ^0.9.0+3
   glimpse_backup_storage:
     path: packages/glimpse_backup_storage
