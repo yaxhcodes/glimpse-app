@@ -392,9 +392,12 @@ class SubscriptionService implements SubscriptionIdentityService {
   /// that logic belongs to `SubscriptionTierNotifier.refreshAfterPurchase()`.
   /// The UI calls this, then calls `refreshAfterPurchase()`, and Riverpod
   /// state flips to Pro.
-  Future<SubscriptionPurchaseOutcome> purchaseRecommendedPackage() async {
+  Future<SubscriptionPurchaseOutcome> purchaseRecommendedPackage({
+    Package? package,
+  }) async {
     if (!_configured) return SubscriptionPurchaseOutcome.unavailable;
     try {
+      if (package != null) return await _purchase(package);
       final offerings = await Purchases.getOfferings();
       final curId = offerings.current?.identifier ?? 'null';
       final pkgIds =
@@ -425,9 +428,38 @@ class SubscriptionService implements SubscriptionIdentityService {
 
       final pkg = _preferredPackage(offering);
       if (pkg == null) return SubscriptionPurchaseOutcome.unavailable;
-
+      return await _purchase(pkg);
+    } on PlatformException catch (e, st) {
+      return _purchaseError(e, st);
+    } catch (e, st) {
       developer.log(
-        'RevenueCat: Purchases.purchase start offering=${offering.identifier} '
+        'RevenueCat: purchase failed — $e',
+        name: 'Subscription',
+        stackTrace: st,
+      );
+      return SubscriptionPurchaseOutcome.failed;
+    }
+  }
+
+  /// The monthly and yearly plans on offer, for the plan picker. Null when
+  /// subscriptions aren't configured or the store can't be reached.
+  Future<SubscriptionPlans?> getPlans() async {
+    final offerings = await getOfferings();
+    if (offerings == null) return null;
+    final offering = _offeringWithPackages(offerings);
+    if (offering == null) return null;
+    final plans = SubscriptionPlans(
+      monthly: offering.monthly,
+      yearly: offering.annual,
+      fallback: _preferredPackage(offering),
+    );
+    return plans.isEmpty ? null : plans;
+  }
+
+  Future<SubscriptionPurchaseOutcome> _purchase(Package pkg) async {
+    try {
+      developer.log(
+        'RevenueCat: Purchases.purchase start '
         'package=${pkg.identifier} storeProduct=${pkg.storeProduct.identifier}',
         name: 'Subscription',
       );
@@ -450,29 +482,29 @@ class SubscriptionService implements SubscriptionIdentityService {
       await _syncSubscriptionProfile(result.customerInfo);
       return SubscriptionPurchaseOutcome.success;
     } on PlatformException catch (e, st) {
-      final code = PurchasesErrorHelper.getErrorCode(e);
-      developer.log(
-        'RevenueCat: purchase PlatformException code=$code '
-        'details=${e.details} message=${e.message}',
-        name: 'Subscription',
-        stackTrace: st,
-      );
-      if (kDebugMode) {
-        developer.log(
-          '[Subscription] purchase error code=$code message=${e.message}',
-          name: 'Subscription',
-        );
-      }
-
-      return purchaseOutcomeForError(code);
-    } catch (e, st) {
-      developer.log(
-        'RevenueCat: purchase failed — $e',
-        name: 'Subscription',
-        stackTrace: st,
-      );
-      return SubscriptionPurchaseOutcome.failed;
+      return _purchaseError(e, st);
     }
+  }
+
+  SubscriptionPurchaseOutcome _purchaseError(
+    PlatformException e,
+    StackTrace st,
+  ) {
+    final code = PurchasesErrorHelper.getErrorCode(e);
+    developer.log(
+      'RevenueCat: purchase PlatformException code=$code '
+      'details=${e.details} message=${e.message}',
+      name: 'Subscription',
+      stackTrace: st,
+    );
+    if (kDebugMode) {
+      developer.log(
+        '[Subscription] purchase error code=$code message=${e.message}',
+        name: 'Subscription',
+      );
+    }
+
+    return purchaseOutcomeForError(code);
   }
 
   /// Restore previous purchases. The SDK fetches fresh CustomerInfo from
@@ -751,3 +783,37 @@ final subscriptionTierProvider =
 final subscriptionServiceProvider = Provider<SubscriptionService>((ref) {
   return SubscriptionService.instance;
 });
+
+/// The plans the plan page offers; null hides the picker.
+final subscriptionPlansProvider = FutureProvider<SubscriptionPlans?>(
+  (ref) => ref.watch(subscriptionServiceProvider).getPlans(),
+);
+
+/// Monthly and yearly Pro, as the store prices them.
+class SubscriptionPlans {
+  const SubscriptionPlans({this.monthly, this.yearly, this.fallback});
+
+  final Package? monthly;
+  final Package? yearly;
+
+  /// Whatever else the offering holds, when it has neither.
+  final Package? fallback;
+
+  bool get isEmpty => monthly == null && yearly == null && fallback == null;
+
+  /// What a year costs against twelve months, rounded down; null when there
+  /// is nothing to compare or no saving.
+  int? get yearlySavingPercent {
+    final month = monthly?.storeProduct.price;
+    final year = yearly?.storeProduct.price;
+    return savingPercent(monthlyPrice: month, yearlyPrice: year);
+  }
+
+  static int? savingPercent({double? monthlyPrice, double? yearlyPrice}) {
+    if (monthlyPrice == null || yearlyPrice == null || monthlyPrice <= 0) {
+      return null;
+    }
+    final percent = ((1 - yearlyPrice / (monthlyPrice * 12)) * 100).floor();
+    return percent > 0 ? percent : null;
+  }
+}

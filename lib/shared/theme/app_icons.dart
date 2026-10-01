@@ -34,6 +34,7 @@ abstract final class AppIcons {
   static const eraseAll = PhosphorIconsBold.eraser;
   static const account = PhosphorIconsBold.userCircle;
   static const analytics = PhosphorIconsBold.chartBar;
+  static const haptics = PhosphorIconsBold.vibrate;
   static const about = PhosphorIconsBold.info;
   static const logout = PhosphorIconsBold.signOut;
   static const deleteAccount = PhosphorIconsBold.userMinus;
@@ -252,6 +253,7 @@ abstract final class AppIcons {
     eraseAll: PhosphorIconsFill.eraser,
     account: PhosphorIconsFill.userCircle,
     analytics: PhosphorIconsFill.chartBar,
+    haptics: PhosphorIconsFill.vibrate,
     about: PhosphorIconsFill.info,
     logout: PhosphorIconsFill.signOut,
     deleteAccount: PhosphorIconsFill.userMinus,

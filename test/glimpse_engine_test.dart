@@ -189,6 +189,42 @@ void main() {
   });
 
   group('delivery policy', () {
+    test('delivery hours from Settings move the quiet window', () {
+      final g = stored(candidate());
+      // 7pm is inside the default 9–21 window but not a morning one.
+      expect(
+        GlimpseDeliveryPolicy.canPost(
+          g,
+          [],
+          now,
+          windowStart: 7,
+          windowEnd: 11,
+        ),
+        isFalse,
+      );
+      expect(
+        GlimpseDeliveryPolicy.canPost(
+          g,
+          [],
+          DateTime(2026, 9, 8, 7, 30),
+          windowStart: 7,
+          windowEnd: 11,
+        ),
+        isTrue,
+      );
+      // An evening window reaches past the default 9pm cut-off.
+      expect(
+        GlimpseDeliveryPolicy.canPost(
+          g,
+          [],
+          DateTime(2026, 9, 8, 21, 30),
+          windowStart: 18,
+          windowEnd: 22,
+        ),
+        isTrue,
+      );
+    });
+
     test(
       'quiet hours, future availability, expiration and retirement suppress',
       () {

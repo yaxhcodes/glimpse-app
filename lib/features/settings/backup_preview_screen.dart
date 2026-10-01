@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/backup_provider.dart';
 import '../../core/services/backup/backup_models.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../../l10n/l10n.dart';
 import '../shell/navigation_discovery_provider.dart';
 import 'settings_components.dart';
 import 'package:glimpse/shared/theme/app_icons.dart';
@@ -21,19 +22,22 @@ class BackupPreviewScreen extends ConsumerStatefulWidget {
 class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
   RestoreMode _restoreMode = RestoreMode.merge;
 
-  String _formatDate(String isoDate) {
-    try {
-      final dt = DateTime.parse(isoDate);
-      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} at ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return isoDate;
-    }
+  String _formatDate(BuildContext context, String isoDate) {
+    final dt = DateTime.tryParse(isoDate)?.toLocal();
+    if (dt == null) return isoDate;
+    final material = MaterialLocalizations.of(context);
+    final time = material.formatTimeOfDay(
+      TimeOfDay.fromDateTime(dt),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
+    return '${material.formatMediumDate(dt)}, $time';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final strings = context.l10n;
     final state = ref.watch(backupProvider);
     final backup = state.previewData;
 
@@ -50,8 +54,8 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
             SnackBar(
               content: Text(
                 next.restoredCount! > 0
-                    ? 'Restored ${next.restoredCount} links'
-                    : 'Restore complete',
+                    ? strings.restoredLinksCount(next.restoredCount!)
+                    : strings.restoreComplete,
               ),
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 3),
@@ -73,11 +77,11 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
     });
 
     if (backup == null) {
-      return const SettingsPageScaffold(
-        title: 'Backup Preview',
+      return SettingsPageScaffold(
+        title: strings.backupPreview,
         children: [
-          SizedBox(height: 48),
-          Center(child: Text('No backup data')),
+          const SizedBox(height: 48),
+          Center(child: Text(strings.noBackupData)),
         ],
       );
     }
@@ -86,7 +90,7 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
     final progress = state.progress;
 
     return SettingsPageScaffold(
-      title: 'Backup Preview',
+      title: strings.backupPreview,
       bottomPadding: 24,
       // What to do next stays in reach under the details.
       bottomBar: _PreviewActions(
@@ -99,33 +103,42 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
         },
       ),
       children: [
-        const SettingsGroupLabel('Backup details'),
+        SettingsGroupLabel(strings.backupDetails),
         SettingsPanel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _DetailRow(label: 'Date', value: _formatDate(backup.createdAt)),
+              _DetailRow(
+                label: strings.backupDate,
+                value: _formatDate(context, backup.createdAt),
+              ),
               if (backup.appVersion.isNotEmpty)
-                _DetailRow(label: 'App version', value: backup.appVersion),
+                _DetailRow(
+                  label: strings.backupAppVersion,
+                  value: backup.appVersion,
+                ),
               if (backup.device != null && backup.device!.isNotEmpty)
-                _DetailRow(label: 'Device', value: backup.device!),
+                _DetailRow(label: strings.backupDevice, value: backup.device!),
               Divider(
                 height: 24,
                 color: cs.outlineVariant.withValues(alpha: 0.4),
               ),
-              _DetailRow(label: 'Links', value: '${backup.links.length}'),
               _DetailRow(
-                label: 'Collections',
+                label: strings.backupLinksLabel,
+                value: '${backup.links.length}',
+              ),
+              _DetailRow(
+                label: strings.collections,
                 value: '${backup.collections.length}',
               ),
               if (backup.saveSessions.isNotEmpty)
                 _DetailRow(
-                  label: 'Save sessions',
+                  label: strings.backupSaveSessions,
                   value: '${backup.saveSessions.length}',
                 ),
               if (backup.links.any((l) => l.embedding != null))
                 _DetailRow(
-                  label: 'Embeddings included',
+                  label: strings.backupEmbeddings,
                   value:
                       '${backup.links.where((l) => l.embedding != null).length}',
                 ),
@@ -133,25 +146,23 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        const SettingsGroupLabel('Restore mode'),
+        SettingsGroupLabel(strings.restoreMode),
         SettingsPanel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _RestoreModeOption(
                 icon: AppIcons.merge,
-                title: 'Merge with existing library',
-                subtitle:
-                    'Adds new links from the backup (including ones you\u2019ve deleted) and updates existing ones. Nothing in your current library is removed.',
+                title: strings.restoreMergeTitle,
+                subtitle: strings.restoreMergeSubtitle,
                 isSelected: _restoreMode == RestoreMode.merge,
                 onTap: () => setState(() => _restoreMode = RestoreMode.merge),
               ),
               const SizedBox(height: 8),
               _RestoreModeOption(
                 icon: AppIcons.swapHorizontal,
-                title: 'Replace current library',
-                subtitle:
-                    'Replaces all current data with the backup. Your current library will be deleted.',
+                title: strings.restoreReplaceTitle,
+                subtitle: strings.restoreReplaceSubtitle,
                 isSelected: _restoreMode == RestoreMode.replace,
                 isDestructive: true,
                 onTap: () => setState(() => _restoreMode = RestoreMode.replace),
@@ -171,16 +182,20 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isReplace ? 'Replace library?' : 'Merge backup?'),
+        title: Text(
+          isReplace
+              ? context.l10n.replaceLibraryQuestion
+              : context.l10n.mergeBackupQuestion,
+        ),
         content: Text(
           isReplace
-              ? 'This will replace your current library with the backup. All your current links and collections will be permanently deleted.'
-              : 'Links from the backup will be merged into your current library. Duplicates will be skipped.',
+              ? context.l10n.replaceLibraryWarning
+              : context.l10n.mergeBackupExplanation,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -189,7 +204,9 @@ class _BackupPreviewScreenState extends ConsumerState<BackupPreviewScreen> {
                     backgroundColor: Theme.of(context).colorScheme.error,
                   )
                 : null,
-            child: Text(isReplace ? 'Replace' : 'Merge'),
+            child: Text(
+              isReplace ? context.l10n.replaceAction : context.l10n.mergeAction,
+            ),
           ),
         ],
       ),
@@ -237,7 +254,7 @@ class _PreviewActions extends StatelessWidget {
                     LinearProgressIndicator(value: progress),
                     const SizedBox(height: 8),
                     Text(
-                      'Restoring... ${(progress * 100).round()}%',
+                      context.l10n.restoringProgress((progress * 100).round()),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -252,11 +269,11 @@ class _PreviewActions extends StatelessWidget {
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(52),
                       ),
-                      child: const Text('Restore'),
+                      child: Text(context.l10n.restore),
                     ),
                     TextButton(
                       onPressed: onCancel,
-                      child: const Text('Cancel'),
+                      child: Text(context.l10n.cancel),
                     ),
                   ],
                 ),
@@ -316,9 +333,10 @@ class _RestoreImpactSummary extends ConsumerWidget {
         }
         if (mode == RestoreMode.replace) {
           return Text(
-            'Your current library will be deleted, then ${impact.addedLinks} '
-            '${_links(impact.addedLinks)} and ${impact.addedCollections} '
-            '${_collections(impact.addedCollections)} will be restored from the backup.',
+            context.l10n.restoreImpactReplace(
+              context.l10n.linkCount(impact.addedLinks),
+              context.l10n.collectionCountLabel(impact.addedCollections),
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
               height: 1.4,
@@ -335,16 +353,14 @@ class _RestoreImpactSummary extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _ImpactRow(
-              label: 'New links to restore',
+              label: context.l10n.impactNewLinks,
               value: added,
-              hint: added > 0
-                  ? 'Includes any links you previously deleted.'
-                  : null,
+              hint: added > 0 ? context.l10n.impactNewLinksHint : null,
               tint: cs.primary,
             ),
             const SizedBox(height: 6),
             _ImpactRow(
-              label: 'Existing links to update',
+              label: context.l10n.impactUpdatedLinks,
               value: updated,
               tint: cs.tertiary,
             ),
@@ -357,14 +373,14 @@ class _RestoreImpactSummary extends ConsumerWidget {
               const SizedBox(height: 10),
               if (addedCol > 0)
                 _ImpactRow(
-                  label: 'New collections',
+                  label: context.l10n.impactNewCollections,
                   value: addedCol,
                   tint: cs.primary,
                 ),
               if (addedCol > 0 && updatedCol > 0) const SizedBox(height: 6),
               if (updatedCol > 0)
                 _ImpactRow(
-                  label: 'Collections to update',
+                  label: context.l10n.impactUpdatedCollections,
                   value: updatedCol,
                   tint: cs.tertiary,
                 ),
@@ -383,7 +399,7 @@ class _RestoreImpactSummary extends ConsumerWidget {
             ),
             const SizedBox(width: 10),
             Text(
-              'Calculating changes\u2026',
+              context.l10n.calculatingChanges,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -392,7 +408,7 @@ class _RestoreImpactSummary extends ConsumerWidget {
         ),
       ),
       error: (e, _) => Text(
-        'Could not preview changes.',
+        context.l10n.couldNotPreviewChanges,
         style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
       ),
     );
@@ -406,9 +422,6 @@ class _RestoreImpactSummary extends ConsumerWidget {
       child: body,
     );
   }
-
-  static String _links(int n) => n == 1 ? 'link' : 'links';
-  static String _collections(int n) => n == 1 ? 'collection' : 'collections';
 }
 
 class _ImpactRow extends StatelessWidget {

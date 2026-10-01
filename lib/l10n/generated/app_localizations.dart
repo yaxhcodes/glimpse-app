@@ -343,7 +343,7 @@ abstract class AppLocalizations {
   /// No description provided for @libraryGestures.
   ///
   /// In en, this message translates to:
-  /// **'Library gestures'**
+  /// **'Swipe actions'**
   String get libraryGestures;
 
   /// No description provided for @notifications.
@@ -5751,6 +5751,756 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Example: films, music and places from your saves, and a search that finds the two-minute rule.'**
   String get obFindStage;
+
+  /// No description provided for @planNamePro.
+  ///
+  /// In en, this message translates to:
+  /// **'Glimpse Pro'**
+  String get planNamePro;
+
+  /// No description provided for @planNameFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Glimpse Free'**
+  String get planNameFree;
+
+  /// No description provided for @accountLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading account'**
+  String get accountLoading;
+
+  /// No description provided for @accountSignedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in'**
+  String get accountSignedIn;
+
+  /// No description provided for @accountCheckingSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking session…'**
+  String get accountCheckingSession;
+
+  /// No description provided for @accountFallbackSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Glimpse account'**
+  String get accountFallbackSubtitle;
+
+  /// No description provided for @couldNotDeleteAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t delete your account. Check your connection and try again.'**
+  String get couldNotDeleteAccount;
+
+  /// No description provided for @privacyOnDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'On this device'**
+  String get privacyOnDevice;
+
+  /// No description provided for @privacyOnDeviceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your library lives on this phone. Backups go only where you put them.'**
+  String get privacyOnDeviceNote;
+
+  /// No description provided for @privacySentToServers.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent to Glimpse\'s servers'**
+  String get privacySentToServers;
+
+  /// No description provided for @privacyLinksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Links you save'**
+  String get privacyLinksTitle;
+
+  /// No description provided for @privacyLinksDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'The link, its title and description, so Glimpse can read and summarise it'**
+  String get privacyLinksDetail;
+
+  /// No description provided for @privacyAskTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Questions you ask'**
+  String get privacyAskTitle;
+
+  /// No description provided for @privacyAskDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'With the saves they draw on, so Glimpse can answer'**
+  String get privacyAskDetail;
+
+  /// No description provided for @privacyAccountDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name and email, to sign you in'**
+  String get privacyAccountDetail;
+
+  /// No description provided for @privacySubscriptionDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether you have Pro'**
+  String get privacySubscriptionDetail;
+
+  /// No description provided for @privacyAnalyticsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage analytics'**
+  String get privacyAnalyticsTitle;
+
+  /// No description provided for @privacyAnalyticsDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Which features you use and your device model — never what you save'**
+  String get privacyAnalyticsDetail;
+
+  /// No description provided for @privacyAnalyticsOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off — nothing about how you use Glimpse is sent'**
+  String get privacyAnalyticsOff;
+
+  /// No description provided for @privacyServersNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Glimpse never sells your data. The privacy policy explains how long it’s kept and how to delete it.'**
+  String get privacyServersNote;
+
+  /// No description provided for @binItemGone.
+  ///
+  /// In en, this message translates to:
+  /// **'This item is no longer in Bin'**
+  String get binItemGone;
+
+  /// No description provided for @binRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored'**
+  String get binRestored;
+
+  /// No description provided for @binCouldNotRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not restore item'**
+  String get binCouldNotRestore;
+
+  /// No description provided for @binNoneRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'No items were restored'**
+  String get binNoneRestored;
+
+  /// No description provided for @binItemsRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 item restored} other{{count} items restored}}'**
+  String binItemsRestored(int count);
+
+  /// No description provided for @binCouldNotRestoreMany.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not restore items'**
+  String get binCouldNotRestoreMany;
+
+  /// No description provided for @cannotBeUndone.
+  ///
+  /// In en, this message translates to:
+  /// **'This cannot be undone.'**
+  String get cannotBeUndone;
+
+  /// No description provided for @deleteItemsPermanentlyQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Delete permanently?} other{Delete {count} items permanently?}}'**
+  String deleteItemsPermanentlyQuestion(int count);
+
+  /// No description provided for @binPermanentlyDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently deleted'**
+  String get binPermanentlyDeleted;
+
+  /// No description provided for @binItemsPermanentlyDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 item permanently deleted} other{{count} items permanently deleted}}'**
+  String binItemsPermanentlyDeleted(int count);
+
+  /// No description provided for @binCouldNotDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete item'**
+  String get binCouldNotDelete;
+
+  /// No description provided for @binCouldNotDeleteMany.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete items'**
+  String get binCouldNotDeleteMany;
+
+  /// No description provided for @emptyBinQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty Bin?'**
+  String get emptyBinQuestion;
+
+  /// No description provided for @binEmptied.
+  ///
+  /// In en, this message translates to:
+  /// **'Bin emptied'**
+  String get binEmptied;
+
+  /// No description provided for @binCouldNotEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not empty Bin'**
+  String get binCouldNotEmpty;
+
+  /// No description provided for @restoreSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore selected'**
+  String get restoreSelected;
+
+  /// No description provided for @deleteSelectedPermanently.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete selected permanently'**
+  String get deleteSelectedPermanently;
+
+  /// No description provided for @backupPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup preview'**
+  String get backupPreview;
+
+  /// No description provided for @noBackupData.
+  ///
+  /// In en, this message translates to:
+  /// **'No backup data'**
+  String get noBackupData;
+
+  /// No description provided for @backupDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup details'**
+  String get backupDetails;
+
+  /// No description provided for @backupDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get backupDate;
+
+  /// No description provided for @backupAppVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'App version'**
+  String get backupAppVersion;
+
+  /// No description provided for @backupDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get backupDevice;
+
+  /// No description provided for @backupLinksLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Links'**
+  String get backupLinksLabel;
+
+  /// No description provided for @backupSaveSessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Save sessions'**
+  String get backupSaveSessions;
+
+  /// No description provided for @backupEmbeddings.
+  ///
+  /// In en, this message translates to:
+  /// **'Embeddings included'**
+  String get backupEmbeddings;
+
+  /// No description provided for @restoreMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore mode'**
+  String get restoreMode;
+
+  /// No description provided for @restoreMergeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge with existing library'**
+  String get restoreMergeTitle;
+
+  /// No description provided for @restoreMergeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds new links from the backup (including ones you’ve deleted) and updates existing ones. Nothing in your current library is removed.'**
+  String get restoreMergeSubtitle;
+
+  /// No description provided for @restoreReplaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace current library'**
+  String get restoreReplaceTitle;
+
+  /// No description provided for @restoreReplaceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaces all current data with the backup. Your current library will be deleted.'**
+  String get restoreReplaceSubtitle;
+
+  /// No description provided for @restoringProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring… {percent}%'**
+  String restoringProgress(int percent);
+
+  /// No description provided for @replaceLibraryQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace library?'**
+  String get replaceLibraryQuestion;
+
+  /// No description provided for @mergeBackupQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge backup?'**
+  String get mergeBackupQuestion;
+
+  /// No description provided for @replaceLibraryWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This will replace your current library with the backup. All your current links and collections will be permanently deleted.'**
+  String get replaceLibraryWarning;
+
+  /// No description provided for @mergeBackupExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Links from the backup will be merged into your current library. Duplicates will be skipped.'**
+  String get mergeBackupExplanation;
+
+  /// No description provided for @replaceAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get replaceAction;
+
+  /// No description provided for @mergeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge'**
+  String get mergeAction;
+
+  /// No description provided for @collectionCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 collection} other{{count} collections}}'**
+  String collectionCountLabel(int count);
+
+  /// No description provided for @restoreImpactReplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Your current library will be deleted, then {links} and {collections} will be restored from the backup.'**
+  String restoreImpactReplace(String links, String collections);
+
+  /// No description provided for @impactNewLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'New links to restore'**
+  String get impactNewLinks;
+
+  /// No description provided for @impactNewLinksHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Includes any links you previously deleted.'**
+  String get impactNewLinksHint;
+
+  /// No description provided for @impactUpdatedLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing links to update'**
+  String get impactUpdatedLinks;
+
+  /// No description provided for @impactNewCollections.
+  ///
+  /// In en, this message translates to:
+  /// **'New collections'**
+  String get impactNewCollections;
+
+  /// No description provided for @impactUpdatedCollections.
+  ///
+  /// In en, this message translates to:
+  /// **'Collections to update'**
+  String get impactUpdatedCollections;
+
+  /// No description provided for @calculatingChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculating changes…'**
+  String get calculatingChanges;
+
+  /// No description provided for @couldNotPreviewChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not preview changes.'**
+  String get couldNotPreviewChanges;
+
+  /// No description provided for @restoredLinksCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Restored 1 link} other{Restored {count} links}}'**
+  String restoredLinksCount(int count);
+
+  /// No description provided for @restoreComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore complete'**
+  String get restoreComplete;
+
+  /// No description provided for @subscriptionsUnavailableBuild.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions are unavailable in this build.'**
+  String get subscriptionsUnavailableBuild;
+
+  /// No description provided for @subscriptionsUnavailableNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions are unavailable right now.'**
+  String get subscriptionsUnavailableNow;
+
+  /// No description provided for @welcomeToPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to Glimpse Pro!'**
+  String get welcomeToPro;
+
+  /// No description provided for @purchasePending.
+  ///
+  /// In en, this message translates to:
+  /// **'Your purchase is pending. Pro will unlock once payment is confirmed.'**
+  String get purchasePending;
+
+  /// No description provided for @purchaseFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The purchase couldn\'t be completed. Please try again.'**
+  String get purchaseFailed;
+
+  /// No description provided for @purchaseNotVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'The purchase went through, but Pro couldn\'t be verified yet. Try Restore purchases.'**
+  String get purchaseNotVerified;
+
+  /// No description provided for @purchasesRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases restored — welcome back!'**
+  String get purchasesRestored;
+
+  /// No description provided for @noPurchasesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No previous purchases found'**
+  String get noPurchasesFound;
+
+  /// No description provided for @restorePurchasesFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases couldn\'t be restored. Please try again.'**
+  String get restorePurchasesFailed;
+
+  /// No description provided for @couldNotOpenGooglePlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open Google Play.'**
+  String get couldNotOpenGooglePlay;
+
+  /// No description provided for @subscriptionOtherAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'This subscription belongs to another Glimpse account. Sign in with the account that subscribed.'**
+  String get subscriptionOtherAccount;
+
+  /// No description provided for @planYourUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your usage'**
+  String get planYourUsage;
+
+  /// No description provided for @usageAiSavesFree.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} free AI saves used'**
+  String usageAiSavesFree(int used, int limit);
+
+  /// No description provided for @usageAiSavesPro.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} AI saves this month'**
+  String usageAiSavesPro(int used, int limit);
+
+  /// No description provided for @usageAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} questions this month'**
+  String usageAsk(int used, int limit);
+
+  /// No description provided for @usageSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} searches this month'**
+  String usageSearch(int used, int limit);
+
+  /// No description provided for @compareTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Free and Pro'**
+  String get compareTitle;
+
+  /// No description provided for @compareAiSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'AI-enriched saves'**
+  String get compareAiSaves;
+
+  /// No description provided for @compareAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Glimpse'**
+  String get compareAsk;
+
+  /// No description provided for @compareSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyword search'**
+  String get compareSearch;
+
+  /// No description provided for @compareFreeAiSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'30 to start'**
+  String get compareFreeAiSaves;
+
+  /// No description provided for @perMonthCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} / month'**
+  String perMonthCount(int count);
+
+  /// No description provided for @unlimitedFairUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited*'**
+  String get unlimitedFairUse;
+
+  /// No description provided for @fairUseNote.
+  ///
+  /// In en, this message translates to:
+  /// **'* Within fair use.'**
+  String get fairUseNote;
+
+  /// No description provided for @choosePlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a plan'**
+  String get choosePlan;
+
+  /// No description provided for @planMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get planMonthly;
+
+  /// No description provided for @planYearly.
+  ///
+  /// In en, this message translates to:
+  /// **'Yearly'**
+  String get planYearly;
+
+  /// No description provided for @pricePerMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'{price} / month'**
+  String pricePerMonth(String price);
+
+  /// No description provided for @pricePerYear.
+  ///
+  /// In en, this message translates to:
+  /// **'{price} / year'**
+  String pricePerYear(String price);
+
+  /// No description provided for @savePercent.
+  ///
+  /// In en, this message translates to:
+  /// **'Save {percent}%'**
+  String savePercent(int percent);
+
+  /// No description provided for @startProWithPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Pro · {price}'**
+  String startProWithPrice(String price);
+
+  /// No description provided for @subscriptionTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Renews automatically until you cancel. Cancel anytime in Google Play.'**
+  String get subscriptionTerms;
+
+  /// No description provided for @hapticsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Haptics'**
+  String get hapticsTitle;
+
+  /// No description provided for @hapticsFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get hapticsFull;
+
+  /// No description provided for @hapticsSubtle.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtle'**
+  String get hapticsSubtle;
+
+  /// No description provided for @hapticsFullDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Rich, textured feedback'**
+  String get hapticsFullDetail;
+
+  /// No description provided for @hapticsSubtleDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'The lightest taps only'**
+  String get hapticsSubtleDetail;
+
+  /// No description provided for @hapticsOffDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'No vibration'**
+  String get hapticsOffDetail;
+
+  /// No description provided for @defaultMusicApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Default music app'**
+  String get defaultMusicApp;
+
+  /// No description provided for @musicAskEachTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask each time'**
+  String get musicAskEachTime;
+
+  /// No description provided for @notifWhatToSend.
+  ///
+  /// In en, this message translates to:
+  /// **'What to send'**
+  String get notifWhatToSend;
+
+  /// No description provided for @notifKindConnections.
+  ///
+  /// In en, this message translates to:
+  /// **'Connections'**
+  String get notifKindConnections;
+
+  /// No description provided for @notifKindConnectionsDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'When saves from different times turn out to be about the same thing'**
+  String get notifKindConnectionsDetail;
+
+  /// No description provided for @notifKindIdeas.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved ideas'**
+  String get notifKindIdeas;
+
+  /// No description provided for @notifKindIdeasDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'An idea you saved, back when it’s worth another look'**
+  String get notifKindIdeasDetail;
+
+  /// No description provided for @notifKindWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly brief'**
+  String get notifKindWeekly;
+
+  /// No description provided for @notifKindWeeklyDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'A Sunday look back at your week of saving'**
+  String get notifKindWeeklyDetail;
+
+  /// No description provided for @notifKindReminders.
+  ///
+  /// In en, this message translates to:
+  /// **'Revisit reminders'**
+  String get notifKindReminders;
+
+  /// No description provided for @notifKindRemindersDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'The saves you asked to come back to'**
+  String get notifKindRemindersDetail;
+
+  /// No description provided for @notifDeliveryHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery hours'**
+  String get notifDeliveryHours;
+
+  /// No description provided for @notifDeliveryHoursDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Glimpse only notifies you between these times'**
+  String get notifDeliveryHoursDetail;
+
+  /// No description provided for @timeRange.
+  ///
+  /// In en, this message translates to:
+  /// **'{start} – {end}'**
+  String timeRange(String start, String end);
+
+  /// No description provided for @notifKindsAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything'**
+  String get notifKindsAll;
+
+  /// No description provided for @notifKindsNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing'**
+  String get notifKindsNone;
+
+  /// No description provided for @notifKindsSome.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} of 4 kinds'**
+  String notifKindsSome(int count);
+
+  /// No description provided for @binCouldNotLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load Bin'**
+  String get binCouldNotLoad;
 }
 
 class _AppLocalizationsDelegate

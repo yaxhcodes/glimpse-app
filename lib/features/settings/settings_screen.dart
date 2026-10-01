@@ -36,6 +36,11 @@ import 'settings_components.dart';
 import 'haptics_lab_screen.dart';
 import 'bin_provider.dart';
 import '../../l10n/l10n.dart';
+import '../glimpses/glimpse.dart';
+import '../library/library_provider.dart';
+import '../glimpses/glimpse_notification_prefs.dart';
+import '../../core/models/music_provider.dart';
+import '../../core/providers/music_provider_preference_provider.dart';
 import '../../core/services/app_haptics.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -230,13 +235,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         );
       context.go('/');
-    } catch (e) {
+    } catch (error, stack) {
+      debugPrint('Account deletion failed: $error\n$stack');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(strings.couldNotDeleteAccount),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -299,7 +305,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                       iconColor: SettingsAccents.gold,
-                      title: 'Glimpse AI',
+                      title: isPro ? strings.planNamePro : strings.planNameFree,
                       subtitle: planSubtitle,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -340,6 +346,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: _languageLabel(strings, localeState.preference),
                       onTap: _chooseLanguage,
                     ),
+                    const _HapticsTile(),
+                    // Only once there's music to open — or a choice to undo.
+                    if (_hasMusic(ref)) const _MusicAppTile(),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -351,7 +360,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                 // ─── Notifications ───────────────────────
                 SettingsGroupLabel(strings.notifications),
-                const SettingsGroup(children: [_DigestToggle()]),
+                const _NotificationsGroup(),
                 const SizedBox(height: 24),
 
                 // ─── Privacy & data ──────────────────────
@@ -487,12 +496,16 @@ class _AccountIdentityTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final email = _trimOrNull(user?.email);
     final accountName = _trimOrNull(user?.displayName);
+    final strings = context.l10n;
     final title =
         accountName ??
         _nameFromEmail(email) ??
-        (isLoading ? 'Loading account' : 'Signed in');
+        (isLoading ? strings.accountLoading : strings.accountSignedIn);
     final subtitle =
-        email ?? (isLoading ? 'Checking session…' : 'Glimpse account');
+        email ??
+        (isLoading
+            ? strings.accountCheckingSession
+            : strings.accountFallbackSubtitle);
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 76),
@@ -822,19 +835,21 @@ class _SwipeActionOption extends StatelessWidget {
 // Notifications toggle (user-facing)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _DigestToggle extends ConsumerStatefulWidget {
-  const _DigestToggle();
+class _NotificationsGroup extends ConsumerStatefulWidget {
+  const _NotificationsGroup();
 
   @override
-  ConsumerState<_DigestToggle> createState() => _DigestToggleState();
+  ConsumerState<_NotificationsGroup> createState() =>
+      _NotificationsGroupState();
 }
 
-class _DigestToggleState extends ConsumerState<_DigestToggle>
+class _NotificationsGroupState extends ConsumerState<_NotificationsGroup>
     with WidgetsBindingObserver {
   bool _enabled = true;
   bool _loaded = false;
   bool _osEnabled = false;
   bool _busy = false;
+  GlimpseNotificationPrefs _prefs = const GlimpseNotificationPrefs();
 
   @override
   void initState() {
@@ -846,11 +861,13 @@ class _DigestToggleState extends ConsumerState<_DigestToggle>
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
     final osEnabled = await DigestNotifications.areNotificationsEnabled();
+    final prefs = await GlimpseNotificationPrefs.load();
     if (!mounted) return;
     setState(() {
       _enabled = p.getBool(DigestPrefs.digestEnabledKey) ?? true;
       _loaded = true;
       _osEnabled = osEnabled;
+      _prefs = prefs;
     });
   }
 
@@ -885,21 +902,341 @@ class _DigestToggleState extends ConsumerState<_DigestToggle>
     super.dispose();
   }
 
+  String _hour(BuildContext context, int hour) =>
+      MaterialLocalizations.of(context).formatTimeOfDay(
+        TimeOfDay(hour: hour % 24, minute: 0),
+        alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+      );
+
+  String _window(BuildContext context, int start, int end) =>
+      context.l10n.timeRange(_hour(context, start), _hour(context, end));
+
+  String _kindsSummary(AppLocalizations strings) {
+    final count = _prefs.enabledCount;
+    if (count == GlimpseNotificationPrefs.notifiableKinds.length) {
+      return strings.notifKindsAll;
+    }
+    if (count == 0) return strings.notifKindsNone;
+    return strings.notifKindsSome(count);
+  }
+
+  Future<void> _chooseKinds() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => _NotificationKindsSheet(initial: _prefs),
+    );
+    await _load();
+  }
+
+  Future<void> _chooseHours() async {
+    final picked = await showModalBottomSheet<(int, int)>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final strings = sheetContext.l10n;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
+                child: Text(
+                  strings.notifDeliveryHours,
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Text(
+                  strings.notifDeliveryHoursDetail,
+                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(sheetContext).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              for (final (start, end) in GlimpseNotificationPrefs.windowChoices)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                  leading: AppIcon(
+                    start == _prefs.startHour && end == _prefs.endHour
+                        ? AppIcons.radioSelected
+                        : AppIcons.radioUnselected,
+                  ),
+                  title: Text(_window(sheetContext, start, end)),
+                  onTap: () => Navigator.pop(sheetContext, (start, end)),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked == null) return;
+    await GlimpseNotificationPrefs.setWindow(picked.$1, picked.$2);
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SettingsTile(
-      icon: AppIcons.smartNotifications,
-      iconColor: SettingsAccents.amber,
-      title: context.l10n.smartNotifications,
-      subtitle: _osEnabled
-          ? context.l10n.behaviorBasedAlerts
-          : context.l10n.obAlertsOff,
-      onTap: _loaded && !_busy ? () => _set(!(_enabled && _osEnabled)) : null,
-      trailing: Switch(
-        value: _enabled && _osEnabled,
-        thumbIcon: settingsSwitchThumbIcon(),
-        onChanged: _loaded && !_busy ? _set : null,
+    final strings = context.l10n;
+    final on = _enabled && _osEnabled;
+    return SettingsGroup(
+      children: [
+        SettingsTile(
+          icon: AppIcons.smartNotifications,
+          iconColor: SettingsAccents.amber,
+          title: strings.smartNotifications,
+          subtitle: _osEnabled
+              ? strings.behaviorBasedAlerts
+              : strings.obAlertsOff,
+          onTap: _loaded && !_busy ? () => _set(!on) : null,
+          trailing: Switch(
+            value: on,
+            thumbIcon: settingsSwitchThumbIcon(),
+            onChanged: _loaded && !_busy ? _set : null,
+          ),
+        ),
+        // Only worth tuning while they're on.
+        if (on) ...[
+          SettingsTile(
+            icon: AppIcons.notifications,
+            iconColor: SettingsAccents.violet,
+            title: strings.notifWhatToSend,
+            subtitle: _kindsSummary(strings),
+            onTap: _chooseKinds,
+          ),
+          SettingsTile(
+            icon: AppIcons.clock,
+            iconColor: SettingsAccents.teal,
+            title: strings.notifDeliveryHours,
+            subtitle: _window(context, _prefs.startHour, _prefs.endHour),
+            onTap: _chooseHours,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The four kinds of notification, each with its own switch.
+class _NotificationKindsSheet extends StatefulWidget {
+  const _NotificationKindsSheet({required this.initial});
+
+  final GlimpseNotificationPrefs initial;
+
+  @override
+  State<_NotificationKindsSheet> createState() =>
+      _NotificationKindsSheetState();
+}
+
+class _NotificationKindsSheetState extends State<_NotificationKindsSheet> {
+  late final Set<GlimpseKind> _disabled = {...widget.initial.disabled};
+
+  (String, String) _copy(AppLocalizations strings, GlimpseKind kind) =>
+      switch (kind) {
+        GlimpseKind.connection => (
+          strings.notifKindConnections,
+          strings.notifKindConnectionsDetail,
+        ),
+        GlimpseKind.idea => (
+          strings.notifKindIdeas,
+          strings.notifKindIdeasDetail,
+        ),
+        GlimpseKind.weekly => (
+          strings.notifKindWeekly,
+          strings.notifKindWeeklyDetail,
+        ),
+        _ => (strings.notifKindReminders, strings.notifKindRemindersDetail),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.l10n;
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(
+              strings.notifWhatToSend,
+              style: theme.textTheme.titleLarge,
+            ),
+          ),
+          for (final kind in GlimpseNotificationPrefs.notifiableKinds)
+            SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              title: Text(_copy(strings, kind).$1),
+              subtitle: Text(_copy(strings, kind).$2),
+              thumbIcon: settingsSwitchThumbIcon(),
+              value: !_disabled.contains(kind),
+              onChanged: (enabled) {
+                AppHaptics.play(AppHaptics.tick);
+                setState(
+                  () => enabled ? _disabled.remove(kind) : _disabled.add(kind),
+                );
+                GlimpseNotificationPrefs.setKindEnabled(kind, enabled);
+              },
+            ),
+          const SizedBox(height: 12),
+        ],
       ),
+    );
+  }
+}
+
+/// Full, Subtle or Off — felt right away when chosen.
+class _HapticsTile extends StatefulWidget {
+  const _HapticsTile();
+
+  @override
+  State<_HapticsTile> createState() => _HapticsTileState();
+}
+
+class _HapticsTileState extends State<_HapticsTile> {
+  String _label(AppLocalizations strings, HapticsLevel level) =>
+      switch (level) {
+        HapticsLevel.full => strings.hapticsFull,
+        HapticsLevel.subtle => strings.hapticsSubtle,
+        HapticsLevel.off => strings.off,
+      };
+
+  String _detail(AppLocalizations strings, HapticsLevel level) =>
+      switch (level) {
+        HapticsLevel.full => strings.hapticsFullDetail,
+        HapticsLevel.subtle => strings.hapticsSubtleDetail,
+        HapticsLevel.off => strings.hapticsOffDetail,
+      };
+
+  Future<void> _choose() async {
+    final picked = await showModalBottomSheet<HapticsLevel>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final strings = sheetContext.l10n;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Text(
+                  strings.hapticsTitle,
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+              ),
+              for (final level in HapticsLevel.values)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                  leading: AppIcon(
+                    level == AppHaptics.level
+                        ? AppIcons.radioSelected
+                        : AppIcons.radioUnselected,
+                  ),
+                  title: Text(_label(strings, level)),
+                  subtitle: Text(_detail(strings, level)),
+                  onTap: () => Navigator.pop(sheetContext, level),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked == null) return;
+    await AppHaptics.setLevel(picked);
+    // Feel the choice.
+    AppHaptics.play(AppHaptics.confirm);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.l10n;
+    return SettingsTile(
+      icon: AppIcons.haptics,
+      iconColor: SettingsAccents.rose,
+      title: strings.hapticsTitle,
+      subtitle: _label(strings, AppHaptics.level),
+      onTap: _choose,
+    );
+  }
+}
+
+/// Whether the music-app choice means anything yet: the library holds a
+/// song, or one was already picked.
+bool _hasMusic(WidgetRef ref) {
+  final picked = ref.watch(
+    musicProviderPreferenceProvider.select((state) => state.provider != null),
+  );
+  if (picked) return true;
+  final snapshot = ref.watch(librarySnapshotProvider).valueOrNull;
+  return snapshot?.songs.isNotEmpty ?? false;
+}
+
+/// Which app a song opens in: one you choose, or asked each time.
+class _MusicAppTile extends ConsumerWidget {
+  const _MusicAppTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = context.l10n;
+    final provider = ref.watch(musicProviderPreferenceProvider).provider;
+    return SettingsTile(
+      icon: AppIcons.musicProvider,
+      iconColor: SettingsAccents.green,
+      title: strings.defaultMusicApp,
+      subtitle: provider?.label ?? strings.musicAskEachTime,
+      onTap: () async {
+        // `null` is a real choice here (ask each time), so the sheet hands
+        // back a record.
+        final picked = await showModalBottomSheet<({MusicProvider? value})>(
+          context: context,
+          showDragHandle: true,
+          builder: (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                  child: Text(
+                    strings.defaultMusicApp,
+                    style: Theme.of(sheetContext).textTheme.titleLarge,
+                  ),
+                ),
+                for (final option in <MusicProvider?>[
+                  null,
+                  ...MusicProvider.values,
+                ])
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                    leading: AppIcon(
+                      option == provider
+                          ? AppIcons.radioSelected
+                          : AppIcons.radioUnselected,
+                    ),
+                    title: Text(option?.label ?? strings.musicAskEachTime),
+                    onTap: () => Navigator.pop(sheetContext, (value: option)),
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+        if (picked == null) return;
+        final notifier = ref.read(musicProviderPreferenceProvider.notifier);
+        final value = picked.value;
+        value == null
+            ? await notifier.clear()
+            : await notifier.setProvider(value);
+      },
     );
   }
 }

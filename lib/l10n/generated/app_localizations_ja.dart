@@ -133,7 +133,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loadingPreference => '設定を読み込み中';
 
   @override
-  String get libraryGestures => 'ライブラリのジェスチャー';
+  String get libraryGestures => 'スワイプ操作';
 
   @override
   String get notifications => '通知';
@@ -3029,4 +3029,447 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get obFindStage => '例：保存した内容の映画・音楽・場所と、2分ルールを見つける検索。';
+
+  @override
+  String get planNamePro => 'Glimpse Pro';
+
+  @override
+  String get planNameFree => 'Glimpse Free';
+
+  @override
+  String get accountLoading => 'アカウントを読み込み中';
+
+  @override
+  String get accountSignedIn => 'ログイン中';
+
+  @override
+  String get accountCheckingSession => 'セッションを確認中…';
+
+  @override
+  String get accountFallbackSubtitle => 'Glimpseアカウント';
+
+  @override
+  String get couldNotDeleteAccount => 'アカウントを削除できませんでした。接続を確認して、もう一度お試しください。';
+
+  @override
+  String get privacyOnDevice => 'この端末内';
+
+  @override
+  String get privacyOnDeviceNote =>
+      'ライブラリはこのスマホに保存されます。バックアップはあなたが選んだ場所にだけ保存されます。';
+
+  @override
+  String get privacySentToServers => 'Glimpseのサーバーに送信';
+
+  @override
+  String get privacyLinksTitle => '保存したリンク';
+
+  @override
+  String get privacyLinksDetail => 'リンクとそのタイトル・説明。Glimpseが内容を読んで要約するために使います';
+
+  @override
+  String get privacyAskTitle => '質問した内容';
+
+  @override
+  String get privacyAskDetail => '回答のため、質問に関係する保存内容と一緒に送信されます';
+
+  @override
+  String get privacyAccountDetail => 'ログインのための名前とメールアドレス';
+
+  @override
+  String get privacySubscriptionDetail => 'Proを利用しているかどうか';
+
+  @override
+  String get privacyAnalyticsTitle => '利用状況の分析';
+
+  @override
+  String get privacyAnalyticsDetail => '使った機能と端末の機種。保存した内容は含みません';
+
+  @override
+  String get privacyAnalyticsOff => 'オフ：Glimpseの使い方に関する情報は送信されません';
+
+  @override
+  String get privacyServersNote =>
+      'Glimpseがあなたのデータを販売することはありません。保存期間と削除方法はプライバシーポリシーをご覧ください。';
+
+  @override
+  String get binItemGone => 'この項目はもうゴミ箱にありません';
+
+  @override
+  String get binRestored => '復元しました';
+
+  @override
+  String get binCouldNotRestore => '項目を復元できませんでした';
+
+  @override
+  String get binNoneRestored => '復元された項目はありません';
+
+  @override
+  String binItemsRestored(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件を復元しました',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binCouldNotRestoreMany => '項目を復元できませんでした';
+
+  @override
+  String get cannotBeUndone => 'この操作は元に戻せません。';
+
+  @override
+  String deleteItemsPermanentlyQuestion(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件を完全に削除しますか？',
+      one: '完全に削除しますか？',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binPermanentlyDeleted => '完全に削除しました';
+
+  @override
+  String binItemsPermanentlyDeleted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件を完全に削除しました',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binCouldNotDelete => '項目を削除できませんでした';
+
+  @override
+  String get binCouldNotDeleteMany => '項目を削除できませんでした';
+
+  @override
+  String get emptyBinQuestion => 'ゴミ箱を空にしますか？';
+
+  @override
+  String get binEmptied => 'ゴミ箱を空にしました';
+
+  @override
+  String get binCouldNotEmpty => 'ゴミ箱を空にできませんでした';
+
+  @override
+  String get restoreSelected => '選択した項目を復元';
+
+  @override
+  String get deleteSelectedPermanently => '選択した項目を完全に削除';
+
+  @override
+  String get backupPreview => 'バックアップのプレビュー';
+
+  @override
+  String get noBackupData => 'バックアップデータがありません';
+
+  @override
+  String get backupDetails => 'バックアップの詳細';
+
+  @override
+  String get backupDate => '日付';
+
+  @override
+  String get backupAppVersion => 'アプリのバージョン';
+
+  @override
+  String get backupDevice => '端末';
+
+  @override
+  String get backupLinksLabel => 'リンク';
+
+  @override
+  String get backupSaveSessions => '保存セッション';
+
+  @override
+  String get backupEmbeddings => '含まれる埋め込み';
+
+  @override
+  String get restoreMode => '復元方法';
+
+  @override
+  String get restoreMergeTitle => '今のライブラリと統合';
+
+  @override
+  String get restoreMergeSubtitle =>
+      'バックアップの新しいリンク（削除したものを含む）を追加し、既存のものを更新します。今のライブラリからは何も削除されません。';
+
+  @override
+  String get restoreReplaceTitle => '今のライブラリを置き換え';
+
+  @override
+  String get restoreReplaceSubtitle =>
+      '現在のデータをすべてバックアップで置き換えます。今のライブラリは削除されます。';
+
+  @override
+  String restoringProgress(int percent) {
+    return '復元中… $percent%';
+  }
+
+  @override
+  String get replaceLibraryQuestion => 'ライブラリを置き換えますか？';
+
+  @override
+  String get mergeBackupQuestion => 'バックアップを統合しますか？';
+
+  @override
+  String get replaceLibraryWarning =>
+      '今のライブラリがバックアップで置き換えられます。現在のリンクとコレクションはすべて完全に削除されます。';
+
+  @override
+  String get mergeBackupExplanation => 'バックアップのリンクが今のライブラリに統合されます。重複はスキップされます。';
+
+  @override
+  String get replaceAction => '置き換える';
+
+  @override
+  String get mergeAction => '統合する';
+
+  @override
+  String collectionCountLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件のコレクション',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String restoreImpactReplace(String links, String collections) {
+    return '今のライブラリが削除され、バックアップから$linksと$collectionsが復元されます。';
+  }
+
+  @override
+  String get impactNewLinks => '復元する新しいリンク';
+
+  @override
+  String get impactNewLinksHint => '以前に削除したリンクも含みます。';
+
+  @override
+  String get impactUpdatedLinks => '更新する既存のリンク';
+
+  @override
+  String get impactNewCollections => '新しいコレクション';
+
+  @override
+  String get impactUpdatedCollections => '更新するコレクション';
+
+  @override
+  String get calculatingChanges => '変更内容を計算中…';
+
+  @override
+  String get couldNotPreviewChanges => '変更内容をプレビューできませんでした。';
+
+  @override
+  String restoredLinksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件のリンクを復元しました',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get restoreComplete => '復元が完了しました';
+
+  @override
+  String get subscriptionsUnavailableBuild => 'このビルドではサブスクリプションを利用できません。';
+
+  @override
+  String get subscriptionsUnavailableNow => '現在サブスクリプションを利用できません。';
+
+  @override
+  String get welcomeToPro => 'Glimpse Proへようこそ！';
+
+  @override
+  String get purchasePending => '購入は保留中です。支払いが確認されるとProが有効になります。';
+
+  @override
+  String get purchaseFailed => '購入を完了できませんでした。もう一度お試しください。';
+
+  @override
+  String get purchaseNotVerified => '購入は完了しましたが、Proをまだ確認できません。「購入を復元」をお試しください。';
+
+  @override
+  String get purchasesRestored => '購入を復元しました。おかえりなさい！';
+
+  @override
+  String get noPurchasesFound => '以前の購入は見つかりませんでした';
+
+  @override
+  String get restorePurchasesFailed => '購入を復元できませんでした。もう一度お試しください。';
+
+  @override
+  String get couldNotOpenGooglePlay => 'Google Playを開けませんでした。';
+
+  @override
+  String get subscriptionOtherAccount =>
+      'このサブスクリプションは別のGlimpseアカウントのものです。購入したアカウントでログインしてください。';
+
+  @override
+  String get planYourUsage => '利用状況';
+
+  @override
+  String usageAiSavesFree(int used, int limit) {
+    return '無料AI保存 $limit件中$used件を使用';
+  }
+
+  @override
+  String usageAiSavesPro(int used, int limit) {
+    return '今月のAI保存 $limit件中$used件';
+  }
+
+  @override
+  String usageAsk(int used, int limit) {
+    return '今月の質問 $limit件中$used件';
+  }
+
+  @override
+  String usageSearch(int used, int limit) {
+    return '今月の検索 $limit件中$used件';
+  }
+
+  @override
+  String get compareTitle => 'FreeとPro';
+
+  @override
+  String get compareAiSaves => 'AIで整理した保存';
+
+  @override
+  String get compareAsk => 'Glimpseに質問';
+
+  @override
+  String get compareSearch => 'キーワード検索';
+
+  @override
+  String get compareFreeAiSaves => '最初の30件';
+
+  @override
+  String perMonthCount(int count) {
+    return '月$count件';
+  }
+
+  @override
+  String get unlimitedFairUse => '無制限*';
+
+  @override
+  String get fairUseNote => '* 公正な利用の範囲内で。';
+
+  @override
+  String get choosePlan => 'プランを選択';
+
+  @override
+  String get planMonthly => '月額';
+
+  @override
+  String get planYearly => '年額';
+
+  @override
+  String pricePerMonth(String price) {
+    return '$price／月';
+  }
+
+  @override
+  String pricePerYear(String price) {
+    return '$price／年';
+  }
+
+  @override
+  String savePercent(int percent) {
+    return '$percent%お得';
+  }
+
+  @override
+  String startProWithPrice(String price) {
+    return 'Proを始める · $price';
+  }
+
+  @override
+  String get subscriptionTerms => '解約するまで自動更新されます。Google Playでいつでも解約できます。';
+
+  @override
+  String get hapticsTitle => '触覚フィードバック';
+
+  @override
+  String get hapticsFull => '標準';
+
+  @override
+  String get hapticsSubtle => '控えめ';
+
+  @override
+  String get hapticsFullDetail => '豊かで繊細なフィードバック';
+
+  @override
+  String get hapticsSubtleDetail => 'ごく軽い振動のみ';
+
+  @override
+  String get hapticsOffDetail => '振動なし';
+
+  @override
+  String get defaultMusicApp => 'デフォルトの音楽アプリ';
+
+  @override
+  String get musicAskEachTime => '毎回確認する';
+
+  @override
+  String get notifWhatToSend => '通知する内容';
+
+  @override
+  String get notifKindConnections => 'つながり';
+
+  @override
+  String get notifKindConnectionsDetail => '別々の時期に保存したものが同じテーマだとわかったとき';
+
+  @override
+  String get notifKindIdeas => '保存したアイデア';
+
+  @override
+  String get notifKindIdeasDetail => '保存したアイデアを、見直す価値があるタイミングで';
+
+  @override
+  String get notifKindWeekly => '週間まとめ';
+
+  @override
+  String get notifKindWeeklyDetail => '日曜日に1週間の保存をふりかえり';
+
+  @override
+  String get notifKindReminders => '見直しリマインダー';
+
+  @override
+  String get notifKindRemindersDetail => '「あとで見る」にした保存';
+
+  @override
+  String get notifDeliveryHours => '通知する時間帯';
+
+  @override
+  String get notifDeliveryHoursDetail => 'Glimpseはこの時間帯にだけ通知します';
+
+  @override
+  String timeRange(String start, String end) {
+    return '$start〜$end';
+  }
+
+  @override
+  String get notifKindsAll => 'すべて';
+
+  @override
+  String get notifKindsNone => 'なし';
+
+  @override
+  String notifKindsSome(int count) {
+    return '4種類中$count種類';
+  }
+
+  @override
+  String get binCouldNotLoad => 'ゴミ箱を読み込めませんでした';
 }

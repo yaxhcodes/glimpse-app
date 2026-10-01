@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
 /// A vibrator primitive (Android's `VibrationEffect.Composition` ids), used
@@ -118,6 +119,24 @@ abstract final class AppHaptics {
 
   /// Which Android engine plays patterns; switchable in the Haptics lab.
   static HapticEngine engine = HapticEngine.system;
+
+  /// How much the person wants to feel, from Settings. Loaded at start-up.
+  static HapticsLevel level = HapticsLevel.full;
+
+  static const levelPreferenceKey = 'glimpse_haptics_level';
+
+  static Future<void> loadLevel() async {
+    final prefs = await SharedPreferences.getInstance();
+    level =
+        HapticsLevel.values.asNameMap()[prefs.getString(levelPreferenceKey)] ??
+        HapticsLevel.full;
+  }
+
+  static Future<void> setLevel(HapticsLevel value) async {
+    level = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(levelPreferenceKey, value.name);
+  }
 
   static DateTime? _lastPlayed;
 
@@ -289,8 +308,13 @@ abstract final class AppHaptics {
     HapticPattern pattern, {
     double intensity = 1,
   }) async {
+    if (level == HapticsLevel.off) return;
     _lastPlayed = DateTime.now();
-    final scale = intensity.clamp(0.0, 1.0);
+    // Subtle keeps only the lightest touch: below .4 even system haptics
+    // play as the softest one.
+    final scale = level == HapticsLevel.subtle
+        ? (intensity * 0.35).clamp(0.0, 0.35)
+        : intensity.clamp(0.0, 1.0);
     if (_bridge) {
       try {
         await _channel.invokeMethod<void>('compose', {
@@ -328,3 +352,6 @@ abstract final class AppHaptics {
     }
   }
 }
+
+/// How strongly the app's haptics play (Settings › Personalization).
+enum HapticsLevel { full, subtle, off }

@@ -138,7 +138,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get loadingPreference => 'Cargando preferencia';
 
   @override
-  String get libraryGestures => 'Gestos de la biblioteca';
+  String get libraryGestures => 'Acciones al deslizar';
 
   @override
   String get notifications => 'Notificaciones';
@@ -3320,4 +3320,469 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get obFindStage =>
       'Ejemplo: películas, música y lugares de tus guardados, y una búsqueda que encuentra la regla de los dos minutos.';
+
+  @override
+  String get planNamePro => 'Glimpse Pro';
+
+  @override
+  String get planNameFree => 'Glimpse Free';
+
+  @override
+  String get accountLoading => 'Cargando cuenta';
+
+  @override
+  String get accountSignedIn => 'Sesión iniciada';
+
+  @override
+  String get accountCheckingSession => 'Comprobando la sesión…';
+
+  @override
+  String get accountFallbackSubtitle => 'Cuenta de Glimpse';
+
+  @override
+  String get couldNotDeleteAccount =>
+      'No se pudo eliminar tu cuenta. Revisa tu conexión e inténtalo de nuevo.';
+
+  @override
+  String get privacyOnDevice => 'En este dispositivo';
+
+  @override
+  String get privacyOnDeviceNote =>
+      'Tu biblioteca vive en este teléfono. Las copias de seguridad van solo donde tú las guardes.';
+
+  @override
+  String get privacySentToServers => 'Enviado a los servidores de Glimpse';
+
+  @override
+  String get privacyLinksTitle => 'Enlaces que guardas';
+
+  @override
+  String get privacyLinksDetail =>
+      'El enlace, su título y su descripción, para que Glimpse pueda leerlo y resumirlo';
+
+  @override
+  String get privacyAskTitle => 'Preguntas que haces';
+
+  @override
+  String get privacyAskDetail =>
+      'Junto con los guardados en los que se basan, para que Glimpse pueda responder';
+
+  @override
+  String get privacyAccountDetail => 'Tu nombre y correo, para iniciar sesión';
+
+  @override
+  String get privacySubscriptionDetail => 'Si tienes Pro';
+
+  @override
+  String get privacyAnalyticsTitle => 'Análisis de uso';
+
+  @override
+  String get privacyAnalyticsDetail =>
+      'Qué funciones usas y el modelo de tu dispositivo, nunca lo que guardas';
+
+  @override
+  String get privacyAnalyticsOff =>
+      'Desactivado: no se envía nada sobre cómo usas Glimpse';
+
+  @override
+  String get privacyServersNote =>
+      'Glimpse nunca vende tus datos. La política de privacidad explica cuánto tiempo se conservan y cómo eliminarlos.';
+
+  @override
+  String get binItemGone => 'Este elemento ya no está en la papelera';
+
+  @override
+  String get binRestored => 'Restaurado';
+
+  @override
+  String get binCouldNotRestore => 'No se pudo restaurar el elemento';
+
+  @override
+  String get binNoneRestored => 'No se restauró ningún elemento';
+
+  @override
+  String binItemsRestored(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count elementos restaurados',
+      one: '1 elemento restaurado',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binCouldNotRestoreMany => 'No se pudieron restaurar los elementos';
+
+  @override
+  String get cannotBeUndone => 'Esto no se puede deshacer.';
+
+  @override
+  String deleteItemsPermanentlyQuestion(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '¿Eliminar $count elementos definitivamente?',
+      one: '¿Eliminar definitivamente?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binPermanentlyDeleted => 'Eliminado definitivamente';
+
+  @override
+  String binItemsPermanentlyDeleted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count elementos eliminados definitivamente',
+      one: '1 elemento eliminado definitivamente',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get binCouldNotDelete => 'No se pudo eliminar el elemento';
+
+  @override
+  String get binCouldNotDeleteMany => 'No se pudieron eliminar los elementos';
+
+  @override
+  String get emptyBinQuestion => '¿Vaciar la papelera?';
+
+  @override
+  String get binEmptied => 'Papelera vaciada';
+
+  @override
+  String get binCouldNotEmpty => 'No se pudo vaciar la papelera';
+
+  @override
+  String get restoreSelected => 'Restaurar selección';
+
+  @override
+  String get deleteSelectedPermanently => 'Eliminar selección definitivamente';
+
+  @override
+  String get backupPreview => 'Vista previa de la copia';
+
+  @override
+  String get noBackupData => 'No hay datos de copia de seguridad';
+
+  @override
+  String get backupDetails => 'Detalles de la copia';
+
+  @override
+  String get backupDate => 'Fecha';
+
+  @override
+  String get backupAppVersion => 'Versión de la app';
+
+  @override
+  String get backupDevice => 'Dispositivo';
+
+  @override
+  String get backupLinksLabel => 'Enlaces';
+
+  @override
+  String get backupSaveSessions => 'Sesiones de guardado';
+
+  @override
+  String get backupEmbeddings => 'Embeddings incluidos';
+
+  @override
+  String get restoreMode => 'Modo de restauración';
+
+  @override
+  String get restoreMergeTitle => 'Combinar con la biblioteca actual';
+
+  @override
+  String get restoreMergeSubtitle =>
+      'Añade enlaces nuevos de la copia (incluidos los que eliminaste) y actualiza los existentes. No se quita nada de tu biblioteca actual.';
+
+  @override
+  String get restoreReplaceTitle => 'Reemplazar la biblioteca actual';
+
+  @override
+  String get restoreReplaceSubtitle =>
+      'Reemplaza todos los datos actuales por la copia. Se eliminará tu biblioteca actual.';
+
+  @override
+  String restoringProgress(int percent) {
+    return 'Restaurando… $percent %';
+  }
+
+  @override
+  String get replaceLibraryQuestion => '¿Reemplazar la biblioteca?';
+
+  @override
+  String get mergeBackupQuestion => '¿Combinar la copia?';
+
+  @override
+  String get replaceLibraryWarning =>
+      'Tu biblioteca actual se reemplazará por la copia. Todos tus enlaces y colecciones actuales se eliminarán definitivamente.';
+
+  @override
+  String get mergeBackupExplanation =>
+      'Los enlaces de la copia se combinarán con tu biblioteca actual. Se omitirán los duplicados.';
+
+  @override
+  String get replaceAction => 'Reemplazar';
+
+  @override
+  String get mergeAction => 'Combinar';
+
+  @override
+  String collectionCountLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count colecciones',
+      one: '1 colección',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String restoreImpactReplace(String links, String collections) {
+    return 'Se eliminará tu biblioteca actual y luego se restaurarán $links y $collections de la copia.';
+  }
+
+  @override
+  String get impactNewLinks => 'Enlaces nuevos para restaurar';
+
+  @override
+  String get impactNewLinksHint => 'Incluye los enlaces que eliminaste antes.';
+
+  @override
+  String get impactUpdatedLinks => 'Enlaces existentes para actualizar';
+
+  @override
+  String get impactNewCollections => 'Colecciones nuevas';
+
+  @override
+  String get impactUpdatedCollections => 'Colecciones para actualizar';
+
+  @override
+  String get calculatingChanges => 'Calculando cambios…';
+
+  @override
+  String get couldNotPreviewChanges =>
+      'No se pudieron previsualizar los cambios.';
+
+  @override
+  String restoredLinksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se restauraron $count enlaces',
+      one: 'Se restauró 1 enlace',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get restoreComplete => 'Restauración completada';
+
+  @override
+  String get subscriptionsUnavailableBuild =>
+      'Las suscripciones no están disponibles en esta versión.';
+
+  @override
+  String get subscriptionsUnavailableNow =>
+      'Las suscripciones no están disponibles ahora mismo.';
+
+  @override
+  String get welcomeToPro => '¡Te damos la bienvenida a Glimpse Pro!';
+
+  @override
+  String get purchasePending =>
+      'Tu compra está pendiente. Pro se activará cuando se confirme el pago.';
+
+  @override
+  String get purchaseFailed =>
+      'No se pudo completar la compra. Inténtalo de nuevo.';
+
+  @override
+  String get purchaseNotVerified =>
+      'La compra se realizó, pero aún no se pudo verificar Pro. Prueba Restaurar compras.';
+
+  @override
+  String get purchasesRestored => 'Compras restauradas. ¡Bienvenido de nuevo!';
+
+  @override
+  String get noPurchasesFound => 'No se encontraron compras anteriores';
+
+  @override
+  String get restorePurchasesFailed =>
+      'No se pudieron restaurar las compras. Inténtalo de nuevo.';
+
+  @override
+  String get couldNotOpenGooglePlay => 'No se pudo abrir Google Play.';
+
+  @override
+  String get subscriptionOtherAccount =>
+      'Esta suscripción pertenece a otra cuenta de Glimpse. Inicia sesión con la cuenta que se suscribió.';
+
+  @override
+  String get planYourUsage => 'Tu uso';
+
+  @override
+  String usageAiSavesFree(int used, int limit) {
+    return '$used de $limit guardados con IA gratis usados';
+  }
+
+  @override
+  String usageAiSavesPro(int used, int limit) {
+    return '$used de $limit guardados con IA este mes';
+  }
+
+  @override
+  String usageAsk(int used, int limit) {
+    return '$used de $limit preguntas este mes';
+  }
+
+  @override
+  String usageSearch(int used, int limit) {
+    return '$used de $limit búsquedas este mes';
+  }
+
+  @override
+  String get compareTitle => 'Free y Pro';
+
+  @override
+  String get compareAiSaves => 'Guardados enriquecidos con IA';
+
+  @override
+  String get compareAsk => 'Preguntar a Glimpse';
+
+  @override
+  String get compareSearch => 'Búsqueda por palabras';
+
+  @override
+  String get compareFreeAiSaves => '30 para empezar';
+
+  @override
+  String perMonthCount(int count) {
+    return '$count / mes';
+  }
+
+  @override
+  String get unlimitedFairUse => 'Ilimitado*';
+
+  @override
+  String get fairUseNote => '* Dentro de un uso razonable.';
+
+  @override
+  String get choosePlan => 'Elige un plan';
+
+  @override
+  String get planMonthly => 'Mensual';
+
+  @override
+  String get planYearly => 'Anual';
+
+  @override
+  String pricePerMonth(String price) {
+    return '$price / mes';
+  }
+
+  @override
+  String pricePerYear(String price) {
+    return '$price / año';
+  }
+
+  @override
+  String savePercent(int percent) {
+    return 'Ahorra un $percent %';
+  }
+
+  @override
+  String startProWithPrice(String price) {
+    return 'Empezar Pro · $price';
+  }
+
+  @override
+  String get subscriptionTerms =>
+      'Se renueva automáticamente hasta que canceles. Cancela cuando quieras en Google Play.';
+
+  @override
+  String get hapticsTitle => 'Respuesta háptica';
+
+  @override
+  String get hapticsFull => 'Completa';
+
+  @override
+  String get hapticsSubtle => 'Sutil';
+
+  @override
+  String get hapticsFullDetail => 'Respuesta rica y con textura';
+
+  @override
+  String get hapticsSubtleDetail => 'Solo toques muy suaves';
+
+  @override
+  String get hapticsOffDetail => 'Sin vibración';
+
+  @override
+  String get defaultMusicApp => 'App de música predeterminada';
+
+  @override
+  String get musicAskEachTime => 'Preguntar cada vez';
+
+  @override
+  String get notifWhatToSend => 'Qué enviar';
+
+  @override
+  String get notifKindConnections => 'Conexiones';
+
+  @override
+  String get notifKindConnectionsDetail =>
+      'Cuando guardados de distintas épocas resultan ser sobre lo mismo';
+
+  @override
+  String get notifKindIdeas => 'Ideas guardadas';
+
+  @override
+  String get notifKindIdeasDetail =>
+      'Una idea que guardaste, cuando vale la pena volver a verla';
+
+  @override
+  String get notifKindWeekly => 'Resumen semanal';
+
+  @override
+  String get notifKindWeeklyDetail => 'Un repaso dominical de tu semana';
+
+  @override
+  String get notifKindReminders => 'Recordatorios para volver';
+
+  @override
+  String get notifKindRemindersDetail =>
+      'Los guardados a los que pediste volver';
+
+  @override
+  String get notifDeliveryHours => 'Horario de envío';
+
+  @override
+  String get notifDeliveryHoursDetail =>
+      'Glimpse solo te avisa en este horario';
+
+  @override
+  String timeRange(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String get notifKindsAll => 'Todo';
+
+  @override
+  String get notifKindsNone => 'Nada';
+
+  @override
+  String notifKindsSome(int count) {
+    return '$count de 4 tipos';
+  }
+
+  @override
+  String get binCouldNotLoad => 'No se pudo cargar la papelera';
 }

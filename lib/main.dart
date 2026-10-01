@@ -21,6 +21,7 @@ import 'core/services/background_work_manager.dart';
 import 'core/services/digest_scheduler.dart';
 import 'core/services/subscription_service.dart';
 import 'core/services/supabase_auth_service.dart';
+import 'core/services/app_haptics.dart';
 import 'core/services/url_enrichment_job.dart';
 
 void main() async {
@@ -37,6 +38,7 @@ void main() async {
     isarService.ensureInitialized(),
     AiProxyConfig.initUserId(),
     SupabaseAuthService.initializeSupabaseClient(),
+    AppHaptics.loadLevel(),
   ]);
 
   // Resolve the onboarding decision before the first frame so the root screen

@@ -36,6 +36,13 @@ class MusicProviderPreferenceNotifier
     );
   }
 
+  /// Back to asking which app each time.
+  Future<void> clear() async {
+    state = const MusicProviderPreferenceState(isLoaded: true);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(musicProviderPreferenceKey);
+  }
+
   Future<void> setProvider(MusicProvider provider) async {
     state = MusicProviderPreferenceState(provider: provider, isLoaded: true);
     final preferences = await SharedPreferences.getInstance();
