@@ -1,17 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="48"
-    android:viewportHeight="48">
-    <path
-        android:fillColor="@color/shortcut_search_bg"
-        android:pathData="M24,2A22,22 0,1 1,24 46A22,22 0,1 1,24 2Z" />
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
     <group
-        android:scaleX="0.024021"
-        android:scaleY="0.024021"
-        android:translateX="11.7135"
-        android:translateY="11.7135">
+        android:scaleX="0.039306"
+        android:scaleY="0.039306"
+        android:translateX="33.8948"
+        android:translateY="33.8948">
         <path
             android:fillColor="@color/shortcut_search_fg"
             android:pathData="M930 862 740 672Q776 626 796 568.5Q816 511 816 448Q816 371 787 304Q758 237 708 187Q658 137 591 108Q524 79 448 79Q371 79 304 108Q237 137 187 187Q137 237 108 304Q79 371 79 448Q79 524 108 591Q137 658 187 708Q237 758 304 787Q371 816 448 816Q511 816 568.5 795.5Q626 775 673 739L672 740L862 930Q869 937 877.5 940.5Q886 944 896 944Q916 944 930 930Q944 916 944 896Q944 886 940.5 877.5Q937 869 930 862ZM176 448Q176 392 197 342Q219 293 256 256Q293 219 342 197Q392 176 448 176Q504 176 554 197Q603 219 640 256Q677 293 699 342Q720 392 720 448Q720 504 699 554Q677 603 640 640Q603 677 554 699Q504 720 448 720Q392 720 342 699Q293 677 256 640Q219 603 197 554Q176 504 176 448Z" />

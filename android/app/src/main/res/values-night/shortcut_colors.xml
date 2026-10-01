@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="shortcut_capture_bg">#35412E</color>
+    <color name="shortcut_capture_fg">#D3E0C1</color>
+    <color name="shortcut_search_bg">#35412E</color>
+    <color name="shortcut_search_fg">#D3E0C1</color>
+    <color name="shortcut_ask_bg">#527A68</color>
+    <color name="shortcut_ask_fg">#FAF7EE</color>
+    <color name="shortcut_rediscover_bg">#693A22</color>
+    <color name="shortcut_rediscover_fg">#FFDBC9</color>
+</resources>
