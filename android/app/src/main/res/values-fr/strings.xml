@@ -12,4 +12,17 @@
     <string name="background_enrichment_channel_description">Finalise en arrière-plan les liens partagés avec Glimpse</string>
     <string name="background_enrichment_title">Finalisation de l’enregistrement</string>
     <string name="background_enrichment_body">Glimpse l’organise en arrière-plan</string>
+    <string name="widget_rediscover_label">Redécouvrir</string>
+    <string name="widget_rediscover_description">Un enregistrement oublié, de retour sur votre écran d\'accueil</string>
+    <string name="widget_action_bar_label">Rechercher et enregistrer</string>
+    <string name="widget_action_bar_description">Cherchez dans vos enregistrements, demandez à Glimpse ou enregistrez un lien</string>
+    <string name="widget_eyebrow">Redécouvrir</string>
+    <string name="widget_next">Afficher un autre</string>
+    <string name="widget_empty_title">Vos enregistrements referont surface ici</string>
+    <string name="widget_empty_body">Enregistrez quelques liens et Glimpse vous en rappellera un quand vous l\'aurez oublié.</string>
+    <string name="widget_capture">Enregistrer un lien</string>
+    <string name="widget_search_hint">Rechercher vos enregistrements</string>
+    <string name="widget_ask">Demander à Glimpse</string>
+    <string name="widget_preview_title">Ce restaurant de ramen à Osaka que vous aviez enregistré</string>
+    <string name="widget_preview_meta">Instagram · il y a 3 mois</string>
 </resources>

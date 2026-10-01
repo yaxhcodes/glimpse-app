@@ -47,6 +47,7 @@ open class MainActivity : FlutterFragmentActivity() {
     private var stableIdBridge: StableIdBridge? = null
     private var hapticsBridge: HapticsBridge? = null
     private var vaultBridge: VaultBridge? = null
+    private var homeWidgetBridge: HomeWidgetBridge? = null
     private var scrollCaptureBridge: ScrollCaptureBridge? = null
     private var scrollCaptureRootLayout: ScrollCaptureRootLayout? = null
 
@@ -103,6 +104,11 @@ open class MainActivity : FlutterFragmentActivity() {
 
         vaultBridge = VaultBridge(
             activity = this,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+        )
+
+        homeWidgetBridge = HomeWidgetBridge(
+            context = applicationContext,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
         )
 
@@ -330,12 +336,17 @@ open class MainActivity : FlutterFragmentActivity() {
             ACTION_ASK -> SHORTCUT_ASK
             ACTION_REDISCOVER -> SHORTCUT_REDISCOVER
             ACTION_VAULT -> SHORTCUT_VAULT
+            // A save tapped on the Rediscover widget: "save:<id>".
+            ACTION_OPEN_SAVE -> intent.getLongExtra(EXTRA_SAVE_ID, 0L)
+                .takeIf { it > 0 }
+                ?.let { "$SHORTCUT_SAVE_PREFIX$it" }
             else -> null
         } ?: return null
 
         // The activity is singleTask. Consume the custom action so an engine
         // reattachment or a later resume cannot replay the same shortcut.
         intent.action = Intent.ACTION_MAIN
+        intent.removeExtra(EXTRA_SAVE_ID)
         return shortcut
     }
 
@@ -431,7 +442,7 @@ open class MainActivity : FlutterFragmentActivity() {
         }
     }
 
-    private companion object {
+    companion object {
         const val ACTION_CAPTURE = "com.shinrinyoku.glimpse.action.CAPTURE"
         const val ACTION_SEARCH = "com.shinrinyoku.glimpse.action.SEARCH"
         const val ACTION_ASK = "com.shinrinyoku.glimpse.action.ASK"
@@ -443,5 +454,8 @@ open class MainActivity : FlutterFragmentActivity() {
         const val SHORTCUT_REDISCOVER = "rediscover"
         const val ACTION_VAULT = "com.shinrinyoku.glimpse.action.VAULT"
         const val SHORTCUT_VAULT = "vault"
+        const val ACTION_OPEN_SAVE = "com.shinrinyoku.glimpse.action.OPEN_SAVE"
+        const val EXTRA_SAVE_ID = "com.shinrinyoku.glimpse.extra.SAVE_ID"
+        const val SHORTCUT_SAVE_PREFIX = "save:"
     }
 }

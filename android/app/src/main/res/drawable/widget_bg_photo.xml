@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Behind a picture while it loads, and its corners below Android 12. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FF1B1D1A" />
+    <corners android:radius="@dimen/widget_radius" />
+</shape>

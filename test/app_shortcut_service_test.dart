@@ -15,10 +15,27 @@ void main() {
 
   test('maps every native shortcut identifier and rejects unknown values', () {
     for (final action in AppShortcutAction.values) {
+      if (action == AppShortcutAction.openSave) continue;
       expect(AppShortcutAction.fromPlatformValue(action.platformValue), action);
     }
     expect(AppShortcutAction.fromPlatformValue('settings'), isNull);
     expect(AppShortcutAction.fromPlatformValue(null), isNull);
+  });
+
+  test('a widget tap names its save, and a bare or bad id is ignored', () {
+    final request = AppShortcutRequest.fromPlatformValue('save:42');
+    expect(request?.action, AppShortcutAction.openSave);
+    expect(request?.saveId, 42);
+
+    expect(AppShortcutAction.fromPlatformValue('save'), isNull);
+    expect(AppShortcutRequest.fromPlatformValue('save'), isNull);
+    expect(AppShortcutRequest.fromPlatformValue('save:'), isNull);
+    expect(AppShortcutRequest.fromPlatformValue('save:0'), isNull);
+    expect(AppShortcutRequest.fromPlatformValue('save:abc'), isNull);
+    expect(
+      AppShortcutRequest.fromPlatformValue('search')?.action,
+      AppShortcutAction.search,
+    );
   });
 
   test('delivers cold and warm shortcut launches in order', () async {
@@ -29,7 +46,9 @@ void main() {
 
     final service = AppShortcutService(channel: channel, isAndroid: true);
     final received = <AppShortcutAction>[];
-    final subscription = service.incoming.listen(received.add);
+    final subscription = service.incoming
+        .map((request) => request.action)
+        .listen(received.add);
 
     await service.start();
     await messenger.handlePlatformMessage(
@@ -51,7 +70,9 @@ void main() {
     messenger.setMockMethodCallHandler(channel, (_) async => null);
     final service = AppShortcutService(channel: channel, isAndroid: true);
     final received = <AppShortcutAction>[];
-    final subscription = service.incoming.listen(received.add);
+    final subscription = service.incoming
+        .map((request) => request.action)
+        .listen(received.add);
 
     await service.start();
     await messenger.handlePlatformMessage(

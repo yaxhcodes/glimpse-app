@@ -75,6 +75,8 @@ dependencies:
 
   # Image caching (persists to disk so images are instant after first load)
   cached_network_image: ^3.3.1
+  # The home screen widget reuses that cache for save pictures.
+  flutter_cache_manager: ^3.4.1
 
   # Automatic Library — interactive place maps
   maplibre_gl: ^0.26.0

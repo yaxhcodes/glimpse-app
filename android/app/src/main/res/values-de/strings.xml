@@ -12,4 +12,17 @@
     <string name="background_enrichment_channel_description">Verarbeitet an Glimpse geteilte Links im Hintergrund</string>
     <string name="background_enrichment_title">Speichern wird abgeschlossen</string>
     <string name="background_enrichment_body">Glimpse organisiert den Link im Hintergrund</string>
+    <string name="widget_rediscover_label">Wiederentdecken</string>
+    <string name="widget_rediscover_description">Ein vergessener Link, zurück auf deinem Startbildschirm</string>
+    <string name="widget_action_bar_label">Suchen &amp; speichern</string>
+    <string name="widget_action_bar_description">Gespeichertes durchsuchen, Glimpse fragen oder einen Link speichern</string>
+    <string name="widget_eyebrow">Wiederentdecken</string>
+    <string name="widget_next">Anderen Link zeigen</string>
+    <string name="widget_empty_title">Hier tauchen deine Links wieder auf</string>
+    <string name="widget_empty_body">Speichere ein paar Links – Glimpse bringt sie zurück, wenn du sie vergessen hast.</string>
+    <string name="widget_capture">Link speichern</string>
+    <string name="widget_search_hint">Gespeichertes durchsuchen</string>
+    <string name="widget_ask">Glimpse fragen</string>
+    <string name="widget_preview_title">Das Ramen-Lokal in Osaka, das du gespeichert hast</string>
+    <string name="widget_preview_meta">Instagram · vor 3 Monaten</string>
 </resources>
