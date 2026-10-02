@@ -1235,5 +1235,21 @@
   "reminderLeadDaily": "今日のリンク",
   "reminderLeadWeekly": "今週のリンク",
   "comingUpSubtitle": "24時間以内",
-  "remindersFilter": "リマインダー"
+  "remindersFilter": "リマインダー",
+  "shakeToReport": "振って報告",
+  "shakeToReportSubtitle": "スマホを振って問題を報告したり、アイデアを送ったりできます",
+  "feedbackTitle": "フィードバック",
+  "feedbackKindBug": "不具合がある",
+  "feedbackKindIdea": "アイデアがある",
+  "feedbackHintBug": "何が起きて、どうなると思っていましたか？",
+  "feedbackHintIdea": "Glimpse がどうなればもっと便利ですか？",
+  "feedbackIncludeScreenshot": "スクリーンショットを添付",
+  "feedbackScreenshotNote": "表示していた画面",
+  "feedbackPrivacyNote": "メッセージ、アプリのバージョン、端末のモデルを送信します。ライブラリの内容は含みません。",
+  "feedbackPrivacyNoteWithScreenshot": "メッセージ、このスクリーンショット、アプリのバージョン、端末のモデルを送信します。",
+  "feedbackSend": "送信",
+  "feedbackSent": "ありがとうございます！すべての報告に目を通します。",
+  "feedbackFailed": "送信できませんでした。接続を確認して、もう一度お試しください。",
+  "feedbackSignInNeeded": "フィードバックを送るにはサインインしてください。",
+  "feedbackShakeTip": "スマホを振ってこの画面を開きました。設定でオフにできます。"
 }

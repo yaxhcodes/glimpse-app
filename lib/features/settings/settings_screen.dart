@@ -32,6 +32,7 @@ import '../../core/services/usage_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/widgets/expressive_loading_indicator.dart';
+import '../feedback/feedback_service.dart';
 import 'settings_components.dart';
 import 'haptics_lab_screen.dart';
 import 'bin_provider.dart';
@@ -347,6 +348,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onTap: _chooseLanguage,
                     ),
                     const _HapticsTile(),
+                    const _ShakeToReportTile(),
                     // Only once there's music to open — or a choice to undo.
                     if (_hasMusic(ref)) const _MusicAppTile(),
                   ],
@@ -1870,6 +1872,34 @@ class _UsageDebugContent extends StatelessWidget {
           row(UsageFeature.ask, 'Ask Glimpse'),
           row(UsageFeature.search, 'Search'),
         ],
+      ),
+    );
+  }
+}
+
+/// Shake the phone to report a problem or share an idea.
+class _ShakeToReportTile extends ConsumerWidget {
+  const _ShakeToReportTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = context.l10n;
+    final enabled = ref.watch(shakeToReportProvider);
+    void set(bool value) {
+      AppHaptics.play(AppHaptics.tick);
+      ref.read(shakeToReportProvider.notifier).set(value);
+    }
+
+    return SettingsTile(
+      icon: AppIcons.shakeReport,
+      iconColor: SettingsAccents.rose,
+      title: strings.shakeToReport,
+      subtitle: strings.shakeToReportSubtitle,
+      onTap: () => set(!enabled),
+      trailing: Switch(
+        value: enabled,
+        thumbIcon: settingsSwitchThumbIcon(),
+        onChanged: set,
       ),
     );
   }

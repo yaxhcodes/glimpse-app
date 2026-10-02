@@ -1235,5 +1235,21 @@
   "reminderLeadDaily": "Ton lien du jour",
   "reminderLeadWeekly": "Ton lien de la semaine",
   "comingUpSubtitle": "Prévu dans les prochaines 24 heures",
-  "remindersFilter": "Rappels"
+  "remindersFilter": "Rappels",
+  "shakeToReport": "Secouer pour signaler",
+  "shakeToReportSubtitle": "Secouez votre téléphone pour signaler un problème ou partager une idée",
+  "feedbackTitle": "Avis",
+  "feedbackKindBug": "Quelque chose ne va pas",
+  "feedbackKindIdea": "J'ai une idée",
+  "feedbackHintBug": "Que s'est-il passé, et qu'attendiez-vous ?",
+  "feedbackHintIdea": "Qu'est-ce qui rendrait Glimpse meilleur pour vous ?",
+  "feedbackIncludeScreenshot": "Joindre une capture",
+  "feedbackScreenshotNote": "L'écran où vous étiez",
+  "feedbackPrivacyNote": "Envoie votre message, la version de l'app et le modèle de votre téléphone. Rien de votre bibliothèque.",
+  "feedbackPrivacyNoteWithScreenshot": "Envoie votre message, cette capture, la version de l'app et le modèle de votre téléphone.",
+  "feedbackSend": "Envoyer",
+  "feedbackSent": "Merci ! Chaque message est lu.",
+  "feedbackFailed": "Échec de l'envoi. Vérifiez votre connexion et réessayez.",
+  "feedbackSignInNeeded": "Connectez-vous pour envoyer un avis.",
+  "feedbackShakeTip": "Vous avez ouvert ceci en secouant votre téléphone. Vous pouvez le désactiver dans les Réglages."
 }

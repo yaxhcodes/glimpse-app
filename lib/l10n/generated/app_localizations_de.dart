@@ -4335,4 +4335,57 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get remindersFilter => 'Erinnerungen';
+
+  @override
+  String get shakeToReport => 'Schütteln zum Melden';
+
+  @override
+  String get shakeToReportSubtitle =>
+      'Schüttle dein Handy, um ein Problem zu melden oder eine Idee zu teilen';
+
+  @override
+  String get feedbackTitle => 'Feedback';
+
+  @override
+  String get feedbackKindBug => 'Etwas stimmt nicht';
+
+  @override
+  String get feedbackKindIdea => 'Ich habe eine Idee';
+
+  @override
+  String get feedbackHintBug => 'Was ist passiert, und was hast du erwartet?';
+
+  @override
+  String get feedbackHintIdea => 'Was würde Glimpse für dich besser machen?';
+
+  @override
+  String get feedbackIncludeScreenshot => 'Screenshot anhängen';
+
+  @override
+  String get feedbackScreenshotNote => 'Der Bildschirm, auf dem du warst';
+
+  @override
+  String get feedbackPrivacyNote =>
+      'Sendet deine Nachricht, die App-Version und dein Handymodell. Nichts aus deiner Bibliothek.';
+
+  @override
+  String get feedbackPrivacyNoteWithScreenshot =>
+      'Sendet deine Nachricht, diesen Screenshot, die App-Version und dein Handymodell.';
+
+  @override
+  String get feedbackSend => 'Senden';
+
+  @override
+  String get feedbackSent => 'Danke! Jede Meldung wird gelesen.';
+
+  @override
+  String get feedbackFailed =>
+      'Senden fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.';
+
+  @override
+  String get feedbackSignInNeeded => 'Melde dich an, um Feedback zu senden.';
+
+  @override
+  String get feedbackShakeTip =>
+      'Du hast dies durch Schütteln geöffnet. Du kannst das in den Einstellungen ausschalten.';
 }

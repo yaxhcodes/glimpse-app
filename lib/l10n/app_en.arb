@@ -1625,5 +1625,21 @@
   "reminderLeadDaily": "Your daily link",
   "reminderLeadWeekly": "Your weekly link",
   "comingUpSubtitle": "Due in the next day",
-  "remindersFilter": "Reminders"
+  "remindersFilter": "Reminders",
+  "shakeToReport": "Shake to report",
+  "shakeToReportSubtitle": "Shake your phone to report a problem or share an idea",
+  "feedbackTitle": "Feedback",
+  "feedbackKindBug": "Something's wrong",
+  "feedbackKindIdea": "I have an idea",
+  "feedbackHintBug": "What happened, and what did you expect?",
+  "feedbackHintIdea": "What would make Glimpse better for you?",
+  "feedbackIncludeScreenshot": "Include screenshot",
+  "feedbackScreenshotNote": "The screen you were on",
+  "feedbackPrivacyNote": "Sends your message, the app version and your phone model. Nothing from your library.",
+  "feedbackPrivacyNoteWithScreenshot": "Sends your message, this screenshot, the app version and your phone model.",
+  "feedbackSend": "Send",
+  "feedbackSent": "Thanks! Every report gets read.",
+  "feedbackFailed": "Couldn't send. Check your connection and try again.",
+  "feedbackSignInNeeded": "Sign in to send feedback.",
+  "feedbackShakeTip": "You opened this by shaking your phone. You can turn that off in Settings."
 }

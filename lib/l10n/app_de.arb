@@ -1277,5 +1277,21 @@
   "reminderLeadDaily": "Dein täglicher Link",
   "reminderLeadWeekly": "Dein wöchentlicher Link",
   "comingUpSubtitle": "Fällig in den nächsten 24 Stunden",
-  "remindersFilter": "Erinnerungen"
+  "remindersFilter": "Erinnerungen",
+  "shakeToReport": "Schütteln zum Melden",
+  "shakeToReportSubtitle": "Schüttle dein Handy, um ein Problem zu melden oder eine Idee zu teilen",
+  "feedbackTitle": "Feedback",
+  "feedbackKindBug": "Etwas stimmt nicht",
+  "feedbackKindIdea": "Ich habe eine Idee",
+  "feedbackHintBug": "Was ist passiert, und was hast du erwartet?",
+  "feedbackHintIdea": "Was würde Glimpse für dich besser machen?",
+  "feedbackIncludeScreenshot": "Screenshot anhängen",
+  "feedbackScreenshotNote": "Der Bildschirm, auf dem du warst",
+  "feedbackPrivacyNote": "Sendet deine Nachricht, die App-Version und dein Handymodell. Nichts aus deiner Bibliothek.",
+  "feedbackPrivacyNoteWithScreenshot": "Sendet deine Nachricht, diesen Screenshot, die App-Version und dein Handymodell.",
+  "feedbackSend": "Senden",
+  "feedbackSent": "Danke! Jede Meldung wird gelesen.",
+  "feedbackFailed": "Senden fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.",
+  "feedbackSignInNeeded": "Melde dich an, um Feedback zu senden.",
+  "feedbackShakeTip": "Du hast dies durch Schütteln geöffnet. Du kannst das in den Einstellungen ausschalten."
 }

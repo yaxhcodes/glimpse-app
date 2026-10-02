@@ -4313,4 +4313,57 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get remindersFilter => 'Recordatorios';
+
+  @override
+  String get shakeToReport => 'Agitar para informar';
+
+  @override
+  String get shakeToReportSubtitle =>
+      'Agita el teléfono para informar de un problema o compartir una idea';
+
+  @override
+  String get feedbackTitle => 'Comentarios';
+
+  @override
+  String get feedbackKindBug => 'Algo va mal';
+
+  @override
+  String get feedbackKindIdea => 'Tengo una idea';
+
+  @override
+  String get feedbackHintBug => '¿Qué pasó y qué esperabas?';
+
+  @override
+  String get feedbackHintIdea => '¿Qué haría Glimpse mejor para ti?';
+
+  @override
+  String get feedbackIncludeScreenshot => 'Incluir captura';
+
+  @override
+  String get feedbackScreenshotNote => 'La pantalla en la que estabas';
+
+  @override
+  String get feedbackPrivacyNote =>
+      'Envía tu mensaje, la versión de la app y el modelo de tu teléfono. Nada de tu biblioteca.';
+
+  @override
+  String get feedbackPrivacyNoteWithScreenshot =>
+      'Envía tu mensaje, esta captura, la versión de la app y el modelo de tu teléfono.';
+
+  @override
+  String get feedbackSend => 'Enviar';
+
+  @override
+  String get feedbackSent => '¡Gracias! Leemos cada mensaje.';
+
+  @override
+  String get feedbackFailed =>
+      'No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.';
+
+  @override
+  String get feedbackSignInNeeded => 'Inicia sesión para enviar comentarios.';
+
+  @override
+  String get feedbackShakeTip =>
+      'Abriste esto agitando el teléfono. Puedes desactivarlo en Ajustes.';
 }

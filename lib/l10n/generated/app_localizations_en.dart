@@ -4279,4 +4279,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remindersFilter => 'Reminders';
+
+  @override
+  String get shakeToReport => 'Shake to report';
+
+  @override
+  String get shakeToReportSubtitle =>
+      'Shake your phone to report a problem or share an idea';
+
+  @override
+  String get feedbackTitle => 'Feedback';
+
+  @override
+  String get feedbackKindBug => 'Something\'s wrong';
+
+  @override
+  String get feedbackKindIdea => 'I have an idea';
+
+  @override
+  String get feedbackHintBug => 'What happened, and what did you expect?';
+
+  @override
+  String get feedbackHintIdea => 'What would make Glimpse better for you?';
+
+  @override
+  String get feedbackIncludeScreenshot => 'Include screenshot';
+
+  @override
+  String get feedbackScreenshotNote => 'The screen you were on';
+
+  @override
+  String get feedbackPrivacyNote =>
+      'Sends your message, the app version and your phone model. Nothing from your library.';
+
+  @override
+  String get feedbackPrivacyNoteWithScreenshot =>
+      'Sends your message, this screenshot, the app version and your phone model.';
+
+  @override
+  String get feedbackSend => 'Send';
+
+  @override
+  String get feedbackSent => 'Thanks! Every report gets read.';
+
+  @override
+  String get feedbackFailed =>
+      'Couldn\'t send. Check your connection and try again.';
+
+  @override
+  String get feedbackSignInNeeded => 'Sign in to send feedback.';
+
+  @override
+  String get feedbackShakeTip =>
+      'You opened this by shaking your phone. You can turn that off in Settings.';
 }

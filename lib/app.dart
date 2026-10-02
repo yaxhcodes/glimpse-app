@@ -1,3 +1,6 @@
+import 'features/feedback/feedback_screen.dart';
+import 'features/feedback/feedback_service.dart';
+import 'features/feedback/shake_to_report.dart';
 import 'features/glimpses/glimpse_service.dart';
 import 'features/glimpses/glimpse_detail_screen.dart';
 import 'features/glimpses/glimpse_history_screen.dart';
@@ -130,6 +133,14 @@ final _router = GoRouter(
     ),
     GoRoute(path: '/', builder: (context, state) => const _RootGate()),
     GoRoute(path: '/vault', builder: (context, state) => const VaultScreen()),
+    GoRoute(
+      path: '/feedback',
+      builder: (context, state) => FeedbackScreen(
+        launch: state.extra is FeedbackLaunch
+            ? state.extra! as FeedbackLaunch
+            : const FeedbackLaunch(),
+      ),
+    ),
     GoRoute(
       path: '/add',
       builder: (context, state) {
@@ -1031,6 +1042,28 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
       );
   }
 
+  /// Shake to report opens anywhere a report makes sense: never inside
+  /// the Vault (private, never pictured), the share sheet or the report
+  /// screen itself, and only once someone is signed in and set up.
+  bool _canReportByShake() {
+    if (_isShareSurface) return false;
+    if (!ref.read(hasSeenOnboardingProvider)) return false;
+    if (ref.read(authControllerProvider).valueOrNull == null) return false;
+    final location = _router.routeInformationProvider.value.uri.path;
+    return !location.startsWith('/vault') && location != '/feedback';
+  }
+
+  void _openShakeReport(Uint8List? screenshot) {
+    _router.push(
+      '/feedback',
+      extra: FeedbackLaunch(
+        screenshot: screenshot,
+        screenName: _router.routeInformationProvider.value.uri.path,
+        fromShake: true,
+      ),
+    );
+  }
+
   void _trackRouteOpen() {
     unawaited(_openOnboardingPro());
     final location = _router.routeInformationProvider.value.uri.path;
@@ -1224,7 +1257,13 @@ class _GlimpseAppState extends ConsumerState<GlimpseApp>
                 child: content,
               );
             }
-            return ScrollCaptureCoordinator(child: content);
+            return ScrollCaptureCoordinator(
+              child: ShakeToReport(
+                canReport: _canReportByShake,
+                onShake: _openShakeReport,
+                child: content,
+              ),
+            );
           },
         );
       },
