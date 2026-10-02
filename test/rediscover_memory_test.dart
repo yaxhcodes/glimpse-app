@@ -1388,4 +1388,50 @@ void main() {
     await RediscoverMemoryPrefs.saveRelatedSaves(sourceId: 20, relatedIds: [7]);
     expect(await RediscoverMemoryPrefs.relatedSavesFor(20), [7, 8]);
   });
+
+  group('card subtitles read as sentences', () {
+    RediscoverMemory memoryFor(List<String> tags) {
+      return RediscoverMemory.fromJourney(
+        RediscoverJourney(
+          kind: RediscoverJourneyKind.forgottenGems,
+          title: 'Grave Of The Fireflies',
+          subtitle: '2 saves',
+          icon: Icons.movie_rounded,
+          items: [
+            _item(
+              _url(
+                id: 31,
+                title: 'Grave Of The Fireflies',
+                category: 'Movies',
+                tags: tags,
+              ),
+            ),
+            _item(
+              _url(
+                id: 32,
+                title: 'Violet Evergarden',
+                category: 'Movies',
+                tags: tags,
+              ),
+            ),
+          ],
+          signal: 60,
+          topicAnchor: 'anime films',
+        ),
+      );
+    }
+
+    test('a lone adjective tag is not used as a noun', () {
+      // Seen on device: "Watch picks shaped around emotional and drama."
+      final memory = memoryFor(const ['anime', 'emotional', 'drama']);
+      expect(memory.homeCopy.subtitle, isNot(contains('emotional')));
+      expect(memory.rediscoverCopy.subtitle, isNot(contains('emotional')));
+      expect(memory.homeCopy.subtitle, contains('drama'));
+    });
+
+    test('nouns that only look adjectival are kept', () {
+      final memory = memoryFor(const ['anime', 'festival', 'drama']);
+      expect(memory.homeCopy.subtitle, contains('festival'));
+    });
+  });
 }

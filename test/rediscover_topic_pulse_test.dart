@@ -449,4 +449,93 @@ void main() {
       );
     },
   );
+
+  group('a day is not all "You\'re saving this again"', () {
+    final now = DateTime(2026, 10, 2, 9);
+    RediscoverTopicPulse pulseFor(
+      String topic,
+      int trigger,
+      List<int> archive,
+    ) {
+      return RediscoverTopicPulse(
+        id: 'pulse:$topic:$trigger',
+        topicKey: topic,
+        topicLabel: topic[0].toUpperCase() + topic.substring(1),
+        triggerSaveId: trigger,
+        archiveSaveIds: archive,
+        confidence: RediscoverTopicPulseConfidence.strong,
+        detectedAt: now,
+        evidence: ['shared:$topic'],
+        rankScore: 90,
+      );
+    }
+
+    List<SavedUrl> pulseSaves() => [
+      for (final (i, topic) in ['anime', 'music', 'cooking'].indexed) ...[
+        _url(
+          id: 100 + i,
+          title: 'New $topic save',
+          savedAt: now,
+          tags: [topic],
+        ),
+        _url(
+          id: 200 + i,
+          title: 'Old $topic save',
+          savedAt: now.subtract(const Duration(days: 90)),
+          tags: [topic],
+        ),
+      ],
+    ];
+    final pulses = [
+      pulseFor('anime', 100, const [200]),
+      pulseFor('music', 101, const [201]),
+      pulseFor('cooking', 102, const [202]),
+    ];
+
+    test('one pulse leads and other kinds get the next slots', () {
+      final gem = _url(
+        id: 300,
+        title: 'Weekend hike checklist',
+        savedAt: now.subtract(const Duration(days: 60)),
+        tags: const ['hiking'],
+        category: 'Travel',
+        enrichmentJson: jsonEncode({
+          'memory_intent': {
+            'primary_intent': 'plan',
+            'actionability': 'high',
+            'time_horizon': 'soon',
+            'why_saved_hypothesis': 'Planning a hike.',
+          },
+        }),
+      )..summary = 'What to pack for a day hike.';
+
+      final memories = buildRediscoverDailyMemories(
+        pulses: pulses,
+        liveUrls: [...pulseSaves(), gem],
+        now: now,
+      );
+
+      // Before: pulse, pulse, pulse (the gem never made the day).
+      expect(memories.map((m) => m.journey.kind), [
+        RediscoverJourneyKind.returningTopic,
+        RediscoverJourneyKind.forgottenGems,
+        RediscoverJourneyKind.returningTopic,
+      ]);
+    });
+
+    test('pulses still fill the day when nothing else qualifies', () {
+      final memories = buildRediscoverDailyMemories(
+        pulses: pulses,
+        liveUrls: pulseSaves(),
+        now: now,
+      );
+      expect(memories, hasLength(3));
+      expect(
+        memories.every(
+          (m) => m.journey.kind == RediscoverJourneyKind.returningTopic,
+        ),
+        isTrue,
+      );
+    });
+  });
 }

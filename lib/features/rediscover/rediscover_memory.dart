@@ -823,11 +823,127 @@ class RediscoverMemory {
       final words = _conceptWords(concept);
       if (words.isEmpty || words.every(titleWords.contains)) continue;
       if (_genericSupportingConcepts.contains(concept.toLowerCase())) continue;
+      if (_isLoneAdjective(concept)) continue;
       concepts.add(_sentenceConcept(concept));
       if (concepts.length == 2) break;
     }
     return concepts;
   }
+
+  /// A one-word adjective tag ("emotional", "spiritual") can't stand where
+  /// the subtitles put a noun: "Watch picks shaped around emotional and
+  /// drama." Nouns that only look adjectival are let through.
+  static bool _isLoneAdjective(String concept) {
+    final word = concept.trim().toLowerCase();
+    if (word.isEmpty || word.contains(' ') || word.length < 5) return false;
+    if (_adjectiveLookingNouns.contains(word)) return false;
+    return _adjectiveSuffix.hasMatch(word);
+  }
+
+  static final _adjectiveSuffix = RegExp(
+    r'(al|ic|ive|ous|ful|less|ish|able|ible)$',
+  );
+
+  static const _adjectiveLookingNouns = {
+    'animal',
+    'arrival',
+    'capital',
+    'carnival',
+    'crystal',
+    'editorial',
+    'festival',
+    'hospital',
+    'journal',
+    'manual',
+    'material',
+    'medal',
+    'metal',
+    'mineral',
+    'mural',
+    'portal',
+    'proposal',
+    'rival',
+    'ritual',
+    'scandal',
+    'signal',
+    'survival',
+    'terminal',
+    'tutorial',
+    'approval',
+    'arsenal',
+    'cereal',
+    'denial',
+    'interval',
+    'mammal',
+    'pedal',
+    'petal',
+    'renewal',
+    'revival',
+    'sandal',
+    'trial',
+    'vocal',
+    'music',
+    'logic',
+    'comic',
+    'clinic',
+    'critic',
+    'topic',
+    'magic',
+    'panic',
+    'picnic',
+    'plastic',
+    'mosaic',
+    'republic',
+    'mechanic',
+    'traffic',
+    'fabric',
+    'rhetoric',
+    'arithmetic',
+    'epic',
+    'relic',
+    'tactic',
+    'graphic',
+    'classic',
+    'tonic',
+    'mystic',
+    'skeptic',
+    'archive',
+    'detective',
+    'executive',
+    'objective',
+    'perspective',
+    'motive',
+    'initiative',
+    'alternative',
+    'narrative',
+    'incentive',
+    'explosive',
+    'olive',
+    'drive',
+    'native',
+    'relative',
+    'directive',
+    'adhesive',
+    'contraceptive',
+    'sedative',
+    'preservative',
+    'vegetable',
+    'constable',
+    'timetable',
+    'syllable',
+    'variable',
+    'wireless',
+    'handful',
+    'mouthful',
+    'spoonful',
+    'radish',
+    'relish',
+    'polish',
+    'finish',
+    'publish',
+    'fetish',
+    'parish',
+  };
 
   static Set<String> _conceptWords(String value) {
     return value
