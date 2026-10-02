@@ -3979,4 +3979,54 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get remindersFilter => 'リマインダー';
+
+  @override
+  String get shakeToReport => '振って報告';
+
+  @override
+  String get shakeToReportSubtitle => 'スマホを振って問題を報告したり、アイデアを送ったりできます';
+
+  @override
+  String get feedbackTitle => 'フィードバック';
+
+  @override
+  String get feedbackKindBug => '不具合がある';
+
+  @override
+  String get feedbackKindIdea => 'アイデアがある';
+
+  @override
+  String get feedbackHintBug => '何が起きて、どうなると思っていましたか？';
+
+  @override
+  String get feedbackHintIdea => 'Glimpse がどうなればもっと便利ですか？';
+
+  @override
+  String get feedbackIncludeScreenshot => 'スクリーンショットを添付';
+
+  @override
+  String get feedbackScreenshotNote => '表示していた画面';
+
+  @override
+  String get feedbackPrivacyNote =>
+      'メッセージ、アプリのバージョン、端末のモデルを送信します。ライブラリの内容は含みません。';
+
+  @override
+  String get feedbackPrivacyNoteWithScreenshot =>
+      'メッセージ、このスクリーンショット、アプリのバージョン、端末のモデルを送信します。';
+
+  @override
+  String get feedbackSend => '送信';
+
+  @override
+  String get feedbackSent => 'ありがとうございます！すべての報告に目を通します。';
+
+  @override
+  String get feedbackFailed => '送信できませんでした。接続を確認して、もう一度お試しください。';
+
+  @override
+  String get feedbackSignInNeeded => 'フィードバックを送るにはサインインしてください。';
+
+  @override
+  String get feedbackShakeTip => 'スマホを振ってこの画面を開きました。設定でオフにできます。';
 }

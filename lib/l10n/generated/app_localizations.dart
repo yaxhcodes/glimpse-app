@@ -7377,6 +7377,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reminders'**
   String get remindersFilter;
+
+  /// No description provided for @shakeToReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Shake to report'**
+  String get shakeToReport;
+
+  /// No description provided for @shakeToReportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shake your phone to report a problem or share an idea'**
+  String get shakeToReportSubtitle;
+
+  /// No description provided for @feedbackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get feedbackTitle;
+
+  /// No description provided for @feedbackKindBug.
+  ///
+  /// In en, this message translates to:
+  /// **'Something\'s wrong'**
+  String get feedbackKindBug;
+
+  /// No description provided for @feedbackKindIdea.
+  ///
+  /// In en, this message translates to:
+  /// **'I have an idea'**
+  String get feedbackKindIdea;
+
+  /// No description provided for @feedbackHintBug.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened, and what did you expect?'**
+  String get feedbackHintBug;
+
+  /// No description provided for @feedbackHintIdea.
+  ///
+  /// In en, this message translates to:
+  /// **'What would make Glimpse better for you?'**
+  String get feedbackHintIdea;
+
+  /// No description provided for @feedbackIncludeScreenshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Include screenshot'**
+  String get feedbackIncludeScreenshot;
+
+  /// No description provided for @feedbackScreenshotNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The screen you were on'**
+  String get feedbackScreenshotNote;
+
+  /// No description provided for @feedbackPrivacyNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Sends your message, the app version and your phone model. Nothing from your library.'**
+  String get feedbackPrivacyNote;
+
+  /// No description provided for @feedbackPrivacyNoteWithScreenshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Sends your message, this screenshot, the app version and your phone model.'**
+  String get feedbackPrivacyNoteWithScreenshot;
+
+  /// No description provided for @feedbackSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get feedbackSend;
+
+  /// No description provided for @feedbackSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks! Every report gets read.'**
+  String get feedbackSent;
+
+  /// No description provided for @feedbackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t send. Check your connection and try again.'**
+  String get feedbackFailed;
+
+  /// No description provided for @feedbackSignInNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to send feedback.'**
+  String get feedbackSignInNeeded;
+
+  /// No description provided for @feedbackShakeTip.
+  ///
+  /// In en, this message translates to:
+  /// **'You opened this by shaking your phone. You can turn that off in Settings.'**
+  String get feedbackShakeTip;
 }
 
 class _AppLocalizationsDelegate

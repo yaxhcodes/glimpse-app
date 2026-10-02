@@ -4315,4 +4315,57 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get remindersFilter => 'Lembretes';
+
+  @override
+  String get shakeToReport => 'Agitar para relatar';
+
+  @override
+  String get shakeToReportSubtitle =>
+      'Agite o celular para relatar um problema ou compartilhar uma ideia';
+
+  @override
+  String get feedbackTitle => 'Feedback';
+
+  @override
+  String get feedbackKindBug => 'Algo está errado';
+
+  @override
+  String get feedbackKindIdea => 'Tenho uma ideia';
+
+  @override
+  String get feedbackHintBug => 'O que aconteceu, e o que você esperava?';
+
+  @override
+  String get feedbackHintIdea => 'O que deixaria o Glimpse melhor para você?';
+
+  @override
+  String get feedbackIncludeScreenshot => 'Incluir captura de tela';
+
+  @override
+  String get feedbackScreenshotNote => 'A tela em que você estava';
+
+  @override
+  String get feedbackPrivacyNote =>
+      'Envia sua mensagem, a versão do app e o modelo do seu celular. Nada da sua biblioteca.';
+
+  @override
+  String get feedbackPrivacyNoteWithScreenshot =>
+      'Envia sua mensagem, esta captura, a versão do app e o modelo do seu celular.';
+
+  @override
+  String get feedbackSend => 'Enviar';
+
+  @override
+  String get feedbackSent => 'Obrigado! Lemos cada relato.';
+
+  @override
+  String get feedbackFailed =>
+      'Não foi possível enviar. Verifique sua conexão e tente de novo.';
+
+  @override
+  String get feedbackSignInNeeded => 'Entre na sua conta para enviar feedback.';
+
+  @override
+  String get feedbackShakeTip =>
+      'Você abriu isto agitando o celular. Dá para desligar em Configurações.';
 }

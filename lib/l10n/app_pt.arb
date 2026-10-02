@@ -1235,5 +1235,21 @@
   "reminderLeadDaily": "Seu link do dia",
   "reminderLeadWeekly": "Seu link da semana",
   "comingUpSubtitle": "Nas próximas 24 horas",
-  "remindersFilter": "Lembretes"
+  "remindersFilter": "Lembretes",
+  "shakeToReport": "Agitar para relatar",
+  "shakeToReportSubtitle": "Agite o celular para relatar um problema ou compartilhar uma ideia",
+  "feedbackTitle": "Feedback",
+  "feedbackKindBug": "Algo está errado",
+  "feedbackKindIdea": "Tenho uma ideia",
+  "feedbackHintBug": "O que aconteceu, e o que você esperava?",
+  "feedbackHintIdea": "O que deixaria o Glimpse melhor para você?",
+  "feedbackIncludeScreenshot": "Incluir captura de tela",
+  "feedbackScreenshotNote": "A tela em que você estava",
+  "feedbackPrivacyNote": "Envia sua mensagem, a versão do app e o modelo do seu celular. Nada da sua biblioteca.",
+  "feedbackPrivacyNoteWithScreenshot": "Envia sua mensagem, esta captura, a versão do app e o modelo do seu celular.",
+  "feedbackSend": "Enviar",
+  "feedbackSent": "Obrigado! Lemos cada relato.",
+  "feedbackFailed": "Não foi possível enviar. Verifique sua conexão e tente de novo.",
+  "feedbackSignInNeeded": "Entre na sua conta para enviar feedback.",
+  "feedbackShakeTip": "Você abriu isto agitando o celular. Dá para desligar em Configurações."
 }

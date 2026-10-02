@@ -4331,4 +4331,58 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get remindersFilter => 'Rappels';
+
+  @override
+  String get shakeToReport => 'Secouer pour signaler';
+
+  @override
+  String get shakeToReportSubtitle =>
+      'Secouez votre téléphone pour signaler un problème ou partager une idée';
+
+  @override
+  String get feedbackTitle => 'Avis';
+
+  @override
+  String get feedbackKindBug => 'Quelque chose ne va pas';
+
+  @override
+  String get feedbackKindIdea => 'J\'ai une idée';
+
+  @override
+  String get feedbackHintBug => 'Que s\'est-il passé, et qu\'attendiez-vous ?';
+
+  @override
+  String get feedbackHintIdea =>
+      'Qu\'est-ce qui rendrait Glimpse meilleur pour vous ?';
+
+  @override
+  String get feedbackIncludeScreenshot => 'Joindre une capture';
+
+  @override
+  String get feedbackScreenshotNote => 'L\'écran où vous étiez';
+
+  @override
+  String get feedbackPrivacyNote =>
+      'Envoie votre message, la version de l\'app et le modèle de votre téléphone. Rien de votre bibliothèque.';
+
+  @override
+  String get feedbackPrivacyNoteWithScreenshot =>
+      'Envoie votre message, cette capture, la version de l\'app et le modèle de votre téléphone.';
+
+  @override
+  String get feedbackSend => 'Envoyer';
+
+  @override
+  String get feedbackSent => 'Merci ! Chaque message est lu.';
+
+  @override
+  String get feedbackFailed =>
+      'Échec de l\'envoi. Vérifiez votre connexion et réessayez.';
+
+  @override
+  String get feedbackSignInNeeded => 'Connectez-vous pour envoyer un avis.';
+
+  @override
+  String get feedbackShakeTip =>
+      'Vous avez ouvert ceci en secouant votre téléphone. Vous pouvez le désactiver dans les Réglages.';
 }

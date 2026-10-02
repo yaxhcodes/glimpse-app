@@ -141,6 +141,10 @@ abstract final class AppIcons {
   static const globe = PhosphorIconsBold.globe;
   static const library = PhosphorIconsBold.books;
   static const idea = PhosphorIconsBold.lightbulb;
+  static const bug = PhosphorIconsBold.bug;
+
+  /// Shake to report (Settings).
+  static const shakeReport = PhosphorIconsBold.deviceMobile;
   static const linkOff = PhosphorIconsBold.linkBreak;
   static const fire = PhosphorIconsBold.fire;
   static const placeOff = PhosphorIconsBold.mapPinLine;

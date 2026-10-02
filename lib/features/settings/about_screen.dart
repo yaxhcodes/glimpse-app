@@ -1,12 +1,14 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../l10n/l10n.dart';
+import '../feedback/feedback_service.dart';
 import '../../shared/theme/app_icons.dart';
 import '../../shared/theme/app_layout.dart';
 import 'settings_components.dart';
@@ -20,7 +22,6 @@ class AboutScreen extends StatefulWidget {
 }
 
 class _AboutScreenState extends State<AboutScreen> {
-  static const _feedbackEmail = 'meyashjoshi3101@gmail.com';
   static const _productionPackageName = 'com.shinrinyoku.glimpse';
   static const _playStoreUrl =
       'https://play.google.com/store/apps/details?id=$_productionPackageName';
@@ -48,15 +49,12 @@ class _AboutScreenState extends State<AboutScreen> {
     _showMessage(context.l10n.couldNotOpenLink);
   }
 
-  Future<void> _sendFeedback() async {
-    final uri = Uri(
-      scheme: 'mailto',
-      path: _feedbackEmail,
-      query: _encodeQueryParameters({
-        'subject': context.l10n.feedbackEmailSubject,
-      }),
+  void _sendFeedback() {
+    // Same screen as shake to report, minus the screenshot.
+    context.push(
+      '/feedback',
+      extra: const FeedbackLaunch(screenName: '/settings/about'),
     );
-    await _openExternal(uri);
   }
 
   Future<void> _rateOnPlayStore() async {
@@ -281,14 +279,6 @@ class _AboutScreenState extends State<AboutScreen> {
     );
   }
 }
-
-String _encodeQueryParameters(Map<String, String> parameters) => parameters
-    .entries
-    .map(
-      (entry) =>
-          '${Uri.encodeComponent(entry.key)}=${Uri.encodeComponent(entry.value)}',
-    )
-    .join('&');
 
 List<String> _keepsakeQuotes(AppLocalizations strings) => [
   strings.keepsakeQuoteCuriosity,
