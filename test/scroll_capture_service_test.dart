@@ -616,6 +616,12 @@ void main() {
     expect(bridge, contains('currentRootScrollCaptureBounds()'));
     expect(bridge, isNot(contains('invokeMethod("getMetrics"')));
     expect(rootLayout, contains('dispatchQueuedScrollRequest'));
+    // Native scroll changes while the app still has focus are layout noise,
+    // never OPlus; forwarding them jumped About after leaving Licenses.
+    expect(
+      rootLayout,
+      contains('if (!acceptsLongshotGestures && hasWindowFocus()) return'),
+    );
     expect(rootLayout, contains('ScrollCaptureImageMirrorView'));
     expect(rootLayout, contains('FlutterImageView'));
     expect(rootLayout, contains('TextureView'));
