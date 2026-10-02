@@ -66,6 +66,25 @@ class TranscriptEnrichmentService {
         normalizedHost.endsWith('.tiktok.com')) {
       return RegExp(r'/@[^/]+/video/\d+').hasMatch(uri.path);
     }
+    // Reddit posts go through the Worker's Apify actor: Reddit serves the app
+    // a bot wall. Must match the Worker's isRedditPostUrl exactly.
+    final redditHost = host.replaceFirst(
+      RegExp(r'^(www|old|new|np|m|i)\.'),
+      '',
+    );
+    if (redditHost == 'redd.it') {
+      return RegExp(r'^/[a-z0-9]+/?$', caseSensitive: false).hasMatch(uri.path);
+    }
+    if (redditHost == 'reddit.com') {
+      return RegExp(
+            r'^/(r|u|user)/[^/]+/(comments/[a-z0-9]+|s/[a-z0-9]+)',
+            caseSensitive: false,
+          ).hasMatch(uri.path) ||
+          RegExp(
+            r'^/comments/[a-z0-9]+',
+            caseSensitive: false,
+          ).hasMatch(uri.path);
+    }
     if (normalizedHost == 'youtu.be') return uri.pathSegments.isNotEmpty;
     if (normalizedHost == 'youtube.com' ||
         normalizedHost.endsWith('.youtube.com') ||

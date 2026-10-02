@@ -8,6 +8,7 @@ import 'package:html/parser.dart' as html_parser;
 
 import '../utils/network/url_security_validator.dart';
 import 'recipe_schema_parser.dart';
+import '../utils/blocked_page.dart';
 import 'source_evidence.dart';
 import 'text_cleaner.dart';
 import 'transcript_enrichment_service.dart';
@@ -230,6 +231,13 @@ class LinkPreviewService {
         );
       } else if (!sourceEvidence.isEmpty) {
         meta = _copyMetadata(meta, sourceEvidence: sourceEvidence);
+      }
+      // A bot wall or error page (Reddit's "blocked by network security",
+      // Cloudflare, a 404) isn't the page: keep nothing rather than save it.
+      if (recipe == null &&
+          (BlockedPage.looksBlocked(meta.title) ||
+              BlockedPage.looksBlocked(meta.description))) {
+        return LinkMetadata(title: domain, description: '', domain: domain);
       }
       // If title is still generic, fall through
       if (recipe != null || !_isGenericTitle(meta.title.toLowerCase(), host)) {
