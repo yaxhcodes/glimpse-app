@@ -57,6 +57,9 @@ void main() {
       'Page not found',
       'Please verify you are human to continue',
       'JavaScript is not available.',
+      'Service Unavailable',
+      '503 - Service Unavailable Error',
+      'Sorry! Something went wrong!',
     ]) {
       expect(BlockedPage.looksBlocked(text), isTrue, reason: text);
     }
@@ -65,6 +68,7 @@ void main() {
       'Why I stopped using JavaScript frameworks',
       'Not found: the lost cities of the Amazon',
       'Best ramen spot in Osaka',
+      'Why AWS showed Service Unavailable for six hours',
       '',
       null,
     ]) {

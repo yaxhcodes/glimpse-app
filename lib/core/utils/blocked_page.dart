@@ -12,6 +12,14 @@ abstract final class BlockedPage {
       caseSensitive: false,
     ),
     RegExp(r'^\s*just a moment\.{0,3}\s*$', caseSensitive: false),
+    RegExp(
+      r'^\s*(?:503\s*[-:|]?\s*)?service (?:temporarily )?unavailable(?: error)?[.!]?\s*$',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'^\s*(?:sorry!?\s*)?something went wrong[.!]*\s*$',
+      caseSensitive: false,
+    ),
     RegExp(r'\battention required!? \| cloudflare\b', caseSensitive: false),
     RegExp(r'\bverify (?:that )?you are (?:a )?human\b', caseSensitive: false),
     RegExp(r'\bare you a robot\b', caseSensitive: false),
