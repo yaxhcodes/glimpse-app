@@ -387,6 +387,72 @@ void main() {
     }
   });
 
+  testWidgets(
+    'puts a NestedScrollView header back after an OEM longshot from the top',
+    (tester) async {
+      // Collections and Home: the header lives in the outer position, and an
+      // inner offset of 0 also means "header scrolled away", so restoring only
+      // the inner offset left the page 256 px down under the status bar.
+      final nested = GlobalKey<NestedScrollViewState>();
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      messenger.setMockMethodCallHandler(channel, (_) async => null);
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ScrollCaptureCoordinator(
+              child: Scaffold(
+                body: NestedScrollView(
+                  key: nested,
+                  floatHeaderSlivers: true,
+                  headerSliverBuilder: (context, innerBoxIsScrolled) => const [
+                    SliverAppBar(
+                      floating: true,
+                      snap: true,
+                      toolbarHeight: 96,
+                      title: Text('Collections'),
+                    ),
+                  ],
+                  body: ListView.builder(
+                    itemExtent: 100,
+                    itemCount: 40,
+                    itemBuilder: (context, index) => Text('Collection $index'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final outer = nested.currentState!.outerController;
+        final inner = nested.currentState!.innerController;
+        expect(outer.offset, 0);
+        expect(inner.offset, 0);
+
+        final proxyScroll = callDart(
+          MethodCall('proxyScrollTo', 300 * tester.view.devicePixelRatio),
+        );
+        for (var frame = 0; frame < 6; frame += 1) {
+          await tester.pump();
+        }
+        expect(await proxyScroll, isTrue);
+        expect(inner.offset, 300);
+
+        final proxyEnd = callDart(const MethodCall('proxyScrollEnd'));
+        for (var frame = 0; frame < 10; frame += 1) {
+          await tester.pump();
+        }
+        expect(await proxyEnd, isTrue);
+        expect(inner.offset, 0);
+        expect(outer.offset, 0, reason: 'the header is back in view');
+        expect(find.text('Collections'), findsOneWidget);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        debugDefaultTargetPlatformOverride = null;
+        messenger.setMockMethodCallHandler(channel, null);
+      }
+    },
+  );
+
   testWidgets('prefers the substantive range in a nested-scroll subtree', (
     tester,
   ) async {
@@ -550,6 +616,12 @@ void main() {
     expect(bridge, contains('currentRootScrollCaptureBounds()'));
     expect(bridge, isNot(contains('invokeMethod("getMetrics"')));
     expect(rootLayout, contains('dispatchQueuedScrollRequest'));
+    // Native scroll changes while the app still has focus are layout noise,
+    // never OPlus; forwarding them jumped About after leaving Licenses.
+    expect(
+      rootLayout,
+      contains('if (!acceptsLongshotGestures && hasWindowFocus()) return'),
+    );
     expect(rootLayout, contains('ScrollCaptureImageMirrorView'));
     expect(rootLayout, contains('FlutterImageView'));
     expect(rootLayout, contains('TextureView'));

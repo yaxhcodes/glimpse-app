@@ -378,6 +378,13 @@ private class ScrollCaptureProxyView(context: Context) : ScrollView(context) {
     override fun onScrollChanged(left: Int, top: Int, oldLeft: Int, oldTop: Int) {
         super.onScrollChanged(left, top, oldLeft, oldTop)
         if (isSynchronizing || top == oldTop) return
+        // OPlus only drives this view once its screenshot overlay has taken
+        // window focus (see ScrollCaptureRootLayout.onWindowFocusChanged).
+        // While the app still has focus, a change is the ScrollView
+        // re-clamping itself to new metrics, e.g. shrinking from the long
+        // Licenses list back to About. Forwarding that jumped the visible
+        // page, and the proxy reset put it back two seconds later.
+        if (!acceptsLongshotGestures && hasWindowFocus()) return
         // OPlus probes a native target with a one-pixel programmatic scroll
         // immediately before sending the gestures used for longshot capture.
         // Flutter-driven metric synchronization is excluded above, so normal
