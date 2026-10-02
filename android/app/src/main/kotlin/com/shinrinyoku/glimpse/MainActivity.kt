@@ -71,11 +71,24 @@ open class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Flutter continues this same pose; an OS fade would flash it twice.
+        // Flutter continues this same pose; an OS fade would flash it twice.
+        // The share sheet is a translucent pass-through with nothing to hand
+        // off, and it finishes fast, which is exactly what crashes below.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && this !is ShareActivity) {
             splashScreen.setOnExitAnimationListener { view -> view.remove() }
         }
         preferHighestRefreshRate()
+    }
+
+    override fun finish() {
+        // Finishing while the exit listener is still registered lets Android
+        // 12/13 release the splash surface mid-handoff and crash in
+        // ActivityThread.syncTransferSplashscreenViewTransaction
+        // (flutter/flutter#125122).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            splashScreen.clearOnExitAnimationListener()
+        }
+        super.finish()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

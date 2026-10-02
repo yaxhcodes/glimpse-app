@@ -38,6 +38,17 @@
 -keep class androidx.core.app.NotificationManagerCompat { *; }
 -keep class androidx.work.** { *; }
 
+# flutter_local_notifications keeps scheduled notifications (reminders, the
+# digest) as Gson JSON in SharedPreferences. R8 full mode strips the generic
+# signature from its anonymous TypeToken subclasses, so release builds threw
+# "TypeToken must be created with a type argument" from the boot/update
+# receiver. Its models must also keep their field names: R8 renames fields
+# per build, and an update would no longer read the JSON the last build wrote.
+-keepattributes Signature
+-keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class * extends com.google.gson.reflect.TypeToken
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+
 # ── URL metadata / link preview ──────────────────────────
 # AnyLinkPreview uses reflection on HTML meta tags — no specific
 # keep rules needed; it uses standard HTTP and HTML parsing.
