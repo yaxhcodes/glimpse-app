@@ -306,6 +306,7 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
     _proxySession ??= _ProxyScrollSession(
       candidate: candidate,
       originalOffset: position.pixels,
+      originalOuterOffset: _outerPositionOf(candidate)?.pixels,
     );
     final targetOffset = (physicalOffset / ratio).clamp(
       position.minScrollExtent,
@@ -336,15 +337,11 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
     _proxySession = null;
     try {
       if (session != null && _isUsable(session.candidate)) {
-        final position = session.candidate.scrollable.position;
-        final targetOffset = session.originalOffset.clamp(
-          position.minScrollExtent,
-          position.maxScrollExtent,
+        await _restoreOffsets(
+          session.candidate,
+          session.originalOffset,
+          session.originalOuterOffset,
         );
-        if ((position.pixels - targetOffset).abs() > precisionErrorTolerance) {
-          position.jumpTo(targetOffset);
-          await _waitForPaint();
-        }
       }
     } finally {
       final needsUiRestore = _isCaptureUiActive;
@@ -376,6 +373,7 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
     _session = _ScrollCaptureSession(
       candidate: candidate,
       originalOffset: position.pixels,
+      originalOuterOffset: _outerPositionOf(candidate)?.pixels,
       initialOffset: position.pixels,
       pixelRatio: pixelRatio,
     );
@@ -451,17 +449,11 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
     _session = null;
     try {
       if (session == null || !_isUsable(session.candidate)) return;
-
-      final position = session.candidate.scrollable.position;
-      final restoredOffset = session.originalOffset.clamp(
-        position.minScrollExtent,
-        position.maxScrollExtent,
+      await _restoreOffsets(
+        session.candidate,
+        session.originalOffset,
+        session.originalOuterOffset,
       );
-      if ((position.pixels - restoredOffset).abs() <= precisionErrorTolerance) {
-        return;
-      }
-      position.jumpTo(restoredOffset);
-      await _waitForPaint();
     } finally {
       final needsUiRestore = _isCaptureUiActive;
       _deactivateCaptureUi();
@@ -472,6 +464,53 @@ class _ScrollCaptureCoordinatorState extends State<ScrollCaptureCoordinator> {
         await _pushNativeViewMetrics();
       }
     }
+  }
+
+  /// The header of a [NestedScrollView] lives in its outer position, and an
+  /// inner offset at its start also means "header scrolled away": the
+  /// coordinator maps it onto the outer's end. Restoring only the inner offset
+  /// left Collections and Home 256 px down, content under the status bar.
+  ScrollPosition? _outerPositionOf(_ScrollCaptureCandidate candidate) {
+    final nested = candidate.notificationContext
+        .findAncestorStateOfType<NestedScrollViewState>();
+    final outer = nested?.outerController;
+    if (outer == null || !outer.hasClients) return null;
+    final position = outer.position;
+    return identical(position, candidate.scrollable.position) ? null : position;
+  }
+
+  Future<void> _restoreOffsets(
+    _ScrollCaptureCandidate candidate,
+    double offset,
+    double? outerOffset,
+  ) async {
+    var moved = false;
+    final position = candidate.scrollable.position;
+    final target = offset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((position.pixels - target).abs() > precisionErrorTolerance) {
+      position.jumpTo(target);
+      moved = true;
+    }
+    // Jumping the outer position moves the inner one back to its start, so
+    // the header is only put back when that is where the page began. A
+    // floating header shown mid-list stays tucked away, as after any jump.
+    final outer = _outerPositionOf(candidate);
+    if (outerOffset != null &&
+        outer != null &&
+        target <= position.minScrollExtent + precisionErrorTolerance) {
+      final outerTarget = outerOffset.clamp(
+        outer.minScrollExtent,
+        outer.maxScrollExtent,
+      );
+      if ((outer.pixels - outerTarget).abs() > precisionErrorTolerance) {
+        outer.jumpTo(outerTarget);
+        moved = true;
+      }
+    }
+    if (moved) await _waitForPaint();
   }
 
   void _deactivateCaptureUi() {
@@ -623,12 +662,14 @@ class _ScrollCaptureSession {
   const _ScrollCaptureSession({
     required this.candidate,
     required this.originalOffset,
+    required this.originalOuterOffset,
     required this.initialOffset,
     required this.pixelRatio,
   });
 
   final _ScrollCaptureCandidate candidate;
   final double originalOffset;
+  final double? originalOuterOffset;
   final double initialOffset;
   final double pixelRatio;
 }
@@ -637,8 +678,10 @@ class _ProxyScrollSession {
   const _ProxyScrollSession({
     required this.candidate,
     required this.originalOffset,
+    required this.originalOuterOffset,
   });
 
   final _ScrollCaptureCandidate candidate;
   final double originalOffset;
+  final double? originalOuterOffset;
 }
