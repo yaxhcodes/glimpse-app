@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'test_lab.dart';
 
 export 'usage_limits.dart';
 
@@ -201,6 +202,8 @@ class UsageService {
   /// (and heals the local mirror), falling back to the local counter only when
   /// the worker is unreachable.
   Future<bool> hasReachedLimit(UsageFeature feature, bool isPro) async {
+    // Play's pre-launch robots take the non-AI paths: no paid calls.
+    if (await TestLab.isRunning()) return true;
     if (!_isProductMetered(feature, isPro)) return false;
     final serverFeature = _serverFeature(feature);
     if (serverFeature != null) {
@@ -233,6 +236,7 @@ class UsageService {
   /// of truth. Save surfaces use this mirror only to avoid holding the user's
   /// completed local save behind a quota network round trip.
   Future<bool> hasReachedLocalLimit(UsageFeature feature, bool isPro) async {
+    if (await TestLab.isRunning()) return true;
     if (!_isProductMetered(feature, isPro)) return false;
     final usage = await getUsage(feature, isPro: isPro);
     return usage >= UsageLimits.getLimit(feature, isPro: isPro);

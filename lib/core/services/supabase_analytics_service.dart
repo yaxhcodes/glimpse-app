@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/device_diagnostics.dart';
 import 'analytics_consent.dart';
+import 'test_lab.dart';
 import 'analytics_service.dart';
 import 'device_diagnostics_service.dart';
 import 'supabase_config.dart';
@@ -72,6 +73,8 @@ class SupabaseAnalyticsService implements AnalyticsService {
     AnalyticsScreen? screen,
   }) async {
     if (!_initialized) await initialize();
+    // Play's pre-launch robots aren't users.
+    if (await TestLab.isRunning()) return;
     // Turned off in Settings › Privacy: record nothing, and let go of
     // anything still waiting to be sent.
     if (!AnalyticsConsent.enabled) {

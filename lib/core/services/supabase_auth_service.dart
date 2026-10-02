@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/app_user.dart';
 import 'auth_service.dart';
 import 'device_diagnostics_service.dart';
+import 'test_lab.dart';
 import 'supabase_config.dart';
 
 class SupabaseAuthService implements AuthService {
@@ -268,10 +269,14 @@ class SupabaseAuthService implements AuthService {
     if (user == null) return;
     try {
       final diagnostics = await DeviceDiagnosticsService().load();
+      final testDevice = await TestLab.isRunning();
       final now = DateTime.now().toUtc().toIso8601String();
       await _client.from('profiles').upsert({
         'id': user.id,
         'last_seen': now,
+        // Only ever sent as true, so real sign-ins never depend on the
+        // column (supabase/migrations/20261002130000_test_devices.sql).
+        if (testDevice) 'is_test_device': true,
         'platform': diagnostics.platform,
         'app_version': diagnostics.appVersion,
         'build_version': diagnostics.buildVersion,
@@ -469,6 +474,7 @@ class SupabaseAuthService implements AuthService {
     String? photoUrlHint,
   }) async {
     final diagnostics = await DeviceDiagnosticsService().load();
+    final testDevice = await TestLab.isRunning();
     final existing = await _fetchProfile(user.id);
     final displayName =
         _profileString(existing, 'display_name') ??
@@ -479,6 +485,7 @@ class SupabaseAuthService implements AuthService {
       'id': user.id,
       'display_name': displayName,
       'last_seen': DateTime.now().toUtc().toIso8601String(),
+      if (testDevice) 'is_test_device': true,
       'platform': diagnostics.platform,
       'app_version': diagnostics.appVersion,
       'build_version': diagnostics.buildVersion,

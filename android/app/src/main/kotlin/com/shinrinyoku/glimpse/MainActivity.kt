@@ -230,6 +230,15 @@ open class MainActivity : FlutterFragmentActivity() {
                             (this as? ShareActivity)?.trackEnrichmentFinish(processingId)
                         }
                     }
+                    // Google's robots (Play pre-launch report, Firebase Test
+                    // Lab) set this on their devices; the documented check.
+                    "isTestLab" -> {
+                        val flag = android.provider.Settings.System.getString(
+                            contentResolver,
+                            "firebase.test.lab",
+                        )
+                        result.success(flag == "true")
+                    }
                     "notificationPermissionRequestable" -> {
                         val requested = getPreferences(Context.MODE_PRIVATE)
                             .getBoolean("notification_permission_requested", false)
