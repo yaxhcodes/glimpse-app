@@ -510,18 +510,19 @@ List<RediscoverMemory> buildRediscoverDailyMemories({
           )
           .toList()
         ..sort((a, b) => a.savedAt.compareTo(b.savedAt));
-  if (gems.isNotEmpty) {
+  // Up to two gems, from different topics, so a day isn't all one kind.
+  final gemTopics = <String>{};
+  for (final gem in gems) {
+    if (gemTopics.length >= 2) break;
+    final journey = _singleJourney(
+      gem,
+      kind: RediscoverJourneyKind.forgottenGems,
+      reason: 'Forgotten gem',
+      signal: 68,
+    );
+    if (!gemTopics.add(_normalizeTopic(_topicKey(journey)))) continue;
     candidates.add(
-      _DailyCandidate(
-        journey: _singleJourney(
-          gems.first,
-          kind: RediscoverJourneyKind.forgottenGems,
-          reason: 'Forgotten gem',
-          signal: 68,
-        ),
-        explicitPriority: 0,
-        score: 68,
-      ),
+      _DailyCandidate(journey: journey, explicitPriority: 0, score: 68),
     );
   }
 
@@ -537,27 +538,49 @@ List<RediscoverMemory> buildRediscoverDailyMemories({
   final usedIds = <int>{};
   final usedTopics = <String>{};
   final usedIdentities = <String>{};
-  for (final candidate in candidates) {
-    if (selected.length >= limit) break;
+  final tried = <_DailyCandidate>{};
+  void consider(_DailyCandidate candidate) {
+    if (selected.length >= limit || !tried.add(candidate)) return;
     final topic = _normalizeTopic(_topicKey(candidate.journey));
-    if (!usedTopics.add(topic)) continue;
+    if (usedTopics.contains(topic)) return;
     final triggerId = candidate.journey.triggerSaveId;
-    if (triggerId != null && usedIds.contains(triggerId)) continue;
+    if (triggerId != null && usedIds.contains(triggerId)) return;
     final remaining = candidate.journey.items
         .where((item) => !usedIds.contains(item.url.id))
         .toList();
     final minimumItems = candidate.journey.items.length == 1 ? 1 : 2;
-    if (remaining.length < minimumItems) continue;
+    if (remaining.length < minimumItems) return;
     final journey = _copyJourney(candidate.journey, items: remaining);
     final memory = RediscoverMemory.fromJourney(journey);
     final identity = _normalizeTopic(memory.rediscoverCopy.title);
-    if (!usedIdentities.add(identity)) continue;
+    if (!usedIdentities.add(identity)) return;
+    usedTopics.add(topic);
     selected.add(memory);
     usedIds.addAll(remaining.map((item) => item.url.id));
     if (triggerId != null) usedIds.add(triggerId);
   }
+
+  // Topic pulses outrank every other kind, so on an active saving day they
+  // took every slot and each card read "You're saving this again". One
+  // leads; the rest only fill slots no other kind can.
+  var pulseCards = 0;
+  for (final candidate in candidates) {
+    final isPulse =
+        candidate.journey.kind == RediscoverJourneyKind.returningTopic;
+    if (isPulse && pulseCards >= _leadingTopicPulses) continue;
+    final before = selected.length;
+    consider(candidate);
+    if (isPulse && selected.length > before) pulseCards++;
+  }
+  for (final candidate in candidates) {
+    consider(candidate);
+  }
   return selected;
 }
+
+/// How many "You're saving this again" cards a day leads with before other
+/// kinds of memory get their turn.
+const _leadingTopicPulses = 1;
 
 Future<List<RediscoverMemory>> _withoutLifecycleSuppression(
   List<RediscoverMemory> memories, {
